@@ -80,3 +80,10 @@ interface Window {
         languages: any;
     };
 }
+
+interface IPluginProtyleSlash {
+    filter: string[],
+    html: string,
+    id: string,
+    callback(protyle: Protyle): void,
+};

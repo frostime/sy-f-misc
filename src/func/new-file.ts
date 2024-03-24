@@ -1,4 +1,5 @@
-import { Plugin, Protyle, showMessage } from "siyuan";
+import { Protyle, showMessage } from "siyuan";
+import type FMiscPlugin from "@/index";
 import { upload } from "@/api";
 import { inputDialog } from "@/utils/dialog";
 
@@ -56,7 +57,7 @@ const addNewEmptyFile = async (fname: string) => {
 }
 
 
-export const load = (plugin: Plugin) => {
+export const load = (plugin: FMiscPlugin) => {
     const slash = {
         filter: ['ni', '新建', 'new'],
         html: '新建空白附件',
@@ -75,9 +76,9 @@ export const load = (plugin: Plugin) => {
             });
         }
     };
-    plugin.protyleSlash.push(slash);
+    plugin.addProtyleSlash(slash);
 }
 
-export const unload = (plugin: Plugin) => {
-    plugin.protyleSlash = plugin.protyleSlash.filter(slash => slash.id !== 'new-file');
+export const unload = (plugin: FMiscPlugin) => {
+    plugin.delProtyleSlash('new-file');
 }

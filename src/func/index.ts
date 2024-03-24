@@ -6,9 +6,16 @@
  * @LastEditTime : 2024-03-23 21:49:15
  * @Description  : 
  */
-import { Plugin } from "siyuan";
+import type FMiscPlugin from "@/index";
 import * as nf from './new-file';
+import * as it from './insert-time';
 
-export const load = (plugin: Plugin) => {
+export const load = (plugin: FMiscPlugin) => {
     nf.load(plugin);
+    it.load(plugin);
+}
+
+export const unload = (plugin: FMiscPlugin) => {
+    nf.unload(plugin);
+    it.unload(plugin);
 }
