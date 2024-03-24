@@ -1,8 +1,8 @@
 {
-  "name": "plugin-sample-vite",
+  "name": "sy-f-misc",
   "author": "frostime",
-  "url": "https://github.com/frostime/plugin-sample-vite",
-  "version": "0.3.4",
+  "url": "https://github.com/frostime/sy-f-misc",
+  "version": "0.1.0",
   "minAppVersion": "3.0.0",
   "backends": [
     "windows",
@@ -19,16 +19,15 @@
     "desktop-window"
   ],
   "displayName": {
-    "en_US": "Plugin sample with vite",
-    "zh_CN": "插件样例 vite 版"
+    "en_US": "F's tool box",
+    "zh_CN": "F的工具箱"
   },
   "description": {
-    "en_US": "SiYuan plugin sample with vite",
-    "zh_CN": "使用 vite 开发的思源插件样例"
+    "en_US": "Frostime's personal tools.",
+    "zh_CN": "Frostime 个人自用工具"
   },
   "readme": {
-    "en_US": "README.md",
-    "zh_CN": "README_zh_CN.md"
+    "default": "README.md"
   },
   "funding": {
     "custom": [
@@ -36,6 +35,6 @@
     ]
   },
   "keywords": [
-    "plugin", "sample", "插件样例"
+    "frostime", "toolbox", "misc"
   ]
 }

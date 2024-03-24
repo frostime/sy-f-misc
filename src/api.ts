@@ -143,14 +143,25 @@ export async function getIDsByHPath(notebook: NotebookId, path: string): Promise
 
 // **************************************** Asset Files ****************************************
 
+// New function to handle multipart/form-data
+export const requestFormData = async (url: string, formData: FormData): Promise<any> => {
+    const response = await fetch(url, {
+        method: "POST",
+        body: formData,
+    });
+    const jsonResponse = await response.json() as IWebSocketData;
+    let data = jsonResponse.code === 0 ? jsonResponse.data : null;
+    return data;
+};
+
 export async function upload(assetsDirPath: string, files: any[]): Promise<IResUpload> {
-    let form = new FormData();
+    const form = new FormData();
     form.append('assetsDirPath', assetsDirPath);
-    for (let file of files) {
+    for (const file of files) {
         form.append('file[]', file);
     }
-    let url = '/api/asset/upload';
-    return request(url, form);
+    const url = '/api/asset/upload';
+    return requestFormData(url, form);
 }
 
 // **************************************** Block ****************************************
@@ -336,7 +347,7 @@ export async function getFile(path: string): Promise<any> {
     }
 }
 
-export async function putFile(path: string, isDir: boolean, file: any) {
+export async function putFile(path: string, isDir: boolean, file: File) {
     let form = new FormData();
     form.append('path', path);
     form.append('isDir', isDir.toString());
