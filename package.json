@@ -9,6 +9,7 @@
   "license": "MIT",
   "scripts": {
     "make-link": "node  --no-warnings ./scripts/make_dev_link.js",
+    "make-install": "node  --no-warnings ./scripts/make_install.js",
     "dev": "vite build --watch",
     "build": "vite build"
   },
