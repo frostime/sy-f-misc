@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.2.0 | 2024-03-24
+
+- 添加 on-paste 功能, 目前为处理 zotero 标注的粘贴样式
+- 添加 global-this, 目前暴露了 `Uniblocks` 函数
+
 ## v0.1.0 | 2024-03-24
 
 - 初始化项目

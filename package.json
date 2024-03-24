@@ -1,12 +1,12 @@
 {
-  "name": "plugin-sample-vite",
-  "version": "0.3.2",
+  "name": "sy-f-misc",
+  "version": "0.2.0",
   "type": "module",
-  "description": "This is a sample plugin based on vite and svelte for Siyuan (https://b3log.org/siyuan)",
-  "repository": "https://github.com/frostime/plugin-sample-vite",
+  "description": "Frostime 自动工具代码",
+  "repository": "https://github.com/frostime/sy-f-misc",
   "homepage": "",
   "author": "frostime",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "scripts": {
     "make-link": "node  --no-warnings ./scripts/make_dev_link.js",
     "make-install": "node  --no-warnings ./scripts/make_install.js",

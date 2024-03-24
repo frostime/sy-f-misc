@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "build",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "npm: build",
+			"detail": "vite build"
+		},
+		{
+			"type": "npm",
+			"script": "make-install",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "npm: make-install",
+			"detail": "install scripts"
+		}
+	]
+}
