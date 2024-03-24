@@ -9,13 +9,16 @@
 import type FMiscPlugin from "@/index";
 import * as nf from './new-file';
 import * as it from './insert-time';
+import * as tl from './titled-link';
 
 export const load = (plugin: FMiscPlugin) => {
     nf.load(plugin);
     it.load(plugin);
+    tl.load(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
     nf.unload(plugin);
     it.unload(plugin);
+    tl.unload(plugin);
 }
