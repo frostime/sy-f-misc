@@ -1,4 +1,6 @@
+import { Plugin, Protyle, showMessage } from "siyuan";
 import { upload } from "@/api";
+import { inputDialog } from "@/utils/dialog";
 
 const createEmptyFileObject = (fname: string): File => {
     // A basic MIME type mapping based on file extension
@@ -46,9 +48,36 @@ const createEmptyFileObject = (fname: string): File => {
  * 新建空白的文件, 上传到思源的附件中
  * @param fname 文件名称
  */
-export const addNewEmptyFile = async (fname: string) => {
+const addNewEmptyFile = async (fname: string) => {
     const file = createEmptyFileObject(fname);
     const res = await upload('/assets/', [file]);
     // console.log(res, res.succMap[fname]);
     return res.succMap;
+}
+
+
+export const load = (plugin: Plugin) => {
+    const slash = {
+        filter: ['ni', '新建', 'new'],
+        html: '新建空白附件',
+        id: 'new-file',
+        callback: async (protyle: Protyle) => {
+            inputDialog('新建空白附件', '输入文件名称', '', async (fname: string) => {
+                let succMap = await addNewEmptyFile(fname);
+                let filePath = succMap?.[fname];
+                if (filePath) {
+                    showMessage(`新建文件${fname}成功, 文件路径: ${filePath}`);
+                    protyle.insert(`<span data-type="a" data-href="${filePath}">${fname}</span>`, false, true);
+                } else {
+                    showMessage(`新建文件${fname}失败`);
+                    protyle.insert(``, false);
+                }
+            });
+        }
+    };
+    plugin.protyleSlash.push(slash);
+}
+
+export const unload = (plugin: Plugin) => {
+    plugin.protyleSlash = plugin.protyleSlash.filter(slash => slash.id !== 'new-file');
 }

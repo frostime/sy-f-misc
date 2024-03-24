@@ -6,4 +6,9 @@
  * @LastEditTime : 2024-03-23 21:49:15
  * @Description  : 
  */
-export * from './new-file';
+import { Plugin } from "siyuan";
+import * as nf from './new-file';
+
+export const load = (plugin: Plugin) => {
+    nf.load(plugin);
+}
