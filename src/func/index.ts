@@ -11,12 +11,14 @@ import * as nf from './new-file';
 import * as it from './insert-time';
 import * as tl from './titled-link';
 import * as op from './on-paste';
+import * as gt from './global-this';
 
 export const load = (plugin: FMiscPlugin) => {
     nf.load(plugin);
     it.load(plugin);
     tl.load(plugin);
     op.load(plugin);
+    gt.load(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -24,4 +26,5 @@ export const unload = (plugin: FMiscPlugin) => {
     it.unload(plugin);
     tl.unload(plugin);
     op.unload(plugin);
+    gt.unload(plugin);
 }
