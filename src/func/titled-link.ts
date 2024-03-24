@@ -1,6 +1,10 @@
 import type FMiscPlugin from "@/index";
 import { forwardProxy } from "@/api";
 
+const IconUrl = `
+<symbol id="iconUrl" viewBox="0 0 1024 1024"><path d="M578.133 675.627c-3.306-3.307-8.746-3.307-12.053 0L442.133 799.573c-57.386 57.387-154.24 63.467-217.6 0-63.466-63.466-57.386-160.213 0-217.6L348.48 458.027c3.307-3.307 3.307-8.747 0-12.054l-42.453-42.453c-3.307-3.307-8.747-3.307-12.054 0L170.027 527.467c-90.24 90.24-90.24 236.266 0 326.4s236.266 90.24 326.4 0L620.373 729.92c3.307-3.307 3.307-8.747 0-12.053l-42.24-42.24z m275.84-505.6c-90.24-90.24-236.266-90.24-326.4 0L403.52 293.973c-3.307 3.307-3.307 8.747 0 12.054l42.347 42.346c3.306 3.307 8.746 3.307 12.053 0l123.947-123.946c57.386-57.387 154.24-63.467 217.6 0 63.466 63.466 57.386 160.213 0 217.6L675.52 565.973c-3.307 3.307-3.307 8.747 0 12.054l42.453 42.453c3.307 3.307 8.747 3.307 12.054 0l123.946-123.947c90.134-90.24 90.134-236.266 0-326.506z"></path><path d="M616.64 362.987c-3.307-3.307-8.747-3.307-12.053 0l-241.6 241.493c-3.307 3.307-3.307 8.747 0 12.053l42.24 42.24c3.306 3.307 8.746 3.307 12.053 0L658.773 417.28c3.307-3.307 3.307-8.747 0-12.053l-42.133-42.24z"></path>
+</symbol>
+`;
 
 const getTitle = async (href) => {
     console.log(href);
@@ -39,6 +43,7 @@ const getTitle = async (href) => {
 
 
 export const load = (plugin: FMiscPlugin) => {
+    plugin.addIcons(IconUrl);
     plugin.eventBus.on("open-menu-link", onOpenMenuLink);
     plugin.eventBus.on("click-blockicon", onClickBlockIcon);
 }
@@ -67,7 +72,7 @@ async function onClickBlockIcon({ detail }) {
     // console.log(element, protyle);
     menu.addItem({
         icon: "iconUrl",
-        label: this.i18n.GetTitle,
+        label: '获取标题',
         click: async () => {
             let spans = [];
             for (let ele of elements) {
@@ -91,7 +96,7 @@ async function onOpenMenuLink({ detail }) {
 
     menu.addItem({
         icon: "iconUrl",
-        label: this.i18n.GetTitle,
+        label: '获取标题',
         click: async () => {
             replaceHrefAnchor(protyle, hrefSpan);
         }
