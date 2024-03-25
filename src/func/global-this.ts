@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:20:34
  * @FilePath     : /src/func/global-this.ts
- * @LastEditTime : 2024-03-24 16:25:56
+ * @LastEditTime : 2024-03-25 13:45:46
  * @Description  : 将各种函数暴露到 global-this 对象中
  */
 import type FMiscPlugin from "@/index";
