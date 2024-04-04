@@ -1,0 +1,90 @@
+.layout__center .fn__flex>[data-type="wnd"]>.fn__flex{
+	padding: 7px 0px 7px 7px;
+}
+.fn__flex:not(.av__views) >.layout-tab-bar:not(.layout-tab-bar--readonly){
+	border-radius: 0 0 8px 8px;
+}
+.fn__flex:not(.av__views) >.layout-tab-bar.layout-tab-bar--readonly{
+	border-radius: 8px 8px 0 0;
+}
+.fn__flex:not(.av__views) > .layout-tab-bar{
+	padding: 0 4px 0 4px;
+	box-shadow: -1px 0px 0px 0px var(--b3-layout-resize) inset;
+	margin:0;
+	border-bottom: none;
+}
+
+.layout__center [data-type='wnd'][data-id] {
+	display: flex;
+	flex-direction: row;
+}
+.fn__flex:not(.av__views) > .layout-tab-bar:not(.layout-tab-bar--readonly){
+	margin-top:-4px;
+}
+.layout__center [data-type='wnd'][data-id] > .fn__flex:not(.layout-tab-container) {
+	flex-direction: column-reverse;
+}
+
+.layout__center [data-type='wnd'][data-id] .fn__flex:not(.av__views) > .layout-tab-bar {
+	display: block;
+	flex: 1;
+}
+.layout__center [data-type='wnd'][data-id] .fn__flex:not(.av__views) > .layout-tab-bar .item .item__icon{
+	padding: 6px;
+}
+.layout__center [data-type='wnd'][data-id] .fn__flex:not(.av__views) > .layout-tab-bar .item__graphic{
+	padding-left: 8px;
+}
+.layout__center [data-type='wnd'][data-id] .fn__flex:not(.av__views) > .layout-tab-bar .item .item__text {
+	text-align: unset;
+	padding-left: 6px;
+}
+.layout__center [data-type='wnd'][data-id] .fn__flex:not(.av__views) > .layout-tab-bar.layout-tab-bar--readonly {
+	flex: initial;
+}
+.fn__flex:not(.av__views) > .layout-tab-bar .item {
+    margin: 4px 0px ;
+	min-width:150px;
+}
+.fn__flex:not(.av__views) .item--readonly{
+	margin-right:0px!important;
+}
+
+
+
+.fn__flex:not(.av__views) .layout-tab-bar .item__text.fn__none{
+	display:inherit!important;
+}
+
+
+
+.item__close[data-type="more"]{
+	padding: 4px 2px 4px 2px;
+}
+
+[data-type="tab-header"] .item__close{
+	position:absolute;
+	right:0px;
+}
+[data-type="tab-header"] .item__text{
+	margin-right:25px;
+}
+
+ul.layout-tab-bar:not(.layout-tab-bar--readonly):before,ul.layout-tab-bar--readonly .item__close[data-type="more"]:after{
+	display:none;
+}
+.layout__resize{
+	z-index:6;
+}
+#shrinkLeft,#shrinkRight{
+	z-index:7;
+}
+.fn__flex:not(.av__views) > .layout-tab-bar .item--pin,.fn__flex:not(.av__views) > .layout-tab-bar  .item{
+	padding:0;
+	min-height:32px;
+}
+
+
+.protyle-breadcrumb{
+	border-top: none;
+}
