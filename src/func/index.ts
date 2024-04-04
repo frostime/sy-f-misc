@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-04-04 19:47:15
+ * @LastEditTime : 2024-04-04 19:49:30
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -60,7 +60,7 @@ export const toggleEnable = (plugin: FMiscPlugin, key: EnableKey, enable: boolea
         }
     };
     const module = EnableKey2Module?.[key];
-    console.debug(`Toggle ${key} to ${enable}: ${module}`);
+    console.debug(`Toggle ${key} to ${enable}`);
     DoAction(module);
     // if (key === "EnableNewFile") DoAction(nf);
     // if (key === "EnableInsertTime") DoAction(it);
