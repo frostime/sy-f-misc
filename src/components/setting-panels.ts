@@ -42,7 +42,8 @@ export class SettingItem {
             case 'button':
                 inputElement = document.createElement('button');
                 inputElement.className = 'b3-button b3-button--outline fn__flex-center fn__size200';
-                inputElement.textContent = this.item.value;
+                inputElement.textContent = this.item?.button?.label || this?.item.value || '';
+                inputElement.onclick = this.item?.button?.callback || (() => { });
                 break;
             case 'select':
                 inputElement = document.createElement('select');
@@ -116,21 +117,17 @@ export class SettingPanel {
     items: SettingItem[];
     display: boolean = false;
 
-    needRerender: boolean = false;  //当然元素更新时，需要重新渲染
-
     constructor(group: string, items: SettingItem[] = []) {
         this.group = group;
         this.items = items;
         this.element = document.createElement('div');
         this.element.className = 'config__tab-container';
         this.element.dataset.name = group;
-        this.render();
     }
 
     addItem(item: SettingItem) {
         this.items.push(item);
-        this.element.appendChild(item.element);
-        this.needRerender = true;
+        // this.element.appendChild(item.element);
     }
 
     render() {
@@ -139,8 +136,6 @@ export class SettingPanel {
             this.element.appendChild(item.element);
         });
         this.toggleDisplay();
-
-        this.needRerender = false;
     }
 
     toggleDisplay(display?: boolean) {
@@ -177,20 +172,18 @@ export class SettingGroupsPanel {
         this.panels = [];
         this.element = document.createElement('div');
         this.element.className = 'fn__flex-1 fn__flex config__panel';
-        // this.render();
     }
 
     addGroup(group: string, items: ISettingItem[]) {
         this.groups.push(group);
         const panel = new SettingPanel(group, items.map(item => new SettingItem(item)));
+        panel.render();
         this.panels.push(panel);
-        // this.render();
     }
 
     addGroupPanel(panel: SettingPanel) {
         this.groups.push(panel.group);
         this.panels.push(panel);
-        // this.render();
     }
 
     render() {
@@ -222,14 +215,16 @@ export class SettingGroupsPanel {
         });
 
         this.displayGroup(this.focusGroup);
-
-        // if (this.groups.length > 0) {
-        //     this.displayGroup(this.groups[0]);
-        // }
     }
 
     displayGroup(group: string) {
         this.focusGroup = group;
+        const tabItems = this.element.querySelectorAll('li.b3-list-item');
+        tabItems.forEach(item => {
+            // @ts-ignore
+            item.classList.toggle('b3-list-item--focus', item.dataset.name === group);
+        });
+
         this.panels.forEach(panel => {
             panel.display = panel.group === group;
             panel.toggleDisplay();

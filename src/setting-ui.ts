@@ -49,6 +49,16 @@ const group2: ISettingItem[] = [
         description: 'This is a checkbox',
         key: 'checkboxKey',
         value: false
+    },
+    {
+        type: 'button',
+        title: 'Button',
+        description: 'This is a button',
+        key: 'buttonKey',
+        value: 'Click me',
+        button: {
+            label: 'Click me'
+        }
     }
 ];
 

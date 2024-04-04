@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/types/index.d.ts
- * @LastEditTime : 2024-03-25 14:19:44
+ * @LastEditTime : 2024-04-04 18:24:23
  * @Description  : 
  */
 
@@ -23,7 +23,7 @@ interface ISettingItem {
     options?: { [key: string | number]: string };
     button?: {
         label: string;
-        callback: () => void;
+        callback?: () => void;
     }
 }
 
