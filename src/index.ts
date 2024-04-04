@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-04 19:36:22
+ * @LastEditTime : 2024-04-04 20:41:49
  * @Description  : 
  */
 import {
@@ -11,7 +11,8 @@ import {
     Menu,
     Plugin,
     Dialog,
-    getFrontend
+    getFrontend,
+    EventBus
 } from "siyuan";
 
 
@@ -19,6 +20,7 @@ import { load, unload, toggleEnable } from "./func";
 
 import "@/index.scss";
 import { Href, Svg } from "./utils/const"; 
+import { EventBusSync } from "./utils/event-bus";
 import { removeDomById, updateStyleLink } from "./utils/style";
 import { initSetting } from "./utils/setting-libs";
 import { SettingGroupsPanel } from "./components/setting-panels";
@@ -44,14 +46,18 @@ export default class FMiscPlugin extends Plugin {
                 EnableNewFile: boolean;
                 EnableOnPaste: boolean;
                 EnableTitledLink: boolean;
+                EnableChangeTheme: boolean;
             }
         };
     }
 
+    eb: EventBusSync;
+
     async onload() {
         const frontEnd = getFrontend();
+        this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
-        this.addIcons(Svg.Vertical);
+        this.addIcons([Svg.Vertical, Svg.Theme].join(''));
         this.initTopBar();
         this.settingUI = await initSetting(this, this.onSettingChanged.bind(this));
         load(this);
@@ -91,22 +97,24 @@ export default class FMiscPlugin extends Plugin {
     }
 
     async loadConfigs() {
-        let data = await this.loadData(StorageName);
-        if (!data) {
+        let currentData = this.data[StorageName];
+        let outData = await this.loadData(StorageName);
+        if (!outData) {
             return;
         }
-        for (let groupName in this.data[StorageName]) {
-            let group = this.data[StorageName][groupName];
-            let outConfig = data?.[groupName];
+        for (let groupName in currentData) {
+            let group = currentData[groupName];
+            let outConfig = outData?.[groupName];
             if (!outConfig) {
                 continue;
             }
             for (let key in group) {
-                if (outConfig[key] !== undefined) {
+                if (outConfig?.[key] !== undefined) {
                     group[key] = outConfig[key];
                 }
             }
         }
+        this.data[StorageName] = currentData;
     }
 
     saveConfigs() {
@@ -136,6 +144,7 @@ export default class FMiscPlugin extends Plugin {
             for (let item of menuItems) {
                 menu.addItem(item);
             }
+            this.eb.emit('on-topbar-menu', menu);
             const rect = topbar.getBoundingClientRect();
             menu.open({
                 x: rect.right,

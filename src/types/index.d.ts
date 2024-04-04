@@ -27,6 +27,15 @@ interface ISettingItem {
     }
 }
 
+type ThemeMode = "light" | "dark";
+interface ITheme {
+    name: string;
+    modes: ThemeMode[];
+    repoHash: string;
+    repoURL: string;
+}
+
+
 interface KV {
     key: string;
     value: any;

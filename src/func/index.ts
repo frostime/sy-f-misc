@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-04-04 19:49:30
+ * @LastEditTime : 2024-04-04 20:32:14
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -12,6 +12,7 @@ import * as it from './insert-time';
 import * as tl from './titled-link';
 import * as op from './on-paste';
 import * as gt from './global-this';
+import * as ct from './change-theme';
 
 interface IFuncModule {
     name: string;
@@ -24,7 +25,8 @@ const ModulesToEnable = [
     nf,
     it,
     tl,
-    op
+    op,
+    ct
 ]
 
 //`Enable${module.name}`: module
@@ -35,9 +37,12 @@ export const load = (plugin: FMiscPlugin) => {
     ModulesToEnable.forEach(module => {
         if (plugin.getConfig('启用功能', `Enable${module.name}`)) {
             module.load(plugin);
+            console.debug(`Load ${module.name}`);
         }
     });
+
     gt.load(plugin);
+    console.debug(`Load ${gt.name}`);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -45,6 +50,8 @@ export const unload = (plugin: FMiscPlugin) => {
     it.unload(plugin);
     tl.unload(plugin);
     op.unload(plugin);
+    ct.unload(plugin);
+
     gt.unload(plugin);
 }
 

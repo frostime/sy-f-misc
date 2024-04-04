@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-04 19:44:56
+ * @LastEditTime : 2024-04-04 20:24:58
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -37,6 +37,13 @@ const Enable: ISettingItem[] = [
         title: 'Titled link',
         description: '启用获取标题功能',
         key: 'EnableTitledLink',
+        value: true
+    },
+    {
+        type: 'checkbox',
+        title: '更换主题',
+        description: '启用更换主题功能',
+        key: 'EnableChangeTheme',
         value: true
     }
 ];
