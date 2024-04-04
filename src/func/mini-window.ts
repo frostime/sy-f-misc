@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 21:23:19
  * @FilePath     : /src/func/mini-window.ts
- * @LastEditTime : 2024-04-04 22:02:45
+ * @LastEditTime : 2024-04-04 22:05:36
  * @Description  : 「网页视图」插件中打开小窗口的功能
  * @Open Source  : 摘抄自「网页视图」插件
  */
@@ -50,7 +50,6 @@ export function unload(plugin?: FMiscPlugin) {
 
 const onMouseClick = (e: MouseEvent) => {
     //中键点击
-    console.debug('click');
     if (e.button !== 1) {
         return;
     }
