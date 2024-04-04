@@ -3,15 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-02 22:37:42
  * @FilePath     : /src/utils/style.ts
- * @LastEditTime : 2024-04-04 16:12:50
- * @Description  : 
- */
-/*
- * Copyright (c) 2024 by frostime. All Rights Reserved.
- * @Author       : frostime
- * @Date         : 2024-04-02 22:37:42
- * @FilePath     : /src/utils/style.ts
- * @LastEditTime : 2024-04-04 16:03:30
+ * @LastEditTime : 2024-04-04 16:36:57
  * @Description  : 
  */
 export const loadStyleLink = (id: string, href: string) => {

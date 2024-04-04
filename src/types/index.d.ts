@@ -7,6 +7,37 @@
  * @Description  : 
  */
 
+type TSettingItemType = "checkbox" | "select" | "textinput" | "textarea" | "number" | "slider" | "button" | "hint";
+interface ISettingItem {
+    key: string;
+    value: any;
+    type: TSettingItemType;
+    title: string;
+    description?: string;
+    placeholder?: string;
+    slider?: {
+        min: number;
+        max: number;
+        step: number;
+    };
+    options?: { [key: string | number]: string };
+    button?: {
+        label: string;
+        callback: () => void;
+    }
+}
+
+interface KV {
+    key: string;
+    value: any;
+}
+
+interface ChangeEvent {
+    group: string;
+    key: string;
+    value: any;
+}
+
 type DocumentId = string;
 type BlockId = string;
 type NotebookId = string;
