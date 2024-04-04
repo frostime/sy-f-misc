@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-04 18:08:24
+ * @LastEditTime : 2024-04-04 19:25:20
  * @Description  : 
  */
 import {
@@ -15,12 +15,12 @@ import {
 } from "siyuan";
 
 
-import { load, unload } from "./func";
+import { load, unload, Modules, toggleEnable } from "./func";
 
 import "@/index.scss";
 import { Href, Svg } from "./utils/const"; 
 import { removeDomById, updateStyleLink } from "./utils/style";
-import { initSettingUI } from "./setting-ui";
+import { initSetting } from "./setting-ui";
 import { SettingGroupsPanel } from "./components/setting-panels";
 
 
@@ -28,6 +28,7 @@ const StatusFlag = {
     IsTabbarVertical: false
 }
 
+const StorageName = 'configs';
 
 export default class FMiscPlugin extends Plugin {
 
@@ -36,13 +37,24 @@ export default class FMiscPlugin extends Plugin {
 
     settingUI: SettingGroupsPanel;
 
+    declare data: {
+        configs: {
+            '启用功能': {
+                EnableInsertTime: boolean;
+                EnableNewFile: boolean;
+                EnableOnPaste: boolean;
+                EnableTitledLink: boolean;
+            }
+        };
+    }
+
     async onload() {
         const frontEnd = getFrontend();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
-        load(this);
         this.addIcons(Svg.Vertical);
         this.initTopBar();
-        this.settingUI = initSettingUI();
+        this.settingUI = await initSetting(this, this.onSettingChanged.bind(this));
+        load(this);
     }
 
     async onunload() {
@@ -60,6 +72,46 @@ export default class FMiscPlugin extends Plugin {
         if (div) {
             div.appendChild(this.settingUI.element);
         }
+    }
+
+    onSettingChanged(group: string, key: string, value: any) {
+        //动态启用或禁用功能
+        if (group === '启用功能') {
+            //@ts-ignore
+            toggleEnable(this, key, value);
+        }
+    }
+
+    getConfig(group: string, key: string): any {
+        const configs = this.data?.['configs'];
+        if (!configs) {
+            return;
+        }
+        return configs?.[group]?.[key];
+    }
+
+    async loadConfigs() {
+        let data = await this.loadData(StorageName);
+        if (!data) {
+            return;
+        }
+        for (let groupName in this.data[StorageName]) {
+            let group = this.data[StorageName][groupName];
+            let outConfig = data?.[groupName];
+            if (!outConfig) {
+                continue;
+            }
+            for (let key in group) {
+                if (outConfig[key] !== undefined) {
+                    group[key] = outConfig[key];
+                }
+            }
+        }
+    }
+
+    saveConfigs() {
+        console.debug('SaveConfigs', JSON.stringify(this.data[StorageName]));
+        this.saveData(StorageName, this.data[StorageName]);
     }
 
     private initTopBar() {

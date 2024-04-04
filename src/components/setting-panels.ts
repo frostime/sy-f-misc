@@ -78,6 +78,9 @@ export class SettingItem {
         }
     }
 
+    /*
+     * 更新值
+    */
     updateValue(value: any) {
         const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select');
         if (inputElement) {
@@ -136,6 +139,32 @@ export class SettingPanel {
             this.element.appendChild(item.element);
         });
         this.toggleDisplay();
+    }
+
+    /**
+     * 导出json数据
+     * @returns Object: { key: value }
+     */
+    dumpJson() {
+        const setting = {};
+        this.items.forEach(item => {
+            setting[item.item.key] = item.item.value;
+        });
+        return setting;
+    }
+
+    /**
+     * 更新值
+     * @param setting {setting key: value}
+     */
+    updateValues(settings: { [key: string]: any }) {
+        for (const key in settings) {
+            this.items.forEach(item => {
+                if (item.item.key === key) {
+                    item.updateValue(settings[key]);
+                }
+            });
+        }
     }
 
     toggleDisplay(display?: boolean) {
@@ -217,6 +246,19 @@ export class SettingGroupsPanel {
         this.displayGroup(this.focusGroup);
     }
 
+    /**
+     * 更新值
+     * @param group 
+     * @param settings {setting key: value}
+     */
+    updateValues(group: string, settings: { [key: string]: any }) {
+        this.panels.forEach(panel => {
+            if (panel.group === group) {
+                panel.updateValues(settings);
+            }
+        });
+    }
+
     displayGroup(group: string) {
         this.focusGroup = group;
         const tabItems = this.element.querySelectorAll('li.b3-list-item');
@@ -228,18 +270,6 @@ export class SettingGroupsPanel {
         this.panels.forEach(panel => {
             panel.display = panel.group === group;
             panel.toggleDisplay();
-        });
-    }
-
-    updateValue(group: string, key: string, value: any) {
-        this.panels.forEach(panel => {
-            if (panel.group === group) {
-                panel.items.forEach(item => {
-                    if (item.item.key === key) {
-                        item.updateValue(value);
-                    }
-                });
-            }
         });
     }
 

@@ -1,79 +1,64 @@
+import type FMiscPlugin from '@/index';
 import { SettingGroupsPanel} from './components/setting-panels';
 
-const generalSetting: ISettingItem[] = [
+const Enable: ISettingItem[] = [
     {
         type: 'checkbox',
-        title: 'Checkbox',
-        description: 'This is a checkbox',
-        key: 'checkboxKey',
+        title: 'Insert time',
+        description: '启用插入时间功能',
+        key: 'EnableInsertTime',
         value: true
     },
     {
-        type: 'textinput',
-        title: 'Text Input',
-        description: 'This is a text input',
-        key: 'textInputKey',
-        value: 'Default text',
-        placeholder: 'Enter text'
+        type: 'checkbox',
+        title: 'New file',
+        description: '启用新建文件功能',
+        key: 'EnableNewFile',
+        value: true
     },
-    {
-        type: 'select',
-        title: 'Select',
-        description: 'This is a select dropdown',
-        key: 'selectKey',
-        value: 'option1',
-        options: {
-            'option1': 'Option 1',
-            'option2': 'Option 2',
-            'option3': 'Option 3'
-        }
-    },
-    {
-        type: 'slider',
-        title: 'Slider',
-        description: 'This is a slider',
-        key: 'sliderKey',
-        value: 50,
-        slider: {
-            min: 0,
-            max: 100,
-            step: 1
-        }
-    }
-];
-
-const group2: ISettingItem[] = [
     {
         type: 'checkbox',
-        title: '测试检测',
-        description: 'This is a checkbox',
-        key: 'checkboxKey',
-        value: false
+        title: 'On paste',
+        description: '启用重写粘贴事件功能',
+        key: 'EnableOnPaste',
+        value: true
     },
     {
-        type: 'button',
-        title: 'Button',
-        description: 'This is a button',
-        key: 'buttonKey',
-        value: 'Click me',
-        button: {
-            label: 'Click me'
-        }
+        type: 'checkbox',
+        title: 'Titled link',
+        description: '启用获取标题功能',
+        key: 'EnableTitledLink',
+        value: true
     }
 ];
 
-export const initSettingUI = () => {
+
+export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
     const settingDialog = new SettingGroupsPanel();
-    settingDialog.addGroup('General Settings', generalSetting);
-    settingDialog.addGroup('Group 2', group2);
+    settingDialog.addGroup('启用功能', Enable);
     settingDialog.render();
 
     settingDialog.bindChangedEvent(({ group, key, value }) => {
         console.log(`Group: ${group}, Key: ${key}, Value: ${value}`);
+        const pluginConfigs = plugin.data['configs'];
+        if (pluginConfigs[group] && pluginConfigs[group][key] !== undefined) {
+            pluginConfigs[group][key] = value;
+        }
+        plugin.saveConfigs();
+        onChanged(group, key, value);
     });
-    settingDialog.bindButtonClickEvent(({ key }) => {
-        console.log(`Button clicked: ${key}`);
-    });
+
+    let configs = {}
+    configs['启用功能'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
+    //@ts-ignore
+    plugin.data['configs'] = configs;
+
+    await plugin.loadConfigs(); //导入并合并配置
+
+    for (let groupName in plugin.data['configs']) {
+        let groupConfig = plugin.data['configs'][groupName];
+        settingDialog.updateValues(groupName, groupConfig);
+    }
 
     return settingDialog;
 }
