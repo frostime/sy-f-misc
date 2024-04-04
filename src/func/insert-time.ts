@@ -92,6 +92,7 @@ const updateTime = (e) => {
     }
 }
 
+export let name = 'InsertTime';
 export let enabled = false;
 
 export const load = (plugin: FMiscPlugin) => {

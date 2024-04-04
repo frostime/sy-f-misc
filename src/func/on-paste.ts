@@ -20,6 +20,7 @@ const onPaste = async (event) => {
     }
 }
 
+export let name = 'OnPaste';
 export let enabled = false;
 
 export const load = (plugin: FMiscPlugin) => {

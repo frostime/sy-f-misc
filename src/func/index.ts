@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-04-04 19:25:53
+ * @LastEditTime : 2024-04-04 19:47:15
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -14,25 +14,29 @@ import * as op from './on-paste';
 import * as gt from './global-this';
 
 interface IFuncModule {
+    name: string;
     enabled: boolean;
     load: (plugin: FMiscPlugin) => void;
     unload: (plugin: FMiscPlugin) => void;
 }
 
-export const Modules = {
+const ModulesToEnable = [
     nf,
     it,
     tl,
-    op,
-    gt
-}
+    op
+]
+
+//`Enable${module.name}`: module
+const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enable${module.name}`, module]));
 
 export const load = (plugin: FMiscPlugin) => {
-    const Get = plugin.getConfig.bind(plugin);
-    if (Get("启用功能", "EnableNewFile")) nf.load(plugin);
-    if (Get("启用功能", "EnableInsertTime")) it.load(plugin);
-    if (Get("启用功能", "EnableTitledLink")) tl.load(plugin);
-    if (Get("启用功能", "EnableOnPaste")) op.load(plugin);
+    // const Get = plugin.getConfig.bind(plugin);
+    ModulesToEnable.forEach(module => {
+        if (plugin.getConfig('启用功能', `Enable${module.name}`)) {
+            module.load(plugin);
+        }
+    });
     gt.load(plugin);
 }
 
@@ -55,9 +59,12 @@ export const toggleEnable = (plugin: FMiscPlugin, key: EnableKey, enable: boolea
             module.unload(plugin);
         }
     };
-    if (key === "EnableNewFile") DoAction(nf);
-    if (key === "EnableInsertTime") DoAction(it);
-    if (key === "EnableTitledLink") DoAction(tl);
-    if (key === "EnableOnPaste") DoAction(op);
+    const module = EnableKey2Module?.[key];
+    console.debug(`Toggle ${key} to ${enable}: ${module}`);
+    DoAction(module);
+    // if (key === "EnableNewFile") DoAction(nf);
+    // if (key === "EnableInsertTime") DoAction(it);
+    // if (key === "EnableTitledLink") DoAction(tl);
+    // if (key === "EnableOnPaste") DoAction(op);
     // if (key === "EnableGlobalThis") DoAction(gt);
 }

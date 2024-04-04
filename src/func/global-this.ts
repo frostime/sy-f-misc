@@ -3,10 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:20:34
  * @FilePath     : /src/func/global-this.ts
- * @LastEditTime : 2024-03-25 13:45:46
+ * @LastEditTime : 2024-04-04 19:41:00
  * @Description  : 将各种函数暴露到 global-this 对象中
  */
 import type FMiscPlugin from "@/index";
+import exp from "constants";
 
 /**
  * Filter blocks in sql search scenario to eliminate duplicate blocks
@@ -59,6 +60,7 @@ function UniBlocks(blocks: Block[], mode: 'leaf' | 'root' = 'leaf', para_in_li: 
     return blockIdsResult.map(id => blocksMap.get(id));
 }
 
+export let name = 'GlobalThis';
 export let enabled = false;
 
 export const load = (plugin?: FMiscPlugin) => {

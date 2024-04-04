@@ -41,6 +41,7 @@ const getTitle = async (href) => {
     return title;
 }
 
+export let name = 'TitledLink';
 export let enabled = false;
 
 export const load = (plugin: FMiscPlugin) => {

@@ -56,7 +56,7 @@ const addNewEmptyFile = async (fname: string) => {
     return res.succMap;
 }
 
-
+export let name = 'NewFile';
 export let enabled = false;
 
 export const load = (plugin: FMiscPlugin) => {
