@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-04-04 20:32:14
+ * @LastEditTime : 2024-04-04 21:39:55
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -13,6 +13,7 @@ import * as tl from './titled-link';
 import * as op from './on-paste';
 import * as gt from './global-this';
 import * as ct from './change-theme';
+import * as mw from './mini-window';
 
 interface IFuncModule {
     name: string;
@@ -26,7 +27,8 @@ const ModulesToEnable = [
     it,
     tl,
     op,
-    ct
+    ct,
+    mw
 ]
 
 //`Enable${module.name}`: module
@@ -46,11 +48,9 @@ export const load = (plugin: FMiscPlugin) => {
 }
 
 export const unload = (plugin: FMiscPlugin) => {
-    nf.unload(plugin);
-    it.unload(plugin);
-    tl.unload(plugin);
-    op.unload(plugin);
-    ct.unload(plugin);
+    ModulesToEnable.forEach(module => {
+        module.unload(plugin);
+    });
 
     gt.unload(plugin);
 }
@@ -69,9 +69,4 @@ export const toggleEnable = (plugin: FMiscPlugin, key: EnableKey, enable: boolea
     const module = EnableKey2Module?.[key];
     console.debug(`Toggle ${key} to ${enable}`);
     DoAction(module);
-    // if (key === "EnableNewFile") DoAction(nf);
-    // if (key === "EnableInsertTime") DoAction(it);
-    // if (key === "EnableTitledLink") DoAction(tl);
-    // if (key === "EnableOnPaste") DoAction(op);
-    // if (key === "EnableGlobalThis") DoAction(gt);
 }

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-04 20:41:49
+ * @LastEditTime : 2024-04-04 21:30:58
  * @Description  : 
  */
 import {
@@ -11,8 +11,7 @@ import {
     Menu,
     Plugin,
     Dialog,
-    getFrontend,
-    EventBus
+    getFrontend
 } from "siyuan";
 
 
@@ -47,6 +46,7 @@ export default class FMiscPlugin extends Plugin {
                 EnableOnPaste: boolean;
                 EnableTitledLink: boolean;
                 EnableChangeTheme: boolean;
+                EnableMiniWindow: boolean;
             }
         };
     }

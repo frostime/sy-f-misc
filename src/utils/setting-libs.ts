@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-04 20:24:58
+ * @LastEditTime : 2024-04-04 21:42:08
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -44,6 +44,13 @@ const Enable: ISettingItem[] = [
         title: '更换主题',
         description: '启用更换主题功能',
         key: 'EnableChangeTheme',
+        value: true
+    },
+    {
+        type: 'checkbox',
+        title: '中键小窗',
+        description: '启用中键点击元素打开独立小窗功能',
+        key: 'EnableMiniWindow',
         value: true
     }
 ];
