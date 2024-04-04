@@ -41,16 +41,21 @@ const getTitle = async (href) => {
     return title;
 }
 
+export let enabled = false;
 
 export const load = (plugin: FMiscPlugin) => {
+    if (enabled) return;
     plugin.addIcons(IconUrl);
     plugin.eventBus.on("open-menu-link", onOpenMenuLink);
     plugin.eventBus.on("click-blockicon", onClickBlockIcon);
+    enabled = true;
 }
 
 export const unload = (plugin: FMiscPlugin) => {
+    if (!enabled) return;
     plugin.eventBus.off("open-menu-link", onOpenMenuLink);
     plugin.eventBus.off("click-blockicon", onClickBlockIcon);
+    enabled = false;
 }
 
 async function onClickBlockIcon({ detail }) {

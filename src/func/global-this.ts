@@ -59,11 +59,16 @@ function UniBlocks(blocks: Block[], mode: 'leaf' | 'root' = 'leaf', para_in_li: 
     return blockIdsResult.map(id => blocksMap.get(id));
 }
 
+export let enabled = false;
 
 export const load = (plugin?: FMiscPlugin) => {
+    if (enabled) return;
     globalThis.UniBlocks = UniBlocks;
+    enabled = true;
 }
 
 export const unload = (plugin?: FMiscPlugin) => {
+    if (!enabled) return;
     delete globalThis.UniBlocks;
+    enabled = false;
 }

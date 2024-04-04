@@ -92,19 +92,27 @@ const updateTime = (e) => {
     }
 }
 
+export let enabled = false;
+
 export const load = (plugin: FMiscPlugin) => {
+    if (enabled) return;
+
     pluginProtyleSlash = plugin.protyleSlash;
     protyleSlash.forEach((slash) => {
         plugin.addProtyleSlash(slash);
     });
     window.addEventListener('keypress', updateTime);
+    enabled = true;
 }
 
 export const unload = (plugin: FMiscPlugin) => {
+    if (!enabled) return;
+
     pluginProtyleSlash = [];
     protyleSlash.forEach((slash) => {
         plugin.delProtyleSlash(slash.id);
     });
     window.removeEventListener('keypress', updateTime);
+    enabled = false;
 }
 

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-03-23 21:49:15
+ * @LastEditTime : 2024-04-04 19:02:57
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -12,6 +12,14 @@ import * as it from './insert-time';
 import * as tl from './titled-link';
 import * as op from './on-paste';
 import * as gt from './global-this';
+
+export const Modules = {
+    nf,
+    it,
+    tl,
+    op,
+    gt
+}
 
 export const load = (plugin: FMiscPlugin) => {
     nf.load(plugin);

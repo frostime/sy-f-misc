@@ -57,7 +57,11 @@ const addNewEmptyFile = async (fname: string) => {
 }
 
 
+export let enabled = false;
+
 export const load = (plugin: FMiscPlugin) => {
+    if (enabled) return;
+
     const slash = {
         filter: ['ni', '新建', 'new'],
         html: '新建空白附件',
@@ -77,8 +81,12 @@ export const load = (plugin: FMiscPlugin) => {
         }
     };
     plugin.addProtyleSlash(slash);
+    enabled = true;
 }
 
 export const unload = (plugin: FMiscPlugin) => {
+    if (!enabled) return;
+
     plugin.delProtyleSlash('new-file');
+    enabled = false;
 }

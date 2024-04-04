@@ -20,10 +20,16 @@ const onPaste = async (event) => {
     }
 }
 
+export let enabled = false;
+
 export const load = (plugin: FMiscPlugin) => {
+    if (enabled) return;
     plugin.eventBus.on("paste", onPaste);
+    enabled = true;
 }
 
 export const unload = (plugin: FMiscPlugin) => {
+    if (!enabled) return;
     plugin.eventBus.off("paste", onPaste);
+    enabled = false;
 }
