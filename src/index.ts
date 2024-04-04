@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-04 19:25:20
+ * @LastEditTime : 2024-04-04 19:36:22
  * @Description  : 
  */
 import {
@@ -66,7 +66,7 @@ export default class FMiscPlugin extends Plugin {
             title: "F-Misc 设置",
             content: `<div id="SettingPanel" style="height: 100%; display: flex;"></div>`,
             width: "800px",
-            height: "600px"
+            height: "500px"
         });
         let div = dialog.element.querySelector("#SettingPanel");
         if (div) {
@@ -150,6 +150,12 @@ export default class FMiscPlugin extends Plugin {
             position: 'right',
             callback: showMenu
         });
+
+        topbar.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.openSetting();
+        });
+
     }
 
     addProtyleSlash(slash: IPluginProtyleSlash) {
