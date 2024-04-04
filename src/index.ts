@@ -15,12 +15,12 @@ import {
 } from "siyuan";
 
 
-import { load, unload, Modules, toggleEnable } from "./func";
+import { load, unload, toggleEnable } from "./func";
 
 import "@/index.scss";
 import { Href, Svg } from "./utils/const"; 
 import { removeDomById, updateStyleLink } from "./utils/style";
-import { initSetting } from "./setting-ui";
+import { initSetting } from "./utils/setting-libs";
 import { SettingGroupsPanel } from "./components/setting-panels";
 
 

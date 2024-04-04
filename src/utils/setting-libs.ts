@@ -1,5 +1,13 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-04-04 17:43:26
+ * @FilePath     : /src/utils/setting-ui.ts
+ * @LastEditTime : 2024-04-04 19:27:42
+ * @Description  : 
+ */
 import type FMiscPlugin from '@/index';
-import { SettingGroupsPanel} from './components/setting-panels';
+import { SettingGroupsPanel} from '@/components/setting-panels';
 
 const Enable: ISettingItem[] = [
     {
