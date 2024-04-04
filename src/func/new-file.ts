@@ -3,6 +3,19 @@ import type FMiscPlugin from "@/index";
 import { upload } from "@/api";
 import { inputDialog } from "@/utils/dialog";
 
+const BlankFileContent = {
+    drawio: `<mxfile host="Electron" modified="2024-04-04T12:48:56.358Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.0.4 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="2hwdI9Fb9SLygm8eVMT2" version="24.0.4" type="device">
+    <diagram name="第 1 页" id="lQk7rp0_sSzAOVxkQR8i">
+      <mxGraphModel dx="1548" dy="936" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+        <root>
+          <mxCell id="0" />
+          <mxCell id="1" parent="0" />
+        </root>
+      </mxGraphModel>
+    </diagram>
+  </mxfile>`
+}
+
 const createEmptyFileObject = (fname: string): File => {
     // A basic MIME type mapping based on file extension
     const mimeTypes: { [key: string]: string } = {
@@ -33,8 +46,13 @@ const createEmptyFileObject = (fname: string): File => {
     // Lookup the MIME type; default to 'application/octet-stream' if the extension is unknown
     const mimeType = mimeTypes[ext.toLowerCase()] || 'text/plain';
 
+    //填充空白文件内容
+    let content = BlankFileContent?.[ext];
+
+    let blobParts = content ? [content] : [];
+
     // Create an empty Blob with the detected MIME type
-    const emptyBlob = new Blob([], { type: mimeType });
+    const emptyBlob = new Blob(blobParts, { type: mimeType });
     // Create the File object with the blob, filename, and MIME type
     const emptyFile = new File([emptyBlob], fname, {
         type: mimeType,
