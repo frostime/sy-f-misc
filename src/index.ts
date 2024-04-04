@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-04 21:30:58
+ * @LastEditTime : 2024-04-04 22:07:31
  * @Description  : 
  */
 import {
@@ -145,6 +145,15 @@ export default class FMiscPlugin extends Plugin {
                 menu.addItem(item);
             }
             this.eb.emit('on-topbar-menu', menu);
+            menu.addSeparator();
+            menu.addItem({
+                label: '重载',
+                icon: 'iconRefresh',
+                click: () => {
+                    window.location.reload();
+                }
+            });
+
             const rect = topbar.getBoundingClientRect();
             menu.open({
                 x: rect.right,
