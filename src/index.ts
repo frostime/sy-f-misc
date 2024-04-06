@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-04 22:07:31
+ * @LastEditTime : 2024-04-06 18:35:07
  * @Description  : 
  */
 import {
@@ -11,7 +11,8 @@ import {
     Menu,
     Plugin,
     Dialog,
-    getFrontend
+    getFrontend,
+    showMessage
 } from "siyuan";
 
 
@@ -61,10 +62,42 @@ export default class FMiscPlugin extends Plugin {
         this.initTopBar();
         this.settingUI = await initSetting(this, this.onSettingChanged.bind(this));
         load(this);
+
+        //Default functions
+        this.initDefaultFunctions();
     }
 
     async onunload() {
         unload(this);
+    }
+
+    /**
+     * 不需要开关，默认启用的功能
+     */
+    private initDefaultFunctions() {
+        this.eventBus.on('open-menu-image', ({ detail }) => {
+            console.debug('open-menu-image', detail);
+            const element: HTMLSpanElement = detail.element;
+            const img = element.querySelector('img');
+            let src = img?.getAttribute('src');
+            if (!src) {
+                return;
+            }
+            src = src.replace('/', '\\');
+            const menu = detail.menu;
+            menu.addItem({
+                label: '复制图片地址',
+                icon: 'iconCopy',
+                click: () => {
+                    const dataDir = window.siyuan.config.system.dataDir;
+                    const path = dataDir + '\\' + src;
+                    navigator.clipboard.writeText(path).then(() => {
+                        showMessage(`复制到剪贴板: ${path}`);
+                    });
+                }
+            });
+
+        });
     }
 
     openSetting(): void {

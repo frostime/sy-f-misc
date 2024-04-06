@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.7.0 | 2024-4-6
+
+增加了 Copy image path 的功能
+
 ## v0.3.0 | 2024-04-02
 
 - 引入「任我行」主题的 verticle-title 样式
