@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-06 18:35:07
+ * @LastEditTime : 2024-04-06 18:42:19
  * @Description  : 
  */
 import {
@@ -24,6 +24,8 @@ import { EventBusSync } from "./utils/event-bus";
 import { removeDomById, updateStyleLink } from "./utils/style";
 import { initSetting } from "./utils/setting-libs";
 import { SettingGroupsPanel } from "./components/setting-panels";
+
+const electron = require('electron');
 
 
 const StatusFlag = {
@@ -59,7 +61,6 @@ export default class FMiscPlugin extends Plugin {
         this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         this.addIcons([Svg.Vertical, Svg.Theme].join(''));
-        this.initTopBar();
         this.settingUI = await initSetting(this, this.onSettingChanged.bind(this));
         load(this);
 
@@ -75,8 +76,10 @@ export default class FMiscPlugin extends Plugin {
      * 不需要开关，默认启用的功能
      */
     private initDefaultFunctions() {
+        this.initTopBar();
+
         this.eventBus.on('open-menu-image', ({ detail }) => {
-            console.debug('open-menu-image', detail);
+            // console.debug('open-menu-image', detail);
             const element: HTMLSpanElement = detail.element;
             const img = element.querySelector('img');
             let src = img?.getAttribute('src');
@@ -172,6 +175,37 @@ export default class FMiscPlugin extends Plugin {
                             StatusFlag.IsTabbarVertical = false;
                         }
                     }
+                },
+                {
+                    label: '打开目录',
+                    icon: 'iconFolder',
+                    type: 'submenu',
+                    submenu: [
+                        {
+                            label: '数据目录',
+                            icon: 'iconFolder',
+                            click: () => {
+                                const dataDir = window.siyuan.config.system.dataDir;
+                                electron.shell.openPath(dataDir);
+                            }
+                        },
+                        {
+                            label: '插件目录',
+                            icon: 'iconFolder',
+                            click: () => {
+                                const pluginDir = window.siyuan.config.system.dataDir + '/plugins';
+                                electron.shell.openPath(pluginDir);
+                            }
+                        },
+                        {
+                            label: 'Petal 目录',
+                            icon: 'iconFolder',
+                            click: () => {
+                                const pluginDir = window.siyuan.config.system.dataDir + '/storage/petal';
+                                electron.shell.openPath(pluginDir);
+                            }
+                        }
+                    ]
                 }
             ];
             for (let item of menuItems) {
