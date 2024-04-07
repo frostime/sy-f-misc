@@ -43,7 +43,7 @@ export default class FMiscPlugin extends Plugin {
 
     declare data: {
         configs: {
-            '启用功能': {
+            'Enable': {
                 EnableInsertTime: boolean;
                 EnableNewFile: boolean;
                 EnableOnPaste: boolean;
@@ -118,7 +118,7 @@ export default class FMiscPlugin extends Plugin {
 
     onSettingChanged(group: string, key: string, value: any) {
         //动态启用或禁用功能
-        if (group === '启用功能') {
+        if (group === 'Enable') {
             //@ts-ignore
             toggleEnable(this, key, value);
         }

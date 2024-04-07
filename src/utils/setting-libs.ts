@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-04 21:42:08
+ * @LastEditTime : 2024-04-07 21:21:23
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -58,7 +58,7 @@ const Enable: ISettingItem[] = [
 
 export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
     const settingDialog = new SettingGroupsPanel();
-    settingDialog.addGroup('启用功能', Enable);
+    settingDialog.addGroup({key: 'Enable', text: '✅ 启用功能'}, Enable);
     settingDialog.render();
 
     settingDialog.bindChangedEvent(({ group, key, value }) => {
@@ -72,7 +72,7 @@ export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
     });
 
     let configs = {}
-    configs['启用功能'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
+    configs['Enable'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
     //@ts-ignore
     plugin.data['configs'] = configs;
 

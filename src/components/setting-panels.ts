@@ -116,16 +116,16 @@ export class SettingItem {
 
 export class SettingPanel {
     element: HTMLElement;
-    group: string;
+    group: TKeyText;
     items: SettingItem[];
     display: boolean = false;
 
-    constructor(group: string, items: SettingItem[] = []) {
+    constructor(group: TKeyText, items: SettingItem[] = []) {
         this.group = group;
         this.items = items;
         this.element = document.createElement('div');
         this.element.className = 'config__tab-container';
-        this.element.dataset.name = group;
+        this.element.dataset.name = group.key;
     }
 
     addItem(item: SettingItem) {
@@ -175,7 +175,7 @@ export class SettingPanel {
     bindChangedEvent(cb: (detail: ChangeEvent) => void) {
         this.items.forEach(item => {
             item.bindChangedEvent(({ key, value }) => {
-                cb({ group: this.group, key, value });
+                cb({ group: this.group.key, key, value });
             });
         });
     }
@@ -191,19 +191,19 @@ export class SettingPanel {
 
 export class SettingGroupsPanel {
     element: HTMLElement;
-    groups: string[];
-    focusGroup: string;
+    groups: TKeyText[];
+    focusGroupKey: string;
     panels: SettingPanel[];
 
     constructor() {
         this.groups = [];
-        this.focusGroup = '';
+        this.focusGroupKey = '';
         this.panels = [];
         this.element = document.createElement('div');
         this.element.className = 'fn__flex-1 fn__flex config__panel';
     }
 
-    addGroup(group: string, items: ISettingItem[]) {
+    addGroup(group: TKeyText, items: ISettingItem[]) {
         this.groups.push(group);
         const panel = new SettingPanel(group, items.map(item => new SettingItem(item)));
         panel.render();
@@ -216,12 +216,12 @@ export class SettingGroupsPanel {
     }
 
     render() {
-        this.focusGroup = this.focusGroup || this.groups[0];
+        this.focusGroupKey = this.focusGroupKey || this.groups[0].key;
         this.element.innerHTML = `
             <ul class="b3-tab-bar b3-list b3-list--background">
                 ${this.groups.map(group => `
-                    <li class="b3-list-item${group === this.focusGroup ? ' b3-list-item--focus' : ''}" data-name="${group}">
-                        <span class="b3-list-item__text">${group}</span>
+                    <li class="b3-list-item${group.key === this.focusGroupKey ? ' b3-list-item--focus' : ''}" data-name="${group}">
+                        <span class="b3-list-item__text">${group.text}</span>
                     </li>
                 `).join('')}
             </ul>
@@ -243,32 +243,32 @@ export class SettingGroupsPanel {
             });
         });
 
-        this.displayGroup(this.focusGroup);
+        this.displayGroup(this.focusGroupKey);
     }
 
     /**
      * 更新值
-     * @param group 
+     * @param groupKey 
      * @param settings {setting key: value}
      */
-    updateValues(group: string, settings: { [key: string]: any }) {
+    updateValues(groupKey: string, settings: { [key: string]: any }) {
         this.panels.forEach(panel => {
-            if (panel.group === group) {
+            if (panel.group.key === groupKey) {
                 panel.updateValues(settings);
             }
         });
     }
 
-    displayGroup(group: string) {
-        this.focusGroup = group;
+    displayGroup(groupKey: string) {
+        this.focusGroupKey = groupKey;
         const tabItems = this.element.querySelectorAll('li.b3-list-item');
         tabItems.forEach(item => {
             // @ts-ignore
-            item.classList.toggle('b3-list-item--focus', item.dataset.name === group);
+            item.classList.toggle('b3-list-item--focus', item.dataset.name === groupKey);
         });
 
         this.panels.forEach(panel => {
-            panel.display = panel.group === group;
+            panel.display = panel.group.key === groupKey;
             panel.toggleDisplay();
         });
     }

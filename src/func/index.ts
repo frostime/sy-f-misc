@@ -37,7 +37,7 @@ const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enab
 export const load = (plugin: FMiscPlugin) => {
     // const Get = plugin.getConfig.bind(plugin);
     ModulesToEnable.forEach(module => {
-        if (plugin.getConfig('启用功能', `Enable${module.name}`)) {
+        if (plugin.getConfig('Enable', `Enable${module.name}`)) {
             module.load(plugin);
             console.debug(`Load ${module.name}`);
         }
@@ -55,7 +55,7 @@ export const unload = (plugin: FMiscPlugin) => {
     gt.unload(plugin);
 }
 
-type EnableKey = keyof FMiscPlugin['data']['configs']['启用功能'];
+type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];
 
 export const toggleEnable = (plugin: FMiscPlugin, key: EnableKey, enable: boolean) => {
     const DoAction = (module: IFuncModule) => {

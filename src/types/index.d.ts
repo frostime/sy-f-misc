@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/types/index.d.ts
- * @LastEditTime : 2024-04-04 18:24:23
+ * @LastEditTime : 2024-04-07 21:14:37
  * @Description  : 
  */
 
@@ -35,6 +35,10 @@ interface ITheme {
     repoURL: string;
 }
 
+type TKeyText = {
+    key: string;
+    text: string;
+}
 
 interface KV {
     key: string;
