@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-08 18:32:51
  * @FilePath     : /src/func/run-js.ts
- * @LastEditTime : 2024-04-08 19:35:18
+ * @LastEditTime : 2024-04-08 19:44:27
  * @Description  : 迁移 Run Js 插件，但是只保留了最核心的功能，其他的什么 saveAction 全去掉了
  */
 import {
@@ -62,63 +62,68 @@ function getFocusedBlock(): HTMLElement | null | undefined {
     return element as HTMLElement;
 }
 
-class RunJsPlugin extends Plugin {
 
-    private static readonly GLOBAL: Record<string, any> = globalThis;
-    private static readonly PROPERTY_NAME: string = "runJs";
+const PROPERTY_NAME: string = "runJs";
 
-    isMobile: boolean;
+class RunJsPlugin {
     private blockIconEventBindThis = this.blockIconEvent.bind(this);
 
     BindEvent: { [key: string]: (event: CustomEvent<any>) => any } = {};
 
-    async onload() {
+    plugin: FMiscPlugin;
 
-        //Copyright (c) 2023 by Zuoqiu-Yingyi
-        //Copy from https://github.com/Zuoqiu-Yingyi/siyuan-plugin-open-api/blob/main/src/index.ts
-        RunJsPlugin.GLOBAL[RunJsPlugin.PROPERTY_NAME] = {
+    async onload(plugin: FMiscPlugin) {
+
+        this.plugin = plugin;
+
+        this.BindEvent = {};
+
+        globalThis[PROPERTY_NAME] = {
             plugin: this,
             siyuan: siyuan,
             api: api
         };
 
-        this.addIcons(`<symbol id="iconJS" viewBox="0 0 1024 1024"><path d="M640 128H576v256h64V128zM832 320h-192v64h192V320zM896 896H128v64h768v-64z" p-id="4062"></path><path d="M640 64H128v128h64V128h421.76L832 346.24V960h64V320l-256-256zM256 384H192v349.44q0 42.24-34.56 42.24h-19.84V832h28.16Q256 832 256 736V384z" p-id="4063"></path><path d="M448 384a131.84 131.84 0 0 0-87.04 28.16 94.72 94.72 0 0 0-33.28 77.44 87.68 87.68 0 0 0 34.56 73.6 208.64 208.64 0 0 0 73.6 31.36 256 256 0 0 1 59.52 21.12 45.44 45.44 0 0 1 26.24 41.6c0 33.28-23.68 49.28-71.04 49.28a71.04 71.04 0 0 1-49.28-14.08 88.96 88.96 0 0 1-21.76-52.48H320a120.96 120.96 0 0 0 132.48 128c87.68 0 131.84-38.4 131.84-115.84A89.6 89.6 0 0 0 549.12 576a225.28 225.28 0 0 0-75.52-33.92 391.68 391.68 0 0 1-60.16-22.4 37.76 37.76 0 0 1-23.68-32 35.84 35.84 0 0 1 16-32.64A69.76 69.76 0 0 1 448 448a70.4 70.4 0 0 1 46.72 12.8 72.32 72.32 0 0 1 21.76 40.32H576A113.28 113.28 0 0 0 448 384zM224 256a32 32 0 1 0 32 32 32 32 0 0 0-32-32z" p-id="4064"></path></symbol>`)
+        this.plugin.addIcons(`<symbol id="iconJS" viewBox="0 0 1024 1024"><path d="M640 128H576v256h64V128zM832 320h-192v64h192V320zM896 896H128v64h768v-64z" p-id="4062"></path><path d="M640 64H128v128h64V128h421.76L832 346.24V960h64V320l-256-256zM256 384H192v349.44q0 42.24-34.56 42.24h-19.84V832h28.16Q256 832 256 736V384z" p-id="4063"></path><path d="M448 384a131.84 131.84 0 0 0-87.04 28.16 94.72 94.72 0 0 0-33.28 77.44 87.68 87.68 0 0 0 34.56 73.6 208.64 208.64 0 0 0 73.6 31.36 256 256 0 0 1 59.52 21.12 45.44 45.44 0 0 1 26.24 41.6c0 33.28-23.68 49.28-71.04 49.28a71.04 71.04 0 0 1-49.28-14.08 88.96 88.96 0 0 1-21.76-52.48H320a120.96 120.96 0 0 0 132.48 128c87.68 0 131.84-38.4 131.84-115.84A89.6 89.6 0 0 0 549.12 576a225.28 225.28 0 0 0-75.52-33.92 391.68 391.68 0 0 1-60.16-22.4 37.76 37.76 0 0 1-23.68-32 35.84 35.84 0 0 1 16-32.64A69.76 69.76 0 0 1 448 448a70.4 70.4 0 0 1 46.72 12.8 72.32 72.32 0 0 1 21.76 40.32H576A113.28 113.28 0 0 0 448 384zM224 256a32 32 0 1 0 32 32 32 32 0 0 0-32-32z" p-id="4064"></path></symbol>`)
         // console.log(this.i18n.helloPlugin);
 
-        this.eventBus.on("click-blockicon", this.blockIconEventBindThis);
+        this.plugin.eventBus.on("click-blockicon", this.blockIconEventBindThis);
 
-        this.addCommand({
-            langKey: "run-js-block",
-            hotkey: "⌥F5",
-            editorCallback: async () => {
-                let ele: HTMLElement = getFocusedBlock();
-                let dataId = ele.getAttribute("data-node-id");
-                this.runCodeBlock(dataId);
-            }
-        });
+        // this.plugin.addCommand({
+        //     langKey: "run-js-block",
+        //     hotkey: "⌥F5",
+        //     editorCallback: async () => {
+        //         let ele: HTMLElement = getFocusedBlock();
+        //         let dataId = ele.getAttribute("data-node-id");
+        //         this.runCodeBlock(dataId);
+        //     }
+        // });
     }
 
     onunload() {
         for (let event in this.BindEvent) {
             //@ts-ignore
-            this.eventBus.off(event, this.BindEvent[event]);
+            this.plugin.eventBus.off(event, this.BindEvent[event]);
         }
+        this.plugin = undefined;
+        this.BindEvent = {};
+        globalThis[PROPERTY_NAME] = undefined;
     }
 
     public onEvent(event: any, func: (event: CustomEvent<any>) => any) {
         if (this.BindEvent[event] === undefined) {
             this.BindEvent[event] = func;
-            this.eventBus.on(event, func);
+            this.plugin.eventBus.on(event, func);
         } else {
-            this.eventBus.off(event, this.BindEvent[event]);
+            this.plugin.eventBus.off(event, this.BindEvent[event]);
             this.BindEvent[event] = func;
-            this.eventBus.on(event, func);
+            this.plugin.eventBus.on(event, func);
         }
     }
 
     public offEvent(event: any) {
         if (this.BindEvent[event] !== undefined) {
-            this.eventBus.off(event, this.BindEvent[event]);
+            this.plugin.eventBus.off(event, this.BindEvent[event]);
             this.BindEvent[event] = undefined;
         }
     }
@@ -129,15 +134,15 @@ class RunJsPlugin extends Plugin {
         id: string,
         callback(protyle: Protyle): void,
     }) {
-        let found = this.protyleSlash.find(s => s.id === slash.id);
+        let found = this.plugin.protyleSlash.find(s => s.id === slash.id);
         if (found) {
             return;
         }
-        this.protyleSlash.push(slash);
+        this.plugin.protyleSlash.push(slash);
     }
 
     public removeProtyleSlash(id: string) {
-        this.protyleSlash = this.protyleSlash.filter(s => s.id !== id);
+        this.plugin.protyleSlash = this.plugin.protyleSlash.filter(s => s.id !== id);
     }
 
     public async runCodeBlock(id: BlockId) {
@@ -223,15 +228,16 @@ class RunJsPlugin extends Plugin {
 
 export let name = 'RunJs';
 export let enabled = false;
+const runJs: RunJsPlugin = new RunJsPlugin();
 
-export const load = (plugin?: FMiscPlugin) => {
+export const load = async (plugin?: FMiscPlugin) => {
     if (enabled) return;
-
+    await runJs.onload(plugin);
     enabled = true;
 }
 
 export const unload = (plugin?: FMiscPlugin) => {
     if (!enabled) return;
-
+    runJs.onunload();
     enabled = false;
 }
