@@ -14,6 +14,7 @@ import * as op from './on-paste';
 import * as gt from './global-this';
 import * as ct from './change-theme';
 import * as mw from './mini-window';
+import * as rj from './run-js';
 
 interface IFuncModule {
     name: string;
@@ -28,7 +29,8 @@ const ModulesToEnable = [
     tl,
     op,
     ct,
-    mw
+    mw,
+    rj
 ]
 
 //`Enable${module.name}`: module

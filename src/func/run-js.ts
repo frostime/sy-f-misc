@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-08 18:32:51
  * @FilePath     : /src/func/run-js.ts
- * @LastEditTime : 2024-04-08 19:44:27
+ * @LastEditTime : 2024-04-08 19:52:33
  * @Description  : 迁移 Run Js 插件，但是只保留了最核心的功能，其他的什么 saveAction 全去掉了
  */
 import {
@@ -101,6 +101,7 @@ class RunJsPlugin {
     }
 
     onunload() {
+        this.plugin.eventBus.off("click-blockicon", this.blockIconEventBindThis);
         for (let event in this.BindEvent) {
             //@ts-ignore
             this.plugin.eventBus.off(event, this.BindEvent[event]);
@@ -209,19 +210,12 @@ class RunJsPlugin {
 
         let id = ele.getAttribute("data-node-id");
         let menu: Menu = detail.menu;
-        let submenus: IMenuItemOption[] = [
-            {
-                label: '运行 Js',
-                click: async () => {
-                    this.runCodeBlock(id);
-                }
-            }
-        ];
         menu.addItem({
             icon: 'iconJS',
             label: "Run JS",
-            type: "submenu",
-            submenu: submenus
+            click: async () => {
+                this.runCodeBlock(id);
+            }
         });
     }
 }

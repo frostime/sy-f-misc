@@ -1,6 +1,6 @@
-import { Menu, getFrontend, showMessage } from "siyuan";
-import { request, getInstalledTheme, getBazaarTheme, installBazaarTheme } from "@/api";
-import { Svg } from "@/utils/const";
+import { Menu, getFrontend } from "siyuan";
+import { request, getInstalledTheme, getBazaarTheme } from "@/api";
+// import { Svg } from "@/utils/const";
 
 import type FMiscPlugin from "@/index";
 

@@ -3,13 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-07 21:21:23
+ * @LastEditTime : 2024-04-08 19:49:21
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
 import { SettingGroupsPanel} from '@/components/setting-panels';
 // import { Module } from '@/func';
 
+// Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
 const Enable: ISettingItem[] = [
     {
         type: 'checkbox',
@@ -44,6 +45,13 @@ const Enable: ISettingItem[] = [
         title: '更换主题',
         description: '启用更换主题功能',
         key: 'EnableChangeTheme',
+        value: true
+    },
+    {
+        type: 'checkbox',
+        title: 'Run Javascript',
+        description: '启用 Run Js 功能',
+        key: 'EnableRunJs',
         value: true
     },
     {
