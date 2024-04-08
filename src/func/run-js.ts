@@ -3,16 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-04-08 18:32:51
  * @FilePath     : /src/func/run-js.ts
- * @LastEditTime : 2024-04-08 19:52:33
+ * @LastEditTime : 2024-04-08 19:54:11
  * @Description  : 迁移 Run Js 插件，但是只保留了最核心的功能，其他的什么 saveAction 全去掉了
  */
 import {
-    Plugin,
     showMessage,
-    getFrontend,
     Menu,
-    Protyle,
-    IMenuItemOption
+    Protyle
 } from "siyuan";
 import siyuan from "siyuan";
 import * as api from "@/api";
@@ -42,24 +39,6 @@ function isSiyuanBlock(element: any): boolean {
         && element.dataset.nodeId
         && /^\d{14}-[0-9a-z]{7}$/.test(element.dataset.nodeId)
     );
-}
-
-/**
- * Copyright (c) 2023 [Zuoqiu-Yingyi](https://github.com/Zuoqiu-Yingyi/siyuan-packages-monorepo)
- * 获取当前光标所在的块
- * @returns 当前光标所在的块的 HTML 元素
- */
-function getFocusedBlock(): HTMLElement | null | undefined {
-    const selection = document.getSelection();
-    let element = selection?.focusNode;
-    while (element // 元素存在
-        && (!(element instanceof HTMLElement) // 元素非 HTMLElement
-            || !isSiyuanBlock(element) // 元素非思源块元素
-        )
-    ) {
-        element = element.parentElement;
-    }
-    return element as HTMLElement;
 }
 
 
