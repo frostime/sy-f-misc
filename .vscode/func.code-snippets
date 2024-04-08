@@ -20,12 +20,19 @@
 		"body": [
 		  "import type FMiscPlugin from \"@/index\";",
 		  "",
+		  "export let name = \"$1\";",
+		  "export let enabled = false;",
+
 		  "export const load = (plugin: FMiscPlugin) => {",
-		  "\t$1",
+		  "\tif (enabled) return;",
+		  "\t",
+		  "\tenabled = true;",
 		  "}",
 		  "",
 		  "export const unload = (plugin: FMiscPlugin) => {",
-		  "\t$2",
+		  "\tif (!enabled) return;",
+		  "\t",
+		  "\tenabled = false;",
 		  "}"
 		],
 		"description": "Load and unload functions for FMiscPlugin."
