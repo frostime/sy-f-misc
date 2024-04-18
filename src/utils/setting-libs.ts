@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-18 16:34:46
+ * @LastEditTime : 2024-04-18 16:48:12
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -81,7 +81,7 @@ const Docky: ISettingItem[] = [
         slider: {
             min: 0.5,
             max: 1,
-            step: 0.05,
+            step: 0.01,
         }
     },
     {

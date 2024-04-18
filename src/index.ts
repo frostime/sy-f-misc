@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-06 18:42:19
+ * @LastEditTime : 2024-04-18 16:47:23
  * @Description  : 
  */
 import {
@@ -121,6 +121,15 @@ export default class FMiscPlugin extends Plugin {
         if (group === 'Enable') {
             //@ts-ignore
             toggleEnable(this, key, value);
+        } else if (group == 'Docky') {
+            if (key === 'DockyProtyle') return;
+            let enable = this.getConfig('Docky', 'DockyEnableZoom');
+            let factor = this.getConfig('Docky', 'DockyZoomFactor');
+            if (enable === false) {
+                document.documentElement.style.setProperty('--plugin-docky-zoom', 'unset');
+            } else {
+                document.documentElement.style.setProperty('--plugin-docky-zoom', `${factor}`);
+            }
         }
     }
 
