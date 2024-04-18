@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-02 22:37:42
  * @FilePath     : /src/utils/style.ts
- * @LastEditTime : 2024-04-04 16:36:57
+ * @LastEditTime : 2024-04-18 18:38:34
  * @Description  : 
  */
 export const loadStyleLink = (id: string, href: string) => {

@@ -1,7 +1,33 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-03-19 14:07:28
+ * @FilePath     : /src/types/api.d.ts
+ * @LastEditTime : 2024-04-18 18:57:04
+ * @Description  : 
+ */
 interface IResGetNotebookConf {
     box: string;
     conf: NotebookConf;
     name: string;
+}
+
+interface IBlockDOM {
+    id: BlockId;
+    dom: string;
+}
+
+interface IBacklink2 {
+    backlinks: {
+        id: BlockId;
+        count: number;
+        box: NotebookId;
+    }[];
+    backmentions: {
+        id: BlockId;
+        count: number;
+        box: NotebookId;
+    }[];
 }
 
 interface IReslsNotebooks {
@@ -63,3 +89,11 @@ interface IResExportResources {
     path: string;
 }
 
+
+interface IDocTreeNode {
+    id: BlockId;
+    children?: IDocTreeNode[];
+}
+interface IResListDocTree {
+    tree: IDocTreeNode[];
+}
