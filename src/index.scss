@@ -26,3 +26,40 @@ svg.highlight-icon ~ span.b3-menu__label {
 .docky-panel-body.protyle {
     zoom: var(--plugin-docky-zoom);
 }
+
+// 转移引用插件
+
+$table-border-color: var(--b3-theme-surface-light);
+
+.refs-table {
+    display: table;
+    border-collapse: collapse;
+    border: 1px solid $table-border-color;
+
+    .row {
+        display: table-row;
+
+        .cell {
+            display: table-cell;
+            padding: 10px 5px;
+            border: 1px solid $table-border-color;
+            color: var(--b3-theme-on-background);
+            box-sizing: border-box;
+            word-break: break-word;
+            min-width: 5em;
+        }
+        .cell-0 {
+            @extend .cell;
+            width: 2rem;
+            min-width: 1em;
+            text-align: center;
+        }
+
+
+        &.header {
+            display: table-header-group;
+            font-weight: bold;
+            background-color: var(--b3-theme-background);
+        }
+    }
+}

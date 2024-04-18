@@ -123,22 +123,100 @@ export class TransferRefsComponent {
             return str;
         }
     }
-
-    public async render() {
+    public async render(container: HTMLElement) {
         let queryRefsPromise = this.queryRefs();
         let queryFamilyPromise = this.queryFamily();
 
-        // Render the component HTML here using the query results
-        // You can use template literals to generate the HTML string
-        // and append it to the desired container element
-        // Example:
-        // const container = document.getElementById('container');
-        // container.innerHTML = `
-        //   <main id="main" class="fn__flex fn__flex-1">
-        //     <!-- Rest of the HTML -->
-        //   </main>
-        // `;
+        container.innerHTML = `
+          <main id="main" class="fn__flex fn__flex-1">
+            <section id="refs" class="fn__flex-1">
+              <div class="refs-table">
+                <div class="row header">
+                  <div class="cell-0">
+                    <input type="checkbox" id="checkboxTitle" />
+                  </div>
+                  <div class="cell">块类型</div>
+                  <div class="cell">笔记本</div>
+                  <div class="cell">文档</div>
+                  <div class="cell">内容</div>
+                </div>
+                ${(await queryRefsPromise)
+                .map(
+                    (block) => `
+                  <div class="row">
+                    <div class="cell-0">
+                      <input type="checkbox" value="${block.id}" class="refChoose" />
+                    </div>
+                    <div class="cell b3-tooltips b3-tooltips__n blockType" aria-label="${block.id}">
+                      <span class="blockType" data-id="${block.id}">${this.type2text(block.type)}</span>
+                    </div>
+                    <div class="cell">${block.notebook}</div>
+                    <div class="cell">${block.doc}</div>
+                    <div class="cell">${this.clipStr(block.content, 50)}</div>
+                  </div>
+                `
+                )
+                .join("\n")}
+              </div>
+            </section>
+      
+            <div class="layout__resize--lr layout__resize"></div>
+      
+            <section id="dsts">
+              <div id="transBtn">
+                <div>
+                  <input class="b3-text-field fn__flex-center" id="dstBlockID" placeholder="目标块ID" />
+                </div>
+                <div>
+                  <button class="b3-button b3-button--outline fn__flex-center" id="transferBtn">
+                    转移到
+                  </button>
+                </div>
+              </div>
+      
+              <div id="dstOptions">
+                <h4>候选</h4>
+                ${(await queryFamilyPromise)
+                .map(
+                    (block) => `
+                  <label>
+                    <input type="radio" name="dstChoose" value="${block.id}" />
+                    ${block.hpath.split("/").pop()}
+                  </label>
+                `
+                )
+                .join("\n")}
+              </div>
+            </section>
+          </main>
+        `;
 
-        // Attach event listeners and perform any necessary DOM manipulations
+        this.checkboxTitle = container.querySelector("#checkboxTitle") as HTMLInputElement;
+        this.checkboxTitle.addEventListener("change", this.clickCheckboxTitle.bind(this));
+
+        container.querySelectorAll(".refChoose").forEach((checkbox) => {
+            checkbox.addEventListener("change", this.clickCheckboxBlock.bind(this));
+        });
+
+        container.querySelectorAll(".blockType").forEach((span) => {
+            span.addEventListener("click", (event: MouseEvent) => {
+                this.showSrcBlock(span.getAttribute("data-id") as BlockId, event);
+            });
+        });
+
+        const dstBlockIDInput = container.querySelector("#dstBlockID") as HTMLInputElement;
+        dstBlockIDInput.addEventListener("input", (event) => {
+            this.dstBlockID = (event.target as HTMLInputElement).value as BlockId;
+        });
+
+        container.querySelectorAll('input[name="dstChoose"]').forEach((radio) => {
+            radio.addEventListener("change", (event) => {
+                this.dstChoose = (event.target as HTMLInputElement).value;
+                this.dstBlockID = this.dstChoose as BlockId;
+            });
+        });
+
+        const transferBtn = container.querySelector("#transferBtn") as HTMLButtonElement;
+        transferBtn.addEventListener("click", this.transferRefs.bind(this));
     }
 }
