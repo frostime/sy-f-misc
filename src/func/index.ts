@@ -31,7 +31,8 @@ const ModulesToEnable = [
     op,
     ct,
     mw,
-    rj
+    rj,
+    docky
 ]
 
 //`Enable${module.name}`: module
@@ -47,7 +48,6 @@ export const load = (plugin: FMiscPlugin) => {
     });
 
     gt.load(plugin);
-    docky.load(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -56,7 +56,6 @@ export const unload = (plugin: FMiscPlugin) => {
     });
 
     gt.unload(plugin);
-    docky.unload(plugin);
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];

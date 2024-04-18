@@ -31,6 +31,7 @@ export const selectIconDialog = () => {
 const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
     const div = document.createElement('div');
     div.className = 'docky-panel-body';
+    div.dataset.dataNodeId = id;
     div.style.height = '100%';
     div.style.width = '100%';
     new Protyle(plugin.app, div, {
@@ -113,6 +114,8 @@ const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
     })
 }
 
+const addedBlocks: string[] = [];
+
 export let name = "";
 export let enabled = false;
 export const load = async (plugin: FMiscPlugin) => {
@@ -128,6 +131,15 @@ export const load = async (plugin: FMiscPlugin) => {
             console.warn(`Not a valid protyle rule: ${line}`)
         }
     });
+
+    let enable = plugin.getConfig('Docky', 'DockyEnableZoom');
+    let factor = plugin.getConfig('Docky', 'DockyZoomFactor');
+    if (enable === false) {
+        document.documentElement.style.setProperty('--plugin-docky-zoom', 'unset');
+    } else {
+        document.documentElement.style.setProperty('--plugin-docky-zoom', `${factor}`);
+    }
+
     enabled = true;
 }
 
