@@ -50,7 +50,7 @@ export class TransferRefsComponent {
         let children: Block[] | undefined = await getChildDocs(srcBlock.root_id);
         children = children ?? [];
         let candidates = children.sort((a, b) => {
-            return a.hpath.localeCompare(b.hpath);
+            return a.hpath.localeCompare(b.hpath) ?? 0;
         });
         if (parentId != null) {
             candidates.unshift(await api.getBlockByID(parentId));
@@ -124,8 +124,30 @@ export class TransferRefsComponent {
         }
     }
     public async render(container: HTMLElement) {
-        let queryRefsPromise = this.queryRefs();
-        let queryFamilyPromise = this.queryFamily();
+        let refBlockInfo = await this.queryRefs();
+        let candidates = await this.queryFamily();
+
+        const rows = refBlockInfo.map(
+            (block) => `
+            <div class="row">
+                <div class="cell-0">
+                <input type="checkbox" value="${block.id}" class="refChoose" />
+                </div>
+                <div class="cell b3-tooltips b3-tooltips__n blockType" aria-label="${block.id}">
+                <span class="blockType" data-id="${block.id}">${this.type2text(block.type)}</span>
+                </div>
+                <div class="cell">${block.notebook}</div>
+                <div class="cell">${block.doc}</div>
+                <div class="cell">${this.clipStr(block.content, 50)}</div>
+            </div>`
+        );
+        const options = candidates.map(
+            (block) => `
+            <label>
+                <input type="radio" name="dstChoose" value="${block.id}" />
+                ${block.hpath.split("/").pop()}
+            </label>`
+        );
 
         container.innerHTML = `
           <main id="main" class="fn__flex fn__flex-1">
@@ -140,23 +162,7 @@ export class TransferRefsComponent {
                   <div class="cell">文档</div>
                   <div class="cell">内容</div>
                 </div>
-                ${(await queryRefsPromise)
-                .map(
-                    (block) => `
-                  <div class="row">
-                    <div class="cell-0">
-                      <input type="checkbox" value="${block.id}" class="refChoose" />
-                    </div>
-                    <div class="cell b3-tooltips b3-tooltips__n blockType" aria-label="${block.id}">
-                      <span class="blockType" data-id="${block.id}">${this.type2text(block.type)}</span>
-                    </div>
-                    <div class="cell">${block.notebook}</div>
-                    <div class="cell">${block.doc}</div>
-                    <div class="cell">${this.clipStr(block.content, 50)}</div>
-                  </div>
-                `
-                )
-                .join("\n")}
+                ${rows.join("\n")}
               </div>
             </section>
       
@@ -176,16 +182,7 @@ export class TransferRefsComponent {
       
               <div id="dstOptions">
                 <h4>候选</h4>
-                ${(await queryFamilyPromise)
-                .map(
-                    (block) => `
-                  <label>
-                    <input type="radio" name="dstChoose" value="${block.id}" />
-                    ${block.hpath.split("/").pop()}
-                  </label>
-                `
-                )
-                .join("\n")}
+                ${options.join("\n")}
               </div>
             </section>
           </main>

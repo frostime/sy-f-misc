@@ -23,15 +23,9 @@ export function isnot(value: any) {
     return false;
 }
 
-export async function getChildDocs(documentId: DocumentId): Promise<Block[]> {
-    let doc: Block = await api.getBlockByID(documentId);
-    if (!doc) {
-        return null;
-    }
-    let box = doc.box;
-    let path = doc.path;
-
-    let data = await api.listDocsByPath(box, path);
-    let ids = data?.files.map((item) => item.id);
-    return ids ?? [];
+export async function getChildDocs(block: BlockId) {
+    let sqlCode = `select * from blocks where path regexp '.*/${block}/[0-9a-z\-]+\.sy' and type='d'
+    order by hpath desc limit 64;`;
+    let childDocs = await api.sql(sqlCode);
+    return childDocs;
 }
