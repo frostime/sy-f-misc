@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-18 19:59:58
+ * @LastEditTime : 2024-04-18 20:07:43
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -44,6 +44,13 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
+        title: 'Titled link',
+        description: '启用获取标题功能',
+        key: 'EnableTitledLink',
+        value: true
+    },
+    {
+        type: 'checkbox',
         title: '更换主题',
         description: '启用更换主题功能',
         key: 'EnableChangeTheme',
@@ -51,16 +58,16 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
-        title: 'On paste',
-        description: '启用重写粘贴事件功能',
-        key: 'EnableOnPaste',
+        title: '转移引用',
+        description: '启用转移引用功能',
+        key: 'EnableTransferRef',
         value: true
     },
     {
         type: 'checkbox',
-        title: 'Titled link',
-        description: '启用获取标题功能',
-        key: 'EnableTitledLink',
+        title: 'On paste',
+        description: '启用重写粘贴事件功能',
+        key: 'EnableOnPaste',
         value: true
     },
     {

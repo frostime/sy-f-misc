@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-18 19:56:32
+ * @LastEditTime : 2024-04-18 20:19:09
  * @Description  : 
  */
 import {
@@ -51,6 +51,7 @@ export default class FMiscPlugin extends Plugin {
                 EnableChangeTheme: boolean;
                 EnableMiniWindow: boolean;
                 EnableDocky: boolean;
+                EnableTransferRef: boolean;
             };
             'Docky': {
                 DockyEnableZoom: boolean;
@@ -66,7 +67,7 @@ export default class FMiscPlugin extends Plugin {
         const frontEnd = getFrontend();
         this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
-        this.addIcons([Svg.Vertical, Svg.Theme].join(''));
+        this.addIcons([Svg.Vertical, Svg.Theme, Svg.Transfer].join(''));
         this.settingUI = await initSetting(this);
         load(this);
 
