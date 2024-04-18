@@ -38,7 +38,9 @@ export class SettingItem {
                 textareaElement.className = "b3-text-field fn__block";
                 textareaElement.style.resize = 'vertical';
                 textareaElement.style.height = '10em';
-                textareaElement.style.fontSize = '120%';
+                //不折行
+                textareaElement.style.whiteSpace = 'nowrap';
+                // textareaElement.style.fontSize = '120%';
                 // textareaElement.style.fontFamily = 'var(--b3-font-family-code)';
                 textareaElement.value = this.item.value;
                 inputElement = textareaElement;

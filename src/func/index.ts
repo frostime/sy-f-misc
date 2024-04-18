@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-04-18 20:20:51
+ * @LastEditTime : 2024-04-18 22:26:29
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -17,12 +17,13 @@ import * as mw from './mini-window';
 import * as rj from './run-js';
 import * as docky from './docky';
 import * as tr from './transfer-ref';
+import * as fb from './fake-breadcrumb';
 
 interface IFuncModule {
     name: string;
     enabled: boolean;
     load: (plugin: FMiscPlugin) => void;
-    unload: (plugin: FMiscPlugin) => void;
+    unload: (plugin?: FMiscPlugin) => void;
 }
 
 const ModulesToEnable = [
@@ -34,7 +35,8 @@ const ModulesToEnable = [
     mw,
     rj,
     docky,
-    tr
+    tr,
+    fb
 ]
 
 //`Enable${module.name}`: module

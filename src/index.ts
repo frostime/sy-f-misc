@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-18 20:19:09
+ * @LastEditTime : 2024-04-18 22:11:25
  * @Description  : 
  */
 import {
@@ -52,6 +52,7 @@ export default class FMiscPlugin extends Plugin {
                 EnableMiniWindow: boolean;
                 EnableDocky: boolean;
                 EnableTransferRef: boolean;
+                EnableFakeBreadcrumb: boolean;
             };
             'Docky': {
                 DockyEnableZoom: boolean;

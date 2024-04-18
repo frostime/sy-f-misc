@@ -37,6 +37,13 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
+        title: '文档面包屑',
+        description: '启用文档面包屑功能',
+        key: 'EnableFakeBreadcrumb',
+        value: false
+    },
+    {
+        type: 'checkbox',
         title: 'Insert time',
         description: '启用插入时间功能',
         key: 'EnableInsertTime',
