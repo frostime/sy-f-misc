@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-18 16:47:23
+ * @LastEditTime : 2024-04-18 17:33:33
  * @Description  : 
  */
 import {
@@ -50,7 +50,12 @@ export default class FMiscPlugin extends Plugin {
                 EnableTitledLink: boolean;
                 EnableChangeTheme: boolean;
                 EnableMiniWindow: boolean;
-            }
+            };
+            'Docky': {
+                DockyEnableZoom: boolean;
+                DockyZoomFactor: number;
+                DockyProtyle: string;
+            };
         };
     }
 
@@ -144,6 +149,7 @@ export default class FMiscPlugin extends Plugin {
     async loadConfigs() {
         let currentData = this.data[StorageName];
         let outData = await this.loadData(StorageName);
+        console.debug('导入', outData);
         if (!outData) {
             return;
         }

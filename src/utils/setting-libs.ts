@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-18 16:48:12
+ * @LastEditTime : 2024-04-18 17:05:56
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';

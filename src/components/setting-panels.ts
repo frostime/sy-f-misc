@@ -95,7 +95,7 @@ export class SettingItem {
      * 更新值
     */
     updateValue(value: any) {
-        const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select');
+        const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select, textarea');
         if (inputElement) {
             if (inputElement instanceof HTMLInputElement && inputElement.type === 'checkbox') {
                 inputElement.checked = value;
@@ -107,7 +107,7 @@ export class SettingItem {
 
     bindChangedEvent(cb: (detail: KV) => void) {
         this.element.addEventListener('change', () => {
-            const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select');
+            const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select, textarea');
             if (inputElement) {
                 let value: any;
                 if (inputElement instanceof HTMLInputElement && inputElement.type === 'checkbox') {
