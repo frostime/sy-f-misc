@@ -5,9 +5,9 @@ import type FMiscPlugin from "@/index";
 export const selectIconDialog = () => {
     const symbols = document.querySelectorAll('symbol');
     const html = `
-    <div class="icons" style="width: 100%; height: 100%;">
+    <div class="icons" style="margin: 10px;">
         ${Array.from(symbols).map(symbol => {
-            return `<svg style="width: 20px; height: 20px; padding: 5px;"><use xlink:href="#${symbol.id}"></use></svg>`
+            return `<svg style="width: 20px; height: 20px; padding: 5px; cursor: pointer;"><use xlink:href="#${symbol.id}"></use></svg>`
         }).join('\n')}
     </div>
     `;
@@ -19,12 +19,17 @@ export const selectIconDialog = () => {
     });
     dialog.element.querySelector('.icons').addEventListener('click', (e) => {
         const target = e.target as SVGElement;
-        if (target.tagName === 'use') {
-            const icon = target.getAttribute('xlink:href').replace('#', '');
-            navigator.clipboard.writeText(icon).then(() => {
-                showMessage(`复制到剪贴板: #${icon}`);
-            });
+        let icon = '';
+        if (target.tagName === 'svg') {
+            icon = target.querySelector('use').getAttribute('xlink:href').replace('#', '');
+        } else if (target.tagName === 'use') {
+            icon = target.getAttribute('xlink:href').replace('#', '');
+        } else {
+            return;
         }
+        navigator.clipboard.writeText(icon).then(() => {
+            showMessage(`复制到剪贴板: #${icon}`, 2000);
+        });
     });
 }
 
@@ -34,7 +39,6 @@ const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
     div.dataset.nodeId = id;
     div.style.height = '100%';
     div.style.width = '100%';
-    div.style.padding = '10px';
     new Protyle(plugin.app, div, {
         action: ['cb-get-all'],
         blockId: id,
