@@ -65,6 +65,7 @@ const Enable: ISettingItem[] = [
 
 
 export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
+    //1. 初始化 setting dialog
     const settingDialog = new SettingGroupsPanel();
     settingDialog.addGroup({key: 'Enable', text: '✅ 启用功能'}, Enable);
     settingDialog.render();
@@ -79,6 +80,7 @@ export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
         onChanged(group, key, value);
     });
 
+    //2. 初始化 plugin settings 配置
     let configs = {}
     configs['Enable'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
     //@ts-ignore

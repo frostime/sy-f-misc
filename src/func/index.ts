@@ -15,6 +15,7 @@ import * as gt from './global-this';
 import * as ct from './change-theme';
 import * as mw from './mini-window';
 import * as rj from './run-js';
+import * as docky from './docky';
 
 interface IFuncModule {
     name: string;
@@ -46,7 +47,7 @@ export const load = (plugin: FMiscPlugin) => {
     });
 
     gt.load(plugin);
-    console.debug(`Load ${gt.name}`);
+    docky.load(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -55,6 +56,7 @@ export const unload = (plugin: FMiscPlugin) => {
     });
 
     gt.unload(plugin);
+    docky.unload(plugin);
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];
