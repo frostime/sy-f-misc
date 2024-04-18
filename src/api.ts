@@ -15,33 +15,6 @@ export async function request(url: string, data: any) {
     return res;
 }
 
-// **************************************** Bazaar ****************************************
-
-export async function getBazaarTheme(): Promise<ITheme[] | null> {
-    let data = await request('api/bazaar/getBazaarTheme', {});
-    return data?.packages ?? null;
-}
-
-// api/bazaar/installBazaarTheme
-export async function installBazaarTheme(theme: ITheme): Promise<boolean> {
-    let payload = {
-        frontend: "desktop",
-        mode: "light" in theme.modes ? 0 : 1,
-        packageName: theme.name,
-        repoHash: theme.repoHash,
-        repoURL: theme.repoURL
-    }
-    let data = await request('api/bazaar/installBazaarTheme', payload);
-    return data?.success ?? false;
-}
-
-export async function getInstalledTheme(frontend: string) {
-    let data = {
-        frontend: frontend,
-    }
-    return request('api/bazaar/getInstalledTheme', data);
-}
-
 // **************************************** Noteboook ****************************************
 
 
@@ -96,6 +69,22 @@ export async function setNotebookConf(notebook: NotebookId, conf: NotebookConf):
 
 
 // **************************************** File Tree ****************************************
+export async function listDocTree(notebook: NotebookId, path: string): Promise<IDocTreeNode[]> {
+    let data = {
+        notebook: notebook,
+        path: path
+    }
+    let url = '/api/filetree/listDocTree';
+    let resData = await request(url, data);
+    return resData?.tree;
+}
+
+export async function listDocsByPath(notebook: NotebookId, path: string) {
+    let url = '/api/filetree/listDocsByPath'
+    let payload = { notebook: notebook, path: path };
+    return request(url, payload);
+}
+
 export async function createDocWithMd(notebook: NotebookId, path: string, markdown: string): Promise<DocumentId> {
     let data = {
         notebook: notebook,
@@ -169,25 +158,14 @@ export async function getIDsByHPath(notebook: NotebookId, path: string): Promise
 
 // **************************************** Asset Files ****************************************
 
-// New function to handle multipart/form-data
-export const requestFormData = async (url: string, formData: FormData): Promise<any> => {
-    const response = await fetch(url, {
-        method: "POST",
-        body: formData,
-    });
-    const jsonResponse = await response.json() as IWebSocketData;
-    let data = jsonResponse.code === 0 ? jsonResponse.data : null;
-    return data;
-};
-
 export async function upload(assetsDirPath: string, files: any[]): Promise<IResUpload> {
-    const form = new FormData();
+    let form = new FormData();
     form.append('assetsDirPath', assetsDirPath);
-    for (const file of files) {
+    for (let file of files) {
         form.append('file[]', file);
     }
-    const url = '/api/asset/upload';
-    return requestFormData(url, form);
+    let url = '/api/asset/upload';
+    return request(url, form);
 }
 
 // **************************************** Block ****************************************
@@ -306,6 +284,15 @@ export async function transferBlockRef(fromID: BlockId, toID: BlockId, refIDs: B
     return request(url, data);
 }
 
+
+// /api/block/getBlockBreadcrumb
+export async function getBlockBreadcrumb(id: BlockId) {
+    let payload = { id: id, excludeTypes: [] };
+    let url = '/api/block/getBlockBreadcrumb';
+    return request(url, payload);
+}
+
+
 // **************************************** Attributes ****************************************
 export async function setBlockAttrs(id: BlockId, attrs: { [key: string]: string }) {
     let data = {
@@ -373,7 +360,7 @@ export async function getFile(path: string): Promise<any> {
     }
 }
 
-export async function putFile(path: string, isDir: boolean, file: File) {
+export async function putFile(path: string, isDir: boolean, file: any) {
     let form = new FormData();
     form.append('path', path);
     form.append('isDir', isDir.toString());
