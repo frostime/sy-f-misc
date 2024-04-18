@@ -18,7 +18,7 @@ export class SettingItem {
             <span class="fn__space"></span>
         `;
 
-        let inputElement: HTMLInputElement | HTMLButtonElement | HTMLSelectElement;
+        let inputElement: HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement;
 
         switch (this.item.type) {
             case 'checkbox':
@@ -32,6 +32,20 @@ export class SettingItem {
                 inputElement.className = 'b3-text-field fn__flex-center fn__size200';
                 inputElement.placeholder = this.item.placeholder || '';
                 inputElement.value = this.item.value;
+                break;
+            case 'textarea':
+                let textareaElement: HTMLTextAreaElement = document.createElement('textarea');
+                textareaElement.className = "b3-text-field fn__block";
+                textareaElement.style.resize = 'vertical';
+                textareaElement.style.height = '10em';
+                textareaElement.style.fontSize = '120%';
+                // textareaElement.style.fontFamily = 'var(--b3-font-family-code)';
+                textareaElement.value = this.item.value;
+                inputElement = textareaElement;
+                this.element.style.flexDirection = 'column';
+                let span = this.element.querySelector('span.fn__space') as HTMLElement;
+                span.style.height = '8px';
+                span.style.width = 'unset';
                 break;
             case 'number':
                 inputElement = document.createElement('input');
@@ -57,18 +71,17 @@ export class SettingItem {
                 inputElement.value = this.item.value;
                 break;
             case 'slider':
-                const wrapper = document.createElement('div');
-                wrapper.className = 'b3-tooltips b3-tooltips__n';
-                wrapper.setAttribute('aria-label', this.item.value);
                 inputElement = document.createElement('input');
-                inputElement.className = 'b3-slider fn__size200';
+                inputElement.className = 'b3-slider fn__size200 b3-tooltips b3-tooltips__s';
                 inputElement.type = 'range';
                 inputElement.min = String(this.item.slider?.min || 0);
                 inputElement.max = String(this.item.slider?.max || 100);
                 inputElement.step = String(this.item.slider?.step || 1);
                 inputElement.value = this.item.value;
-                wrapper.appendChild(inputElement);
-                this.element.appendChild(wrapper);
+                inputElement.ariaLabel = this.item.value;
+                inputElement.onchange = () => {
+                    inputElement.ariaLabel = inputElement.value;
+                }
                 break;
         }
 
@@ -82,7 +95,7 @@ export class SettingItem {
      * 更新值
     */
     updateValue(value: any) {
-        const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select');
+        const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select, textarea');
         if (inputElement) {
             if (inputElement instanceof HTMLInputElement && inputElement.type === 'checkbox') {
                 inputElement.checked = value;
@@ -94,7 +107,7 @@ export class SettingItem {
 
     bindChangedEvent(cb: (detail: KV) => void) {
         this.element.addEventListener('change', () => {
-            const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select');
+            const inputElement: HTMLInputElement | HTMLSelectElement = this.element.querySelector('input, select, textarea');
             if (inputElement) {
                 let value: any;
                 if (inputElement instanceof HTMLInputElement && inputElement.type === 'checkbox') {
@@ -220,7 +233,7 @@ export class SettingGroupsPanel {
         this.element.innerHTML = `
             <ul class="b3-tab-bar b3-list b3-list--background">
                 ${this.groups.map(group => `
-                    <li class="b3-list-item${group.key === this.focusGroupKey ? ' b3-list-item--focus' : ''}" data-name="${group}">
+                    <li class="b3-list-item${group.key === this.focusGroupKey ? ' b3-list-item--focus' : ''}" data-name="${group.key}">
                         <span class="b3-list-item__text">${group.text}</span>
                     </li>
                 `).join('')}

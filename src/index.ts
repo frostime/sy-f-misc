@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-06 18:42:19
+ * @LastEditTime : 2024-04-18 17:33:33
  * @Description  : 
  */
 import {
@@ -50,7 +50,12 @@ export default class FMiscPlugin extends Plugin {
                 EnableTitledLink: boolean;
                 EnableChangeTheme: boolean;
                 EnableMiniWindow: boolean;
-            }
+            };
+            'Docky': {
+                DockyEnableZoom: boolean;
+                DockyZoomFactor: number;
+                DockyProtyle: string;
+            };
         };
     }
 
@@ -121,6 +126,15 @@ export default class FMiscPlugin extends Plugin {
         if (group === 'Enable') {
             //@ts-ignore
             toggleEnable(this, key, value);
+        } else if (group == 'Docky') {
+            if (key === 'DockyProtyle') return;
+            let enable = this.getConfig('Docky', 'DockyEnableZoom');
+            let factor = this.getConfig('Docky', 'DockyZoomFactor');
+            if (enable === false) {
+                document.documentElement.style.setProperty('--plugin-docky-zoom', 'unset');
+            } else {
+                document.documentElement.style.setProperty('--plugin-docky-zoom', `${factor}`);
+            }
         }
     }
 
@@ -135,6 +149,7 @@ export default class FMiscPlugin extends Plugin {
     async loadConfigs() {
         let currentData = this.data[StorageName];
         let outData = await this.loadData(StorageName);
+        console.debug('导入', outData);
         if (!outData) {
             return;
         }

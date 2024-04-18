@@ -7,6 +7,14 @@
  * @Description  : 
  */
 
+interface IDockyBlock {
+    id: string;
+    name: string;
+    position: 'RightTop' | 'RightBottom' | 'LeftTop' | 'LeftBottom';
+    icon?: string;
+    hotkey?: string;
+}
+
 type TSettingItemType = "checkbox" | "select" | "textinput" | "textarea" | "number" | "slider" | "button" | "hint";
 interface ISettingItem {
     key: string;
