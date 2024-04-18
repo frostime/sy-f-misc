@@ -3,12 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-18 17:05:56
+ * @LastEditTime : 2024-04-18 18:05:45
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
 import { SettingGroupsPanel} from '@/components/setting-panels';
 // import { Module } from '@/func';
+import { selectIconDialog } from '@/func/docky';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
 const Enable: ISettingItem[] = [
@@ -82,6 +83,16 @@ const Docky: ISettingItem[] = [
             min: 0.5,
             max: 1,
             step: 0.01,
+        }
+    },
+    {
+        type: 'button',
+        title: '选择图标',
+        key: 'DockySelectIcon',
+        value: '',
+        button: {
+            label: '选择图标',
+            callback: selectIconDialog
         }
     },
     {

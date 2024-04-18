@@ -1,6 +1,32 @@
-import { Protyle } from "siyuan";
+import { Protyle, Dialog, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 // import * as api from '../api';
+
+export const selectIconDialog = () => {
+    const symbols = document.querySelectorAll('symbol');
+    const html = `
+    <div class="icons" style="width: 100%; height: 100%;">
+        ${Array.from(symbols).map(symbol => {
+            return `<svg style="width: 20px; height: 20px; padding: 5px;"><use xlink:href="#${symbol.id}"></use></svg>`
+        }).join('\n')}
+    </div>
+    `;
+    const dialog = new Dialog({
+        title: '选择图标',
+        content: html,
+        width: '500px',
+        height: '400px',
+    });
+    dialog.element.querySelector('.icons').addEventListener('click', (e) => {
+        const target = e.target as SVGElement;
+        if (target.tagName === 'use') {
+            const icon = target.getAttribute('xlink:href').replace('#', '');
+            navigator.clipboard.writeText(icon).then(() => {
+                showMessage(`复制到剪贴板: #${icon}`);
+            });
+        }
+    });
+}
 
 const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
     const div = document.createElement('div');
