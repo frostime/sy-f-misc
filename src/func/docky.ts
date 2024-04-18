@@ -31,9 +31,10 @@ export const selectIconDialog = () => {
 const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
     const div = document.createElement('div');
     div.className = 'docky-panel-body';
-    div.dataset.dataNodeId = id;
+    div.dataset.nodeId = id;
     div.style.height = '100%';
     div.style.width = '100%';
+    div.style.padding = '10px';
     new Protyle(plugin.app, div, {
         action: ['cb-get-all'],
         blockId: id,
@@ -93,7 +94,7 @@ const parseProtyle = (line: string): IDockyBlock => {
 
 const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
     plugin.addDock({
-        type: 'docky' + dock.id,
+        type: '_docky_' + dock.id,
         config: {
             position: dock.position || 'LeftBottom',
             size: {
@@ -114,9 +115,9 @@ const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
     })
 }
 
-const addedBlocks: string[] = [];
+// const addedBlocks: string[] = [];
 
-export let name = "";
+export let name = "Docky";
 export let enabled = false;
 export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
