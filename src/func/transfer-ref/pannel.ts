@@ -28,7 +28,7 @@ export class TransferRefsComponent {
             this.refBlockInfo.push({
                 id: block.id,
                 type: block.type,
-                notebook: getNotebook(block.box) ?? block.box,
+                notebook: getNotebook(block.box)?.name ?? block.box,
                 doc: block.hpath,
                 content: block.content,
             });
@@ -150,7 +150,7 @@ export class TransferRefsComponent {
         );
 
         container.innerHTML = `
-          <main id="main" class="fn__flex fn__flex-1">
+          <main id="main" class="fn__flex fn__flex-1 transfer-ref">
             <section id="refs" class="fn__flex-1">
               <div class="refs-table">
                 <div class="row header">
