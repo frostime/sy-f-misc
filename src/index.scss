@@ -1,3 +1,7 @@
+:root {
+    --plugin-docky-zoom: unset;
+}
+
 div.plugin-insert-time__conf-item {
     div.form-row {
         display: flex;
@@ -16,4 +20,9 @@ svg.highlight-icon {
 svg.highlight-icon ~ span.b3-menu__label {
     color: var(--b3-theme-primary);
     font-weight: 500;
+}
+
+
+.docky-panel-body.protyle {
+    zoom: var(--plugin-docky-zoom);
 }

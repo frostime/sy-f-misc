@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-18 16:10:39
+ * @LastEditTime : 2024-04-18 16:34:46
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -63,19 +63,33 @@ const Enable: ISettingItem[] = [
     }
 ];
 
-//一些控制参数的配置
-const Parameters: ISettingItem[] = [
+//侧边栏
+const Docky: ISettingItem[] = [
+    {
+        type: 'checkbox',
+        title: '缩放 Protyle',
+        description: '是否缩放侧边栏 Protyle',
+        key: 'DockyEnableZoom',
+        value: true
+    },
     {
         type: 'slider',
-        title: '侧边栏 Zoom',
-        description: '缩放侧边栏内的 Protyle',
-        key: 'DockyZoom',
+        title: '缩放因子',
+        description: '对 Protyle 缩放的 zoom 因子',
+        key: 'DockyZoomFactor',
         value: 0.75,
         slider: {
             min: 0.5,
             max: 1,
             step: 0.05,
         }
+    },
+    {
+        type: 'textarea',
+        title: 'Protyle 配置',
+        description: '加入侧边栏的 Protyle, 用换行符分割<br/>e.g. id: xxx, name: xxx, position: xxx, icon?: xxx, hotkey?: xxx',
+        key: 'DockyProtyle',
+        value: ''
     },
 ];
 
@@ -84,7 +98,7 @@ export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
     //1. 初始化 setting dialog
     const settingDialog = new SettingGroupsPanel();
     settingDialog.addGroup({key: 'Enable', text: '✅ 启用功能'}, Enable);
-    settingDialog.addGroup({key: 'Parameters', text: '🔧 控制参数'}, Parameters);
+    settingDialog.addGroup({key: 'Docky', text: '⛩️ 侧边栏显示'}, Docky);
     settingDialog.render();
 
     settingDialog.bindChangedEvent(({ group, key, value }) => {
@@ -100,7 +114,7 @@ export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
     //2. 初始化 plugin settings 配置
     let configs = {}
     configs['Enable'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
-    configs['Parameters'] = Object.fromEntries(Parameters.map(item => [item.key, item.value]));
+    configs['Docky'] = Object.fromEntries(Docky.map(item => [item.key, item.value]));
     //@ts-ignore
     plugin.data['configs'] = configs;
 

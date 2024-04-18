@@ -18,7 +18,7 @@ export class SettingItem {
             <span class="fn__space"></span>
         `;
 
-        let inputElement: HTMLInputElement | HTMLButtonElement | HTMLSelectElement;
+        let inputElement: HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement;
 
         switch (this.item.type) {
             case 'checkbox':
@@ -32,6 +32,20 @@ export class SettingItem {
                 inputElement.className = 'b3-text-field fn__flex-center fn__size200';
                 inputElement.placeholder = this.item.placeholder || '';
                 inputElement.value = this.item.value;
+                break;
+            case 'textarea':
+                let textareaElement: HTMLTextAreaElement = document.createElement('textarea');
+                textareaElement.className = "b3-text-field fn__block";
+                textareaElement.style.resize = 'vertical';
+                textareaElement.style.height = '10em';
+                textareaElement.style.fontSize = '120%';
+                // textareaElement.style.fontFamily = 'var(--b3-font-family-code)';
+                textareaElement.value = this.item.value;
+                inputElement = textareaElement;
+                this.element.style.flexDirection = 'column';
+                let span = this.element.querySelector('span.fn__space') as HTMLElement;
+                span.style.height = '8px';
+                span.style.width = 'unset';
                 break;
             case 'number':
                 inputElement = document.createElement('input');
