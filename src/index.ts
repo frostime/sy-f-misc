@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-18 18:15:23
+ * @LastEditTime : 2024-04-18 19:56:32
  * @Description  : 
  */
 import {
@@ -67,7 +67,7 @@ export default class FMiscPlugin extends Plugin {
         this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         this.addIcons([Svg.Vertical, Svg.Theme].join(''));
-        this.settingUI = await initSetting(this, this.onSettingChanged.bind(this));
+        this.settingUI = await initSetting(this);
         load(this);
 
         //Default functions
@@ -119,23 +119,6 @@ export default class FMiscPlugin extends Plugin {
         let div = dialog.element.querySelector("#SettingPanel");
         if (div) {
             div.appendChild(this.settingUI.element);
-        }
-    }
-
-    onSettingChanged(group: string, key: string, value: any) {
-        //动态启用或禁用功能
-        if (group === 'Enable') {
-            //@ts-ignore
-            toggleEnable(this, key, value);
-        } else if (group == 'Docky') {
-            if (key === 'DockyProtyle') return;
-            let enable = this.getConfig('Docky', 'DockyEnableZoom');
-            let factor = this.getConfig('Docky', 'DockyZoomFactor');
-            if (enable === false) {
-                document.documentElement.style.setProperty('--plugin-docky-zoom', 'unset');
-            } else {
-                document.documentElement.style.setProperty('--plugin-docky-zoom', `${factor}`);
-            }
         }
     }
 

@@ -3,13 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-18 18:20:31
+ * @LastEditTime : 2024-04-18 19:59:58
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
 import { SettingGroupsPanel} from '@/components/setting-panels';
 // import { Module } from '@/func';
 import { selectIconDialog } from '@/func/docky';
+import { toggleEnable } from '@/func';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
 const Enable: ISettingItem[] = [
@@ -112,7 +113,25 @@ const Docky: ISettingItem[] = [
 ];
 
 
-export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
+const onSettingChanged = (plugin: FMiscPlugin, group: string, key: string, value: string) => {
+    //动态启用或禁用功能
+    if (group === 'Enable') {
+        //@ts-ignore
+        toggleEnable(plugin, key, value);
+    } else if (group == 'Docky') {
+        if (key === 'DockyProtyle') return;
+        let enable = plugin.getConfig('Docky', 'DockyEnableZoom');
+        let factor = plugin.getConfig('Docky', 'DockyZoomFactor');
+        if (enable === false) {
+            document.documentElement.style.setProperty('--plugin-docky-zoom', 'unset');
+        } else {
+            document.documentElement.style.setProperty('--plugin-docky-zoom', `${factor}`);
+        }
+    }
+}
+
+
+export const initSetting = async (plugin: FMiscPlugin) => {
     //1. 初始化 setting dialog
     const settingDialog = new SettingGroupsPanel();
     settingDialog.addGroup({key: 'Enable', text: '✅ 启用功能'}, Enable);
@@ -126,7 +145,7 @@ export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
             pluginConfigs[group][key] = value;
         }
         plugin.saveConfigs();
-        onChanged(group, key, value);
+        onSettingChanged(plugin, group, key, value);
     });
 
     //2. 初始化 plugin settings 配置
