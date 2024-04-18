@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-18 16:08:40
+ * @LastEditTime : 2024-04-18 16:10:39
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -100,11 +100,12 @@ export const initSetting = async (plugin: FMiscPlugin, onChanged) => {
     //2. 初始化 plugin settings 配置
     let configs = {}
     configs['Enable'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
+    configs['Parameters'] = Object.fromEntries(Parameters.map(item => [item.key, item.value]));
     //@ts-ignore
     plugin.data['configs'] = configs;
 
-    await plugin.loadConfigs(); //导入并合并配置
-
+    //3. 导入文件并合并配置
+    await plugin.loadConfigs(); 
     for (let groupName in plugin.data['configs']) {
         let groupConfig = plugin.data['configs'][groupName];
         settingDialog.updateValues(groupName, groupConfig);

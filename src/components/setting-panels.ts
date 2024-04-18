@@ -57,18 +57,17 @@ export class SettingItem {
                 inputElement.value = this.item.value;
                 break;
             case 'slider':
-                const wrapper = document.createElement('div');
-                wrapper.className = 'b3-tooltips b3-tooltips__n';
-                wrapper.setAttribute('aria-label', this.item.value);
                 inputElement = document.createElement('input');
-                inputElement.className = 'b3-slider fn__size200';
+                inputElement.className = 'b3-slider fn__size200 b3-tooltips b3-tooltips__s';
                 inputElement.type = 'range';
                 inputElement.min = String(this.item.slider?.min || 0);
                 inputElement.max = String(this.item.slider?.max || 100);
                 inputElement.step = String(this.item.slider?.step || 1);
                 inputElement.value = this.item.value;
-                wrapper.appendChild(inputElement);
-                this.element.appendChild(wrapper);
+                inputElement.ariaLabel = this.item.value;
+                inputElement.onchange = () => {
+                    inputElement.ariaLabel = inputElement.value;
+                }
                 break;
         }
 
@@ -220,7 +219,7 @@ export class SettingGroupsPanel {
         this.element.innerHTML = `
             <ul class="b3-tab-bar b3-list b3-list--background">
                 ${this.groups.map(group => `
-                    <li class="b3-list-item${group.key === this.focusGroupKey ? ' b3-list-item--focus' : ''}" data-name="${group}">
+                    <li class="b3-list-item${group.key === this.focusGroupKey ? ' b3-list-item--focus' : ''}" data-name="${group.key}">
                         <span class="b3-list-item__text">${group.text}</span>
                     </li>
                 `).join('')}
