@@ -7,11 +7,14 @@ import { BlockTypeShort } from "@/utils/const";
 
 export class TransferRefsComponent {
     private plugin: FMiscPlugin;
-    private srcBlockID: BlockId;
-    private refBlockInfo: any[] = [];
-    private checkboxTitle: HTMLInputElement;
-    private dstChoose: string = "";
-    private refChoose: BlockId[] = [];
+    private srcBlockID: BlockId; // 被引用的块
+    private refBlockInfo: any[] = [];  //引用 src 块的块
+
+    private element: HTMLElement;
+    private checkboxTitle: HTMLInputElement;  //顶部的全选框
+
+    private dstChoose: string = "";  //右侧选中的转移目标块
+    private refChoose: BlockId[] = []; //左侧选中的需要被引用的块
     private dstBlockID: BlockId = "";
 
     constructor(plugin: FMiscPlugin, srcBlockID: BlockId) {
@@ -92,18 +95,26 @@ export class TransferRefsComponent {
         return text ?? btype;
     }
 
-    private clickCheckboxBlock() {
-        if (this.checkboxTitle) {
-            if (this.refChoose.length === 0) {
-                this.checkboxTitle.checked = false;
-                this.checkboxTitle.indeterminate = false;
-            } else if (this.refChoose.length === this.refBlockInfo.length) {
-                this.checkboxTitle.checked = true;
-                this.checkboxTitle.indeterminate = false;
-            } else {
-                this.checkboxTitle.checked = false;
-                this.checkboxTitle.indeterminate = true;
-            }
+    //input checkbox change
+    private clickCheckboxBlock(event: InputEvent) {
+        let checkbox = event.target as HTMLInputElement;
+        let blockId = checkbox.value;
+        let checked = checkbox.checked;
+        if (checked) {
+            this.refChoose.push(blockId);
+        } else {
+            this.refChoose = this.refChoose.filter((id) => id !== blockId);
+        }
+
+        if (this.refChoose.length === 0) {
+            this.checkboxTitle.checked = false;
+            this.checkboxTitle.indeterminate = false;
+        } else if (this.refChoose.length === this.refBlockInfo.length) {
+            this.checkboxTitle.checked = true;
+            this.checkboxTitle.indeterminate = false;
+        } else {
+            this.checkboxTitle.checked = false;
+            this.checkboxTitle.indeterminate = true;
         }
     }
 
@@ -114,6 +125,9 @@ export class TransferRefsComponent {
         } else {
             this.refChoose = [];
         }
+        this.element.querySelectorAll(".refChoose").forEach((checkbox: HTMLInputElement) => {
+            checkbox.checked = checked;
+        });
     }
 
     private clipStr(str: string, len: number): string {
@@ -188,32 +202,41 @@ export class TransferRefsComponent {
           </main>
         `;
 
+        //点击顶端的 checkbox, 全选、全不选
         this.checkboxTitle = container.querySelector("#checkboxTitle") as HTMLInputElement;
         this.checkboxTitle.addEventListener("change", this.clickCheckboxTitle.bind(this));
 
+        //点击下方每个 row 的 checkbox
         container.querySelectorAll(".refChoose").forEach((checkbox) => {
             checkbox.addEventListener("change", this.clickCheckboxBlock.bind(this));
         });
 
+        //点击按钮，弹出 Protyle 预览
         container.querySelectorAll(".blockType").forEach((span) => {
             span.addEventListener("click", (event: MouseEvent) => {
                 this.showSrcBlock(span.getAttribute("data-id") as BlockId, event);
             });
         });
 
+        //在输入框中输入目标块 ID
         const dstBlockIDInput = container.querySelector("#dstBlockID") as HTMLInputElement;
         dstBlockIDInput.addEventListener("input", (event) => {
             this.dstBlockID = (event.target as HTMLInputElement).value as BlockId;
         });
 
+        //点击右侧的 radio，选择目标块
         container.querySelectorAll('input[name="dstChoose"]').forEach((radio) => {
             radio.addEventListener("change", (event) => {
                 this.dstChoose = (event.target as HTMLInputElement).value;
                 this.dstBlockID = this.dstChoose as BlockId;
+                dstBlockIDInput.value = this.dstBlockID;
             });
         });
 
+        //点击按钮，转移
         const transferBtn = container.querySelector("#transferBtn") as HTMLButtonElement;
         transferBtn.addEventListener("click", this.transferRefs.bind(this));
+
+        this.element = container;
     }
 }
