@@ -50,16 +50,16 @@ export let name = "TransferRef";
 export let enabled = false;
 export const load = (plugin_: FMiscPlugin) => {
     if (enabled) return;
+    plugin_.eventBus.on("click-blockicon", onBlockGutterClicked);
+    plugin_.eventBus.on("click-editortitleicon", onDocGutterClicked);
     plugin = plugin_;
-    plugin.eventBus.on("click-blockicon", onBlockGutterClicked);
-    plugin.eventBus.on("click-editortitleicon", onDocGutterClicked);
     enabled = true;
 }
 
 export const unload = (plugin_: FMiscPlugin) => {
     if (!enabled) return;
+    plugin_.eventBus.off("click-blockicon", onBlockGutterClicked);
+    plugin_.eventBus.off("click-editortitleicon", onDocGutterClicked);
     plugin = null;
-    plugin.eventBus.off("click-blockicon", onBlockGutterClicked);
-    plugin.eventBus.off("click-editortitleicon", onDocGutterClicked);
     enabled = false;
 }
