@@ -3,12 +3,11 @@
  * @Author       : choyy, frostime
  * @Date         : 2024-04-19 13:13:57
  * @FilePath     : /src/func/simple-search/core.ts
- * @LastEditTime : 2024-04-19 13:26:22
+ * @LastEditTime : 2024-04-19 14:29:02
  * @Description  : 拷贝「简易搜索插件」 v0.2.0
  * @Source       : https://github.com/choyy/simple-search/blob/v0.2.0/index.js
  */
 import * as siyuan from "siyuan";
-import type FMiscPlugin from "@/index";
 
 
 const querySelector = (selector: string) => document.querySelector(selector) as HTMLElement;
@@ -169,6 +168,7 @@ function translateSearchInput(search_keywords) {
     // 完整sql语句
     return "-s" + sql_prefix + sql_key_words + sql_type_rlike + sql_current_doc + sql_order_by;
 }
+
 let g_last_search_method = -1;
 function switchSearchMethod(i) {
     if (g_last_search_method != i) {
@@ -222,8 +222,17 @@ let g_observer;
 let g_search_keywords = "";
 let g_highlight_keywords = false;
 
-class SimpleSearch extends siyuan.Plugin {
-    inputSearchEvent() { // 保存关键词，确保思源搜索关键词为输入的关键词，而不是翻译后的sql语句
+export default class SimpleSearch {
+
+    declare app: siyuan.App;
+    declare eventBus: siyuan.EventBus;
+
+    constructor(plugin: siyuan.Plugin) {
+        this.app = plugin.app;
+        this.eventBus = plugin.eventBus;
+    }
+
+    private inputSearchEvent() { // 保存关键词，确保思源搜索关键词为输入的关键词，而不是翻译后的sql语句
         const searchInput = document.getElementById("searchInput") as any;
         const simpleSearchInput = document.getElementById("simpleSearchInput") as any;
         if (/^#.*#$/.test(searchInput.value)  // 多次点击标签搜索时更新搜索框关键词
@@ -235,7 +244,8 @@ class SimpleSearch extends siyuan.Plugin {
         }
         window.siyuan.storage["local-searchdata"].k = g_search_keywords;
     }
-    loadedProtyleStaticEvent() {    // 在界面加载完毕后高亮关键词
+
+    private loadedProtyleStaticEvent() {    // 在界面加载完毕后高亮关键词
         CSS.highlights.clear();     // 清除上个高亮
         if (g_highlight_keywords) { // 判断是否需要高亮关键词
             const search_list = document.getElementById("searchList"); // 搜索结果列表的节点
@@ -259,6 +269,7 @@ class SimpleSearch extends siyuan.Plugin {
             });
         }
     }
+
     onLayoutReady() {
         // 选择需要观察变动的节点
         const global_search_node = querySelector("body");
@@ -355,7 +366,7 @@ class SimpleSearch extends siyuan.Plugin {
         // 开始观察目标节点
         g_observer.observe(global_search_node, observer_conf);
         g_observer.observe(tab_search_node, observer_conf);
-        console.log("simple search start...")
+        // console.log("simple search start...")
     }
 
     onunload() {
@@ -363,10 +374,6 @@ class SimpleSearch extends siyuan.Plugin {
         g_observer.disconnect();
         this.eventBus.off("input-search", this.inputSearchEvent);
         this.eventBus.off("loaded-protyle-static", this.loadedProtyleStaticEvent);
-        console.log("simple search stop...")
+        // console.log("simple search stop...")
     }
-};
-
-module.exports = {
-    default: SimpleSearch,
 };

@@ -18,6 +18,7 @@ import * as rj from './run-js';
 import * as docky from './docky';
 import * as tr from './transfer-ref';
 import * as fb from './fake-breadcrumb';
+import * as ss from './simple-search';
 
 interface IFuncModule {
     name: string;
@@ -36,7 +37,8 @@ const ModulesToEnable = [
     rj,
     docky,
     tr,
-    fb
+    fb,
+    ss
 ]
 
 //`Enable${module.name}`: module
