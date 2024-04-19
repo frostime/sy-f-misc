@@ -3,7 +3,7 @@
  * @Author       : choyy, frostime
  * @Date         : 2024-04-19 13:13:57
  * @FilePath     : /src/func/simple-search/core.ts
- * @LastEditTime : 2024-04-19 16:30:52
+ * @LastEditTime : 2024-04-19 16:39:13
  * @Description  : 拷贝「简易搜索插件」 v0.2.0
  * @Source       : https://github.com/choyy/simple-search/blob/v0.2.0/index.js
  */
@@ -33,7 +33,14 @@ const Constant = {
     when 'widget' then 12\
     when 'query_embed' then 13\
     when 'iframe' then 14\
-    end, updated desc"
+    end, updated desc",
+    SEARCH_METHOD: {
+        KEYWORDS: ':w',
+        QUERY_SYNTAX: ':q',
+        SQL: ':s',
+        REGEX: ':r'
+    },
+    SEARCH_METHOD_REGEX: /^:[wqrs]/
 }
 
 
@@ -43,7 +50,7 @@ const Constant = {
  * @returns 
  */
 function translateSearchInput(searchTokens: string) {
-    if (searchTokens.length < 2 || searchTokens.match("^-[wqrs]") != null) {
+    if (searchTokens.length < 2 || searchTokens.match(Constant.SEARCH_METHOD_REGEX) != null) {
         return searchTokens;
     }
     let tokenItems = searchTokens.split(" ");
@@ -54,6 +61,8 @@ function translateSearchInput(searchTokens: string) {
 
     let argExcluded = []; // 排除的关键词
     const HasExcluded = () => argExcluded.length !== 0;
+
+    const SEARCH_METHOD = Constant.SEARCH_METHOD;
 
     for (let i = 0; i < tokenItems.length; i++) {
         if (tokenItems[i] == "" || tokenItems[i] == "-") {
@@ -72,10 +81,10 @@ function translateSearchInput(searchTokens: string) {
     g_keywords = argKeywords;
     if ((!HasTypeFilter()) && (!HasExcluded())) {
         // 仅有关键词时使用关键词查询
-        return "-w" + searchTokens;
+        return SEARCH_METHOD.KEYWORDS + searchTokens;
     } else if ((!HasTypeFilter()) && (HasExcluded())) {
         // 仅有关键词和排除关键词是使用查询语法查询
-        let query_syntax = "-q";
+        let query_syntax = SEARCH_METHOD.QUERY_SYNTAX;
         for (let i = 0; i < argKeywords.length; i++) {
             query_syntax += " " + argKeywords[i];
         }
@@ -103,7 +112,7 @@ function translateSearchInput(searchTokens: string) {
     if (sql_key_words != "") {
         sql_key_words = "(" + sql_key_words + ") ";
     } else {
-        return "-w"
+        return SEARCH_METHOD.KEYWORDS;
     }
 
     /***** 类型过滤 *****/
@@ -162,7 +171,7 @@ function translateSearchInput(searchTokens: string) {
     }
 
     // 完整sql语句
-    return "-s" + Constant.SQL_PREFIX + sql_key_words + sql_type_rlike + sql_order_by;
+    return SEARCH_METHOD.SQL + Constant.SQL_PREFIX + sql_key_words + sql_type_rlike + sql_order_by;
 }
 
 let g_last_search_method = -1;
@@ -327,14 +336,14 @@ export default class SimpleSearch {
                 } else {
                     let input_translated = translateSearchInput(g_search_keywords);
                     switch (input_translated.substring(0, 2)) {
-                        case "-w": switchSearchMethod(0); break;
-                        case "-q": switchSearchMethod(1); break;
-                        case "-s": switchSearchMethod(2); break;
-                        case "-r": switchSearchMethod(3); break;
+                        case Constant.SEARCH_METHOD.KEYWORDS: switchSearchMethod(0); break;
+                        case Constant.SEARCH_METHOD.QUERY_SYNTAX: switchSearchMethod(1); break;
+                        case Constant.SEARCH_METHOD.SQL: switchSearchMethod(2); break;
+                        case Constant.SEARCH_METHOD.REGEX: switchSearchMethod(3); break;
                     }
                     //把方案前缀去掉
                     originalSearchInput.value = input_translated.slice(2, input_translated.length);
-                    if (input_translated.substring(0, 2) === "-s") {
+                    if (input_translated.substring(0, 2) === Constant.SEARCH_METHOD.SQL) {
                         g_highlight_keywords = true;
                         // if (input_translated.match(/'\^\[libs\]\$'/g) != null) { // 若是扩展搜索，按文档分组
                         //     changeGroupBy(1);
