@@ -3,7 +3,7 @@
  * @Author       : choyy, frostime
  * @Date         : 2024-04-19 13:13:57
  * @FilePath     : /src/func/simple-search/core.ts
- * @LastEditTime : 2024-04-19 14:29:02
+ * @LastEditTime : 2024-04-19 15:12:52
  * @Description  : 拷贝「简易搜索插件」 v0.2.0
  * @Source       : https://github.com/choyy/simple-search/blob/v0.2.0/index.js
  */
@@ -14,6 +14,11 @@ const querySelector = (selector: string) => document.querySelector(selector) as 
 
 
 let g_keywords = [];
+/**
+ * 将搜索语法翻译为sql语句, prefix 为对应的搜索模式
+ * @param search_keywords 
+ * @returns 
+ */
 function translateSearchInput(search_keywords) {
     if (search_keywords.length < 2 || search_keywords.match("^-[wqrs]") != null) {
         return search_keywords;
@@ -170,8 +175,17 @@ function translateSearchInput(search_keywords) {
 }
 
 let g_last_search_method = -1;
-function switchSearchMethod(i) {
+/**
+ * 不同的查询方案
+ * @param i 
+ *  0: 关键词查询
+ *  1: 查询语法查询
+ *  2: sql查询
+ *  3: 正则表达式
+ */
+function switchSearchMethod(i: number) {
     if (g_last_search_method != i) {
+        //点开设置搜索语法的菜单，并进行选择
         querySelector("#searchSyntaxCheck").click();
         //@ts-ignore
         querySelector("#commonMenu").lastChild.children[i].click();
@@ -180,13 +194,19 @@ function switchSearchMethod(i) {
 }
 
 let g_changed_user_groupby = false;      // 记录是否切换过分组
-function changeGroupBy(i) {               // i = 0 不分组，i = 1 按文档分组
-    if (i == 0 && g_changed_user_groupby && window.siyuan.storage['local-searchdata'].group == 0) {         // 若分组被切换过，且默认不分组，则切换不分组
+/**
+ * 切换分组状态
+ * @param i, i = 0 不分组，i = 1 按文档分组
+ */
+function changeGroupBy(i: number) {
+    if (i == 0 && g_changed_user_groupby && window.siyuan.storage['local-searchdata'].group == 0) {
+        // 若分组被切换过，且默认不分组，则切换不分组
         document.getElementById("searchMore").click();
         //@ts-ignore
         querySelector("#commonMenu").lastChild.children[1].children[2].firstChild.firstChild.click();
         g_changed_user_groupby = false;
-    } else if (i == 1 && !g_changed_user_groupby && window.siyuan.storage['local-searchdata'].group == 0) { // 若分组没切换过，且默认不分组，则按文档分组
+    } else if (i == 1 && !g_changed_user_groupby && window.siyuan.storage['local-searchdata'].group == 0) {
+        // 若分组没切换过，且默认不分组，则按文档分组
         document.getElementById("searchMore").click();
         //@ts-ignore
         querySelector("#commonMenu").lastChild.children[1].children[2].firstChild.lastChild.click();
@@ -194,7 +214,7 @@ function changeGroupBy(i) {               // i = 0 不分组，i = 1 按文档�
     }
 }
 
-function highlightKeywords(search_list_text_nodes, keyword, highlight_type) {
+function highlightKeywords(search_list_text_nodes, keyword: string, highlight_type: "highlight-keywords-search-list" | "highlight-keywords-search-preview") {
     const str = keyword.trim().toLowerCase();
     const ranges = search_list_text_nodes // 查找所有文本节点是否包含搜索词
         .map((el) => {
@@ -218,9 +238,9 @@ function highlightKeywords(search_list_text_nodes, keyword, highlight_type) {
     CSS.highlights.set(highlight_type, searchResultsHighlight);     // 注册高亮
 }
 
-let g_observer;
-let g_search_keywords = "";
-let g_highlight_keywords = false;
+let g_observer: MutationObserver;
+let g_search_keywords: string = "";
+let g_highlight_keywords: boolean = false;
 
 export default class SimpleSearch {
 
@@ -232,7 +252,8 @@ export default class SimpleSearch {
         this.eventBus = plugin.eventBus;
     }
 
-    private inputSearchEvent() { // 保存关键词，确保思源搜索关键词为输入的关键词，而不是翻译后的sql语句
+    // 保存关键词，确保思源搜索关键词为输入的关键词，而不是翻译后的sql语句
+    private inputSearchEvent() {
         const searchInput = document.getElementById("searchInput") as any;
         const simpleSearchInput = document.getElementById("simpleSearchInput") as any;
         if (/^#.*#$/.test(searchInput.value)  // 多次点击标签搜索时更新搜索框关键词
@@ -245,7 +266,8 @@ export default class SimpleSearch {
         window.siyuan.storage["local-searchdata"].k = g_search_keywords;
     }
 
-    private loadedProtyleStaticEvent() {    // 在界面加载完毕后高亮关键词
+    // 在界面加载完毕后高亮关键词
+    private loadedProtyleStaticEvent() {
         CSS.highlights.clear();     // 清除上个高亮
         if (g_highlight_keywords) { // 判断是否需要高亮关键词
             const search_list = document.getElementById("searchList"); // 搜索结果列表的节点
@@ -273,12 +295,14 @@ export default class SimpleSearch {
     onLayoutReady() {
         // 选择需要观察变动的节点
         const global_search_node = querySelector("body");
-        const tab_search_node = querySelector(".layout__center");
+        // const tab_search_node = querySelector(".layout__center"); //不监听 tab 搜索页签
+
         // 监视子节点的增减
         const observer_conf = { childList: true };
         // 当观察到变动时执行的回调函数
         // 即当搜索界面打开时，插入新搜索框，隐藏原搜索框，然后将新搜索框内容转成sql后填入原搜索框
         const input_event = new InputEvent("input");
+
         const operationsAfterOpenSearch = function () {
             g_last_search_method = -1; // 每次打开搜索都要设置搜索方法
             // 插入新搜索框，隐藏原搜索框
@@ -292,9 +316,20 @@ export default class SimpleSearch {
                 simpleSearchInput.value = "";
                 simpleSearchInput.focus();
             }
+
+            //监听搜索框输入事件
             const input_event_func = function () {
                 g_highlight_keywords = false;
                 g_search_keywords = simpleSearchInput.value;
+
+                /**
+                 * 特定前缀, 指定搜索方案
+                 * 在搜索时使用 -+搜索方法+搜索关键词即可使用默认的搜索方法进行搜索。默认搜索方法分别为：
+                    w（keywords）关键字
+                    q（query syntax）查询语法
+                    s（SQL）SQL语句搜索
+                    r（regex）正则表达式
+                 */
                 if (g_search_keywords.length < 2) {
                     switchSearchMethod(0);
                     originalSearchInput.value = g_search_keywords;
@@ -306,8 +341,9 @@ export default class SimpleSearch {
                         case "-s": switchSearchMethod(2); break;
                         case "-r": switchSearchMethod(3); break;
                     }
+                    //把方案前缀去掉
                     originalSearchInput.value = input_translated.slice(2, input_translated.length);
-                    if (input_translated.substring(0, 2) == "-s") {
+                    if (input_translated.substring(0, 2) === "-s") {
                         g_highlight_keywords = true;
                         if (input_translated.match(/'\^\[libs\]\$'/g) != null) { // 若是扩展搜索，按文档分组
                             changeGroupBy(1);
@@ -318,6 +354,8 @@ export default class SimpleSearch {
                 }
                 originalSearchInput.dispatchEvent(input_event);
             }
+
+            //将伪输入框的时间传导到原搜索框
             const keyboard_event_func = function (event) {
                 switch (event.keyCode) {
                     case 13:
@@ -342,19 +380,26 @@ export default class SimpleSearch {
             simpleSearchInput.oninput = input_event_func; // 监听input事件
             simpleSearchInput.onkeydown = keyboard_event_func; // enter键打开搜索结果，上下键选择
         }.bind(this);
-        const openSearchCallback = function (mutationsList) {
+
+        //判断搜索对话框是否打开
+        const openSearchCallback = function (mutationsList: MutationRecord[]) {
+            // console.log("Body Mutation", mutationsList);
             for (let i = 0; i < mutationsList.length; i++) {
                 if (mutationsList[i].addedNodes.length == 0) return;
-                if (mutationsList[i].addedNodes[0].getAttribute('data-key') == "dialog-globalsearch") {// 判断全局搜索
+                let ele = mutationsList[i].addedNodes[0] as HTMLElement;
+                if (ele.getAttribute('data-key') == "dialog-globalsearch") {// 判断全局搜索
                     operationsAfterOpenSearch();
                     querySelector("#searchOpen").onclick = function () { // 确保按下在页签打开时搜索关键词不变
                         (document.getElementById("searchInput") as HTMLInputElement).value = g_search_keywords;
                     }.bind(this);
                     break;
-                } else if (mutationsList[i].addedNodes[0].className == "fn__flex-1 fn__flex"  // 判断搜索页签
+                }
+                /** 不监听 tab 搜索页签
+                else if (mutationsList[i].addedNodes[0].className == "fn__flex-1 fn__flex"
                     && mutationsList[i].addedNodes[0].innerText == "搜索") {
                     operationsAfterOpenSearch(); break;
                 }
+                */
             }
         }.bind(this);
 
@@ -365,13 +410,14 @@ export default class SimpleSearch {
         g_observer = new MutationObserver(openSearchCallback);
         // 开始观察目标节点
         g_observer.observe(global_search_node, observer_conf);
-        g_observer.observe(tab_search_node, observer_conf);
+        // g_observer.observe(tab_search_node, observer_conf);
         // console.log("simple search start...")
     }
 
     onunload() {
         // 停止观察目标节点
         g_observer.disconnect();
+        g_observer = null;
         this.eventBus.off("input-search", this.inputSearchEvent);
         this.eventBus.off("loaded-protyle-static", this.loadedProtyleStaticEvent);
         // console.log("simple search stop...")
