@@ -31,9 +31,9 @@ const uiTemplate = `
     <button id="toaction" class="b3-button" style="margin-right: 10px;">To Action</button>
     <button id="render" class="b3-button">渲染</button>
   </div>
-  <div style="display: flex; flex: 1;">
-    <textarea class="b3-text-field fn__block" id="original" placeholder="原始文本" style="flex: 1; margin-right: 10px; font-family: var(--b3-font-family-code);"></textarea>
-    <textarea class="b3-text-field fn__block" id="converted" placeholder="转换后的文本" style="flex: 1; font-family: var(--b3-font-family-code);"></textarea>
+  <div style="display: flex; flex: 1; gap: 10px;">
+    <textarea class="b3-text-field fn__block" id="original" placeholder="原始文本" style="flex: 3;font-family: var(--b3-font-family-code);"></textarea>
+    <textarea class="b3-text-field fn__block" id="converted" placeholder="转换后的文本" style="flex: 2; font-family: var(--b3-font-family-code);"></textarea>
   </div>
 </section>
 `;
@@ -41,13 +41,13 @@ const uiTemplate = `
 const addMenu = (menu: Menu) => {
     menu.addItem({
         label: '测试模板',
-        // icon: 'iconTheme',
+        icon: 'iconMarkdown',
         click: () => {
             let dialog = new Dialog({
                 title: '测试模板',
                 content: uiTemplate,
-                width: "50rem",
-                height: "30rem"
+                width: "90%",
+                height: "90%"
             });
             dialog.element.querySelector('#tosprig').addEventListener('click', () => {
                 let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
