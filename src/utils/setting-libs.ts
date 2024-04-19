@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-18 20:07:43
+ * @LastEditTime : 2024-04-19 13:12:00
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -16,70 +16,70 @@ import { toggleEnable } from '@/func';
 const Enable: ISettingItem[] = [
     {
         type: 'checkbox',
-        title: '中键小窗',
+        title: '🖥️ 中键小窗',
         description: '启用中键点击元素打开独立小窗功能',
         key: 'EnableMiniWindow',
         value: true
     },
     {
         type: 'checkbox',
-        title: '侧边栏Protyle',
+        title: '📋 侧边栏Protyle',
         description: '启用侧边栏自定义 Protyle 功能',
         key: 'EnableDocky',
         value: true
     },
     {
         type: 'checkbox',
-        title: 'Run Javascript',
+        title: '💻 Run Javascript',
         description: '启用 Run Js 功能',
         key: 'EnableRunJs',
         value: true
     },
     {
         type: 'checkbox',
-        title: '文档面包屑',
+        title: '🍞 文档面包屑',
         description: '启用文档面包屑功能',
         key: 'EnableFakeBreadcrumb',
         value: false
     },
     {
         type: 'checkbox',
-        title: 'Insert time',
+        title: '⌚ Insert time',
         description: '启用插入时间功能',
         key: 'EnableInsertTime',
         value: true
     },
     {
         type: 'checkbox',
-        title: 'Titled link',
+        title: '🔗 Titled link',
         description: '启用获取标题功能',
         key: 'EnableTitledLink',
         value: true
     },
     {
         type: 'checkbox',
-        title: '更换主题',
+        title: '🎨 更换主题',
         description: '启用更换主题功能',
         key: 'EnableChangeTheme',
         value: true
     },
     {
         type: 'checkbox',
-        title: '转移引用',
+        title: '💭 转移引用',
         description: '启用转移引用功能',
         key: 'EnableTransferRef',
         value: true
     },
     {
         type: 'checkbox',
-        title: 'On paste',
+        title: '📋 On paste',
         description: '启用重写粘贴事件功能',
         key: 'EnableOnPaste',
         value: true
     },
     {
         type: 'checkbox',
-        title: 'New file',
+        title: '📄 New file',
         description: '启用新建文件功能',
         key: 'EnableNewFile',
         value: true
