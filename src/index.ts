@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-19 14:24:23
+ * @LastEditTime : 2024-04-20 00:28:15
  * @Description  : 
  */
 import {
@@ -19,7 +19,7 @@ import {
 import { load, unload } from "./func";
 
 import "@/index.scss";
-import { Href, Svg } from "./utils/const"; 
+import { Href, Svg } from "./utils/const";
 import { EventBusSync } from "./utils/event-bus";
 import { removeDomById, updateStyleLink } from "./utils/style";
 import { initSetting } from "./utils/setting-libs";
@@ -43,17 +43,7 @@ export default class FMiscPlugin extends Plugin {
 
     declare data: {
         configs: {
-            'Enable': {
-                EnableInsertTime: boolean;
-                EnableNewFile: boolean;
-                EnableOnPaste: boolean;
-                EnableTitledLink: boolean;
-                EnableChangeTheme: boolean;
-                EnableMiniWindow: boolean;
-                EnableDocky: boolean;
-                EnableTransferRef: boolean;
-                EnableFakeBreadcrumb: boolean;
-            };
+            'Enable': { [key: string]: boolean };
             'Docky': {
                 DockyEnableZoom: boolean;
                 DockyZoomFactor: number;
@@ -166,7 +156,7 @@ export default class FMiscPlugin extends Plugin {
                 {
                     label: '垂直标签页',
                     icon: 'iconVertical',
-                    iconClass: StatusFlag.IsTabbarVertical? 'highlight-icon' : '',
+                    iconClass: StatusFlag.IsTabbarVertical ? 'highlight-icon' : '',
                     click: () => {
                         if (!StatusFlag.IsTabbarVertical) {
                             updateStyleLink('f-misc-vertical-title', Href.Style_Vertical_Tabbar);

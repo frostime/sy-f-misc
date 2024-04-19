@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-19 13:13:00
+ * @LastEditTime : 2024-04-20 00:47:48
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -69,6 +69,13 @@ const Enable: ISettingItem[] = [
         description: '启用更换主题功能',
         key: 'EnableChangeTheme',
         value: true
+    },
+    {
+        type: 'checkbox',
+        title: '📝 测试模板',
+        description: 'Sprig 和 Action 模板测试',
+        key: 'EnableTestTemplate',
+        value: false
     },
     {
         type: 'checkbox',
