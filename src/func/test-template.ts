@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-04-20 00:45:45
+ * @FilePath     : /src/func/test-template.ts
+ * @LastEditTime : 2024-04-20 01:14:18
+ * @Description  : 
+ */
 import { Dialog, Menu } from "siyuan";
 
 import type FMiscPlugin from "@/index";
@@ -11,6 +19,18 @@ const toSprig = (template: string) => {
 // 找到 {{ .*? }} ，转换成 .action{ .*? }
 const toAction = (template: string) => {
     return template.replace(/{{\s*(.*?)\s*}}/g, '.action{ $1 }');
+}
+
+const escape = (str: string) => {
+    str = str.replaceAll(/{{{/g, '\\{\\{\\{');
+    str = str.replaceAll(/}}}/g, '\\}\\}\\}');
+    return str;
+}
+
+const unscape = (str: string) => {
+    str = str.replaceAll(/\\{\\{\\{/g, '{{{');
+    str = str.replaceAll(/\\}\\}\\}/g, '}}}');
+    return str;
 }
 
 const render = async (sprig: string) => {
@@ -32,8 +52,8 @@ const uiTemplate = `
     <button id="render" class="b3-button">渲染</button>
   </div>
   <div style="display: flex; flex: 1; gap: 10px;">
-    <textarea class="b3-text-field fn__block" id="original" placeholder="原始文本" style="flex: 3;font-family: var(--b3-font-family-code);"></textarea>
-    <textarea class="b3-text-field fn__block" id="converted" placeholder="转换后的文本" style="flex: 2; font-family: var(--b3-font-family-code);"></textarea>
+    <textarea class="b3-text-field fn__block" id="original" placeholder="原始文本" style="flex: 3;font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;"></textarea>
+    <textarea class="b3-text-field fn__block" id="converted" placeholder="转换后的文本" style="flex: 2; font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;"></textarea>
   </div>
 </section>
 `;
@@ -46,8 +66,8 @@ const addMenu = (menu: Menu) => {
             let dialog = new Dialog({
                 title: '测试模板',
                 content: uiTemplate,
-                width: "90%",
-                height: "90%"
+                width: "80%",
+                height: "80%"
             });
             dialog.element.querySelector('#tosprig').addEventListener('click', () => {
                 let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
@@ -60,7 +80,8 @@ const addMenu = (menu: Menu) => {
             dialog.element.querySelector('#render').addEventListener('click', async () => {
                 let converted = dialog.element.querySelector('#converted') as HTMLTextAreaElement;
                 let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
-                converted.value = await render(toSprig(original.value));
+                let text = await render(toSprig(escape(original.value)));
+                converted.value = unscape(text);
             });
         }
     });
