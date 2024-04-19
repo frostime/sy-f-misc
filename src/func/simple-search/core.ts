@@ -3,7 +3,7 @@
  * @Author       : choyy, frostime
  * @Date         : 2024-04-19 13:13:57
  * @FilePath     : /src/func/simple-search/core.ts
- * @LastEditTime : 2024-04-19 16:39:13
+ * @LastEditTime : 2024-04-19 16:40:45
  * @Description  : 拷贝「简易搜索插件」 v0.2.0
  * @Source       : https://github.com/choyy/simple-search/blob/v0.2.0/index.js
  */
@@ -40,7 +40,8 @@ const Constant = {
         SQL: ':s',
         REGEX: ':r'
     },
-    SEARCH_METHOD_REGEX: /^:[wqrs]/
+    SEARCH_METHOD_REGEX: /^:[wqrs]/,
+    TYPE_FILTER_REGEX: /^@[dhlptbsicmoOL1-6]+$/
 }
 
 
@@ -67,7 +68,7 @@ function translateSearchInput(searchTokens: string) {
     for (let i = 0; i < tokenItems.length; i++) {
         if (tokenItems[i] == "" || tokenItems[i] == "-") {
             continue;
-        } else if (tokenItems[i].match(/^-[dhlptbsicmoOL1-6]+$/) != null) { //块类型
+        } else if (tokenItems[i].match(Constant.TYPE_FILTER_REGEX) != null) {
             argTypeFilters += tokenItems[i].substring(1, tokenItems[i].length);
         }
         else if (tokenItems[i].match(/^-.+/) != null) {
