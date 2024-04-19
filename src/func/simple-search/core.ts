@@ -3,7 +3,7 @@
  * @Author       : choyy, frostime
  * @Date         : 2024-04-19 13:13:57
  * @FilePath     : /src/func/simple-search/core.ts
- * @LastEditTime : 2024-04-19 15:12:52
+ * @LastEditTime : 2024-04-19 16:04:54
  * @Description  : 拷贝「简易搜索插件」 v0.2.0
  * @Source       : https://github.com/choyy/simple-search/blob/v0.2.0/index.js
  */
@@ -14,46 +14,53 @@ const querySelector = (selector: string) => document.querySelector(selector) as 
 
 
 let g_keywords = [];
+
+const Constant = {
+    NO_ARGUMENTS: "",
+}
+
+
 /**
  * 将搜索语法翻译为sql语句, prefix 为对应的搜索模式
- * @param search_keywords 
+ * @param searchTokens 
  * @returns 
  */
-function translateSearchInput(search_keywords) {
-    if (search_keywords.length < 2 || search_keywords.match("^-[wqrs]") != null) {
-        return search_keywords;
+function translateSearchInput(searchTokens: string) {
+    if (searchTokens.length < 2 || searchTokens.match("^-[wqrs]") != null) {
+        return searchTokens;
     }
-    let input_text_items = search_keywords.split(" ");
-    let key_words = [];                          // 搜索关键词
-    let excluded_key_words = [];                          // 排除的关键词
-    let options = "";                          // 搜索选项
+    let tokenItems = searchTokens.split(" ");
+    let keywords = []; // 搜索关键词
+    let excludedKeywords = []; // 排除的关键词
+    let options = ""; // 搜索选项
     let if_options_exist = false;
     let if_excluded_key_words_exist = false;
-    for (let i = 0; i < input_text_items.length; i++) {
-        if (input_text_items[i] == "" || input_text_items[i] == "-") {
+
+    for (let i = 0; i < tokenItems.length; i++) {
+        if (tokenItems[i] == "" || tokenItems[i] == "-") {
             continue;
-        } else if (input_text_items[i].match(/^-[kKedhlptbsicmoOL1-6]+$/) != null) { // kK为当前文档搜索，e为扩展搜索，其他为块类型
-            options += input_text_items[i].substring(1, input_text_items[i].length);
+        } else if (tokenItems[i].match(/^-[kKedhlptbsicmoOL1-6]+$/) != null) { // kK为当前文档搜索，e为扩展搜索，其他为块类型
+            options += tokenItems[i].substring(1, tokenItems[i].length);
             if_options_exist = true;
         }
-        else if (input_text_items[i].match(/^-.+/) != null) {
-            excluded_key_words.push(input_text_items[i].substring(1, input_text_items[i].length));
+        else if (tokenItems[i].match(/^-.+/) != null) {
+            excludedKeywords.push(tokenItems[i].substring(1, tokenItems[i].length));
             if_excluded_key_words_exist = true;
         }
         else {
-            key_words.push(input_text_items[i]);
+            keywords.push(tokenItems[i]);
         }
     }
-    g_keywords = key_words;
+    g_keywords = keywords;
     if ((!if_options_exist) && (!if_excluded_key_words_exist)) {
-        return "-w" + search_keywords; // 仅有关键词时使用关键词查询
+        return "-w" + searchTokens; // 仅有关键词时使用关键词查询
     } else if ((!if_options_exist) && (if_excluded_key_words_exist)) {
         let query_syntax = "-q";  // 仅有关键词和排除关键词是使用查询语法查询
-        for (let i = 0; i < key_words.length; i++) {
-            query_syntax += " " + key_words[i];
+        for (let i = 0; i < keywords.length; i++) {
+            query_syntax += " " + keywords[i];
         }
-        for (let i = 0; i < excluded_key_words.length; i++) {
-            query_syntax += " NOT " + excluded_key_words[i];
+        for (let i = 0; i < excludedKeywords.length; i++) {
+            query_syntax += " NOT " + excludedKeywords[i];
         }
         return query_syntax;
     }
@@ -77,12 +84,12 @@ function translateSearchInput(search_keywords) {
     if (options.match(/e/) != null) {
         let sql_extended_search = "select path from blocks where type ='d' ";
         let sql_content_like = "";
-        for (let i = 0; i < key_words.length; i++) {
-            sql_extended_search += "and path in (select path from blocks where content like '%" + key_words[i] + "%') ";
-            sql_content_like += "content like '%" + key_words[i] + "%' or ";
+        for (let i = 0; i < keywords.length; i++) {
+            sql_extended_search += "and path in (select path from blocks where content like '%" + keywords[i] + "%') ";
+            sql_content_like += "content like '%" + keywords[i] + "%' or ";
         }
-        for (let i = 0; i < excluded_key_words.length; i++) {
-            sql_extended_search += "and path not in (select path from blocks where content like '%" + excluded_key_words[i] + "%') ";
+        for (let i = 0; i < excludedKeywords.length; i++) {
+            sql_extended_search += "and path not in (select path from blocks where content like '%" + excludedKeywords[i] + "%') ";
         }
         return "-s" + "select * from blocks where path in (" +
             sql_extended_search + ") and (" + sql_content_like.slice(0, -4) + ") and type not rlike '^[libs]$' " + // l i b s块类型不是叶子节点，重复
@@ -94,14 +101,14 @@ function translateSearchInput(search_keywords) {
     let sql_prefix = "select * from blocks where ";
     // sql 搜索关键词
     let sql_key_words = "";
-    if (key_words.length != 0) {
-        sql_key_words += "content like '%" + key_words[0] + "%' ";
-        for (let i = 1; i < key_words.length; i++) {
-            sql_key_words += "and content like '%" + key_words[i] + "%' ";
+    if (keywords.length != 0) {
+        sql_key_words += "content like '%" + keywords[0] + "%' ";
+        for (let i = 1; i < keywords.length; i++) {
+            sql_key_words += "and content like '%" + keywords[i] + "%' ";
         }
     }
-    for (let i = 0; i < excluded_key_words.length; i++) {
-        sql_key_words += "and content not like '%" + excluded_key_words[i] + "%' ";
+    for (let i = 0; i < excludedKeywords.length; i++) {
+        sql_key_words += "and content not like '%" + excludedKeywords[i] + "%' ";
     }
     if (sql_key_words != "") {
         sql_key_words = "(" + sql_key_words + ") ";
