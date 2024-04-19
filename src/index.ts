@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-18 22:11:25
+ * @LastEditTime : 2024-04-19 14:24:23
  * @Description  : 
  */
 import {
@@ -16,7 +16,7 @@ import {
 } from "siyuan";
 
 
-import { load, unload, toggleEnable } from "./func";
+import { load, unload } from "./func";
 
 import "@/index.scss";
 import { Href, Svg } from "./utils/const"; 

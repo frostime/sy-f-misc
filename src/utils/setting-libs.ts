@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-19 13:12:00
+ * @LastEditTime : 2024-04-19 13:13:00
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -40,6 +40,13 @@ const Enable: ISettingItem[] = [
         title: '🍞 文档面包屑',
         description: '启用文档面包屑功能',
         key: 'EnableFakeBreadcrumb',
+        value: false
+    },
+    {
+        type: 'checkbox',
+        title: '🔍 简单搜索',
+        description: '通过简单的语法以方便搜索',
+        key: 'EnableSimpleSearch',
         value: false
     },
     {
