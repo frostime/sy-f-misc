@@ -3,7 +3,7 @@
  * @Author       : choyy, frostime
  * @Date         : 2024-04-19 13:13:57
  * @FilePath     : /src/func/simple-search/core.ts
- * @LastEditTime : 2024-04-19 13:16:03
+ * @LastEditTime : 2024-04-19 13:26:22
  * @Description  : 拷贝「简易搜索插件」 v0.2.0
  * @Source       : https://github.com/choyy/simple-search/blob/v0.2.0/index.js
  */
@@ -11,16 +11,19 @@ import * as siyuan from "siyuan";
 import type FMiscPlugin from "@/index";
 
 
+const querySelector = (selector: string) => document.querySelector(selector) as HTMLElement;
+
+
 let g_keywords = [];
 function translateSearchInput(search_keywords) {
     if (search_keywords.length < 2 || search_keywords.match("^-[wqrs]") != null) {
         return search_keywords;
     }
-    let input_text_items            = search_keywords.split(" ");
-    let key_words                   = [];                          // 搜索关键词
-    let excluded_key_words          = [];                          // 排除的关键词
-    let options                     = "";                          // 搜索选项
-    let if_options_exist            = false;
+    let input_text_items = search_keywords.split(" ");
+    let key_words = [];                          // 搜索关键词
+    let excluded_key_words = [];                          // 排除的关键词
+    let options = "";                          // 搜索选项
+    let if_options_exist = false;
     let if_excluded_key_words_exist = false;
     for (let i = 0; i < input_text_items.length; i++) {
         if (input_text_items[i] == "" || input_text_items[i] == "-") {
@@ -104,18 +107,19 @@ function translateSearchInput(search_keywords) {
     // 搜索类型
     let sql_current_doc = "";
     if (options.match(/[kK]/) != null) {  // 当前文档或带子文档搜索
-        let current_doc_id = document.querySelector(".fn__flex-1.protyle:not(.fn__none)").childNodes[1].childNodes[0].getAttribute("data-node-id");
+        //@ts-ignore
+        let current_doc_id = querySelector(".fn__flex-1.protyle:not(.fn__none)").childNodes[1].childNodes[0].getAttribute("data-node-id");
         if (options.match(/K/) != null) { // 在当前文档及子文档搜索
             sql_current_doc = "and path rlike '" + current_doc_id + "' ";
         } else {                          // 在当前文档搜索
             sql_current_doc = "and path like '%" + current_doc_id + ".sy' ";
         }
         options = options.replace(/[kK]/g, "");
-    } 
-    let sql_types          = options;
+    }
+    let sql_types = options;
     let sql_standard_types = sql_types.replace(/[oOL1-6]/g, "");      // 思源标准块类型
-    let sql_special_types  = sql_types.replace(/[dhlptbsicm]/g, "");  // 特殊类型
-    let sql_type_rlike     = "";                                      // sql筛选块的语句
+    let sql_special_types = sql_types.replace(/[dhlptbsicm]/g, "");  // 特殊类型
+    let sql_type_rlike = "";                                      // sql筛选块的语句
     if (sql_standard_types != "") {                  // 标准类型的sql语句
         sql_type_rlike += "type rlike '^[" + sql_standard_types + "]$' ";
     }
@@ -133,7 +137,7 @@ function translateSearchInput(search_keywords) {
         }
         sql_type_rlike += "(subtype like 't' and type not like 'l' " + todo_type + ") ";
     }
-    if(sql_special_types.match(/L/g) != null){       // 搜索带链接的块的sql语句
+    if (sql_special_types.match(/L/g) != null) {       // 搜索带链接的块的sql语句
         if (sql_type_rlike != "") sql_type_rlike += "or ";
         sql_type_rlike += "(type rlike '^[htp]$' and markdown like '%[%](%)%') ";
     }
@@ -168,21 +172,24 @@ function translateSearchInput(search_keywords) {
 let g_last_search_method = -1;
 function switchSearchMethod(i) {
     if (g_last_search_method != i) {
-        document.querySelector("#searchSyntaxCheck").click();
-        document.querySelector("#commonMenu").lastChild.children[i].click();
+        querySelector("#searchSyntaxCheck").click();
+        //@ts-ignore
+        querySelector("#commonMenu").lastChild.children[i].click();
         g_last_search_method = i;
     }
 }
 
 let g_changed_user_groupby = false;      // 记录是否切换过分组
-function changeGroupBy(i){               // i = 0 不分组，i = 1 按文档分组
+function changeGroupBy(i) {               // i = 0 不分组，i = 1 按文档分组
     if (i == 0 && g_changed_user_groupby && window.siyuan.storage['local-searchdata'].group == 0) {         // 若分组被切换过，且默认不分组，则切换不分组
         document.getElementById("searchMore").click();
-        document.querySelector("#commonMenu").lastChild.children[1].children[2].firstChild.firstChild.click();
+        //@ts-ignore
+        querySelector("#commonMenu").lastChild.children[1].children[2].firstChild.firstChild.click();
         g_changed_user_groupby = false;
     } else if (i == 1 && !g_changed_user_groupby && window.siyuan.storage['local-searchdata'].group == 0) { // 若分组没切换过，且默认不分组，则按文档分组
         document.getElementById("searchMore").click();
-        document.querySelector("#commonMenu").lastChild.children[1].children[2].firstChild.lastChild.click();
+        //@ts-ignore
+        querySelector("#commonMenu").lastChild.children[1].children[2].firstChild.lastChild.click();
         g_changed_user_groupby = true;
     }
 }
@@ -214,14 +221,17 @@ function highlightKeywords(search_list_text_nodes, keyword, highlight_type) {
 let g_observer;
 let g_search_keywords = "";
 let g_highlight_keywords = false;
+
 class SimpleSearch extends siyuan.Plugin {
     inputSearchEvent() { // 保存关键词，确保思源搜索关键词为输入的关键词，而不是翻译后的sql语句
-        if (/^#.*#$/.test(document.getElementById("searchInput").value)  // 多次点击标签搜索时更新搜索框关键词
-            && document.getElementById("searchInput").value != document.getElementById("simpleSearchInput").value) {
-            document.getElementById("simpleSearchInput").value = document.getElementById("searchInput").value;
-            document.getElementById("simpleSearchInput").focus();  // 聚焦到输入框
-            document.getElementById("simpleSearchInput").select(); // 选择框内内容
-            g_search_keywords = document.getElementById("searchInput").value;
+        const searchInput = document.getElementById("searchInput") as any;
+        const simpleSearchInput = document.getElementById("simpleSearchInput") as any;
+        if (/^#.*#$/.test(searchInput.value)  // 多次点击标签搜索时更新搜索框关键词
+            && searchInput.value != simpleSearchInput.value) {
+            simpleSearchInput.value = searchInput.value;
+            simpleSearchInput.focus();  // 聚焦到输入框
+            simpleSearchInput.select(); // 选择框内内容
+            g_search_keywords = searchInput.value;
         }
         window.siyuan.storage["local-searchdata"].k = g_search_keywords;
     }
@@ -229,7 +239,7 @@ class SimpleSearch extends siyuan.Plugin {
         CSS.highlights.clear();     // 清除上个高亮
         if (g_highlight_keywords) { // 判断是否需要高亮关键词
             const search_list = document.getElementById("searchList"); // 搜索结果列表的节点
-            if(search_list == null) return;                            // 判断是否存在搜索界面
+            if (search_list == null) return;                            // 判断是否存在搜索界面
             const search_list_text_nodes = Array.from(search_list.querySelectorAll(".b3-list-item__text"), el => el.firstChild); // 获取所有具有 b3-list-item__text 类的节点的文本子节点
             g_keywords.forEach((keyword) => {
                 highlightKeywords(search_list_text_nodes, keyword, "highlight-keywords-search-list");
@@ -251,8 +261,8 @@ class SimpleSearch extends siyuan.Plugin {
     }
     onLayoutReady() {
         // 选择需要观察变动的节点
-        const global_search_node = document.querySelector("body");
-        const tab_search_node = document.querySelector(".layout__center");
+        const global_search_node = querySelector("body");
+        const tab_search_node = querySelector(".layout__center");
         // 监视子节点的增减
         const observer_conf = { childList: true };
         // 当观察到变动时执行的回调函数
@@ -261,13 +271,13 @@ class SimpleSearch extends siyuan.Plugin {
         const operationsAfterOpenSearch = function () {
             g_last_search_method = -1; // 每次打开搜索都要设置搜索方法
             // 插入新搜索框，隐藏原搜索框
-            let originalSearchInput = document.getElementById("searchInput");
-            let simpleSearchInput = originalSearchInput.cloneNode();
+            let originalSearchInput = document.getElementById("searchInput") as HTMLInputElement;
+            let simpleSearchInput = originalSearchInput.cloneNode() as HTMLInputElement;
             simpleSearchInput.id = "simpleSearchInput";
             simpleSearchInput.value = "";
             originalSearchInput.after(simpleSearchInput);
-            originalSearchInput.style = "width: 0; position: fixed; visibility: hidden;";
-            simpleSearchInput.nextSibling.onclick = function () { // 设置清空按钮
+            originalSearchInput.setAttribute("style", "width: 0; position: fixed; visibility: hidden;");
+            (simpleSearchInput.nextSibling as HTMLElement).onclick = function () { // 设置清空按钮
                 simpleSearchInput.value = "";
                 simpleSearchInput.focus();
             }
@@ -325,15 +335,15 @@ class SimpleSearch extends siyuan.Plugin {
             for (let i = 0; i < mutationsList.length; i++) {
                 if (mutationsList[i].addedNodes.length == 0) return;
                 if (mutationsList[i].addedNodes[0].getAttribute('data-key') == "dialog-globalsearch") {// 判断全局搜索
-                    operationsAfterOpenSearch(); 
-                    document.querySelector("#searchOpen").onclick = function () { // 确保按下在页签打开时搜索关键词不变
-                        document.getElementById("searchInput").value = g_search_keywords;
+                    operationsAfterOpenSearch();
+                    querySelector("#searchOpen").onclick = function () { // 确保按下在页签打开时搜索关键词不变
+                        (document.getElementById("searchInput") as HTMLInputElement).value = g_search_keywords;
                     }.bind(this);
                     break;
                 } else if (mutationsList[i].addedNodes[0].className == "fn__flex-1 fn__flex"  // 判断搜索页签
                     && mutationsList[i].addedNodes[0].innerText == "搜索") {
                     operationsAfterOpenSearch(); break;
-                } 
+                }
             }
         }.bind(this);
 
