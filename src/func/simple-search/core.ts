@@ -3,7 +3,7 @@
  * @Author       : choyy, frostime
  * @Date         : 2024-04-19 13:13:57
  * @FilePath     : /src/func/simple-search/core.ts
- * @LastEditTime : 2024-04-19 16:04:54
+ * @LastEditTime : 2024-04-19 16:30:52
  * @Description  : 拷贝「简易搜索插件」 v0.2.0
  * @Source       : https://github.com/choyy/simple-search/blob/v0.2.0/index.js
  */
@@ -17,6 +17,23 @@ let g_keywords = [];
 
 const Constant = {
     NO_ARGUMENTS: "",
+    SQL_PREFIX: "select * from blocks where ",
+    SQL_DEFAULT_ORDER_BY: "order by case type \
+    when 'd' then 1\
+    when 'h' then 2\
+    when 'i' then 3\
+    when 'p' then 4\
+    when 't' then 5\
+    when 'b' then 6\
+    when 'c' then 7\
+    when 'm' then 8\
+    when 'l' then 9\
+    when 's' then 10\
+    when 'html' then 11\
+    when 'widget' then 12\
+    when 'query_embed' then 13\
+    when 'iframe' then 14\
+    end, updated desc"
 }
 
 
@@ -30,104 +47,70 @@ function translateSearchInput(searchTokens: string) {
         return searchTokens;
     }
     let tokenItems = searchTokens.split(" ");
-    let keywords = []; // 搜索关键词
-    let excludedKeywords = []; // 排除的关键词
-    let options = ""; // 搜索选项
-    let if_options_exist = false;
-    let if_excluded_key_words_exist = false;
+    let argKeywords = []; // 搜索关键词
+
+    let argTypeFilters = ""; // 搜索选项
+    const HasTypeFilter = () => argTypeFilters !== "";
+
+    let argExcluded = []; // 排除的关键词
+    const HasExcluded = () => argExcluded.length !== 0;
 
     for (let i = 0; i < tokenItems.length; i++) {
         if (tokenItems[i] == "" || tokenItems[i] == "-") {
             continue;
-        } else if (tokenItems[i].match(/^-[kKedhlptbsicmoOL1-6]+$/) != null) { // kK为当前文档搜索，e为扩展搜索，其他为块类型
-            options += tokenItems[i].substring(1, tokenItems[i].length);
-            if_options_exist = true;
+        } else if (tokenItems[i].match(/^-[dhlptbsicmoOL1-6]+$/) != null) { //块类型
+            argTypeFilters += tokenItems[i].substring(1, tokenItems[i].length);
         }
         else if (tokenItems[i].match(/^-.+/) != null) {
-            excludedKeywords.push(tokenItems[i].substring(1, tokenItems[i].length));
-            if_excluded_key_words_exist = true;
+            argExcluded.push(tokenItems[i].substring(1, tokenItems[i].length));
+            // HasExcluded = true;
         }
         else {
-            keywords.push(tokenItems[i]);
+            argKeywords.push(tokenItems[i]);
         }
     }
-    g_keywords = keywords;
-    if ((!if_options_exist) && (!if_excluded_key_words_exist)) {
-        return "-w" + searchTokens; // 仅有关键词时使用关键词查询
-    } else if ((!if_options_exist) && (if_excluded_key_words_exist)) {
-        let query_syntax = "-q";  // 仅有关键词和排除关键词是使用查询语法查询
-        for (let i = 0; i < keywords.length; i++) {
-            query_syntax += " " + keywords[i];
+    g_keywords = argKeywords;
+    if ((!HasTypeFilter()) && (!HasExcluded())) {
+        // 仅有关键词时使用关键词查询
+        return "-w" + searchTokens;
+    } else if ((!HasTypeFilter()) && (HasExcluded())) {
+        // 仅有关键词和排除关键词是使用查询语法查询
+        let query_syntax = "-q";
+        for (let i = 0; i < argKeywords.length; i++) {
+            query_syntax += " " + argKeywords[i];
         }
-        for (let i = 0; i < excludedKeywords.length; i++) {
-            query_syntax += " NOT " + excludedKeywords[i];
+        for (let i = 0; i < argExcluded.length; i++) {
+            query_syntax += " NOT " + argExcluded[i];
         }
         return query_syntax;
     }
-    let sql_default_order_by = "order by case type \
- when 'd' then 1\
- when 'h' then 2\
- when 'i' then 3\
- when 'p' then 4\
- when 't' then 5\
- when 'b' then 6\
- when 'c' then 7\
- when 'm' then 8\
- when 'l' then 9\
- when 's' then 10\
- when 'html' then 11\
- when 'widget' then 12\
- when 'query_embed' then 13\
- when 'iframe' then 14\
- end, updated desc";
-    // 判断是否扩展范围搜索，若是则直接返回扩展范围搜索的sql语句
-    if (options.match(/e/) != null) {
-        let sql_extended_search = "select path from blocks where type ='d' ";
-        let sql_content_like = "";
-        for (let i = 0; i < keywords.length; i++) {
-            sql_extended_search += "and path in (select path from blocks where content like '%" + keywords[i] + "%') ";
-            sql_content_like += "content like '%" + keywords[i] + "%' or ";
-        }
-        for (let i = 0; i < excludedKeywords.length; i++) {
-            sql_extended_search += "and path not in (select path from blocks where content like '%" + excludedKeywords[i] + "%') ";
-        }
-        return "-s" + "select * from blocks where path in (" +
-            sql_extended_search + ") and (" + sql_content_like.slice(0, -4) + ") and type not rlike '^[libs]$' " + // l i b s块类型不是叶子节点，重复
-            sql_default_order_by;
-    }
 
-    // 一般搜索模式
-    // sql 首部分
-    let sql_prefix = "select * from blocks where ";
+    //NOTE: 此处去掉了原始的 -e 命令
+
+    /***** 搜索关键字 *****/
     // sql 搜索关键词
     let sql_key_words = "";
-    if (keywords.length != 0) {
-        sql_key_words += "content like '%" + keywords[0] + "%' ";
-        for (let i = 1; i < keywords.length; i++) {
-            sql_key_words += "and content like '%" + keywords[i] + "%' ";
+    if (argKeywords.length != 0) {
+        sql_key_words += "content like '%" + argKeywords[0] + "%' ";
+        for (let i = 1; i < argKeywords.length; i++) {
+            sql_key_words += "and content like '%" + argKeywords[i] + "%' ";
         }
     }
-    for (let i = 0; i < excludedKeywords.length; i++) {
-        sql_key_words += "and content not like '%" + excludedKeywords[i] + "%' ";
+    for (let i = 0; i < argExcluded.length; i++) {
+        sql_key_words += "and content not like '%" + argExcluded[i] + "%' ";
     }
+
     if (sql_key_words != "") {
         sql_key_words = "(" + sql_key_words + ") ";
     } else {
         return "-w"
     }
-    // 搜索类型
-    let sql_current_doc = "";
-    if (options.match(/[kK]/) != null) {  // 当前文档或带子文档搜索
-        //@ts-ignore
-        let current_doc_id = querySelector(".fn__flex-1.protyle:not(.fn__none)").childNodes[1].childNodes[0].getAttribute("data-node-id");
-        if (options.match(/K/) != null) { // 在当前文档及子文档搜索
-            sql_current_doc = "and path rlike '" + current_doc_id + "' ";
-        } else {                          // 在当前文档搜索
-            sql_current_doc = "and path like '%" + current_doc_id + ".sy' ";
-        }
-        options = options.replace(/[kK]/g, "");
-    }
-    let sql_types = options;
+
+    /***** 类型过滤 *****/
+
+    //NOTE: 此处去掉了原始的 /k 命令
+
+    let sql_types = argTypeFilters;
     let sql_standard_types = sql_types.replace(/[oOL1-6]/g, "");      // 思源标准块类型
     let sql_special_types = sql_types.replace(/[dhlptbsicm]/g, "");  // 特殊类型
     let sql_type_rlike = "";                                      // sql筛选块的语句
@@ -154,7 +137,8 @@ function translateSearchInput(searchTokens: string) {
     }
     sql_type_rlike = "and (" + sql_type_rlike + ") ";
     sql_types = sql_types.replace(/[oOL1-6]/g, "");
-    // 排序
+
+    /***** 排序 *****/
     let sql_order_by = "order by case type";
     const type_order = {
         "d": " when 'd' then ",
@@ -174,11 +158,11 @@ function translateSearchInput(searchTokens: string) {
         }
         sql_order_by += " end, updated desc";
     } else {
-        sql_order_by = sql_default_order_by;
+        sql_order_by = Constant.SQL_DEFAULT_ORDER_BY;
     }
 
     // 完整sql语句
-    return "-s" + sql_prefix + sql_key_words + sql_type_rlike + sql_current_doc + sql_order_by;
+    return "-s" + Constant.SQL_PREFIX + sql_key_words + sql_type_rlike + sql_order_by;
 }
 
 let g_last_search_method = -1;
@@ -352,18 +336,18 @@ export default class SimpleSearch {
                     originalSearchInput.value = input_translated.slice(2, input_translated.length);
                     if (input_translated.substring(0, 2) === "-s") {
                         g_highlight_keywords = true;
-                        if (input_translated.match(/'\^\[libs\]\$'/g) != null) { // 若是扩展搜索，按文档分组
-                            changeGroupBy(1);
-                        } else { // 否则切换默认分组
-                            changeGroupBy(0);
-                        }
+                        // if (input_translated.match(/'\^\[libs\]\$'/g) != null) { // 若是扩展搜索，按文档分组
+                        //     changeGroupBy(1);
+                        // } else { // 否则切换默认分组
+                        //     changeGroupBy(0);
+                        // }
                     }
                 }
                 originalSearchInput.dispatchEvent(input_event);
             }
 
             //将伪输入框的时间传导到原搜索框
-            const keyboard_event_func = function (event) {
+            const keyboard_event_func = function (event: KeyboardEvent) {
                 switch (event.keyCode) {
                     case 13:
                         originalSearchInput.dispatchEvent(new KeyboardEvent("keydown", { "keyCode": 13, "code": "KeyEnter", "key": "Enter" }));
