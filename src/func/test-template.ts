@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-20 00:45:45
  * @FilePath     : /src/func/test-template.ts
- * @LastEditTime : 2024-04-25 13:17:10
+ * @LastEditTime : 2024-04-25 13:18:29
  * @Description  : 
  */
 import { Dialog, Menu } from "siyuan";
@@ -54,8 +54,8 @@ const uiTemplate = `
     <button id="render" class="b3-button">Render</button>
   </div>
   <div style="display: flex; flex: 1; gap: 10px;">
-    <textarea class="b3-text-field fn__block" id="original" placeholder="Template" style="flex: 3;font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;"></textarea>
-    <textarea class="b3-text-field fn__block" id="converted" placeholder="Rendered" style="flex: 2; font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;"></textarea>
+    <textarea class="b3-text-field fn__block" id="original" placeholder="Template" style="flex: 3;font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;" spellcheck="false"></textarea>
+    <textarea class="b3-text-field fn__block" id="converted" placeholder="Rendered" style="flex: 2; font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;" spellcheck="false"></textarea>
   </div>
 </section>
 `;
