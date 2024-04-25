@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-20 00:45:45
  * @FilePath     : /src/func/test-template.ts
- * @LastEditTime : 2024-04-20 01:14:18
+ * @LastEditTime : 2024-04-25 12:10:19
  * @Description  : 
  */
 import { Dialog, Menu } from "siyuan";
@@ -21,18 +21,6 @@ const toAction = (template: string) => {
     return template.replace(/{{\s*(.*?)\s*}}/g, '.action{ $1 }');
 }
 
-const escape = (str: string) => {
-    str = str.replaceAll(/{{{/g, '\\{\\{\\{');
-    str = str.replaceAll(/}}}/g, '\\}\\}\\}');
-    return str;
-}
-
-const unscape = (str: string) => {
-    str = str.replaceAll(/\\{\\{\\{/g, '{{{');
-    str = str.replaceAll(/\\}\\}\\}/g, '}}}');
-    return str;
-}
-
 const render = async (sprig: string) => {
     let res = '';
     try {
@@ -43,10 +31,24 @@ const render = async (sprig: string) => {
     return res;
 }
 
+function processSprigText(inputText: string): string {
+    // Regular expression to find text between .startaction and .endaction
+    const pattern = /\.startaction(.*?)\.endaction/gs;
+
+    // Replace the matched groups
+    return inputText.replace(pattern, (match, group1) => {
+        // Split the group into lines and transform each line
+        const lines = group1.split('\n').filter(line => line.trim() !== '');
+        const transformedLines = lines.map(line => `.action{ ${line.trim()} }`);
+        return transformedLines.join('\n');
+    });
+}
+
 //UI, 上面一行按钮，「转换」，「渲染」，下面并列两个框，左边是原始文本，右边是转换后的文本
 const uiTemplate = `
 <section style="display: flex; flex-direction: column; flex: 1; margin: 15px;">
   <div style="display: flex; justify-content: flex-start; margin-bottom: 10px;">
+    <button id="actionregion" class="b3-button" style="margin-right: 10px;">Action Region</button>
     <button id="tosprig" class="b3-button" style="margin-right: 10px;">To Sprig</button>
     <button id="toaction" class="b3-button" style="margin-right: 10px;">To Action</button>
     <button id="render" class="b3-button">渲染</button>
@@ -69,6 +71,10 @@ const addMenu = (menu: Menu) => {
                 width: "80%",
                 height: "80%"
             });
+            dialog.element.querySelector('#actionregion').addEventListener('click', () => {
+                let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
+                original.value = processSprigText(original.value);
+            })
             dialog.element.querySelector('#tosprig').addEventListener('click', () => {
                 let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
                 original.value = toSprig(original.value);
@@ -80,8 +86,7 @@ const addMenu = (menu: Menu) => {
             dialog.element.querySelector('#render').addEventListener('click', async () => {
                 let converted = dialog.element.querySelector('#converted') as HTMLTextAreaElement;
                 let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
-                let text = await render(toSprig(escape(original.value)));
-                converted.value = unscape(text);
+                converted.value = await render(toSprig(original.value));
             });
         }
     });
