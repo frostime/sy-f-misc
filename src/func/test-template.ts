@@ -48,14 +48,14 @@ function processSprigText(inputText: string): string {
 const uiTemplate = `
 <section style="display: flex; flex-direction: column; flex: 1; margin: 15px;">
   <div style="display: flex; justify-content: flex-start; margin-bottom: 10px;">
-    <button id="actionregion" class="b3-button" style="margin-right: 10px;">Action Region</button>
-    <button id="tosprig" class="b3-button" style="margin-right: 10px;">To Sprig</button>
-    <button id="toaction" class="b3-button" style="margin-right: 10px;">To Action</button>
-    <button id="render" class="b3-button">渲染</button>
+    <button id="actionregion" class="b3-button" style="margin-right: 10px;">.region</button>
+    <button id="tosprig" class="b3-button" style="margin-right: 10px;">{{ }}</button>
+    <button id="toaction" class="b3-button" style="margin-right: 10px;">.action{ }</button>
+    <button id="render" class="b3-button">Render</button>
   </div>
   <div style="display: flex; flex: 1; gap: 10px;">
-    <textarea class="b3-text-field fn__block" id="original" placeholder="原始文本" style="flex: 3;font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;"></textarea>
-    <textarea class="b3-text-field fn__block" id="converted" placeholder="转换后的文本" style="flex: 2; font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;"></textarea>
+    <textarea class="b3-text-field fn__block" id="original" placeholder="Template" style="flex: 3;font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;"></textarea>
+    <textarea class="b3-text-field fn__block" id="converted" placeholder="Rendered" style="flex: 2; font-family: var(--b3-font-family-code); resize: none; font-size: 1.1rem;"></textarea>
   </div>
 </section>
 `;
