@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-20 00:45:45
  * @FilePath     : /src/func/test-template.ts
- * @LastEditTime : 2024-04-25 13:13:31
+ * @LastEditTime : 2024-04-25 13:17:10
  * @Description  : 
  */
 import { Dialog, Menu } from "siyuan";
@@ -48,7 +48,7 @@ function preprocessTemplateRegion(template: string): string {
 const uiTemplate = `
 <section style="display: flex; flex-direction: column; flex: 1; margin: 15px;">
   <div style="display: flex; justify-content: flex-start; margin-bottom: 10px;">
-    <button id="actionregion" class="b3-button" style="margin-right: 10px;">.region</button>
+    <button id="actionregion" class="b3-button" style="margin-right: 10px;">region</button>
     <button id="tosprig" class="b3-button" style="margin-right: 10px;">{{ }}</button>
     <button id="toaction" class="b3-button" style="margin-right: 10px;">.action{ }</button>
     <button id="render" class="b3-button">Render</button>
