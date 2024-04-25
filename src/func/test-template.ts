@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-20 00:45:45
  * @FilePath     : /src/func/test-template.ts
- * @LastEditTime : 2024-04-25 12:10:19
+ * @LastEditTime : 2024-04-25 13:13:31
  * @Description  : 
  */
 import { Dialog, Menu } from "siyuan";
@@ -31,12 +31,12 @@ const render = async (sprig: string) => {
     return res;
 }
 
-function processSprigText(inputText: string): string {
+function preprocessTemplateRegion(template: string): string {
     // Regular expression to find text between .startaction and .endaction
     const pattern = /\.startaction(.*?)\.endaction/gs;
 
     // Replace the matched groups
-    return inputText.replace(pattern, (match, group1) => {
+    return template.replace(pattern, (match, group1) => {
         // Split the group into lines and transform each line
         const lines = group1.split('\n').filter(line => line.trim() !== '');
         const transformedLines = lines.map(line => `.action{ ${line.trim()} }`);
@@ -66,14 +66,14 @@ const addMenu = (menu: Menu) => {
         icon: 'iconMarkdown',
         click: () => {
             let dialog = new Dialog({
-                title: '测试模板',
+                title: 'Test Template',
                 content: uiTemplate,
                 width: "80%",
                 height: "80%"
             });
             dialog.element.querySelector('#actionregion').addEventListener('click', () => {
                 let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
-                original.value = processSprigText(original.value);
+                original.value = preprocessTemplateRegion(original.value);
             })
             dialog.element.querySelector('#tosprig').addEventListener('click', () => {
                 let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
@@ -86,7 +86,8 @@ const addMenu = (menu: Menu) => {
             dialog.element.querySelector('#render').addEventListener('click', async () => {
                 let converted = dialog.element.querySelector('#converted') as HTMLTextAreaElement;
                 let original = dialog.element.querySelector('#original') as HTMLTextAreaElement;
-                converted.value = await render(toSprig(original.value));
+                let template = toSprig(preprocessTemplateRegion(original.value))
+                converted.value = await render(template);
             });
         }
     });
