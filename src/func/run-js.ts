@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-08 18:32:51
  * @FilePath     : /src/func/run-js.ts
- * @LastEditTime : 2024-04-08 19:54:11
+ * @LastEditTime : 2024-04-28 20:19:34
  * @Description  : 迁移 Run Js 插件，但是只保留了最核心的功能，其他的什么 saveAction 全去掉了
  */
 import {
@@ -19,7 +19,7 @@ import type FMiscPlugin from "@/index";
 
 const _client = {};
 const client = new Proxy(_client, {
-    get: function (target, prop) {
+    get: function (_, prop) {
         return function () {
             console.error(`client.${String(prop)} is not implemented`);
         }
@@ -32,7 +32,7 @@ const client = new Proxy(_client, {
  * @param element 元素
  * @returns 是否为思源块元素
  */
-function isSiyuanBlock(element: any): boolean {
+export function isSiyuanBlock(element: any): boolean {
     return !!(element
         && element instanceof HTMLElement
         && element.dataset.type
@@ -209,7 +209,7 @@ export const load = async (plugin?: FMiscPlugin) => {
     enabled = true;
 }
 
-export const unload = (plugin?: FMiscPlugin) => {
+export const unload = () => {
     if (!enabled) return;
     runJs.onunload();
     enabled = false;

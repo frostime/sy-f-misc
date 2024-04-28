@@ -148,7 +148,7 @@ export const load = async (plugin: FMiscPlugin) => {
     enabled = true;
 }
 
-export const unload = (plugin: FMiscPlugin) => {
+export const unload = () => {
     if (!enabled) return;
     
     enabled = false;

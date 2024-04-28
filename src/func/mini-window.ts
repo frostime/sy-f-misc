@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 21:23:19
  * @FilePath     : /src/func/mini-window.ts
- * @LastEditTime : 2024-04-04 22:05:36
+ * @LastEditTime : 2024-04-28 20:21:23
  * @Description  : 「网页视图」插件中打开小窗口的功能
  * @Open Source  : 摘抄自「网页视图」插件
  */
-import type FMiscPlugin from '@/index';
+// import type FMiscPlugin from '@/index';
 import { openWindow } from "siyuan";
 
 const openSiyuanWindow = (
@@ -32,7 +32,7 @@ const openSiyuanWindow = (
 export let name = 'MiniWindow';
 export let enabled = false;
 
-export function load(plugin?: FMiscPlugin) {
+export function load() {
 
     if (enabled) return;
 
@@ -41,7 +41,7 @@ export function load(plugin?: FMiscPlugin) {
     enabled = true;
 }
 
-export function unload(plugin?: FMiscPlugin) {
+export function unload() {
     if (!enabled) return;
     document.removeEventListener('mousedown', onMouseClick);
     enabled = false;
@@ -99,4 +99,3 @@ export function getBlockID(e: Event): BlockId | void {
     }
     return;
 }
-
