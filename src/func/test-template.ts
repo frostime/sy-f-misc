@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-20 00:45:45
  * @FilePath     : /src/func/test-template.ts
- * @LastEditTime : 2024-04-28 20:10:23
+ * @LastEditTime : 2024-04-28 20:14:16
  * @Description  : 
  */
 import { Dialog, Menu } from "siyuan";
@@ -15,7 +15,7 @@ import type FMiscPlugin from "@/index";
 // 找到 .action{ .*? } ，转换成 {{ .*? }}
 const toSprig = (template: string) => {
     // return template.replace(/\.action{\s*(.*?)\s*}/g, '{{ $1 }}');
-    return template.replace(/\.action{\s*(.*?)\s*}/g, (match, p1) => {
+    return template.replace(/\.action{\s*(.*?)\s*}/g, (_, p1) => {
         if (p1.startsWith('/*') && p1.endsWith('*/')) {
             return `{{${p1}}}`;
         } else {
@@ -28,7 +28,7 @@ const toSprig = (template: string) => {
 // 如果是 {{/*...*/}}，则两边不要添加空格
 const toAction = (template: string) => {
     // return template.replace(/{{\s*(.*?)\s*}}/g, '.action{ $1 }');
-    return template.replace(/{{\s*(.*?)\s*}}/g, (match, p1) => {
+    return template.replace(/{{\s*(.*?)\s*}}/g, (_, p1) => {
         if (p1.startsWith('/*') && p1.endsWith('*/')) {
             return `.action{${p1}}`;
         } else {
