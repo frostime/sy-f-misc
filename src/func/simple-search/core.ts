@@ -3,7 +3,7 @@
  * @Author       : choyy, frostime
  * @Date         : 2024-04-19 13:13:57
  * @FilePath     : /src/func/simple-search/core.ts
- * @LastEditTime : 2024-04-19 16:40:45
+ * @LastEditTime : 2024-04-29 17:00:52
  * @Description  : 拷贝「简易搜索插件」 v0.2.0
  * @Source       : https://github.com/choyy/simple-search/blob/v0.2.0/index.js
  */
@@ -387,8 +387,8 @@ export default class SimpleSearch {
             // console.log("Body Mutation", mutationsList);
             for (let i = 0; i < mutationsList.length; i++) {
                 if (mutationsList[i].addedNodes.length == 0) return;
-                let ele = mutationsList[i].addedNodes[0] as HTMLElement;
-                if (ele.getAttribute('data-key') == "dialog-globalsearch") {// 判断全局搜索
+                let ele = mutationsList?.[i]?.addedNodes[0] as HTMLElement;
+                if (ele?.getAttribute('data-key') === "dialog-globalsearch") {// 判断全局搜索
                     operationsAfterOpenSearch();
                     querySelector("#searchOpen").onclick = function () { // 确保按下在页签打开时搜索关键词不变
                         (document.getElementById("searchInput") as HTMLInputElement).value = g_search_keywords;
