@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-04-20 00:28:15
+ * @LastEditTime : 2024-05-01 21:13:48
  * @Description  : 
  */
 import {
@@ -108,9 +108,10 @@ export default class FMiscPlugin extends Plugin {
             width: "800px",
             height: "500px"
         });
-        let div = dialog.element.querySelector("#SettingPanel");
+        let div = dialog.element.querySelector("#SettingPanel") as HTMLElement;
         if (div) {
             div.appendChild(this.settingUI.element);
+            div.focus();
         }
     }
 
