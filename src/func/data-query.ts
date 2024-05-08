@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-05-08 15:58:08
+ * @LastEditTime : 2024-05-08 16:00:26
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -23,16 +23,17 @@ let lute: ILute = null;
 
 class List {
     target: HTMLElement;
-    props: { dataList: any[] };
+    //嵌套列表
+    dataList: any[];
 
-    constructor(options: { target: HTMLElement, props: { dataList: any[] } }) {
+    constructor(options: { target: HTMLElement, dataList: any[] }) {
         this.target = options.target;
-        this.props = options.props;
+        this.dataList = options.dataList;
         this.render();
     }
 
     render() {
-        const { dataList } = this.props;
+        const dataList = this.dataList;
         const trimList = dataList.map(x => "* " + x.toString());
         const mdStr = trimList.join("\n");
         const html = lute.Md2BlockDOM(mdStr);
@@ -43,16 +44,16 @@ class List {
 
 class Table {
     target: HTMLElement;
-    props: { tableData: any[][] };
+    tableData: any[][];
 
-    constructor(options: { target: HTMLElement, props: { tableData: any[][] } }) {
+    constructor(options: { target: HTMLElement, tableData: any[][] }) {
         this.target = options.target;
-        this.props = options.props;
+        this.tableData = options.tableData;
         this.render();
     }
 
     render() {
-        const { tableData } = this.props;
+        const tableData  = this.tableData;
         const headerRow = tableData[0].map(header => `<th>${lute.InlineMd2BlockDOM(`${header}`)}</th>`).join('');
         const bodyRows = tableData.slice(1).map(row => {
             const rowItems = row.map(rowItem => `<td>${lute.InlineMd2BlockDOM(`${rowItem}`)}</td>`).join('');
@@ -142,9 +143,7 @@ export class DataView {
         let listContainer = document.createElement("div");
         new List({
             target: listContainer,
-            props: {
-                dataList: data
-            }
+            dataList: data
         });
         this.container.append(listContainer);
         return listContainer;
@@ -154,9 +153,7 @@ export class DataView {
         let tableContainer = document.createElement('div');
         new Table({
             target: tableContainer,
-            props: {
-                tableData: data
-            }
+            tableData: data
         });
         this.container.append(tableContainer);
         return tableContainer;
