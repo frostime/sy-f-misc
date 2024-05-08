@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-04-28 20:20:26
+ * @LastEditTime : 2024-05-08 15:33:13
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -11,7 +11,7 @@ import * as nf from './new-file';
 import * as it from './insert-time';
 import * as tl from './titled-link';
 import * as op from './on-paste';
-import * as gt from './global-this';
+// import * as gt from './global-this';
 import * as ct from './change-theme';
 import * as mw from './mini-window';
 import * as rj from './run-js';
@@ -20,6 +20,7 @@ import * as tr from './transfer-ref';
 import * as fb from './fake-breadcrumb';
 import * as ss from './simple-search';
 import * as tt from './test-template';
+import * as dq from './data-query';
 
 interface IFuncModule {
     name: string;
@@ -55,7 +56,8 @@ export const load = (plugin: FMiscPlugin) => {
         }
     });
 
-    gt.load();
+    // gt.load();
+    dq.load();
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -63,7 +65,8 @@ export const unload = (plugin: FMiscPlugin) => {
         module.unload(plugin);
     });
 
-    gt.unload();
+    // gt.unload();
+    dq.unload();
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];
