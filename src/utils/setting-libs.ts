@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-04-20 00:47:48
+ * @LastEditTime : 2024-05-08 15:54:27
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -26,13 +26,6 @@ const Enable: ISettingItem[] = [
         title: '📋 侧边栏Protyle',
         description: '启用侧边栏自定义 Protyle 功能',
         key: 'EnableDocky',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '💻 Run Javascript',
-        description: '启用 Run Js 功能',
-        key: 'EnableRunJs',
         value: true
     },
     {
@@ -69,6 +62,13 @@ const Enable: ISettingItem[] = [
         description: '启用更换主题功能',
         key: 'EnableChangeTheme',
         value: true
+    },
+    {
+        type: 'checkbox',
+        title: '💻 Run Javascript',
+        description: '启用 Run Js 功能',
+        key: 'EnableRunJs',
+        value: false
     },
     {
         type: 'checkbox',
