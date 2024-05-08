@@ -4,6 +4,7 @@ import { Lute } from "siyuan";
 
 export interface ILute extends Lute {
     SetHTMLTag2TextMark: (enable: boolean) => void;
+    InlineMd2BlockDOM: (md: string) => string;
 }
 
 export const setLute = (options) => {

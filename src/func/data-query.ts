@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-05-08 15:14:15
+ * @LastEditTime : 2024-05-08 15:27:14
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -17,6 +17,87 @@ import {
 import { ILute, setLute } from "@/utils/lute";
 
 let lute: ILute = null;
+
+/**************************************** 重构几个默认显示组件 ****************************************/
+
+
+class List {
+    target: HTMLElement;
+    props: { dataList: any[] };
+
+    constructor(options: { target: HTMLElement, props: { dataList: any[] } }) {
+        this.target = options.target;
+        this.props = options.props;
+        this.render();
+    }
+
+    render() {
+        const { dataList } = this.props;
+        const trimList = dataList.map(x => "* " + x.toString());
+        const mdStr = trimList.join("\n");
+        const html = lute.Md2BlockDOM(mdStr);
+
+        this.target.innerHTML = `<div>${html}</div>`;
+    }
+}
+
+class Table {
+    target: HTMLElement;
+    props: { tableData: any[][] };
+
+    constructor(options: { target: HTMLElement, props: { tableData: any[][] } }) {
+        this.target = options.target;
+        this.props = options.props;
+        this.render();
+    }
+
+    render() {
+        const { tableData } = this.props;
+        const headerRow = tableData[0].map(header => `<th>${lute.InlineMd2BlockDOM(`${header}`)}</th>`).join('');
+        const bodyRows = tableData.slice(1).map(row => {
+            const rowItems = row.map(rowItem => `<td>${lute.InlineMd2BlockDOM(`${rowItem}`)}</td>`).join('');
+            return `<tr>${rowItems}</tr>`;
+        }).join('');
+
+        const tableHtml = `
+            <div>
+                <table class="query-table" style="max-width: 100%;">
+                    <thead>
+                        <tr>${headerRow}</tr>
+                    </thead>
+                    <tbody>${bodyRows}</tbody>
+                </table>
+            </div>
+        `;
+
+        this.target.innerHTML = tableHtml;
+    }
+}
+
+/**************************************** ZX写的 DataView 类 ****************************************/
+
+
+function cancelKeyEvent(el: KeyboardEvent) {
+    let nodeElement: HTMLElement = document.getSelection().getRangeAt(0).startContainer.parentElement
+    if (hasParentWithClass(nodeElement, "data-query-embed")) {
+        el.stopPropagation()
+    }
+}
+
+function hasParentWithClass(element: HTMLElement, className: string) {
+    // 获取父元素
+    let parent = element.parentElement;
+    // 通过while循环遍历父元素
+    while (parent && !parent.classList.contains('protyle-wysiwyg--attr')) {
+        // 检查父元素是否包含指定class
+        if (parent.classList.contains(className)) {
+            return true;
+        }
+        // 继续向上获取父元素
+        parent = parent.parentElement;
+    }
+    return false;
+}
 
 export class DataView {
     private protyle: IProtyle
@@ -55,29 +136,18 @@ export class DataView {
         this.container.append(elem)
     }
 
-    list(data: any[]) {
+    addList(data: any[]) {
         let listContainer = document.createElement("div")
         new List({
             target: listContainer,
             props: {
-                // we'll learn about props later
                 dataList: data
             }
         })
         this.container.append(listContainer)
     }
 
-    card(data: any[]) {
-        let cardContainer = document.createElement('div')
-        new Card({
-            target: cardContainer,
-            props: {
-                data: data
-            }
-        })
-        this.container.append(cardContainer)
-    }
-    table(data: any[]) {
+    addTable(data: any[]) {
         let tableContainer = document.createElement('div')
         new Table({
             target: tableContainer,
@@ -88,8 +158,7 @@ export class DataView {
         this.container.append(tableContainer)
     }
 
-    show() {
-
+    render() {
         this.protyle.element.addEventListener("keydown", cancelKeyEvent, true)
         const rotateElement = this.item.querySelector(".fn__rotate");
 
@@ -132,35 +201,8 @@ export class DataView {
     }
 }
 
+/**************************************** Func ****************************************/
 
-function cancelKeyEvent(el: KeyboardEvent) {
-    let nodeElement: HTMLElement = document.getSelection().getRangeAt(0).startContainer.parentElement
-    if (hasParentWithClass(nodeElement, "data-query-embed")) {
-        el.stopPropagation()
-    }
-}
-
-
-
-function hasParentWithClass(element: HTMLElement, className: string) {
-
-    // 获取父元素
-    let parent = element.parentElement;
-
-    // 通过while循环遍历父元素
-    while (parent && !parent.classList.contains('protyle-wysiwyg--attr')) {
-
-        // 检查父元素是否包含指定class
-        if (parent.classList.contains(className)) {
-            return true;
-        }
-
-        // 继续向上获取父元素
-        parent = parent.parentElement;
-    }
-
-    return false;
-}
 
 export let name = "DataQuery";
 export let enabled = false;
@@ -168,11 +210,17 @@ export let enabled = false;
 export const load = () => {
     if (enabled) return;
     lute = setLute({});
+
+    globalThis.newDV = (protyle: IProtyle, item: HTMLElement, top: number | null) => {
+        return new DataView(protyle, item, top);
+    }
+
     enabled = true;
 }
 
 export const unload = () => {
     if (!enabled) return;
     lute = null;
+    delete globalThis.newDV;
     enabled = false;
 }
