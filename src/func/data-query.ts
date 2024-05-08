@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-05-08 16:00:26
+ * @LastEditTime : 2024-05-08 16:18:08
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -292,6 +292,29 @@ export const load = () => {
         UniBlocks,
         GetBlocksByIDs,
         sql: sql,
+        //查找块的反链
+        backlink: async (id: BlockId) => {
+            return sql(`
+            select * from blocks where id in (
+                select block_id from refs where def_block_id in (
+                    select id from blocks where root_id = '${id}'
+                )
+            ) order by updated desc
+            `);
+        },
+        //查找具有指定属性的 block
+        attr: async (name: string, val?: string, valMatch: '=' | 'like' = '=') => {
+            return sql(`
+            SELECT B.*
+            FROM blocks AS B
+            WHERE B.id IN (
+                SELECT A.block_id
+                FROM attributes AS A
+                WHERE A.name = '${name}'
+                ${val ? `AND A.value ${valMatch} '${val}'` : ''}
+            );
+            `);
+        },
         b2link: (b: Block) => `[${b.content}](siyuan://blocks/${b.id})`,
         b2ref: (b: Block) => `((${b.id} '${b.content}'))`
     }
