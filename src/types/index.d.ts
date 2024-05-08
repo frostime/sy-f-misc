@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/types/index.d.ts
- * @LastEditTime : 2024-04-07 21:14:37
+ * @LastEditTime : 2024-05-01 21:43:51
  * @Description  : 
  */
 
 interface IDockyBlock {
-    id: string;
     name: string;
     position: 'RightTop' | 'RightBottom' | 'LeftTop' | 'LeftBottom';
+    id: string;
     icon?: string;
     hotkey?: string;
 }

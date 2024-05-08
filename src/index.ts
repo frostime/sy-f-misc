@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-05-01 21:13:48
+ * @LastEditTime : 2024-05-08 12:14:48
  * @Description  : 
  */
 import {
@@ -58,7 +58,7 @@ export default class FMiscPlugin extends Plugin {
         const frontEnd = getFrontend();
         this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
-        this.addIcons([Svg.Vertical, Svg.Theme, Svg.Transfer].join(''));
+        this.addIcons([Svg.Toolbox, Svg.Vertical, Svg.Theme, Svg.Transfer].join(''));
         this.settingUI = await initSetting(this);
         load(this);
 
@@ -212,6 +212,13 @@ export default class FMiscPlugin extends Plugin {
                     window.location.reload();
                 }
             });
+            menu.addItem({
+                label: '设置',
+                icon: 'iconSettings',
+                click: () => {
+                    this.openSetting();
+                }
+            });
 
             const rect = topbar.getBoundingClientRect();
             menu.open({
@@ -222,7 +229,7 @@ export default class FMiscPlugin extends Plugin {
         }
 
         const topbar = this.addTopBar({
-            icon: 'iconSettings',
+            icon: 'iconToolbox',
             title: 'f-misc',
             position: 'right',
             callback: showMenu
