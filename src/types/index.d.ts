@@ -133,6 +133,7 @@ declare interface Window {
         user: any;
         ws: any;
         languages: any;
+        emojis: any;
     };
     Lute: any;
 }
