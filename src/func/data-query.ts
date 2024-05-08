@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-05-08 15:41:53
+ * @LastEditTime : 2024-05-08 15:58:08
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -78,9 +78,9 @@ class Table {
 
 
 function cancelKeyEvent(el: KeyboardEvent) {
-    let nodeElement: HTMLElement = document.getSelection().getRangeAt(0).startContainer.parentElement
+    let nodeElement: HTMLElement = document.getSelection().getRangeAt(0).startContainer.parentElement;
     if (hasParentWithClass(nodeElement, "data-query-embed")) {
-        el.stopPropagation()
+        el.stopPropagation();
     }
 }
 
@@ -100,86 +100,90 @@ function hasParentWithClass(element: HTMLElement, className: string) {
 }
 
 export class DataView {
-    private protyle: IProtyle
-    private item: HTMLElement
-    private top: number | null
-    private lute: Lute
-    container: HTMLElement
+    private protyle: IProtyle;
+    private item: HTMLElement;
+    private top: number | null;
+    private lute: Lute;
+    container: HTMLElement;
 
     constructor(protyle: IProtyle, item: HTMLElement, top: number | null) {
-        this.protyle = protyle
-        this.item = item
-        this.top = top
-        this.container = document.createElement("div")
-        this.container.classList.add('data-query-embed')
+        this.protyle = protyle;
+        this.item = item;
+        this.top = top;
+        this.container = document.createElement("div");
+        this.container.classList.add('data-query-embed');
         this.item.lastElementChild.insertAdjacentElement("beforebegin", this.container);
-        this.lute = lute
+        this.lute = lute;
     }
 
     addElement(CustomEmbed: HTMLElement | string) {
-        const customElem = document.createElement("div")
+        const customElem = document.createElement("div");
 
         if (typeof CustomEmbed === 'string') {
-            const html = `<div class="protyle-wysiwyg__embed">${CustomEmbed}</div>`
-            customElem.innerHTML = html
+            const html = `<div class="protyle-wysiwyg__embed">${CustomEmbed}</div>`;
+            customElem.innerHTML = html;
         }
         else if (CustomEmbed instanceof Element) {
-            customElem.appendChild(CustomEmbed)
+            customElem.appendChild(CustomEmbed);
         }
 
-        this.container.append(customElem)
+        this.container.append(customElem);
+        return customElem;
     }
 
     addMarkdown(md: string) {
-        let elem = document.createElement("div")
-        elem.innerHTML = this.lute.Md2BlockDOM(md)
-        this.container.append(elem)
+        let elem = document.createElement("div");
+        elem.innerHTML = this.lute.Md2BlockDOM(md);
+        this.container.append(elem);
+        return elem;
     }
 
     addList(data: any[]) {
-        let listContainer = document.createElement("div")
+        let listContainer = document.createElement("div");
         new List({
             target: listContainer,
             props: {
                 dataList: data
             }
-        })
-        this.container.append(listContainer)
+        });
+        this.container.append(listContainer);
+        return listContainer;
     }
 
     addTable(data: any[]) {
-        let tableContainer = document.createElement('div')
+        let tableContainer = document.createElement('div');
         new Table({
             target: tableContainer,
             props: {
                 tableData: data
             }
-        })
-        this.container.append(tableContainer)
+        });
+        this.container.append(tableContainer);
+        return tableContainer;
     }
 
     render() {
-        this.protyle.element.addEventListener("keydown", cancelKeyEvent, true)
+        this.protyle.element.addEventListener("keydown", cancelKeyEvent, true);
         const rotateElement = this.item.querySelector(".fn__rotate");
 
         if (rotateElement) {
             rotateElement.classList.remove("fn__rotate");
         }
 
-        this.container.setAttribute("contenteditable", "false")
-        this.container.onmousedown = (el) => { el.stopPropagation() }
-        this.container.onmouseup = (el) => { el.stopPropagation() }
-        this.container.onkeydown = (el) => { el.stopPropagation() }
-        this.container.onkeyup = (el) => { el.stopPropagation() }
-        this.container.oninput = (el) => { el.stopPropagation() }
+        this.container.setAttribute("contenteditable", "false");
+        this.container.onmousedown = (el) => { el.stopPropagation(); };
+        this.container.onmouseup = (el) => { el.stopPropagation(); };
+        this.container.onkeydown = (el) => { el.stopPropagation(); };
+        this.container.onkeyup = (el) => { el.stopPropagation(); };
+        this.container.oninput = (el) => { el.stopPropagation(); };
         this.container.onclick = (el) => {
             const selection = window.getSelection();
             const length = selection.toString().length;
             if (length === 0 && (el.target as HTMLElement).tagName === "SPAN") {
-                return
+                return;
             }
-            el.stopPropagation()
-        }
+            el.stopPropagation();
+        };
 
         if (this.top) {
             // 前进后退定位 https://ld246.com/article/1667652729995
@@ -187,17 +191,17 @@ export class DataView {
         }
 
         // 确保内部节点不可编辑
-        let editableNodeList = this.container.querySelectorAll('[contenteditable="true"]')
+        let editableNodeList = this.container.querySelectorAll('[contenteditable="true"]');
         editableNodeList.forEach(node => {
-            node.setAttribute('contenteditable', 'false')
-        })
+            node.setAttribute('contenteditable', 'false');
+        });
 
         this.item.style.height = "";
-        let content = lute.BlockDOM2Content(this.container.innerText).replaceAll('\n', ' ')
+        let content = lute.BlockDOM2Content(this.container.innerText).replaceAll('\n', ' ');
         fetchSyncPost('/api/search/updateEmbedBlock', {
             id: this.item.getAttribute("data-node-id"),
             content: content
-        })
+        });
     }
 }
 
