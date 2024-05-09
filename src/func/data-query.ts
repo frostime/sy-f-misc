@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-05-08 20:30:04
+ * @LastEditTime : 2024-05-09 13:25:35
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -22,12 +22,12 @@ let lute: ILute = null;
 
 
 class List {
-    target: HTMLElement;
+    element: HTMLElement;
     //嵌套列表
     dataList: any[];
 
     constructor(options: { target: HTMLElement, dataList: any[] }) {
-        this.target = options.target;
+        this.element = options.target;
         this.dataList = options.dataList;
         this.render();
     }
@@ -38,17 +38,19 @@ class List {
         const mdStr = trimList.join("\n");
         const html = lute.Md2BlockDOM(mdStr);
 
-        this.target.innerHTML = `<div>${html}</div>`;
+        this.element.innerHTML = `<div>${html}</div>`;
     }
 }
 
 class Table {
-    target: HTMLElement;
+    element: HTMLElement;
     tableData: any[][];
+    private center: boolean;
 
-    constructor(options: { target: HTMLElement, tableData: any[][] }) {
-        this.target = options.target;
+    constructor(options: { target: HTMLElement, tableData: any[][], center: boolean }) {
+        this.element = options.target;
         this.tableData = options.tableData;
+        this.center = options.center;
         this.render();
     }
 
@@ -61,17 +63,15 @@ class Table {
         }).join('');
 
         const tableHtml = `
-            <div>
-                <table class="query-table" style="max-width: 100%;">
-                    <thead>
-                        <tr>${headerRow}</tr>
-                    </thead>
-                    <tbody>${bodyRows}</tbody>
-                </table>
-            </div>
+            <table class="query-table" style="max-width: 100%; ${this.center ? 'margin: 0 auto;' : ''}">
+                <thead>
+                    <tr>${headerRow}</tr>
+                </thead>
+                <tbody>${bodyRows}</tbody>
+            </table>
         `;
 
-        this.target.innerHTML = tableHtml;
+        this.element.innerHTML = tableHtml;
     }
 }
 
@@ -105,15 +105,17 @@ export class DataView {
     private item: HTMLElement;
     private top: number | null;
     private lute: Lute;
-    container: HTMLElement;
+    element: HTMLElement;
+    ele: WeakRef<HTMLElement>;  //alias for element
 
     constructor(protyle: IProtyle, item: HTMLElement, top: number | null) {
         this.protyle = protyle;
         this.item = item;
         this.top = top;
-        this.container = document.createElement("div");
-        this.container.classList.add('data-query-embed');
-        this.item.lastElementChild.insertAdjacentElement("beforebegin", this.container);
+        this.element = document.createElement("div");
+        this.ele = new WeakRef(this.element);
+        this.element.classList.add('data-query-embed');
+        this.item.lastElementChild.insertAdjacentElement("beforebegin", this.element);
         this.lute = lute;
     }
 
@@ -128,35 +130,36 @@ export class DataView {
             customElem.appendChild(CustomEmbed);
         }
 
-        this.container.append(customElem);
+        this.element.append(customElem);
         return customElem;
     }
 
     addMarkdown(md: string) {
         let elem = document.createElement("div");
         elem.innerHTML = this.lute.Md2BlockDOM(md);
-        this.container.append(elem);
+        this.element.append(elem);
         return elem;
     }
 
     addList(data: any[]) {
         let listContainer = document.createElement("div");
-        new List({
+        let list = new List({
             target: listContainer,
             dataList: data
         });
-        this.container.append(listContainer);
-        return listContainer;
+        this.element.append(listContainer);
+        return list.element.firstChild as HTMLElement;
     }
 
-    addTable(data: any[]) {
+    addTable(data: any[], center: boolean = false) {
         let tableContainer = document.createElement('div');
-        new Table({
+        let table = new Table({
             target: tableContainer,
-            tableData: data
+            tableData: data,
+            center
         });
-        this.container.append(tableContainer);
-        return tableContainer;
+        this.element.append(tableContainer);
+        return table.element.firstChild as HTMLElement;
     }
 
     render() {
@@ -167,13 +170,13 @@ export class DataView {
             rotateElement.classList.remove("fn__rotate");
         }
 
-        this.container.setAttribute("contenteditable", "false");
-        this.container.onmousedown = (el) => { el.stopPropagation(); };
-        this.container.onmouseup = (el) => { el.stopPropagation(); };
-        this.container.onkeydown = (el) => { el.stopPropagation(); };
-        this.container.onkeyup = (el) => { el.stopPropagation(); };
-        this.container.oninput = (el) => { el.stopPropagation(); };
-        this.container.onclick = (el) => {
+        this.element.setAttribute("contenteditable", "false");
+        this.element.onmousedown = (el) => { el.stopPropagation(); };
+        this.element.onmouseup = (el) => { el.stopPropagation(); };
+        this.element.onkeydown = (el) => { el.stopPropagation(); };
+        this.element.onkeyup = (el) => { el.stopPropagation(); };
+        this.element.oninput = (el) => { el.stopPropagation(); };
+        this.element.onclick = (el) => {
             const selection = window.getSelection();
             const length = selection.toString().length;
             if (length === 0 && (el.target as HTMLElement).tagName === "SPAN") {
@@ -188,13 +191,13 @@ export class DataView {
         }
 
         // 确保内部节点不可编辑
-        let editableNodeList = this.container.querySelectorAll('[contenteditable="true"]');
+        let editableNodeList = this.element.querySelectorAll('[contenteditable="true"]');
         editableNodeList.forEach(node => {
             node.setAttribute('contenteditable', 'false');
         });
 
         this.item.style.height = "";
-        let content = lute.BlockDOM2Content(this.container.innerText).replaceAll('\n', ' ');
+        let content = lute.BlockDOM2Content(this.element.innerText).replaceAll('\n', ' ');
         fetchSyncPost('/api/search/updateEmbedBlock', {
             id: this.item.getAttribute("data-node-id"),
             content: content
@@ -295,11 +298,11 @@ export const load = () => {
         id2block: GetBlocksByIDs,
         sql: sql,
         //查找块的反链
-        backlink: async (id: BlockId) => {
+        backlink: async (id: BlockId, limit?: number) => {
             return sql(`
             select * from blocks where id in (
                 select block_id from refs where def_block_id = '${id}'
-            ) order by updated desc
+            ) order by updated desc ${limit ? `limit ${limit}` : ''};
             `);
         },
         //查找具有指定属性的 block
