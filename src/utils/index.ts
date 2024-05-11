@@ -29,3 +29,11 @@ export async function getChildDocs(block: BlockId) {
     let childDocs = await api.sql(sqlCode);
     return childDocs;
 }
+
+
+export const html2ele = (html: string): DocumentFragment => {
+    let template = document.createElement('template');
+    template.innerHTML = html.trim();
+    let ele = document.importNode(template.content, true);
+    return ele;
+}

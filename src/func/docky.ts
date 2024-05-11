@@ -1,5 +1,7 @@
-import { Protyle, Dialog, showMessage } from "siyuan";
+import { Protyle, Dialog, showMessage, openTab } from "siyuan";
 import type FMiscPlugin from "@/index";
+import { html2ele } from "@/utils";
+import { insertStyle, removeStyle } from "@/utils/style";
 // import * as api from '../api';
 
 export const selectIconDialog = () => {
@@ -51,7 +53,27 @@ const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
             breadcrumbDocName: false,
         }
     });
+
+    let html = `
+    <div class="f-misc__docky-action">
+        <svg data-name="focus">
+            <use xlink:href="#iconFocus"></use>
+        </svg>
+    </div>
+    `;
+    let frag = html2ele(html);
+    frag.querySelector('svg').addEventListener('click', () => {
+        openTab({
+            app: plugin.app,
+            doc: {
+                id: id,
+                zoomIn: false
+            }
+        })
+    });
+
     ele.appendChild(div);
+    ele.appendChild(frag);
 }
 
 const BlockIDPattern = /^\d{14,}-\w{7}$/;
@@ -145,11 +167,35 @@ export const load = async (plugin: FMiscPlugin) => {
         document.documentElement.style.setProperty('--plugin-docky-zoom', `${factor}`);
     }
 
+    insertStyle('f-misc-docky-style', `
+        .f-misc__docky-action {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            display: flex;
+            position: absolute;
+            right: 5px;
+            top: 5px;
+            padding: 5px 5px;
+            border-radius: 5px;
+            background: var(--b3-theme-surface-light);
+            color: var(--b3-toolbar-color);
+        }
+        .f-misc__docky-action:hover {
+            opacity: 1;
+        }
+
+        .f-misc__docky-action>svg {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+        }
+    `);
+
     enabled = true;
 }
 
 export const unload = () => {
     if (!enabled) return;
-    
+    removeStyle('f-misc-docky-style');
     enabled = false;
 }
