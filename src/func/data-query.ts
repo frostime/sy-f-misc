@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-05-09 13:25:35
+ * @LastEditTime : 2024-05-11 17:49:31
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -134,12 +134,18 @@ export class DataView {
         return customElem;
     }
 
+    addelement = this.addElement;
+    addele = this.addElement;
+
     addMarkdown(md: string) {
         let elem = document.createElement("div");
         elem.innerHTML = this.lute.Md2BlockDOM(md);
         this.element.append(elem);
         return elem;
     }
+
+    addmd = this.addMarkdown;
+    addmarkdown = this.addMarkdown;
 
     addList(data: any[]) {
         let listContainer = document.createElement("div");
@@ -151,6 +157,8 @@ export class DataView {
         return list.element.firstChild as HTMLElement;
     }
 
+    addlist = this.addList;
+
     addTable(data: any[], center: boolean = false) {
         let tableContainer = document.createElement('div');
         let table = new Table({
@@ -161,6 +169,8 @@ export class DataView {
         this.element.append(tableContainer);
         return table.element.firstChild as HTMLElement;
     }
+
+    addtable = this.addTable;
 
     render() {
         this.protyle.element.addEventListener("keydown", cancelKeyEvent, true);
@@ -297,6 +307,9 @@ export const load = () => {
         uniblocks: UniBlocks,
         id2block: GetBlocksByIDs,
         sql: sql,
+        cond: async (cond: string) => {
+            return sql(`select * from blocks where ${cond}`);
+        },
         //查找块的反链
         backlink: async (id: BlockId, limit?: number) => {
             return sql(`
@@ -318,8 +331,8 @@ export const load = () => {
             );
             `);
         },
-        b2link: (b: Block) => `[${b.content}](siyuan://blocks/${b.id})`,
-        b2ref: (b: Block) => `((${b.id} '${b.content}'))`
+        b2link: (b: Block) => `[${b.fcontent || b.content}](siyuan://blocks/${b.id})`,
+        b2ref: (b: Block) => `((${b.id} '${b.fcontent || b.content}'))`
     }
 
     enabled = true;
