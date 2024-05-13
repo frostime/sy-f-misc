@@ -1,0 +1,278 @@
+/**
+ * Copyright (C) 2023 Zuoqiu Yingyi
+ * 列表转导图
+ * REF [royc01/notion-theme](https://github.com/royc01/notion-theme/blob/c5e535a8f40a97c1d42384a7715ced88261dd59f/theme.css#L1444-L1577)
+ */
+ :root {
+    /* 悬浮显示层级 */
+    --custom-block-position-sticky-z-index: 2;
+
+    /* 弹幕滚动时间 */
+    --custom-block-render-danmaku-time: 16s;
+
+    /* 滚屏模式最大高度 */
+    --custom-block-render-scroll-max-height: 50vh;
+
+    /* 表格单元格宽度 */
+    --custom-block-table-cell-equal-width: 16em;
+
+    /* 列表辅助线宽度 */
+    --custom-block-list-guides-line-width: 2px;
+
+    /* 圆角直径 */
+    --custom-block-border-radius: 4px;
+
+    /* 列表看板视图 - 看板项最小宽度 */
+    --custom-block-list-board-min-width: 16em;
+    /* 列表看板视图 - 看板项最大宽度 */
+    --custom-block-list-board-max-width: none;
+
+    /* 列表表格视图 - 表格项最小宽度 */
+    --custom-block-list-view-table-min-width: 8em;
+    /* 列表表格视图 - 表格项最大宽度 */
+    --custom-block-list-view-table-max-width: none;
+
+    /* 列表导图视图 - 列表项最小宽度 */
+    --custom-block-list-view-map-min-width: 2em;
+    /* 列表导图视图 - 列表项最大宽度 */
+    --custom-block-list-view-map-max-width: none;
+    /* 列表导图视图 - 文本块换行模式 */
+    --custom-block-list-view-map-white-space: pre-wrap;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map].protyle-wysiwyg>[data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map].protyle-wysiwyg>[data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map].protyle-wysiwyg>[data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id]:not(.li)>[data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id]:not(.li)>[data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id]:not(.li)>[data-node-id].list {
+  /* 文档块样式 */
+  overflow-x: auto;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map][data-node-id].list {
+  /* 导图块样式 */
+  overflow-x: auto;
+  padding-top: 1em;
+  padding-bottom: 1em;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list>.protyle-attr,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list>.protyle-attr,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map][data-node-id].list>.protyle-attr,
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list>[data-node-id].li>.protyle-attr,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list>[data-node-id].li>.protyle-attr,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map][data-node-id].list>[data-node-id].li>.protyle-attr {
+  /* 列表块属性标签 */
+  top: 0;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list>.protyle-attr>.protyle-attr--refcount,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list>.protyle-attr>.protyle-attr--refcount,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map][data-node-id].list>.protyle-attr>.protyle-attr--refcount,
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list>[data-node-id].li>.protyle-attr>.protyle-attr--refcount,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map][data-node-id].list>[data-node-id].li>.protyle-attr>.protyle-attr--refcount,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map][data-node-id].list>[data-node-id].li>.protyle-attr>.protyle-attr--refcount {
+  /* 引用数按钮 */
+  right: 2px;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].list,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].list {
+  /* 整个导图列表取消缩进 */
+  margin: 0;
+  padding: 0 0 0 1em;
+  /* 竖直居中 */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].list::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].list::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].list::after {
+  /* 后继承线 */
+  content: "";
+  position: absolute;
+  left: -1em;
+  top: calc(50% - var(--custom-block-list-guides-line-width) / 2);
+  border-bottom: var(--custom-block-list-guides-line-width) solid var(--b3-theme-on-surface);
+  width: 2em;
+  height: 0;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li {
+  /* 列表项文字设置居中 */
+  display: flex;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:first-child::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:first-child::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li:first-child::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:nth-last-child(2)::before,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:nth-last-child(2)::before,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li:nth-last-child(2)::before {
+  /* 取消多余线条 */
+  border: none !important;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:first-child::before,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:first-child::before,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li:first-child::before {
+  /* 上框线 */
+  border-top-left-radius: var(--custom-block-border-radius);
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:nth-last-child(2)::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:nth-last-child(2)::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li:nth-last-child(2)::after {
+  /* 下框线 */
+  border-bottom: var(--custom-block-list-guides-line-width) solid var(--b3-theme-on-surface) !important;
+  border-bottom-left-radius: var(--custom-block-border-radius) !important;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:first-child:nth-last-child(2)::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li:first-child:nth-last-child(2)::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li:first-child:nth-last-child(2)::after {
+  /* 单个子项直线 */
+  border-radius: 0 !important;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li::before,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li::before,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li::before {
+  /* 上导航线 */
+  content: "";
+  height: calc(50% - var(--custom-block-list-guides-line-width) / 2);
+  width: calc(2em - var(--custom-block-list-guides-line-width));
+  position: absolute !important;
+  border-left: var(--custom-block-list-guides-line-width) solid var(--b3-theme-on-surface) !important;
+  top: calc(50% - var(--custom-block-list-guides-line-width) / 2);
+  left: 0;
+  border-top: var(--custom-block-list-guides-line-width) solid var(--b3-theme-on-surface);
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li::after,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li::after {
+  /* 下导航线 */
+  content: "";
+  height: calc(50% - var(--custom-block-list-guides-line-width) / 2);
+  width: calc(2em - var(--custom-block-list-guides-line-width));
+  position: absolute !important;
+  border-left: var(--custom-block-list-guides-line-width) solid var(--b3-theme-on-surface) !important;
+  bottom: calc(50% - var(--custom-block-list-guides-line-width) / 2) !important;
+  border-bottom: var(--custom-block-list-guides-line-width) solid var(--b3-theme-on-surface) !important;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li[data-subtype="u"]>div.protyle-action,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li[data-subtype="u"]>div.protyle-action,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li[data-subtype="u"]>div.protyle-action {
+  /* 无序列表标志 */
+  top: calc(50%);
+  left: calc(2em - 20px);
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>div:nth-child(2),
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>div:nth-child(2),
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>div:nth-child(2) {
+  /* 修复单子项导航线错位问题 */
+  margin-top: 4px !important;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>div.protyle-action,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>div.protyle-action,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>div.protyle-action {
+  /* 表格项标志 */
+  top: calc(50% - 12px);
+  position: absolute;
+  transform: translate(0, -50%);
+  z-index: 2;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]::before,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]::before,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]::before {
+  /* 去除竖线 */
+  display: none;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id][data-type="NodeHeading"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id][data-type="NodeHeading"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id][data-type="NodeHeading"] {
+  /* 移除脑图内部标题块的左侧边线 */
+  border-left: 0 solid transparent;
+  padding-left: 0;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list),
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list),
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list) {
+  /* 叶子节点 */
+  align-items: center;
+  display: flex;
+  /* 块内边距 */
+  padding: 4px;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeParagraph"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeParagraph"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeParagraph"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeHeading"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeHeading"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeHeading"] {
+  /* 段落块/标题块内边距为 0 */
+  padding: 0;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeParagraph"]>[contenteditable][spellcheck],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeParagraph"]>[contenteditable][spellcheck],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeParagraph"]>[contenteditable][spellcheck],
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeHeading"]>[contenteditable][spellcheck],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeHeading"]>[contenteditable][spellcheck],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeHeading"]>[contenteditable][spellcheck] {
+  white-space: var(--custom-block-list-view-map-white-space);
+  padding: 0 0.5em;
+  border-radius: var(--custom-block-border-radius);
+  outline: 1px solid var(--b3-theme-on-surface);
+  min-width: var(--custom-block-list-view-map-min-width);
+  max-width: var(--custom-block-list-view-map-max-width);
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeMathBlock"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeMathBlock"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeMathBlock"] {
+  min-height: 0 !important;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeMathBlock"] .katex-display,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeMathBlock"] .katex-display,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list)[data-type="NodeMathBlock"] .katex-display {
+  margin: 0;
+  padding: 0.25em;
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list):not([data-type="NodeParagraph"], [data-type="NodeHeading"], [data-type="NodeMathBlock"]),
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list):not([data-type="NodeParagraph"], [data-type="NodeHeading"], [data-type="NodeMathBlock"]),
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id]:not(.li, .list):not([data-type="NodeParagraph"], [data-type="NodeHeading"], [data-type="NodeMathBlock"]) {
+  outline: 1px solid var(--b3-theme-on-surface);
+  border-radius: var(--custom-block-border-radius);
+}
+
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id][data-type="NodeBlockQueryEmbed"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id][data-type="NodeBlockQueryEmbed"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id][data-type="NodeBlockQueryEmbed"],
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id].sb,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id].sb,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id].sb,
+:root:not([plugin-custom-block-disabled~=list-view-map]) body:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id].bq,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .b3-dialog__content:has(> #preview[custom-block-export]) [custom-block-list-view=map] [data-node-id].li>[data-node-id].bq,
+:root:not([plugin-custom-block-disabled~=list-view-map]) .protyle-content [custom-block-list-view=map] [data-node-id].li>[data-node-id].bq {
+  /* 列表项内的容器块与嵌入块恢复上下排列 */
+  display: block;
+}

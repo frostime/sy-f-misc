@@ -8,6 +8,11 @@
  */
 export const Href = {
     Style_Vertical_Tabbar: '/plugins/sy-f-misc/style/tab-bar-vertical.css',
+    Style: {
+        Font_Color: '/plugins/sy-f-misc/style/font-and-color.css',
+        Link_Icon: '/plugins/sy-f-misc/style/link-icon.css',
+        List_Mindmap: '/plugins/sy-f-misc/style/list-mindmap.css'
+    }
 };
 
 export const Svg = {

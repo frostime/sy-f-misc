@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-05-08 12:14:48
+ * @LastEditTime : 2024-05-13 11:13:20
  * @Description  : 
  */
 import {
@@ -75,6 +75,10 @@ export default class FMiscPlugin extends Plugin {
      */
     private initDefaultFunctions() {
         this.initTopBar();
+
+        Object.entries(Href.Style).forEach(([key, value]) => {
+            updateStyleLink(key, value);
+        });
 
         this.eventBus.on('open-menu-image', ({ detail }) => {
             // console.debug('open-menu-image', detail);
