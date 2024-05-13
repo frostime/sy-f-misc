@@ -67,7 +67,7 @@ const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
             app: plugin.app,
             doc: {
                 id: id,
-                zoomIn: false
+                zoomIn: true
             }
         })
     });

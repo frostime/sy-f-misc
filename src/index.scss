@@ -27,6 +27,10 @@ svg.highlight-icon~span.b3-menu__label {
 
 .docky-panel-body.protyle {
     zoom: var(--plugin-docky-zoom);
+    .protyle-wysiwyg {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
 }
 
 // 转移引用插件
