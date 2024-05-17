@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-05-08 15:54:27
+ * @LastEditTime : 2024-05-17 14:32:17
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -65,6 +65,13 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
+        title: '📚 Zotero',
+        description: '启用 Zotero 相关功能',
+        key: 'EnableZotero',
+        value: true
+    },
+    {
+        type: 'checkbox',
         title: '💻 Run Javascript',
         description: '启用 Run Js 功能',
         key: 'EnableRunJs',
@@ -82,13 +89,6 @@ const Enable: ISettingItem[] = [
         title: '💭 转移引用',
         description: '启用转移引用功能',
         key: 'EnableTransferRef',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '📋 On paste',
-        description: '启用重写粘贴事件功能',
-        key: 'EnableOnPaste',
         value: true
     },
     {

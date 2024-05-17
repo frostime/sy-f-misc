@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-03-24 16:08:19
+ * @FilePath     : /src/func/on-paste.ts
+ * @LastEditTime : 2024-05-17 14:29:59
+ * @Description  : 
+ */
 import type FMiscPlugin from "@/index";
 
 const onPaste = async (event) => {
@@ -20,7 +28,7 @@ const onPaste = async (event) => {
     }
 }
 
-export let name = 'OnPaste';
+export let name = 'Zotero';
 export let enabled = false;
 
 export const load = (plugin: FMiscPlugin) => {

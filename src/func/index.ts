@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-05-08 15:33:13
+ * @LastEditTime : 2024-05-17 14:30:16
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 import * as nf from './new-file';
 import * as it from './insert-time';
 import * as tl from './titled-link';
-import * as op from './on-paste';
+import * as zt from './zotero';
 // import * as gt from './global-this';
 import * as ct from './change-theme';
 import * as mw from './mini-window';
@@ -33,7 +33,7 @@ const ModulesToEnable = [
     nf,
     it,
     tl,
-    op,
+    zt,
     ct,
     mw,
     rj,
