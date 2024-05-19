@@ -20,13 +20,15 @@ import type FMiscPlugin from "@/index";
 //     }
 // }
 
-interface ISearchItem {
-    libraryID: number,
-    itemKey: string,
-    citationKey?: string,
-    creators: any[],
-    year: string,
+interface ISelectedItem {
+    key: string,
     title: string,
+    publicationTitle: string
+    itemType: string,
+    date: string,
+    url: string,
+    DOI: string,
+    volume: string,
 }
 
 export class ZoteroDBModal {
@@ -41,11 +43,12 @@ export class ZoteroDBModal {
 
     constructor(plugin: FMiscPlugin) {
         this.plugin = plugin;
-        this.absZoteroJSPath = "/data/plugins/sy-f-misc/zoteroJS/";
+        this.absZoteroJSPath = `/data/plugins/${plugin.name}/zoteroJS/`;
     }
 
-    public async getSelectedItems(): Promise<string[]> {
-        if (await this.checkZoteroRunning()) {
+    public async getSelectedItems(): Promise<ISelectedItem[]> {
+        let isRunning = await this.checkZoteroRunning();
+        if (isRunning) {
             return await this._getSelectedItems();
         } else {
             showMessage("无法连接到 Zotero", 5000, 'error');
@@ -111,18 +114,22 @@ export class ZoteroDBModal {
         const password = this.plugin.getConfig("Misc", "zoteroPassword");
         const jsContent = await api.getFile(this.absZoteroJSPath + filename + ".js", "text");
 
+        const headers = new Headers();
+        headers.append("Content-Type", "application/javascript");
+        headers.append("Accept", "application/json");
+        headers.append("Zotero-Allowed-Request", "true");
+        headers.append("Authorization", `Bearer ${password}`);
+        const raw = prefix + "\n" + jsContent;
+        const requestOptions = {
+            method: "POST",
+            headers: headers,
+            body: raw
+        };
+
         try {
-            const url = `http://127.0.0.1:23119/debug-bridge/execute?password=${password}`;
-            const response = await fetch(url, {
-                method: "post",
-                headers: {
-                    "Content-Type": "application/javascript",
-                    "Accept": "application/json",
-                    "Zotero-Allowed-Request": "true",
-                    'Authorization': `Bearer ${password}`
-                },
-                body: prefix + "\n" + jsContent
-            });
+            let response = await fetch(
+                `http://127.0.0.1:23119/debug-bridge/execute?password=${password}`, requestOptions
+            );
             const data = await response.json();
             return data;
         } catch (e) {

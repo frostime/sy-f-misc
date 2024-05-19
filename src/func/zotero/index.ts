@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2024-05-19 17:59:03
+ * @LastEditTime : 2024-05-19 18:43:08
  * @Description  : 
  */
-import { type Protyle } from "siyuan";
+import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 
 import { ZoteroDBModal } from "./zoteroModal";
@@ -48,11 +48,17 @@ export const load = (plugin: FMiscPlugin) => {
         html: '引用 Zotero 选中项',
         callback: async (protyle: Protyle) => {
             const data = await zotero.getSelectedItems();
-            if ([null, undefined].includes(data)) {
-                protyle.insert(window.Lute.Caret, false, false); //插入特殊字符清除 slash
+            protyle.insert(window.Lute.Caret, false, false); //插入特殊字符清除 slash
+            if ([null, undefined].includes(data) || data.length === 0) {
                 return;
             }
-            console.log(data);
+            showMessage(`Zotero: 插入选中的 ${data.length} 篇文献`, 3000);
+            let links = data.map(item => `[${item.title}](zotero://select/library/items/${item.key})`);
+            if (links.length === 1) {
+                protyle.insert(links[0], false, false);
+            } else if (links.length > 1) {
+                protyle.insert(links.map(s => `- ${s}`).join("\n"), true, false);
+            }
         }
     });
 }

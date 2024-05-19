@@ -1,5 +1,3 @@
-// @ts-nocheck 
-/* eslint-disable */
-return JSON.stringify({
+return {
     ready: true
-});
+};
