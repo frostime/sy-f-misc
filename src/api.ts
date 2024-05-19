@@ -375,7 +375,7 @@ export async function renderSprig(template: string): Promise<string> {
 
 // **************************************** File ****************************************
 
-export async function getFile(path: string): Promise<any> {
+export async function getFile(path: string, type?: "text" | "json"): Promise<any> {
     let data = {
         path: path
     }

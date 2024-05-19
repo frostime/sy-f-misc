@@ -2,11 +2,14 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
- * @FilePath     : /src/func/on-paste.ts
- * @LastEditTime : 2024-05-17 14:29:59
+ * @FilePath     : /src/func/zotero/index.ts
+ * @LastEditTime : 2024-05-19 17:52:19
  * @Description  : 
  */
+import { type Protyle } from "siyuan";
 import type FMiscPlugin from "@/index";
+
+import { ZoteroDBModal } from "./zoteroModal";
 
 const onPaste = async (event) => {
     let textPlain = event.detail.textPlain;
@@ -28,6 +31,8 @@ const onPaste = async (event) => {
     }
 }
 
+let zotero: ZoteroDBModal = null;
+
 export let name = 'Zotero';
 export let enabled = false;
 
@@ -35,10 +40,23 @@ export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     plugin.eventBus.on("paste", onPaste);
     enabled = true;
+
+    zotero = new ZoteroDBModal(plugin);
+    plugin.addProtyleSlash({
+        id: "zotero-cite-selected",
+        filter: ["cite"],
+        html: '引用 Zotero 选中项',
+        callback: async (protyle: Protyle) => {
+            const data = await zotero.getSelectedItems();
+            console.log(data);
+        }
+    });
 }
 
 export const unload = (plugin: FMiscPlugin) => {
     if (!enabled) return;
     plugin.eventBus.off("paste", onPaste);
     enabled = false;
+
+    zotero = null;
 }

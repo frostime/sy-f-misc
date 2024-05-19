@@ -49,6 +49,9 @@ export default class FMiscPlugin extends Plugin {
                 DockyZoomFactor: number;
                 DockyProtyle: string;
             };
+            'Zotero': {
+                password: string;
+            }
         };
     }
 
