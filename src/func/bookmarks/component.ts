@@ -1,5 +1,7 @@
+import { html2ele } from "@/utils";
+
 export let template = `
-<div class="fn__flex-1 fn__flex-column file-tree sy__bookmark" data-id="fba9e90d-74aa-4e44-ba6d-44b1b5475ad8">
+<div class="fn__flex-1 fn__flex-column file-tree sy__bookmark" id="custom-bookmark-element">
     <div class="block__icons">
         <div class="block__logo">
             <svg class="block__logoicon">
@@ -29,95 +31,110 @@ export let template = `
             </svg></span>
     </div>
     <div class="fn__flex-1" style="margin-bottom: 8px">
-        <ul class="b3-list b3-list--background">
-            <li class="b3-list-item b3-list-item--hide-action b3-list-item--focus" style="--file-toggle-width:20px"
-                data-treetype="bookmark" data-type="undefined" data-subtype="undefined">
-                <span style="padding-left: 4px;margin-right: 2px" class="b3-list-item__toggle b3-list-item__toggle--hl">
-                    <svg data-id="000%20OnGoing0" class="b3-list-item__arrow b3-list-item__arrow--open">
-                        <use xlink:href="#iconRight"></use>
-                    </svg>
-                </span>
-                <svg class="b3-list-item__graphic">
-                    <use xlink:href="#iconBookmark"></use>
-                </svg>
-                <span class="b3-list-item__text ariaLabel" data-position="parentE">000 OnGoing</span>
-                <span class="b3-list-item__action"><svg>
-                        <use xlink:href="#iconMore"></use>
-                    </svg></span>
-                <span class="counter">1</span>
-            </li>
-            <ul class="">
-                <li class="b3-list-item b3-list-item--hide-action" style="--file-toggle-width:38px"
-                    data-node-id="20231116100047-3bailjb" data-ref-text="" data-def-id="" data-type="NodeDocument"
-                    data-subtype="" data-treetype="bookmark" data-def-path="">
-                    <span style="padding-left: 22px;margin-right: 2px" class="b3-list-item__toggle fn__hidden">
-                        <svg data-id="20231116100047-3bailjb" class="b3-list-item__arrow">
-                            <use xlink:href="#iconRight"></use>
-                        </svg>
-                    </span>
-                    <span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block"
-                        data-id="20231116100047-3bailjb">📄</span>
-                    <span class="b3-list-item__text ariaLabel" data-position="parentE">论洗脑：关于洗脑这个词的理解</span>
+        <ul class="b3-list b3-list--background" id="custom-bookmark-body">
 
-                    <span class="b3-list-item__action"><svg>
-                            <use xlink:href="#iconMore"></use>
-                        </svg></span>
-                </li>
-            </ul>
-            <li class="b3-list-item b3-list-item--hide-action" style="--file-toggle-width:20px" data-treetype="bookmark"
-                data-type="undefined" data-subtype="undefined">
-                <span style="padding-left: 4px;margin-right: 2px" class="b3-list-item__toggle b3-list-item__toggle--hl">
-                    <svg data-id="020%20TODO0" class="b3-list-item__arrow b3-list-item__arrow--open">
-                        <use xlink:href="#iconRight"></use>
-                    </svg>
-                </span>
-                <svg class="b3-list-item__graphic">
-                    <use xlink:href="#iconBookmark"></use>
-                </svg>
-                <span class="b3-list-item__text ariaLabel" data-position="parentE">020 TODO</span>
-                <span class="b3-list-item__action"><svg>
-                        <use xlink:href="#iconMore"></use>
-                    </svg></span>
-                <span class="counter">8</span>
-            </li>
-            <ul class="">
-                <li class="b3-list-item b3-list-item--hide-action" style="--file-toggle-width:38px"
-                    data-node-id="20231009122134-mi3kmys" data-ref-text="" data-def-id="" data-type="NodeDocument"
-                    data-subtype="" data-treetype="bookmark" data-def-path="">
-                    <span style="padding-left: 22px;margin-right: 2px" class="b3-list-item__toggle fn__hidden">
-                        <svg data-id="20231009122134-mi3kmys" class="b3-list-item__arrow">
-                            <use xlink:href="#iconRight"></use>
-                        </svg>
-                    </span>
-                    <span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block"
-                        data-id="20231009122134-mi3kmys">📄</span>
-                    <span class="b3-list-item__text ariaLabel" data-position="parentE">我在思源中的笔记工作流</span>
-
-                    <span class="b3-list-item__action"><svg>
-                            <use xlink:href="#iconMore"></use>
-                        </svg></span>
-                </li>
-                <li class="b3-list-item b3-list-item--hide-action" style="--file-toggle-width:38px"
-                    data-node-id="20230727111913-nbp6g63" data-ref-text="" data-def-id="" data-type="NodeDocument"
-                    data-subtype="" data-treetype="bookmark" data-def-path="">
-                    <span style="padding-left: 22px;margin-right: 2px" class="b3-list-item__toggle fn__hidden">
-                        <svg data-id="20230727111913-nbp6g63" class="b3-list-item__arrow">
-                            <use xlink:href="#iconRight"></use>
-                        </svg>
-                    </span>
-                    <span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block"
-                        data-id="20230727111913-nbp6g63">📄</span>
-                    <span class="b3-list-item__text ariaLabel" data-position="parentE">调研计划：EEG 和 小波</span>
-
-                    <span class="b3-list-item__action"><svg>
-                            <use xlink:href="#iconMore"></use>
-                        </svg></span>
-                </li>
-            </ul>
         </ul>
     </div>
 </div>
 `;
 
+const ClassName = {
+    GroupHeader: 'custom-bookmark-group-header',
+    GroupList: 'custom-bookmark-group-list',
+    Item: 'custom-bookmark-item'
+}
+
+const templateGroup = (group: IBookmarkGroup) => {
+    return `
+    <li class="b3-list-item b3-list-item--hide-action b3-list-item--focus ${ClassName.GroupHeader}" style="--file-toggle-width:20px" data-treetype="bookmark" data-type="undefined" data-subtype="undefined" data-groupid="${group.id}" data-groupname="${group.name}">
+        <span style="padding-left: 4px;margin-right: 2px" class="b3-list-item__toggle b3-list-item__toggle--hl">
+            <svg data-id="${group.id}" class="b3-list-item__arrow b3-list-item__arrow--open">
+                <use xlink:href="#iconRight"></use>
+            </svg>
+        </span>
+        <svg class="b3-list-item__graphic">
+            <use xlink:href="#iconBookmark"></use>
+        </svg>
+        <span class="b3-list-item__text ariaLabel" data-position="parentE">${group.name}</span>
+        <span class="b3-list-item__action"><svg>
+                <use xlink:href="#iconMore"></use>
+            </svg></span>
+        <span class="counter">${group.items ? group.items.length : 0}</span>
+    </li>
+    <ul class="${ClassName.GroupList}"  data-groupid="${group.id}" data-groupname="${group.name}">
+    </ul>
+    `;
+}
+
+const templateItem = (item: IBookmarkItem) => {
+    return `
+    <li class="b3-list-item b3-list-item--hide-action ${ClassName.Item}" style="--file-toggle-width:38px"
+        data-node-id="${item.id}" data-ref-text="" data-def-id="" data-type="NodeDocument"
+        data-subtype="" data-treetype="bookmark" data-def-path="">
+        <span style="padding-left: 22px;margin-right: 2px" class="b3-list-item__toggle fn__hidden">
+            <svg data-id="${item.id}" class="b3-list-item__arrow">
+                <use xlink:href="#iconRight"></use>
+            </svg>
+        </span>
+        <span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block"
+            data-id="${item.id}">📄</span>
+        <span class="b3-list-item__text ariaLabel" data-position="parentE">
+            ${item.title}
+        </span>
+
+        <span class="b3-list-item__action">
+            <svg>
+                <use xlink:href="#iconMore"></use>
+            </svg>
+        </span>
+    </li>
+    `;
+}
+
+type TGroupId = string;
+
+interface IBookmarkItem {
+    id: BlockId;
+    title: string;
+    type: BlockType;
+    subtype?: BlockSubType;
+}
+
+interface IBookmarkGroup {
+    id: TGroupId;
+    name: string;
+    items?: IBookmarkItem[];
+}
+
+export class Bookmark {
+    element: HTMLElement;
+    bookmarks: Map<TGroupId, IBookmarkGroup>;
+
+    constructor() {
+        this.bookmarks = new Map();
+    }
+
+    initBookmarks(bookmarks: IBookmarkGroup[]) {
+        for (let group of bookmarks) {
+            this.bookmarks.set(group.id, group);
+        }
+    }
+
+    render(container: HTMLElement) {
+        let fragment = html2ele(template);
+
+        for (let [id, group] of this.bookmarks) {
+            let groupEle = html2ele(templateGroup(group));
+            let list = groupEle.querySelector(`.${ClassName.GroupList}`);
+            for (let item of group.items) {
+                list.appendChild(html2ele(templateItem(item)));
+            }
+            fragment.querySelector('#custom-bookmark-body').appendChild(groupEle);
+        }
 
 
+        container.appendChild(fragment);
+        this.element = container.querySelector('#custom-bookmark-element');
+    }
+
+}
