@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-05-19 18:46:22
+ * @FilePath     : /src/func/zotero/zoteroModal.ts
+ * @LastEditTime : 2024-05-19 18:47:31
+ * @Description  : 拷贝自思源 zotero 文件引用插件，做了一些修改
+ * @Source       : https://github.com/WingDr/siyuan-plugin-citation
+ */
 // import Fuse from "fuse.js";
 
 import {
