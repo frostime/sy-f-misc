@@ -6,13 +6,16 @@ export let template = `
         <div class="block__logo">
             <svg class="block__logoicon">
                 <use xlink:href="#iconBookmark"></use>
-            </svg>书签
+            </svg>
+            书签
         </div>
         <span class="fn__flex-1"></span>
         <span class="fn__space"></span>
-        <span data-type="refresh" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="刷新"><svg class="">
+        <span data-type="refresh" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="刷新">
+            <svg class="">
                 <use xlink:href="#iconRefresh"></use>
-            </svg></span>
+            </svg>
+        </span>
         <span class="fn__space"></span>
         <span data-type="expand" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="展开 Ctrl+↓">
             <svg>
@@ -26,9 +29,11 @@ export let template = `
             </svg>
         </span>
         <span class="fn__space"></span>
-        <span data-type="min" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="最小化 Ctrl+W"><svg>
+        <span data-type="min" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="最小化 Ctrl+W">
+            <svg>
                 <use xlink:href="#iconMin"></use>
-            </svg></span>
+            </svg>
+        </span>
     </div>
     <div class="fn__flex-1" style="margin-bottom: 8px">
         <ul class="b3-list b3-list--background" id="custom-bookmark-body">
@@ -46,9 +51,9 @@ const ClassName = {
 
 const templateGroup = (group: IBookmarkGroup) => {
     return `
-    <li class="b3-list-item b3-list-item--hide-action b3-list-item--focus ${ClassName.GroupHeader}" style="--file-toggle-width:20px" data-treetype="bookmark" data-type="undefined" data-subtype="undefined" data-groupid="${group.id}" data-groupname="${group.name}">
-        <span style="padding-left: 4px;margin-right: 2px" class="b3-list-item__toggle b3-list-item__toggle--hl">
-            <svg data-id="${group.id}" class="b3-list-item__arrow b3-list-item__arrow--open">
+    <li class="b3-list-item b3-list-item--hide-action ${ClassName.GroupHeader}" style="--file-toggle-width:20px" data-treetype="bookmark" data-type="undefined" data-subtype="undefined" data-groupid="${group.id}" data-groupname="${group.name}">
+        <span style="padding-left: 4px;margin-right: 2px" class="b3-list-item__toggle b3-list-item__toggle--hl" data-id="${group.id}">
+            <svg class="b3-list-item__arrow b3-list-item__arrow--open">
                 <use xlink:href="#iconRight"></use>
             </svg>
         </span>
@@ -56,9 +61,11 @@ const templateGroup = (group: IBookmarkGroup) => {
             <use xlink:href="#iconBookmark"></use>
         </svg>
         <span class="b3-list-item__text ariaLabel" data-position="parentE">${group.name}</span>
-        <span class="b3-list-item__action"><svg>
+        <span class="b3-list-item__action">
+            <svg>
                 <use xlink:href="#iconMore"></use>
-            </svg></span>
+            </svg>
+        </span>
         <span class="counter">${group.items ? group.items.length : 0}</span>
     </li>
     <ul class="${ClassName.GroupList}"  data-groupid="${group.id}" data-groupname="${group.name}">
@@ -77,7 +84,9 @@ const templateItem = (item: IBookmarkItem) => {
             </svg>
         </span>
         <span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block"
-            data-id="${item.id}">📄</span>
+            data-id="${item.id}">
+            📄
+        </span>
         <span class="b3-list-item__text ariaLabel" data-position="parentE">
             ${item.title}
         </span>
@@ -135,6 +144,54 @@ export class Bookmark {
 
         container.appendChild(fragment);
         this.element = container.querySelector('#custom-bookmark-element');
+        this.listen();
+    }
+
+    private listen() {
+        //dock 顶栏按钮
+        this.element.querySelector('.block__icons').addEventListener('click', (e) => {
+            let ele = e.target as HTMLElement;
+            if (ele.tagName !== 'SPAN') ele = ele.closest('span.block__icon');
+            if (!ele) return;
+            //refresh
+            if (ele.dataset.type === 'refresh') {
+                console.log('refresh');
+                return;
+            }
+            // expand
+            if (ele.dataset.type === 'expand') {
+                this.element.querySelectorAll(`li.${ClassName.GroupHeader}`).forEach((ele: HTMLElement) => {
+                    this.toggleBookmarkGroup(ele, 'open');
+                });
+                return;
+            }
+            // collapse
+            if (ele.dataset.type === 'collapse') {
+                this.element.querySelectorAll(`li.${ClassName.GroupHeader}`).forEach((ele: HTMLElement) => {
+                    this.toggleBookmarkGroup(ele, 'close');
+                });
+                return;
+            }
+        });
+
+        this.element.querySelectorAll(`li.${ClassName.GroupHeader}`).forEach((ele: HTMLElement) => {
+            ele.addEventListener('click', (e) => {
+                let target = e.target as HTMLElement;
+                if (target.classList.contains('b3-list-item__action')) {
+                    console.log('action');
+                    return;
+                }
+
+                this.toggleBookmarkGroup(ele);
+            });
+        });
+    }
+
+    private toggleBookmarkGroup(li: HTMLElement, status?: 'open' | 'close') {
+        const ul = li.nextElementSibling as HTMLElement;
+        const span = li.querySelector(`.b3-list-item__toggle`);
+        ul.classList.toggle('fn__none', status === 'close' ? true : false);
+        span.children[0].classList.toggle('b3-list-item__arrow--open', status === 'close' ? false : true);
     }
 
 }
