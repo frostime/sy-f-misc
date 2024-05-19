@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-05-13 11:13:20
+ * @LastEditTime : 2024-05-19 18:05:23
  * @Description  : 
  */
 import {
@@ -48,6 +48,9 @@ export default class FMiscPlugin extends Plugin {
                 DockyEnableZoom: boolean;
                 DockyZoomFactor: number;
                 DockyProtyle: string;
+            };
+            Misc: {
+                zoteroPassword: string;
             };
         };
     }

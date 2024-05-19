@@ -6,7 +6,7 @@
  * API 文档见 [API_zh_CN.md](https://github.com/siyuan-note/siyuan/blob/master/API_zh_CN.md)
  */
 
-import { fetchSyncPost, IWebSocketData } from "siyuan";
+import { fetchPost, fetchSyncPost, IWebSocketData } from "siyuan";
 
 
 export async function request(url: string, data: any) {
@@ -375,17 +375,22 @@ export async function renderSprig(template: string): Promise<string> {
 
 // **************************************** File ****************************************
 
-export async function getFile(path: string): Promise<any> {
+export async function getFile(path: string, type?: "text" | "json"): Promise<any> {
     let data = {
         path: path
     }
     let url = '/api/file/getFile';
-    try {
-        let file = await fetchSyncPost(url, data);
-        return file;
-    } catch (error_msg) {
-        return null;
-    }
+    let promise = new Promise<IWebSocketData>((resolve, reject) => {
+        try {
+            fetchPost(url, data, (response: IWebSocketData) => {
+                resolve(response);
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
+    let response: IWebSocketData = await promise;
+    return response;
 }
 
 export async function putFile(path: string, isDir: boolean, file: any) {
