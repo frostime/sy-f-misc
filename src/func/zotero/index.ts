@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2024-05-19 17:52:19
+ * @LastEditTime : 2024-05-19 17:59:03
  * @Description  : 
  */
 import { type Protyle } from "siyuan";
@@ -48,6 +48,10 @@ export const load = (plugin: FMiscPlugin) => {
         html: '引用 Zotero 选中项',
         callback: async (protyle: Protyle) => {
             const data = await zotero.getSelectedItems();
+            if ([null, undefined].includes(data)) {
+                protyle.insert(window.Lute.Caret, false, false); //插入特殊字符清除 slash
+                return;
+            }
             console.log(data);
         }
     });

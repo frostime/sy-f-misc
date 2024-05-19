@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-05-17 14:32:17
+ * @LastEditTime : 2024-05-19 18:06:49
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -140,6 +140,16 @@ const Docky: ISettingItem[] = [
     },
 ];
 
+const Misc: ISettingItem[] = [
+    {
+        type: 'textinput',
+        title: 'Zotero Password',
+        description: 'Zotero Debug-Bridge 的密码',
+        key: 'zoteroPassword',
+        value: 'CTT'
+    }
+];
+
 
 const onSettingChanged = (plugin: FMiscPlugin, group: string, key: string, value: string) => {
     //动态启用或禁用功能
@@ -164,6 +174,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     const settingDialog = new SettingGroupsPanel();
     settingDialog.addGroup({key: 'Enable', text: '✅ 启用功能'}, Enable);
     settingDialog.addGroup({key: 'Docky', text: '⛩️ 侧边栏显示'}, Docky);
+    settingDialog.addGroup({key: 'Misc', text: '🔧 其他设置'}, Misc);
     settingDialog.render();
 
     settingDialog.bindChangedEvent(({ group, key, value }) => {
@@ -180,6 +191,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     let configs = {}
     configs['Enable'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
     configs['Docky'] = Object.fromEntries(Docky.map(item => [item.key, item.value]));
+    configs['Misc'] = Object.fromEntries(Misc.map(item => [item.key, item.value]));
     //@ts-ignore
     plugin.data['configs'] = configs;
 

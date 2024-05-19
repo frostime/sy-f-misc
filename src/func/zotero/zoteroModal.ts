@@ -1,7 +1,8 @@
 // import Fuse from "fuse.js";
 
 import {
-    Protyle
+    Protyle,
+    showMessage
 } from "siyuan";
 
 import * as api from '@/api';
@@ -47,7 +48,7 @@ export class ZoteroDBModal {
         if (await this.checkZoteroRunning()) {
             return await this._getSelectedItems();
         } else {
-            // this.plugin.noticer.error((this.plugin.i18n.errors.zoteroNotRunning as string), { type: this.type });
+            showMessage("无法连接到 Zotero", 5000, 'error');
             return null;
         }
     }
@@ -57,7 +58,8 @@ export class ZoteroDBModal {
     }
 
     private async checkZoteroRunning(): Promise<boolean> {
-        return (await this._callZoteroJS("checkRunning", "")).ready;
+        let data = (await this._callZoteroJS("checkRunning", ""));
+        return data?.ready;
     }
 
     /** 这部分先不用
@@ -106,7 +108,7 @@ export class ZoteroDBModal {
 
     private async _callZoteroJS(filename: string, prefix: string) {
         // const password = this.plugin.data[STORAGE_NAME].dbPassword;
-        const password = this.plugin.getConfig("zotero", "password");
+        const password = this.plugin.getConfig("Misc", "zoteroPassword");
         const jsContent = await api.getFile(this.absZoteroJSPath + filename + ".js", "text");
 
         try {
@@ -117,13 +119,15 @@ export class ZoteroDBModal {
                     "Content-Type": "application/javascript",
                     "Accept": "application/json",
                     "Zotero-Allowed-Request": "true",
-                    Authorization: `Bearer ${password}`
+                    'Authorization': `Bearer ${password}`
                 },
                 body: prefix + "\n" + jsContent
             });
             const data = await response.json();
             return data;
         } catch (e) {
+            console.warn('远程链接 Zotero 失败');
+            console.warn(e);
             // if (e.response?.status == 401) this.plugin.noticer.error(this.plugin.i18n.errors.wrongDBPassword); // 密码错误
             // else if (e.response?.status == 403) this.plugin.noticer.error((this.plugin.i18n.errors.zoteroNotRunning as string), { type: this.type }); // 访问请求被禁止，建议更新到最新版本citation插件
             // else if (e.response?.status == 404) this.plugin.noticer.error((this.plugin.i18n.errors.zoteroNotRunning as string), { type: this.type }); //找不到Zotero或者debug-bridge
