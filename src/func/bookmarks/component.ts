@@ -3,6 +3,7 @@ import { Constants, Menu } from "siyuan";
 import { html2ele } from "@/utils";
 import BookmarkDataModal from "./modal";
 import { inputDialog, inputDialogSync } from "@/components/dialog";
+import { getBlockByID } from "@/api";
 
 export let template = `
 <div class="fn__flex-1 fn__flex-column file-tree sy__bookmark" id="custom-bookmark-element">
@@ -122,6 +123,11 @@ export class Bookmark {
     }
 
     render(container: HTMLElement) {
+        if (this.element) {
+            this.element.remove();
+            this.element = null;
+        }
+
         let fragment = html2ele(template);
 
         for (let [id, group] of this.modal.bookmarks) {
@@ -202,6 +208,25 @@ export class Bookmark {
                 //点击展开/折叠按钮
                 this.toggleBookmarkGroup(li);
             }
+
+            //点击书签
+            if (target.closest(`li.${ClassName.Item}`)) {
+                e.stopPropagation();
+                const li = target.closest(`li.${ClassName.Item}`) as HTMLElement;
+                //菜单
+                if (target.closest('span.b3-list-item__action')) {
+                    let gid = li.closest('section').dataset.groupid as TBookmarkGroupId;
+                    let id = li.dataset.nodeId as BlockId;
+                    let menu = this.showItemContextMenu(gid, id);
+                    menu.open({
+                        x: e.clientX,
+                        y: e.clientY,
+                        isLeft: true
+                    });
+                    return;
+                }
+            }
+
         });
 
         body.addEventListener('contextmenu', (e: MouseEvent) => {
@@ -216,6 +241,20 @@ export class Bookmark {
                     y: e.clientY,
                     isLeft: true
                 });
+                return;
+            }
+
+            if (target.closest(`li.${ClassName.Item}`)) {
+                let ele = target.closest(`li.${ClassName.Item}`) as HTMLElement;
+                let gid = ele.closest('section').dataset.groupid as TBookmarkGroupId;
+                let id = ele.dataset.nodeId as BlockId;
+                let menu = this.showItemContextMenu(gid, id);
+                menu.open({
+                    x: e.clientX,
+                    y: e.clientY,
+                    isLeft: true
+                });
+                return;
             }
         });
 
@@ -243,17 +282,19 @@ export class Bookmark {
         this.element.addEventListener('drop', (event: DragEvent) => {
             const type = event.dataTransfer.types[0];
             if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
+            if (!dragoverEle) return;
 
             event.preventDefault();
-            dragoverEle?.classList.toggle('dragover', false);
-            dragoverEle = null;
 
             let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, '');
             let info = meta.split(Constants.ZWSP);
             // let nodetype = info[0];
             // let subtype = info[1];
-            // let nodeId = info[2];
-            console.log('drop block', info);
+            let nodeId = info[2];
+            let gid = dragoverEle.dataset.groupid as TBookmarkGroupId;
+            dragoverEle?.classList.toggle('dragover', false);
+            dragoverEle = null;
+            this.addItem_(gid, nodeId);
         });
     }
 
@@ -271,6 +312,7 @@ export class Bookmark {
         let group = this.modal.bookmarks.get(gid);
         menu.addItem({
             label: '重命名',
+            icon: 'iconEdit',
             click: async () => {
                 let title = await inputDialogSync({
                     title: '重命名书签组',
@@ -285,5 +327,39 @@ export class Bookmark {
         });
         return menu;
     };
+
+    private showItemContextMenu(gid: TBookmarkGroupId, id: BlockId) {
+        let menu = new Menu();
+        menu.addItem({
+            label: '删除',
+            icon: 'iconTrashcan',
+            click: () => {
+                this.modal.delItem(gid, id);
+            }
+        });
+        return menu;
+    };
+
+    private updateBookmarkGroupCount(gid: TBookmarkGroupId) {
+        let group = this.modal.bookmarks.get(gid);
+        let groupEle = this.element.querySelector(`.${ClassName.GroupHeader}[data-groupid="${gid}"]`);
+        groupEle.querySelector('.counter').textContent = group.items.length.toString();
+    }
+
+    // -------------------- Engaged with modal
+
+    private async addItem_(gid: TBookmarkGroupId, id: BlockId) {
+        let block = await getBlockByID(id);
+        if (!block) return;
+        let item: IBookmarkItem = {
+            id: block.id,
+            title: block.fcontent || block.content,
+            type: block.type
+        };
+        this.modal.addItem(gid, item);
+        let groupList = this.element.querySelector(`.${ClassName.GroupList}[data-groupid="${gid}"]`);
+        groupList.appendChild(html2ele(templateItem(item)));
+        this.updateBookmarkGroupCount(gid);
+    }
 
 }
