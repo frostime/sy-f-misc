@@ -186,26 +186,30 @@ export class Bookmark {
                     console.log('action');
                     return;
                 }
-                
 
                 this.toggleBookmarkGroup(ele);
             });
         });
 
+        let dragoverEle: HTMLElement;
         // //droppable
         this.element.addEventListener('dragover', (event: DragEvent) => {
             const type = event.dataTransfer.types[0];
             if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
 
             event.preventDefault();
-            event.dataTransfer.dropEffect = "copy";
+            event.dataTransfer.dropEffect = "none";
+
             const target = event.target as HTMLElement;
-            console.log(target);
             let section = target.closest('section.custom-bookmark-group') as HTMLElement;
             if (section) {
                 event.dataTransfer.dropEffect = "copy";
-            } else {
-                event.dataTransfer.dropEffect = "none";
+                //高亮被悬浮的 group
+                if (dragoverEle !== section) {
+                    dragoverEle?.classList.toggle('dragover', false);
+                    dragoverEle = section;
+                    dragoverEle.classList.toggle('dragover', true);
+                }
             }
         });
         this.element.addEventListener('drop', (event: DragEvent) => {
@@ -213,6 +217,9 @@ export class Bookmark {
             if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
 
             event.preventDefault();
+            dragoverEle?.classList.toggle('dragover', false);
+            dragoverEle = null;
+
             let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, '');
             let info = meta.split(Constants.ZWSP);
             // let nodetype = info[0];
