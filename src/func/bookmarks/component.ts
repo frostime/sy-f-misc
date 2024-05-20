@@ -1,3 +1,5 @@
+import { Constants } from "siyuan";
+
 import { html2ele } from "@/utils";
 
 export let template = `
@@ -44,6 +46,7 @@ export let template = `
 `;
 
 const ClassName = {
+    Group: 'custom-bookmark-group',
     GroupHeader: 'custom-bookmark-group-header',
     GroupList: 'custom-bookmark-group-list',
     Item: 'custom-bookmark-item'
@@ -51,25 +54,27 @@ const ClassName = {
 
 const templateGroup = (group: IBookmarkGroup) => {
     return `
-    <li class="b3-list-item b3-list-item--hide-action ${ClassName.GroupHeader}" style="--file-toggle-width:20px" data-treetype="bookmark" data-type="undefined" data-subtype="undefined" data-groupid="${group.id}" data-groupname="${group.name}">
-        <span style="padding-left: 4px;margin-right: 2px" class="b3-list-item__toggle b3-list-item__toggle--hl" data-id="${group.id}">
-            <svg class="b3-list-item__arrow b3-list-item__arrow--open">
-                <use xlink:href="#iconRight"></use>
+    <section class="${ClassName.Group}" data-groupid="${group.id}" data-groupname="${group.name}">
+        <li class="b3-list-item b3-list-item--hide-action ${ClassName.GroupHeader}" style="--file-toggle-width:20px" data-treetype="bookmark" data-type="undefined" data-subtype="undefined" data-groupid="${group.id}" data-groupname="${group.name}">
+            <span style="padding-left: 4px;margin-right: 2px" class="b3-list-item__toggle b3-list-item__toggle--hl" data-id="${group.id}">
+                <svg class="b3-list-item__arrow b3-list-item__arrow--open">
+                    <use xlink:href="#iconRight"></use>
+                </svg>
+            </span>
+            <svg class="b3-list-item__graphic">
+                <use xlink:href="#iconBookmark"></use>
             </svg>
-        </span>
-        <svg class="b3-list-item__graphic">
-            <use xlink:href="#iconBookmark"></use>
-        </svg>
-        <span class="b3-list-item__text ariaLabel" data-position="parentE">${group.name}</span>
-        <span class="b3-list-item__action">
-            <svg>
-                <use xlink:href="#iconMore"></use>
-            </svg>
-        </span>
-        <span class="counter">${group.items ? group.items.length : 0}</span>
-    </li>
-    <ul class="${ClassName.GroupList}"  data-groupid="${group.id}" data-groupname="${group.name}">
-    </ul>
+            <span class="b3-list-item__text ariaLabel" data-position="parentE">${group.name}</span>
+            <span class="b3-list-item__action">
+                <svg>
+                    <use xlink:href="#iconMore"></use>
+                </svg>
+            </span>
+            <span class="counter">${group.items ? group.items.length : 0}</span>
+        </li>
+        <ul class="${ClassName.GroupList}" data-groupid="${group.id}" data-groupname="${group.name}">
+        </ul>
+    </section>
     `;
 }
 
@@ -174,24 +179,56 @@ export class Bookmark {
             }
         });
 
-        this.element.querySelectorAll(`li.${ClassName.GroupHeader}`).forEach((ele: HTMLElement) => {
+        this.element.querySelectorAll(`.${ClassName.GroupHeader}`).forEach((ele: HTMLElement) => {
             ele.addEventListener('click', (e) => {
                 let target = e.target as HTMLElement;
                 if (target.classList.contains('b3-list-item__action')) {
                     console.log('action');
                     return;
                 }
+                
 
                 this.toggleBookmarkGroup(ele);
             });
+        });
+
+        // //droppable
+        this.element.addEventListener('dragover', (event: DragEvent) => {
+            const type = event.dataTransfer.types[0];
+            if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
+
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            const target = event.target as HTMLElement;
+            console.log(target);
+            let section = target.closest('section.custom-bookmark-group') as HTMLElement;
+            if (section) {
+                event.dataTransfer.dropEffect = "copy";
+            } else {
+                event.dataTransfer.dropEffect = "none";
+            }
+        });
+        this.element.addEventListener('drop', (event: DragEvent) => {
+            const type = event.dataTransfer.types[0];
+            if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
+
+            event.preventDefault();
+            let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, '');
+            let info = meta.split(Constants.ZWSP);
+            // let nodetype = info[0];
+            // let subtype = info[1];
+            // let nodeId = info[2];
+            console.log('drop block', info);
         });
     }
 
     private toggleBookmarkGroup(li: HTMLElement, status?: 'open' | 'close') {
         const ul = li.nextElementSibling as HTMLElement;
         const span = li.querySelector(`.b3-list-item__toggle`);
-        ul.classList.toggle('fn__none', status === 'close' ? true : false);
-        span.children[0].classList.toggle('b3-list-item__arrow--open', status === 'close' ? false : true);
+        let force = status === undefined ? undefined : status === 'open' ? false : true;
+        ul.classList.toggle('fn__none', force);
+        force = status === undefined ? undefined : status === 'open' ? true : false;
+        span.children[0].classList.toggle('b3-list-item__arrow--open', force);
     }
 
 }
