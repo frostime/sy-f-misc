@@ -149,10 +149,14 @@ export class Bookmark {
             if (ele.tagName !== 'SPAN') ele = ele.closest('span.block__icon');
             if (!ele) return;
             if (ele.dataset.type === 'add') {
-                inputDialog('添加书签组', '请输入书签组名称', '', (title: string) => {
-                    let group = this.modal.newGroup(title);
-                    let groupSection = html2ele(templateGroup(group));
-                    body.appendChild(groupSection);
+                inputDialog({
+                    title: '添加书签组',
+                    placeholder: '请输入书签组名称',
+                    confirm: (title: string) => {
+                        let group = this.modal.newGroup(title);
+                        let groupSection = html2ele(templateGroup(group));
+                        body.appendChild(groupSection);
+                    }
                 });
                 return;
             }
@@ -268,9 +272,13 @@ export class Bookmark {
         menu.addItem({
             label: '重命名',
             click: async () => {
-                let title = await inputDialogSync('重命名书签组', group.name);
+                let title = await inputDialogSync({
+                    title: '重命名书签组',
+                    defaultText: group.name,
+                    width: '20em'
+                });
                 if (title) {
-                    group.name = title;
+                    group.name = title.trim();
                     this.element.querySelector(`section.${ClassName.Group}[data-groupid="${gid}"] .b3-list-item__text`).textContent = title;
                 }
             }
