@@ -20,5 +20,6 @@ interface IBookmarkGroup {
     id: TBookmarkGroupId;
     name: string;
     items?: IBookmarkItem[];
+    hidden?: boolean;
     order?: number; //越大越靠前，默认0
 }

@@ -26,7 +26,10 @@ export default class BookmarkDataModal {
 
     newGroup(name: string) {
         //6位 36进制
-        let id = Math.random().toString(36).slice(-6);
+        let id: TBookmarkGroupId;
+        while (id === undefined || this.bookmarks.has(id)) {
+            id = Math.random().toString(36).slice(-6);
+        }
         let group = {
             id,
             name,

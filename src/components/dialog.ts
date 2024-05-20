@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-03-23 21:37:33
- * @FilePath     : /src/utils/dialog.ts
- * @LastEditTime : 2024-03-23 21:39:42
+ * @FilePath     : /src/components/dialog.ts
+ * @LastEditTime : 2024-05-20 20:30:26
  * @Description  : 对话框相关工具
  */
 import { Dialog } from "siyuan";
@@ -38,3 +38,13 @@ export const inputDialog = (
         dialog.destroy();
     });
 };
+
+export const inputDialogSync = async (title: string, defaultText?: string, placeholder?: string) => {
+    return new Promise<string>((resolve) => {
+        inputDialog(title, (placeholder ?? ''), (defaultText ?? ''), (text) => {
+            resolve(text);
+        }, ()=>{
+            resolve(null);
+        });
+    });
+}

@@ -1,7 +1,8 @@
-import { Constants } from "siyuan";
+import { Constants, Menu } from "siyuan";
 
 import { html2ele } from "@/utils";
 import BookmarkDataModal from "./modal";
+import { inputDialog, inputDialogSync } from "@/components/dialog";
 
 export let template = `
 <div class="fn__flex-1 fn__flex-column file-tree sy__bookmark" id="custom-bookmark-element">
@@ -13,6 +14,12 @@ export let template = `
             书签
         </div>
         <span class="fn__flex-1"></span>
+        <span class="fn__space"></span>
+        <span data-type="add" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="添加书签组">
+            <svg class="">
+                <use xlink:href="#iconAdd"></use>
+            </svg>
+        </span>
         <span class="fn__space"></span>
         <span data-type="refresh" class="block__icon b3-tooltips b3-tooltips__sw" aria-label="刷新">
             <svg class="">
@@ -118,6 +125,7 @@ export class Bookmark {
         let fragment = html2ele(template);
 
         for (let [id, group] of this.modal.bookmarks) {
+            if (group.hidden) continue;
             let groupEle = html2ele(templateGroup(group));
             let list = groupEle.querySelector(`.${ClassName.GroupList}`);
             for (let item of group.items) {
@@ -133,11 +141,21 @@ export class Bookmark {
     }
 
     private listen() {
+        const body = this.element.querySelector('#custom-bookmark-body');
+
         //dock 顶栏按钮
         this.element.querySelector('.block__icons').addEventListener('click', (e) => {
             let ele = e.target as HTMLElement;
             if (ele.tagName !== 'SPAN') ele = ele.closest('span.block__icon');
             if (!ele) return;
+            if (ele.dataset.type === 'add') {
+                inputDialog('添加书签组', '请输入书签组名称', '', (title: string) => {
+                    let group = this.modal.newGroup(title);
+                    let groupSection = html2ele(templateGroup(group));
+                    body.appendChild(groupSection);
+                });
+                return;
+            }
             //refresh
             if (ele.dataset.type === 'refresh') {
                 console.log('refresh');
@@ -159,16 +177,42 @@ export class Bookmark {
             }
         });
 
-        this.element.querySelectorAll(`.${ClassName.GroupHeader}`).forEach((ele: HTMLElement) => {
-            ele.addEventListener('click', (e) => {
-                let target = e.target as HTMLElement;
-                if (target.classList.contains('b3-list-item__action')) {
-                    console.log('action');
+        body.addEventListener('click', (e: MouseEvent) => {
+            let target = e.target as HTMLElement;
+
+            //点击书签分组 header
+            if (target.closest(`li.${ClassName.GroupHeader}`)) {
+                e.stopPropagation();
+                const li = target.closest(`li.${ClassName.GroupHeader}`) as HTMLElement;
+                //点击菜单按钮
+                if (target.closest('span.b3-list-item__action')) {
+                    let gid = li.dataset.groupid as TBookmarkGroupId;
+                    let menu = this.showGroupContextMenu(gid);
+                    menu.open({
+                        x: e.clientX,
+                        y: e.clientY,
+                        isLeft: true
+                    });
                     return;
                 }
+                //点击展开/折叠按钮
+                this.toggleBookmarkGroup(li);
+            }
+        });
 
-                this.toggleBookmarkGroup(ele);
-            });
+        body.addEventListener('contextmenu', (e: MouseEvent) => {
+            let target = e.target as HTMLElement;
+
+            if (target.closest(`li.${ClassName.GroupHeader}`)) {
+                let ele = target.closest(`li.${ClassName.GroupHeader}`) as HTMLElement;
+                let gid = ele.dataset.groupid as TBookmarkGroupId;
+                let menu = this.showGroupContextMenu(gid);
+                menu.open({
+                    x: e.clientX,
+                    y: e.clientY,
+                    isLeft: true
+                });
+            }
         });
 
         let dragoverEle: HTMLElement;
@@ -217,5 +261,21 @@ export class Bookmark {
         force = status === undefined ? undefined : status === 'open' ? true : false;
         span.children[0].classList.toggle('b3-list-item__arrow--open', force);
     }
+
+    private showGroupContextMenu(gid: TBookmarkGroupId) {
+        let menu = new Menu();
+        let group = this.modal.bookmarks.get(gid);
+        menu.addItem({
+            label: '重命名',
+            click: async () => {
+                let title = await inputDialogSync('重命名书签组', group.name);
+                if (title) {
+                    group.name = title;
+                    this.element.querySelector(`section.${ClassName.Group}[data-groupid="${gid}"] .b3-list-item__text`).textContent = title;
+                }
+            }
+        });
+        return menu;
+    };
 
 }
