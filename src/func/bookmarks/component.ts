@@ -5,6 +5,8 @@ import BookmarkDataModal from "./modal";
 import { inputDialog, inputDialogSync } from "@/components/dialog";
 import { getBlockByID } from "@/api";
 
+import { BlockType2NodeType, NodeIcons } from "@/utils/const";
+
 export let template = `
 <div class="fn__flex-1 fn__flex-column file-tree sy__bookmark" id="custom-bookmark-element">
     <div class="block__icons">
@@ -61,6 +63,29 @@ const ClassName = {
     Item: 'custom-bookmark-item'
 }
 
+const buildItemDetail = (block: {
+    id: BlockId, type: BlockType, subtype?: BlockSubType
+}) => {
+    let nodetype = BlockType2NodeType[block.type];
+    let icon: any;
+    if (nodetype === 'NodeDocument') {
+        icon = `<span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block" data-id="${block.id}">
+        📄</span>`;
+    } else {
+        icon = NodeIcons[nodetype];
+        if (icon?.subtypes?.[block?.subtype]) {
+            icon = icon.subtypes[block.subtype].icon;
+        } else {
+            icon = icon.icon;
+        }
+        icon = `<svg data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block" data-id="${block.id}"><use xlink:href="#${icon}"></use></svg>`
+    }
+    return {
+        NodeType: nodetype,
+        Icon: icon
+    }
+}
+
 const templateGroup = (group: IBookmarkGroup) => {
     return `
     <section class="${ClassName.Group}" data-groupid="${group.id}" data-groupname="${group.name}">
@@ -88,19 +113,17 @@ const templateGroup = (group: IBookmarkGroup) => {
 }
 
 const templateItem = (item: IBookmarkItem) => {
+    let { NodeType, Icon } = buildItemDetail(item);
     return `
     <li class="b3-list-item b3-list-item--hide-action ${ClassName.Item}" style="--file-toggle-width:38px"
-        data-node-id="${item.id}" data-ref-text="" data-def-id="" data-type="NodeDocument"
+        data-node-id="${item.id}" data-ref-text="" data-def-id="" data-type="${NodeType}"
         data-subtype="" data-treetype="bookmark" data-def-path="">
         <span style="padding-left: 22px;margin-right: 2px" class="b3-list-item__toggle fn__hidden">
             <svg data-id="${item.id}" class="b3-list-item__arrow">
                 <use xlink:href="#iconRight"></use>
             </svg>
         </span>
-        <span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block"
-            data-id="${item.id}">
-            📄
-        </span>
+        ${Icon}
         <span class="b3-list-item__text ariaLabel" data-position="parentE">
             ${item.title}
         </span>
@@ -354,7 +377,8 @@ export class Bookmark {
         let item: IBookmarkItem = {
             id: block.id,
             title: block.fcontent || block.content,
-            type: block.type
+            type: block.type,
+            subtype: block.subtype
         };
         this.modal.addItem(gid, item);
         let groupList = this.element.querySelector(`.${ClassName.GroupList}[data-groupid="${gid}"]`);

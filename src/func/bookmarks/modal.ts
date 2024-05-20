@@ -37,6 +37,7 @@ export default class BookmarkDataModal {
             order: 0
         };
         this.bookmarks.set(id, group);
+        this.save();
         return group;
     }
 
@@ -45,6 +46,7 @@ export default class BookmarkDataModal {
         if (group) {
             item.order = item?.order ?? 0;
             group.items.push(item);
+            this.save();
             return true;
         } else {
             return false;
@@ -55,6 +57,7 @@ export default class BookmarkDataModal {
         let group = this.bookmarks.get(gid);
         if (group) {
             group.items = group.items.filter(item => item.id !== id);
+            this.save();
             return true;
         } else {
             return false;

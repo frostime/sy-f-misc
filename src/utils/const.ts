@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-02 22:43:02
  * @FilePath     : /src/utils/const.ts
- * @LastEditTime : 2024-05-08 12:19:39
+ * @LastEditTime : 2024-05-20 21:20:13
  * @Description  : 
  */
 export const Href = {
@@ -37,4 +37,89 @@ export const BlockTypeShort = {
     "html": "HTML块",
     "query_embed": "嵌入块"
 }
+
+export const BlockType2NodeType = {
+    c: 'NodeCodeBlock',
+    d: 'NodeDocument',
+    s: 'NodeSuperBlock',
+    h: 'NodeHeading',
+    t: 'NodeTable',
+    i: 'NodeListItem',
+    p: 'NodeParagraph',
+    l: 'NodeList',
+    m: 'NodeMathBlock',
+    b: 'NodeBlockquote',
+    html: 'NodeHTMLBlock',
+    query_embed: 'NodeBlockQueryEmbed'
+}
+
+
+export const NodeIcons = {
+    NodeAttributeView: {
+        icon: "iconDatabase"
+    },
+    NodeAudio: {
+        icon: "iconRecord"
+    },
+    NodeBlockQueryEmbed: {
+        icon: "iconSQL"
+    },
+    NodeBlockquote: {
+        icon: "iconQuote"
+    },
+    NodeCodeBlock: {
+        icon: "iconCode"
+    },
+    NodeDocument: {
+        icon: "iconFile"
+    },
+    NodeHTMLBlock: {
+        icon: "iconHTML5"
+    },
+    NodeHeading: {
+        icon: "iconHeadings",
+        subtypes: {
+            h1: { icon: "iconH1" },
+            h2: { icon: "iconH2" },
+            h3: { icon: "iconH3" },
+            h4: { icon: "iconH4" },
+            h5: { icon: "iconH5" },
+            h6: { icon: "iconH6" }
+        }
+    },
+    NodeIFrame: {
+        icon: "iconLanguage"
+    },
+    NodeList: {
+        subtypes: {
+            o: { icon: "iconList" },
+            t: { icon: "iconOrderedList" },
+            u: { icon: "iconCheck" }
+        }
+    },
+    NodeListItem: {
+        icon: "iconListItem"
+    },
+    NodeMathBlock: {
+        icon: "iconMath"
+    },
+    NodeParagraph: {
+        icon: "iconParagraph"
+    },
+    NodeSuperBlock: {
+        icon: "iconSuper"
+    },
+    NodeTable: {
+        icon: "iconTable"
+    },
+    NodeThematicBreak: {
+        icon: "iconLine"
+    },
+    NodeVideo: {
+        icon: "iconVideo"
+    },
+    NodeWidget: {
+        icon: "iconBoth"
+    }
+};
 
