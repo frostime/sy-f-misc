@@ -32,7 +32,7 @@ const StatusFlag = {
     IsTabbarVertical: false
 }
 
-const StorageName = 'configs';
+const StorageNameConfigs = 'configs';
 
 export default class FMiscPlugin extends Plugin {
 
@@ -52,6 +52,9 @@ export default class FMiscPlugin extends Plugin {
             Misc: {
                 zoteroPassword: string;
             };
+        };
+        bookmarks: {
+            [key: TBookmarkGroupId]: IBookmarkGroup;
         };
     }
 
@@ -131,8 +134,8 @@ export default class FMiscPlugin extends Plugin {
     }
 
     async loadConfigs() {
-        let currentData = this.data[StorageName];
-        let outData = await this.loadData(StorageName);
+        let currentData = this.data[StorageNameConfigs];
+        let outData = await this.loadData(StorageNameConfigs);
         console.debug('导入', outData);
         if (!outData) {
             return;
@@ -149,12 +152,12 @@ export default class FMiscPlugin extends Plugin {
                 }
             }
         }
-        this.data[StorageName] = currentData;
+        this.data[StorageNameConfigs] = currentData;
     }
 
     saveConfigs() {
-        console.debug('SaveConfigs', JSON.stringify(this.data[StorageName]));
-        this.saveData(StorageName, this.data[StorageName]);
+        console.debug('SaveConfigs', JSON.stringify(this.data[StorageNameConfigs]));
+        this.saveData(StorageNameConfigs, this.data[StorageNameConfigs]);
     }
 
     private initTopBar() {

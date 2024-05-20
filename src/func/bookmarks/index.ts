@@ -1,38 +1,18 @@
 import type FMiscPlugin from "@/index";
+import BookmarkDataModal from "./modal";
 import { Bookmark } from "./component";
 
 let bookmark: Bookmark;
 
 export let name = "CustomBookmark";
 export let enabled = false;
-export const load = (plugin: FMiscPlugin) => {
+export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
 
-    bookmark = new Bookmark();
-    bookmark.initBookmarks([
-        {
-            id: '1',
-            name: 'Group 1',
-            items: [
-                {
-                    id: '1',
-                    title: 'Item 1',
-                    type: 'p'
-                }
-            ]
-        },
-        {
-            id: '2',
-            name: 'Group 2',
-            items: [
-                {
-                    id: '1',
-                    title: 'Item 1',
-                    type: 'd'
-                }
-            ]
-        }
-    ]);
+    let modal = new BookmarkDataModal(plugin);
+    bookmark = new Bookmark(modal);
+
+    await modal.load();
 
     plugin.addDock({
         type: '::dock::' + 'Bookmark',
@@ -55,8 +35,10 @@ export const load = (plugin: FMiscPlugin) => {
     enabled = true;
 }
 
-export const unload = (plugin: FMiscPlugin) => {
+export const unload = async () => {
     if (!enabled) return;
-    
     enabled = false;
+    await bookmark.modal.save();
+    bookmark.modal = null;
+    bookmark = null;
 }

@@ -1,6 +1,7 @@
 import { Constants } from "siyuan";
 
 import { html2ele } from "@/utils";
+import BookmarkDataModal from "./modal";
 
 export let template = `
 <div class="fn__flex-1 fn__flex-column file-tree sy__bookmark" id="custom-bookmark-element">
@@ -105,39 +106,18 @@ const templateItem = (item: IBookmarkItem) => {
     `;
 }
 
-type TGroupId = string;
-
-interface IBookmarkItem {
-    id: BlockId;
-    title: string;
-    type: BlockType;
-    subtype?: BlockSubType;
-}
-
-interface IBookmarkGroup {
-    id: TGroupId;
-    name: string;
-    items?: IBookmarkItem[];
-}
-
 export class Bookmark {
     element: HTMLElement;
-    bookmarks: Map<TGroupId, IBookmarkGroup>;
+    modal: BookmarkDataModal;
 
-    constructor() {
-        this.bookmarks = new Map();
-    }
-
-    initBookmarks(bookmarks: IBookmarkGroup[]) {
-        for (let group of bookmarks) {
-            this.bookmarks.set(group.id, group);
-        }
+    constructor(modal: BookmarkDataModal) {
+        this.modal = modal;
     }
 
     render(container: HTMLElement) {
         let fragment = html2ele(template);
 
-        for (let [id, group] of this.bookmarks) {
+        for (let [id, group] of this.modal.bookmarks) {
             let groupEle = html2ele(templateGroup(group));
             let list = groupEle.querySelector(`.${ClassName.GroupList}`);
             for (let item of group.items) {
