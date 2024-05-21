@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 21:52:48
  * @FilePath     : /src/func/bookmarks/index.ts
- * @LastEditTime : 2024-05-21 22:36:01
+ * @LastEditTime : 2024-05-21 23:37:48
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -23,19 +23,18 @@ const initBookmark = async (ele: HTMLElement, plugin: FMiscPlugin) => {
             model: model
         }
     });
-    insertStyle('hide-bookmark', `
-    .dock span[data-type="bookmark"] {
-        display: none;
-    }
-    `);
 };
 
 const destroyBookmark = () => {
     bookmark?.$destroy();
     bookmark = null;
     model = null;
+    const ele = document.querySelector('span[data-type="sy-f-misc::dock::Bookmark"]') as HTMLElement;
+    ele?.remove();
     removeStyle('hide-bookmark');
 };
+
+const bookmarkKeymap = window.siyuan.config.keymap.general.bookmark;
 
 export let name = "CustomBookmark";
 export let enabled = false;
@@ -46,7 +45,11 @@ export const load = async (plugin: FMiscPlugin) => {
 
     await model.load();
 
-    console.log('model', model);
+    insertStyle('hide-bookmark', `
+    .dock span[data-type="bookmark"] {
+        display: none;
+    }
+    `);
 
     plugin.addDock({
         type: '::dock::' + 'Bookmark',
@@ -67,7 +70,18 @@ export const load = async (plugin: FMiscPlugin) => {
             this.data.initBookmark(this.element, this.data.plugin);
             // initBookmark(this.element, plugin);
         }
-    })
+    });
+    bookmarkKeymap.custom = '';
+    plugin.addCommand({
+        langKey: 'F-Misc::Bookmark',
+        langText: 'F-misc 书签',
+        hotkey: bookmarkKeymap.custom,
+        callback: () => {
+            const ele = document.querySelector('span[data-type="sy-f-misc::dock::Bookmark"]') as HTMLElement;
+            ele?.click();
+        }
+    });
+
     enabled = true;
 }
 
@@ -76,4 +90,6 @@ export const unload = async () => {
     enabled = false;
     await model.save();
     destroyBookmark();
+
+    bookmarkKeymap.custom = bookmarkKeymap.default;
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
-    import { Menu, Constants, confirm } from "siyuan";
+    import { Menu, Constants, confirm, showMessage } from "siyuan";
     import Item from "./item.svelte";
 
     import { inputDialogSync } from "@/components/dialog";
@@ -15,6 +15,21 @@
     let isOpen = true;
     export const toggleOpen = (open?: boolean) => {
         isOpen = open ?? !isOpen;
+    };
+
+    const addItemByBlockId = async (blockId: string) => {
+        let block = await getBlockByID(blockId);
+        if (!block) return;
+        let item: IBookmarkItem = {
+            id: block.id,
+            title: block.fcontent || block.content,
+            type: block.type,
+            subtype: block.subtype,
+            box: block.box
+        };
+        model.addItem(group.id, item);
+        group.items = group.items;
+        toggleOpen(true);
     };
 
     // Example function to handle context menu
@@ -42,6 +57,29 @@
             click: async () => {
                 dispatch("deleteGroup", group);
             },
+        });
+        menu.addSeparator();
+        menu.addItem({
+            label: '从剪贴板中插入块',
+            icon: 'iconAdd',
+            click: () => {
+                const BlockRegex = {
+                    id: /^(\d{14}-[0-9a-z]{7})$/, // 块 ID 正则表达式
+                    ref: /^\(\((\d{14}-[0-9a-z]{7}) ['"'].+?['"']\)\)$/,
+                    url: /^siyuan:\/\/blocks\/(\d{14}-[0-9a-z]{7})/, // 思源 URL Scheme 正则表达式
+                }
+
+                navigator.clipboard.readText().then(async (text) => {
+                    for (let regex of Object.values(BlockRegex)) {
+                        let match = text.match(regex);
+                        if (match) {
+                            addItemByBlockId(match[1]);
+                            return;
+                        }
+                    }
+                    showMessage(`无法从[${text}]中解析到块`, 5000, 'error');
+                });
+            }
         });
         menu.open({
             x: e.clientX,
@@ -92,21 +130,7 @@
         // let nodetype = info[0];
         // let subtype = info[1];
         let nodeId = info[2];
-        let gid = group.id;
-        let block = await getBlockByID(nodeId);
-        if (!block) return;
-        let item: IBookmarkItem = {
-            id: block.id,
-            title: block.fcontent || block.content,
-            type: block.type,
-            subtype: block.subtype,
-            box: block.box
-        };
-        model.addItem(gid, item);
-        //addItems 已经更改了 group.items 的引用，所以这里不需要再次赋值
-        group.items = group.items;
-        isDragOver = false;
-        toggleOpen(true);
+        addItemByBlockId(nodeId);
     };
 
     let svgArrowClass = "b3-list-item__arrow--open";
