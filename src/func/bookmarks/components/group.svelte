@@ -100,6 +100,7 @@
             title: block.fcontent || block.content,
             type: block.type,
             subtype: block.subtype,
+            box: block.box
         };
         model.addItem(gid, item);
         //addItems 已经更改了 group.items 的引用，所以这里不需要再次赋值
