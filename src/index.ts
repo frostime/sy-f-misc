@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-05-19 18:05:23
+ * @LastEditTime : 2024-05-21 23:41:25
  * @Description  : 
  */
 import {
@@ -164,20 +164,20 @@ export default class FMiscPlugin extends Plugin {
         const showMenu = () => {
             let menu = new Menu("f-misc-topbar");
             let menuItems: IMenuItemOption[] = [
-                {
-                    label: '垂直标签页',
-                    icon: 'iconVertical',
-                    iconClass: StatusFlag.IsTabbarVertical ? 'highlight-icon' : '',
-                    click: () => {
-                        if (!StatusFlag.IsTabbarVertical) {
-                            updateStyleLink('f-misc-vertical-title', Href.Style_Vertical_Tabbar);
-                            StatusFlag.IsTabbarVertical = true;
-                        } else {
-                            removeDomById('f-misc-vertical-title');
-                            StatusFlag.IsTabbarVertical = false;
-                        }
-                    }
-                },
+                // {
+                //     label: '垂直标签页',
+                //     icon: 'iconVertical',
+                //     iconClass: StatusFlag.IsTabbarVertical ? 'highlight-icon' : '',
+                //     click: () => {
+                //         if (!StatusFlag.IsTabbarVertical) {
+                //             updateStyleLink('f-misc-vertical-title', Href.Style_Vertical_Tabbar);
+                //             StatusFlag.IsTabbarVertical = true;
+                //         } else {
+                //             removeDomById('f-misc-vertical-title');
+                //             StatusFlag.IsTabbarVertical = false;
+                //         }
+                //     }
+                // },
                 {
                     label: '打开目录',
                     icon: 'iconFolder',

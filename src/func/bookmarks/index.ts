@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 21:52:48
  * @FilePath     : /src/func/bookmarks/index.ts
- * @LastEditTime : 2024-05-21 23:37:48
+ * @LastEditTime : 2024-05-21 23:44:25
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -72,10 +72,11 @@ export const load = async (plugin: FMiscPlugin) => {
         }
     });
     bookmarkKeymap.custom = '';
+    console.log('bookmarkKeymap', bookmarkKeymap);
     plugin.addCommand({
         langKey: 'F-Misc::Bookmark',
         langText: 'F-misc 书签',
-        hotkey: bookmarkKeymap.custom,
+        hotkey: bookmarkKeymap.default,
         callback: () => {
             const ele = document.querySelector('span[data-type="sy-f-misc::dock::Bookmark"]') as HTMLElement;
             ele?.click();
@@ -85,11 +86,12 @@ export const load = async (plugin: FMiscPlugin) => {
     enabled = true;
 }
 
-export const unload = async () => {
+export const unload = async (plugin: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
     await model.save();
     destroyBookmark();
 
     bookmarkKeymap.custom = bookmarkKeymap.default;
+    plugin.commands = plugin.commands.filter((command) => command.langKey !== 'F-Misc::Bookmark');
 }
