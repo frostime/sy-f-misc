@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-05-19 21:51:09
+ * @FilePath     : /src/func/bookmarks/component.ts
+ * @LastEditTime : 2024-05-21 20:37:42
+ * @Description  : 
+ */
 import { Constants, Menu } from "siyuan";
 
 import { html2ele } from "@/utils";

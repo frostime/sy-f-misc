@@ -1,6 +1,15 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-05-19 21:52:48
+ * @FilePath     : /src/func/bookmarks/index.ts
+ * @LastEditTime : 2024-05-21 20:44:54
+ * @Description  : 
+ */
 import type FMiscPlugin from "@/index";
 import BookmarkDataModal from "./modal";
-import { Bookmark } from "./component";
+// import { Bookmark } from "./component";
+import Bookmark from "./components/bookmark.svelte";
 
 let bookmark: Bookmark;
 
@@ -10,7 +19,6 @@ export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
 
     let modal = new BookmarkDataModal(plugin);
-    bookmark = new Bookmark(modal);
 
     await modal.load();
 
@@ -29,7 +37,13 @@ export const load = async (plugin: FMiscPlugin) => {
             plugin: plugin,
         },
         init() {
-            bookmark.render(this.element);
+            // bookmark.render(this.element);
+            new Bookmark({
+                target: this.element,
+                props: {
+                    modal: modal
+                }
+            });
         }
     })
     enabled = true;

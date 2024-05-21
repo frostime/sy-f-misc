@@ -41,6 +41,17 @@ export default class BookmarkDataModal {
         return group;
     }
 
+    renameGroup(id: TBookmarkGroupId, name: string) {
+        let group = this.bookmarks.get(id);
+        if (group) {
+            group.name = name;
+            this.save();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     addItem(gid: TBookmarkGroupId, item: IBookmarkItem) {
         let group = this.bookmarks.get(gid);
         if (group) {
