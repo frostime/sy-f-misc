@@ -24,6 +24,17 @@ export default class BookmarkDataModal {
         await this.plugin.saveData(StorageNameBookmarks, this.plugin.data.bookmarks);
     }
 
+    listGroups(visible: boolean = true): IBookmarkGroup[]{
+        // 1. sort
+        let groups = Array.from(this.bookmarks.values());
+        groups.sort((a, b) => a.order - b.order);
+        //2. filter
+        if (visible) {
+            groups = groups.filter(group => !group.hidden);
+        }
+        return groups;
+    }
+
     newGroup(name: string) {
         //6位 36进制
         let id: TBookmarkGroupId;
@@ -39,6 +50,16 @@ export default class BookmarkDataModal {
         this.bookmarks.set(id, group);
         this.save();
         return group;
+    }
+
+    delGroup(id: TBookmarkGroupId) {
+        if (this.bookmarks.has(id)) {
+            this.bookmarks.delete(id);
+            this.save();
+            return true;
+        } else {
+            return false;
+        }
     }
 
     renameGroup(id: TBookmarkGroupId, name: string) {

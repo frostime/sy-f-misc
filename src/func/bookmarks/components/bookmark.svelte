@@ -8,20 +8,18 @@
 
     export let modal: BookmarkDataModal;
 
-    setContext('modal', modal);
+    setContext("modal", modal);
 
     let groups: IBookmarkGroup[] = [];
 
     let groupComponent: Group[] = [];
 
     onMount(() => {
-        filterVisibleGroups();
+        updateShownGroups();
     });
 
-    function filterVisibleGroups() {
-        groups = Array.from(modal.bookmarks.values()).filter(
-            (group) => !group.hidden,
-        );
+    function updateShownGroups() {
+        groups = modal.listGroups();
     }
 
     function blockIconAdd() {
@@ -119,7 +117,16 @@
     <div class="fn__flex-1" style="margin-bottom: 8px">
         <ul class="b3-list b3-list--background" id="custom-bookmark-body">
             {#each groups as group, i (group.id)}
-                <Group {group} {modal} bind:this={groupComponent[i]} />
+                <Group
+                    {group}
+                    {modal}
+                    bind:this={groupComponent[i]}
+                    on:deleteGroup={({ detail }) => {
+                        if(modal.delGroup(detail)) {
+                            updateShownGroups();
+                        }
+                    }}
+                />
             {/each}
         </ul>
     </div>

@@ -1,12 +1,16 @@
 <script lang="ts">
-    import { Menu } from "siyuan";
+    import { createEventDispatcher } from "svelte";
+    import { Menu, Constants } from "siyuan";
     import Item from "./item.svelte";
 
     import { inputDialogSync } from "@/components/dialog";
     import BookmarkDataModal from "../modal";
+    import { getBlockByID } from "@/api";
 
     export let group: IBookmarkGroup;
     export let modal: BookmarkDataModal;
+
+    const dispatch = createEventDispatcher();
 
     let isOpen = false;
     export const toggleOpen = (open?: boolean) => {
@@ -27,15 +31,64 @@
                     width: '20em'
                 });
                 if (title) {
-                    group.name = title.trim();
-                    modal.renameGroup(group.id, group.name);
+                    modal.renameGroup(group.id, title.trim());
+                    group.name = group.name;
                 }
+            }
+        });
+        menu.addItem({
+            label: '删除分组',
+            icon: 'iconEdit',
+            click: async () => {
+                dispatch('deleteGroup', group.id);
             }
         });
         menu.open({
             x: e.clientX,
             y: e.clientY
         });
+    }
+
+    let isDragOver = false;
+
+    const onDragOver = (event: DragEvent) => {
+        const type = event.dataTransfer.types[0];
+        if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
+
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        isDragOver = true;
+    }
+
+    const onDragLeave = (event: DragEvent) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'none';
+        isDragOver = false;
+    }
+
+    const onDrop = async (event: DragEvent) => {
+        const type = event.dataTransfer.types[0];
+        if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
+
+        let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, '');
+        let info = meta.split(Constants.ZWSP);
+        // let nodetype = info[0];
+        // let subtype = info[1];
+        let nodeId = info[2];
+        let gid = group.id;
+        let block = await getBlockByID(nodeId);
+        if (!block) return;
+        let item: IBookmarkItem = {
+            id: block.id,
+            title: block.fcontent || block.content,
+            type: block.type,
+            subtype: block.subtype
+        };
+        modal.addItem(gid, item);
+        //addItems 已经更改了 group.items 的引用，所以这里不需要再次赋值
+        group.items = group.items;
+        isDragOver = false;
+        toggleOpen(true);
     }
 
     let svgArrowClass = "b3-list-item__arrow--open";
@@ -48,9 +101,13 @@
 </script>
 
 <section
-    class="custom-bookmark-group"
+    class="custom-bookmark-group {isDragOver ? "dragover" : ""}"
     data-groupid={group.id}
     data-groupname={group.name}
+    on:dragover={onDragOver}
+    on:dragleave={onDragLeave}
+    on:drop={onDrop}
+    role="list"
 >
     <li
         class="b3-list-item b3-list-item--hide-action custom-bookmark-group-header"
