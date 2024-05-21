@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-05-19 21:56:37
+ * @LastEditTime : 2024-05-21 22:27:54
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -43,7 +43,8 @@ const ModulesToEnable = [
     tr,
     fb,
     ss,
-    tt
+    tt,
+    bookmark
 ]
 
 //`Enable${module.name}`: module
@@ -60,7 +61,6 @@ export const load = (plugin: FMiscPlugin) => {
 
     // gt.load();
     dq.load();
-    bookmark.load(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -70,7 +70,6 @@ export const unload = (plugin: FMiscPlugin) => {
 
     // gt.unload();
     dq.unload();
-    bookmark.unload(plugin);
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];
