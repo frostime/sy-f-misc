@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-05-17 14:30:16
+ * @LastEditTime : 2024-05-21 22:27:54
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -21,6 +21,8 @@ import * as fb from './fake-breadcrumb';
 import * as ss from './simple-search';
 import * as tt from './test-template';
 import * as dq from './data-query';
+
+import * as bookmark from './bookmarks';
 
 interface IFuncModule {
     name: string;
@@ -41,7 +43,8 @@ const ModulesToEnable = [
     tr,
     fb,
     ss,
-    tt
+    tt,
+    bookmark
 ]
 
 //`Enable${module.name}`: module

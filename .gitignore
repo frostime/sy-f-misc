@@ -1,4 +1,6 @@
 .idea
+.vscode
+!.vscode/func.code-snippets
 .DS_Store
 pnpm-lock.yaml
 package.zip

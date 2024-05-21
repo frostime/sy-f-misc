@@ -30,6 +30,13 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
+        title: '📚 自定义书签',
+        description: '启用自定义书签功能',
+        key: 'EnableCustomBookmark',
+        value: true
+    },
+    {
+        type: 'checkbox',
         title: '🍞 文档面包屑',
         description: '启用文档面包屑功能',
         key: 'EnableFakeBreadcrumb',
