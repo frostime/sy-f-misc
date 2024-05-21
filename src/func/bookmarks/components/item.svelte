@@ -1,10 +1,15 @@
 <script lang="ts">
+    import { getContext, createEventDispatcher } from "svelte";
+    import { Menu, openTab, Plugin } from "siyuan";
     import { NodeIcons, BlockType2NodeType } from "@/utils/const";
     import { ClassName } from "../utils";
-    import BookmarkDataModal from "../modal";
+    // import BookmarkDataModal from "../modal";
 
     export let item: IBookmarkItem;
-    export let modal: BookmarkDataModal;
+
+    const dispatch = createEventDispatcher();
+
+    let plugin: Plugin = getContext("plugin");
 
     let NodeType = BlockType2NodeType[item.type];
     let Icon = "";
@@ -36,6 +41,31 @@
 
     $: { ({ NodeType, Icon } = buildItemDetail(item)); }
 
+    const showItemContextMenu = (e: MouseEvent) => {
+        let menu = new Menu();
+        menu.addItem({
+            label: '删除书签',
+            icon: 'iconTrashcan',
+            click: () => {
+                dispatch('deleteItem', item);
+            }
+        });
+        menu.open({
+            x: e.clientX,
+            y: e.clientY
+        });
+    };
+
+    const openBlock = () => {
+        openTab({
+            app: plugin.app,
+            doc: {
+                id: item.id,
+                zoomIn: true
+            }
+        })
+    }
+
 </script>
 
 <li
@@ -48,6 +78,8 @@
     data-subtype=""
     data-treetype="bookmark"
     data-def-path=""
+    on:contextmenu={showItemContextMenu}
+    on:click={openBlock}
 >
     <span
         style="padding-left: 22px;margin-right: 2px"
@@ -62,9 +94,9 @@
         {item.title}
     </span>
 
-    <span class="b3-list-item__action">
+    <!-- <span class="b3-list-item__action" on:click={showItemContextMenu} role="button" tabindex="0">
         <svg>
             <use xlink:href="#iconMore"></use>
         </svg>
-    </span>
+    </span> -->
 </li>

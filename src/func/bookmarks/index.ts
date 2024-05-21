@@ -41,6 +41,7 @@ export const load = async (plugin: FMiscPlugin) => {
             new Bookmark({
                 target: this.element,
                 props: {
+                    plugin: plugin,
                     modal: modal
                 }
             });

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
-    import { Menu, Constants } from "siyuan";
+    import { Menu, Constants, confirm } from "siyuan";
     import Item from "./item.svelte";
 
     import { inputDialogSync } from "@/components/dialog";
@@ -12,42 +12,59 @@
 
     const dispatch = createEventDispatcher();
 
-    let isOpen = false;
+    let isOpen = true;
     export const toggleOpen = (open?: boolean) => {
         isOpen = open ?? !isOpen;
-    }
+    };
 
     // Example function to handle context menu
     function showGroupContextMenu(e: MouseEvent) {
         // e.stopPropagation();
         let menu = new Menu();
         menu.addItem({
-            label: '重命名',
-            icon: 'iconEdit',
+            label: "重命名书签组",
+            icon: "iconEdit",
             click: async () => {
                 let title = await inputDialogSync({
-                    title: '重命名书签组',
+                    title: "重命名书签组",
                     defaultText: group.name,
-                    width: '20em'
+                    width: "20em",
                 });
                 if (title) {
                     modal.renameGroup(group.id, title.trim());
                     group.name = group.name;
                 }
-            }
+            },
         });
         menu.addItem({
-            label: '删除分组',
-            icon: 'iconEdit',
+            label: "删除书签组",
+            icon: "iconTrashcan",
             click: async () => {
-                dispatch('deleteGroup', group.id);
-            }
+                dispatch("deleteGroup", group);
+            },
         });
         menu.open({
             x: e.clientX,
-            y: e.clientY
+            y: e.clientY,
         });
     }
+
+    const itemDelete = (e: CustomEvent<IBookmarkItem>) => {
+        const detail = e.detail;
+        let title = detail.title;
+        if (title.length > 20) {
+            title = title.slice(0, 20) + "...";
+        }
+        confirm(
+            `是否删除书签项目${title}]?`,
+            "⚠️ 删除后无法恢复！确定删除吗？",
+            () => {
+                if (modal.delItem(group.id, detail.id)) {
+                    group.items = group.items;
+                }
+            },
+        );
+    };
 
     let isDragOver = false;
 
@@ -58,19 +75,19 @@
         event.preventDefault();
         event.dataTransfer.dropEffect = "copy";
         isDragOver = true;
-    }
+    };
 
     const onDragLeave = (event: DragEvent) => {
         event.preventDefault();
-        event.dataTransfer.dropEffect = 'none';
+        event.dataTransfer.dropEffect = "none";
         isDragOver = false;
-    }
+    };
 
     const onDrop = async (event: DragEvent) => {
         const type = event.dataTransfer.types[0];
         if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
 
-        let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, '');
+        let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, "");
         let info = meta.split(Constants.ZWSP);
         // let nodetype = info[0];
         // let subtype = info[1];
@@ -82,14 +99,14 @@
             id: block.id,
             title: block.fcontent || block.content,
             type: block.type,
-            subtype: block.subtype
+            subtype: block.subtype,
         };
         modal.addItem(gid, item);
         //addItems 已经更改了 group.items 的引用，所以这里不需要再次赋值
         group.items = group.items;
         isDragOver = false;
         toggleOpen(true);
-    }
+    };
 
     let svgArrowClass = "b3-list-item__arrow--open";
     let itemsClass = "";
@@ -97,11 +114,10 @@
         svgArrowClass = isOpen ? "b3-list-item__arrow--open" : "";
         itemsClass = isOpen ? "" : "fn__none";
     }
-
 </script>
 
 <section
-    class="custom-bookmark-group {isDragOver ? "dragover" : ""}"
+    class="custom-bookmark-group {isDragOver ? 'dragover' : ''}"
     data-groupid={group.id}
     data-groupname={group.name}
     on:dragover={onDragOver}
@@ -109,6 +125,7 @@
     on:drop={onDrop}
     role="list"
 >
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <li
         class="b3-list-item b3-list-item--hide-action custom-bookmark-group-header"
         style="--file-toggle-width:20px"
@@ -117,6 +134,7 @@
         data-subtype="undefined"
         data-groupid={group.id}
         data-groupname={group.name}
+        on:click={() => toggleOpen()}
         on:contextmenu={showGroupContextMenu}
     >
         <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -132,10 +150,7 @@
         <svg class="b3-list-item__graphic">
             <use xlink:href="#iconBookmark"></use>
         </svg>
-        <span
-            class="b3-list-item__text ariaLabel"
-            data-position="parentE"
-        >
+        <span class="b3-list-item__text ariaLabel" data-position="parentE">
             {group.name}
         </span>
         <span class="b3-list-item__action">
@@ -151,7 +166,7 @@
         data-groupname={group.name}
     >
         {#each group.items as item}
-            <Item {item} {modal} />
+            <Item {item} on:deleteItem={itemDelete} />
         {/each}
     </ul>
 </section>

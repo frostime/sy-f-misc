@@ -1,14 +1,15 @@
 <script lang="ts">
     import { onMount, setContext } from "svelte";
     import Group from "./group.svelte";
-    // import { Constants, Menu } from "siyuan";
+    import { confirm, Plugin } from "siyuan";
     import BookmarkDataModal from "../modal";
     import { inputDialog } from "@/components/dialog";
     // import { getBlockByID } from "@/api";
 
+    export let plugin: Plugin;
     export let modal: BookmarkDataModal;
 
-    setContext("modal", modal);
+    setContext('plugin', plugin);
 
     let groups: IBookmarkGroup[] = [];
 
@@ -37,11 +38,23 @@
         console.log("refresh");
         // Implement refresh logic
     }
+
+    const groupDelete = (e: CustomEvent<IBookmarkGroup>) => {
+        const detail = e.detail;
+        confirm(
+            `是否删除书签组${detail.name}[${detail.id}]?`,
+            "⚠️ 删除后无法恢复！确定删除吗？",
+            () => {
+                if (modal.delGroup(detail.id)) {
+                    updateShownGroups();
+                }
+            },
+        );
+    };
 </script>
 
 <div
-    class="fn__flex-1 fn__flex-column file-tree sy__bookmark"
-    id="custom-bookmark-element"
+    class="fn__flex-1 fn__flex-column file-tree custom-bookmark-element"
 >
     <div class="block__icons">
         <div class="block__logo">
@@ -121,11 +134,7 @@
                     {group}
                     {modal}
                     bind:this={groupComponent[i]}
-                    on:deleteGroup={({ detail }) => {
-                        if(modal.delGroup(detail)) {
-                            updateShownGroups();
-                        }
-                    }}
+                    on:deleteGroup={groupDelete}
                 />
             {/each}
         </ul>
