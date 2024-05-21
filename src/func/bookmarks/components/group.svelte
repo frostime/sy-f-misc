@@ -4,11 +4,11 @@
     import Item from "./item.svelte";
 
     import { inputDialogSync } from "@/components/dialog";
-    import BookmarkDataModal from "../modal";
+    import BookmarkDataModel from "../model";
     import { getBlockByID } from "@/api";
 
     export let group: IBookmarkGroup;
-    export let modal: BookmarkDataModal;
+    export let model: BookmarkDataModel;
 
     const dispatch = createEventDispatcher();
 
@@ -31,7 +31,7 @@
                     width: "20em",
                 });
                 if (title) {
-                    modal.renameGroup(group.id, title.trim());
+                    model.renameGroup(group.id, title.trim());
                     group.name = group.name;
                 }
             },
@@ -59,7 +59,7 @@
             `是否删除书签项目${title}]?`,
             "⚠️ 删除后无法恢复！确定删除吗？",
             () => {
-                if (modal.delItem(group.id, detail.id)) {
+                if (model.delItem(group.id, detail.id)) {
                     group.items = group.items;
                 }
             },
@@ -101,7 +101,7 @@
             type: block.type,
             subtype: block.subtype,
         };
-        modal.addItem(gid, item);
+        model.addItem(gid, item);
         //addItems 已经更改了 group.items 的引用，所以这里不需要再次赋值
         group.items = group.items;
         isDragOver = false;

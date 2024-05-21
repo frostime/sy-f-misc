@@ -2,12 +2,12 @@
     import { onMount, setContext } from "svelte";
     import Group from "./group.svelte";
     import { confirm, Plugin } from "siyuan";
-    import BookmarkDataModal from "../modal";
+    import BookmarkDataModel from "../model";
     import { inputDialog } from "@/components/dialog";
     // import { getBlockByID } from "@/api";
 
     export let plugin: Plugin;
-    export let modal: BookmarkDataModal;
+    export let model: BookmarkDataModel;
 
     setContext('plugin', plugin);
 
@@ -20,7 +20,7 @@
     });
 
     function updateShownGroups() {
-        groups = modal.listGroups();
+        groups = model.listGroups();
     }
 
     function blockIconAdd() {
@@ -28,7 +28,7 @@
             title: "添加书签组",
             placeholder: "请输入书签组名称",
             confirm: (title: string) => {
-                let group = modal.newGroup(title);
+                let group = model.newGroup(title);
                 groups = [...groups, group];
             },
         });
@@ -45,7 +45,7 @@
             `是否删除书签组${detail.name}[${detail.id}]?`,
             "⚠️ 删除后无法恢复！确定删除吗？",
             () => {
-                if (modal.delGroup(detail.id)) {
+                if (model.delGroup(detail.id)) {
                     updateShownGroups();
                 }
             },
@@ -132,7 +132,7 @@
             {#each groups as group, i (group.id)}
                 <Group
                     {group}
-                    {modal}
+                    model={model}
                     bind:this={groupComponent[i]}
                     on:deleteGroup={groupDelete}
                 />

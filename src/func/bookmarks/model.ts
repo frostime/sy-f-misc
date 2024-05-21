@@ -2,7 +2,7 @@ import type FMiscPlugin from "@/index";
 
 const StorageNameBookmarks = 'bookmarks';
 
-export default class BookmarkDataModal {
+export default class BookmarkDataModel {
     plugin: FMiscPlugin;
     bookmarks: Map<TBookmarkGroupId, IBookmarkGroup>;
 

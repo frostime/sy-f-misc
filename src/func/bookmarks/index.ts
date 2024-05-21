@@ -7,7 +7,7 @@
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
-import BookmarkDataModal from "./modal";
+import BookmarkDataModel from "./model";
 // import { Bookmark } from "./component";
 import Bookmark from "./components/bookmark.svelte";
 
@@ -18,9 +18,9 @@ export let enabled = false;
 export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
 
-    let modal = new BookmarkDataModal(plugin);
+    let model = new BookmarkDataModel(plugin);
 
-    await modal.load();
+    await model.load();
 
     plugin.addDock({
         type: '::dock::' + 'Bookmark',
@@ -42,7 +42,7 @@ export const load = async (plugin: FMiscPlugin) => {
                 target: this.element,
                 props: {
                     plugin: plugin,
-                    modal: modal
+                    model: model
                 }
             });
         }
