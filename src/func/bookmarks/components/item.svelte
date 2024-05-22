@@ -22,14 +22,13 @@
         let nodetype = BlockType2NodeType[block.type];
         let icon: any;
         if (nodetype === "NodeDocument") {
-            icon = `<span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block" data-id="${block.id}">
-        📄</span>`;
+            icon = `<span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block" data-id="${block.id}">📄</span>`;
         } else {
             icon = NodeIcons[nodetype];
             if (icon?.subtypes?.[block?.subtype]) {
                 icon = icon.subtypes[block.subtype].icon;
             } else {
-                icon = icon.icon;
+                icon = icon?.icon ?? 'iconFile';
             }
             icon = `<svg data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block" data-id="${block.id}"><use xlink:href="#${icon}"></use></svg>`;
         }

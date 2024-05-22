@@ -112,7 +112,7 @@
             title = title.slice(0, 20) + "...";
         }
         confirm(
-            `是否删除书签项目${title}]?`,
+            `是否删除书签项目${title}?`,
             "⚠️ 删除后无法恢复！确定删除吗？",
             () => {
                 if (model.delItem(group.id, detail.id)) {

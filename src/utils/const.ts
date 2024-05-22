@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-02 22:43:02
  * @FilePath     : /src/utils/const.ts
- * @LastEditTime : 2024-05-20 21:20:13
+ * @LastEditTime : 2024-05-22 11:48:53
  * @Description  : 
  */
 export const Href = {
@@ -39,6 +39,7 @@ export const BlockTypeShort = {
 }
 
 export const BlockType2NodeType = {
+    av: 'NodeAttributeView',
     c: 'NodeCodeBlock',
     d: 'NodeDocument',
     s: 'NodeSuperBlock',
