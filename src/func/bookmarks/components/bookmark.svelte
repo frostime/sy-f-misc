@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, setContext } from "svelte";
+
     import Group from "./group.svelte";
     import { confirm, Plugin } from "siyuan";
     import BookmarkDataModel from "../model";

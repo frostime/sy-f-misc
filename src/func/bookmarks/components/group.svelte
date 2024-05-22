@@ -7,6 +7,8 @@
     import BookmarkDataModel from "../model";
     import { getBlockByID } from "@/api";
 
+    import { highlightedGroup } from "./store";
+
     export let group: IBookmarkGroup;
     export let model: BookmarkDataModel;
 
@@ -19,7 +21,10 @@
 
     const addItemByBlockId = async (blockId: string) => {
         let block = await getBlockByID(blockId);
-        if (!block) return;
+        if (!block) {
+            showMessage(`未找到 ID 为 [${blockId}] 的块`, 5000, 'error');
+            return;
+        };
         let item: IBookmarkItem = {
             id: block.id,
             title: block.fcontent || block.content,
@@ -81,6 +86,19 @@
                 });
             }
         });
+        menu.addItem({
+            label: '添加当前文档块',
+            icon: 'iconAdd',
+            click: () => {
+                let li = document.querySelector('ul.layout-tab-bar>li.item--focus');
+                if (!li) return;
+                let dataId = li.getAttribute('data-id');
+                let protyle = document.querySelector(`div.protyle[data-id="${dataId}"] .protyle-title`)
+                if (!protyle) return;
+                let id = protyle.getAttribute('data-node-id');
+                addItemByBlockId(id);
+            }
+        });
         menu.open({
             x: e.clientX,
             y: e.clientY,
@@ -131,6 +149,7 @@
         // let subtype = info[1];
         let nodeId = info[2];
         addItemByBlockId(nodeId);
+        isDragOver = false;
     };
 
     let svgArrowClass = "b3-list-item__arrow--open";
@@ -152,21 +171,23 @@
 >
     <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <li
-        class="b3-list-item b3-list-item--hide-action custom-bookmark-group-header"
+        class="b3-list-item b3-list-item--hide-action custom-bookmark-group-header {$highlightedGroup === group.id ? 'b3-list-item--focus' : ''}"
         style="--file-toggle-width:20px"
         data-treetype="bookmark"
         data-type="undefined"
         data-subtype="undefined"
         data-groupid={group.id}
         data-groupname={group.name}
-        on:click={() => toggleOpen()}
+        on:click={() => {
+            highlightedGroup.set(group.id);
+            toggleOpen();
+        }}
         on:contextmenu={showGroupContextMenu}
     >
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <span
             style="padding-left: 4px; margin-right: 2px"
             class="b3-list-item__toggle b3-list-item__toggle--hl"
-            on:click={() => toggleOpen()}
         >
             <svg class="b3-list-item__arrow {svgArrowClass}">
                 <use xlink:href="#iconRight"></use>
