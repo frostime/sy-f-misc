@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-05-21 23:41:25
+ * @LastEditTime : 2024-05-24 22:24:41
  * @Description  : 
  */
 import {
@@ -135,7 +135,7 @@ export default class FMiscPlugin extends Plugin {
 
     async loadConfigs() {
         let currentData = this.data[StorageNameConfigs];
-        let outData = await this.loadData(StorageNameConfigs);
+        let outData = await this.loadData(StorageNameConfigs + '.json');
         console.debug('导入', outData);
         if (!outData) {
             return;
@@ -157,7 +157,7 @@ export default class FMiscPlugin extends Plugin {
 
     saveConfigs() {
         console.debug('SaveConfigs', JSON.stringify(this.data[StorageNameConfigs]));
-        this.saveData(StorageNameConfigs, this.data[StorageNameConfigs]);
+        this.saveData(StorageNameConfigs + '.json', this.data[StorageNameConfigs]);
     }
 
     private initTopBar() {

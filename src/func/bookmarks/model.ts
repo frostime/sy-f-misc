@@ -12,16 +12,16 @@ export default class BookmarkDataModel {
     }
 
     async load() {
-        await this.plugin.loadData(StorageNameBookmarks);
-        let bookmarks = this.plugin.data.bookmarks ?? {};
-        for (let [id, group] of Object.entries(bookmarks)) {
+        let bookmarks = await this.plugin.loadData(StorageNameBookmarks + '.json');
+        this.plugin.data.bookmarks = bookmarks ?? {};
+        for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
             this.bookmarks.set(id, group);
         }
     }
 
     async save() {
         this.plugin.data.bookmarks = Object.fromEntries(this.bookmarks);
-        await this.plugin.saveData(StorageNameBookmarks, this.plugin.data.bookmarks);
+        await this.plugin.saveData(StorageNameBookmarks + '.json', this.plugin.data.bookmarks);
     }
 
     listGroups(visible: boolean = true): IBookmarkGroup[]{
