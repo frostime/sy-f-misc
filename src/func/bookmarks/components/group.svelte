@@ -22,15 +22,15 @@
     const addItemByBlockId = async (blockId: string) => {
         let block = await getBlockByID(blockId);
         if (!block) {
-            showMessage(`未找到 ID 为 [${blockId}] 的块`, 5000, 'error');
+            showMessage(`未找到 ID 为 [${blockId}] 的块`, 5000, "error");
             return;
-        };
+        }
         let item: IBookmarkItem = {
             id: block.id,
             title: block.fcontent || block.content,
             type: block.type,
             subtype: block.subtype,
-            box: block.box
+            box: block.box,
         };
         model.addItem(group.id, item);
         group.items = group.items;
@@ -41,6 +41,19 @@
     function showGroupContextMenu(e: MouseEvent) {
         // e.stopPropagation();
         let menu = new Menu();
+        menu.addItem({
+            label: "复制",
+            icon: "iconRef",
+            click: () => {
+                let refs = group.items
+                    .map((item) => `* ((${item.id} '${item.title}'))`)
+                    .join("\n");
+                navigator.clipboard.writeText(refs).then(() => {
+                    showMessage("复制成功");
+                });
+            },
+        });
+        menu.addSeparator();
         menu.addItem({
             label: "重命名书签组",
             icon: "iconEdit",
@@ -65,14 +78,14 @@
         });
         menu.addSeparator();
         menu.addItem({
-            label: '从剪贴板中插入块',
-            icon: 'iconAdd',
+            label: "从剪贴板中插入块",
+            icon: "iconAdd",
             click: () => {
                 const BlockRegex = {
                     id: /^(\d{14}-[0-9a-z]{7})$/, // 块 ID 正则表达式
                     ref: /^\(\((\d{14}-[0-9a-z]{7}) ['"'].+?['"']\)\)$/,
                     url: /^siyuan:\/\/blocks\/(\d{14}-[0-9a-z]{7})/, // 思源 URL Scheme 正则表达式
-                }
+                };
 
                 navigator.clipboard.readText().then(async (text) => {
                     for (let regex of Object.values(BlockRegex)) {
@@ -82,22 +95,26 @@
                             return;
                         }
                     }
-                    showMessage(`无法从[${text}]中解析到块`, 5000, 'error');
+                    showMessage(`无法从[${text}]中解析到块`, 5000, "error");
                 });
-            }
+            },
         });
         menu.addItem({
-            label: '添加当前文档块',
-            icon: 'iconAdd',
+            label: "添加当前文档块",
+            icon: "iconAdd",
             click: () => {
-                let li = document.querySelector('ul.layout-tab-bar>li.item--focus');
+                let li = document.querySelector(
+                    "ul.layout-tab-bar>li.item--focus",
+                );
                 if (!li) return;
-                let dataId = li.getAttribute('data-id');
-                let protyle = document.querySelector(`div.protyle[data-id="${dataId}"] .protyle-title`)
+                let dataId = li.getAttribute("data-id");
+                let protyle = document.querySelector(
+                    `div.protyle[data-id="${dataId}"] .protyle-title`,
+                );
                 if (!protyle) return;
-                let id = protyle.getAttribute('data-node-id');
+                let id = protyle.getAttribute("data-node-id");
                 addItemByBlockId(id);
-            }
+            },
         });
         menu.open({
             x: e.clientX,
@@ -171,7 +188,10 @@
 >
     <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <li
-        class="b3-list-item b3-list-item--hide-action custom-bookmark-group-header {$highlightedGroup === group.id ? 'b3-list-item--focus' : ''}"
+        class="b3-list-item b3-list-item--hide-action custom-bookmark-group-header {$highlightedGroup ===
+        group.id
+            ? 'b3-list-item--focus'
+            : ''}"
         style="--file-toggle-width:20px"
         data-treetype="bookmark"
         data-type="undefined"
@@ -199,7 +219,13 @@
         <span class="b3-list-item__text ariaLabel" data-position="parentE">
             {group.name}
         </span>
-        <span class="b3-list-item__action">
+        <span
+            class="b3-list-item__action"
+            on:click={(e) => {
+                e.stopPropagation();
+                showGroupContextMenu(e);
+            }}
+        >
             <svg>
                 <use xlink:href="#iconMore"></use>
             </svg>

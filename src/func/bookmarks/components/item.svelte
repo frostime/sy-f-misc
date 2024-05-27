@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getContext, createEventDispatcher } from "svelte";
-    import { Menu, openTab, Plugin } from "siyuan";
+    import { Menu, openTab, Plugin, showMessage } from "siyuan";
     import { NodeIcons, BlockType2NodeType } from "@/utils/const";
     import { ClassName } from "../utils";
     // import BookmarkDataModal from "../modal";
@@ -28,7 +28,7 @@
             if (icon?.subtypes?.[block?.subtype]) {
                 icon = icon.subtypes[block.subtype].icon;
             } else {
-                icon = icon?.icon ?? 'iconFile';
+                icon = icon?.icon ?? "iconFile";
             }
             icon = `<svg data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block" data-id="${block.id}"><use xlink:href="#${icon}"></use></svg>`;
         }
@@ -38,20 +38,45 @@
         };
     };
 
-    $: { ({ NodeType, Icon } = buildItemDetail(item)); }
+    $: {
+        ({ NodeType, Icon } = buildItemDetail(item));
+    }
 
     const showItemContextMenu = (e: MouseEvent) => {
         let menu = new Menu();
         menu.addItem({
-            label: '删除书签',
-            icon: 'iconTrashcan',
+            label: "复制为引用",
+            icon: "iconRef",
             click: () => {
-                dispatch('deleteItem', item);
-            }
+                navigator.clipboard
+                    .writeText(`((${item.id} '${item.title}'))`)
+                    .then(() => {
+                        showMessage("复制成功");
+                    });
+            },
+        });
+        menu.addItem({
+            label: "复制为链接",
+            icon: "iconSiYuan",
+            click: () => {
+                navigator.clipboard
+                    .writeText(`[${item.title}](siyuan://blocks/${item.id})`)
+                    .then(() => {
+                        showMessage("复制成功");
+                    });
+            },
+        });
+        menu.addSeparator();
+        menu.addItem({
+            label: "删除书签",
+            icon: "iconTrashcan",
+            click: () => {
+                dispatch("deleteItem", item);
+            },
         });
         menu.open({
             x: e.clientX,
-            y: e.clientY
+            y: e.clientY,
         });
     };
 
@@ -60,11 +85,10 @@
             app: plugin.app,
             doc: {
                 id: item.id,
-                zoomIn: true
-            }
-        })
-    }
-
+                zoomIn: true,
+            },
+        });
+    };
 </script>
 
 <li
@@ -93,9 +117,18 @@
         {item.title}
     </span>
 
-    <!-- <span class="b3-list-item__action" on:click={showItemContextMenu} role="button" tabindex="0">
+    <span
+        class="b3-list-item__action"
+        role="button"
+        tabindex="0"
+        on:click={(e) => {
+            e.stopPropagation();
+            showItemContextMenu(e);
+        }}
+    >
         <svg>
             <use xlink:href="#iconMore"></use>
         </svg>
-    </span> -->
+    </span>
+    <span class="fn__space"/>
 </li>
