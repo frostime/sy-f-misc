@@ -46,7 +46,7 @@
             icon: "iconRef",
             click: () => {
                 let refs = group.items
-                    .map((item) => `* ((${item.id} '${item.title}'))`)
+                    .map((item) => `* ((${item.id} '${item.title.replaceAll('\n', '')}'))`)
                     .join("\n");
                 navigator.clipboard.writeText(refs).then(() => {
                     showMessage("复制成功");

@@ -49,7 +49,7 @@
             icon: "iconRef",
             click: () => {
                 navigator.clipboard
-                    .writeText(`((${item.id} '${item.title}'))`)
+                    .writeText(`((${item.id} '${item.title.replaceAll('\n', '')}'))`)
                     .then(() => {
                         showMessage("复制成功");
                     });
@@ -60,7 +60,7 @@
             icon: "iconSiYuan",
             click: () => {
                 navigator.clipboard
-                    .writeText(`[${item.title}](siyuan://blocks/${item.id})`)
+                    .writeText(`[${item.title.replaceAll('\n', '')}](siyuan://blocks/${item.id})`)
                     .then(() => {
                         showMessage("复制成功");
                     });
