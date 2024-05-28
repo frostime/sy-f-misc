@@ -9,7 +9,7 @@
 
     import { highlightedGroup } from "./store";
 
-    export let group: IBookmarkGroup;
+    export let group: IBookmarkGroupV2;
     export let model: BookmarkDataModel;
 
     const dispatch = createEventDispatcher();
@@ -45,7 +45,8 @@
             label: "复制",
             icon: "iconRef",
             click: () => {
-                let refs = group.items
+                let items = model.listItems(group.id);
+                let refs = items
                     .map((item) => `* ((${item.id} '${item.title.replaceAll('\n', '')}'))`)
                     .join("\n");
                 navigator.clipboard.writeText(refs).then(() => {
@@ -238,7 +239,7 @@
         data-groupname={group.name}
     >
         {#each group.items as item}
-            <Item {item} on:deleteItem={itemDelete} />
+            <Item id={item} on:deleteItem={itemDelete} />
         {/each}
     </ul>
 </section>

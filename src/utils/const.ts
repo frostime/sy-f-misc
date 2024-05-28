@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-02 22:43:02
  * @FilePath     : /src/utils/const.ts
- * @LastEditTime : 2024-05-22 11:48:53
+ * @LastEditTime : 2024-05-28 16:28:47
  * @Description  : 
  */
 export const Href = {
@@ -93,9 +93,9 @@ export const NodeIcons = {
     },
     NodeList: {
         subtypes: {
-            o: { icon: "iconList" },
-            t: { icon: "iconOrderedList" },
-            u: { icon: "iconCheck" }
+            o: { icon: "iconOrderedList" },
+            t: { icon: "iconCheck" },
+            u: { icon: "iconList" }
         }
     },
     NodeListItem: {

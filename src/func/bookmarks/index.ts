@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 21:52:48
  * @FilePath     : /src/func/bookmarks/index.ts
- * @LastEditTime : 2024-05-28 10:46:18
+ * @LastEditTime : 2024-05-28 16:13:08
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -45,6 +45,7 @@ export const load = async (plugin: FMiscPlugin) => {
     model = getModel(plugin);
 
     await model.load();
+    await model.updateItems();
 
     insertStyle('hide-bookmark', `
     .dock span[data-type="bookmark"] {
@@ -69,7 +70,6 @@ export const load = async (plugin: FMiscPlugin) => {
         },
         init() {
             this.data.initBookmark(this.element, this.data.plugin);
-            // initBookmark(this.element, plugin);
         }
     });
     bookmarkKeymap.custom = '';
@@ -90,7 +90,7 @@ export const load = async (plugin: FMiscPlugin) => {
 export const unload = async (plugin: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
-    await model.save();
+    // await model.save(); //没有必要
     destroyBookmark();
 
     bookmarkKeymap.custom = bookmarkKeymap.default;

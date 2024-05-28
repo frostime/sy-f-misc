@@ -12,7 +12,7 @@
 
     setContext('plugin', plugin);
 
-    let groups: IBookmarkGroup[] = [];
+    let groups: IBookmarkGroupV2[] = [];
 
     let groupComponent: Group[] = [];
 
@@ -35,9 +35,14 @@
         });
     }
 
+    let fnRotate = "";
     function blockIconRefresh() {
-        console.log("refresh");
-        // Implement refresh logic
+        fnRotate = "fn__rotate";
+        model.updateItems().then(() => {
+            setTimeout(() => {
+                fnRotate = "";
+            }, 500);
+        });
     }
 
     const groupDelete = (e: CustomEvent<IBookmarkGroup>) => {
@@ -85,7 +90,7 @@
             aria-label="刷新"
             on:click={blockIconRefresh}
         >
-            <svg class="">
+            <svg class="{fnRotate}">
                 <use xlink:href="#iconRefresh"></use>
             </svg>
         </span>

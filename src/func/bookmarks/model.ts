@@ -63,24 +63,7 @@ const getDocInfos = async (...docIds: DocumentId[]) => {
     return results;
 }
 
-/**
- * Bookmark item 的 svelte 组件需要的信息
- */
-interface IBookmarkItemInfo extends IBookmarkItem {
-    icon: string;
-    ref: number;
-}
-
-/**
- * 仅仅是为了 svelte store 使用
- */
-interface IBookmarkItemSvelte {
-    id: BlockId;
-    title: string;
-    icon: string;
-}
-export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemSvelte> } = {};
-
+export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {};
 
 export class BookmarkDataModel {
     plugin: FMiscPlugin;
@@ -101,9 +84,17 @@ export class BookmarkDataModel {
             let groupV2: IBookmarkGroupV2 = { ...group, items: group.items.map(item => item.id) };
             this.groups.set(id, groupV2);
             group.items.map(item => {
-                this.addItem(id, item);
+                if (this.items.has(item.id)) {
+                    this.items.get(item.id).ref++;
+                    return;
+                }
+                item.order = item?.order ?? 0;
+                let iteminfo = { ...item, icon: '', ref: 1 };
+                this.items.set(item.id, iteminfo);
+                ItemInfoStore[item.id] = writable({ ...iteminfo });
             });
         }
+        this.reorderItems();
     }
 
     async save() {
@@ -115,7 +106,24 @@ export class BookmarkDataModel {
         await this.plugin.saveData(StorageNameBookmarks + '.json', this.plugin.data.bookmarks);
     }
 
+    reorderItems(group?: TBookmarkGroupId) {
+        const reorder = (group: IBookmarkGroupV2) => {
+            return group.items.sort((a, b) => this.items.get(a).order - this.items.get(b).order);
+        }
+        if (group) {
+            let g = this.groups.get(group);
+            if (g) {
+                reorder(g);
+            }
+        } else {
+            this.groups.forEach(group => {
+                reorder(group);
+            });
+        }
+    }
+
     async updateItems() {
+        console.debug('更新所有 Bookmark items');
         //1. 获取所有的 block 的最新内容
         let items = Array.from(this.items.values());
         let ids = items.map(item => item.id);
@@ -135,16 +143,21 @@ export class BookmarkDataModel {
                 item.title = block.fcontent || block.content;
                 item.box = block.box;
                 item.type = block.type;
-                item.subtype = block.subtype;
-
-                let rootIcon = '📄';
-
-                let itemInfo = ItemInfoStore[id];
-                itemInfo.set({
-                    id, title: item.title, icon: rootIcon 
-                });
+                item.subtype = block.subtype || '';
+                let icon = '';
+                if (item.type === 'd') {
+                    let docInfo = docInfos[id];
+                    if (docInfo) {
+                        icon = docInfo.rootIcon;
+                    }
+                }
+                item.icon = icon;
+                ItemInfoStore[id].set({ ...item });
+            } else {
+                console.warn(`block ${id} not found`);
             }
         });
+        console.debug('更新所有 Bookmark items 完成');
     }
 
     /**
@@ -163,7 +176,7 @@ export class BookmarkDataModel {
         return { ...group, items };
     }
 
-    listGroups(visible: boolean = true): IBookmarkGroup[] {
+    listGroups(visible: boolean = true): IBookmarkGroupV2[] {
         // 1. sort
         let groups = Array.from(this.groups.values());
         groups.sort((a, b) => a.order - b.order);
@@ -171,7 +184,27 @@ export class BookmarkDataModel {
         if (visible) {
             groups = groups.filter(group => !group.hidden);
         }
-        return groups.map(group => this.toGroupV1(group));
+        return groups;
+    }
+
+    listItems(group?: TBookmarkGroupId) {
+        const listItems = (group: IBookmarkGroupV2) => {
+            return group.items.map(id => this.items.get(id));
+        }
+        if (group) {
+            let g = this.groups.get(group);
+            if (g) {
+                return listItems(g);
+            } else {
+                return [];
+            }
+        } else {
+            let items: IBookmarkItemInfo[] = [];
+            this.groups.forEach(group => {
+                items.push(...listItems(group));
+            });
+            return items;
+        }
     }
 
     newGroup(name: string) {
@@ -258,7 +291,7 @@ export const getModel = (plugin?: FMiscPlugin) => {
     if (model === null && plugin === undefined) {
         throw new Error('model not initialized');
     }
-    if (plugin === null) {
+    if (plugin) {
         model = new BookmarkDataModel(plugin);
     }
     return model;
