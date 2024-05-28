@@ -1,46 +1,32 @@
 <script lang="ts">
     import { getContext, createEventDispatcher } from "svelte";
     import { Menu, openTab, Plugin, showMessage } from "siyuan";
-    import { NodeIcons, BlockType2NodeType } from "@/utils/const";
-    import { ClassName } from "../utils";
-    // import BookmarkDataModal from "../modal";
+    import { ClassName, buildItemDetail } from "../utils";
+    import { ItemInfoStore } from "../model";
+    import { Writable } from "svelte/store";
 
-    export let item: IBookmarkItem;
+    export let block: BlockId;
+    let item: Writable<IBookmarkItemInfo> = ItemInfoStore?.[block];
 
     const dispatch = createEventDispatcher();
-
     let plugin: Plugin = getContext("plugin");
+    let titleStyle = '';
 
-    let NodeType = BlockType2NodeType[item.type];
-    let Icon = "";
+    // let { NodeType, Icon } = buildItemDetail($item);
+    let { NodeType, Icon } = { NodeType: "", Icon: "" };
 
-    const buildItemDetail = (block: {
-        id: BlockId;
-        type: BlockType;
-        subtype?: BlockSubType;
-    }) => {
-        let nodetype = BlockType2NodeType[block.type];
-        let icon: any;
-        if (nodetype === "NodeDocument") {
-            icon = `<span data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block" data-id="${block.id}">📄</span>`;
-        } else {
-            icon = NodeIcons[nodetype];
-            if (icon?.subtypes?.[block?.subtype]) {
-                icon = icon.subtypes[block.subtype].icon;
+    item.subscribe((value) => {
+        if (value) {
+            ({ NodeType, Icon } = buildItemDetail(value));
+            if (value.err === 'BoxClosed') {
+                titleStyle = 'color: var(--b3-theme-on-surface-light);'
+            } else if (value.err === 'BlockDeleted') {
+                titleStyle = 'color: var(--b3-theme-error);'
             } else {
-                icon = icon?.icon ?? "iconFile";
+                titleStyle = ''
             }
-            icon = `<svg data-defids="[&quot;&quot;]" class="b3-list-item__graphic popover__block" data-id="${block.id}"><use xlink:href="#${icon}"></use></svg>`;
         }
-        return {
-            NodeType: nodetype,
-            Icon: icon,
-        };
-    };
-
-    $: {
-        ({ NodeType, Icon } = buildItemDetail(item));
-    }
+    })
 
     const showItemContextMenu = (e: MouseEvent) => {
         let menu = new Menu();
@@ -49,7 +35,7 @@
             icon: "iconRef",
             click: () => {
                 navigator.clipboard
-                    .writeText(`((${item.id} '${item.title.replaceAll('\n', '')}'))`)
+                    .writeText(`((${$item.id} '${$item.title.replaceAll('\n', '')}'))`)
                     .then(() => {
                         showMessage("复制成功");
                     });
@@ -60,7 +46,7 @@
             icon: "iconSiYuan",
             click: () => {
                 navigator.clipboard
-                    .writeText(`[${item.title.replaceAll('\n', '')}](siyuan://blocks/${item.id})`)
+                    .writeText(`[${$item.title.replaceAll('\n', '')}](siyuan://blocks/${$item.id})`)
                     .then(() => {
                         showMessage("复制成功");
                     });
@@ -71,7 +57,7 @@
             label: "删除书签",
             icon: "iconTrashcan",
             click: () => {
-                dispatch("deleteItem", item);
+                dispatch("deleteItem", $item);
             },
         });
         menu.open({
@@ -84,7 +70,7 @@
         openTab({
             app: plugin.app,
             doc: {
-                id: item.id,
+                id: $item.id,
                 zoomIn: true,
             },
         });
@@ -94,7 +80,7 @@
 <li
     class="b3-list-item b3-list-item--hide-action {ClassName.Item}"
     style="--file-toggle-width:38px"
-    data-node-id={item.id}
+    data-node-id={$item.id}
     data-ref-text=""
     data-def-id=""
     data-type={NodeType}
@@ -108,13 +94,13 @@
         style="padding-left: 22px;margin-right: 2px"
         class="b3-list-item__toggle fn__hidden"
     >
-        <svg data-id={item.id} class="b3-list-item__arrow">
+        <svg data-id={$item.id} class="b3-list-item__arrow">
             <use xlink:href="#iconRight"></use>
         </svg>
     </span>
     {@html Icon}
-    <span class="b3-list-item__text ariaLabel" data-position="parentE">
-        {item.title}
+    <span class="b3-list-item__text ariaLabel" data-position="parentE" style="{titleStyle}">
+        {$item.title}
     </span>
 
     <span

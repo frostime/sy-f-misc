@@ -4,7 +4,7 @@
     import Item from "./item.svelte";
 
     import { inputDialogSync } from "@/components/dialog";
-    import BookmarkDataModel from "../model";
+    import { BookmarkDataModel } from "../model";
     import { getBlockByID } from "@/api";
 
     import { highlightedGroup } from "./store";
@@ -20,9 +20,14 @@
     };
 
     const addItemByBlockId = async (blockId: string) => {
+        let ids = model.listItems(group.id).map((item) => item.id);
+        if (ids.includes(blockId)) {
+            showMessage(`无法添加: 书签组中已存在 ID 为 [${blockId}] 的块`, 5000, "error");
+            return;
+        }
         let block = await getBlockByID(blockId);
         if (!block) {
-            showMessage(`未找到 ID 为 [${blockId}] 的块`, 5000, "error");
+            showMessage(`无法添加: 未找到 ID 为 [${blockId}] 的块`, 5000, "error");
             return;
         }
         let item: IBookmarkItem = {
@@ -45,7 +50,8 @@
             label: "复制",
             icon: "iconRef",
             click: () => {
-                let refs = group.items
+                let items = model.listItems(group.id);
+                let refs = items
                     .map((item) => `* ((${item.id} '${item.title.replaceAll('\n', '')}'))`)
                     .join("\n");
                 navigator.clipboard.writeText(refs).then(() => {
@@ -238,7 +244,7 @@
         data-groupname={group.name}
     >
         {#each group.items as item}
-            <Item {item} on:deleteItem={itemDelete} />
+            <Item block={item.id} on:deleteItem={itemDelete} />
         {/each}
     </ul>
 </section>
