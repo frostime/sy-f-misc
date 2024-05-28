@@ -54,7 +54,7 @@ export default class FMiscPlugin extends Plugin {
             };
         };
         bookmarks: {
-            [key: TBookmarkGroupId]: IBookmarkGroup;
+            [key: TBookmarkGroupId]: IBookmarkGroupV2;
         };
     }
 

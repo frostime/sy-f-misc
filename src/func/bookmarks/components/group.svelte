@@ -239,7 +239,7 @@
         data-groupname={group.name}
     >
         {#each group.items as item}
-            <Item id={item} on:deleteItem={itemDelete} />
+            <Item block={item.id} on:deleteItem={itemDelete} />
         {/each}
     </ul>
 </section>

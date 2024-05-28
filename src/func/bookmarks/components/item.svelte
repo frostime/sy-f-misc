@@ -5,8 +5,8 @@
     import { ItemInfoStore } from "../model";
     import { Writable } from "svelte/store";
 
-    export let id: BlockId;
-    let item: Writable<IBookmarkItemInfo> = ItemInfoStore?.[id];
+    export let block: BlockId;
+    let item: Writable<IBookmarkItemInfo> = ItemInfoStore?.[block];
 
     const dispatch = createEventDispatcher();
     let plugin: Plugin = getContext("plugin");

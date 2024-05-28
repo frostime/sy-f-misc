@@ -45,7 +45,7 @@
         });
     }
 
-    const groupDelete = (e: CustomEvent<IBookmarkGroup>) => {
+    const groupDelete = (e: CustomEvent<IBookmarkGroupV2>) => {
         const detail = e.detail;
         confirm(
             `是否删除书签组${detail.name}[${detail.id}]?`,

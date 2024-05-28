@@ -81,15 +81,24 @@ export class BookmarkDataModel {
         let bookmarks = await this.plugin.loadData(StorageNameBookmarks + '.json');
         this.plugin.data.bookmarks = bookmarks ?? {};
         for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
-            let groupV2: IBookmarkGroupV2 = { ...group, items: group.items.map(item => item.id) };
+            //导入的 item v1 声明中没有 order，但存储的数据中可能有
+            let items = group.items.map(item => ({ id: item.id, order: item.order ?? 0 }));
+            let groupV2: IBookmarkGroupV2 = { ...group, items };
             this.groups.set(id, groupV2);
             group.items.map(item => {
                 if (this.items.has(item.id)) {
                     this.items.get(item.id).ref++;
                     return;
                 }
-                item.order = item?.order ?? 0;
-                let iteminfo = { ...item, icon: '', ref: 1 };
+                let iteminfo: IBookmarkItemInfo = {
+                    id: item.id,
+                    title: '',
+                    type: 'p',
+                    box: '',
+                    subtype: '',
+                    icon: '',
+                    ref: 1
+                };
                 this.items.set(item.id, iteminfo);
                 ItemInfoStore[item.id] = writable({ ...iteminfo });
             });
@@ -98,9 +107,10 @@ export class BookmarkDataModel {
     }
 
     async save() {
-        let result: {[key: TBookmarkGroupId]: IBookmarkGroup} = {};
+        let result: {[key: TBookmarkGroupId]: IBookmarkGroupV2} = {};
         for (let [id, group] of this.groups) {
-            result[id] = this.toGroupV1(group);
+            // result[id] = this.toGroupV1(group);
+            result[id] = group;
         }
         this.plugin.data.bookmarks = result;
         await this.plugin.saveData(StorageNameBookmarks + '.json', this.plugin.data.bookmarks);
@@ -108,7 +118,7 @@ export class BookmarkDataModel {
 
     reorderItems(group?: TBookmarkGroupId) {
         const reorder = (group: IBookmarkGroupV2) => {
-            return group.items.sort((a, b) => this.items.get(a).order - this.items.get(b).order);
+            return group.items.sort((a, b) => a.order - b.order);
         }
         if (group) {
             let g = this.groups.get(group);
@@ -165,9 +175,9 @@ export class BookmarkDataModel {
      * @param group 
      * @returns 
      */
-    private toGroupV1(group: IBookmarkGroupV2): IBookmarkGroup {
-        let items: IBookmarkItem[] = group.items.map(id => {
-            let iteminfo = this.items.get(id);
+    private toGroupV1(group: IBookmarkGroupV2): IBookmarkGroupV1 {
+        let items: IBookmarkItem[] = group.items.map(itmin => {
+            let iteminfo = this.items.get(itmin.id);
             let item = { ...iteminfo };
             delete item.icon;
             delete item.ref;
@@ -189,7 +199,7 @@ export class BookmarkDataModel {
 
     listItems(group?: TBookmarkGroupId) {
         const listItems = (group: IBookmarkGroupV2) => {
-            return group.items.map(id => this.items.get(id));
+            return group.items.map(itmin => this.items.get(itmin.id));
         }
         if (group) {
             let g = this.groups.get(group);
@@ -248,14 +258,16 @@ export class BookmarkDataModel {
     addItem(gid: TBookmarkGroupId, item: IBookmarkItem) {
         let group = this.groups.get(gid);
         if (group) {
-            group.items.push(item.id);
             let exist = this.items.get(item.id) !== undefined;
             if (!exist) {
-                item.order = item?.order ?? 0;
                 let iteminfo = { ...item, icon: '', ref: 0 };
                 this.items.set(item.id, iteminfo);
                 ItemInfoStore[item.id] = writable({ ...iteminfo });
             }
+            group.items.push({
+                id: item.id,
+                order: 0
+            });
             this.items.get(item.id).ref++;
             this.save();
             return true;
@@ -267,7 +279,7 @@ export class BookmarkDataModel {
     delItem(gid: TBookmarkGroupId, id: BlockId) {
         let group = this.groups.get(gid);
         if (group) {
-            group.items = group.items.filter(itemId => itemId !== id);
+            group.items = group.items.filter(item => item.id !== id);
             let item = this.items.get(id);
             if (item) {
                 item.ref--;
