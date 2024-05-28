@@ -3,7 +3,7 @@
 
     import Group from "./group.svelte";
     import { confirm, Plugin } from "siyuan";
-    import BookmarkDataModel from "../model";
+    import { BookmarkDataModel } from "../model";
     import { inputDialog } from "@/components/dialog";
     // import { getBlockByID } from "@/api";
 

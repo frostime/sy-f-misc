@@ -4,7 +4,7 @@
     import Item from "./item.svelte";
 
     import { inputDialogSync } from "@/components/dialog";
-    import BookmarkDataModel from "../model";
+    import { BookmarkDataModel } from "../model";
     import { getBlockByID } from "@/api";
 
     import { highlightedGroup } from "./store";

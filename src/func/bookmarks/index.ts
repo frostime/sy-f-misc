@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 21:52:48
  * @FilePath     : /src/func/bookmarks/index.ts
- * @LastEditTime : 2024-05-21 23:44:25
+ * @LastEditTime : 2024-05-28 10:46:18
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
-import BookmarkDataModel from "./model";
+import { getModel, rmModel, BookmarkDataModel } from "./model";
 // import { Bookmark } from "./component";
 import Bookmark from "./components/bookmark.svelte";
 import { insertStyle, removeStyle } from "@/utils/style";
@@ -28,6 +28,7 @@ const initBookmark = async (ele: HTMLElement, plugin: FMiscPlugin) => {
 const destroyBookmark = () => {
     bookmark?.$destroy();
     bookmark = null;
+    rmModel();
     model = null;
     const ele = document.querySelector('span[data-type="sy-f-misc::dock::Bookmark"]') as HTMLElement;
     ele?.remove();
@@ -41,7 +42,7 @@ export let enabled = false;
 export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
 
-    model = new BookmarkDataModel(plugin);
+    model = getModel(plugin);
 
     await model.load();
 

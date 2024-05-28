@@ -2,7 +2,7 @@ import type FMiscPlugin from "@/index";
 
 const StorageNameBookmarks = 'bookmarks';
 
-export default class BookmarkDataModel {
+export class BookmarkDataModel {
     plugin: FMiscPlugin;
     bookmarks: Map<TBookmarkGroupId, IBookmarkGroup>;
 
@@ -97,3 +97,21 @@ export default class BookmarkDataModel {
     }
 
 }
+
+
+let model: BookmarkDataModel = null;
+
+export const getModel = (plugin?: FMiscPlugin) => {
+    if (model === null && plugin === undefined) {
+        throw new Error('model not initialized');
+    }
+    if (plugin === null) {
+        model = new BookmarkDataModel(plugin);
+    }
+    return model;
+}
+
+export const rmModel = () => {
+    model = null;
+}
+
