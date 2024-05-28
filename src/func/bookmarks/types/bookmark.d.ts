@@ -23,6 +23,7 @@ interface IBookmarkItem {
 interface IBookmarkItemInfo extends IBookmarkItem {
     icon: string;
     ref: number;
+    err?: 'BoxClosed' | 'BlockDeleted';
 }
 
 

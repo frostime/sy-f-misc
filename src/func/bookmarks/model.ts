@@ -145,6 +145,10 @@ export class BookmarkDataModel {
         });
         let docInfos = await getDocInfos(...docsItem);
         //3. 更新 this.items 和 writable store
+        const notebookMap = window.siyuan.notebooks.reduce((acc, notebook) => {
+            acc[notebook.id] = notebook;
+            return acc;
+        }, {});
         this.items.forEach((item, id) => {
             let block = blocks[id];
             if (block) {
@@ -152,6 +156,7 @@ export class BookmarkDataModel {
                 item.box = block.box;
                 item.type = block.type;
                 item.subtype = block.subtype || '';
+                item.err = undefined;
                 let icon = '';
                 if (item.type === 'd') {
                     let docInfo = docInfos[id];
@@ -160,10 +165,17 @@ export class BookmarkDataModel {
                     }
                 }
                 item.icon = icon;
-                ItemInfoStore[id].set({ ...item });
             } else {
                 console.warn(`block ${id} not found`);
+                if (notebookMap?.[item.box]?.closed === true) {
+                    item.title = `笔记本「${notebookMap[item.box].name}」已经关闭`;
+                    item.err = 'BoxClosed';
+                } else {
+                    item.title = `无法找到内容块，可能已经被删除！旧块内容：${JSON.stringify(item)}`;
+                    item.err = 'BlockDeleted';
+                }
             }
+            ItemInfoStore[id].set({ ...item });
         });
         console.debug('更新所有 Bookmark items 完成');
     }

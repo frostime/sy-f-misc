@@ -10,6 +10,7 @@
 
     const dispatch = createEventDispatcher();
     let plugin: Plugin = getContext("plugin");
+    let titleStyle = '';
 
     // let { NodeType, Icon } = buildItemDetail($item);
     let { NodeType, Icon } = { NodeType: "", Icon: "" };
@@ -17,6 +18,13 @@
     item.subscribe((value) => {
         if (value) {
             ({ NodeType, Icon } = buildItemDetail(value));
+            if (value.err === 'BoxClosed') {
+                titleStyle = 'color: var(--b3-theme-on-surface-light);'
+            } else if (value.err === 'BlockDeleted') {
+                titleStyle = 'color: var(--b3-theme-error);'
+            } else {
+                titleStyle = ''
+            }
         }
     })
 
@@ -91,7 +99,7 @@
         </svg>
     </span>
     {@html Icon}
-    <span class="b3-list-item__text ariaLabel" data-position="parentE">
+    <span class="b3-list-item__text ariaLabel" data-position="parentE" style="{titleStyle}">
         {$item.title}
     </span>
 

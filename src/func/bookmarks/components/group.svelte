@@ -20,9 +20,14 @@
     };
 
     const addItemByBlockId = async (blockId: string) => {
+        let ids = model.listItems(group.id).map((item) => item.id);
+        if (ids.includes(blockId)) {
+            showMessage(`无法添加: 书签组中已存在 ID 为 [${blockId}] 的块`, 5000, "error");
+            return;
+        }
         let block = await getBlockByID(blockId);
         if (!block) {
-            showMessage(`未找到 ID 为 [${blockId}] 的块`, 5000, "error");
+            showMessage(`无法添加: 未找到 ID 为 [${blockId}] 的块`, 5000, "error");
             return;
         }
         let item: IBookmarkItem = {
