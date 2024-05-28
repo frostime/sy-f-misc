@@ -9,7 +9,7 @@
 
     import { highlightedGroup } from "./store";
 
-    export let group: IBookmarkGroupV2;
+    export let group: IBookmarkGroup;
     export let model: BookmarkDataModel;
 
     const dispatch = createEventDispatcher();

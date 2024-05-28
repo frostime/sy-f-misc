@@ -12,7 +12,7 @@
 
     setContext('plugin', plugin);
 
-    let groups: IBookmarkGroupV2[] = [];
+    let groups: IBookmarkGroup[] = [];
 
     let groupComponent: Group[] = [];
 
@@ -45,7 +45,7 @@
         });
     }
 
-    const groupDelete = (e: CustomEvent<IBookmarkGroupV2>) => {
+    const groupDelete = (e: CustomEvent<IBookmarkGroup>) => {
         const detail = e.detail;
         confirm(
             `是否删除书签组${detail.name}[${detail.id}]?`,

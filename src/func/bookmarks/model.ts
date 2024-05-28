@@ -68,7 +68,7 @@ export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {}
 export class BookmarkDataModel {
     plugin: FMiscPlugin;
 
-    groups: Map<TBookmarkGroupId, IBookmarkGroupV2>;
+    groups: Map<TBookmarkGroupId, IBookmarkGroup>;
     items: Map<BlockId, IBookmarkItemInfo>; //由于要给 svelte store 使用, 所以用 writable 包装
 
     constructor(plugin: FMiscPlugin) {
@@ -81,9 +81,8 @@ export class BookmarkDataModel {
         let bookmarks = await this.plugin.loadData(StorageNameBookmarks + '.json');
         this.plugin.data.bookmarks = bookmarks ?? {};
         for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
-            //导入的 item v1 声明中没有 order，但存储的数据中可能有
             let items = group.items.map(item => ({ id: item.id, order: item.order ?? 0 }));
-            let groupV2: IBookmarkGroupV2 = { ...group, items };
+            let groupV2: IBookmarkGroup = { ...group, items };
             this.groups.set(id, groupV2);
             group.items.map(item => {
                 if (this.items.has(item.id)) {
@@ -107,9 +106,8 @@ export class BookmarkDataModel {
     }
 
     async save() {
-        let result: {[key: TBookmarkGroupId]: IBookmarkGroupV2} = {};
+        let result: {[key: TBookmarkGroupId]: IBookmarkGroup} = {};
         for (let [id, group] of this.groups) {
-            // result[id] = this.toGroupV1(group);
             result[id] = group;
         }
         this.plugin.data.bookmarks = result;
@@ -117,7 +115,7 @@ export class BookmarkDataModel {
     }
 
     reorderItems(group?: TBookmarkGroupId) {
-        const reorder = (group: IBookmarkGroupV2) => {
+        const reorder = (group: IBookmarkGroup) => {
             return group.items.sort((a, b) => a.order - b.order);
         }
         if (group) {
@@ -170,23 +168,7 @@ export class BookmarkDataModel {
         console.debug('更新所有 Bookmark items 完成');
     }
 
-    /**
-     * 上一个版本当中，Group 的类型被标记为 IBookmarkGroupV1, 本函数是在两个版本之间进行转换
-     * @param group 
-     * @returns 
-     */
-    private toGroupV1(group: IBookmarkGroupV2): IBookmarkGroupV1 {
-        let items: IBookmarkItem[] = group.items.map(itmin => {
-            let iteminfo = this.items.get(itmin.id);
-            let item = { ...iteminfo };
-            delete item.icon;
-            delete item.ref;
-            return item;
-        });
-        return { ...group, items };
-    }
-
-    listGroups(visible: boolean = true): IBookmarkGroupV2[] {
+    listGroups(visible: boolean = true): IBookmarkGroup[] {
         // 1. sort
         let groups = Array.from(this.groups.values());
         groups.sort((a, b) => a.order - b.order);
@@ -198,7 +180,7 @@ export class BookmarkDataModel {
     }
 
     listItems(group?: TBookmarkGroupId) {
-        const listItems = (group: IBookmarkGroupV2) => {
+        const listItems = (group: IBookmarkGroup) => {
             return group.items.map(itmin => this.items.get(itmin.id));
         }
         if (group) {
