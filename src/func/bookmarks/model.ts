@@ -63,6 +63,13 @@ const getDocInfos = async (...docIds: DocumentId[]) => {
     return results;
 }
 
+const newOrderByTime = (): number => {
+    const start = '2024-05-28T12:00:00';  //起始时间
+    let now = Date.now();
+    let diff = now - Date.parse(start);
+    return diff;
+}
+
 export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {};
 
 export class BookmarkDataModel {
@@ -81,7 +88,7 @@ export class BookmarkDataModel {
         let bookmarks = await this.plugin.loadData(StorageNameBookmarks + '.json');
         this.plugin.data.bookmarks = bookmarks ?? {};
         for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
-            let items = group.items.map(item => ({ id: item.id, order: item.order ?? 0 }));
+            let items = group.items.map(item => ({ id: item.id, order: item.order }));
             let groupV2: IBookmarkGroup = { ...group, items };
             this.groups.set(id, groupV2);
             group.items.map(item => {
@@ -221,7 +228,7 @@ export class BookmarkDataModel {
             id,
             name,
             items: [],
-            order: 0
+            order: newOrderByTime()
         };
         this.groups.set(id, group);
         this.save();
@@ -260,7 +267,7 @@ export class BookmarkDataModel {
             }
             group.items.push({
                 id: item.id,
-                order: 0
+                order: newOrderByTime()
             });
             this.items.get(item.id).ref++;
             this.save();
@@ -292,6 +299,22 @@ export class BookmarkDataModel {
 
 
 let model: BookmarkDataModel = null;
+
+// const sleep = async (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// globalThis.updateBookmarkOrder = async () => {
+//     for (let [id, group] of model.groups) {
+//         group.order = newOrderByTime();
+//         console.log(`group ${id} order updated: ${group.order}`);
+//         for (let [index, item] of group.items.entries()) {
+//             item.order = newOrderByTime();
+//             console.log(`   item ${item.id} order updated: ${item.order}`);
+//             await sleep(500);
+//         }
+//     }
+//     model.save();
+// }
+
 
 export const getModel = (plugin?: FMiscPlugin) => {
     if (model === null && plugin === undefined) {
