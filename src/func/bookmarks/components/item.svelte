@@ -3,7 +3,7 @@
     import { Menu, openTab, Plugin, showMessage } from "siyuan";
     import { ClassName, buildItemDetail } from "../utils";
     import { ItemInfoStore } from "../model";
-    import { Writable } from "svelte/store";
+    import { type Writable } from "svelte/store";
 
     export let block: BlockId;
     let item: Writable<IBookmarkItemInfo> = ItemInfoStore?.[block];
