@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:37:33
  * @FilePath     : /src/components/dialog.ts
- * @LastEditTime : 2024-05-20 20:30:26
+ * @LastEditTime : 2024-05-29 19:52:23
  * @Description  : 对话框相关工具
  */
 import { Dialog } from "siyuan";
@@ -56,3 +56,66 @@ export const inputDialogSync = async (args: {
         inputDialog(newargs);
     });
 }
+
+
+interface IConfirmDialogArgs {
+    title: string;
+    content: string | HTMLElement;
+    confirm?: (ele?: HTMLElement) => void;
+    cancel?: (ele?: HTMLElement) => void;
+    width?: string;
+    height?: string;
+}
+
+export const confirmDialog = (args: IConfirmDialogArgs) => {
+    const { title, content, confirm, cancel, width, height } = args;
+
+    const dialog = new Dialog({
+        title,
+        content: `<div class="b3-dialog__content">
+    <div class="ft__breakword">
+    </div>
+</div>
+<div class="b3-dialog__action">
+    <button class="b3-button b3-button--cancel">${window.siyuan.languages.cancel}</button><div class="fn__space"></div>
+    <button class="b3-button b3-button--text" id="confirmDialogConfirmBtn">${window.siyuan.languages.confirm}</button>
+</div>`,
+        width: width,
+        height: height
+    });
+
+    const target: HTMLElement = dialog.element.querySelector(".b3-dialog__content>div.ft__breakword");
+    if (typeof content === "string") {
+        target.innerHTML = content;
+    } else {
+        target.appendChild(content);
+    }
+
+    const btnsElement = dialog.element.querySelectorAll(".b3-button");
+    btnsElement[0].addEventListener("click", () => {
+        if (cancel) {
+            cancel(target);
+        }
+        dialog.destroy();
+    });
+    btnsElement[1].addEventListener("click", () => {
+        if (confirm) {
+            confirm(target);
+        }
+        dialog.destroy();
+    });
+};
+
+
+export const confirmDialogSync = async (args: IConfirmDialogArgs) => {
+    return new Promise<HTMLElement>((resolve) => {
+        let newargs = {
+            ...args, confirm: (ele: HTMLElement) => {
+                resolve(ele);
+            }, cancel: (ele: HTMLElement) => {
+                resolve(ele);
+            }
+        };
+        confirmDialog(newargs);
+    });
+};

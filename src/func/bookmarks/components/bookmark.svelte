@@ -2,7 +2,7 @@
     import { onMount, setContext } from "svelte";
 
     import Group from "./group.svelte";
-    import { confirm, Plugin } from "siyuan";
+    import { confirm, Menu, Plugin, showMessage } from "siyuan";
     import { BookmarkDataModel } from "../model";
     import { inputDialog } from "@/components/dialog";
     // import { getBlockByID } from "@/api";
@@ -57,10 +57,33 @@
             },
         );
     };
+
+
+    const bookmarkContextMenu = (e: MouseEvent) => {
+        let menu = new Menu();
+        menu.addItem({
+            label: "缓存当前书签",
+            icon: "iconDownload",
+            click: () => {
+                let time = new Date();
+                let timeStr = `${time.getFullYear()}-${time.getMonth() + 1}-${time.getDate()} ${time.getHours()}_${time.getMinutes()}_${time.getSeconds()}`;
+                let name = `Cache/bookmarks-${timeStr}.json`;
+                model.save(name).then(() => {
+                    showMessage(`缓存成功: ${name}`);
+                });
+            },
+        });
+        menu.open({
+            x: e.clientX,
+            y: e.clientY,
+        });
+    }
+
 </script>
 
 <div
     class="fn__flex-1 fn__flex-column file-tree custom-bookmark-element"
+    on:contextmenu={bookmarkContextMenu}
 >
     <div class="block__icons">
         <div class="block__logo">

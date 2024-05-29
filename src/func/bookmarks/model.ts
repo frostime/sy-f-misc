@@ -112,13 +112,14 @@ export class BookmarkDataModel {
         this.reorderItems();
     }
 
-    async save() {
+    async save(fpath?: string) {
         let result: {[key: TBookmarkGroupId]: IBookmarkGroup} = {};
         for (let [id, group] of this.groups) {
             result[id] = group;
         }
         this.plugin.data.bookmarks = result;
-        await this.plugin.saveData(StorageNameBookmarks + '.json', this.plugin.data.bookmarks);
+        fpath = fpath ?? StorageNameBookmarks + '.json';
+        await this.plugin.saveData(fpath, this.plugin.data.bookmarks);
     }
 
     hasItem(id: BlockId, groupId?: TBookmarkGroupId) {

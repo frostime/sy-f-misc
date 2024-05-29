@@ -43,7 +43,7 @@
 
     // Example function to handle context menu
     function showGroupContextMenu(e: MouseEvent) {
-        // e.stopPropagation();
+        e.stopPropagation();
         let menu = new Menu();
         menu.addItem({
             label: "复制",

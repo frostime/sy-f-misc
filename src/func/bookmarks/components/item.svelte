@@ -29,6 +29,7 @@
     })
 
     const showItemContextMenu = (e: MouseEvent) => {
+        e.stopPropagation();
         let menu = new Menu();
         menu.addItem({
             label: "复制为引用",
