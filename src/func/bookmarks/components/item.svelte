@@ -5,6 +5,9 @@
     import { ItemInfoStore, type BookmarkDataModel } from "../model";
     import { type Writable } from "svelte/store";
 
+    import { highlightedItem } from "./store";
+
+
     export let group: TBookmarkGroupId;
     export let block: BlockId;
     let item: Writable<IBookmarkItemInfo> = ItemInfoStore?.[block];
@@ -106,11 +109,37 @@
             },
         });
     };
+
+    let opacityStyle = '';
+
+    const onDragStart = (event: DragEvent) => {
+        event.dataTransfer.setData("bookmark/item", JSON.stringify({group: group, id: $item.id}));
+        event.dataTransfer.effectAllowed = "move";
+        opacityStyle = 'opacity: 0.5;';
+    };
+
+    const onDragEnd = (event: DragEvent) => {
+        event.dataTransfer.clearData();
+        opacityStyle = '';
+    };
+
+    let dragovered = '';
+    highlightedItem.subscribe((value) => {
+        if (value.targetGroup === group && value.targetItem === block) {
+            dragovered = 'dragovered';
+        } else {
+            dragovered = '';
+        }
+    });
+
 </script>
 
 <li
-    class="b3-list-item b3-list-item--hide-action {ClassName.Item}"
-    style="--file-toggle-width:38px"
+    class="b3-list-item b3-list-item--hide-action {ClassName.Item} {dragovered}"
+    style="--file-toggle-width:38px; {opacityStyle}"
+    draggable="true"
+    on:dragstart={onDragStart}
+    on:dragend={onDragEnd}
     data-node-id={$item.id}
     data-ref-text=""
     data-def-id=""
@@ -149,3 +178,12 @@
     </span>
     <span class="fn__space"/>
 </li>
+
+<style>
+    li.b3-list-item.dragovered {
+        box-sizing: border-box;
+        border-bottom: 2px solid var(--b3-theme-primary);
+        border-bottom-left-radius: 0px;
+        border-bottom-right-radius: 0px;
+    }
+</style>
