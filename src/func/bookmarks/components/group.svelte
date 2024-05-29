@@ -20,8 +20,7 @@
     };
 
     const addItemByBlockId = async (blockId: string) => {
-        let ids = model.listItems(group.id).map((item) => item.id);
-        if (ids.includes(blockId)) {
+        if (model.hasItem(blockId, group.id)) {
             showMessage(`无法添加: 书签组中已存在 ID 为 [${blockId}] 的块`, 5000, "error");
             return;
         }

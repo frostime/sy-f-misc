@@ -121,6 +121,19 @@ export class BookmarkDataModel {
         await this.plugin.saveData(StorageNameBookmarks + '.json', this.plugin.data.bookmarks);
     }
 
+    hasItem(id: BlockId, groupId?: TBookmarkGroupId) {
+        if (groupId === undefined) {
+            return this.items.has(id);
+        } else {
+            let group = this.groups.get(groupId);
+            if (group) {
+                return group.items.some(item => item.id === id);
+            } else {
+                return false;
+            }
+        }
+    }
+
     reorderItems(group?: TBookmarkGroupId) {
         const reorder = (group: IBookmarkGroup) => {
             return group.items.sort((a, b) => a.order - b.order);
@@ -264,6 +277,9 @@ export class BookmarkDataModel {
                 let iteminfo = { ...item, icon: '', ref: 0 };
                 this.items.set(item.id, iteminfo);
                 ItemInfoStore[item.id] = writable({ ...iteminfo });
+            } else if (this.hasItem(item.id, gid)) {
+                console.warn(`addItem: item ${item.id} already in group ${gid}`);
+                return false;
             }
             group.items.push({
                 id: item.id,
