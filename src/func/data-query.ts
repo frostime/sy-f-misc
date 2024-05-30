@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-05-11 17:49:31
+ * @LastEditTime : 2024-05-30 19:12:03
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -217,7 +217,7 @@ export class DataView {
 
 /**************************************** Query 函数 ****************************************/
 
-import { sql } from "@/api";
+import { request, sql } from "@/api";
 
 /**
  * Filter blocks in sql search scenario to eliminate duplicate blocks
@@ -330,6 +330,35 @@ export const load = () => {
                 ${val ? `AND A.value ${valMatch} '${val}'` : ''}
             );
             `);
+        },
+        /**
+         * 处理容器块、段落块嵌套的情况；将容器块的第一个段落块 ID 重定向到容器块 ID
+         * @param inputs 
+         * @returns 
+         */
+        fb2p: async (inputs: BlockId[] | Block[]) => {
+            let types = typeof inputs[0] === 'string' ? 'id' : 'block';
+            let ids = types === 'id' ? inputs as BlockId[] : (inputs as Block[]).map(b => b.id);
+            let blocks: Block[] = inputs as Block[];
+            if (types == 'id') {
+                //@ts-ignore
+                blocks = blocks.map(id => ({id: id}));
+            }
+            let data: {[key: BlockId]: any} = await request('/api/block/getBlockTreeInfos', {
+                ids: ids
+            });
+            let result: Block[] = [];
+            for (let block of blocks) {
+                result.push(block);
+                let info = data[block.id];
+                if (info.type !== 'NodeParagraph') continue;
+                if (info.previousID !== '') continue;
+                if (!['NodeBlockquote', 'NodeListItem'].includes(info.parentType)) continue;
+                let resultp = result[result.length - 1];
+                resultp.id = info.parentID;
+                resultp.type = {'NodeBlockquote': 'bq', 'NodeListItem': 'li'}[info.parentType];
+            }
+            return types === 'block' ? result : result.map(b => b.id);
         },
         b2link: (b: Block) => `[${b.fcontent || b.content}](siyuan://blocks/${b.id})`,
         b2ref: (b: Block) => `((${b.id} '${b.fcontent || b.content}'))`
