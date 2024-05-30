@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
+    import { getContext, createEventDispatcher } from "svelte";
     import { Menu, Constants, confirm, showMessage } from "siyuan";
     import Item from "./item.svelte";
 
@@ -11,7 +11,7 @@
     import { type Writable } from "svelte/store";
 
     export let group: IBookmarkGroup;
-    export let model: BookmarkDataModel;
+    let model: BookmarkDataModel = getContext("model");
     let itemsOrder: Writable<IItemOrder[]> = ItemOrderStore?.[group.id];
 
     const dispatch = createEventDispatcher();
@@ -218,7 +218,7 @@
             </svg>
         </span>
         <svg class="b3-list-item__graphic">
-            <use xlink:href="#iconBookmark"></use>
+            <use xlink:href="#iconFolder"></use>
         </svg>
         <span class="b3-list-item__text ariaLabel" data-position="parentE">
             {group.name}
@@ -242,7 +242,7 @@
         data-groupname={group.name}
     >
         {#each $itemsOrder.sort((a, b) => a.order - b.order) as item (item.id)}
-            <Item block={item.id} on:deleteItem={itemDelete} />
+            <Item group={group.id} block={item.id} on:deleteItem={itemDelete} />
         {/each}
     </ul>
 </section>

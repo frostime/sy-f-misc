@@ -3,6 +3,7 @@ import { Writable, writable } from "svelte/store";
 import type FMiscPlugin from "@/index";
 import { sql, request } from "@/api";
 import PromiseLimitPool from "@/utils/promise-pool";
+import { showMessage } from "siyuan";
 
 const StorageNameBookmarks = 'bookmarks';
 
@@ -299,6 +300,38 @@ export class BookmarkDataModel {
         } else {
             return false;
         }
+    }
+
+    /**
+     * 将 item 移动到 gid 下
+     * @param gid 
+     * @param id 
+     * @returns 
+     */
+    moveItem(fromGroup: TBookmarkGroupId, toGroup: TBookmarkGroupId, item: IBookmarkItemInfo) {
+        if (fromGroup === toGroup) {
+            return false;
+        }
+        let from = this.groups.get(fromGroup);
+        let to = this.groups.get(toGroup);
+        if(!(from && to)) {
+            return false;
+        }
+        if (to.items.some(itmin => itmin.id === item.id)) {
+            showMessage('该项已经在目标分组中', 4000, 'error');
+            return false;
+        }
+        let fromitem = from.items.find(itmin => itmin.id === item.id);
+        if (!fromitem) {
+            showMessage('源分组中没有该项', 4000, 'error');
+            return false;
+        }
+        from.items = from.items.filter(itmin => itmin.id !== item.id);
+        to.items.push(fromitem);
+        ItemOrderStore[fromGroup].set(from.items);
+        ItemOrderStore[toGroup].set(to.items);
+        this.save();
+        return true;
     }
 
 }

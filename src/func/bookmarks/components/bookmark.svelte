@@ -11,6 +11,7 @@
     export let model: BookmarkDataModel;
 
     setContext('plugin', plugin);
+    setContext('model', model);
 
     let groups: IBookmarkGroup[] = [];
 
@@ -161,7 +162,6 @@
             {#each groups as group, i (group.id)}
                 <Group
                     {group}
-                    model={model}
                     bind:this={groupComponent[i]}
                     on:deleteGroup={groupDelete}
                 />

@@ -2,14 +2,16 @@
     import { getContext, createEventDispatcher } from "svelte";
     import { Menu, openTab, Plugin, showMessage } from "siyuan";
     import { ClassName, buildItemDetail } from "../utils";
-    import { ItemInfoStore } from "../model";
+    import { ItemInfoStore, type BookmarkDataModel } from "../model";
     import { type Writable } from "svelte/store";
 
+    export let group: TBookmarkGroupId;
     export let block: BlockId;
     let item: Writable<IBookmarkItemInfo> = ItemInfoStore?.[block];
 
     const dispatch = createEventDispatcher();
     let plugin: Plugin = getContext("plugin");
+    let model: BookmarkDataModel = getContext("model");
     let titleStyle = '';
 
     // let { NodeType, Icon } = buildItemDetail($item);
@@ -54,6 +56,20 @@
             },
         });
         menu.addSeparator();
+        let groups = model.listGroups().filter((g) => g.id !== group).map((g) => {
+            return {
+                label: g.name,
+                click: () => {
+                    model.moveItem(group, g.id, $item);
+                },
+            };
+        });
+        menu.addItem({
+            label: "移动到其他分组",
+            icon: "iconFolder",
+            type: 'submenu',
+            submenu: Array.from(groups)
+        });
         menu.addItem({
             label: "删除书签",
             icon: "iconTrashcan",
