@@ -4,13 +4,15 @@
     import Item from "./item.svelte";
 
     import { inputDialogSync } from "@/components/dialog";
-    import { BookmarkDataModel } from "../model";
+    import { BookmarkDataModel, ItemOrderStore } from "../model";
     import { getBlockByID } from "@/api";
 
     import { highlightedGroup } from "./store";
+    import { type Writable } from "svelte/store";
 
     export let group: IBookmarkGroup;
     export let model: BookmarkDataModel;
+    let itemsOrder: Writable<IItemOrder[]> = ItemOrderStore?.[group.id];
 
     const dispatch = createEventDispatcher();
 
@@ -37,7 +39,6 @@
             box: block.box,
         };
         model.addItem(group.id, item);
-        group.items = group.items;
         toggleOpen(true);
     };
 
@@ -137,9 +138,7 @@
             `是否删除书签项目${title}?`,
             "⚠️ 删除后无法恢复！确定删除吗？",
             () => {
-                if (model.delItem(group.id, detail.id)) {
-                    group.items = group.items;
-                }
+                model.delItem(group.id, detail.id)
             },
         );
     };
@@ -235,14 +234,14 @@
                 <use xlink:href="#iconMore"></use>
             </svg>
         </span>
-        <span class="counter">{group.items.length}</span>
+        <span class="counter">{$itemsOrder.length}</span>
     </li>
     <ul
         class="custom-bookmark-group-list {itemsClass}"
         data-groupid={group.id}
         data-groupname={group.name}
     >
-        {#each group.items as item (item.id)}
+        {#each $itemsOrder.sort((a, b) => a.order - b.order) as item (item.id)}
             <Item block={item.id} on:deleteItem={itemDelete} />
         {/each}
     </ul>

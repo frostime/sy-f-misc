@@ -71,6 +71,7 @@ const newOrderByTime = (): number => {
 }
 
 export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {};
+export const ItemOrderStore: { [key: TBookmarkGroupId]: Writable<IItemOrder[]> } = {};
 
 export class BookmarkDataModel {
     plugin: FMiscPlugin;
@@ -89,6 +90,7 @@ export class BookmarkDataModel {
         this.plugin.data.bookmarks = bookmarks ?? {};
         for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
             let items = group.items.map(item => ({ id: item.id, order: item.order }));
+            ItemOrderStore[id] = writable(items);
             let groupV2: IBookmarkGroup = { ...group, items };
             this.groups.set(id, groupV2);
             group.items.map(item => {
@@ -109,7 +111,6 @@ export class BookmarkDataModel {
                 ItemInfoStore[item.id] = writable({ ...iteminfo });
             });
         }
-        this.reorderItems();
     }
 
     async save(fpath?: string) {
@@ -132,22 +133,6 @@ export class BookmarkDataModel {
             } else {
                 return false;
             }
-        }
-    }
-
-    reorderItems(group?: TBookmarkGroupId) {
-        const reorder = (group: IBookmarkGroup) => {
-            return group.items.sort((a, b) => a.order - b.order);
-        }
-        if (group) {
-            let g = this.groups.get(group);
-            if (g) {
-                reorder(g);
-            }
-        } else {
-            this.groups.forEach(group => {
-                reorder(group);
-            });
         }
     }
 
@@ -245,6 +230,7 @@ export class BookmarkDataModel {
             order: newOrderByTime()
         };
         this.groups.set(id, group);
+        ItemOrderStore[id] = writable([]);
         this.save();
         return group;
     }
@@ -252,6 +238,7 @@ export class BookmarkDataModel {
     delGroup(id: TBookmarkGroupId) {
         if (this.groups.has(id)) {
             this.groups.delete(id);
+            delete ItemOrderStore[id];
             this.save();
             return true;
         } else {
@@ -286,6 +273,7 @@ export class BookmarkDataModel {
                 id: item.id,
                 order: newOrderByTime()
             });
+            ItemOrderStore[gid].set(group.items);
             this.items.get(item.id).ref++;
             this.save();
             return true;
@@ -298,6 +286,7 @@ export class BookmarkDataModel {
         let group = this.groups.get(gid);
         if (group) {
             group.items = group.items.filter(item => item.id !== id);
+            ItemOrderStore[gid].set(group.items);
             let item = this.items.get(id);
             if (item) {
                 item.ref--;
