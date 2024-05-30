@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/types/index.d.ts
- * @LastEditTime : 2024-05-01 21:43:51
+ * @LastEditTime : 2024-05-30 12:31:21
  * @Description  : 
  */
 
@@ -144,3 +144,12 @@ interface IPluginProtyleSlash {
     id: string,
     callback(protyle: Protyle): void,
 };
+
+interface ISiyuanEventPaste {
+    protyle: IProtyle,
+    resolve: <T>(value: T | PromiseLike<T>) => void,
+    textHTML: string,
+    textPlain: string,
+    siyuanHTML: string,
+    files: FileList | DataTransferItemList;
+}

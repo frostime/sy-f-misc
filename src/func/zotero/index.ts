@@ -3,32 +3,31 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2024-05-19 18:43:08
+ * @LastEditTime : 2024-05-30 12:51:54
  * @Description  : 
  */
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
+import { addProcessor, delProcessor } from "@/global-paste";
 
 import { ZoteroDBModal } from "./zoteroModal";
 
-const onPaste = async (event) => {
-    let textPlain = event.detail.textPlain;
-    globalThis.textPlain = textPlain;
-
+const pasteProcessor = (detail: ISiyuanEventPaste) => {
+    let textPlain = detail.textPlain;
     //处理 Zotero 的粘贴
     const zoteroPat = /^“(?<title>.+?)”\s*\(\[(?<itemName>.+?)\]\((?<itemLink>zotero:.+?)\)\)\s*\(\[pdf\]\((?<annoLink>zotero:.+?)\)\)$/
     const ans = textPlain.match(zoteroPat);
-    if (ans) {
-        let title = ans.groups.title;
-        let itemName = ans.groups.itemName;
-        let itemLink = ans.groups.itemLink;
-        const txt = `“${title}”([${itemName}](${itemLink}))`;
-        console.debug("Paste zotero link:", txt);
-        event.detail.resolve({
-            textPlain: txt, textHTML: "<!--StartFragment--><!--EndFragment-->",
-            files: event.detail.files, siyuanHTML: event.detail.siyuanHTML
-        });
-    }
+    if (!ans) return false;
+    let title = ans.groups.title;
+    let itemName = ans.groups.itemName;
+    let itemLink = ans.groups.itemLink;
+    const txt = `“${title}”([${itemName}](${itemLink}))`;
+    console.debug("Paste zotero link:", txt);
+    detail.resolve({
+        textPlain: txt, textHTML: "<!--StartFragment--><!--EndFragment-->",
+        files: detail.files, siyuanHTML: detail.siyuanHTML
+    });
+    return true;
 }
 
 let zotero: ZoteroDBModal = null;
@@ -38,7 +37,8 @@ export let enabled = false;
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
-    plugin.eventBus.on("paste", onPaste);
+    // plugin.eventBus.on("paste", onPaste);
+    addProcessor(name, pasteProcessor);
     enabled = true;
 
     zotero = new ZoteroDBModal(plugin);
@@ -65,7 +65,8 @@ export const load = (plugin: FMiscPlugin) => {
 
 export const unload = (plugin: FMiscPlugin) => {
     if (!enabled) return;
-    plugin.eventBus.off("paste", onPaste);
+    // plugin.eventBus.off("paste", onPaste);
+    delProcessor(name);
     enabled = false;
 
     zotero = null;

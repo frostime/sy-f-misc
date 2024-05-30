@@ -21,9 +21,10 @@ import { load, unload } from "./func";
 import "@/index.scss";
 import { Href, Svg } from "./utils/const";
 import { EventBusSync } from "./utils/event-bus";
-import { removeDomById, updateStyleLink } from "./utils/style";
+import { updateStyleLink } from "./utils/style";
 import { initSetting } from "./utils/setting-libs";
 import { SettingGroupsPanel } from "./components/setting-panels";
+import { onPaste } from "./global-paste";
 
 const electron = require('electron');
 
@@ -66,6 +67,7 @@ export default class FMiscPlugin extends Plugin {
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         this.addIcons([Svg.Toolbox, Svg.Vertical, Svg.Theme, Svg.Transfer].join(''));
         this.settingUI = await initSetting(this);
+        this.eventBus.on('paste', onPaste);
         load(this);
 
         //Default functions
@@ -73,6 +75,7 @@ export default class FMiscPlugin extends Plugin {
     }
 
     async onunload() {
+        this.eventBus.off('paste', onPaste);
         unload(this);
     }
 
