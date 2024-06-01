@@ -126,6 +126,7 @@
             aria-label="展开 Ctrl+↓"
             on:click={() => {
                 groupComponent.forEach((group) => group.toggleOpen(true));
+                model.save();
             }}
         >
             <svg>
@@ -140,6 +141,7 @@
             aria-label="折叠 Ctrl+↑"
             on:click={() => {
                 groupComponent.forEach((group) => group.toggleOpen(false));
+                model.save();
             }}
         >
             <svg>

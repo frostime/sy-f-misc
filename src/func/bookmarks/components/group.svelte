@@ -16,9 +16,10 @@
 
     const dispatch = createEventDispatcher();
 
-    let isOpen = true;
+    let isOpen = group.open !== undefined ? !group.open : true;
     export const toggleOpen = (open?: boolean) => {
         isOpen = open ?? !isOpen;
+        group.open = !isOpen;
     };
 
     const addItemByBlockId = async (blockId: string) => {
@@ -205,6 +206,7 @@
         on:click={() => {
             highlightedGroup.set(group.id);
             toggleOpen();
+            model.save();
         }}
         on:contextmenu={showGroupContextMenu}
     >
