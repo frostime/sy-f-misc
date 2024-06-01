@@ -8,7 +8,7 @@
     import { ClassName } from "../utils";
     import { getBlockByID } from "@/api";
 
-    import { highlightedGroup, highlightedItem } from "./store";
+    import { highlightedGroup, moveItemDetail } from "./store";
     import { type Writable } from "svelte/store";
 
     export let group: IBookmarkGroup;
@@ -184,12 +184,10 @@
             isDragOver = true;
             let overedItem = checkDragOveredItem(event);
             if (!overedItem) return;
-            console.log(overedItem);
-            highlightedItem.set({
-                srcGroup: "",
-                srcItem: "",
-                targetGroup: group.id,
-                targetItem: overedItem.id,
+            moveItemDetail.update((value) => {
+                value.targetGroup = group.id;
+                value.afterItem = overedItem.id;
+                return value;
             });
         }
     };
@@ -208,11 +206,12 @@
             let nodeId = info[2];
             addItemByBlockId(nodeId);
         } else if (type === 'bookmark/item') {
-            highlightedItem.set({
+            model.moveItem($moveItemDetail);
+            moveItemDetail.set({
                 srcGroup: "",
                 srcItem: "",
                 targetGroup: "",
-                targetItem: "",
+                afterItem: "",
             });
         }
         isDragOver = false;
@@ -227,8 +226,8 @@
 
     //拖拉 item
     let dragovered = '';
-    highlightedItem.subscribe((value) => {
-        if (value.targetGroup === group.id && value.targetItem === '') {
+    moveItemDetail.subscribe((value) => {
+        if (value.targetGroup === group.id && value.afterItem === '') {
             dragovered = 'dragovered';
         } else {
             dragovered = '';

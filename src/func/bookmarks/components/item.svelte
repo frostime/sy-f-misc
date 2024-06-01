@@ -5,7 +5,7 @@
     import { ItemInfoStore, type BookmarkDataModel } from "../model";
     import { type Writable } from "svelte/store";
 
-    import { highlightedItem } from "./store";
+    import { moveItemDetail } from "./store";
 
 
     export let group: TBookmarkGroupId;
@@ -116,6 +116,12 @@
         event.dataTransfer.setData("bookmark/item", JSON.stringify({group: group, id: $item.id}));
         event.dataTransfer.effectAllowed = "move";
         opacityStyle = 'opacity: 0.5;';
+        moveItemDetail.set({
+            srcGroup: group,
+            srcItem: $item.id,
+            targetGroup: '',
+            afterItem: ''
+        })
     };
 
     const onDragEnd = (event: DragEvent) => {
@@ -124,8 +130,8 @@
     };
 
     let dragovered = '';
-    highlightedItem.subscribe((value) => {
-        if (value.targetGroup === group && value.targetItem === block) {
+    moveItemDetail.subscribe((value) => {
+        if (value.targetGroup === group && value.afterItem === block) {
             dragovered = 'dragovered';
         } else {
             dragovered = '';
