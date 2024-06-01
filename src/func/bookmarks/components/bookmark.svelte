@@ -83,7 +83,7 @@
 </script>
 
 <div
-    class="fn__flex-1 fn__flex-column file-tree custom-bookmark-element"
+    class="fn__flex-1 fn__flex-column file-tree sy__bookmark custom-bookmark-element"
     on:contextmenu={bookmarkContextMenu}
 >
     <div class="block__icons">

@@ -5,9 +5,10 @@
 
     import { inputDialogSync } from "@/components/dialog";
     import { BookmarkDataModel, ItemOrderStore } from "../model";
+    import { ClassName } from "../utils";
     import { getBlockByID } from "@/api";
 
-    import { highlightedGroup } from "./store";
+    import { highlightedGroup, moveItemDetail } from "./store";
     import { type Writable } from "svelte/store";
 
     export let group: IBookmarkGroup;
@@ -24,12 +25,20 @@
 
     const addItemByBlockId = async (blockId: string) => {
         if (model.hasItem(blockId, group.id)) {
-            showMessage(`无法添加: 书签组中已存在 ID 为 [${blockId}] 的块`, 5000, "error");
+            showMessage(
+                `无法添加: 书签组中已存在 ID 为 [${blockId}] 的块`,
+                5000,
+                "error",
+            );
             return;
         }
         let block = await getBlockByID(blockId);
         if (!block) {
-            showMessage(`无法添加: 未找到 ID 为 [${blockId}] 的块`, 5000, "error");
+            showMessage(
+                `无法添加: 未找到 ID 为 [${blockId}] 的块`,
+                5000,
+                "error",
+            );
             return;
         }
         let item: IBookmarkItem = {
@@ -53,7 +62,10 @@
             click: () => {
                 let items = model.listItems(group.id);
                 let refs = items
-                    .map((item) => `* ((${item.id} '${item.title.replaceAll('\n', '')}'))`)
+                    .map(
+                        (item) =>
+                            `* ((${item.id} '${item.title.replaceAll("\n", "")}'))`,
+                    )
                     .join("\n");
                 navigator.clipboard.writeText(refs).then(() => {
                     showMessage("复制成功");
@@ -146,13 +158,38 @@
 
     let isDragOver = false;
 
+    const checkDragOveredItem = (e: DragEvent) => {
+        let target = e.target as HTMLElement;
+        let li = target.closest('li.b3-list-item') as HTMLElement;
+        // return li?.getAttribute('data-node-id');
+        if (li == null) return null;
+        if (li.classList.contains(ClassName.GroupHeader)) {
+            // console.log('group header');
+            return {type: 'group', id: ""};
+        } else if (li.classList.contains(ClassName.Item)) {
+            return {type: 'item', id: li.getAttribute('data-node-id')};
+        }
+        return null;
+    }
+
     const onDragOver = (event: DragEvent) => {
         const type = event.dataTransfer.types[0];
-        if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
-
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-        isDragOver = true;
+        if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            isDragOver = true;
+        } else if (type === 'bookmark/item') {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            isDragOver = true;
+            let overedItem = checkDragOveredItem(event);
+            if (!overedItem) return;
+            moveItemDetail.update((value) => {
+                value.targetGroup = group.id;
+                value.afterItem = overedItem.id;
+                return value;
+            });
+        }
     };
 
     const onDragLeave = (event: DragEvent) => {
@@ -163,14 +200,20 @@
 
     const onDrop = async (event: DragEvent) => {
         const type = event.dataTransfer.types[0];
-        if (!type.startsWith(Constants.SIYUAN_DROP_GUTTER)) return;
-
-        let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, "");
-        let info = meta.split(Constants.ZWSP);
-        // let nodetype = info[0];
-        // let subtype = info[1];
-        let nodeId = info[2];
-        addItemByBlockId(nodeId);
+        if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
+            let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, "");
+            let info = meta.split(Constants.ZWSP);
+            let nodeId = info[2];
+            addItemByBlockId(nodeId);
+        } else if (type === 'bookmark/item') {
+            model.moveItem($moveItemDetail);
+            moveItemDetail.set({
+                srcGroup: "",
+                srcItem: "",
+                targetGroup: "",
+                afterItem: "",
+            });
+        }
         isDragOver = false;
     };
 
@@ -180,6 +223,17 @@
         svgArrowClass = isOpen ? "b3-list-item__arrow--open" : "";
         itemsClass = isOpen ? "" : "fn__none";
     }
+
+    //拖拉 item
+    let dragovered = '';
+    moveItemDetail.subscribe((value) => {
+        if (value.targetGroup === group.id && value.afterItem === '') {
+            dragovered = 'dragovered';
+        } else {
+            dragovered = '';
+        }
+    });
+
 </script>
 
 <section
@@ -193,7 +247,7 @@
 >
     <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <li
-        class="b3-list-item b3-list-item--hide-action custom-bookmark-group-header {$highlightedGroup ===
+        class="b3-list-item b3-list-item--hide-action custom-bookmark-group-header  {dragovered} {$highlightedGroup ===
         group.id
             ? 'b3-list-item--focus'
             : ''}"
@@ -249,11 +303,14 @@
     </ul>
 </section>
 
-<!-- <style>
-    .custom-bookmark-group-header {
-        cursor: pointer;
+<style>
+    li.b3-list-item {
+        box-sizing: border-box;
+        border-bottom-width: 2px;
     }
-    .b3-list-item__arrow--open {
-        transform: rotate(90deg);
+    li.b3-list-item.dragovered {
+        border-bottom: 2px solid var(--b3-theme-primary);
+        border-bottom-left-radius: 0px;
+        border-bottom-right-radius: 0px;
     }
-</style> -->
+</style>

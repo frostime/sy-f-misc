@@ -357,6 +357,64 @@ export class BookmarkDataModel {
         return true;
     }
 
+    moveItem(detail: IMoveItemDetail) {
+        // console.log('moveItem', detail);
+        let { srcGroup, targetGroup, srcItem, afterItem } = detail;
+        let src = this.groups.get(srcGroup);
+        let target = this.groups.get(targetGroup);
+        if (!(src && target)) {
+            return false;
+        }
+        if (srcItem === afterItem) return;
+
+        let srcIndex = src.items.findIndex(itmin => itmin.id === srcItem);
+        if (srcIndex === -1) {
+            return false;
+        }
+
+        //check if exists in target group
+        if (srcGroup !== targetGroup && target.items.some(itmin => itmin.id === srcItem)) {
+            showMessage('该项已经在目标分组中', 4000, 'error');
+            return false;
+        }
+
+        //计算新插件的项目的顺序
+        let newOrder: number;
+        if (afterItem === '') {
+            //如果 afterItem 为空, 则相当于直接把 srcItem 移动到 targetGroup 中
+            if (target.items.length === 0) {
+                newOrder = src.items[srcIndex].order;
+            } else {
+                //获取targetItems中最小的 order
+                let minOrder = Math.min(...target.items.map(itmin => itmin.order));
+                newOrder = minOrder - 1;
+            }
+        } else {
+            //如果 afterItem 不为空, 则相当于把 srcItem 移动到 afterItem 之后
+            let afterIndex = target.items.findIndex(itmin => itmin.id === afterItem);
+            if (afterIndex === -1) {
+                return false;
+            }
+            let afterOrder = target.items[afterIndex].order;
+            newOrder = afterOrder + 1; //插入到 afterItem 之后
+        }
+
+        if (srcGroup === targetGroup) {
+            src.items[srcIndex].order = newOrder;
+            ItemOrderStore[srcGroup].set(src.items);
+        } else {
+            src.items.splice(srcIndex, 1); //从源分组中删除
+            target.items.push({
+                id: srcItem,
+                order: newOrder
+            }); //插入到目标分组中
+            ItemOrderStore[srcGroup].set(src.items);
+            ItemOrderStore[targetGroup].set(target.items);
+        }
+        console.debug(`moveItem: ${srcItem} from ${srcGroup} to ${targetGroup} after ${afterItem}`);
+        this.save();
+        return true;
+    }
 }
 
 
