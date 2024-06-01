@@ -60,7 +60,7 @@
             return {
                 label: g.name,
                 click: () => {
-                    model.moveItem(group, g.id, $item);
+                    model.transferItem(group, g.id, $item);
                 },
             };
         });
@@ -69,6 +69,20 @@
             icon: "iconFolder",
             type: 'submenu',
             submenu: Array.from(groups)
+        });
+        menu.addItem({
+            label: "移动到最上方",
+            icon: "iconUp",
+            click: () => {
+                model.reorderItem(group, $item, 'up');
+            }
+        });
+        menu.addItem({
+            label: "移动到最下方",
+            icon: "iconDown",
+            click:  () => {
+                model.reorderItem(group, $item, 'down');
+            }
         });
         menu.addItem({
             label: "删除书签",
