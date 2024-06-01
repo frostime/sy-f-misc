@@ -17,10 +17,10 @@
 
     const dispatch = createEventDispatcher();
 
-    let isOpen = group.open !== undefined ? !group.open : true;
+    let isOpen = group.expand !== undefined ? !group.expand : true;
     export const toggleOpen = (open?: boolean) => {
         isOpen = open ?? !isOpen;
-        group.open = !isOpen;
+        group.expand = !isOpen;
     };
 
     const addItemByBlockId = async (blockId: string) => {
@@ -94,6 +94,20 @@
             click: async () => {
                 dispatch("deleteGroup", group);
             },
+        });
+        menu.addItem({
+            label: "移动到最上方",
+            icon: "iconUp",
+            click: () => {
+                
+            }
+        });
+        menu.addItem({
+            label: "移动到最下方",
+            icon: "iconDown",
+            click:  () => {
+                
+            }
         });
         menu.addSeparator();
         menu.addItem({
