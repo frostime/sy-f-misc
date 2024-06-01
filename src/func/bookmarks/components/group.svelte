@@ -304,8 +304,11 @@
 </section>
 
 <style>
-    li.b3-list-item.dragovered {
+    li.b3-list-item {
         box-sizing: border-box;
+        border-bottom-width: 2px;
+    }
+    li.b3-list-item.dragovered {
         border-bottom: 2px solid var(--b3-theme-primary);
         border-bottom-left-radius: 0px;
         border-bottom-right-radius: 0px;
