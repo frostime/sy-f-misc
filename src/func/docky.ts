@@ -145,7 +145,7 @@ const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
 
 export let name = "Docky";
 export let enabled = false;
-export const load = async (plugin: FMiscPlugin) => {
+export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     let protyles: string = plugin.getConfig('Docky', 'DockyProtyle');
     let lines = protyles.split('\n');

@@ -308,7 +308,7 @@ export class BookmarkDataModel {
      * @param id 
      * @returns 
      */
-    moveItem(fromGroup: TBookmarkGroupId, toGroup: TBookmarkGroupId, item: IBookmarkItemInfo) {
+    transferItem(fromGroup: TBookmarkGroupId, toGroup: TBookmarkGroupId, item: IBookmarkItemInfo) {
         if (fromGroup === toGroup) {
             return false;
         }
@@ -330,6 +330,29 @@ export class BookmarkDataModel {
         to.items.push(fromitem);
         ItemOrderStore[fromGroup].set(from.items);
         ItemOrderStore[toGroup].set(to.items);
+        this.save();
+        return true;
+    }
+
+    reorderItem(gid: TBookmarkGroupId, item: IBookmarkItemInfo, order: 'up' | 'down') {
+        let group = this.groups.get(gid);
+        if (!group) {
+            return false;
+        }
+        let items = group.items;
+        let index = items.findIndex(itmin => itmin.id === item.id);
+        if (index === -1) {
+            return false;
+        }
+        let orders = items.map(itmin => itmin.order);
+        let min = Math.min(...orders);
+        let max = Math.max(...orders);
+        if (order === 'up' && items[index].order !== min) {
+            items[index].order = min - 1;
+        } else if (order === 'down' && items[index].order !== max) {
+            items[index].order = max + 1;
+        }
+        ItemOrderStore[gid].set(items);
         this.save();
         return true;
     }
