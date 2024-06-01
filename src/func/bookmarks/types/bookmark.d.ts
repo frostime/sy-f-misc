@@ -39,3 +39,12 @@ interface IBookmarkGroup {
     order?: number; //越大越靠前，默认0
     items: IItemOrder[];
 }
+
+
+//被 drag over 悬停的 item
+interface IMoveItemDetail {
+    srcItem: BlockId;
+    afterItem: BlockId;
+    srcGroup: TBookmarkGroupId;
+    targetGroup: TBookmarkGroupId;
+}

@@ -357,6 +357,52 @@ export class BookmarkDataModel {
         return true;
     }
 
+    moveItem(detail: IMoveItemDetail) {
+        console.log('moveItem', detail);
+        let { srcGroup, targetGroup, srcItem, afterItem } = detail;
+        let src = this.groups.get(srcGroup);
+        let target = this.groups.get(targetGroup);
+        if (!(src && target)) {
+            return false;
+        }
+        if (srcItem === afterItem) return;
+        let srcItems = src.items;
+        let targetItems = target.items;
+        let srcIndex = srcItems.findIndex(itmin => itmin.id === srcItem);
+        if (srcIndex === -1) {
+            return false;
+        }
+
+        let newOrder: number;
+        if (afterItem === '') {
+            //如果 afterItem 为空, 则相当于直接把 srcItem 移动到 targetGroup 中
+            if (targetItems.length === 0) {
+                newOrder = srcItems[srcIndex].order;
+            } else {
+                //获取targetItems中最小的 order
+                let minOrder = Math.min(...targetItems.map(itmin => itmin.order));
+                newOrder = minOrder - 1;
+            }
+        } else {
+            let afterIndex = targetItems.findIndex(itmin => itmin.id === afterItem);
+            if (afterIndex === -1) {
+                return false;
+            }
+            let afterOrder = targetItems[afterIndex].order;
+            newOrder = afterOrder + 1; //插入到 afterItem 之后
+        }
+
+        src.items = srcItems.splice(srcIndex, 1); //从源分组中删除
+        target.items.push({
+            id: srcItem,
+            order: newOrder
+        }); //插入到目标分组中
+        console.log(`moveItem: ${srcItem} from ${srcGroup} to ${targetGroup} after ${afterItem}`);
+        ItemOrderStore[srcGroup].set(src.items);
+        ItemOrderStore[targetGroup].set(target.items);
+        this.save();
+        return true;
+    }
 }
 
 
