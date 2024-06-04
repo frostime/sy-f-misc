@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-18 21:05:32
  * @FilePath     : /src/utils/index.ts
- * @LastEditTime : 2024-05-29 14:38:49
+ * @LastEditTime : 2024-06-04 18:39:15
  * @Description  : 
  */
 import * as api from '../api';
@@ -16,6 +16,23 @@ export const getNotebook = (boxId: string): Notebook => {
             return notebook;
         }
     }
+}
+
+export function getActiveDoc() {
+    let tab = document.querySelector("div.layout__wnd--active ul.layout-tab-bar>li.item--focus");
+    let dataId: string = tab?.getAttribute("data-id");
+    if (!dataId) {
+        return null;
+    }
+    const activeTab: HTMLDivElement = document.querySelector(
+        `.layout-tab-container.fn__flex-1>div.protyle[data-id="${dataId}"]`
+    ) as HTMLDivElement;
+    if (!activeTab) {
+        return;
+    }
+    const eleTitle = activeTab.querySelector(".protyle-title");
+    let docId = eleTitle?.getAttribute("data-node-id");
+    return docId;
 }
 
 export function isnot(value: any) {
@@ -31,9 +48,9 @@ export function isnot(value: any) {
     return false;
 }
 
-export async function getChildDocs(block: BlockId) {
+export async function getChildDocs(block: BlockId, limit=64) {
     let sqlCode = `select * from blocks where path regexp '.*/${block}/[0-9a-z\-]+\.sy' and type='d'
-    order by hpath desc limit 64;`;
+    order by hpath desc limit ${limit};`;
     let childDocs = await api.sql(sqlCode);
     return childDocs;
 }

@@ -21,6 +21,7 @@ import * as fb from './fake-breadcrumb';
 import * as ss from './simple-search';
 import * as tt from './test-template';
 import * as dq from './data-query';
+import * as dc from './doc-context';
 
 import * as bookmark from './bookmarks';
 
@@ -61,6 +62,7 @@ export const load = (plugin: FMiscPlugin) => {
 
     // gt.load();
     dq.load();
+    dc.load(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -70,6 +72,7 @@ export const unload = (plugin: FMiscPlugin) => {
 
     // gt.unload();
     dq.unload();
+    dc.unload(plugin);
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-05-30 19:12:03
+ * @LastEditTime : 2024-06-03 18:13:07
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -306,6 +306,7 @@ export const load = () => {
         GetBlocksByIDs,
         uniblocks: UniBlocks,
         id2block: GetBlocksByIDs,
+        request: request,
         sql: sql,
         cond: async (cond: string) => {
             return sql(`select * from blocks where ${cond}`);
