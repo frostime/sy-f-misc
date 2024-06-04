@@ -3,6 +3,7 @@ import type FMiscPlugin from "@/index";
 import { simpleDialog } from "@/components/dialog";
 import { getBlockByID, listDocsByPath } from "@/api";
 import { getActiveDoc, html2ele, getNotebook } from "@/utils";
+import path from "path";
 
 async function getParentDocument(path: string) {
     //path 的样式: /<1>/<2>/<3>
@@ -31,9 +32,20 @@ const createContextDom = async () => {
     let doc = await getBlockByID(docId);
     let parent = await getParentDocument(doc.path);
     let children = await listChildDocs(doc);
+    let hpaths = doc.hpath.slice(1).split('/');
+    let paths = doc.path.slice(1).split('/');
+    //将 hpaths 和 paths 做 zip 操作
+    let docPaths = hpaths.map((title, index) => {
+        return {
+            title: title,
+            id: paths[index],
+        }
+    });
     const dom = `
 <section class="item__readme b3-typography fn__flex-1" style="margin: 1em; font-size: 1.2rem;">
-    <p>【${getNotebook(doc.box).name}】${doc.hpath}</p>
+    <p>【${getNotebook(doc.box).name}】/${docPaths.map((d) => {
+        return `<a href="siyuan://blocks/${d.id}">${d.title}</a>`;
+    }).join('/')}</p>
     <p class="btn-focus" style="font-weight: bold; color: var(--b3-theme-primary); cursor: pointer;">
     🎯 跳转聚焦到文档
     </p>
