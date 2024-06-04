@@ -6,8 +6,6 @@ import { getActiveDoc, html2ele, getNotebook } from "@/utils";
 
 
 async function getParentDocument(path: string) {
-    //path 的样式: /<1>/<2>/<3>
-    //目标: 上一层的文档的 ID，如果不存在则返回空
     let pathArr = path.split("/").filter((item) => item != "");
     pathArr.pop();
     if (pathArr.length == 0) {
@@ -42,7 +40,7 @@ const createContextDom = async () => {
         }
     });
     const dom = `
-<section class="item__readme b3-typography fn__flex-1" style="margin: 1em; font-size: 1.2rem;">
+<section class="doc-context item__readme b3-typography fn__flex-1" style="margin: 1em; font-size: 1.2rem;">
     <p>【${getNotebook(doc.box).name}】/${docPaths.map((d) => {
         return `<a href="siyuan://blocks/${d.id}">${d.title}</a>`;
     }).join('/')}</p>
@@ -88,6 +86,7 @@ export const load = (plugin: FMiscPlugin) => {
         langText: 'F-misc 上下文文档',
         hotkey: keymapTag.default,
         callback: async () => {
+            if (document.querySelector('.doc-context')) return;
             let dom = await createContextDom();
             if (!dom) {
                 return;
