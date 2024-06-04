@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "type": "module",
   "description": "Frostime 自动工具代码",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -29,8 +29,5 @@
     "vite": "^5.2.11",
     "vite-plugin-static-copy": "^1.0.5",
     "vite-plugin-zip-pack": "^1.2.2"
-  },
-  "dependencies": {
-    "art-template": "^4.13.2"
   }
 }

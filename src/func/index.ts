@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-05-21 22:27:54
+ * @LastEditTime : 2024-06-04 20:30:18
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -17,7 +17,6 @@ import * as mw from './mini-window';
 import * as rj from './run-js';
 import * as docky from './docky';
 import * as tr from './transfer-ref';
-import * as fb from './fake-breadcrumb';
 import * as ss from './simple-search';
 import * as tt from './test-template';
 import * as dq from './data-query';
@@ -42,7 +41,6 @@ const ModulesToEnable = [
     rj,
     docky,
     tr,
-    fb,
     ss,
     tt,
     bookmark

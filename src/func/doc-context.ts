@@ -3,7 +3,7 @@ import type FMiscPlugin from "@/index";
 import { simpleDialog } from "@/components/dialog";
 import { getBlockByID, listDocsByPath } from "@/api";
 import { getActiveDoc, html2ele, getNotebook } from "@/utils";
-import path from "path";
+
 
 async function getParentDocument(path: string) {
     //path 的样式: /<1>/<2>/<3>
