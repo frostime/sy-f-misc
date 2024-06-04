@@ -102,11 +102,14 @@ export const load = (plugin: FMiscPlugin) => {
                 if (target.closest('p.btn-focus')) {
                     let dock = document.querySelector(`.dock__items>span[data-type="file"]`) as HTMLElement;
                     let ele = document.querySelector('div.file-tree span[data-type="focus"]') as HTMLElement;
-                    if (dock && ele) {
+                    if (!dock && !ele) return;
+                    if (dock && !dock.classList.contains('dock__item--active')) {
                         dock.click();
-                        ele.click();
-                        dialog.destroy();
                     }
+                    if (ele) {
+                        ele.click();
+                    }
+                    dialog.destroy();
                 } else if (target.closest('a')) {
                     dialog.destroy();
                 }
