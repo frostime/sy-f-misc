@@ -1,8 +1,8 @@
 import type FMiscPlugin from "@/index";
 
 import { simpleDialog } from "@/components/dialog";
-import { getBlockByID } from "@/api";
-import { getActiveDoc, html2ele, getChildDocs, getNotebook } from "@/utils";
+import { getBlockByID, listDocsByPath } from "@/api";
+import { getActiveDoc, html2ele, getNotebook } from "@/utils";
 
 async function getParentDocument(path: string) {
     //path 的样式: /<1>/<2>/<3>
@@ -17,6 +17,12 @@ async function getParentDocument(path: string) {
     }
 }
 
+const listChildDocs = async (doc: Block) => {
+    let data = await listDocsByPath(doc.box, doc.path);
+    console.log(data);
+    return data?.files;
+}
+
 const createContextDom = async () => {
     let docId = getActiveDoc();
     if (!docId) {
@@ -24,10 +30,13 @@ const createContextDom = async () => {
     }
     let doc = await getBlockByID(docId);
     let parent = await getParentDocument(doc.path);
-    let children = await getChildDocs(doc.id);
+    let children = await listChildDocs(doc);
     const dom = `
 <section class="item__readme b3-typography fn__flex-1" style="margin: 1em; font-size: 1.2rem;">
     <p>【${getNotebook(doc.box).name}】${doc.hpath}</p>
+    <p class="btn-focus" style="font-weight: bold; color: var(--b3-theme-primary); cursor: pointer;">
+    🎯 跳转聚焦到文档
+    </p>
     <h3>上级文档</h3>
     ${
         parent === null ? "<p>无</p>" : `
@@ -38,10 +47,10 @@ const createContextDom = async () => {
     ${
         children.length === 0 ? "<p>无</p>" : `
 
-        <ol style="column-count: 3; column-gap: 25px;">
+        <ol style="column-count: 3; column-gap: 30px;">
             ${
                 children.map((item) => {
-                    return `<li><a href="siyuan://blocks/${item.id}">${item.content}</a></li>`;
+                    return `<li><a href="siyuan://blocks/${item.id}">${item.name.replace('.sy', '')}</a></li>`;
                 }).join("")
             }
         </ol>
@@ -71,10 +80,24 @@ export const load = (plugin: FMiscPlugin) => {
             if (!dom) {
                 return;
             }
-            simpleDialog({
+            let dialog = simpleDialog({
                 title: "文档上下文",
                 ele: dom,
                 width: "750px",
+            });
+            dialog.element.querySelector('section').addEventListener('click', (e) => {
+                let target = e.target as HTMLElement;
+                if (target.closest('p.btn-focus')) {
+                    let dock = document.querySelector(`.dock__items>span[data-type="file"]`) as HTMLElement;
+                    let ele = document.querySelector('div.file-tree span[data-type="focus"]') as HTMLElement;
+                    if (dock && ele) {
+                        dock.click();
+                        ele.click();
+                        dialog.destroy();
+                    }
+                } else if (target.closest('a')) {
+                    dialog.destroy();
+                }
             });
         }
     });
