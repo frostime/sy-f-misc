@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-06-03 18:13:07
+ * @LastEditTime : 2024-06-05 16:42:05
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -225,11 +225,10 @@ import { request, sql } from "@/api";
  * @param mode uni 模式;
  *  - 'leaf' 只返回叶子节点
  *  - 'root' 只返回根节点
- * @param para_in_li boolean, 如果为 True 则对在 li 中的 p 节点进行处理
  * @param ret 返回类型, 'block' 返回 Block[], 'id' 返回 BlockId[]
  * @returns BlockId[]
  */
-function UniBlocks(blocks: Block[], mode: 'leaf' | 'root' = 'leaf', para_in_li: boolean = true, ret: "block" | "id" ="block") {
+function UniBlocks(blocks: Block[], mode: 'leaf' | 'root' = 'leaf', ret: "block" | "id" ="block") {
     console.log('UniBlocks', blocks);
     let p2c = new Map();
     let blocksMap = new Map();
@@ -256,13 +255,6 @@ function UniBlocks(blocks: Block[], mode: 'leaf' | 'root' = 'leaf', para_in_li: 
         for (let block of blocks) {
             //如果 block 不在 parent 集合中，则 block 为叶子节点
             if (!p2c.has(block.id)) {
-                //如果是 li 内的 p 节点, 则
-                if (para_in_li && block.type === 'p') {
-                    let parent = blocksMap.get(block.parent_id);
-                    if (parent && parent.type === 'i') {
-                        block = parent;
-                    }
-                }
                 pushResult(block);
             }
         }
@@ -362,7 +354,11 @@ export const load = () => {
             return types === 'block' ? result : result.map(b => b.id);
         },
         b2link: (b: Block) => `[${b.fcontent || b.content}](siyuan://blocks/${b.id})`,
-        b2ref: (b: Block) => `((${b.id} '${b.fcontent || b.content}'))`
+        b2ref: (b: Block) => `((${b.id} '${b.fcontent || b.content}'))`,
+        b2id: (...blocks: Block[]) => {
+            let ids = blocks.map(b => b.id);
+            return ids.length === 1 ? ids[0] : ids;
+        }
     }
 
     enabled = true;
