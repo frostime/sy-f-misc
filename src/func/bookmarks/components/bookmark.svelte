@@ -94,6 +94,15 @@
             书签
         </div>
         <span class="fn__flex-1"></span>
+        <span
+            data-type="setting"
+            class="block__icon b3-tooltips b3-tooltips__sw"
+            aria-label="设置"
+        >
+            <svg class="">
+                <use xlink:href="#iconSetting"></use>
+            </svg>
+        </span>
         <span class="fn__space"></span>
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <span

@@ -72,6 +72,17 @@
                 });
             },
         });
+        let docFlow = globalThis.siyuan.ws.app.plugins.find(p => p.name == 'sy-docs-flow');
+        if (docFlow) {
+            menu.addItem({
+            label: "文档流",
+            icon: "iconFlow",
+            click: () => {
+                let idlist = group.items.sort((a, b) => a.order - b.order).map(item => item.id);
+                docFlow.eventBus.emit('IdList', idlist);
+            },
+        });
+        }
         menu.addSeparator();
         menu.addItem({
             label: "重命名书签组",
@@ -94,20 +105,6 @@
             click: async () => {
                 dispatch("deleteGroup", group);
             },
-        });
-        menu.addItem({
-            label: "移动到最上方",
-            icon: "iconUp",
-            click: () => {
-                
-            }
-        });
-        menu.addItem({
-            label: "移动到最下方",
-            icon: "iconDown",
-            click:  () => {
-                
-            }
         });
         menu.addSeparator();
         menu.addItem({
