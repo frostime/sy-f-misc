@@ -16,9 +16,9 @@ async function getParentDocument(path: string) {
     }
 }
 
-const listChildDocs = async (doc: Block) => {
+const listChildDocs = async (doc: any) => {
     let data = await listDocsByPath(doc.box, doc.path);
-    console.log(data);
+    // console.log(data);
     return data?.files;
 }
 
@@ -29,7 +29,16 @@ const createContextDom = async () => {
     }
     let doc = await getBlockByID(docId);
     let parent = await getParentDocument(doc.path);
-    let children = await listChildDocs(doc);
+    let childrenPromise = listChildDocs(doc);
+    let parentNode = parent ?? {
+        box: doc.box,
+        path: '/',
+    };
+    let siblingsPromise = listChildDocs(parentNode);
+    let _ = await Promise.all([childrenPromise, siblingsPromise]);
+    let children = _[0];
+    let siblings = _[1];
+
     let hpaths = doc.hpath.slice(1).split('/');
     let paths = doc.path.slice(1).split('/');
     //将 hpaths 和 paths 做 zip 操作
@@ -40,7 +49,7 @@ const createContextDom = async () => {
         }
     });
     const dom = `
-<section class="doc-context item__readme b3-typography fn__flex-1" style="margin: 1em; font-size: 1.2rem;">
+<section class="doc-context item__readme b3-typography fn__flex-1" style="margin: 1em; font-size: 1.1rem;">
     <p>【${getNotebook(doc.box).name}】/${docPaths.map((d) => {
         return `<a href="siyuan://blocks/${d.id}">${d.title}</a>`;
     }).join('/')}</p>
@@ -66,6 +75,21 @@ const createContextDom = async () => {
         </ol>
         `
     }
+
+    <h3>同级文档</h3>
+    ${
+        siblings.length === 0 ? "<p>无</p>" : `
+
+        <ol style="column-count: 3; column-gap: 30px;">
+            ${
+                siblings.map((item) => {
+                    return `<li><a href="siyuan://blocks/${item.id}">${item.name.replace('.sy', '')}</a></li>`;
+                }).join("")
+            }
+        </ol>
+        `
+    }
+
 </section>
 `;
     return html2ele(dom);
