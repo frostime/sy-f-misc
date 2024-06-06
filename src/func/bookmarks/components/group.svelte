@@ -79,7 +79,10 @@
             icon: "iconFlow",
             click: () => {
                 let idlist = group.items.sort((a, b) => a.order - b.order).map(item => item.id);
-                docFlow.eventBus.emit('IdList', idlist);
+                docFlow.eventBus.emit('IdList', {
+                    input: idlist,
+                    config: {}
+                });
             },
         });
         }
