@@ -5,6 +5,16 @@ import { getBlockByID, listDocsByPath } from "@/api";
 import { getActiveDoc, html2ele, getNotebook } from "@/utils";
 
 
+let I18n = {
+    name: '文档上下文',
+    focus: '跳转聚焦到文档',
+    parent: '上级文档',
+    children: '子文档',
+    siblings: '同级文档',
+    no: '无'
+}
+
+
 async function getParentDocument(path: string) {
     let pathArr = path.split("/").filter((item) => item != "");
     pathArr.pop();
@@ -49,24 +59,24 @@ const createContextDom = async () => {
         }
     });
     const dom = `
-<section class="doc-context item__readme b3-typography fn__flex-1" style="margin: 1em; font-size: 1.1rem;">
+<section class="doc-context item__readme b3-typography fn__flex-1" style="margin: 1em;">
     <p>【${getNotebook(doc.box).name}】/${docPaths.map((d) => {
         return `<a href="siyuan://blocks/${d.id}">${d.title}</a>`;
     }).join('/')}</p>
     <p class="btn-focus" style="font-weight: bold; color: var(--b3-theme-primary); cursor: pointer;">
-    🎯 跳转聚焦到文档
+    🎯 ${I18n.focus}
     </p>
-    <h3>上级文档</h3>
+    <h3>${I18n.parent}</h3>
     ${
-        parent === null ? "<p>无</p>" : `
+        parent === null ? `<p>${I18n.no}</p>` : `
         <p><a href="siyuan://blocks/${parent.id}">${parent.content}</a></p>
         `
     }
-    <h3>子文档</h3>
+    <h3>${I18n.children}</h3>
     ${
-        children.length === 0 ? "<p>无</p>" : `
+        children.length === 0 ? `<p>${I18n.no}</p>` : `
 
-        <ol style="column-count: 3; column-gap: 30px;">
+        <ol style="font-size: 17px; ${children.length >= 3 ? 'column-count: 3; column-gap: 30px;' : ''}">
             ${
                 children.map((item) => {
                     return `<li><a href="siyuan://blocks/${item.id}">${item.name.replace('.sy', '')}</a></li>`;
@@ -76,14 +86,15 @@ const createContextDom = async () => {
         `
     }
 
-    <h3>同级文档</h3>
+    <h3>${I18n.siblings}</h3>
     ${
-        siblings.length === 0 ? "<p>无</p>" : `
+        siblings.length === 0 ? `<p>${I18n.no}</p>` : `
 
-        <ol style="column-count: 3; column-gap: 30px;">
+        <ol style="font-size: 17px; ${siblings.length >= 3 ? 'column-count: 3; column-gap: 30px;' : ''}">
             ${
                 siblings.map((item) => {
-                    return `<li><a href="siyuan://blocks/${item.id}">${item.name.replace('.sy', '')}</a></li>`;
+                    let style = item.id === doc.id ? 'font-weight: bold; color: var(--b3-theme-primary);' : '';
+                    return `<li><a style="${style}" href="siyuan://blocks/${item.id}">${item.name.replace('.sy', '')}</a></li>`;
                 }).join("")
             }
         </ol>
@@ -107,7 +118,7 @@ export const load = (plugin: FMiscPlugin) => {
     keymapTag.custom = '';
     plugin.addCommand({
         langKey: 'F-Misc::DocContext',
-        langText: 'F-misc 上下文文档',
+        langText: `F-misc ${I18n.name}`,
         hotkey: keymapTag.default,
         callback: async () => {
             if (document.querySelector('.doc-context')) return;
@@ -116,10 +127,13 @@ export const load = (plugin: FMiscPlugin) => {
                 return;
             }
             let dialog = simpleDialog({
-                title: "文档上下文",
+                title: I18n.name,
                 ele: dom,
-                width: "750px",
+                width: "850px",
             });
+            let container = dialog.element.querySelector('.b3-dialog__container') as HTMLElement;
+            container.style.setProperty('max-width', '80%');
+            container.style.setProperty('max-height', '75%');
             dialog.element.querySelector('section').addEventListener('click', (e) => {
                 let target = e.target as HTMLElement;
                 if (target.closest('p.btn-focus')) {
