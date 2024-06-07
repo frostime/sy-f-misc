@@ -1,6 +1,6 @@
 import type FMiscPlugin from "@/index";
 
-import { simpleDialog } from "@/components/dialog";
+import { simpleDialog } from "@/libs/dialog";
 import { getBlockByID, listDocsByPath } from "@/api";
 import { getActiveDoc, html2ele, getNotebook } from "@/utils";
 

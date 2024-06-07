@@ -4,7 +4,7 @@
     import Group from "./group.svelte";
     import { confirm, Menu, Plugin, showMessage } from "siyuan";
     import { BookmarkDataModel } from "../model";
-    import { inputDialog } from "@/components/dialog";
+    import { inputDialog } from "@/libs/dialog";
     // import { simpleDialog } from "@/components/dialog";
     // import Setting from "./setting/index.svelte";
     // import { getBlockByID } from "@/api";

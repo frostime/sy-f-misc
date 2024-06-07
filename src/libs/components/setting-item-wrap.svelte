@@ -2,8 +2,8 @@
  Copyright (c) 2024 by frostime. All Rights Reserved.
  Author       : frostime
  Date         : 2024-06-01 20:03:50
- FilePath     : /src/components/settings/setting-item-wrap.svelte
- LastEditTime : 2024-06-06 12:32:33
+ FilePath     : /src/libs/setting-item-wrap.svelte
+ LastEditTime : 2024-06-07 19:14:28
  Description  : The setting item container
 -->
 <script lang="ts">

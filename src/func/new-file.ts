@@ -1,7 +1,7 @@
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { upload } from "@/api";
-import { inputDialog } from "@/components/dialog";
+import { inputDialog } from "@/libs/dialog";
 
 const BlankFileContent = {
     drawio: `<mxfile host="Electron" modified="2024-04-04T12:48:56.358Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.0.4 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="2hwdI9Fb9SLygm8eVMT2" version="24.0.4" type="device">

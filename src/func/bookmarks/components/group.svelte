@@ -3,7 +3,7 @@
     import { Menu, Constants, confirm, showMessage } from "siyuan";
     import Item from "./item.svelte";
 
-    import { inputDialogSync } from "@/components/dialog";
+    import { inputDialogSync } from "@/libs/dialog";
     import { BookmarkDataModel, ItemOrderStore } from "../model";
     import { ClassName } from "../utils";
     import { getBlockByID } from "@/api";

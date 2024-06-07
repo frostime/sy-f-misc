@@ -23,7 +23,7 @@ import { Href, Svg } from "./utils/const";
 import { EventBusSync } from "./utils/event-bus";
 import { updateStyleLink } from "./utils/style";
 import { initSetting } from "./utils/setting-libs";
-import { SettingGroupsPanel } from "./components/setting-panels";
+import { SettingGroupsPanel } from "./libs/setting-panels";
 import { onPaste } from "./global-paste";
 
 const electron = require('electron');

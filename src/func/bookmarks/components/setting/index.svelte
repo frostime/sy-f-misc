@@ -9,7 +9,7 @@
 <script lang="ts">
     import { setContext } from "svelte";
     import { type BookmarkDataModel } from "../../model";
-    import SettingItemWrap from "@/components/setting-item-wrap.svelte";
+    import SettingItemWrap from "@/libs/setting-item-wrap.svelte";
     import GroupList from "./group-list.svelte";
     export let model: BookmarkDataModel;
 

@@ -7,7 +7,7 @@
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
-import { SettingGroupsPanel} from '@/components/setting-panels';
+import { SettingGroupsPanel} from '@/libs/setting-panels';
 // import { Module } from '@/func';
 import { selectIconDialog } from '@/func/docky';
 import { toggleEnable } from '@/func';
