@@ -4,7 +4,9 @@
     import Group from "./group.svelte";
     import { confirm, Menu, Plugin, showMessage } from "siyuan";
     import { BookmarkDataModel } from "../model";
-    import { inputDialog } from "@/components/dialog";
+    import { inputDialog } from "@/libs/dialog";
+    // import { simpleDialog } from "@/components/dialog";
+    // import Setting from "./setting/index.svelte";
     // import { getBlockByID } from "@/api";
 
     export let plugin: Plugin;
@@ -20,6 +22,24 @@
     onMount(() => {
         updateShownGroups();
     });
+
+
+    //TODO 后面加回来
+    // const openSetting = () => {
+    //     let container = document.createElement("div") as HTMLDivElement;
+    //     container.classList.add("fn__flex-1", "fn__flex");
+    //     new Setting({
+    //         target: container,
+    //         props: {
+    //             model,
+    //         },
+    //     });
+    //     simpleDialog({
+    //         title: "书签设置",
+    //         ele: container,
+    //         width: '600px'
+    //     })
+    // }
 
     function updateShownGroups() {
         groups = model.listGroups();
@@ -94,15 +114,16 @@
             书签
         </div>
         <span class="fn__flex-1"></span>
-        <span
+        <!-- <span
             data-type="setting"
             class="block__icon b3-tooltips b3-tooltips__sw"
             aria-label="设置"
+            on:click={openSetting}
         >
             <svg class="">
-                <use xlink:href="#iconSetting"></use>
+                <use xlink:href="#iconSettings"></use>
             </svg>
-        </span>
+        </span> -->
         <span class="fn__space"></span>
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <span

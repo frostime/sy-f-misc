@@ -2,15 +2,16 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
- * @FilePath     : /src/utils/setting-libs.ts
- * @LastEditTime : 2024-06-04 20:30:40
+ * @FilePath     : /src/settings/index.ts
+ * @LastEditTime : 2024-06-07 20:13:35
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
-import { SettingGroupsPanel} from '@/components/setting-panels';
-// import { Module } from '@/func';
 import { selectIconDialog } from '@/func/docky';
 import { toggleEnable } from '@/func';
+
+import Settings from "@/settings/index.svelte";
+import { Dialog } from 'siyuan';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
 const Enable: ISettingItem[] = [
@@ -124,6 +125,7 @@ const Docky: ISettingItem[] = [
     {
         type: 'button',
         title: '选择图标',
+        description: '选择图标',
         key: 'DockySelectIcon',
         value: '',
         button: {
@@ -136,6 +138,7 @@ const Docky: ISettingItem[] = [
         title: 'Protyle 配置',
         description: '加入侧边栏的 Protyle, 用换行符分割<br/>e.g. id: xxx, name: xxx, position: xxx, icon?: xxx, hotkey?: xxx',
         key: 'DockyProtyle',
+        direction: 'row',
         value: ''
     },
 ];
@@ -170,24 +173,7 @@ const onSettingChanged = (plugin: FMiscPlugin, group: string, key: string, value
 
 
 export const initSetting = async (plugin: FMiscPlugin) => {
-    //1. 初始化 setting dialog
-    const settingDialog = new SettingGroupsPanel();
-    settingDialog.addGroup({key: 'Enable', text: '✅ 启用功能'}, Enable);
-    settingDialog.addGroup({key: 'Docky', text: '⛩️ 侧边栏显示'}, Docky);
-    settingDialog.addGroup({key: 'Misc', text: '🔧 其他设置'}, Misc);
-    settingDialog.render();
-
-    settingDialog.bindChangedEvent(({ group, key, value }) => {
-        console.log(`Group: ${group}, Key: ${key}, Value: ${value}`);
-        const pluginConfigs = plugin.data['configs'];
-        if (pluginConfigs[group] && pluginConfigs[group][key] !== undefined) {
-            pluginConfigs[group][key] = value;
-        }
-        plugin.saveConfigs();
-        onSettingChanged(plugin, group, key, value);
-    });
-
-    //2. 初始化 plugin settings 配置
+    //1. 初始化 plugin settings 配置
     let configs = {}
     configs['Enable'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
     configs['Docky'] = Object.fromEntries(Docky.map(item => [item.key, item.value]));
@@ -197,11 +183,46 @@ export const initSetting = async (plugin: FMiscPlugin) => {
 
     //3. 导入文件并合并配置
     await plugin.loadConfigs(); 
-    for (let groupName in plugin.data['configs']) {
-        let groupConfig = plugin.data['configs'][groupName];
-        settingDialog.updateValues(groupName, groupConfig);
+    const UpdateConfig = (setting: ISettingItem[], key: string) => {
+        setting.forEach(item => {
+            item.value = plugin.getConfig(key, item.key);
+        });
+    }
+    UpdateConfig(Enable, 'Enable');
+    UpdateConfig(Docky, 'Docky');
+    UpdateConfig(Misc, 'Misc');
+
+    const onChanged = (e: CustomEvent<{group: string, key: string, value: any}>) => {
+        let { group, key, value } = e.detail;
+        console.debug(`Group: ${group}, Key: ${key}, Value: ${value}`);
+        const pluginConfigs = plugin.data['configs'];
+        if (pluginConfigs[group] && pluginConfigs[group][key] !== undefined) {
+            pluginConfigs[group][key] = value;
+        }
+        plugin.saveConfigs();
+        onSettingChanged(plugin, group, key, value);
     }
 
-    return settingDialog;
+    plugin.openSetting = () => {
+        let dialog = new Dialog({
+            title: "F-Misc 设置",
+            content: `<div id="SettingPanel" style="height: 100%; display: flex;"></div>`,
+            width: "800px",
+            height: "500px",
+            destroyCallback: () => {
+                setting.$destroy();
+            }
+        });
+        let div = dialog.element.querySelector("#SettingPanel") as HTMLElement;
+        let setting = new Settings({
+            target: div,
+            props: {
+                GroupEnabled: Enable,
+                GroupDocky: Docky,
+                GroupMisc: Misc
+            }
+        });
+        setting.$on('changed', onChanged);
+    }
 }
 

@@ -3,14 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-05-24 22:24:41
+ * @LastEditTime : 2024-06-07 20:00:18
  * @Description  : 
  */
 import {
     IMenuItemOption,
     Menu,
     Plugin,
-    Dialog,
     getFrontend,
     showMessage
 } from "siyuan";
@@ -22,16 +21,12 @@ import "@/index.scss";
 import { Href, Svg } from "./utils/const";
 import { EventBusSync } from "./utils/event-bus";
 import { updateStyleLink } from "./utils/style";
-import { initSetting } from "./utils/setting-libs";
-import { SettingGroupsPanel } from "./components/setting-panels";
+import { initSetting } from "./settings";
+import { SettingGroupsPanel } from "./libs/setting-panels";
 import { onPaste } from "./global-paste";
 
 const electron = require('electron');
 
-
-const StatusFlag = {
-    IsTabbarVertical: false
-}
 
 const StorageNameConfigs = 'configs';
 
@@ -66,7 +61,7 @@ export default class FMiscPlugin extends Plugin {
         this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         this.addIcons([Svg.Toolbox, Svg.Vertical, Svg.Theme, Svg.Transfer].join(''));
-        this.settingUI = await initSetting(this);
+        initSetting(this);
         this.eventBus.on('paste', onPaste);
         load(this);
 
@@ -112,20 +107,6 @@ export default class FMiscPlugin extends Plugin {
             });
 
         });
-    }
-
-    openSetting(): void {
-        let dialog = new Dialog({
-            title: "F-Misc 设置",
-            content: `<div id="SettingPanel" style="height: 100%; display: flex;"></div>`,
-            width: "800px",
-            height: "500px"
-        });
-        let div = dialog.element.querySelector("#SettingPanel") as HTMLElement;
-        if (div) {
-            div.appendChild(this.settingUI.element);
-            div.focus();
-        }
     }
 
     getConfig(group: string, key: string): any {
