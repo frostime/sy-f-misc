@@ -1,3 +1,11 @@
+<!--
+ Copyright (c) 2024 by frostime. All Rights Reserved.
+ Author       : frostime
+ Date         : 2024-06-07 18:49:52
+ FilePath     : /src/libs/components/input-item.svelte
+ LastEditTime : 2024-06-07 20:07:58
+ Description  : 
+-->
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
     export let type: string; // Setting Type
@@ -14,7 +22,7 @@
     } = { min: 0, max: 100, step: 1 };
     export let button: {
         label: string;
-        callback: () => void;
+        callback?: () => void;
     } = { label: value, callback: () => {} };
 
     const dispatch = createEventDispatcher();
@@ -44,6 +52,13 @@
         class="b3-text-field fn__flex-center fn__size200"
         id={key}
         {placeholder}
+        bind:value={value}
+        on:change={changed}
+    />
+{:else if type === "textarea"}
+    <textarea
+        class="b3-text-field fn__block"
+        style="resize: vertical; height: 10em; white-space: nowrap;"
         bind:value={value}
         on:change={changed}
     />
