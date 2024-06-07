@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-06-05 16:42:05
+ * @LastEditTime : 2024-06-07 11:28:01
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -217,7 +217,7 @@ export class DataView {
 
 /**************************************** Query 函数 ****************************************/
 
-import { request, sql } from "@/api";
+import { request, sql, listDocsByPath } from "@/api";
 
 /**
  * Filter blocks in sql search scenario to eliminate duplicate blocks
@@ -323,6 +323,20 @@ export const load = () => {
                 ${val ? `AND A.value ${valMatch} '${val}'` : ''}
             );
             `);
+        },
+        childdocs: async (b: BlockId | Block) => {
+            let block = null;
+            if (typeof b === 'string') {
+                const _ = await GetBlocksByIDs(b);
+                block = _[b];
+            } else {
+                block = b;
+            }
+            let data = await listDocsByPath(block.box, block.path);
+            let files: any[] = data?.files || [];
+            let ids: string[] = files.map(f => f.id);
+            let docsMap = await GetBlocksByIDs(...ids);
+            return ids.map(id => docsMap[id]);
         },
         /**
          * 处理容器块、段落块嵌套的情况；将容器块的第一个段落块 ID 重定向到容器块 ID
