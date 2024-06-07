@@ -1,8 +1,8 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
     export let type: string; // Setting Type
-    export let settingKey: string;
-    export let settingValue: any;
+    export let key: string;
+    export let value: any;
 
     //Optional
     export let placeholder: string = "";
@@ -15,17 +15,17 @@
     export let button: {
         label: string;
         callback: () => void;
-    } = { label: settingValue, callback: () => {} };
+    } = { label: value, callback: () => {} };
 
     const dispatch = createEventDispatcher();
 
     function click() {
         button?.callback();
-        dispatch("click", { key: settingKey });
+        dispatch("click", { key: key });
     }
 
     function changed() {
-        dispatch("changed", { key: settingKey, value: settingValue });
+        dispatch("changed", { key: key, value: value });
     }
 </script>
 
@@ -33,33 +33,33 @@
     <!-- Checkbox -->
     <input
         class="b3-switch fn__flex-center"
-        id={settingKey}
+        id={key}
         type="checkbox"
-        bind:checked={settingValue}
+        bind:checked={value}
         on:change={changed}
     />
 {:else if type === "textinput"}
     <!-- Text Input -->
     <input
         class="b3-text-field fn__flex-center fn__size200"
-        id={settingKey}
+        id={key}
         {placeholder}
-        bind:value={settingValue}
+        bind:value={value}
         on:change={changed}
     />
 {:else if type === "number"}
     <input
         class="b3-text-field fn__flex-center fn__size200"
-        id={settingKey}
+        id={key}
         type="number"
-        bind:value={settingValue}
+        bind:value={value}
         on:change={changed}
     />
 {:else if type === "button"}
     <!-- Button Input -->
     <button
         class="b3-button b3-button--outline fn__flex-center fn__size200"
-        id={settingKey}
+        id={key}
         on:click={click}
     >
         {button.label}
@@ -69,7 +69,7 @@
     <select
         class="b3-select fn__flex-center fn__size200"
         id="iconPosition"
-        bind:value={settingValue}
+        bind:value={value}
         on:change={changed}
     >
         {#each Object.entries(options) as [value, text]}
@@ -78,7 +78,7 @@
     </select>
 {:else if type == "slider"}
     <!-- Slider -->
-    <div class="b3-tooltips b3-tooltips__n" aria-label={settingValue}>
+    <div class="b3-tooltips b3-tooltips__n" aria-label={value}>
         <input
             class="b3-slider fn__size200"
             id="fontSize"
@@ -86,7 +86,7 @@
             max={slider.max}
             step={slider.step}
             type="range"
-            bind:value={settingValue}
+            bind:value={value}
             on:change={changed}
         />
     </div>

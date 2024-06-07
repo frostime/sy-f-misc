@@ -3,13 +3,13 @@
  Author       : frostime
  Date         : 2024-05-25 18:50:36
  FilePath     : /src/func/bookmarks/components/setting/index.svelte
- LastEditTime : 2024-06-06 12:36:33
+ LastEditTime : 2024-06-07 19:09:41
  Description  : 
 -->
 <script lang="ts">
     import { setContext } from "svelte";
     import { type BookmarkDataModel } from "../../model";
-    import SettingItemWrap from "@/components/settings/setting-item-wrap.svelte";
+    import SettingItemWrap from "@/components/setting-item-wrap.svelte";
     import GroupList from "./group-list.svelte";
     export let model: BookmarkDataModel;
 
