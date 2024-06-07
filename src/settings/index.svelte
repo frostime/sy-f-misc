@@ -1,8 +1,15 @@
+<!--
+ Copyright (c) 2024 by frostime. All Rights Reserved.
+ Author       : frostime
+ Date         : 2024-06-07 19:17:55
+ FilePath     : /src/settings/index.svelte
+ LastEditTime : 2024-06-07 20:24:21
+ Description  : 设置面板的组件
+-->
 
 <script lang="ts">
-    // import type FMiscPlugin from "..";
     import { createEventDispatcher } from "svelte";
-    import SettingPanel from "@/libs/components/setting-panel.svelte";
+    import SettingPanel from "@/libs/setting-panel.svelte";
 
     export let GroupEnabled: ISettingItem[];
     export let GroupDocky: ISettingItem[];
