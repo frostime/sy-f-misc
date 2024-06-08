@@ -108,7 +108,7 @@ const createContextDom = async () => {
 
 
 // const keymapTag = window.siyuan.config.keymap.general.tag;
-const Keymap = '⌥s';
+const Keymap = '⌥S';
 
 export let name = "DocContext";
 export let enabled = false;
