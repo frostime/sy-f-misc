@@ -107,7 +107,8 @@ const createContextDom = async () => {
 }
 
 
-const keymapTag = window.siyuan.config.keymap.general.tag;
+// const keymapTag = window.siyuan.config.keymap.general.tag;
+const Keymap = '⌥s';
 
 export let name = "DocContext";
 export let enabled = false;
@@ -115,11 +116,10 @@ export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
 
-    keymapTag.custom = '';
     plugin.addCommand({
         langKey: 'F-Misc::DocContext',
         langText: `F-misc ${I18n.name}`,
-        hotkey: keymapTag.default,
+        hotkey: Keymap,
         callback: async () => {
             if (document.querySelector('.doc-context')) return;
             let dom = await createContextDom();
@@ -159,5 +159,4 @@ export const unload = (plugin: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
     plugin.commands = plugin.commands.filter((command) => command.langKey !== 'F-Misc::DocContext');
-    keymapTag.custom = keymapTag.default;
 }

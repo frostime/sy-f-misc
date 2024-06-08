@@ -9,7 +9,7 @@
   "license": "GPL-3.0-only",
   "scripts": {
     "make-link": "node  --no-warnings ./scripts/make_dev_link.js",
-    "make-install": "node  --no-warnings ./scripts/make_install.js",
+    "make-install": "vite build && node  --no-warnings ./scripts/make_install.js",
     "dev": "vite build --watch",
     "build": "vite build"
   },
