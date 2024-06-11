@@ -1,11 +1,19 @@
-import type FMiscPlugin from "@/index";
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-06-10 14:55:35
+ * @FilePath     : /src/func/doc-context.ts
+ * @LastEditTime : 2024-06-10 15:21:03
+ * @Description  : 
+ */
+import { type Plugin } from "siyuan";
 
 import { simpleDialog } from "@/libs/dialog";
 import { getBlockByID, listDocsByPath } from "@/api";
 import { getActiveDoc, html2ele, getNotebook } from "@/utils";
 
 
-let I18n = {
+let I18n: any = {
     name: '文档上下文',
     focus: '跳转聚焦到文档',
     parent: '上级文档',
@@ -60,23 +68,23 @@ const createContextDom = async () => {
     });
     const dom = `
 <section class="doc-context item__readme b3-typography fn__flex-1" style="margin: 1em;">
-    <p>【${getNotebook(doc.box).name}】/${docPaths.map((d) => {
+    <p>🍞 [${getNotebook(doc.box).name}]/${docPaths.map((d) => {
         return `<a href="siyuan://blocks/${d.id}">${d.title}</a>`;
     }).join('/')}</p>
     <p class="btn-focus" style="font-weight: bold; color: var(--b3-theme-primary); cursor: pointer;">
     🎯 ${I18n.focus}
     </p>
-    <h3>${I18n.parent}</h3>
+    <h4>⬆️ ${I18n.parent}</h4>
     ${
         parent === null ? `<p>${I18n.no}</p>` : `
         <p><a href="siyuan://blocks/${parent.id}">${parent.content}</a></p>
         `
     }
-    <h3>${I18n.children}</h3>
+    <h4>⬇️ ${I18n.children}</h4>
     ${
         children.length === 0 ? `<p>${I18n.no}</p>` : `
 
-        <ol style="font-size: 17px; ${children.length >= 3 ? 'column-count: 3; column-gap: 30px;' : ''}">
+        <ol style="font-size: 18px; ${children.length >= 3 ? 'column-count: 3; column-gap: 30px;' : ''}">
             ${
                 children.map((item) => {
                     return `<li><a href="siyuan://blocks/${item.id}">${item.name.replace('.sy', '')}</a></li>`;
@@ -86,14 +94,14 @@ const createContextDom = async () => {
         `
     }
 
-    <h3>${I18n.siblings}</h3>
+    <h4>↔️ ${I18n.siblings}</h4>
     ${
         siblings.length === 0 ? `<p>${I18n.no}</p>` : `
 
-        <ol style="font-size: 17px; ${siblings.length >= 3 ? 'column-count: 3; column-gap: 30px;' : ''}">
+        <ol style="font-size: 18px; ${siblings.length >= 3 ? 'column-count: 3; column-gap: 30px;' : ''}">
             ${
                 siblings.map((item) => {
-                    let style = item.id === doc.id ? 'font-weight: bold; color: var(--b3-theme-primary);' : '';
+                    let style = item.id === doc.id ? 'font-weight: bold; color: var(--b3-theme-primary); border-bottom: 2px solid var(--b3-theme-primary)' : '';
                     return `<li><a style="${style}" href="siyuan://blocks/${item.id}">${item.name.replace('.sy', '')}</a></li>`;
                 }).join("")
             }
@@ -112,7 +120,7 @@ const Keymap = '⌥S';
 
 export let name = "DocContext";
 export let enabled = false;
-export const load = (plugin: FMiscPlugin) => {
+export const load = (plugin: Plugin) => {
     if (enabled) return;
     enabled = true;
 
@@ -129,7 +137,7 @@ export const load = (plugin: FMiscPlugin) => {
             let dialog = simpleDialog({
                 title: I18n.name,
                 ele: dom,
-                width: "850px",
+                width: "800px",
             });
             let container = dialog.element.querySelector('.b3-dialog__container') as HTMLElement;
             container.style.setProperty('max-width', '80%');
@@ -155,7 +163,7 @@ export const load = (plugin: FMiscPlugin) => {
     });
 }
 
-export const unload = (plugin: FMiscPlugin) => {
+export const unload = (plugin: Plugin) => {
     if (!enabled) return;
     enabled = false;
     plugin.commands = plugin.commands.filter((command) => command.langKey !== 'F-Misc::DocContext');
