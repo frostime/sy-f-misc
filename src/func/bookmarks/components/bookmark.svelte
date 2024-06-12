@@ -12,8 +12,8 @@
     export let plugin: Plugin;
     export let model: BookmarkDataModel;
 
-    setContext('plugin', plugin);
-    setContext('model', model);
+    setContext("plugin", plugin);
+    setContext("model", model);
 
     let groups: IBookmarkGroup[] = [];
 
@@ -22,7 +22,6 @@
     onMount(() => {
         updateShownGroups();
     });
-
 
     //TODO 后面加回来
     // const openSetting = () => {
@@ -79,6 +78,27 @@
         );
     };
 
+    const groupMove = (
+        e: CustomEvent<{
+            to: "up" | "down" | "top" | "bottom";
+            group: IBookmarkGroup;
+        }>,
+    ) => {
+        const detail = e.detail;
+        let srcIdx = groups.findIndex(
+            (g: IBookmarkGroup) => g.id === detail.group.id,
+        );
+        let targetIdx;
+        if (detail.to === "up") targetIdx = srcIdx - 1;
+        else if (detail.to === 'down') targetIdx = srcIdx + 1;
+        else if (detail.to === 'top') targetIdx = 0;
+        else if (detail.to === 'bottom') targetIdx = groups.length - 1;
+        else return;
+        if (targetIdx < 0 || targetIdx >= groups.length) return;
+        let targetGroup: IBookmarkGroup = groups[targetIdx];
+        model.groupSwapOrder(detail.group.id, targetGroup.id);
+        groups = model.listGroups();
+    };
 
     const bookmarkContextMenu = (e: MouseEvent) => {
         let menu = new Menu();
@@ -98,8 +118,7 @@
             x: e.clientX,
             y: e.clientY,
         });
-    }
-
+    };
 </script>
 
 <div
@@ -144,7 +163,7 @@
             aria-label="刷新"
             on:click={blockIconRefresh}
         >
-            <svg class="{fnRotate}">
+            <svg class={fnRotate}>
                 <use xlink:href="#iconRefresh"></use>
             </svg>
         </span>
@@ -196,6 +215,7 @@
                     {group}
                     bind:this={groupComponent[i]}
                     on:deleteGroup={groupDelete}
+                    on:move={groupMove}
                 />
             {/each}
         </ul>

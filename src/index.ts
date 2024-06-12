@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-08 20:33:11
+ * @LastEditTime : 2024-06-12 18:00:40
  * @Description  : 
  */
 import {
@@ -60,7 +60,8 @@ export default class FMiscPlugin extends Plugin {
         const frontEnd = getFrontend();
         this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
-        this.addIcons([Svg.Toolbox, Svg.Vertical, Svg.Theme, Svg.Transfer].join(''));
+        let svgs = Object.values(Svg);
+        this.addIcons(svgs.join(''));
         await initSetting(this);
         this.eventBus.on('paste', onPaste);
         load(this);

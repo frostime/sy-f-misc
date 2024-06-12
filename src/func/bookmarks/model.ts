@@ -247,6 +247,14 @@ export class BookmarkDataModel {
         }
     }
 
+    groupSwapOrder(a: TBookmarkGroupId, b: TBookmarkGroupId) {
+        let ga = this.groups.get(a);
+        let gb = this.groups.get(b);
+        let order = ga.order;
+        ga.order = gb.order;
+        gb.order = order;
+    }
+
     renameGroup(id: TBookmarkGroupId, name: string) {
         let group = this.groups.get(id);
         if (group) {

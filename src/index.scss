@@ -24,6 +24,17 @@ svg.highlight-icon~span.b3-menu__label {
     font-weight: 500;
 }
 
+/* Rotate by 90 degrees */
+.rotate-90 {
+    transform: rotate(90deg);
+}
+
+/* Rotate by 180 degrees */
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+
 
 .docky-panel-body.protyle {
     zoom: var(--plugin-docky-zoom);

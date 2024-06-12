@@ -111,6 +111,36 @@
         });
         menu.addSeparator();
         menu.addItem({
+            label: "置顶",
+            icon: "iconTop",
+            click: async () => {
+                dispatch("move", {to: 'top', group});
+            },
+        });
+        menu.addItem({
+            label: "上移",
+            icon: "iconUp",
+            click: async () => {
+                dispatch("move", {to: 'up', group});
+            },
+        });
+        menu.addItem({
+            label: "下移",
+            icon: "iconDown",
+            click: async () => {
+                dispatch("move", {to: 'down', group});
+            },
+        });
+        menu.addItem({
+            label: "置底",
+            icon: "iconTop",
+            iconClass: "rotate-180",
+            click: async () => {
+                dispatch("move", {to: 'bottom', group});
+            },
+        });
+        menu.addSeparator();
+        menu.addItem({
             label: "从剪贴板中插入块",
             icon: "iconAdd",
             click: () => {
