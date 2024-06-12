@@ -3,7 +3,7 @@ import { defineConfig, loadEnv } from "vite"
 import minimist from "minimist"
 import { viteStaticCopy } from "vite-plugin-static-copy"
 import livereload from "rollup-plugin-livereload"
-import { svelte } from "@sveltejs/vite-plugin-svelte"
+import solidPlugin from 'vite-plugin-solid';
 import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
 
@@ -24,7 +24,7 @@ export default defineConfig({
 
     plugins: [
 
-        svelte(),
+        solidPlugin(),
 
         viteStaticCopy({
             targets: [

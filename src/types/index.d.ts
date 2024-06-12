@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/types/index.d.ts
- * @LastEditTime : 2024-06-07 20:17:18
+ * @LastEditTime : 2024-06-12 22:16:03
  * @Description  : 
  */
 
@@ -13,27 +13,6 @@ interface IDockyBlock {
     id: string;
     icon?: string;
     hotkey?: string;
-}
-
-type TSettingItemType = "checkbox" | "select" | "textinput" | "textarea" | "number" | "slider" | "button" | "hint" | "custom";
-interface ISettingItem {
-    key: string;
-    value: any;
-    type: TSettingItemType;
-    title: string;
-    description?: string;
-    direction?: "row" | "column";
-    placeholder?: string;
-    slider?: {
-        min: number;
-        max: number;
-        step: number;
-    };
-    options?: { [key: string | number]: string };
-    button?: {
-        label: string;
-        callback?: () => void;
-    }
 }
 
 type ThemeMode = "light" | "dark";

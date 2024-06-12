@@ -22,7 +22,7 @@ import * as tt from './test-template';
 import * as dq from './data-query';
 import * as dc from './doc-context';
 
-import * as bookmark from './bookmarks';
+// import * as bookmark from './bookmarks';
 
 interface IFuncModule {
     name: string;
@@ -43,7 +43,7 @@ const ModulesToEnable = [
     tr,
     ss,
     tt,
-    bookmark
+    // bookmark
 ]
 
 //`Enable${module.name}`: module
