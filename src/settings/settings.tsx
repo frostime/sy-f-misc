@@ -1,4 +1,4 @@
-import { For, createSignal } from "solid-js";
+import { Component, For, createSignal } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
 
 const groups: {key: string, text: string}[] = [
@@ -23,10 +23,10 @@ interface IArgs {
 }
 
 
-const App = (props: IArgs) => {
-    const { GroupEnabled, GroupDocky, GroupMisc, changed } = props;
-
+const App: Component<IArgs> = (props) => {
     let [focus, setFocus] = createSignal(groups[0].key);
+
+    const changed = props.changed;
 
     return (
     <>
@@ -49,19 +49,19 @@ const App = (props: IArgs) => {
             <div class="config__tab-wrap">
                 <SettingPanel
                     group={groups[0].key}
-                    settingItems={GroupEnabled}
+                    settingItems={props.GroupEnabled}
                     display={focus() === groups[0].key}
                     onChanged={changed}
                 />
                 <SettingPanel
                     group={groups[1].key}
-                    settingItems={GroupDocky}
+                    settingItems={props.GroupDocky}
                     display={focus() === groups[1].key}
                     onChanged={changed}
                 />
                 <SettingPanel
                     group={groups[2].key}
-                    settingItems={GroupMisc}
+                    settingItems={props.GroupMisc}
                     display={focus() === groups[2].key}
                     onChanged={changed}
                 />

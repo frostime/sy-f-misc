@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-06-12 22:18:32
+ * @LastEditTime : 2024-06-12 22:51:36
  * @Description  : 
  */
 import { render } from 'solid-js/web';
@@ -184,14 +184,19 @@ export const initSetting = async (plugin: FMiscPlugin) => {
 
     //3. 导入文件并合并配置
     await plugin.loadConfigs(); 
-    const UpdateConfig = (setting: ISettingItem[], key: string) => {
-        setting.forEach(item => {
-            item.value = plugin.getConfig(key, item.key);
-        });
+
+    const updateConfigs = () => {
+        const UpdateConfig = (setting: ISettingItem[], key: string) => {
+            setting.forEach(item => {
+                item.value = plugin.getConfig(key, item.key);
+            });
+        }
+        UpdateConfig(Enable, 'Enable');
+        UpdateConfig(Docky, 'Docky');
+        UpdateConfig(Misc, 'Misc');
     }
-    UpdateConfig(Enable, 'Enable');
-    UpdateConfig(Docky, 'Docky');
-    UpdateConfig(Misc, 'Misc');
+
+    updateConfigs();
 
     const onChanged = (e: {group: string, key: string, value: any}) => {
         let { group, key, value } = e;
@@ -202,6 +207,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
         }
         plugin.saveConfigs();
         onSettingChanged(plugin, group, key, value);
+        updateConfigs();
     }
 
     plugin.openSetting = () => {

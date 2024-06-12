@@ -5,48 +5,45 @@
 // LastEditTime : 2024-06-08 18:25:34
 // Description  :
 
-import { Component, createSignal, For, Show, JSXElement } from "solid-js";
+import { Component, For, JSXElement, createMemo } from "solid-js";
 import ItemWrap from "./item-wrap";
 import InputItem from "./item-input";
 
 interface SettingPanelProps {
     group: string;
     settingItems: ISettingItem[];
-    display?: boolean;
+    display: boolean;
     onChanged: (e: { group: string, key: string, value: any }) => void;
     children?: JSXElement
 }
 
 const SettingPanel: Component<SettingPanelProps> = (props) => {
-    const { group, settingItems, display = true, onChanged } = props;
-    const [fn__none, _] = createSignal(display ? "" : "fn__none");
+    const fn__none = createMemo(() => props.display === true ? "" : "fn__none");
 
     return (
-        <Show when={display}>
-            <div class={`config__tab-container ${fn__none()}`} data-name={group}>
-                {props.children}
-                <For each={settingItems}>
-                    {(item) => (
-                        <ItemWrap
-                            title={item.title}
-                            description={item.description}
-                            direction={item?.direction}
-                        >
-                            <InputItem
-                                type={item.type}
-                                key={item.key}
-                                value={item.value}
-                                placeholder={item?.placeholder}
-                                options={item?.options}
-                                slider={item?.slider}
-                                button={item?.button}
-                                changed={(v) => onChanged({ group: group, key: item.key, value: v })}
-                            />
-                        </ItemWrap>
-                    )}
-                </For>
-            </div>
-        </Show>
+        <div class={`config__tab-container ${fn__none()}`} data-name={props.group}>
+            {props.children}
+            <For each={props.settingItems}>
+                {(item) => (
+                    <ItemWrap
+                        title={item.title}
+                        description={item.description}
+                        direction={item?.direction}
+                    >
+                        <InputItem
+                            type={item.type}
+                            key={item.key}
+                            value={item.value}
+                            placeholder={item?.placeholder}
+                            options={item?.options}
+                            slider={item?.slider}
+                            button={item?.button}
+                            changed={(v) => props.onChanged({ group: props.group, key: item.key, value: v })}
+                        />
+                    </ItemWrap>
+                )}
+            </For>
+        </div>
     );
 };
 
