@@ -9,7 +9,7 @@
 import type FMiscPlugin from "@/index";
 import { getModel, rmModel, BookmarkDataModel } from "./model";
 // import { Bookmark } from "./component";
-import Bookmark from "./components/bookmark.svelte";
+import Bookmark from "../../../tmp/bookmark.svelte";
 import { insertStyle, removeStyle } from "@/utils/style";
 
 let bookmark: Bookmark;
