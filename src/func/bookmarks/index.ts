@@ -3,33 +3,28 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 21:52:48
  * @FilePath     : /src/func/bookmarks/index.ts
- * @LastEditTime : 2024-06-01 14:19:08
+ * @LastEditTime : 2024-06-13 14:02:16
  * @Description  : 
  */
+import { render } from "solid-js/web";
 import type FMiscPlugin from "@/index";
 import { getModel, rmModel, BookmarkDataModel } from "./model";
 // import { Bookmark } from "./component";
-import Bookmark from "../../../tmp/bookmark.svelte";
-import { insertStyle, removeStyle } from "@/utils/style";
+import Bookmark from "./components/bookmark";
+import { insertStyle, removeStyle } from "@/libs/style";
 
-let bookmark: Bookmark;
 let model: BookmarkDataModel;
 
 const initBookmark = async (ele: HTMLElement, plugin: FMiscPlugin) => {
     await model.load();
     await model.updateItems();
-    bookmark = new Bookmark({
-        target: ele,
-        props: {
-            plugin: plugin,
-            model: model
-        }
-    });
+    render(() => Bookmark({
+        plugin: plugin,
+        model: model
+    }), ele);
 };
 
 const destroyBookmark = () => {
-    bookmark?.$destroy();
-    bookmark = null;
     rmModel();
     model = null;
     const ele = document.querySelector('span[data-type="sy-f-misc::dock::Bookmark"]') as HTMLElement;

@@ -3,11 +3,11 @@ import { Menu, Constants, confirm, showMessage } from "siyuan";
 import Item from "./item";
 import { inputDialogSync } from "@/libs/dialog";
 import { ItemOrderStore } from "../model";
-import { ClassName } from "../utils";
-import { getBlockByID } from "@/api";
+import { ClassName } from "../libs/dom";
+import { getBlockByID } fro../libs/utils";
 import { highlightedGroup, moveItemDetail } from "../../../../tmp/store";
 
-import { BookmarkContext } from "./Context";
+import { BookmarkContext } from "./context";
 
 
 interface Props {

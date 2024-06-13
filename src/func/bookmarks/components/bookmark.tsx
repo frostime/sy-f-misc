@@ -5,7 +5,7 @@ import { confirm, Menu, Plugin, showMessage } from "siyuan";
 import { BookmarkDataModel } from "../model";
 import { inputDialog } from "@/libs/dialog";
 
-import { BookmarkContext } from "./Context";
+import { BookmarkContext } from "./context";
 
 import "./index.scss";
 

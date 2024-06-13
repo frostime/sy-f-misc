@@ -1,10 +1,10 @@
 import { Component, createEffect, createMemo, createSignal, onCleanup, useContext } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { Menu, openTab, showMessage } from "siyuan";
-import { buildItemDetail } from "../utils";
+import { buildItemDetail } from "../libs/dom";
 import { ItemInfoStore } from "../model";
 import { moveItemDetail } from "../../../../tmp/store";
-import { BookmarkContext } from "./Context";
+import { BookmarkContext } from "./context";
 
 interface IProps {
     group: TBookmarkGroupId;
