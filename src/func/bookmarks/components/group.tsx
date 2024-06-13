@@ -1,8 +1,9 @@
-import { Component, createEffect, createMemo, createSignal, onCleanup, useContext } from "solid-js";
+import { Component, createMemo, createSignal, useContext } from "solid-js";
+import { For } from "solid-js";
 import { Menu, Constants, confirm, showMessage } from "siyuan";
 import Item from "./item";
 import { inputDialogSync } from "@/libs/dialog";
-import { itemOrder, setItemOrder } from "../model";
+import { itemOrder } from "../model";
 import { ClassName } from "../libs/dom";
 import { getBlockByID } from "@/api";
 // import { highlightedGroup, moveItemDetail } from "../../../../tmp/store";
@@ -19,7 +20,12 @@ interface Props {
 const Group: Component<Props> = (props) => {
     const [_, model] = useContext(BookmarkContext);
 
-    const itemsOrder = createMemo<IItemOrder[]>(() => itemOrder[props.group.id]);
+    let orders = () => itemOrder[props.group.id];
+
+    const orderedItems = createMemo(() => {
+        console.log('reorder items:', props.group)
+        return orders().sort((a, b) => a.order - b.order);
+    })
 
     const [isOpen, setIsOpen] = createSignal(props.group.expand !== undefined ? !props.group.expand : true);
 
@@ -340,16 +346,18 @@ const Group: Component<Props> = (props) => {
                         <use href="#iconMore"></use>
                     </svg>
                 </span>
-                <span class="counter">{itemsOrder().length}</span>
+                <span class="counter">{orderedItems().length}</span>
             </li>
             <ul
                 class={`custom-bookmark-group-list ${itemsClass()}`}
                 data-groupid={props.group.id}
                 data-groupname={props.group.name}
             >
-                {itemsOrder().sort((a, b) => a.order - b.order).map((item) => (
-                    <Item group={props.group.id} block={item.id} deleteItem={itemDelete} />
-                ))}
+                <For each={orderedItems()}>
+                    {(item: IItemOrder, _) => (
+                        <Item group={props.group.id} block={item.id} deleteItem={itemDelete} />
+                    )}
+                </For>
             </ul>
         </section>
     );

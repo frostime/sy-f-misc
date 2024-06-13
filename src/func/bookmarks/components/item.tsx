@@ -15,7 +15,8 @@ interface IProps {
 }
 
 const Item: Component<IProps> = (props) => {
-    const item = createMemo<IBookmarkItemInfo>(() => itemInfo[props.block]);
+    // const item = createMemo<IBookmarkItemInfo>(() => itemInfo[props.block]);
+    const item = () => itemInfo[props.block];
 
     const [NodeType, setNodeType] = createSignal<string>("");
     const [Icon, setIcon] = createSignal<string>("");
@@ -33,6 +34,7 @@ const Item: Component<IProps> = (props) => {
 
     createEffect(() => {
         let value = item();
+        console.log('Item changed effect', value);
         if (value) {
             const e = buildItemDetail(value);
             setNodeType(e.NodeType);
@@ -90,14 +92,14 @@ const Item: Component<IProps> = (props) => {
             submenu: groups
         });
         menu.addItem({
-            label: "移动到最上方",
+            label: "上移",
             icon: "iconUp",
             click: () => {
                 model.reorderItem(props.group, item(), 'up');
             }
         });
         menu.addItem({
-            label: "移动到最下方",
+            label: "下移",
             icon: "iconDown",
             click: () => {
                 model.reorderItem(props.group, item(), 'down');

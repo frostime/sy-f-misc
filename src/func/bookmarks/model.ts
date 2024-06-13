@@ -4,7 +4,7 @@ import type FMiscPlugin from "@/index";
 
 import { getBlocks, getDocInfos, newOrderByTime } from "./libs/data";
 import { showMessage } from "siyuan";
-import { batch } from "solid-js";
+import { batch, createEffect } from "solid-js";
 
 const StorageNameBookmarks = 'bookmarks';
 
@@ -14,6 +14,10 @@ const StorageNameBookmarks = 'bookmarks';
 // export const ItemOrderStore = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
 export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
 export const [itemOrder, setItemOrder] = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
+
+createEffect(() => {
+    console.log('itemOrder changed', itemOrder);
+})
 
 export class BookmarkDataModel {
     plugin: FMiscPlugin;
@@ -296,6 +300,7 @@ export class BookmarkDataModel {
     }
 
     reorderItem(gid: TBookmarkGroupId, item: IBookmarkItemInfo, order: 'up' | 'down') {
+        console.log('reorder')
         let group = this.groups.get(gid);
         if (!group) {
             return false;
@@ -314,7 +319,7 @@ export class BookmarkDataModel {
             items[index].order = max + 1;
         }
         // ItemOrderStore[gid].set(items);
-        setItemOrder(gid, items);
+        setItemOrder(gid, (t) => t.id === item.id, 'order', items[index].order);
         this.save();
         return true;
     }
