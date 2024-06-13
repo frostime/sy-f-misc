@@ -55,8 +55,6 @@ const getDocInfos = async (...docIds: DocumentId[]) => {
             let docInfo = docInfos.find(docInfo => docInfo.rootID === id);
             if (docInfo) {
                 results[id] = docInfo;
-            } else {
-                results[id] = null;
             }
         }
     } catch (error) {

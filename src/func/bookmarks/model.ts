@@ -15,14 +15,14 @@ const StorageNameBookmarks = 'bookmarks';
 export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
 export const [itemOrder, setItemOrder] = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
 
-createEffect(() => {
-    console.log('itemOrder changed', itemOrder);
-})
+// createEffect(() => {
+//     console.log('itemOrder changed', itemOrder);
+// })
 
 export const [groups, setGroups] = createStore<IBookmarkGroup[]>([]);
 export const groupMap = createMemo<Map<TBookmarkGroupId, IBookmarkGroup>>(() => {
-    console.log('Create group maps');
-    console.log(groups);
+    // console.log('Create group maps');
+    // console.log(groups);
     return new Map(groups.map(group => [group.id, group]));
 })
 
@@ -110,6 +110,7 @@ export class BookmarkDataModel {
             }
         });
         let docInfos = await getDocInfos(...docsItem);
+
         //3. 更新 this.items 和 writable store
         const notebookMap = window.siyuan.notebooks.reduce((acc, notebook) => {
             acc[notebook.id] = notebook;
@@ -132,7 +133,7 @@ export class BookmarkDataModel {
                     ref: item.ref
                 };
                 let icon = '';
-                if (item.type === 'd') {
+                if (ni.type === 'd') {
                     let docInfo = docInfos[id];
                     if (docInfo) {
                         icon = docInfo.rootIcon;
