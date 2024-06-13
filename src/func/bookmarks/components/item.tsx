@@ -49,7 +49,7 @@ const Item: Component<IProps> = (props) => {
         }
     });
 
-    const [plugin, model] = useContext(BookmarkContext);
+    const {plugin, model, shownGroups} = useContext(BookmarkContext);
 
     const showItemContextMenu = (e: MouseEvent) => {
         e.stopPropagation();
@@ -77,7 +77,7 @@ const Item: Component<IProps> = (props) => {
             },
         });
         menu.addSeparator();
-        const groups = model.listGroups().filter((g) => g.id !== props.group).map((g) => {
+        const groups = shownGroups().filter((g) => g.id !== props.group).map((g) => {
             return {
                 label: g.name,
                 click: () => {

@@ -4,7 +4,7 @@ import type FMiscPlugin from "@/index";
 
 import { getBlocks, getDocInfos, newOrderByTime } from "./libs/data";
 import { showMessage } from "siyuan";
-import { batch, createEffect } from "solid-js";
+import { batch, createEffect, createMemo } from "solid-js";
 
 const StorageNameBookmarks = 'bookmarks';
 
@@ -19,27 +19,36 @@ createEffect(() => {
     console.log('itemOrder changed', itemOrder);
 })
 
+export const [groups, setGroups] = createStore<IBookmarkGroup[]>([]);
+const groupMap = createMemo<Map<TBookmarkGroupId, IBookmarkGroup>>(() => {
+    console.log('Create group maps');
+    return new Map(groups.map(group => [group.id, group]));
+})
+
 export class BookmarkDataModel {
     plugin: FMiscPlugin;
 
-    groups: Map<TBookmarkGroupId, IBookmarkGroup>;
+    // groups: Map<TBookmarkGroupId, IBookmarkGroup>;
     items: Map<BlockId, IBookmarkItemInfo>; //由于要给 svelte store 使用, 所以用 writable 包装
 
     constructor(plugin: FMiscPlugin) {
         this.plugin = plugin;
-        this.groups = new Map();
+        // this.groups = new Map();
         this.items = new Map();
     }
 
     async load() {
         let bookmarks = await this.plugin.loadData(StorageNameBookmarks + '.json');
         this.plugin.data.bookmarks = bookmarks ?? {};
+
+        const allGroups = [];
         for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
             let items = group.items.map(item => ({ id: item.id, order: item.order }));
             // ItemOrderStore[id] = writable(items);
             setItemOrder(id, items);
             let groupV2: IBookmarkGroup = { ...group, items };
-            this.groups.set(id, groupV2);
+            allGroups.push(groupV2);
+            // this.groups.set(id, groupV2);
             group.items.map(item => {
                 if (this.items.has(item.id)) {
                     this.items.get(item.id).ref++;
@@ -59,23 +68,29 @@ export class BookmarkDataModel {
                 setItemInfo(item.id, { ...iteminfo });
             });
         }
+        batch(() => {
+            allGroups.forEach((groupV2) => {
+                setGroups((gs) => [...gs, groupV2] )
+            })
+        })
     }
 
     async save(fpath?: string) {
         let result: {[key: TBookmarkGroupId]: IBookmarkGroup} = {};
-        for (let [id, group] of this.groups) {
-            result[id] = group;
-        }
-        this.plugin.data.bookmarks = result;
-        fpath = fpath ?? StorageNameBookmarks + '.json';
-        await this.plugin.saveData(fpath, this.plugin.data.bookmarks);
+        //TODO 之后恢复回来
+        // for (let [id, group] of this.groups) {
+        //     result[id] = group;
+        // }
+        // this.plugin.data.bookmarks = result;
+        // fpath = fpath ?? StorageNameBookmarks + '.json';
+        // await this.plugin.saveData(fpath, this.plugin.data.bookmarks);
     }
 
     hasItem(id: BlockId, groupId?: TBookmarkGroupId) {
         if (groupId === undefined) {
             return this.items.has(id);
         } else {
-            let group = this.groups.get(groupId);
+            let group = groupMap().get(groupId);
             if (group) {
                 return group.items.some(item => item.id === id);
             } else {
@@ -135,23 +150,12 @@ export class BookmarkDataModel {
         console.debug('更新所有 Bookmark items 完成');
     }
 
-    listGroups(visible: boolean = true): IBookmarkGroup[] {
-        // 1. sort
-        let groups = Array.from(this.groups.values());
-        groups.sort((a, b) => a.order - b.order);
-        //2. filter
-        if (visible) {
-            groups = groups.filter(group => !group.hidden);
-        }
-        return groups;
-    }
-
     listItems(group?: TBookmarkGroupId) {
         const listItems = (group: IBookmarkGroup) => {
             return group.items.map(itmin => this.items.get(itmin.id));
         }
         if (group) {
-            let g = this.groups.get(group);
+            let g = groupMap().get(group);
             if (g) {
                 return listItems(g);
             } else {
@@ -159,7 +163,7 @@ export class BookmarkDataModel {
             }
         } else {
             let items: IBookmarkItemInfo[] = [];
-            this.groups.forEach(group => {
+            groupMap().forEach(group => {
                 items.push(...listItems(group));
             });
             return items;
@@ -169,7 +173,7 @@ export class BookmarkDataModel {
     newGroup(name: string) {
         //6位 36进制
         let id: TBookmarkGroupId;
-        while (id === undefined || this.groups.has(id)) {
+        while (id === undefined || groupMap().has(id)) {
             id = Math.random().toString(36).slice(-6);
         }
         let group = {
@@ -178,17 +182,19 @@ export class BookmarkDataModel {
             items: [],
             order: newOrderByTime()
         };
-        this.groups.set(id, group);
-        // ItemOrderStore[id] = writable([]);
+        // this.groups.set(id, group);
+
         setItemOrder(id, []);
+        setGroups((gs) => [...gs, group]);
         this.save();
         return group;
     }
 
     delGroup(id: TBookmarkGroupId) {
-        if (this.groups.has(id)) {
-            this.groups.delete(id);
+        if (groupMap().has(id)) {
+            // this.groups.delete(id);
             // delete ItemOrderStore[id];
+            setGroups((g) => g.id === id, undefined)
             setItemOrder(id, undefined);
             this.save();
             return true;
@@ -198,18 +204,21 @@ export class BookmarkDataModel {
     }
 
     groupSwapOrder(a: TBookmarkGroupId, b: TBookmarkGroupId) {
-        let ga = this.groups.get(a);
-        let gb = this.groups.get(b);
+        let ga = groupMap().get(a);
+        let gb = groupMap().get(b);
         let order = ga.order;
         ga.order = gb.order;
         gb.order = order;
     }
 
     renameGroup(id: TBookmarkGroupId, name: string) {
-        let group = this.groups.get(id);
+        let group = groupMap().get(id);
         if (group) {
-            group.name = name;
-            this.save();
+            // group.name = name;
+            console.log('更改前', groups);
+            setGroups((g) => g.id === id, 'name', name);
+            console.log('更改后', groups);
+            // this.save();
             return true;
         } else {
             return false;
@@ -217,7 +226,7 @@ export class BookmarkDataModel {
     }
 
     addItem(gid: TBookmarkGroupId, item: IBookmarkItem) {
-        let group = this.groups.get(gid);
+        let group = groupMap().get(gid);
         if (group) {
             let exist = this.items.get(item.id) !== undefined;
             if (!exist) {
@@ -244,7 +253,7 @@ export class BookmarkDataModel {
     }
 
     delItem(gid: TBookmarkGroupId, id: BlockId) {
-        let group = this.groups.get(gid);
+        let group = groupMap().get(gid);
         if (group) {
             group.items = group.items.filter(item => item.id !== id);
             // ItemOrderStore[gid].set(group.items);
@@ -273,8 +282,8 @@ export class BookmarkDataModel {
         if (fromGroup === toGroup) {
             return false;
         }
-        let from = this.groups.get(fromGroup);
-        let to = this.groups.get(toGroup);
+        let from = groupMap().get(fromGroup);
+        let to = groupMap().get(toGroup);
         if(!(from && to)) {
             return false;
         }
@@ -301,7 +310,7 @@ export class BookmarkDataModel {
 
     reorderItem(gid: TBookmarkGroupId, item: IBookmarkItemInfo, order: 'up' | 'down') {
         console.log('reorder')
-        let group = this.groups.get(gid);
+        let group = groupMap().get(gid);
         if (!group) {
             return false;
         }
@@ -327,8 +336,8 @@ export class BookmarkDataModel {
     moveItem(detail: IMoveItemDetail) {
         // console.log('moveItem', detail);
         let { srcGroup, targetGroup, srcItem, afterItem } = detail;
-        let src = this.groups.get(srcGroup);
-        let target = this.groups.get(targetGroup);
+        let src = groupMap().get(srcGroup);
+        let target = groupMap().get(targetGroup);
         if (!(src && target)) {
             return false;
         }

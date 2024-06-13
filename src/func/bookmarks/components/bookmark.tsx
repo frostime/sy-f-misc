@@ -1,8 +1,8 @@
-import { Component, createEffect, createSignal } from "solid-js";
+import { Component, For, createMemo, createSignal } from "solid-js";
 // import { render } from "solid-js/web";
 import Group from "./group";
 import { confirm, Menu, Plugin, showMessage } from "siyuan";
-import { BookmarkDataModel } from "../model";
+import { type BookmarkDataModel, groups } from "../model";
 import { inputDialog } from "@/libs/dialog";
 
 import { BookmarkContext } from "./context";
@@ -15,26 +15,29 @@ interface Props {
 }
 
 const BookmarkComponent: Component<Props> = (props) => {
-    const [groups, setGroups] = createSignal<IBookmarkGroup[]>([]);
     let groupComponent = [];
     const [fnRotate, setFnRotate] = createSignal("");
 
-    const updateShownGroups = () => {
-        setGroups(props.model.listGroups());
-    };
+    const shownGroups = createMemo(() => {
+        return groups.sort((a, b) => a.order - b.order).filter(group => !group.hidden);
+    });
 
-    const blockIconAdd = () => {
+    // const updateShownGroups = () => {
+    //     setGroups(props.model.listGroups());
+    // };
+
+    const groupAdd = () => {
         inputDialog({
             title: "添加书签组",
             placeholder: "请输入书签组名称",
             confirm: (title: string) => {
-                const group = props.model.newGroup(title);
-                setGroups([...groups(), group]);
+                props.model.newGroup(title);
+                // setGroups([...groups(), group]);
             },
         });
     };
 
-    const blockIconRefresh = () => {
+    const bookmarkRefresh = () => {
         setFnRotate("fn__rotate");
         props.model.updateItems().then(() => {
             setTimeout(() => {
@@ -48,9 +51,7 @@ const BookmarkComponent: Component<Props> = (props) => {
             `是否删除书签组${detail.name}[${detail.id}]?`,
             "⚠️ 删除后无法恢复！确定删除吗？",
             () => {
-                if (props.model.delGroup(detail.id)) {
-                    updateShownGroups();
-                }
+                props.model.delGroup(detail.id)
             }
         );
     };
@@ -61,19 +62,19 @@ const BookmarkComponent: Component<Props> = (props) => {
             group: IBookmarkGroup;
         }
     ) => {
-        const srcIdx = groups().findIndex(
-            (g: IBookmarkGroup) => g.id === detail.group.id
-        );
-        let targetIdx;
-        if (detail.to === "up") targetIdx = srcIdx - 1;
-        else if (detail.to === "down") targetIdx = srcIdx + 1;
-        else if (detail.to === "top") targetIdx = 0;
-        else if (detail.to === "bottom") targetIdx = groups().length - 1;
-        else return;
-        if (targetIdx < 0 || targetIdx >= groups().length) return;
-        const targetGroup: IBookmarkGroup = groups()[targetIdx];
-        props.model.groupSwapOrder(detail.group.id, targetGroup.id);
-        setGroups(props.model.listGroups());
+        // const srcIdx = groups().findIndex(
+        //     (g: IBookmarkGroup) => g.id === detail.group.id
+        // );
+        // let targetIdx;
+        // if (detail.to === "up") targetIdx = srcIdx - 1;
+        // else if (detail.to === "down") targetIdx = srcIdx + 1;
+        // else if (detail.to === "top") targetIdx = 0;
+        // else if (detail.to === "bottom") targetIdx = groups().length - 1;
+        // else return;
+        // if (targetIdx < 0 || targetIdx >= groups().length) return;
+        // const targetGroup: IBookmarkGroup = groups()[targetIdx];
+        // props.model.groupSwapOrder(detail.group.id, targetGroup.id);
+        // setGroups(props.model.listGroups());
     };
 
     const bookmarkContextMenu = (e: MouseEvent) => {
@@ -96,9 +97,9 @@ const BookmarkComponent: Component<Props> = (props) => {
         });
     };
 
-    createEffect(() => {
-        updateShownGroups();
-    });
+    // createEffect(() => {
+    //     updateShownGroups();
+    // });
 
     const Bookmark = () => (
         <div
@@ -118,7 +119,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     data-type="add"
                     class="block__icon b3-tooltips b3-tooltips__sw"
                     aria-label="添加书签组"
-                    onClick={blockIconAdd}
+                    onClick={groupAdd}
                 >
                     <svg class="">
                         <use href="#iconAdd"></use>
@@ -129,7 +130,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     data-type="refresh"
                     class="block__icon b3-tooltips b3-tooltips__sw"
                     aria-label="刷新"
-                    onClick={blockIconRefresh}
+                    onClick={bookmarkRefresh}
                 >
                     <svg class={fnRotate()}>
                         <use href="#iconRefresh"></use>
@@ -176,20 +177,22 @@ const BookmarkComponent: Component<Props> = (props) => {
             </div>
             <div class="fn__flex-1" style="margin-bottom: 8px">
                 <ul class="b3-list b3-list--background" id="custom-bookmark-body">
-                    {groups().map((group, i) => (
-                        <Group
-                            group={group}
-                            // ref={(el) => (groupComponent()[i] = el)}
-                            groupDelete={groupDelete}
-                            groupMove={groupMove}
-                        />
-                    ))}
+                    <For each={shownGroups()}>
+                        {(group) => (
+                            <Group
+                                group={group}
+                                // ref={(el) => (groupComponent()[i] = el)}
+                                groupDelete={groupDelete}
+                                groupMove={groupMove}
+                            />
+                        )}
+                    </For>
                 </ul>
             </div>
         </div>
     );
 
-    return (<BookmarkContext.Provider value={[props.plugin, props.model]}>
+    return (<BookmarkContext.Provider value={{ plugin: props.plugin, model: props.model, shownGroups }}>
         <Bookmark />
     </BookmarkContext.Provider>);
 };

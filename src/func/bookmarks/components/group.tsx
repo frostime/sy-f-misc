@@ -18,7 +18,7 @@ interface Props {
 }
 
 const Group: Component<Props> = (props) => {
-    const [_, model] = useContext(BookmarkContext);
+    const { model } = useContext(BookmarkContext);
 
     let orders = () => itemOrder[props.group.id];
 
@@ -120,7 +120,6 @@ const Group: Component<Props> = (props) => {
                 });
                 if (title) {
                     model.renameGroup(props.group.id, title.trim());
-                    props.group.name = props.group.name;
                 }
             },
         });
