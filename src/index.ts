@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-12 18:00:40
+ * @LastEditTime : 2024-06-13 11:12:52
  * @Description  : 
  */
 import {
@@ -22,7 +22,6 @@ import { Href, Svg } from "./utils/const";
 import { EventBusSync } from "./utils/event-bus";
 import { updateStyleLink } from "./utils/style";
 import { initSetting } from "./settings";
-import { SettingGroupsPanel } from "./libs/setting-panels";
 import { onPaste } from "./global-paste";
 
 const electron = require('electron');
@@ -33,9 +32,6 @@ const StorageNameConfigs = 'configs';
 export default class FMiscPlugin extends Plugin {
 
     isMobile: boolean;
-    // private settingUtils: SettingUtils;
-
-    settingUI: SettingGroupsPanel;
 
     declare data: {
         configs: {
