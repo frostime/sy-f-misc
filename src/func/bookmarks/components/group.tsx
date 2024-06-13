@@ -23,7 +23,7 @@ const Group: Component<Props> = (props) => {
     let orders = () => itemOrder[props.group.id];
 
     const orderedItems = createMemo(() => {
-        console.log('reorder items:', props.group)
+        // console.log('reorder items:', props.group)
         return orders().sort((a, b) => a.order - b.order);
     })
 
@@ -142,7 +142,6 @@ const Group: Component<Props> = (props) => {
             label: "上移",
             icon: "iconUp",
             click: async () => {
-                // dispatchEvent(new CustomEvent('move', { detail: { to: 'up', group: props.group } }));
                 props.groupMove({ to: 'up', group: props.group } );
             },
         });
@@ -150,8 +149,7 @@ const Group: Component<Props> = (props) => {
             label: "下移",
             icon: "iconDown",
             click: async () => {
-                // dispatchEvent(new CustomEvent('move', { detail: { to: 'down', group: props.group } }));
-                props.groupMove({ to: 'bottom', group: props.group } );
+                props.groupMove({ to: 'down', group: props.group } );
             },
         });
         menu.addItem({
@@ -159,7 +157,6 @@ const Group: Component<Props> = (props) => {
             icon: "iconTop",
             iconClass: "rotate-180",
             click: async () => {
-                // dispatchEvent(new CustomEvent('move', { detail: { to: 'bottom', group: props.group } }));
                 props.groupMove({ to: 'bottom', group: props.group } );
             },
         });

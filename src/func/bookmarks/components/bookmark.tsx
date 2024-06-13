@@ -1,8 +1,8 @@
-import { Component, For, createMemo, createSignal } from "solid-js";
+import { Component, For, createMemo, createSignal, Index } from "solid-js";
 // import { render } from "solid-js/web";
 import Group from "./group";
 import { confirm, Menu, Plugin, showMessage } from "siyuan";
-import { type BookmarkDataModel, groups } from "../model";
+import { type BookmarkDataModel, groups, groupMap } from "../model";
 import { inputDialog } from "@/libs/dialog";
 
 import { BookmarkContext } from "./context";
@@ -19,12 +19,9 @@ const BookmarkComponent: Component<Props> = (props) => {
     const [fnRotate, setFnRotate] = createSignal("");
 
     const shownGroups = createMemo(() => {
-        return groups.sort((a, b) => a.order - b.order).filter(group => !group.hidden);
+        let newg = groups.filter(group => !group.hidden).sort((a, b) => a.order - b.order);
+        return newg;
     });
-
-    // const updateShownGroups = () => {
-    //     setGroups(props.model.listGroups());
-    // };
 
     const groupAdd = () => {
         inputDialog({
@@ -32,7 +29,6 @@ const BookmarkComponent: Component<Props> = (props) => {
             placeholder: "请输入书签组名称",
             confirm: (title: string) => {
                 props.model.newGroup(title);
-                // setGroups([...groups(), group]);
             },
         });
     };
@@ -62,19 +58,26 @@ const BookmarkComponent: Component<Props> = (props) => {
             group: IBookmarkGroup;
         }
     ) => {
-        // const srcIdx = groups().findIndex(
-        //     (g: IBookmarkGroup) => g.id === detail.group.id
-        // );
-        // let targetIdx;
-        // if (detail.to === "up") targetIdx = srcIdx - 1;
-        // else if (detail.to === "down") targetIdx = srcIdx + 1;
-        // else if (detail.to === "top") targetIdx = 0;
-        // else if (detail.to === "bottom") targetIdx = groups().length - 1;
-        // else return;
-        // if (targetIdx < 0 || targetIdx >= groups().length) return;
-        // const targetGroup: IBookmarkGroup = groups()[targetIdx];
-        // props.model.groupSwapOrder(detail.group.id, targetGroup.id);
-        // setGroups(props.model.listGroups());
+        console.log(detail);
+        const srcIdx = shownGroups().findIndex(
+            (g: IBookmarkGroup) => g.id === detail.group.id
+        );
+        let targetIdx;
+        if (detail.to === "up") targetIdx = srcIdx - 1;
+        else if (detail.to === "down") targetIdx = srcIdx + 1;
+        else if (detail.to === "top") targetIdx = 0;
+        else if (detail.to === "bottom") targetIdx = shownGroups().length - 1;
+        else return;
+        if (targetIdx < 0 || targetIdx >= shownGroups().length) return;
+
+        const position = {
+            'down': 'after',
+            'bottom': 'after',
+            'up': 'before',
+            'top': 'before',
+        }[detail.to] as 'before' | 'after';
+        const targetGroup: IBookmarkGroup = shownGroups()[targetIdx];
+        props.model.groupMove(detail.group.id, targetGroup.id, position);
     };
 
     const bookmarkContextMenu = (e: MouseEvent) => {

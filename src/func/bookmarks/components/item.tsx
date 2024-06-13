@@ -1,5 +1,4 @@
 import { Component, createEffect, createMemo, createSignal, useContext } from "solid-js";
-import { Dynamic } from "solid-js/web";
 import { Menu, openTab, showMessage } from "siyuan";
 import { buildItemDetail } from "../libs/dom";
 // import { ItemInfoStore } from "../model";
@@ -34,7 +33,8 @@ const Item: Component<IProps> = (props) => {
 
     createEffect(() => {
         let value = item();
-        console.log('Item changed effect', value);
+        // console.log('Item changed effect');
+        // console.log(value);
         if (value) {
             const e = buildItemDetail(value);
             setNodeType(e.NodeType);
