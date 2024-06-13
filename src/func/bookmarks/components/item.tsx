@@ -1,10 +1,12 @@
-import { Component, createEffect, createMemo, createSignal, onCleanup, useContext } from "solid-js";
+import { Component, createEffect, createMemo, createSignal, useContext } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { Menu, openTab, showMessage } from "siyuan";
 import { buildItemDetail } from "../libs/dom";
-import { ItemInfoStore } from "../model";
-import { moveItemDetail } from "../../../../tmp/store";
-import { BookmarkContext } from "./context";
+// import { ItemInfoStore } from "../model";
+import { itemInfo } from "../model";
+
+// import { moveItemDetail } from "../../../../tmp/store";
+import { BookmarkContext, itemMoving, setItemMoving } from "./context";
 
 interface IProps {
     group: TBookmarkGroupId;
@@ -13,22 +15,28 @@ interface IProps {
 }
 
 const Item: Component<IProps> = (props) => {
-    const item = createMemo<IBookmarkItemInfo>(ItemInfoStore?.[props.block]);
+    const item = createMemo<IBookmarkItemInfo>(() => itemInfo[props.block]);
 
     const [NodeType, setNodeType] = createSignal<string>("");
     const [Icon, setIcon] = createSignal<string>("");
-    const [titleStyle, setTitleStyle] = createSignal<string>("");
     const [opacityStyle, setOpacityStyle] = createSignal<string>("");
-    const [dragovered, setDragovered] = createSignal<string>("");
+    const [titleStyle, setTitleStyle] = createSignal<string>("");
 
-    const [plugin, model] = useContext(BookmarkContext);
+    const dragovered = createMemo(() => {
+        let value = itemMoving();
+        if (value.targetGroup === props.group && value.afterItem === props.block) {
+            return 'dragovered';
+        } else {
+            return '';
+        }
+    });
 
     createEffect(() => {
         let value = item();
         if (value) {
-            const { NodeType, Icon } = buildItemDetail(value);
-            setNodeType(NodeType);
-            setIcon(Icon);
+            const e = buildItemDetail(value);
+            setNodeType(e.NodeType);
+            setIcon(e.Icon);
             if (value.err === 'BoxClosed') {
                 setTitleStyle('color: var(--b3-theme-on-surface-light);');
             } else if (value.err === 'BlockDeleted') {
@@ -38,6 +46,8 @@ const Item: Component<IProps> = (props) => {
             }
         }
     });
+
+    const [plugin, model] = useContext(BookmarkContext);
 
     const showItemContextMenu = (e: MouseEvent) => {
         e.stopPropagation();
@@ -98,7 +108,6 @@ const Item: Component<IProps> = (props) => {
             icon: "iconTrashcan",
             click: () => {
                 props.deleteItem(item());
-                // dispatchEvent(new CustomEvent('deleteItem', { detail: item() }));
             },
         });
         menu.open({
@@ -121,7 +130,13 @@ const Item: Component<IProps> = (props) => {
         event.dataTransfer.setData("bookmark/item", JSON.stringify({ group: props.group, id: item().id }));
         event.dataTransfer.effectAllowed = "move";
         setOpacityStyle('opacity: 0.5;');
-        moveItemDetail.set({
+        // moveItemDetail.set({
+        //     srcGroup: props.group,
+        //     srcItem: item().id,
+        //     targetGroup: '',
+        //     afterItem: ''
+        // });
+        setItemMoving({
             srcGroup: props.group,
             srcItem: item().id,
             targetGroup: '',
@@ -133,17 +148,6 @@ const Item: Component<IProps> = (props) => {
         event.dataTransfer.clearData();
         setOpacityStyle('');
     };
-
-    createEffect(() => {
-        const subscription = moveItemDetail.subscribe((value) => {
-            if (value.targetGroup === props.group && value.afterItem === props.block) {
-                setDragovered('dragovered');
-            } else {
-                setDragovered('');
-            }
-        });
-        onCleanup(() => subscription.unsubscribe());
-    });
 
     return (
         <li
@@ -170,7 +174,7 @@ const Item: Component<IProps> = (props) => {
                     <use href="#iconRight"></use>
                 </svg>
             </span>
-            <Dynamic component={Icon()}/>
+            <div innerHTML={Icon()}/>
             <span class="b3-list-item__text ariaLabel" data-position="parentE" style={titleStyle()}>
                 {item().title}
             </span>

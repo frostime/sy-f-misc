@@ -16,7 +16,7 @@ interface Props {
 
 const BookmarkComponent: Component<Props> = (props) => {
     const [groups, setGroups] = createSignal<IBookmarkGroup[]>([]);
-    const [groupComponent, setGroupComponent] = createSignal<Group[]>([]);
+    let groupComponent = [];
     const [fnRotate, setFnRotate] = createSignal("");
 
     const updateShownGroups = () => {
@@ -141,7 +141,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     class="block__icon b3-tooltips b3-tooltips__sw"
                     aria-label="展开 Ctrl+↓"
                     onClick={() => {
-                        groupComponent().forEach((group) => group.toggleOpen(true));
+                        groupComponent.forEach((group) => group.toggleOpen(true));
                         props.model.save();
                     }}
                 >
@@ -155,7 +155,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     class="block__icon b3-tooltips b3-tooltips__sw"
                     aria-label="折叠 Ctrl+↑"
                     onClick={() => {
-                        groupComponent().forEach((group) => group.toggleOpen(false));
+                        groupComponent.forEach((group) => group.toggleOpen(false));
                         props.model.save();
                     }}
                 >
@@ -179,7 +179,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     {groups().map((group, i) => (
                         <Group
                             group={group}
-                            ref={(el) => (groupComponent()[i] = el)}
+                            // ref={(el) => (groupComponent()[i] = el)}
                             groupDelete={groupDelete}
                             groupMove={groupMove}
                         />

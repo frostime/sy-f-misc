@@ -2,12 +2,12 @@ import { Component, createEffect, createMemo, createSignal, onCleanup, useContex
 import { Menu, Constants, confirm, showMessage } from "siyuan";
 import Item from "./item";
 import { inputDialogSync } from "@/libs/dialog";
-import { ItemOrderStore } from "../model";
+import { itemOrder, setItemOrder } from "../model";
 import { ClassName } from "../libs/dom";
-import { getBlockByID } fro../libs/utils";
-import { highlightedGroup, moveItemDetail } from "../../../../tmp/store";
+import { getBlockByID } from "@/api";
+// import { highlightedGroup, moveItemDetail } from "../../../../tmp/store";
 
-import { BookmarkContext } from "./context";
+import { BookmarkContext, itemMoving, setItemMoving, groupDrop, setGroupDrop } from "./context";
 
 
 interface Props {
@@ -19,10 +19,20 @@ interface Props {
 const Group: Component<Props> = (props) => {
     const [_, model] = useContext(BookmarkContext);
 
-    const itemsOrder = createMemo<IItemOrder[]>(ItemOrderStore?.[props.group.id]);
+    const itemsOrder = createMemo<IItemOrder[]>(() => itemOrder[props.group.id]);
+
     const [isOpen, setIsOpen] = createSignal(props.group.expand !== undefined ? !props.group.expand : true);
+
     const [isDragOver, setIsDragOver] = createSignal(false);
-    const [dragovered, setDragovered] = createSignal('');
+
+    const dragovered = createMemo(() => {
+        let value = itemMoving();
+        if (value.targetGroup === props.group.id && value.afterItem === '') {
+            return 'dragovered';
+        } else {
+            return '';
+        }
+    });
 
     const toggleOpen = (open?: boolean) => {
         setIsOpen(open !== undefined ? open : !isOpen());
@@ -232,11 +242,16 @@ const Group: Component<Props> = (props) => {
             setIsDragOver(true);
             const overedItem = checkDragOveredItem(event);
             if (!overedItem) return;
-            moveItemDetail.update((value) => {
+            // moveItemDetail.update((value) => {
+            //     value.targetGroup = props.group.id;
+            //     value.afterItem = overedItem.id;
+            //     return value;
+            // });
+            setItemMoving((value) => {
                 value.targetGroup = props.group.id;
                 value.afterItem = overedItem.id;
                 return value;
-            });
+            })
         }
     };
 
@@ -254,8 +269,14 @@ const Group: Component<Props> = (props) => {
             const nodeId = info[2];
             addItemByBlockId(nodeId);
         } else if (type === 'bookmark/item') {
-            model.moveItem(moveItemDetail);
-            moveItemDetail.set({
+            model.moveItem(itemMoving());
+            // moveItemDetail.set({
+            //     srcGroup: "",
+            //     srcItem: "",
+            //     targetGroup: "",
+            //     afterItem: "",
+            // });
+            setItemMoving({
                 srcGroup: "",
                 srcItem: "",
                 targetGroup: "",
@@ -264,17 +285,6 @@ const Group: Component<Props> = (props) => {
         }
         setIsDragOver(false);
     };
-
-    createEffect(() => {
-        const subscription = moveItemDetail.subscribe((value) => {
-            if (value.targetGroup === props.group.id && value.afterItem === '') {
-                setDragovered('dragovered');
-            } else {
-                setDragovered('');
-            }
-        });
-        onCleanup(() => subscription.unsubscribe());
-    });
 
     const svgArrowClass = () => isOpen() ? "b3-list-item__arrow--open" : "";
     const itemsClass = () => isOpen() ? "" : "fn__none";
@@ -290,7 +300,7 @@ const Group: Component<Props> = (props) => {
             role="list"
         >
             <li
-                class={`b3-list-item b3-list-item--hide-action custom-bookmark-group-header ${dragovered()} ${highlightedGroup() === props.group.id ? 'b3-list-item--focus' : ''}`}
+                class={`b3-list-item b3-list-item--hide-action custom-bookmark-group-header ${dragovered()} ${groupDrop() === props.group.id ? 'b3-list-item--focus' : ''}`}
                 style="--file-toggle-width:20px"
                 data-treetype="bookmark"
                 data-type="undefined"
@@ -298,7 +308,8 @@ const Group: Component<Props> = (props) => {
                 data-groupid={props.group.id}
                 data-groupname={props.group.name}
                 onClick={() => {
-                    highlightedGroup.set(props.group.id);
+                    // highlightedGroup.set(props.group.id);
+                    setGroupDrop(props.group.id);
                     toggleOpen();
                     model.save();
                 }}

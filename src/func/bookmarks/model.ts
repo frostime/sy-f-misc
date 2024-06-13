@@ -1,78 +1,19 @@
-import { Writable, writable } from "svelte/store";
+import { createStore } from "solid-js/store";
 
 import type FMiscPlugin from "@/index";
-import { sql, request } from "@/api";
-import PromiseLimitPool from "@/libs/promise-pool";
+
+import { getBlocks, getDocInfos, newOrderByTime } from "./libs/data";
 import { showMessage } from "siyuan";
+import { batch } from "solid-js";
 
 const StorageNameBookmarks = 'bookmarks';
 
-/**
- * 传入若干个 block id, 返回一个对象, key 为 block id, value 为 block
- * @param ids 
- * @returns 
- */
-const getBlocks = async (...ids: BlockId[]) => {
-    const fmt = `select * from blocks where id in (${ids.map((b) => `'${b}'`).join(',')})`;
-    let blocks = await sql(fmt);
-    let results: { [key: BlockId]: Block | null } = {};
-    for (let id of ids) {
-        let block = blocks.find(block => block.id === id);
-        if (block) {
-            results[id] = block;
-        } else {
-            results[id] = null;
-        }
-    }
-    return results;
-}
 
-interface IDocInfo {
-    rootID: DocumentId;
-    rootIcon: string;
-    rootTitle: string;
-    box: string;
-}
-/**
- * 传入若干个 doc id, 返回一个对象, key 为 doc id, value 为 doc info
- * @param docIds 
- * @returns 
- */
-const getDocInfos = async (...docIds: DocumentId[]) => {
-    const endpoints = '/api/block/getBlockInfo';
-    const pool = new PromiseLimitPool<IDocInfo>(16);
-    for (let docId of docIds) {
-        pool.add(async () => {
-            const result = await request(endpoints, { id: docId });
-            return result;
-        });
-    }
-    let results: { [key: DocumentId]: IDocInfo | null } = {};
-    try {
-        let docInfos = await pool.awaitAll();
-        for (let id of docIds) {
-            let docInfo = docInfos.find(docInfo => docInfo.rootID === id);
-            if (docInfo) {
-                results[id] = docInfo;
-            } else {
-                results[id] = null;
-            }
-        }
-    } catch (error) {
-        console.error(error);
-    }
-    return results;
-}
 
-const newOrderByTime = (): number => {
-    const start = '2024-05-28T12:00:00';  //起始时间
-    let now = Date.now();
-    let diff = now - Date.parse(start);
-    return diff;
-}
-
-export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {};
-export const ItemOrderStore: { [key: TBookmarkGroupId]: Writable<IItemOrder[]> } = {};
+// export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {};
+// export const ItemOrderStore = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
+export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
+export const [itemOrder, setItemOrder] = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
 
 export class BookmarkDataModel {
     plugin: FMiscPlugin;
@@ -91,7 +32,8 @@ export class BookmarkDataModel {
         this.plugin.data.bookmarks = bookmarks ?? {};
         for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
             let items = group.items.map(item => ({ id: item.id, order: item.order }));
-            ItemOrderStore[id] = writable(items);
+            // ItemOrderStore[id] = writable(items);
+            setItemOrder(id, items);
             let groupV2: IBookmarkGroup = { ...group, items };
             this.groups.set(id, groupV2);
             group.items.map(item => {
@@ -109,7 +51,8 @@ export class BookmarkDataModel {
                     ref: 1
                 };
                 this.items.set(item.id, iteminfo);
-                ItemInfoStore[item.id] = writable({ ...iteminfo });
+                // ItemInfoStore[item.id] = writable({ ...iteminfo });
+                setItemInfo(item.id, { ...iteminfo });
             });
         }
     }
@@ -182,7 +125,8 @@ export class BookmarkDataModel {
                     item.err = 'BlockDeleted';
                 }
             }
-            ItemInfoStore[id].set({ ...item });
+            // ItemInfoStore[id].set({ ...item });
+            setItemInfo(id, { ...item });
         });
         console.debug('更新所有 Bookmark items 完成');
     }
@@ -231,7 +175,8 @@ export class BookmarkDataModel {
             order: newOrderByTime()
         };
         this.groups.set(id, group);
-        ItemOrderStore[id] = writable([]);
+        // ItemOrderStore[id] = writable([]);
+        setItemOrder(id, []);
         this.save();
         return group;
     }
@@ -239,7 +184,8 @@ export class BookmarkDataModel {
     delGroup(id: TBookmarkGroupId) {
         if (this.groups.has(id)) {
             this.groups.delete(id);
-            delete ItemOrderStore[id];
+            // delete ItemOrderStore[id];
+            setItemOrder(id, undefined);
             this.save();
             return true;
         } else {
@@ -273,7 +219,8 @@ export class BookmarkDataModel {
             if (!exist) {
                 let iteminfo = { ...item, icon: '', ref: 0 };
                 this.items.set(item.id, iteminfo);
-                ItemInfoStore[item.id] = writable({ ...iteminfo });
+                // ItemInfoStore[item.id] = writable({ ...iteminfo });
+                setItemInfo(item.id, { ...iteminfo });
             } else if (this.hasItem(item.id, gid)) {
                 console.warn(`addItem: item ${item.id} already in group ${gid}`);
                 return false;
@@ -282,7 +229,8 @@ export class BookmarkDataModel {
                 id: item.id,
                 order: newOrderByTime()
             });
-            ItemOrderStore[gid].set(group.items);
+            // ItemOrderStore[gid].set(group.items);
+            setItemOrder(gid, group.items);
             this.items.get(item.id).ref++;
             this.save();
             return true;
@@ -295,7 +243,8 @@ export class BookmarkDataModel {
         let group = this.groups.get(gid);
         if (group) {
             group.items = group.items.filter(item => item.id !== id);
-            ItemOrderStore[gid].set(group.items);
+            // ItemOrderStore[gid].set(group.items);
+            setItemOrder(gid, group.items);
             let item = this.items.get(id);
             if (item) {
                 item.ref--;
@@ -336,8 +285,12 @@ export class BookmarkDataModel {
         }
         from.items = from.items.filter(itmin => itmin.id !== item.id);
         to.items.push(fromitem);
-        ItemOrderStore[fromGroup].set(from.items);
-        ItemOrderStore[toGroup].set(to.items);
+        // ItemOrderStore[fromGroup].set(from.items);
+        // ItemOrderStore[toGroup].set(to.items);
+        batch(() => {
+            setItemOrder(fromGroup, from.items);
+            setItemOrder(toGroup, to.items);
+        });
         this.save();
         return true;
     }
@@ -360,7 +313,8 @@ export class BookmarkDataModel {
         } else if (order === 'down' && items[index].order !== max) {
             items[index].order = max + 1;
         }
-        ItemOrderStore[gid].set(items);
+        // ItemOrderStore[gid].set(items);
+        setItemOrder(gid, items);
         this.save();
         return true;
     }
@@ -409,15 +363,20 @@ export class BookmarkDataModel {
 
         if (srcGroup === targetGroup) {
             src.items[srcIndex].order = newOrder;
-            ItemOrderStore[srcGroup].set(src.items);
+            // ItemOrderStore[srcGroup].set(src.items);
+            setItemOrder(srcGroup, src.items);
         } else {
             src.items.splice(srcIndex, 1); //从源分组中删除
             target.items.push({
                 id: srcItem,
                 order: newOrder
             }); //插入到目标分组中
-            ItemOrderStore[srcGroup].set(src.items);
-            ItemOrderStore[targetGroup].set(target.items);
+            // ItemOrderStore[srcGroup].set(src.items);
+            // ItemOrderStore[targetGroup].set(target.items);
+            batch(() => {
+                setItemOrder(srcGroup, src.items);
+                setItemOrder(targetGroup, target.items);
+            });
         }
         console.debug(`moveItem: ${srcItem} from ${srcGroup} to ${targetGroup} after ${afterItem}`);
         this.save();
