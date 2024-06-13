@@ -2,7 +2,7 @@ import { Writable, writable } from "svelte/store";
 
 import type FMiscPlugin from "@/index";
 import { sql, request } from "@/api";
-import PromiseLimitPool from "@/utils/promise-pool";
+import PromiseLimitPool from "@/libs/promise-pool";
 import { showMessage } from "siyuan";
 
 const StorageNameBookmarks = 'bookmarks';

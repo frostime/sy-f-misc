@@ -20,7 +20,7 @@ import { load, unload } from "./func";
 import "@/index.scss";
 import { Href, Svg } from "./utils/const";
 import { EventBusSync } from "./utils/event-bus";
-import { updateStyleLink } from "./utils/style";
+import { updateStyleLink } from "./libs/style";
 import { initSetting } from "./settings";
 import { onPaste } from "./global-paste";
 
