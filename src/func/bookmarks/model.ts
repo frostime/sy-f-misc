@@ -8,21 +8,10 @@ import { batch, createMemo } from "solid-js";
 
 const StorageNameBookmarks = 'bookmarks';
 
-
-
-// export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {};
-// export const ItemOrderStore = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
 export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
-// export const [itemOrder, setItemOrder] = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
-
-// createEffect(() => {
-//     console.log('itemOrder changed', itemOrder);
-// })
 
 export const [groups, setGroups] = createStore<IBookmarkGroup[]>([]);
 export const groupMap = createMemo<Map<TBookmarkGroupId, IBookmarkGroup & {index: number}>>(() => {
-    // console.log('Create group maps');
-    // console.log(groups);
     return new Map(groups.map((group, index) => [group.id, {...group, index: index}]));
 });
 
@@ -67,6 +56,19 @@ export class BookmarkDataModel {
                 setGroups((gs) => [...gs, groupV2] )
             })
         })
+    }
+
+    private async saveCore(fpath?: string) {
+        console.log('save bookmarks');
+        let result: {[key: TBookmarkGroupId]: IBookmarkGroup} = {};
+
+        for (let [id, group] of groupMap()) {
+            result[id] = unwrap(group);
+            result[id].items = unwrap(result[id].items);
+        }
+        this.plugin.data.bookmarks = result;
+        fpath = fpath ?? StorageNameBookmarks + '.json';
+        await this.plugin.saveData(fpath, this.plugin.data.bookmarks);
     }
 
     async save(fpath?: string) {
@@ -197,9 +199,7 @@ export class BookmarkDataModel {
             items: [],
             order: newOrderByTime()
         };
-        // this.groups.set(id, group);
 
-        // setItemOrder(id, []);
         setGroups((gs) => [...gs, group]);
         this.save();
         return group;
@@ -207,13 +207,7 @@ export class BookmarkDataModel {
 
     delGroup(id: TBookmarkGroupId) {
         if (groupMap().has(id)) {
-            // this.groups.delete(id);
-            // delete ItemOrderStore[id];
             setGroups((gs: IBookmarkGroup[]) => gs.filter((g) => g.id !== id));
-            // setItemOrder((store) => {
-            //     const { [id]: _, ...rest } = store;
-            //     return rest;
-            // });
             this.save();
             return true;
         } else {
@@ -250,8 +244,6 @@ export class BookmarkDataModel {
             let exist = itemInfo[item.id] !== undefined;
             if (!exist) {
                 let iteminfo = { ...item, icon: '', ref: 0 };
-                // this.items.set(item.id, iteminfo);
-                // ItemInfoStore[item.id] = writable({ ...iteminfo });
                 setItemInfo(item.id, iteminfo);
             } else if (this.hasItem(item.id, gid)) {
                 console.warn(`addItem: item ${item.id} already in group ${gid}`);
@@ -261,9 +253,6 @@ export class BookmarkDataModel {
             setGroups((g) => g.id === gid, 'items', (items) => {
                 return [...items, {id: item.id, order: newOrderByTime()}]
             })
-            // ItemOrderStore[gid].set(group.items);
-            // setItemOrder(gid, group.items);
-            // this.items.get(item.id).ref++;
             setItemInfo(item.id, 'ref', (ref) => ref + 1);
             this.save();
             return true;
@@ -278,9 +267,7 @@ export class BookmarkDataModel {
             setGroups((g) => g.id === gid, 'items', (items: IItemOrder[]) => {
                 return items.filter(item => item.id !== id);
             })
-            // ItemOrderStore[gid].set(group.items);
-            // setItemOrder(gid, group.items);
-            // let item = this.items.get(id);
+
             let item = itemInfo[id];
             if (item) {
                 let ref = item.ref;
@@ -350,14 +337,10 @@ export class BookmarkDataModel {
         let min = Math.min(...orders);
         let max = Math.max(...orders);
         if (order === 'top' && items[index].order !== min) {
-            // items[index].order = min - 1;
             setGroups(group.index, 'items', (io) => io.id === item.id, 'order', min - 1);
         } else if (order === 'bottom' && items[index].order !== max) {
-            // items[index].order = max + 1;
             setGroups(group.index, 'items', (io) => io.id === item.id, 'order', max + 1);
         }
-        // ItemOrderStore[gid].set(items);
-        // setItemOrder(gid, (t) => t.id === item.id, 'order', items[index].order);
         this.save();
         return true;
     }
@@ -406,9 +389,6 @@ export class BookmarkDataModel {
 
         if (srcGroup === targetGroup) {
             setGroups(src.index, 'items', (io) => io.id === srcItem, 'order', newOrder);
-            // src.items[srcIndex].order = newOrder;
-            // ItemOrderStore[srcGroup].set(src.items);
-            // setItemOrder(srcGroup, src.items);
         } else {
             batch(() => {
                 setGroups((g) => g.id === srcGroup, 'items', (items: IItemOrder[]) => {
@@ -418,17 +398,6 @@ export class BookmarkDataModel {
                     return [...items, { id: srcItem, order: newOrder }];
                 });
             });
-            // src.items.splice(srcIndex, 1); //从源分组中删除
-            // target.items.push({
-            //     id: srcItem,
-            //     order: newOrder
-            // }); //插入到目标分组中
-            // ItemOrderStore[srcGroup].set(src.items);
-            // ItemOrderStore[targetGroup].set(target.items);
-            // batch(() => {
-            //     setItemOrder(srcGroup, src.items);
-            //     setItemOrder(targetGroup, target.items);
-            // });
         }
         console.debug(`moveItem: ${srcItem} from ${srcGroup} to ${targetGroup} after ${afterItem}`);
         this.save();

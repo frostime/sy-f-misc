@@ -1,8 +1,8 @@
-import { Component, For, createMemo, createSignal, Index } from "solid-js";
+import { Component, For, createMemo, createSignal } from "solid-js";
 // import { render } from "solid-js/web";
 import Group from "./group";
 import { confirm, Menu, Plugin, showMessage } from "siyuan";
-import { type BookmarkDataModel, groups, groupMap } from "../model";
+import { type BookmarkDataModel, groups } from "../model";
 import { inputDialog } from "@/libs/dialog";
 
 import { BookmarkContext } from "./context";
@@ -17,6 +17,9 @@ interface Props {
 const BookmarkComponent: Component<Props> = (props) => {
     let groupComponent = [];
     const [fnRotate, setFnRotate] = createSignal("");
+
+    type TAction = "" | "AllExpand" | "AllCollapse";
+    const [doAction, setDoAction] = createSignal<TAction>("");
 
     const shownGroups = createMemo(() => {
         let newg = groups.filter(group => !group.hidden).sort((a, b) => a.order - b.order);
@@ -100,10 +103,6 @@ const BookmarkComponent: Component<Props> = (props) => {
         });
     };
 
-    // createEffect(() => {
-    //     updateShownGroups();
-    // });
-
     const Bookmark = () => (
         <div
             class="fn__flex-1 fn__flex-column file-tree sy__bookmark custom-bookmark-element"
@@ -145,8 +144,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     class="block__icon b3-tooltips b3-tooltips__sw"
                     aria-label="展开 Ctrl+↓"
                     onClick={() => {
-                        groupComponent.forEach((group) => group.toggleOpen(true));
-                        props.model.save();
+                        setDoAction('AllExpand');
                     }}
                 >
                     <svg>
@@ -159,8 +157,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     class="block__icon b3-tooltips b3-tooltips__sw"
                     aria-label="折叠 Ctrl+↑"
                     onClick={() => {
-                        groupComponent.forEach((group) => group.toggleOpen(false));
-                        props.model.save();
+                        setDoAction('AllCollapse');
                     }}
                 >
                     <svg>
@@ -195,7 +192,7 @@ const BookmarkComponent: Component<Props> = (props) => {
         </div>
     );
 
-    return (<BookmarkContext.Provider value={{ plugin: props.plugin, model: props.model, shownGroups }}>
+    return (<BookmarkContext.Provider value={{ plugin: props.plugin, model: props.model, shownGroups, doAction }}>
         <Bookmark />
     </BookmarkContext.Provider>);
 };

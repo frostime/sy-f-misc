@@ -6,6 +6,7 @@ interface IBookmarkContext {
     plugin: Plugin;
     model: BookmarkDataModel;
     shownGroups: Accessor<IBookmarkGroup[]>
+    doAction: Accessor<string>
 }
 
 export const BookmarkContext = createContext<IBookmarkContext>();

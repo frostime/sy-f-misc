@@ -1,12 +1,11 @@
-import { Component, createMemo, createSignal, useContext } from "solid-js";
+import { Component, createEffect, createMemo, createSignal, useContext } from "solid-js";
 import { For } from "solid-js";
 import { Menu, Constants, confirm, showMessage } from "siyuan";
 import Item from "./item";
 import { inputDialogSync } from "@/libs/dialog";
-import { groups } from "../model";
+import { groups, setGroups } from "../model";
 import { ClassName } from "../libs/dom";
 import { getBlockByID } from "@/api";
-// import { highlightedGroup, moveItemDetail } from "../../../../tmp/store";
 
 import { BookmarkContext, itemMoving, setItemMoving, groupDrop, setGroupDrop } from "./context";
 
@@ -14,11 +13,11 @@ import { BookmarkContext, itemMoving, setItemMoving, groupDrop, setGroupDrop } f
 interface Props {
     group: IBookmarkGroup;
     groupDelete: (g: IBookmarkGroup) => void;
-    groupMove: (e: {to: string, group: IBookmarkGroup}) => void;
+    groupMove: (e: { to: string, group: IBookmarkGroup }) => void;
 }
 
 const Group: Component<Props> = (props) => {
-    const { model } = useContext(BookmarkContext);
+    const { model, doAction } = useContext(BookmarkContext);
 
     let orderedItems = createMemo(() => {
         let index = groups.findIndex((g) => g.id === props.group.id);
@@ -27,7 +26,29 @@ const Group: Component<Props> = (props) => {
         return group.items.slice().sort((a, b) => a.order - b.order);
     });
 
-    const [isOpen, setIsOpen] = createSignal(props.group.expand !== undefined ? !props.group.expand : true);
+    const isOpen = createMemo(() => {
+        let index = groups.findIndex((g) => g.id === props.group.id);
+        let group = groups[index];
+        return group.expand !== undefined ? !group.expand : true;
+    });
+
+    const toggleOpen = (open?: boolean) => {
+        let expand = !(open !== undefined ? open : !isOpen());
+        setGroups((g) => g.id === props.group.id, 'expand', expand);
+        model.save();
+    };
+
+    /**
+     * 订阅来自顶层的指令信号
+     */
+    createEffect(() => {
+        let action = doAction();
+        if (action === "AllExpand") {
+            toggleOpen(true);
+        } else if (action === "AllCollapse") {
+            toggleOpen(false);
+        }
+    })
 
     const [isDragOver, setIsDragOver] = createSignal(false);
 
@@ -39,11 +60,6 @@ const Group: Component<Props> = (props) => {
             return '';
         }
     });
-
-    const toggleOpen = (open?: boolean) => {
-        setIsOpen(open !== undefined ? open : !isOpen());
-        props.group.expand = !isOpen();
-    };
 
     const addItemByBlockId = async (blockId: string) => {
         if (model.hasItem(blockId, props.group.id)) {
@@ -136,21 +152,21 @@ const Group: Component<Props> = (props) => {
             label: "置顶",
             icon: "iconTop",
             click: async () => {
-                props.groupMove({ to: 'top', group: props.group } );
+                props.groupMove({ to: 'top', group: props.group });
             },
         });
         menu.addItem({
             label: "上移",
             icon: "iconUp",
             click: async () => {
-                props.groupMove({ to: 'up', group: props.group } );
+                props.groupMove({ to: 'up', group: props.group });
             },
         });
         menu.addItem({
             label: "下移",
             icon: "iconDown",
             click: async () => {
-                props.groupMove({ to: 'down', group: props.group } );
+                props.groupMove({ to: 'down', group: props.group });
             },
         });
         menu.addItem({
@@ -158,7 +174,7 @@ const Group: Component<Props> = (props) => {
             icon: "iconTop",
             iconClass: "rotate-180",
             click: async () => {
-                props.groupMove({ to: 'bottom', group: props.group } );
+                props.groupMove({ to: 'bottom', group: props.group });
             },
         });
         menu.addSeparator();
@@ -314,7 +330,6 @@ const Group: Component<Props> = (props) => {
                     // highlightedGroup.set(props.group.id);
                     setGroupDrop(props.group.id);
                     toggleOpen();
-                    model.save();
                 }}
                 onContextMenu={showGroupContextMenu}
             >
