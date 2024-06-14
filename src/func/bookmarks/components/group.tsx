@@ -3,7 +3,7 @@ import { For } from "solid-js";
 import { Menu, Constants, confirm, showMessage } from "siyuan";
 import Item from "./item";
 import { inputDialogSync } from "@/libs/dialog";
-import { itemOrder } from "../model";
+import { groupMap } from "../model";
 import { ClassName } from "../libs/dom";
 import { getBlockByID } from "@/api";
 // import { highlightedGroup, moveItemDetail } from "../../../../tmp/store";
@@ -20,11 +20,13 @@ interface Props {
 const Group: Component<Props> = (props) => {
     const { model } = useContext(BookmarkContext);
 
-    let orders = () => itemOrder[props.group.id];
+    let groupItems = createMemo(() => {
+        let group = groupMap().get(props.group.id);
+        return group.items;
+    })
 
     const orderedItems = createMemo(() => {
-        // console.log('reorder items:', props.group)
-        return orders().sort((a, b) => a.order - b.order);
+        return groupItems().sort((a, b) => a.order - b.order);
     })
 
     const [isOpen, setIsOpen] = createSignal(props.group.expand !== undefined ? !props.group.expand : true);
@@ -70,6 +72,7 @@ const Group: Component<Props> = (props) => {
             subtype: block.subtype,
             box: block.box,
         };
+        console.log('add item')
         model.addItem(props.group.id, item);
         toggleOpen(true);
     };

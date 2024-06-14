@@ -13,18 +13,18 @@ const StorageNameBookmarks = 'bookmarks';
 // export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {};
 // export const ItemOrderStore = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
 export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
-export const [itemOrder, setItemOrder] = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
+// export const [itemOrder, setItemOrder] = createStore<{ [key: TBookmarkGroupId]: IItemOrder[] }>({});
 
 // createEffect(() => {
 //     console.log('itemOrder changed', itemOrder);
 // })
 
 export const [groups, setGroups] = createStore<IBookmarkGroup[]>([]);
-export const groupMap = createMemo<Map<TBookmarkGroupId, IBookmarkGroup>>(() => {
+export const groupMap = createMemo<Map<TBookmarkGroupId, IBookmarkGroup & {index: number}>>(() => {
     // console.log('Create group maps');
     // console.log(groups);
-    return new Map(groups.map(group => [group.id, group]));
-})
+    return new Map(groups.map((group, index) => [group.id, {...group, index: index}]));
+});
 
 
 export class BookmarkDataModel {
@@ -42,12 +42,12 @@ export class BookmarkDataModel {
         for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
             let items = group.items.map(item => ({ id: item.id, order: item.order }));
             // ItemOrderStore[id] = writable(items);
-            setItemOrder(id, items);
+            // setItemOrder(id, items);
             let groupV2: IBookmarkGroup = { ...group, items };
             allGroups.push(groupV2);
             group.items.map(item => {
                 if (itemInfo[item.id] !== undefined) {
-                    itemInfo[item.id].ref++;
+                    setItemInfo(item.id, 'ref', (ref) => ref + 1);
                     return;
                 }
                 let iteminfo: IBookmarkItemInfo = {
@@ -199,7 +199,7 @@ export class BookmarkDataModel {
         };
         // this.groups.set(id, group);
 
-        setItemOrder(id, []);
+        // setItemOrder(id, []);
         setGroups((gs) => [...gs, group]);
         this.save();
         return group;
@@ -210,10 +210,10 @@ export class BookmarkDataModel {
             // this.groups.delete(id);
             // delete ItemOrderStore[id];
             setGroups((gs: IBookmarkGroup[]) => gs.filter((g) => g.id !== id));
-            setItemOrder((store) => {
-                const { [id]: _, ...rest } = store;
-                return rest;
-            });
+            // setItemOrder((store) => {
+            //     const { [id]: _, ...rest } = store;
+            //     return rest;
+            // });
             this.save();
             return true;
         } else {
@@ -257,12 +257,12 @@ export class BookmarkDataModel {
                 console.warn(`addItem: item ${item.id} already in group ${gid}`);
                 return false;
             }
-            group.items.push({
-                id: item.id,
-                order: newOrderByTime()
-            });
+
+            setGroups((g) => g.id === gid, 'items', (items) => {
+                return [...items, {id: item.id, order: newOrderByTime()}]
+            })
             // ItemOrderStore[gid].set(group.items);
-            setItemOrder(gid, group.items);
+            // setItemOrder(gid, group.items);
             // this.items.get(item.id).ref++;
             setItemInfo(item.id, 'ref', (ref) => ref + 1);
             this.save();
@@ -275,16 +275,19 @@ export class BookmarkDataModel {
     delItem(gid: TBookmarkGroupId, id: BlockId) {
         let group = groupMap().get(gid);
         if (group) {
-            group.items = group.items.filter(item => item.id !== id);
+            setGroups((g) => g.id === gid, 'items', (items: IItemOrder[]) => {
+                return items.filter(item => item.id !== id);
+            })
             // ItemOrderStore[gid].set(group.items);
-            setItemOrder(gid, group.items);
+            // setItemOrder(gid, group.items);
             // let item = this.items.get(id);
             let item = itemInfo[id];
             if (item) {
-                item.ref--;
-                if (item.ref === 0) {
-                    // this.items.delete(id);
-                    setItemInfo(id, undefined);
+                let ref = item.ref;
+                if (ref === 1) {
+                    setItemInfo(id, undefined!);
+                } else {
+                    setItemInfo(id, 'ref', (ref) => ref - 1);
                 }
             }
             this.save();
@@ -318,19 +321,21 @@ export class BookmarkDataModel {
             showMessage('源分组中没有该项', 4000, 'error');
             return false;
         }
-        from.items = from.items.filter(itmin => itmin.id !== item.id);
-        to.items.push(fromitem);
-        // ItemOrderStore[fromGroup].set(from.items);
-        // ItemOrderStore[toGroup].set(to.items);
+
         batch(() => {
-            setItemOrder(fromGroup, from.items);
-            setItemOrder(toGroup, to.items);
+            setGroups((g) => g.id === fromGroup, 'items', (items: IItemOrder[]) => {
+                return items.filter(it => it.id != item.id);
+            });
+            setGroups((g) => g.id === toGroup, 'items', (items: IItemOrder[]) => {
+                return [...items, fromitem];
+            });
         });
+
         this.save();
         return true;
     }
 
-    reorderItem(gid: TBookmarkGroupId, item: IBookmarkItemInfo, order: 'up' | 'down') {
+    reorderItem(gid: TBookmarkGroupId, item: IBookmarkItemInfo, order: 'top' | 'bottom') {
         console.log('reorder')
         let group = groupMap().get(gid);
         if (!group) {
@@ -344,13 +349,15 @@ export class BookmarkDataModel {
         let orders = items.map(itmin => itmin.order);
         let min = Math.min(...orders);
         let max = Math.max(...orders);
-        if (order === 'up' && items[index].order !== min) {
-            items[index].order = min - 1;
-        } else if (order === 'down' && items[index].order !== max) {
-            items[index].order = max + 1;
+        if (order === 'top' && items[index].order !== min) {
+            // items[index].order = min - 1;
+            setGroups(group.index, 'items', (io) => io.id === item.id, 'order', min - 1);
+        } else if (order === 'bottom' && items[index].order !== max) {
+            // items[index].order = max + 1;
+            setGroups(group.index, 'items', (io) => io.id === item.id, 'order', max + 1);
         }
         // ItemOrderStore[gid].set(items);
-        setItemOrder(gid, (t) => t.id === item.id, 'order', items[index].order);
+        // setItemOrder(gid, (t) => t.id === item.id, 'order', items[index].order);
         this.save();
         return true;
     }
@@ -398,21 +405,30 @@ export class BookmarkDataModel {
         }
 
         if (srcGroup === targetGroup) {
-            src.items[srcIndex].order = newOrder;
+            setGroups(src.index, 'items', (io) => io.id === srcItem, 'order', newOrder);
+            // src.items[srcIndex].order = newOrder;
             // ItemOrderStore[srcGroup].set(src.items);
-            setItemOrder(srcGroup, src.items);
+            // setItemOrder(srcGroup, src.items);
         } else {
-            src.items.splice(srcIndex, 1); //从源分组中删除
-            target.items.push({
-                id: srcItem,
-                order: newOrder
-            }); //插入到目标分组中
+            batch(() => {
+                setGroups((g) => g.id === srcGroup, 'items', (items: IItemOrder[]) => {
+                    return items.filter(it => it.id != srcItem);
+                });
+                setGroups((g) => g.id === targetGroup, 'items', (items: IItemOrder[]) => {
+                    return [...items, { id: srcItem, order: newOrder }];
+                });
+            });
+            // src.items.splice(srcIndex, 1); //从源分组中删除
+            // target.items.push({
+            //     id: srcItem,
+            //     order: newOrder
+            // }); //插入到目标分组中
             // ItemOrderStore[srcGroup].set(src.items);
             // ItemOrderStore[targetGroup].set(target.items);
-            batch(() => {
-                setItemOrder(srcGroup, src.items);
-                setItemOrder(targetGroup, target.items);
-            });
+            // batch(() => {
+            //     setItemOrder(srcGroup, src.items);
+            //     setItemOrder(targetGroup, target.items);
+            // });
         }
         console.debug(`moveItem: ${srcItem} from ${srcGroup} to ${targetGroup} after ${afterItem}`);
         this.save();

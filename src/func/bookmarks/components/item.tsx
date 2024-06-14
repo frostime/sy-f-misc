@@ -92,17 +92,17 @@ const Item: Component<IProps> = (props) => {
             submenu: groups
         });
         menu.addItem({
-            label: "上移",
+            label: "置顶",
             icon: "iconUp",
             click: () => {
-                model.reorderItem(props.group, item(), 'up');
+                model.reorderItem(props.group, item(), 'top');
             }
         });
         menu.addItem({
-            label: "下移",
+            label: "置底",
             icon: "iconDown",
             click: () => {
-                model.reorderItem(props.group, item(), 'down');
+                model.reorderItem(props.group, item(), 'bottom');
             }
         });
         menu.addItem({
