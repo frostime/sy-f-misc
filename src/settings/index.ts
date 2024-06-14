@@ -3,14 +3,15 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-06-07 20:13:35
+ * @LastEditTime : 2024-06-12 22:51:36
  * @Description  : 
  */
+import { render } from 'solid-js/web';
 import type FMiscPlugin from '@/index';
 import { selectIconDialog } from '@/func/docky';
 import { toggleEnable } from '@/func';
 
-import Settings from "@/settings/index.svelte";
+import Settings from "@/settings/settings";
 import { Dialog } from 'siyuan';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
@@ -183,17 +184,22 @@ export const initSetting = async (plugin: FMiscPlugin) => {
 
     //3. 导入文件并合并配置
     await plugin.loadConfigs(); 
-    const UpdateConfig = (setting: ISettingItem[], key: string) => {
-        setting.forEach(item => {
-            item.value = plugin.getConfig(key, item.key);
-        });
-    }
-    UpdateConfig(Enable, 'Enable');
-    UpdateConfig(Docky, 'Docky');
-    UpdateConfig(Misc, 'Misc');
 
-    const onChanged = (e: CustomEvent<{group: string, key: string, value: any}>) => {
-        let { group, key, value } = e.detail;
+    const updateConfigs = () => {
+        const UpdateConfig = (setting: ISettingItem[], key: string) => {
+            setting.forEach(item => {
+                item.value = plugin.getConfig(key, item.key);
+            });
+        }
+        UpdateConfig(Enable, 'Enable');
+        UpdateConfig(Docky, 'Docky');
+        UpdateConfig(Misc, 'Misc');
+    }
+
+    updateConfigs();
+
+    const onChanged = (e: {group: string, key: string, value: any}) => {
+        let { group, key, value } = e;
         console.debug(`Group: ${group}, Key: ${key}, Value: ${value}`);
         const pluginConfigs = plugin.data['configs'];
         if (pluginConfigs[group] && pluginConfigs[group][key] !== undefined) {
@@ -201,6 +207,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
         }
         plugin.saveConfigs();
         onSettingChanged(plugin, group, key, value);
+        updateConfigs();
     }
 
     plugin.openSetting = () => {
@@ -208,21 +215,15 @@ export const initSetting = async (plugin: FMiscPlugin) => {
             title: "F-Misc 设置",
             content: `<div id="SettingPanel" style="height: 100%; display: flex;"></div>`,
             width: "800px",
-            height: "500px",
-            destroyCallback: () => {
-                setting.$destroy();
-            }
+            height: "500px"
         });
         let div = dialog.element.querySelector("#SettingPanel") as HTMLElement;
-        let setting = new Settings({
-            target: div,
-            props: {
-                GroupEnabled: Enable,
-                GroupDocky: Docky,
-                GroupMisc: Misc
-            }
-        });
-        setting.$on('changed', onChanged);
+        render(() => Settings({
+            GroupEnabled: Enable,
+            GroupDocky: Docky,
+            GroupMisc: Misc,
+            changed: onChanged
+        }), div);
     }
 }
 

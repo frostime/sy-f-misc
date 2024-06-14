@@ -1,0 +1,16 @@
+
+li.custom-bookmark-item, li.custom-bookmark-group-header {
+    &.b3-list-item {
+        box-sizing: border-box;
+        border-top-width: 2px;
+        border-bottom-width: 2px;
+        border-bottom-style: initial;
+    }
+
+    &.b3-list-item.dragovered {
+        border-bottom-style: solid;
+        border-bottom-color: var(--b3-theme-primary);
+        border-bottom-left-radius: 0px;
+        border-bottom-right-radius: 0px;
+    }
+}

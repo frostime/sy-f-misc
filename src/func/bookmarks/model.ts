@@ -1,102 +1,44 @@
-import { Writable, writable } from "svelte/store";
+import { createStore, unwrap } from "solid-js/store";
 
 import type FMiscPlugin from "@/index";
-import { sql, request } from "@/api";
-import PromiseLimitPool from "@/utils/promise-pool";
+
+import { getBlocks, getDocInfos, newOrderByTime } from "./libs/data";
 import { showMessage } from "siyuan";
+import { batch, createMemo } from "solid-js";
+
+import { debounce } from '@/utils';
 
 const StorageNameBookmarks = 'bookmarks';
 
-/**
- * 传入若干个 block id, 返回一个对象, key 为 block id, value 为 block
- * @param ids 
- * @returns 
- */
-const getBlocks = async (...ids: BlockId[]) => {
-    const fmt = `select * from blocks where id in (${ids.map((b) => `'${b}'`).join(',')})`;
-    let blocks = await sql(fmt);
-    let results: { [key: BlockId]: Block | null } = {};
-    for (let id of ids) {
-        let block = blocks.find(block => block.id === id);
-        if (block) {
-            results[id] = block;
-        } else {
-            results[id] = null;
-        }
-    }
-    return results;
-}
+export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
 
-interface IDocInfo {
-    rootID: DocumentId;
-    rootIcon: string;
-    rootTitle: string;
-    box: string;
-}
-/**
- * 传入若干个 doc id, 返回一个对象, key 为 doc id, value 为 doc info
- * @param docIds 
- * @returns 
- */
-const getDocInfos = async (...docIds: DocumentId[]) => {
-    const endpoints = '/api/block/getBlockInfo';
-    const pool = new PromiseLimitPool<IDocInfo>(16);
-    for (let docId of docIds) {
-        pool.add(async () => {
-            const result = await request(endpoints, { id: docId });
-            return result;
-        });
-    }
-    let results: { [key: DocumentId]: IDocInfo | null } = {};
-    try {
-        let docInfos = await pool.awaitAll();
-        for (let id of docIds) {
-            let docInfo = docInfos.find(docInfo => docInfo.rootID === id);
-            if (docInfo) {
-                results[id] = docInfo;
-            } else {
-                results[id] = null;
-            }
-        }
-    } catch (error) {
-        console.error(error);
-    }
-    return results;
-}
+export const [groups, setGroups] = createStore<IBookmarkGroup[]>([]);
+export const groupMap = createMemo<Map<TBookmarkGroupId, IBookmarkGroup & {index: number}>>(() => {
+    return new Map(groups.map((group, index) => [group.id, {...group, index: index}]));
+});
 
-const newOrderByTime = (): number => {
-    const start = '2024-05-28T12:00:00';  //起始时间
-    let now = Date.now();
-    let diff = now - Date.parse(start);
-    return diff;
-}
-
-export const ItemInfoStore: { [key: BlockId]: Writable<IBookmarkItemInfo> } = {};
-export const ItemOrderStore: { [key: TBookmarkGroupId]: Writable<IItemOrder[]> } = {};
 
 export class BookmarkDataModel {
     plugin: FMiscPlugin;
 
-    groups: Map<TBookmarkGroupId, IBookmarkGroup>;
-    items: Map<BlockId, IBookmarkItemInfo>; //由于要给 svelte store 使用, 所以用 writable 包装
-
     constructor(plugin: FMiscPlugin) {
         this.plugin = plugin;
-        this.groups = new Map();
-        this.items = new Map();
     }
 
     async load() {
         let bookmarks = await this.plugin.loadData(StorageNameBookmarks + '.json');
         this.plugin.data.bookmarks = bookmarks ?? {};
+
+        const allGroups = [];
         for (let [id, group] of Object.entries(this.plugin.data.bookmarks)) {
             let items = group.items.map(item => ({ id: item.id, order: item.order }));
-            ItemOrderStore[id] = writable(items);
+            // ItemOrderStore[id] = writable(items);
+            // setItemOrder(id, items);
             let groupV2: IBookmarkGroup = { ...group, items };
-            this.groups.set(id, groupV2);
+            allGroups.push(groupV2);
             group.items.map(item => {
-                if (this.items.has(item.id)) {
-                    this.items.get(item.id).ref++;
+                if (itemInfo[item.id] !== undefined) {
+                    setItemInfo(item.id, 'ref', (ref) => ref + 1);
                     return;
                 }
                 let iteminfo: IBookmarkItemInfo = {
@@ -108,27 +50,36 @@ export class BookmarkDataModel {
                     icon: '',
                     ref: 1
                 };
-                this.items.set(item.id, iteminfo);
-                ItemInfoStore[item.id] = writable({ ...iteminfo });
+                setItemInfo(item.id, iteminfo);
             });
         }
+        batch(() => {
+            allGroups.forEach((groupV2) => {
+                setGroups((gs) => [...gs, groupV2] )
+            })
+        })
     }
 
-    async save(fpath?: string) {
+    private async saveCore(fpath?: string) {
+        console.log('save bookmarks');
         let result: {[key: TBookmarkGroupId]: IBookmarkGroup} = {};
-        for (let [id, group] of this.groups) {
-            result[id] = group;
+
+        for (let [id, group] of groupMap()) {
+            result[id] = unwrap(group);
+            result[id].items = unwrap(result[id].items);
         }
         this.plugin.data.bookmarks = result;
         fpath = fpath ?? StorageNameBookmarks + '.json';
         await this.plugin.saveData(fpath, this.plugin.data.bookmarks);
     }
 
+    save = debounce(this.saveCore.bind(this), 500);
+
     hasItem(id: BlockId, groupId?: TBookmarkGroupId) {
         if (groupId === undefined) {
-            return this.items.has(id);
+            return itemInfo[id] !== undefined
         } else {
-            let group = this.groups.get(groupId);
+            let group = groupMap().get(groupId);
             if (group) {
                 return group.items.some(item => item.id === id);
             } else {
@@ -140,7 +91,7 @@ export class BookmarkDataModel {
     async updateItems() {
         console.debug('更新所有 Bookmark items');
         //1. 获取所有的 block 的最新内容
-        let items = Array.from(this.items.values());
+        let items = Object.values(itemInfo);
         let ids = items.map(item => item.id);
         let blocks = await getBlocks(...ids);
         //2. 更新文档块的 logo
@@ -151,59 +102,67 @@ export class BookmarkDataModel {
             }
         });
         let docInfos = await getDocInfos(...docsItem);
+
         //3. 更新 this.items 和 writable store
         const notebookMap = window.siyuan.notebooks.reduce((acc, notebook) => {
             acc[notebook.id] = notebook;
             return acc;
         }, {});
-        this.items.forEach((item, id) => {
+
+        let allItems = Object.entries(itemInfo);
+        allItems.forEach(([id, item], _) => {
             let block = blocks[id];
             if (block) {
-                item.title = block.fcontent || block.content;
-                item.box = block.box;
-                item.type = block.type;
-                item.subtype = block.subtype || '';
-                item.err = undefined;
+                const { fcontent, content, box, type, subtype } = block;
+                const ni: IBookmarkItemInfo = {
+                    id: item.id,
+                    title: fcontent || content,
+                    box,
+                    type,
+                    subtype: subtype || '',
+                    err: undefined,
+                    icon: '',
+                    ref: item.ref
+                };
                 let icon = '';
-                if (item.type === 'd') {
+                if (ni.type === 'd') {
                     let docInfo = docInfos[id];
                     if (docInfo) {
                         icon = docInfo.rootIcon;
                     }
                 }
-                item.icon = icon;
+                ni.icon = icon;
+                setItemInfo(id, ni);
             } else {
                 console.warn(`block ${id} not found`);
-                if (notebookMap?.[item.box]?.closed === true) {
-                    item.title = `笔记本「${notebookMap[item.box].name}」已经关闭`;
-                    item.err = 'BoxClosed';
-                } else {
-                    item.title = `无法找到内容块，可能已经被删除！旧块内容：${JSON.stringify(item)}`;
-                    item.err = 'BlockDeleted';
+                let obj = {
+                    title: '',
+                    err: ''
                 }
+                if (notebookMap?.[item.box]?.closed === true) {
+                    obj.title = `笔记本「${notebookMap[item.box].name}」已经关闭`;
+                    obj.err = 'BoxClosed';
+                } else {
+                    obj.title = `无法找到内容块，可能已经被删除！旧块内容：${JSON.stringify(item)}`;
+                    obj.err = 'BlockDeleted';
+                }
+                batch(() => {
+                    setItemInfo(id, 'title', obj.title);
+                    //@ts-ignore
+                    setItemInfo(id, 'err', obj.err);
+                });
             }
-            ItemInfoStore[id].set({ ...item });
+            // ItemInfoStore[id].set({ ...item });
         });
         console.debug('更新所有 Bookmark items 完成');
     }
 
-    listGroups(visible: boolean = true): IBookmarkGroup[] {
-        // 1. sort
-        let groups = Array.from(this.groups.values());
-        groups.sort((a, b) => a.order - b.order);
-        //2. filter
-        if (visible) {
-            groups = groups.filter(group => !group.hidden);
-        }
-        return groups;
-    }
-
     listItems(group?: TBookmarkGroupId) {
         const listItems = (group: IBookmarkGroup) => {
-            return group.items.map(itmin => this.items.get(itmin.id));
+            return group.items.map(itmin => itemInfo[itmin.id]);
         }
         if (group) {
-            let g = this.groups.get(group);
+            let g = groupMap().get(group);
             if (g) {
                 return listItems(g);
             } else {
@@ -211,7 +170,7 @@ export class BookmarkDataModel {
             }
         } else {
             let items: IBookmarkItemInfo[] = [];
-            this.groups.forEach(group => {
+            groupMap().forEach(group => {
                 items.push(...listItems(group));
             });
             return items;
@@ -221,7 +180,7 @@ export class BookmarkDataModel {
     newGroup(name: string) {
         //6位 36进制
         let id: TBookmarkGroupId;
-        while (id === undefined || this.groups.has(id)) {
+        while (id === undefined || groupMap().has(id)) {
             id = Math.random().toString(36).slice(-6);
         }
         let group = {
@@ -230,16 +189,15 @@ export class BookmarkDataModel {
             items: [],
             order: newOrderByTime()
         };
-        this.groups.set(id, group);
-        ItemOrderStore[id] = writable([]);
+
+        setGroups((gs) => [...gs, group]);
         this.save();
         return group;
     }
 
     delGroup(id: TBookmarkGroupId) {
-        if (this.groups.has(id)) {
-            this.groups.delete(id);
-            delete ItemOrderStore[id];
+        if (groupMap().has(id)) {
+            setGroups((gs: IBookmarkGroup[]) => gs.filter((g) => g.id !== id));
             this.save();
             return true;
         } else {
@@ -247,18 +205,19 @@ export class BookmarkDataModel {
         }
     }
 
-    groupSwapOrder(a: TBookmarkGroupId, b: TBookmarkGroupId) {
-        let ga = this.groups.get(a);
-        let gb = this.groups.get(b);
-        let order = ga.order;
-        ga.order = gb.order;
-        gb.order = order;
+    groupMove(a: TBookmarkGroupId, b: TBookmarkGroupId, position: 'before' | 'after') {
+        let ga = groupMap().get(a);
+        let gb = groupMap().get(b);
+        let order = gb.order;
+        order = position === 'before' ? order - 1 : order + 1;
+        setGroups((g) => g.id === ga.id, 'order', order);
+        this.save();
     }
 
     renameGroup(id: TBookmarkGroupId, name: string) {
-        let group = this.groups.get(id);
+        let group = groupMap().get(id);
         if (group) {
-            group.name = name;
+            setGroups((g) => g.id === id, 'name', name);
             this.save();
             return true;
         } else {
@@ -267,23 +226,21 @@ export class BookmarkDataModel {
     }
 
     addItem(gid: TBookmarkGroupId, item: IBookmarkItem) {
-        let group = this.groups.get(gid);
+        let group = groupMap().get(gid);
         if (group) {
-            let exist = this.items.get(item.id) !== undefined;
+            let exist = itemInfo[item.id] !== undefined;
             if (!exist) {
                 let iteminfo = { ...item, icon: '', ref: 0 };
-                this.items.set(item.id, iteminfo);
-                ItemInfoStore[item.id] = writable({ ...iteminfo });
+                setItemInfo(item.id, iteminfo);
             } else if (this.hasItem(item.id, gid)) {
                 console.warn(`addItem: item ${item.id} already in group ${gid}`);
                 return false;
             }
-            group.items.push({
-                id: item.id,
-                order: newOrderByTime()
-            });
-            ItemOrderStore[gid].set(group.items);
-            this.items.get(item.id).ref++;
+
+            setGroups((g) => g.id === gid, 'items', (items) => {
+                return [...items, {id: item.id, order: newOrderByTime()}]
+            })
+            setItemInfo(item.id, 'ref', (ref) => ref + 1);
             this.save();
             return true;
         } else {
@@ -292,15 +249,19 @@ export class BookmarkDataModel {
     }
 
     delItem(gid: TBookmarkGroupId, id: BlockId) {
-        let group = this.groups.get(gid);
+        let group = groupMap().get(gid);
         if (group) {
-            group.items = group.items.filter(item => item.id !== id);
-            ItemOrderStore[gid].set(group.items);
-            let item = this.items.get(id);
+            setGroups((g) => g.id === gid, 'items', (items: IItemOrder[]) => {
+                return items.filter(item => item.id !== id);
+            })
+
+            let item = itemInfo[id];
             if (item) {
-                item.ref--;
-                if (item.ref === 0) {
-                    this.items.delete(id);
+                let ref = item.ref;
+                if (ref === 1) {
+                    setItemInfo(id, undefined!);
+                } else {
+                    setItemInfo(id, 'ref', (ref) => ref - 1);
                 }
             }
             this.save();
@@ -320,8 +281,8 @@ export class BookmarkDataModel {
         if (fromGroup === toGroup) {
             return false;
         }
-        let from = this.groups.get(fromGroup);
-        let to = this.groups.get(toGroup);
+        let from = groupMap().get(fromGroup);
+        let to = groupMap().get(toGroup);
         if(!(from && to)) {
             return false;
         }
@@ -334,16 +295,22 @@ export class BookmarkDataModel {
             showMessage('源分组中没有该项', 4000, 'error');
             return false;
         }
-        from.items = from.items.filter(itmin => itmin.id !== item.id);
-        to.items.push(fromitem);
-        ItemOrderStore[fromGroup].set(from.items);
-        ItemOrderStore[toGroup].set(to.items);
+
+        batch(() => {
+            setGroups((g) => g.id === fromGroup, 'items', (items: IItemOrder[]) => {
+                return items.filter(it => it.id != item.id);
+            });
+            setGroups((g) => g.id === toGroup, 'items', (items: IItemOrder[]) => {
+                return [...items, fromitem];
+            });
+        });
+
         this.save();
         return true;
     }
 
-    reorderItem(gid: TBookmarkGroupId, item: IBookmarkItemInfo, order: 'up' | 'down') {
-        let group = this.groups.get(gid);
+    reorderItem(gid: TBookmarkGroupId, item: IBookmarkItemInfo, order: 'top' | 'bottom') {
+        let group = groupMap().get(gid);
         if (!group) {
             return false;
         }
@@ -355,21 +322,19 @@ export class BookmarkDataModel {
         let orders = items.map(itmin => itmin.order);
         let min = Math.min(...orders);
         let max = Math.max(...orders);
-        if (order === 'up' && items[index].order !== min) {
-            items[index].order = min - 1;
-        } else if (order === 'down' && items[index].order !== max) {
-            items[index].order = max + 1;
+        if (order === 'top' && items[index].order !== min) {
+            setGroups(group.index, 'items', (io) => io.id === item.id, 'order', min - 1);
+        } else if (order === 'bottom' && items[index].order !== max) {
+            setGroups(group.index, 'items', (io) => io.id === item.id, 'order', max + 1);
         }
-        ItemOrderStore[gid].set(items);
         this.save();
         return true;
     }
 
     moveItem(detail: IMoveItemDetail) {
-        // console.log('moveItem', detail);
         let { srcGroup, targetGroup, srcItem, afterItem } = detail;
-        let src = this.groups.get(srcGroup);
-        let target = this.groups.get(targetGroup);
+        let src = groupMap().get(srcGroup);
+        let target = groupMap().get(targetGroup);
         if (!(src && target)) {
             return false;
         }
@@ -408,16 +373,16 @@ export class BookmarkDataModel {
         }
 
         if (srcGroup === targetGroup) {
-            src.items[srcIndex].order = newOrder;
-            ItemOrderStore[srcGroup].set(src.items);
+            setGroups(src.index, 'items', (io) => io.id === srcItem, 'order', newOrder);
         } else {
-            src.items.splice(srcIndex, 1); //从源分组中删除
-            target.items.push({
-                id: srcItem,
-                order: newOrder
-            }); //插入到目标分组中
-            ItemOrderStore[srcGroup].set(src.items);
-            ItemOrderStore[targetGroup].set(target.items);
+            batch(() => {
+                setGroups((g) => g.id === srcGroup, 'items', (items: IItemOrder[]) => {
+                    return items.filter(it => it.id != srcItem);
+                });
+                setGroups((g) => g.id === targetGroup, 'items', (items: IItemOrder[]) => {
+                    return [...items, { id: srcItem, order: newOrder }];
+                });
+            });
         }
         console.debug(`moveItem: ${srcItem} from ${srcGroup} to ${targetGroup} after ${afterItem}`);
         this.save();
