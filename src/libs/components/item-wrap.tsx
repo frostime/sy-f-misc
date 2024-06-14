@@ -11,11 +11,11 @@ interface SettingItemWrapProps {
     title: string;
     description: string;
     direction?: 'row' | 'column';
-    children: JSX.Element;
+    children?: JSX.Element;
 }
 
 const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
-    const { title, description, direction = 'column', children } = props;
+    const { title, description, direction = 'column' } = props;
 
     return (
         <>
@@ -33,7 +33,7 @@ const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
                         }}>{title}</span>
                         <div class="b3-label__text" innerHTML={description}></div>
                         <div class="fn__hr"></div>
-                        {children}
+                        {props?.children}
                     </div>
                 </div>
             ) : (
@@ -51,7 +51,7 @@ const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
                         <div class="b3-label__text" innerHTML={description}></div>
                     </div>
                     <span class="fn__space" />
-                    {children}
+                    {props?.children}
                 </div>
             )}
         </>

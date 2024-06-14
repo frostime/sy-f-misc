@@ -1,11 +1,13 @@
 import { Component, For, createMemo, createSignal } from "solid-js";
-// import { render } from "solid-js/web";
+import { render } from "solid-js/web";
 import Group from "./group";
 import { confirm, Menu, Plugin, showMessage } from "siyuan";
 import { type BookmarkDataModel, groups } from "../model";
-import { inputDialog } from "@/libs/dialog";
+import { inputDialog, simpleDialog } from "@/libs/dialog";
 
 import { BookmarkContext } from "./context";
+
+import Setting from './setting';
 
 import "./index.scss";
 
@@ -15,7 +17,7 @@ interface Props {
 }
 
 const BookmarkComponent: Component<Props> = (props) => {
-    let groupComponent = [];
+
     const [fnRotate, setFnRotate] = createSignal("");
 
     type TAction = "" | "AllExpand" | "AllCollapse";
@@ -25,6 +27,17 @@ const BookmarkComponent: Component<Props> = (props) => {
         let newg = groups.filter(group => !group.hidden).sort((a, b) => a.order - b.order);
         return newg;
     });
+
+    const openSetting = () => {
+        let container = document.createElement("div") as HTMLDivElement;
+        container.classList.add("fn__flex-1", "fn__flex");
+        render(() => Setting(), container);
+        simpleDialog({
+            title: "书签设置",
+            ele: container,
+            width: '600px'
+        })
+    }
 
     const groupAdd = () => {
         inputDialog({
@@ -115,6 +128,17 @@ const BookmarkComponent: Component<Props> = (props) => {
                     书签
                 </div>
                 <span class="fn__flex-1"></span>
+                <span
+                    data-type="setting"
+                    class="block__icon b3-tooltips b3-tooltips__sw"
+                    aria-label="设置"
+                    onClick={openSetting}
+                >
+                    <svg class="">
+                        <use href="#iconSettings"></use>
+                    </svg>
+                </span>
+                <span class="fn__space"></span>
                 <span class="fn__space"></span>
                 <span
                     data-type="add"
