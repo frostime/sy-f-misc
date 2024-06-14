@@ -3,10 +3,19 @@
  * @Author       : frostime
  * @Date         : 2024-04-18 21:05:32
  * @FilePath     : /src/utils/index.ts
- * @LastEditTime : 2024-06-04 18:39:15
+ * @LastEditTime : 2024-06-14 13:37:22
  * @Description  : 
  */
 import * as api from '../api';
+
+
+export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T {
+    let timeout: NodeJS.Timeout;
+    return function(...args: Parameters<T>) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    } as T;
+}
 
 
 export const getNotebook = (boxId: string): Notebook => {

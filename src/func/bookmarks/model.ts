@@ -6,6 +6,8 @@ import { getBlocks, getDocInfos, newOrderByTime } from "./libs/data";
 import { showMessage } from "siyuan";
 import { batch, createMemo } from "solid-js";
 
+import { debounce } from '@/utils';
+
 const StorageNameBookmarks = 'bookmarks';
 
 export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
@@ -71,19 +73,7 @@ export class BookmarkDataModel {
         await this.plugin.saveData(fpath, this.plugin.data.bookmarks);
     }
 
-    async save(fpath?: string) {
-        console.log('save bookmarks');
-        let result: {[key: TBookmarkGroupId]: IBookmarkGroup} = {};
-
-        for (let [id, group] of groupMap()) {
-            result[id] = unwrap(group);
-            result[id].items = unwrap(result[id].items);
-        }
-        this.plugin.data.bookmarks = result;
-        fpath = fpath ?? StorageNameBookmarks + '.json';
-        // console.log(result)
-        await this.plugin.saveData(fpath, this.plugin.data.bookmarks);
-    }
+    save = debounce(this.saveCore.bind(this), 500);
 
     hasItem(id: BlockId, groupId?: TBookmarkGroupId) {
         if (groupId === undefined) {
