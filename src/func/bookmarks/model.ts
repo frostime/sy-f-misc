@@ -4,7 +4,7 @@ import type FMiscPlugin from "@/index";
 
 import { getBlocks, getDocInfos, newOrderByTime } from "./libs/data";
 import { showMessage } from "siyuan";
-import { batch, createEffect, createMemo } from "solid-js";
+import { batch, createMemo } from "solid-js";
 
 const StorageNameBookmarks = 'bookmarks';
 

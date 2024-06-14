@@ -3,7 +3,7 @@ import { For } from "solid-js";
 import { Menu, Constants, confirm, showMessage } from "siyuan";
 import Item from "./item";
 import { inputDialogSync } from "@/libs/dialog";
-import { groupMap } from "../model";
+import { groups } from "../model";
 import { ClassName } from "../libs/dom";
 import { getBlockByID } from "@/api";
 // import { highlightedGroup, moveItemDetail } from "../../../../tmp/store";
@@ -20,14 +20,12 @@ interface Props {
 const Group: Component<Props> = (props) => {
     const { model } = useContext(BookmarkContext);
 
-    let groupItems = createMemo(() => {
-        let group = groupMap().get(props.group.id);
-        return group.items;
-    })
-
-    const orderedItems = createMemo(() => {
-        return groupItems().sort((a, b) => a.order - b.order);
-    })
+    let orderedItems = createMemo(() => {
+        let index = groups.findIndex((g) => g.id === props.group.id);
+        let group = groups[index];
+        console.log(group.items);
+        return group.items.slice().sort((a, b) => a.order - b.order);
+    });
 
     const [isOpen, setIsOpen] = createSignal(props.group.expand !== undefined ? !props.group.expand : true);
 
@@ -353,8 +351,8 @@ const Group: Component<Props> = (props) => {
                 data-groupname={props.group.name}
             >
                 <For each={orderedItems()}>
-                    {(item: IItemOrder, _) => (
-                        <Item group={props.group.id} block={item.id} deleteItem={itemDelete} />
+                    {(item: IItemOrder) => (
+                        <Item group={props.group.id} orderedItem={item} deleteItem={itemDelete} />
                     )}
                 </For>
             </ul>

@@ -1,21 +1,19 @@
 import { Component, createEffect, createMemo, createSignal, useContext } from "solid-js";
 import { Menu, openTab, showMessage } from "siyuan";
 import { buildItemDetail } from "../libs/dom";
-// import { ItemInfoStore } from "../model";
+
 import { itemInfo } from "../model";
 
-// import { moveItemDetail } from "../../../../tmp/store";
 import { BookmarkContext, itemMoving, setItemMoving } from "./context";
 
 interface IProps {
     group: TBookmarkGroupId;
-    block: BlockId;
+    orderedItem: IItemOrder;
     deleteItem: (i: IBookmarkItem) => void;
 }
 
 const Item: Component<IProps> = (props) => {
-    // const item = createMemo<IBookmarkItemInfo>(() => itemInfo[props.block]);
-    const item = () => itemInfo[props.block];
+    const item = () => itemInfo[props.orderedItem.id];
 
     const [NodeType, setNodeType] = createSignal<string>("");
     const [Icon, setIcon] = createSignal<string>("");
@@ -24,7 +22,7 @@ const Item: Component<IProps> = (props) => {
 
     const dragovered = createMemo(() => {
         let value = itemMoving();
-        if (value.targetGroup === props.group && value.afterItem === props.block) {
+        if (value.targetGroup === props.group && value.afterItem === props.orderedItem.id) {
             return 'dragovered';
         } else {
             return '';
@@ -165,6 +163,7 @@ const Item: Component<IProps> = (props) => {
             data-subtype=""
             data-treetype="bookmark"
             data-def-path=""
+            data-item-order={props.orderedItem.order}
             onContextMenu={showItemContextMenu}
             onClick={openBlock}
         >
