@@ -31,8 +31,6 @@ const Item: Component<IProps> = (props) => {
 
     createEffect(() => {
         let value = item();
-        // console.log('Item changed effect');
-        // console.log(value);
         if (value) {
             const e = buildItemDetail(value);
             setNodeType(e.NodeType);
@@ -130,12 +128,6 @@ const Item: Component<IProps> = (props) => {
         event.dataTransfer.setData("bookmark/item", JSON.stringify({ group: props.group, id: item().id }));
         event.dataTransfer.effectAllowed = "move";
         setOpacityStyle('opacity: 0.5;');
-        // moveItemDetail.set({
-        //     srcGroup: props.group,
-        //     srcItem: item().id,
-        //     targetGroup: '',
-        //     afterItem: ''
-        // });
         setItemMoving({
             srcGroup: props.group,
             srcItem: item().id,

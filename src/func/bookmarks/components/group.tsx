@@ -54,6 +54,7 @@ const Group: Component<Props> = (props) => {
 
     const dragovered = createMemo(() => {
         let value = itemMoving();
+        console.log('Move item onto group?');
         if (value.targetGroup === props.group.id && value.afterItem === '') {
             return 'dragovered';
         } else {
@@ -261,15 +262,8 @@ const Group: Component<Props> = (props) => {
             setIsDragOver(true);
             const overedItem = checkDragOveredItem(event);
             if (!overedItem) return;
-            // moveItemDetail.update((value) => {
-            //     value.targetGroup = props.group.id;
-            //     value.afterItem = overedItem.id;
-            //     return value;
-            // });
             setItemMoving((value) => {
-                value.targetGroup = props.group.id;
-                value.afterItem = overedItem.id;
-                return value;
+                return { ...value, targetGroup: props.group.id, afterItem: overedItem.id };
             })
         }
     };
@@ -289,12 +283,6 @@ const Group: Component<Props> = (props) => {
             addItemByBlockId(nodeId);
         } else if (type === 'bookmark/item') {
             model.moveItem(itemMoving());
-            // moveItemDetail.set({
-            //     srcGroup: "",
-            //     srcItem: "",
-            //     targetGroup: "",
-            //     afterItem: "",
-            // });
             setItemMoving({
                 srcGroup: "",
                 srcItem: "",
