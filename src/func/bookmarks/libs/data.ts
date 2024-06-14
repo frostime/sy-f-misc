@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-06-13 14:09:40
+ * @FilePath     : /src/func/bookmarks/libs/data.ts
+ * @LastEditTime : 2024-06-14 20:14:26
+ * @Description  : 
+ */
 import { sql, request } from "@/api";
 import PromiseLimitPool from "@/libs/promise-pool";
 
@@ -67,5 +75,5 @@ const newOrderByTime = (): number => {
     const start = '2024-05-28T12:00:00';  //起始时间
     let now = Date.now();
     let diff = now - Date.parse(start);
-    return diff;
+    return Math.floor(diff / 100);
 }

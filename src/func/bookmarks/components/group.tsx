@@ -22,7 +22,6 @@ const Group: Component<Props> = (props) => {
     let orderedItems = createMemo(() => {
         let index = groups.findIndex((g) => g.id === props.group.id);
         let group = groups[index];
-        console.log(group.items);
         return group.items.slice().sort((a, b) => a.order - b.order);
     });
 
@@ -54,7 +53,6 @@ const Group: Component<Props> = (props) => {
 
     const dragovered = createMemo(() => {
         let value = itemMoving();
-        console.log('Move item onto group?');
         if (value.targetGroup === props.group.id && value.afterItem === '') {
             return 'dragovered';
         } else {
@@ -87,7 +85,6 @@ const Group: Component<Props> = (props) => {
             subtype: block.subtype,
             box: block.box,
         };
-        console.log('add item')
         model.addItem(props.group.id, item);
         toggleOpen(true);
     };
@@ -301,6 +298,7 @@ const Group: Component<Props> = (props) => {
             class={`custom-bookmark-group ${isDragOver() ? 'dragover' : ''}`}
             data-groupid={props.group.id}
             data-groupname={props.group.name}
+            data-order={props.group.order}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}

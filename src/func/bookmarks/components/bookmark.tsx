@@ -61,7 +61,6 @@ const BookmarkComponent: Component<Props> = (props) => {
             group: IBookmarkGroup;
         }
     ) => {
-        console.log(detail);
         const srcIdx = shownGroups().findIndex(
             (g: IBookmarkGroup) => g.id === detail.group.id
         );

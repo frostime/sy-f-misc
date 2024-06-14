@@ -217,10 +217,7 @@ export class BookmarkDataModel {
     renameGroup(id: TBookmarkGroupId, name: string) {
         let group = groupMap().get(id);
         if (group) {
-            // group.name = name;
-            console.log('更改前', groups);
             setGroups((g) => g.id === id, 'name', name);
-            console.log('更改后', groups);
             this.save();
             return true;
         } else {
@@ -313,7 +310,6 @@ export class BookmarkDataModel {
     }
 
     reorderItem(gid: TBookmarkGroupId, item: IBookmarkItemInfo, order: 'top' | 'bottom') {
-        console.log('reorder')
         let group = groupMap().get(gid);
         if (!group) {
             return false;
@@ -336,7 +332,6 @@ export class BookmarkDataModel {
     }
 
     moveItem(detail: IMoveItemDetail) {
-        // console.log('moveItem', detail);
         let { srcGroup, targetGroup, srcItem, afterItem } = detail;
         let src = groupMap().get(srcGroup);
         let target = groupMap().get(targetGroup);
