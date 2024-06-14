@@ -115,7 +115,7 @@ const Group: Component<Props> = (props) => {
                 label: "文档流",
                 icon: "iconFlow",
                 click: () => {
-                    const idlist = props.group.items.sort((a, b) => a.order - b.order).map(item => item.id);
+                    const idlist = orderedItems().map(item => item.id);
                     docFlow.eventBus.emit('IdList', {
                         input: idlist,
                         config: {}
@@ -147,33 +147,40 @@ const Group: Component<Props> = (props) => {
         });
         menu.addSeparator();
         menu.addItem({
-            label: "置顶",
-            icon: "iconTop",
-            click: async () => {
-                props.groupMove({ to: 'top', group: props.group });
-            },
-        });
-        menu.addItem({
-            label: "上移",
-            icon: "iconUp",
-            click: async () => {
-                props.groupMove({ to: 'up', group: props.group });
-            },
-        });
-        menu.addItem({
-            label: "下移",
-            icon: "iconDown",
-            click: async () => {
-                props.groupMove({ to: 'down', group: props.group });
-            },
-        });
-        menu.addItem({
-            label: "置底",
-            icon: "iconTop",
-            iconClass: "rotate-180",
-            click: async () => {
-                props.groupMove({ to: 'bottom', group: props.group });
-            },
+            label: '移动',
+            icon: 'iconMove',
+            type: 'submenu',
+            submenu: [
+                {
+                    label: "置顶",
+                    icon: "iconTop",
+                    click: async () => {
+                        props.groupMove({ to: 'top', group: props.group });
+                    },
+                },
+                {
+                    label: "上移",
+                    icon: "iconUp",
+                    click: async () => {
+                        props.groupMove({ to: 'up', group: props.group });
+                    },
+                },
+                {
+                    label: "下移",
+                    icon: "iconDown",
+                    click: async () => {
+                        props.groupMove({ to: 'down', group: props.group });
+                    },
+                },
+                {
+                    label: "置底",
+                    icon: "iconTop",
+                    iconClass: "rotate-180",
+                    click: async () => {
+                        props.groupMove({ to: 'bottom', group: props.group });
+                    },
+                }
+            ]
         });
         menu.addSeparator();
         menu.addItem({

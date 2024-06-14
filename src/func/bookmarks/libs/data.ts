@@ -72,7 +72,7 @@ const getDocInfos = async (...docIds: DocumentId[]) => {
 }
 
 const newOrderByTime = (): number => {
-    const start = '2024-05-28T12:00:00';  //起始时间
+    const start = '2024-06-01T00:00:00';  //起始时间
     let now = Date.now();
     let diff = now - Date.parse(start);
     return Math.floor(diff / 100);

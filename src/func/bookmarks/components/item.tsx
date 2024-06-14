@@ -88,18 +88,26 @@ const Item: Component<IProps> = (props) => {
             submenu: groups
         });
         menu.addItem({
-            label: "置顶",
-            icon: "iconUp",
-            click: () => {
-                model.reorderItem(props.group, item(), 'top');
-            }
-        });
-        menu.addItem({
-            label: "置底",
-            icon: "iconDown",
-            click: () => {
-                model.reorderItem(props.group, item(), 'bottom');
-            }
+            label: '移动',
+            icon: 'iconMove',
+            type: 'submenu',
+            submenu: [
+                {
+                    label: "置顶",
+                    icon: "iconTop",
+                    click: () => {
+                        model.reorderItem(props.group, item(), 'top');
+                    }
+                },
+                {
+                    label: "置底",
+                    icon: "iconTop",
+                    iconClass: "rotate-180",
+                    click: () => {
+                        model.reorderItem(props.group, item(), 'bottom');
+                    }
+                }
+            ]
         });
         menu.addItem({
             label: "删除书签",
