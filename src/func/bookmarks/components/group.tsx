@@ -3,7 +3,7 @@ import { For } from "solid-js";
 import { Menu, Constants, confirm, showMessage } from "siyuan";
 import Item from "./item";
 import { inputDialogSync } from "@/libs/dialog";
-import { groups, setGroups } from "../model";
+import { groups, setGroups, configs } from "../model";
 import { ClassName } from "../libs/dom";
 import { getBlockByID } from "@/api";
 
@@ -22,7 +22,14 @@ const Group: Component<Props> = (props) => {
     let orderedItems = createMemo(() => {
         let index = groups.findIndex((g) => g.id === props.group.id);
         let group = groups[index];
-        return group.items.slice().sort((a, b) => a.order - b.order);
+        let items = group.items.slice();
+        if (configs.hideClosed) {
+            items = items.filter((it) => it.status !== 'closed');
+        }
+        if (configs.hideDeleted) {
+            items = items.filter((it) => it.status !== 'deleted');
+        }
+        return items.sort((a, b) => a.order - b.order);
     });
 
     const isOpen = createMemo(() => {

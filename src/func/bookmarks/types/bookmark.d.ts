@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-20 18:54:29
  * @FilePath     : /src/func/bookmarks/types/bookmark.d.ts
- * @LastEditTime : 2024-06-01 19:21:13
+ * @LastEditTime : 2024-06-19 23:52:17
  * @Description  : 
  */
 type TBookmarkGroupId = string;
@@ -29,6 +29,7 @@ interface IBookmarkItemInfo extends IBookmarkItem {
 interface IItemOrder {
     id: BlockId;
     order: number;
+    status: 'ok' | 'closed' | 'deleted'
 };
 
 interface IBookmarkGroup {

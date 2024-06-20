@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-03-23 21:37:33
- * @FilePath     : /src/components/dialog.ts
- * @LastEditTime : 2024-06-04 18:29:08
+ * @FilePath     : /src/libs/dialog.ts
+ * @LastEditTime : 2024-06-20 10:24:59
  * @Description  : 对话框相关工具
  */
 import { Dialog } from "siyuan";
@@ -59,13 +59,15 @@ export const inputDialogSync = async (args: {
 
 export const simpleDialog = (args: {
     title: string, ele: HTMLElement | DocumentFragment,
-    width?: string, height?: string
+    width?: string, height?: string,
+    callback?: () => void;
 }) => {
     const dialog = new Dialog({
         title: args.title,
         content: `<div class="fn__flex fn__flex dialog-content"/>`,
         width: args.width,
-        height: args.height
+        height: args.height,
+        destroyCallback: args.callback
     });
     dialog.element.querySelector(".dialog-content").appendChild(args.ele);
     return dialog;
