@@ -35,7 +35,10 @@ const BookmarkComponent: Component<Props> = (props) => {
         simpleDialog({
             title: "书签设置",
             ele: container,
-            width: '600px'
+            width: '600px',
+            callback: () => {
+                props.model.save();
+            }
         })
     }
 

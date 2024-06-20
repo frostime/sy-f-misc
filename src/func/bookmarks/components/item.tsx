@@ -8,7 +8,7 @@ import { BookmarkContext, itemMoving, setItemMoving } from "./context";
 
 interface IProps {
     group: TBookmarkGroupId;
-    orderedItem: IItemOrder;
+    orderedItem: IItemCore;
     deleteItem: (i: IBookmarkItem) => void;
 }
 

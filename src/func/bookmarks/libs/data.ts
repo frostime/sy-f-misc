@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-06-13 14:09:40
  * @FilePath     : /src/func/bookmarks/libs/data.ts
- * @LastEditTime : 2024-06-14 20:14:26
+ * @LastEditTime : 2024-06-20 15:29:04
  * @Description  : 
  */
 import { sql, request } from "@/api";
@@ -60,7 +60,7 @@ const getDocInfos = async (...docIds: DocumentId[]) => {
     try {
         let docInfos = await pool.awaitAll();
         for (let id of docIds) {
-            let docInfo = docInfos.find(docInfo => docInfo.rootID === id);
+            let docInfo = docInfos.find(docInfo => docInfo?.rootID === id);
             if (docInfo) {
                 results[id] = docInfo;
             }
