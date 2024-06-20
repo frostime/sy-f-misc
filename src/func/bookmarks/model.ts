@@ -8,8 +8,9 @@ import { batch, createMemo } from "solid-js";
 
 import { debounce } from '@/utils';
 
-const StorageNameBookmarks = 'bookmarks';
-const StorageFileConfigs = 'bookmark-configs.json';
+const StorageNameBookmarks = 'bookmarks';  //书签
+const StorageFileConfigs = 'bookmark-configs.json';  //书签插件相关的配置
+const StorageFileItemSnapshot = 'bookmark-items-snapshot.json';  //书签项目的缓存，防止出现例如 box 关闭导致插件以为书签被删除的问题
 
 export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
 
@@ -35,12 +36,14 @@ export class BookmarkDataModel {
     async load() {
         let bookmarks = await this.plugin.loadData(StorageNameBookmarks + '.json');
         let configs_ = await this.plugin.loadData(StorageFileConfigs);
+        let snapshot: { [key: BlockId]: IBookmarkItemInfo } = await this.plugin.loadData(StorageFileItemSnapshot);
 
         if (configs_) {
             setConfigs(configs_);
         }
 
         this.plugin.data.bookmarks = bookmarks ?? {};
+        snapshot = snapshot ?? {};
 
         const allGroups = [];
         for (let [_, group] of Object.entries(this.plugin.data.bookmarks)) {
@@ -56,11 +59,11 @@ export class BookmarkDataModel {
                 }
                 let iteminfo: IBookmarkItemInfo = {
                     id: item.id,
-                    title: '',
-                    type: 'p',
-                    box: '',
-                    subtype: '',
-                    icon: '',
+                    title: snapshot[item.id]?.title ?? '',
+                    type: snapshot[item.id]?.type ?? 'p',
+                    box: snapshot[item.id]?.box ?? '',
+                    subtype: snapshot[item.id]?.subtype ?? '',
+                    icon: snapshot[item.id]?.icon ?? '',
                     ref: 1
                 };
                 setItemInfo(item.id, iteminfo);
@@ -85,6 +88,7 @@ export class BookmarkDataModel {
         fpath = fpath ?? StorageNameBookmarks + '.json';
         await this.plugin.saveData(fpath, this.plugin.data.bookmarks);
         await this.plugin.saveData(StorageFileConfigs, configs);
+        await this.plugin.saveData(StorageFileItemSnapshot, itemInfo);
     }
 
     save = debounce(this.saveCore.bind(this), 500);
