@@ -104,9 +104,8 @@ const BookmarkComponent: Component<Props> = (props) => {
                 const time = new Date();
                 const timeStr = `${time.getFullYear()}-${time.getMonth() + 1}-${time.getDate()} ${time.getHours()}_${time.getMinutes()}_${time.getSeconds()}`;
                 const name = `Cache/bookmarks-${timeStr}.json`;
-                props.model.save(name).then(() => {
-                    showMessage(`缓存成功: ${name}`);
-                });
+                props.model.save(name);
+                showMessage(`缓存成功: ${name}`);
             },
         });
         menu.open({
