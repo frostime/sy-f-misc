@@ -320,14 +320,9 @@ const Group: Component<Props> = (props) => {
         >
             <li
                 class={`b3-list-item b3-list-item--hide-action custom-bookmark-group-header ${dragovered()} ${groupDrop() === props.group.id ? 'b3-list-item--focus' : ''}`}
-                style="--file-toggle-width:20px"
-                data-treetype="bookmark"
-                data-type="undefined"
-                data-subtype="undefined"
                 data-groupid={props.group.id}
                 data-groupname={props.group.name}
                 onClick={() => {
-                    // highlightedGroup.set(props.group.id);
                     setGroupDrop(props.group.id);
                     toggleOpen();
                 }}

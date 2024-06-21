@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-13 11:12:52
+ * @LastEditTime : 2024-06-21 19:30:57
  * @Description  : 
  */
 import {
@@ -32,6 +32,8 @@ const StorageNameConfigs = 'configs';
 export default class FMiscPlugin extends Plugin {
 
     isMobile: boolean;
+
+    private globalContextMenuHandler: (event: MouseEvent) => void;
 
     declare data: {
         configs: {
@@ -64,11 +66,14 @@ export default class FMiscPlugin extends Plugin {
 
         //Default functions
         this.initDefaultFunctions();
+        this.globalContextMenuHandler = this.globalContextMenu.bind(this);
+        // document.addEventListener('mousedown', this.globalContextMenuHandler);
     }
 
     async onunload() {
         this.eventBus.off('paste', onPaste);
         unload(this);
+        // document.removeEventListener('mousedown', this.globalContextMenuHandler);
     }
 
     /**
@@ -104,6 +109,17 @@ export default class FMiscPlugin extends Plugin {
             });
 
         });
+    }
+
+    /**
+     * 一个自定义的全局右键菜单，Ctrl + 右键触发
+     */
+    globalContextMenu(event: MouseEvent) {
+        if (!event.ctrlKey || event.button !== 2) {
+            return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
     }
 
     getConfig(group: string, key: string): any {
@@ -245,4 +261,7 @@ export default class FMiscPlugin extends Plugin {
     delProtyleSlash(id: BlockId) {
         this.protyleSlash = this.protyleSlash.filter(slash => slash.id !== id);
     }
+
+
+
 }

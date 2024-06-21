@@ -118,11 +118,10 @@ const BookmarkComponent: Component<Props> = (props) => {
     };
 
     const Bookmark = () => (
-        <div
-            class="fn__flex-1 fn__flex-column file-tree sy__bookmark custom-bookmark-element"
-            onContextMenu={bookmarkContextMenu}
-        >
-            <div class="block__icons">
+        <>
+            <div class="block__icons custom-bookmark-icons" onContextMenu={bookmarkContextMenu}
+                style={{overflow: 'hidden', 'container-type': 'inline-size'}}
+            >
                 <div class="block__logo">
                     <svg class="block__logoicon">
                         <use href="#iconBookmark"></use>
@@ -132,7 +131,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                 <span class="fn__flex-1"></span>
                 <span
                     data-type="setting"
-                    class="block__icon b3-tooltips b3-tooltips__sw"
+                    class="block__icon ariaLabel"
                     aria-label="设置"
                     onClick={openSetting}
                 >
@@ -141,10 +140,9 @@ const BookmarkComponent: Component<Props> = (props) => {
                     </svg>
                 </span>
                 <span class="fn__space"></span>
-                <span class="fn__space"></span>
                 <span
                     data-type="add"
-                    class="block__icon b3-tooltips b3-tooltips__sw"
+                    class="block__icon ariaLabel"
                     aria-label="添加书签组"
                     onClick={groupAdd}
                 >
@@ -155,7 +153,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                 <span class="fn__space"></span>
                 <span
                     data-type="refresh"
-                    class="block__icon b3-tooltips b3-tooltips__sw"
+                    class="block__icon ariaLabel"
                     aria-label="刷新"
                     onClick={bookmarkRefresh}
                 >
@@ -166,7 +164,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                 <span class="fn__space"></span>
                 <span
                     data-type="expand"
-                    class="block__icon b3-tooltips b3-tooltips__sw"
+                    class="block__icon ariaLabel"
                     aria-label="展开 Ctrl+↓"
                     onClick={() => {
                         setDoAction('AllExpand');
@@ -179,7 +177,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                 <span class="fn__space"></span>
                 <span
                     data-type="collapse"
-                    class="block__icon b3-tooltips b3-tooltips__sw"
+                    class="block__icon ariaLabel"
                     aria-label="折叠 Ctrl+↑"
                     onClick={() => {
                         setDoAction('AllCollapse');
@@ -192,7 +190,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                 <span class="fn__space"></span>
                 <span
                     data-type="min"
-                    class="block__icon b3-tooltips b3-tooltips__sw"
+                    class="block__icon ariaLabel"
                     aria-label="最小化 Ctrl+W"
                 >
                     <svg>
@@ -200,21 +198,23 @@ const BookmarkComponent: Component<Props> = (props) => {
                     </svg>
                 </span>
             </div>
-            <div class="fn__flex-1" style="margin-bottom: 8px">
-                <ul class="b3-list b3-list--background" id="custom-bookmark-body">
-                    <For each={shownGroups()}>
-                        {(group) => (
-                            <Group
-                                group={group}
-                                // ref={(el) => (groupComponent()[i] = el)}
-                                groupDelete={groupDelete}
-                                groupMove={groupMove}
-                            />
-                        )}
-                    </For>
-                </ul>
-            </div>
-        </div>
+            <main class="fn__flex-1 b3-list b3-list--background" id="custom-bookmark-body"
+                style={{
+                    "scrollbar-width": "none"
+                }}
+            >
+                <For each={shownGroups()}>
+                    {(group) => (
+                        <Group
+                            group={group}
+                            // ref={(el) => (groupComponent()[i] = el)}
+                            groupDelete={groupDelete}
+                            groupMove={groupMove}
+                        />
+                    )}
+                </For>
+            </main>
+        </>
     );
 
     return (<BookmarkContext.Provider value={{ plugin: props.plugin, model: props.model, shownGroups, doAction }}>

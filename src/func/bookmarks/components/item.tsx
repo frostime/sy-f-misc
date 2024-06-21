@@ -152,7 +152,8 @@ const Item: Component<IProps> = (props) => {
     return (
         <li
             class={`b3-list-item b3-list-item--hide-action custom-bookmark-item ${dragovered()}`}
-            style={`--file-toggle-width:38px; ${opacityStyle()}`}
+            // style={`--file-toggle-width:38px; ${opacityStyle()}`}
+            style={`${opacityStyle()}`}
             draggable="true"
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}

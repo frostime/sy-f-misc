@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-06-14 20:33:11
+ * @FilePath     : /src/func/bookmarks/components/index.scss
+ * @LastEditTime : 2024-06-21 21:48:58
+ * @Description  : Bookmark 插件的相关样式
+ */
+
+//bookmark.tsx
+@container (width < 250px) {
+    .custom-bookmark-icons:hover {
+        > .block__logo {
+            display: none;
+        }
+    }
+}
 
 li.custom-bookmark-item, li.custom-bookmark-group-header {
     &.b3-list-item {
