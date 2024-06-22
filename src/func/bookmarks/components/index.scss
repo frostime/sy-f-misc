@@ -3,11 +3,19 @@
  * @Author       : frostime
  * @Date         : 2024-06-14 20:33:11
  * @FilePath     : /src/func/bookmarks/components/index.scss
- * @LastEditTime : 2024-06-21 21:48:58
+ * @LastEditTime : 2024-06-22 18:10:14
  * @Description  : Bookmark 插件的相关样式
  */
 
 //bookmark.tsx
+div.custom-bookmark-icons {
+    overflow: hidden;
+    container-type: inline-size;
+}
+main#custom-bookmark-body {
+    scrollbar-width: none;
+}
+
 @container (width < 250px) {
     .custom-bookmark-icons:hover {
         > .block__logo {

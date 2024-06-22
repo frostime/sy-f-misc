@@ -120,7 +120,6 @@ const BookmarkComponent: Component<Props> = (props) => {
     const Bookmark = () => (
         <>
             <div class="block__icons custom-bookmark-icons" onContextMenu={bookmarkContextMenu}
-                style={{overflow: 'hidden', 'container-type': 'inline-size'}}
             >
                 <div class="block__logo">
                     <svg class="block__logoicon">
@@ -198,11 +197,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     </svg>
                 </span>
             </div>
-            <main class="fn__flex-1 b3-list b3-list--background" id="custom-bookmark-body"
-                style={{
-                    "scrollbar-width": "none"
-                }}
-            >
+            <main class="fn__flex-1 b3-list b3-list--background" id="custom-bookmark-body">
                 <For each={shownGroups()}>
                     {(group) => (
                         <Group

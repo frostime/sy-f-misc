@@ -24,7 +24,11 @@ export default defineConfig({
 
     plugins: [
 
-        solidPlugin(),
+        solidPlugin({
+            babel: {
+                plugins: ['solid-styled-jsx/babel']
+            }
+        }),
 
         viteStaticCopy({
             targets: [

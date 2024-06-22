@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-21 19:30:57
+ * @LastEditTime : 2024-06-22 17:39:57
  * @Description  : 
  */
 import {
@@ -23,6 +23,8 @@ import { EventBusSync } from "./utils/event-bus";
 import { updateStyleLink } from "./libs/style";
 import { initSetting } from "./settings";
 import { onPaste } from "./global-paste";
+
+import type {} from "solid-styled-jsx";
 
 const electron = require('electron');
 

@@ -22,6 +22,7 @@
     "sass": "^1.72.0",
     "siyuan": "0.9.9",
     "solid-js": "^1.8.17",
+    "solid-styled-jsx": "^0.27.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2",
     "vite": "^5.2.13",
