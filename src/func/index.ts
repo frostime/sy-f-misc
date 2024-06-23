@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-06-04 20:30:18
+ * @LastEditTime : 2024-06-23 16:39:02
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -11,14 +11,12 @@ import * as nf from './new-file';
 import * as it from './insert-time';
 import * as tl from './titled-link';
 import * as zt from './zotero';
-// import * as gt from './global-this';
 import * as ct from './change-theme';
 import * as mw from './mini-window';
 import * as rj from './run-js';
 import * as docky from './docky';
 import * as tr from './transfer-ref';
 import * as ss from './simple-search';
-import * as tt from './test-template';
 import * as dq from './data-query';
 import * as dc from './doc-context';
 
@@ -42,7 +40,7 @@ const ModulesToEnable = [
     docky,
     tr,
     ss,
-    tt,
+    // tt,
     bookmark
 ]
 

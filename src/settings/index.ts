@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-06-12 22:51:36
+ * @LastEditTime : 2024-06-23 16:38:09
  * @Description  : 
  */
 import { render } from 'solid-js/web';
@@ -77,13 +77,6 @@ const Enable: ISettingItem[] = [
         title: '💻 Run Javascript',
         description: '启用 Run Js 功能',
         key: 'EnableRunJs',
-        value: false
-    },
-    {
-        type: 'checkbox',
-        title: '📝 测试模板',
-        description: 'Sprig 和 Action 模板测试',
-        key: 'EnableTestTemplate',
         value: false
     },
     {
