@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-22 17:39:57
+ * @LastEditTime : 2024-06-23 17:58:18
  * @Description  : 
  */
 import {
@@ -264,6 +264,8 @@ export default class FMiscPlugin extends Plugin {
         this.protyleSlash = this.protyleSlash.filter(slash => slash.id !== id);
     }
 
-
+    delCommand(id: string) {
+        this.commands = this.commands.filter((command) => command.langKey !== id);
+    }
 
 }

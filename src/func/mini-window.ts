@@ -3,12 +3,28 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 21:23:19
  * @FilePath     : /src/func/mini-window.ts
- * @LastEditTime : 2024-04-28 20:21:23
+ * @LastEditTime : 2024-06-23 18:43:30
+ * @Description  : 
+ */
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-04-04 21:23:19
+ * @FilePath     : /src/func/mini-window.ts
+ * @LastEditTime : 2024-06-23 18:23:27
  * @Description  : 「网页视图」插件中打开小窗口的功能
  * @Open Source  : 摘抄自「网页视图」插件
  */
 // import type FMiscPlugin from '@/index';
 import { openWindow } from "siyuan";
+import { removeStyleDom, updateStyleDom } from "@/utils/style";
+import type FMiscPlugin from "..";
+
+
+const InMiniWindow = () => {
+    const body: HTMLElement = document.querySelector('body');
+    return body.classList.contains('body--window');
+}
 
 const openSiyuanWindow = (
     id: BlockId,
@@ -27,24 +43,84 @@ const openSiyuanWindow = (
     });
 }
 
+const id = 'f-misc__min-win-bars';
+const StyleHide = `
+.fn__flex.layout-tab-bar {
+    display: none;
+}
+#status {
+    display: none;
+}
+.item--readonly > span.block__icon[data-type] {
+    display: none;
+}
+.protyle-breadcrumb, .protyle-top {
+    display: none;
+}
+.layout-tab-bar--readonly {
+    height: 30px;
+}
+.toolbar__window {
+    zoom: 0.75;
+    opacity: 0;
+}
+#tooltip {
+    transform: scale(0.5);
+}
+.toolbar__window:hover {
+    opacity: 1;
+}
 
+.layout-tab-bar {
+    border-bottom: unset;
+}
+
+[data-type="wnd"]>div.fn__flex::before {
+    content: "{{title}}";
+    font-size: 17px;
+    font-weight: bold;
+    opacity: 0.4;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+}
+
+`;
 
 export let name = 'MiniWindow';
 export let enabled = false;
 
-export function load() {
+export function load(plugin: FMiscPlugin) {
 
     if (enabled) return;
 
     document.addEventListener('mousedown', onMouseClick);
-
     enabled = true;
+
+    if (InMiniWindow()) {
+
+        plugin.addCommand({
+            langKey: 'fmisc::hidebar',
+            langText: `Toggle 小窗隐藏模式`,
+            hotkey: '⌥⇧H',
+            callback: () => {
+                if (document.getElementById(id)) {
+                    removeStyleDom(id);
+                } else {
+                    let title = document.querySelector('.layout-tab-bar li.item--focus>.item__text').textContent;
+                    updateStyleDom(id, StyleHide.replace('{{title}}', title));
+                }
+            }
+        })
+    }
 }
 
-export function unload() {
+export function unload(plugin: FMiscPlugin) {
     if (!enabled) return;
     document.removeEventListener('mousedown', onMouseClick);
     enabled = false;
+    plugin.delCommand('fmisc::hidebar');
 }
 
 
