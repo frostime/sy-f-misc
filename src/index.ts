@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-23 17:58:18
+ * @LastEditTime : 2024-06-23 22:10:15
  * @Description  : 
  */
 import {
@@ -11,7 +11,8 @@ import {
     Menu,
     Plugin,
     getFrontend,
-    showMessage
+    showMessage,
+    Protyle
 } from "siyuan";
 
 
@@ -25,6 +26,7 @@ import { initSetting } from "./settings";
 import { onPaste } from "./global-paste";
 
 import type {} from "solid-styled-jsx";
+import { request } from "./api";
 
 const electron = require('electron');
 
@@ -111,6 +113,33 @@ export default class FMiscPlugin extends Plugin {
             });
 
         });
+
+        this.addProtyleSlash({
+            filter: ['toc', 'outline'],
+            html: '插入文档大纲',
+            id: 'toc',
+            callback: (protyle: Protyle) => {
+                request('/api/outline/getDocOutline', {
+                    id: protyle.protyle.block.rootID
+                }).then((ans) => {
+                    console.log('toc');
+                    const iterate = (data: any) => {
+                        let toc: string[] = [];
+                        for (let item of data) {
+                            toc.push(`${'  '.repeat(item.depth)} * [${item.name || item.content}](siyuan://blocks/${item.id})`);
+                            if (item.count > 0) {
+                                let subtocs = iterate(item.blocks ?? item.children);
+                                toc = toc.concat(subtocs);
+                            }
+                        }
+                        return toc;
+                    }
+                    let tocs = iterate(ans);
+                    let md = tocs.join('\n');
+                    protyle.insert(md, true);
+                });
+            }
+        })
     }
 
     /**
