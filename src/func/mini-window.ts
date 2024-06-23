@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 21:23:19
  * @FilePath     : /src/func/mini-window.ts
- * @LastEditTime : 2024-06-23 18:43:30
+ * @LastEditTime : 2024-06-23 19:00:14
  * @Description  : 
  */
 /*
@@ -43,7 +43,7 @@ const openSiyuanWindow = (
     });
 }
 
-const id = 'f-misc__min-win-bars';
+const id = 'f-misc__min-win';
 const StyleHide = `
 .fn__flex.layout-tab-bar {
     display: none;
@@ -88,10 +88,20 @@ const StyleHide = `
 
 `;
 
+const StyleHideAtFullscreen = `
+.protyle.fullscreen {
+    & .protyle-breadcrumb__bar,
+    & button[data-type] {
+        display: none;
+    }
+}
+
+`;
+
 export let name = 'MiniWindow';
 export let enabled = false;
 
-export function load(plugin: FMiscPlugin) {
+export function load() {
 
     if (enabled) return;
 
@@ -99,28 +109,28 @@ export function load(plugin: FMiscPlugin) {
     enabled = true;
 
     if (InMiniWindow()) {
-
-        plugin.addCommand({
-            langKey: 'fmisc::hidebar',
-            langText: `Toggle 小窗隐藏模式`,
-            hotkey: '⌥⇧H',
-            callback: () => {
-                if (document.getElementById(id)) {
-                    removeStyleDom(id);
-                } else {
-                    let title = document.querySelector('.layout-tab-bar li.item--focus>.item__text').textContent;
-                    updateStyleDom(id, StyleHide.replace('{{title}}', title));
-                }
-            }
-        })
+        updateStyleDom(id, StyleHideAtFullscreen);
+        // plugin.addCommand({
+        //     langKey: 'fmisc::hidebar',
+        //     langText: `Toggle 小窗隐藏模式`,
+        //     hotkey: '⌥⇧H',
+        //     callback: () => {
+        //         if (document.getElementById(id)) {
+        //             removeStyleDom(id);
+        //         } else {
+        //             let title = document.querySelector('.layout-tab-bar li.item--focus>.item__text').textContent;
+        //             updateStyleDom(id, StyleHide.replace('{{title}}', title));
+        //         }
+        //     }
+        // })
     }
 }
 
-export function unload(plugin: FMiscPlugin) {
+export function unload() {
     if (!enabled) return;
     document.removeEventListener('mousedown', onMouseClick);
     enabled = false;
-    plugin.delCommand('fmisc::hidebar');
+    // plugin.delCommand('fmisc::hidebar');
 }
 
 
