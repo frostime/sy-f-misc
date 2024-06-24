@@ -382,8 +382,9 @@ export async function getFile(path: string, type?: "text" | "json"): Promise<any
     let url = '/api/file/getFile';
     let promise = new Promise<IWebSocketData>((resolve, reject) => {
         try {
-            fetchPost(url, data, (response: IWebSocketData) => {
-                resolve(response);
+            fetchPost(url, data, (response: any) => {
+                let data = type === 'json' ? JSON.parse(response) : response;
+                resolve(data);
             });
         } catch (error) {
             reject(error);

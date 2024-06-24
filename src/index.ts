@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-23 22:10:15
+ * @LastEditTime : 2024-06-24 21:22:38
  * @Description  : 
  */
 import {
@@ -21,12 +21,14 @@ import { load, unload } from "./func";
 import "@/index.scss";
 import { Href, Svg } from "./utils/const";
 import { EventBusSync } from "./utils/event-bus";
-import { updateStyleLink } from "./libs/style";
+// import { updateStyleLink } from "./libs/style";
 import { initSetting } from "./settings";
 import { onPaste } from "./global-paste";
 
+import { updateStyleDom } from "./utils/style";
+
 import type {} from "solid-styled-jsx";
-import { request } from "./api";
+import { request, getFile } from "./api";
 
 const electron = require('electron');
 
@@ -87,7 +89,9 @@ export default class FMiscPlugin extends Plugin {
         this.initTopBar();
 
         Object.entries(Href.Style).forEach(([key, value]) => {
-            updateStyleLink(key, value);
+            getFile('/data' + value, 'text').then((content: string) => {
+                updateStyleDom(`snippet-fmisc__${key}`, content);
+            });
         });
 
         this.eventBus.on('open-menu-image', ({ detail }) => {
