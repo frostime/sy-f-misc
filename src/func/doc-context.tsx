@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-06-10 14:55:35
  * @FilePath     : /src/func/doc-context.tsx
- * @LastEditTime : 2024-06-23 16:35:57
+ * @LastEditTime : 2024-06-26 21:34:08
  * @Description  : 
  */
 import { For, Show } from 'solid-js';
@@ -87,24 +87,12 @@ const A = (props: { id: string, hightlight?: boolean, children: any, dialog: Dia
 
     return (
         <>
-            <span data-id={props.id} onClick={open} style={{
+            <span class="anchor" data-id={props.id} onClick={open} style={{
                 outline: props?.hightlight ? 'solid var(--b3-theme-primary-light)' : 0,
                 'font-weight': props?.hightlight ? 'bold' : 'inherit',
             }}>
                 {props.children}
             </span>
-            <style jsx>
-                {`
-                    span {
-                        cursor: pointer;
-                        color: var(--b3-theme-primary);
-                        padding: 1px 2px;
-                    }
-                    span:hover {
-                        background-color: var(--b3-theme-primary-lightest);
-                    }
-                `}
-            </style>
         </>
     )
 }
@@ -170,19 +158,6 @@ const DocContextComponent = (props: {
                     </For>
                 </ol>
             </Show>
-            <style jsx>{`
-                .btn-focus {
-                    font-size: 19px;
-                    font-weight: bold;
-                    color: var(--b3-theme-primary);
-                    cursor: pointer;
-                }
-                ol {
-                    font-size: 18px;
-                    column-gap: 30px;
-                    column-count: 3;
-                }
-            `}</style>
         </section>
     );
 };

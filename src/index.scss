@@ -155,3 +155,28 @@ main.transfer-ref#main {
         }
     }
 }
+
+/******************** doc context ********************/
+section.doc-context {
+    .btn-focus {
+        font-size: 19px;
+        font-weight: bold;
+        color: var(--b3-theme-primary);
+        cursor: pointer;
+    }
+    ol {
+        font-size: 18px;
+        column-gap: 30px;
+        column-count: 3;
+    }
+
+    span.anchor {
+        cursor: pointer;
+        color: var(--b3-theme-primary);
+        padding: 1px 2px;
+
+        &:hover {
+            background-color: var(--b3-theme-primary-lightest);
+        }
+    }
+}
