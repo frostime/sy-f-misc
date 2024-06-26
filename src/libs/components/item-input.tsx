@@ -1,7 +1,14 @@
 import { createSignal } from "solid-js";
 
-export default function InputItem(props: ISettingItemCore & { changed: (v?: any) => void}) {
+interface IProps extends ISettingItemCore {
+    changed: (v?: any) => void;
+    nofnSize?: boolean;
+}
+
+export default function InputItem(props: IProps) {
     const [value, setValue] = createSignal(props.value);
+
+    const fn_size = props?.nofnSize === true ? false : true;
 
     function click() {
         props.button?.callback();
@@ -28,7 +35,8 @@ export default function InputItem(props: ISettingItemCore & { changed: (v?: any)
         } else if (props.type === "textinput") {
             return (
                 <input
-                    class="b3-text-field fn__flex-center fn__size200"
+                    class="b3-text-field fn__flex-center"
+                    classList={{ fn__size200: fn_size }}
                     id={props.key}
                     placeholder={props.placeholder}
                     value={value()}
@@ -53,7 +61,8 @@ export default function InputItem(props: ISettingItemCore & { changed: (v?: any)
         } else if (props.type === "number") {
             return (
                 <input
-                    class="b3-text-field fn__flex-center fn__size200"
+                    class="b3-text-field fn__flex-center"
+                    classList={{ fn__size200: fn_size }}
                     id={props.key}
                     type="number"
                     value={value()}
@@ -66,7 +75,8 @@ export default function InputItem(props: ISettingItemCore & { changed: (v?: any)
         } else if (props.type === "button") {
             return (
                 <button
-                    class="b3-button b3-button--outline fn__flex-center fn__size200"
+                    class="b3-button b3-button--outline fn__flex-center"
+                    classList={{ fn__size200: fn_size }}
                     id={props.key}
                     onClick={click}
                 >
@@ -76,7 +86,8 @@ export default function InputItem(props: ISettingItemCore & { changed: (v?: any)
         } else if (props.type === "select") {
             return (
                 <select
-                    class="b3-select fn__flex-center fn__size200"
+                    class="b3-select fn__flex-center"
+                    classList={{ fn__size200: fn_size }}
                     id={props.key}
                     value={value()}
                     onChange={(e) => {
@@ -93,7 +104,8 @@ export default function InputItem(props: ISettingItemCore & { changed: (v?: any)
             return (
                 <div class="b3-tooltips b3-tooltips__n" aria-label={value()}>
                     <input
-                        class="b3-slider fn__size200"
+                        class="b3-slider"
+                        classList={{ fn__size200: fn_size }}
                         id={props.key}
                         min={props.slider.min}
                         max={props.slider.max}

@@ -1,7 +1,9 @@
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { upload } from "@/api";
-import { inputDialog } from "@/libs/dialog";
+import { confirmDialog } from "@/libs/dialog";
+import ItemInput from '@/libs/components/item-input';
+import { render } from "solid-js/web";
 
 const BlankFileContent = {
     drawio: `<mxfile host="Electron" modified="2024-04-04T12:48:56.358Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.0.4 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="2hwdI9Fb9SLygm8eVMT2" version="24.0.4" type="device">
@@ -74,6 +76,52 @@ const addNewEmptyFile = async (fname: string) => {
     return res.succMap;
 }
 
+const PredefinedExt = ['drawio', 'docx', 'xlsx', 'pptx', 'md', 'json'];
+
+const NewFileApp = (props: {updated: (v) => void}) => {
+
+    let fname = '';
+    let ext = '';
+
+    let options: {[key: string]: string} = PredefinedExt.reduce((acc, ext) => {
+        acc[`.${ext}`] = `.${ext}`;
+        return acc;
+    }, {} as {[key: string]: string});
+
+    return (
+        <div class="fn__flex" style="gap: 5px;">
+            <div class="fn__flex">
+                <ItemInput
+                    type='textinput'
+                    key='fname'
+                    value=''
+                    changed={(v) => {
+                        fname = v;
+                        props.updated(fname + ext);
+                    }}
+                />
+            </div>
+            <div class="fn__flex fn__flex-1">
+                <ItemInput
+                    type='select'
+                    key='ext'
+                    value=''
+                    options={{
+                        '': '自定义',
+                        ...options
+                    }}
+                    changed={(v) => {
+                        ext = v;
+                        props.updated(fname + ext);
+                    }}
+                    nofnSize={true}
+                />
+            </div>
+        </div>
+    );
+}
+
+
 export let name = 'NewFile';
 export let enabled = false;
 
@@ -85,18 +133,28 @@ export const load = (plugin: FMiscPlugin) => {
         html: '新建空白附件',
         id: 'new-file',
         callback: async (protyle: Protyle) => {
-            inputDialog({
-                title: '新建空白附件', placeholder: '输入文件名称', confirm: async (fname: string) => {
-                    let succMap = await addNewEmptyFile(fname);
-                    let filePath = succMap?.[fname];
-                    if (filePath) {
-                        showMessage(`新建文件${fname}成功, 文件路径: ${filePath}`);
-                        protyle.insert(`<span data-type="a" data-href="${filePath}">${fname}</span>`, false, true);
-                    } else {
-                        showMessage(`新建文件${fname}失败`);
-                        protyle.insert(``, false);
-                    }
+            let fname: string = '';
+
+            const createCb = async () => {
+                let succMap = await addNewEmptyFile(fname);
+                let filePath = succMap?.[fname];
+                if (filePath) {
+                    showMessage(`新建文件${fname}成功, 文件路径: ${filePath}`);
+                    protyle.insert(`<span data-type="a" data-href="${filePath}">${fname}</span>`, false, true);
+                } else {
+                    showMessage(`新建文件${fname}失败`);
+                    protyle.insert(``, false);
                 }
+            };
+            let ele = document.createElement('div');
+            render(() => NewFileApp({
+                updated: (v) => { fname = v; }
+            }), ele);
+
+            confirmDialog({
+                title: '新建空白附件',
+                content: ele,
+                confirm: createCb
             });
         }
     };
