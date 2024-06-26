@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 21:52:48
  * @FilePath     : /src/func/bookmarks/index.ts
- * @LastEditTime : 2024-06-21 20:20:45
+ * @LastEditTime : 2024-06-26 21:44:18
  * @Description  : 
  */
 import { render } from "solid-js/web";
@@ -11,7 +11,7 @@ import type FMiscPlugin from "@/index";
 import { getModel, rmModel, BookmarkDataModel } from "./model";
 // import { Bookmark } from "./component";
 import Bookmark from "./components/bookmark";
-import { insertStyle, removeStyle } from "@/libs/style";
+import { updateStyleDom, removeStyleDom } from "@/utils/style";
 
 let model: BookmarkDataModel;
 
@@ -30,7 +30,7 @@ const destroyBookmark = () => {
     model = null;
     const ele = document.querySelector('span[data-type="sy-f-misc::dock::Bookmark"]') as HTMLElement;
     ele?.remove();
-    removeStyle('hide-bookmark');
+    removeStyleDom('hide-bookmark');
 };
 
 const bookmarkKeymap = window.siyuan.config.keymap.general.bookmark;
@@ -46,7 +46,7 @@ export const load = async (plugin: FMiscPlugin) => {
     // await model.load();
     // await model.updateItems();
 
-    insertStyle('hide-bookmark', `
+    updateStyleDom('hide-bookmark', `
     .dock span[data-type="bookmark"] {
         display: none;
     }

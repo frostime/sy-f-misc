@@ -1,7 +1,7 @@
 import { Protyle, Dialog, showMessage, openTab } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { html2ele } from "@/utils";
-import { insertStyle, removeStyle } from "@/libs/style";
+import { updateStyleDom, removeStyleDom } from "@/utils/style";
 // import * as api from '../api';
 
 export const selectIconDialog = () => {
@@ -167,7 +167,7 @@ export const load = (plugin: FMiscPlugin) => {
         document.documentElement.style.setProperty('--plugin-docky-zoom', `${factor}`);
     }
 
-    insertStyle('f-misc-docky-style', `
+    updateStyleDom('f-misc-docky-style', `
         .f-misc__docky-action {
             opacity: 0;
             transition: opacity 0.3s ease-in-out;
@@ -196,6 +196,6 @@ export const load = (plugin: FMiscPlugin) => {
 
 export const unload = () => {
     if (!enabled) return;
-    removeStyle('f-misc-docky-style');
+    removeStyleDom('f-misc-docky-style');
     enabled = false;
 }
