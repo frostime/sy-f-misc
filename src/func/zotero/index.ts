@@ -20,8 +20,9 @@ const pasteProcessor = (detail: ISiyuanEventPaste) => {
     if (!ans) return false;
     let title = ans.groups.title;
     let itemName = ans.groups.itemName;
-    let itemLink = ans.groups.itemLink;
-    const txt = `“${title}”([${itemName}](${itemLink}))`;
+    // let itemLink = ans.groups.itemLink;
+    let annoLink = ans.groups.annoLink;
+    const txt = `“${title}”([${itemName}](${annoLink}))`;
     console.debug("Paste zotero link:", txt);
     detail.resolve({
         textPlain: txt, textHTML: "<!--StartFragment--><!--EndFragment-->",
