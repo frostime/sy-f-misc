@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-24 21:22:38
+ * @LastEditTime : 2024-06-30 16:20:46
  * @Description  : 
  */
 import {
@@ -41,6 +41,8 @@ export default class FMiscPlugin extends Plugin {
 
     private globalContextMenuHandler: (event: MouseEvent) => void;
 
+    private callbacksOnLayoutReady: ((p: FMiscPlugin) => void)[];
+
     declare data: {
         configs: {
             'Enable': { [key: string]: boolean };
@@ -61,6 +63,8 @@ export default class FMiscPlugin extends Plugin {
     eb: EventBusSync;
 
     async onload() {
+        this.callbacksOnLayoutReady = [];
+
         const frontEnd = getFrontend();
         this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
@@ -80,6 +84,12 @@ export default class FMiscPlugin extends Plugin {
         this.eventBus.off('paste', onPaste);
         unload(this);
         // document.removeEventListener('mousedown', this.globalContextMenuHandler);
+    }
+
+    async onLayoutReady() {
+        this.callbacksOnLayoutReady.forEach(cb => {
+            cb(this);
+        });
     }
 
     /**
@@ -299,6 +309,10 @@ export default class FMiscPlugin extends Plugin {
 
     delCommand(id: string) {
         this.commands = this.commands.filter((command) => command.langKey !== id);
+    }
+
+    addLayoutReadyCallback(cb: ((p: FMiscPlugin) => void)) {
+        this.callbacksOnLayoutReady.push(cb);
     }
 
 }

@@ -48,8 +48,7 @@ export class BookmarkDataModel {
         const allGroups = [];
         for (let [_, group] of Object.entries(this.plugin.data.bookmarks)) {
             let items: IItemCore[] = group.items.map(item => ({ id: item.id, order: item.order }));
-            // ItemOrderStore[id] = writable(items);
-            // setItemOrder(id, items);
+
             let groupV2: IBookmarkGroup = { ...group, items };
             allGroups.push(groupV2);
             group.items.map(item => {
