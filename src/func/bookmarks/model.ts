@@ -131,10 +131,10 @@ export class BookmarkDataModel {
         allItems.forEach(([id, item], _) => {
             let block = blocks[id];
             if (block) {
-                const { fcontent, content, box, type, subtype } = block;
+                const { name, fcontent, content, box, type, subtype } = block;
                 const ni: IBookmarkItemInfo = {
                     id: item.id,
-                    title: fcontent || content,
+                    title: name || fcontent || content,
                     box,
                     type,
                     subtype: subtype || '',
