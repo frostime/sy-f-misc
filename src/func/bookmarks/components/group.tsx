@@ -311,12 +311,6 @@ const Group: Component<Props> = (props) => {
             addItemByBlockId(nodeId);
         } else if (type === 'bookmark/item') {
             model.moveItem(itemMoving());
-            // setItemMoving({
-            //     srcGroup: "",
-            //     srcItem: "",
-            //     targetGroup: "",
-            //     afterItem: "",
-            // });
         }
         setIsDragOver(false);
     };
@@ -333,6 +327,9 @@ const Group: Component<Props> = (props) => {
             onDragLeave={onDragLeave}
             onDrop={onDrop}
             role="list"
+            style={{
+                transition: 'background-color 0.2s ease-in-out'
+            }}
         >
             <li
                 class={`b3-list-item b3-list-item--hide-action custom-bookmark-group-header ${dragovered()} ${groupDrop() === props.group.id ? 'b3-list-item--focus' : ''}`}
