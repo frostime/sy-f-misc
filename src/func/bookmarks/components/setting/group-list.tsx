@@ -1,12 +1,9 @@
 import { createMemo, For } from "solid-js";
 import { groups, setGroups, itemInfo } from "../../model";
+import { moveItem } from "../../libs/op";
 
 
 const App = () => {
-
-    let orderedGroups = createMemo(() => {
-        return groups.slice().sort((a, b) => a.order - b.order);
-    });
 
     let Counts = createMemo(() => {
         let Cnt: { [key: string]: { indexed: number, closed: number, deleted: number } } = {};
@@ -29,16 +26,17 @@ const App = () => {
 
     const onDrop = (e) => {
         e.preventDefault();
-        let srcGroupId = e.dataTransfer.getData("text/plain");
+        let srcGroupIdx: string = e.dataTransfer.getData("text/plain");
         e.dataTransfer.clearData();
         let target = e.target.closest(".bookmark-group") as HTMLElement;
         if (!target) return;
-        let targetGroupId = target.dataset.groupId;
-        let targetGroup = groups.find(g => g.id === targetGroupId);
-        // let temp = groups[index];
-        // groups[index] = groups[data];
-        // groups[data] = temp;
-        setGroups((g) => g.id === srcGroupId, 'order', targetGroup.order - 1);
+        let targetGroupIndex: string = target.dataset.index;
+        let from = Number.parseInt(srcGroupIdx);
+        let to = Number.parseInt(targetGroupIndex);
+        if (from === to) return;
+
+        setGroups((groups) => moveItem(groups, from, to));
+
     };
 
     return (
@@ -51,7 +49,7 @@ const App = () => {
                 gap: '10px'
             }}
         >
-            <For each={orderedGroups()}>
+            <For each={groups}>
                 {(group, i) => (
                     <li
                         class="bookmark-group b3-list-item"
@@ -66,7 +64,7 @@ const App = () => {
                         data-group-id={group.id}
                         draggable="true"
                         onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", group.id);
+                            e.dataTransfer.setData("text/plain", `${i()}`);
                         }}
                         onDragOver={onDragover}
                         onDrop={onDrop}

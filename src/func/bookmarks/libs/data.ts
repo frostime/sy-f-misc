@@ -12,8 +12,7 @@ import PromiseLimitPool from "@/libs/promise-pool";
 export {
     getBlocks,
     type IDocInfo,
-    getDocInfos,
-    newOrderByTime
+    getDocInfos
 }
 
 /**
@@ -69,11 +68,4 @@ const getDocInfos = async (...docIds: DocumentId[]) => {
         console.error(error);
     }
     return results;
-}
-
-const newOrderByTime = (): number => {
-    const start = '2024-06-01T00:00:00';  //起始时间
-    let now = Date.now();
-    let diff = now - Date.parse(start);
-    return Math.floor(diff / 100);
 }
