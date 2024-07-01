@@ -164,7 +164,7 @@ const Item: Component<IProps> = (props) => {
             data-subtype=""
             data-treetype="bookmark"
             data-def-path=""
-            data-item-order={props.orderedItem.order}
+            // data-item-order={props.orderedItem.order}
             onContextMenu={showItemContextMenu}
             onClick={openBlock}
         >

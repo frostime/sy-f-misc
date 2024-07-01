@@ -19,7 +19,7 @@ interface Props {
 const Group: Component<Props> = (props) => {
     const { model, doAction } = useContext(BookmarkContext);
 
-    let orderedItems = createMemo(() => {
+    let shownItems = createMemo(() => {
         let index = groups.findIndex((g) => g.id === props.group.id);
         let group = groups[index];
         let items = group.items.slice();
@@ -29,7 +29,8 @@ const Group: Component<Props> = (props) => {
         if (configs.hideDeleted) {
             items = items.filter((it) => itemInfo[it.id]?.err !== 'BlockDeleted');
         }
-        return items.sort((a, b) => a.order - b.order);
+        // return items.sort((a, b) => a.order - b.order);
+        return items;
     });
 
     const isOpen = createMemo(() => {
@@ -122,7 +123,7 @@ const Group: Component<Props> = (props) => {
                 label: "文档流",
                 icon: "iconFlow",
                 click: () => {
-                    const idlist = orderedItems().map(item => item.id);
+                    const idlist = shownItems().map(item => item.id);
                     docFlow.eventBus.emit('IdList', {
                         input: idlist,
                         config: {}
@@ -353,14 +354,14 @@ const Group: Component<Props> = (props) => {
                         <use href="#iconMore"></use>
                     </svg>
                 </span>
-                <span class="counter">{orderedItems().length}</span>
+                <span class="counter">{shownItems().length}</span>
             </li>
             <ul
                 class={`custom-bookmark-group-list ${itemsClass()}`}
                 data-groupid={props.group.id}
                 data-groupname={props.group.name}
             >
-                <For each={orderedItems()}>
+                <For each={shownItems()}>
                     {(item: IItemCore) => (
                         <Item group={props.group.id} orderedItem={item} deleteItem={itemDelete} />
                     )}

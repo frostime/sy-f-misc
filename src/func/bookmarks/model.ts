@@ -1,4 +1,4 @@
-import { createStore, unwrap, produce } from "solid-js/store";
+import { createStore, unwrap } from "solid-js/store";
 
 import type FMiscPlugin from "@/index";
 
@@ -11,6 +11,51 @@ import { debounce } from '@/utils';
 const StorageNameBookmarks = 'bookmarks';  //书签
 const StorageFileConfigs = 'bookmark-configs.json';  //书签插件相关的配置
 const StorageFileItemSnapshot = 'bookmark-items-snapshot.json';  //书签项目的缓存，防止出现例如 box 关闭导致插件以为书签被删除的问题
+
+/**
+ * 将 arr[from] 元素移动到 arr[to]，返回更改后的 array
+ * @param arr 原始数组
+ * @param from from index
+ * @param to to index
+ * @returns 更改后的 array: `IItemCore[]`
+ */
+const moveItem = (arr: IItemCore[], from: number, to: number): IItemCore[] => {
+    const newArr = [...arr];
+    const item = newArr.splice(from, 1)[0];
+    newArr.splice(to, 0, item);
+    return newArr;
+}
+
+/**
+ * 移除数组中指定索引的元素，返回更改后的 array
+ * @param arr 原始数组
+ * @param index 要移除的元素索引
+ * @returns 更改后的 array: `IItemCore[]`
+ */
+const rmItem = (arr: IItemCore[], index: number): IItemCore[] => {
+    const newArr = [...arr];
+    newArr.splice(index, 1);
+    return newArr;
+}
+
+/**
+ * 在数组中插入元素，返回更改后的 array
+ * @param arr 原始数组
+ * @param item 要插入的元素
+ * @param index 插入位置的索引，如果未提供则插入到数组末尾
+ * @returns 更改后的 array: `IItemCore[]`
+ */
+const insertItem = (arr: IItemCore[], item: IItemCore, index?: number): IItemCore[] => {
+    const newArr = [...arr];
+    if (index !== undefined) {
+        newArr.splice(index, 0, item);
+    } else {
+        newArr.push(item);
+    }
+    return newArr;
+}
+
+
 
 export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
 
@@ -47,7 +92,7 @@ export class BookmarkDataModel {
 
         const allGroups = [];
         for (let [_, group] of Object.entries(this.plugin.data.bookmarks)) {
-            let items: IItemCore[] = group.items.map(item => ({ id: item.id, order: item.order }));
+            let items: IItemCore[] = group.items.map(item => ({ id: item.id, style: item?.style }));
 
             let groupV2: IBookmarkGroup = { ...group, items };
             allGroups.push(groupV2);
@@ -255,7 +300,7 @@ export class BookmarkDataModel {
             }
 
             setGroups((g) => g.id === gid, 'items', (items) => {
-                return [...items, {id: item.id, order: newOrderByTime()}]
+                return [...items, { id: item.id }]
             })
             setItemInfo(item.id, 'ref', (ref) => ref + 1);
             this.save();
@@ -336,13 +381,11 @@ export class BookmarkDataModel {
         if (index === -1) {
             return false;
         }
-        let orders = items.map(itmin => itmin.order);
-        let min = Math.min(...orders);
-        let max = Math.max(...orders);
-        if (order === 'top' && items[index].order !== min) {
-            setGroups(group.index, 'items', (io) => io.id === item.id, 'order', min - 1);
-        } else if (order === 'bottom' && items[index].order !== max) {
-            setGroups(group.index, 'items', (io) => io.id === item.id, 'order', max + 1);
+
+        if (order === 'top' && index !== 0) {
+            setGroups(group.index, 'items', (items) => moveItem(items, index, 0));
+        } else if (order === 'bottom' && index !== items.length - 1) {
+            setGroups(group.index, 'items', (items) => moveItem(items, index, items.length - 1));
         }
         this.save();
         return true;
@@ -369,36 +412,25 @@ export class BookmarkDataModel {
         }
 
         //计算新插件的项目的顺序
-        let newOrder: number;
+        let toIndex: number = 0;
         if (afterItem === '') {
-            //如果 afterItem 为空, 则相当于直接把 srcItem 移动到 targetGroup 中
-            if (target.items.length === 0) {
-                newOrder = src.items[srcIndex].order;
-            } else {
-                //获取targetItems中最小的 order
-                let minOrder = Math.min(...target.items.map(itmin => itmin.order));
-                newOrder = minOrder - 1;
-            }
+            //如果 afterItem 为空, 则相当于直接把 srcItem 移动到 targetGroup 最前面
+            toIndex = 0;
         } else {
             //如果 afterItem 不为空, 则相当于把 srcItem 移动到 afterItem 之后
             let afterIndex = target.items.findIndex(itmin => itmin.id === afterItem);
             if (afterIndex === -1) {
                 return false;
             }
-            let afterOrder = target.items[afterIndex].order;
-            newOrder = afterOrder + 1; //插入到 afterItem 之后
+            toIndex = afterIndex + 1;
         }
 
         if (srcGroup === targetGroup) {
-            setGroups(src.index, 'items', (io) => io.id === srcItem, 'order', newOrder);
+            setGroups(src.index, 'items', (items) => moveItem(items, srcIndex, toIndex));
         } else {
             batch(() => {
-                setGroups((g) => g.id === srcGroup, 'items', (items: IItemCore[]) => {
-                    return items.filter(it => it.id != srcItem);
-                });
-                setGroups((g) => g.id === targetGroup, 'items', produce((items: IItemCore[]) => {
-                    items.push({ id: srcItem, order: newOrder });
-                }));
+                setGroups((g) => g.id === srcGroup, 'items', (items) => rmItem(items, srcIndex));
+                setGroups((g) => g.id === targetGroup, 'items', (items) => insertItem(items, { id: srcItem, style: 'newOrder' }, toIndex));
             });
         }
         console.debug(`moveItem: ${srcItem} from ${srcGroup} to ${targetGroup} after ${afterItem}`);

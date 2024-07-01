@@ -62,7 +62,7 @@ const App = () => {
                             'border-radius': '10px',
                             'box-shadow': '0 0 5px 3px rgba(0, 0, 0, 0.1)'
                         }}
-                        data-index={i}
+                        data-index={i()}
                         data-group-id={group.id}
                         draggable="true"
                         onDragStart={(e) => {

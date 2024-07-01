@@ -28,7 +28,8 @@ interface IBookmarkItemInfo extends IBookmarkItem {
 
 interface IItemCore {
     id: BlockId;
-    order: number;
+    // order: number;
+    style?: string;
 };
 
 interface IBookmarkGroup {
