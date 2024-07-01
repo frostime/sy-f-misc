@@ -24,7 +24,7 @@ const BookmarkComponent: Component<Props> = (props) => {
     const [doAction, setDoAction] = createSignal<TAction>("");
 
     const shownGroups = createMemo(() => {
-        let newg = groups.filter(group => !group.hidden).sort((a, b) => a.order - b.order);
+        let newg = groups.filter(group => !group.hidden);
         return newg;
     });
 
@@ -80,7 +80,7 @@ const BookmarkComponent: Component<Props> = (props) => {
         const srcIdx = shownGroups().findIndex(
             (g: IBookmarkGroup) => g.id === detail.group.id
         );
-        let targetIdx;
+        let targetIdx: number;
         if (detail.to === "up") targetIdx = srcIdx - 1;
         else if (detail.to === "down") targetIdx = srcIdx + 1;
         else if (detail.to === "top") targetIdx = 0;
@@ -88,14 +88,7 @@ const BookmarkComponent: Component<Props> = (props) => {
         else return;
         if (targetIdx < 0 || targetIdx >= shownGroups().length) return;
 
-        const position = {
-            'down': 'after',
-            'bottom': 'after',
-            'up': 'before',
-            'top': 'before',
-        }[detail.to] as 'before' | 'after';
-        const targetGroup: IBookmarkGroup = shownGroups()[targetIdx];
-        props.model.groupMove(detail.group.id, targetGroup.id, position);
+        props.model.moveGroup(srcIdx, targetIdx);
     };
 
     const bookmarkContextMenu = (e: MouseEvent) => {

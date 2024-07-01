@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-06-23 16:39:02
+ * @LastEditTime : 2024-06-30 16:19:50
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -40,8 +40,12 @@ const ModulesToEnable = [
     docky,
     tr,
     ss,
-    // tt,
     bookmark
+]
+
+const ModulesAlwaysEnable = [
+    dq,
+    dc
 ]
 
 //`Enable${module.name}`: module
@@ -56,9 +60,9 @@ export const load = (plugin: FMiscPlugin) => {
         }
     });
 
-    // gt.load();
-    dq.load();
-    dc.load(plugin);
+    ModulesAlwaysEnable.forEach(module => {
+        module.load(plugin);
+    });
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -66,9 +70,9 @@ export const unload = (plugin: FMiscPlugin) => {
         module.unload(plugin);
     });
 
-    // gt.unload();
-    dq.unload();
-    dc.unload(plugin);
+    ModulesAlwaysEnable.forEach(module => {
+        module.unload(plugin);
+    });
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];

@@ -2,18 +2,32 @@ import { Component, createEffect, createMemo, createSignal, useContext } from "s
 import { Menu, openTab, showMessage } from "siyuan";
 import { buildItemDetail } from "../libs/dom";
 
-import { itemInfo } from "../model";
+import { itemInfo, setGroups } from "../model";
 
 import { BookmarkContext, itemMoving, setItemMoving } from "./context";
 
 interface IProps {
     group: TBookmarkGroupId;
-    orderedItem: IItemCore;
+    itemCore: IItemCore;
     deleteItem: (i: IBookmarkItem) => void;
 }
 
+
+const setStyleBtn = (key: string, label: string): HTMLElement => {
+    let html = `
+<button class="b3-menu__item" style="align-items: center;">
+<span style="color: var(--b3-card-${key}-color); background-color: var(--b3-card-${key}-background);" class="color__square">A</span>
+<span class="b3-menu__label">${label}</span>
+</button>
+`;
+    let div = document.createElement('div');
+    div.innerHTML = html;
+    return div.firstElementChild as HTMLElement;
+}
+
+
 const Item: Component<IProps> = (props) => {
-    const item = () => itemInfo[props.orderedItem.id];
+    const item = () => itemInfo[props.itemCore.id];
 
     const [NodeType, setNodeType] = createSignal<string>("");
     const [Icon, setIcon] = createSignal<string>("");
@@ -22,7 +36,7 @@ const Item: Component<IProps> = (props) => {
 
     const dragovered = createMemo(() => {
         let value = itemMoving();
-        if (value.targetGroup === props.group && value.afterItem === props.orderedItem.id) {
+        if (value.targetGroup === props.group && value.afterItem === props.itemCore.id) {
             return 'dragovered';
         } else {
             return '';
@@ -45,7 +59,15 @@ const Item: Component<IProps> = (props) => {
         }
     });
 
-    const {plugin, model, shownGroups} = useContext(BookmarkContext);
+    const { plugin, model, shownGroups } = useContext(BookmarkContext);
+
+    const setStyle = (style: string) => {
+        setGroups(
+            (g) => g.id === props.group, 'items',
+            (it) => it.id === item().id, 'style', style
+        );
+        model.save();
+    }
 
     const showItemContextMenu = (e: MouseEvent) => {
         e.stopPropagation();
@@ -72,6 +94,44 @@ const Item: Component<IProps> = (props) => {
                     });
             },
         });
+        menu.addSeparator();
+        menu.addItem({
+            label: '样式',
+            icon: 'iconTheme',
+            type: 'submenu',
+            submenu: [
+                {
+                    element: setStyleBtn('info', '信息'),
+                    click: () => {
+                        setStyle('color: var(--b3-card-info-color);background-color: var(--b3-card-info-background);')
+                    }
+                },
+                {
+                    element: setStyleBtn('success', '成功'),
+                    click: () => {
+                        setStyle('color: var(--b3-card-success-color);background-color: var(--b3-card-success-background);')
+                    }
+                },
+                {
+                    element: setStyleBtn('warning', '警告'),
+                    click: () => {
+                        setStyle('color: var(--b3-card-warning-color);background-color: var(--b3-card-warning-background);')
+                    }
+                },
+                {
+                    element: setStyleBtn('error', '错误'),
+                    click: () => {
+                        setStyle('color: var(--b3-card-error-color);background-color: var(--b3-card-error-background);')
+                    }
+                },
+                {
+                    label: '清除',
+                    click: () => {
+                        setStyle('')
+                    }
+                },
+            ]
+        })
         menu.addSeparator();
         const groups = shownGroups().filter((g) => g.id !== props.group).map((g) => {
             return {
@@ -147,13 +207,18 @@ const Item: Component<IProps> = (props) => {
     const onDragEnd = (event: DragEvent) => {
         event.dataTransfer.clearData();
         setOpacityStyle('');
+        setItemMoving({
+            srcGroup: "",
+            srcItem: "",
+            targetGroup: "",
+            afterItem: "",
+        });
     };
 
     return (
         <li
             class={`b3-list-item b3-list-item--hide-action custom-bookmark-item ${dragovered()}`}
-            // style={`--file-toggle-width:38px; ${opacityStyle()}`}
-            style={`${opacityStyle()}`}
+            style={`${opacityStyle()} ${props.itemCore?.style ?? ''}`}
             draggable="true"
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
@@ -164,7 +229,6 @@ const Item: Component<IProps> = (props) => {
             data-subtype=""
             data-treetype="bookmark"
             data-def-path=""
-            data-item-order={props.orderedItem.order}
             onContextMenu={showItemContextMenu}
             onClick={openBlock}
         >
@@ -176,7 +240,7 @@ const Item: Component<IProps> = (props) => {
                     <use href="#iconRight"></use>
                 </svg>
             </span>
-            <div innerHTML={Icon()}/>
+            <div innerHTML={Icon()} />
             <span class="b3-list-item__text ariaLabel" data-position="parentE" style={titleStyle()}>
                 {item().title}
             </span>

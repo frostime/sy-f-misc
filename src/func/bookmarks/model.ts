@@ -1,8 +1,9 @@
-import { createStore, unwrap, produce } from "solid-js/store";
+import { createStore, unwrap } from "solid-js/store";
 
 import type FMiscPlugin from "@/index";
 
-import { getBlocks, getDocInfos, newOrderByTime } from "./libs/data";
+import { getBlocks, getDocInfos } from "./libs/data";
+import { rmItem, insertItem, moveItem } from "./libs/op";
 import { showMessage } from "siyuan";
 import { batch, createMemo } from "solid-js";
 
@@ -11,6 +12,7 @@ import { debounce } from '@/utils';
 const StorageNameBookmarks = 'bookmarks';  //书签
 const StorageFileConfigs = 'bookmark-configs.json';  //书签插件相关的配置
 const StorageFileItemSnapshot = 'bookmark-items-snapshot.json';  //书签项目的缓存，防止出现例如 box 关闭导致插件以为书签被删除的问题
+
 
 export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
 
@@ -47,9 +49,8 @@ export class BookmarkDataModel {
 
         const allGroups = [];
         for (let [_, group] of Object.entries(this.plugin.data.bookmarks)) {
-            let items: IItemCore[] = group.items.map(item => ({ id: item.id, order: item.order }));
-            // ItemOrderStore[id] = writable(items);
-            // setItemOrder(id, items);
+            let items: IItemCore[] = group.items.map(item => ({ id: item.id, style: item?.style }));
+
             let groupV2: IBookmarkGroup = { ...group, items };
             allGroups.push(groupV2);
             group.items.map(item => {
@@ -204,8 +205,7 @@ export class BookmarkDataModel {
         let group = {
             id,
             name,
-            items: [],
-            order: newOrderByTime()
+            items: []
         };
 
         setGroups((gs) => [...gs, group]);
@@ -223,12 +223,8 @@ export class BookmarkDataModel {
         }
     }
 
-    groupMove(a: TBookmarkGroupId, b: TBookmarkGroupId, position: 'before' | 'after') {
-        let ga = groupMap().get(a);
-        let gb = groupMap().get(b);
-        let order = gb.order;
-        order = position === 'before' ? order - 1 : order + 1;
-        setGroups((g) => g.id === ga.id, 'order', order);
+    moveGroup(fromIndex: number, toIndex: number) {
+        setGroups((groups) => moveItem(groups, fromIndex, toIndex));
         this.save();
     }
 
@@ -256,7 +252,7 @@ export class BookmarkDataModel {
             }
 
             setGroups((g) => g.id === gid, 'items', (items) => {
-                return [...items, {id: item.id, order: newOrderByTime()}]
+                return [...items, { id: item.id }]
             })
             setItemInfo(item.id, 'ref', (ref) => ref + 1);
             this.save();
@@ -337,13 +333,11 @@ export class BookmarkDataModel {
         if (index === -1) {
             return false;
         }
-        let orders = items.map(itmin => itmin.order);
-        let min = Math.min(...orders);
-        let max = Math.max(...orders);
-        if (order === 'top' && items[index].order !== min) {
-            setGroups(group.index, 'items', (io) => io.id === item.id, 'order', min - 1);
-        } else if (order === 'bottom' && items[index].order !== max) {
-            setGroups(group.index, 'items', (io) => io.id === item.id, 'order', max + 1);
+
+        if (order === 'top' && index !== 0) {
+            setGroups(group.index, 'items', (items) => moveItem(items, index, 0));
+        } else if (order === 'bottom' && index !== items.length - 1) {
+            setGroups(group.index, 'items', (items) => moveItem(items, index, items.length - 1));
         }
         this.save();
         return true;
@@ -370,36 +364,25 @@ export class BookmarkDataModel {
         }
 
         //计算新插件的项目的顺序
-        let newOrder: number;
+        let toIndex: number = 0;
         if (afterItem === '') {
-            //如果 afterItem 为空, 则相当于直接把 srcItem 移动到 targetGroup 中
-            if (target.items.length === 0) {
-                newOrder = src.items[srcIndex].order;
-            } else {
-                //获取targetItems中最小的 order
-                let minOrder = Math.min(...target.items.map(itmin => itmin.order));
-                newOrder = minOrder - 1;
-            }
+            //如果 afterItem 为空, 则相当于直接把 srcItem 移动到 targetGroup 最前面
+            toIndex = 0;
         } else {
             //如果 afterItem 不为空, 则相当于把 srcItem 移动到 afterItem 之后
             let afterIndex = target.items.findIndex(itmin => itmin.id === afterItem);
             if (afterIndex === -1) {
                 return false;
             }
-            let afterOrder = target.items[afterIndex].order;
-            newOrder = afterOrder + 1; //插入到 afterItem 之后
+            toIndex = afterIndex + 1;
         }
 
         if (srcGroup === targetGroup) {
-            setGroups(src.index, 'items', (io) => io.id === srcItem, 'order', newOrder);
+            setGroups(src.index, 'items', (items) => moveItem(items, srcIndex, toIndex));
         } else {
             batch(() => {
-                setGroups((g) => g.id === srcGroup, 'items', (items: IItemCore[]) => {
-                    return items.filter(it => it.id != srcItem);
-                });
-                setGroups((g) => g.id === targetGroup, 'items', produce((items: IItemCore[]) => {
-                    items.push({ id: srcItem, order: newOrder });
-                }));
+                setGroups((g) => g.id === srcGroup, 'items', (items) => rmItem(items, srcIndex));
+                setGroups((g) => g.id === targetGroup, 'items', (items) => insertItem(items, { id: srcItem, style: 'newOrder' }, toIndex));
             });
         }
         console.debug(`moveItem: ${srcItem} from ${srcGroup} to ${targetGroup} after ${afterItem}`);

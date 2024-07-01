@@ -19,7 +19,7 @@ interface Props {
 const Group: Component<Props> = (props) => {
     const { model, doAction } = useContext(BookmarkContext);
 
-    let orderedItems = createMemo(() => {
+    let shownItems = createMemo(() => {
         let index = groups.findIndex((g) => g.id === props.group.id);
         let group = groups[index];
         let items = group.items.slice();
@@ -29,7 +29,8 @@ const Group: Component<Props> = (props) => {
         if (configs.hideDeleted) {
             items = items.filter((it) => itemInfo[it.id]?.err !== 'BlockDeleted');
         }
-        return items.sort((a, b) => a.order - b.order);
+        // return items.sort((a, b) => a.order - b.order);
+        return items;
     });
 
     const isOpen = createMemo(() => {
@@ -100,7 +101,7 @@ const Group: Component<Props> = (props) => {
         e.stopPropagation();
         const menu = new Menu();
         menu.addItem({
-            label: "复制",
+            label: "复制为引用列表",
             icon: "iconRef",
             click: () => {
                 const items = model.listItems(props.group.id);
@@ -115,6 +116,22 @@ const Group: Component<Props> = (props) => {
                 });
             },
         });
+        menu.addItem({
+            label: "复制为链接列表",
+            icon: "iconSiYuan",
+            click: () => {
+                const items = model.listItems(props.group.id);
+                const refs = items
+                    .map(
+                        (item) =>
+                            `* [${item.title.replaceAll("\n", "")}](${item.id})`
+                    )
+                    .join("\n");
+                navigator.clipboard.writeText(refs).then(() => {
+                    showMessage("复制成功");
+                });
+            },
+        });
 
         const docFlow = (globalThis as any).siyuan.ws.app.plugins.find(p => p.name === 'sy-docs-flow');
         if (docFlow) {
@@ -122,7 +139,7 @@ const Group: Component<Props> = (props) => {
                 label: "文档流",
                 icon: "iconFlow",
                 click: () => {
-                    const idlist = orderedItems().map(item => item.id);
+                    const idlist = shownItems().map(item => item.id);
                     docFlow.eventBus.emit('IdList', {
                         input: idlist,
                         config: {}
@@ -294,12 +311,12 @@ const Group: Component<Props> = (props) => {
             addItemByBlockId(nodeId);
         } else if (type === 'bookmark/item') {
             model.moveItem(itemMoving());
-            setItemMoving({
-                srcGroup: "",
-                srcItem: "",
-                targetGroup: "",
-                afterItem: "",
-            });
+            // setItemMoving({
+            //     srcGroup: "",
+            //     srcItem: "",
+            //     targetGroup: "",
+            //     afterItem: "",
+            // });
         }
         setIsDragOver(false);
     };
@@ -312,7 +329,6 @@ const Group: Component<Props> = (props) => {
             class={`custom-bookmark-group ${isDragOver() ? 'dragover' : ''}`}
             data-groupid={props.group.id}
             data-groupname={props.group.name}
-            data-order={props.group.order}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
@@ -353,16 +369,16 @@ const Group: Component<Props> = (props) => {
                         <use href="#iconMore"></use>
                     </svg>
                 </span>
-                <span class="counter">{orderedItems().length}</span>
+                <span class="counter">{shownItems().length}</span>
             </li>
             <ul
                 class={`custom-bookmark-group-list ${itemsClass()}`}
                 data-groupid={props.group.id}
                 data-groupname={props.group.name}
             >
-                <For each={orderedItems()}>
+                <For each={shownItems()}>
                     {(item: IItemCore) => (
-                        <Item group={props.group.id} orderedItem={item} deleteItem={itemDelete} />
+                        <Item group={props.group.id} itemCore={item} deleteItem={itemDelete} />
                     )}
                 </For>
             </ul>

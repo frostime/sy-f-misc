@@ -1,12 +1,9 @@
 import { createMemo, For } from "solid-js";
 import { groups, setGroups, itemInfo } from "../../model";
+import { moveItem } from "../../libs/op";
 
 
 const App = () => {
-
-    let orderedGroups = createMemo(() => {
-        return groups.slice().sort((a, b) => a.order - b.order);
-    });
 
     let Counts = createMemo(() => {
         let Cnt: { [key: string]: { indexed: number, closed: number, deleted: number } } = {};
@@ -22,23 +19,23 @@ const App = () => {
         return Cnt;
     })
 
-    const onDragover = (e) => {
+    const onDragover = (e: DragEvent) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
     };
 
-    const onDrop = (e) => {
+    const onDrop = (e: DragEvent) => {
         e.preventDefault();
-        let srcGroupId = e.dataTransfer.getData("text/plain");
+        let srcGroupIdx: string = e.dataTransfer.getData("text/plain");
         e.dataTransfer.clearData();
-        let target = e.target.closest(".bookmark-group") as HTMLElement;
+        let target = (e.target as HTMLElement).closest(".bookmark-group") as HTMLElement;
         if (!target) return;
-        let targetGroupId = target.dataset.groupId;
-        let targetGroup = groups.find(g => g.id === targetGroupId);
-        // let temp = groups[index];
-        // groups[index] = groups[data];
-        // groups[data] = temp;
-        setGroups((g) => g.id === srcGroupId, 'order', targetGroup.order - 1);
+        let targetGroupIndex: string = target.dataset.index;
+        let from = Number.parseInt(srcGroupIdx);
+        let to = Number.parseInt(targetGroupIndex);
+        if (from === to) return;
+
+        setGroups((groups) => moveItem(groups, from, to));
     };
 
     return (
@@ -51,7 +48,7 @@ const App = () => {
                 gap: '10px'
             }}
         >
-            <For each={orderedGroups()}>
+            <For each={groups}>
                 {(group, i) => (
                     <li
                         class="bookmark-group b3-list-item"
@@ -62,11 +59,11 @@ const App = () => {
                             'border-radius': '10px',
                             'box-shadow': '0 0 5px 3px rgba(0, 0, 0, 0.1)'
                         }}
-                        data-index={i}
+                        data-index={i()}
                         data-group-id={group.id}
                         draggable="true"
                         onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", group.id);
+                            e.dataTransfer.setData("text/plain", `${i()}`);
                         }}
                         onDragOver={onDragover}
                         onDrop={onDrop}
@@ -81,7 +78,7 @@ const App = () => {
                         <span class="counter ariaLabel" aria-label="Indexed" style={{ margin: 0, "background-color": "var(--b3-card-success-background)" }}>
                             {Counts()[group.id].indexed}
                         </span>
-                        <span class="counter ariaLabel" aria-label="Box Deleted" style={{ margin: 0, "background-color": "var(--b3-card-warning-background)" }}>
+                        <span class="counter ariaLabel" aria-label="Box Closed" style={{ margin: 0, "background-color": "var(--b3-card-warning-background)" }}>
                             {Counts()[group.id].closed}
                         </span>
                         <span class="counter ariaLabel" aria-label="Not Found" style={{ margin: 0, "background-color": "var(--b3-card-error-background)" }}>
