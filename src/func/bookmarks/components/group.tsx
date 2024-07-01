@@ -101,7 +101,7 @@ const Group: Component<Props> = (props) => {
         e.stopPropagation();
         const menu = new Menu();
         menu.addItem({
-            label: "复制",
+            label: "复制为引用列表",
             icon: "iconRef",
             click: () => {
                 const items = model.listItems(props.group.id);
@@ -109,6 +109,22 @@ const Group: Component<Props> = (props) => {
                     .map(
                         (item) =>
                             `* ((${item.id} '${item.title.replaceAll("\n", "")}'))`
+                    )
+                    .join("\n");
+                navigator.clipboard.writeText(refs).then(() => {
+                    showMessage("复制成功");
+                });
+            },
+        });
+        menu.addItem({
+            label: "复制为链接列表",
+            icon: "iconSiYuan",
+            click: () => {
+                const items = model.listItems(props.group.id);
+                const refs = items
+                    .map(
+                        (item) =>
+                            `* [${item.title.replaceAll("\n", "")}](${item.id})`
                     )
                     .join("\n");
                 navigator.clipboard.writeText(refs).then(() => {
@@ -295,12 +311,12 @@ const Group: Component<Props> = (props) => {
             addItemByBlockId(nodeId);
         } else if (type === 'bookmark/item') {
             model.moveItem(itemMoving());
-            setItemMoving({
-                srcGroup: "",
-                srcItem: "",
-                targetGroup: "",
-                afterItem: "",
-            });
+            // setItemMoving({
+            //     srcGroup: "",
+            //     srcItem: "",
+            //     targetGroup: "",
+            //     afterItem: "",
+            // });
         }
         setIsDragOver(false);
     };
@@ -313,7 +329,6 @@ const Group: Component<Props> = (props) => {
             class={`custom-bookmark-group ${isDragOver() ? 'dragover' : ''}`}
             data-groupid={props.group.id}
             data-groupname={props.group.name}
-            data-order={props.group.order}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}
@@ -363,7 +378,7 @@ const Group: Component<Props> = (props) => {
             >
                 <For each={shownItems()}>
                     {(item: IItemCore) => (
-                        <Item group={props.group.id} orderedItem={item} deleteItem={itemDelete} />
+                        <Item group={props.group.id} itemCore={item} deleteItem={itemDelete} />
                     )}
                 </For>
             </ul>

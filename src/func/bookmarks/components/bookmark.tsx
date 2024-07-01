@@ -88,7 +88,7 @@ const BookmarkComponent: Component<Props> = (props) => {
         else return;
         if (targetIdx < 0 || targetIdx >= shownGroups().length) return;
 
-        props.model.groupMove(srcIdx, targetIdx);
+        props.model.moveGroup(srcIdx, targetIdx);
     };
 
     const bookmarkContextMenu = (e: MouseEvent) => {

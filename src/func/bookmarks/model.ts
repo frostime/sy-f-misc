@@ -223,7 +223,7 @@ export class BookmarkDataModel {
         }
     }
 
-    groupMove(fromIndex: number, toIndex: number) {
+    moveGroup(fromIndex: number, toIndex: number) {
         setGroups((groups) => moveItem(groups, fromIndex, toIndex));
         this.save();
     }

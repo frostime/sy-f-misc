@@ -8,12 +8,12 @@ import { BookmarkContext, itemMoving, setItemMoving } from "./context";
 
 interface IProps {
     group: TBookmarkGroupId;
-    orderedItem: IItemCore;
+    itemCore: IItemCore;
     deleteItem: (i: IBookmarkItem) => void;
 }
 
 const Item: Component<IProps> = (props) => {
-    const item = () => itemInfo[props.orderedItem.id];
+    const item = () => itemInfo[props.itemCore.id];
 
     const [NodeType, setNodeType] = createSignal<string>("");
     const [Icon, setIcon] = createSignal<string>("");
@@ -22,7 +22,7 @@ const Item: Component<IProps> = (props) => {
 
     const dragovered = createMemo(() => {
         let value = itemMoving();
-        if (value.targetGroup === props.group && value.afterItem === props.orderedItem.id) {
+        if (value.targetGroup === props.group && value.afterItem === props.itemCore.id) {
             return 'dragovered';
         } else {
             return '';
@@ -147,13 +147,18 @@ const Item: Component<IProps> = (props) => {
     const onDragEnd = (event: DragEvent) => {
         event.dataTransfer.clearData();
         setOpacityStyle('');
+        setItemMoving({
+            srcGroup: "",
+            srcItem: "",
+            targetGroup: "",
+            afterItem: "",
+        });
     };
 
     return (
         <li
             class={`b3-list-item b3-list-item--hide-action custom-bookmark-item ${dragovered()}`}
-            // style={`--file-toggle-width:38px; ${opacityStyle()}`}
-            style={`${opacityStyle()}`}
+            style={`${opacityStyle()} ${props.itemCore?.style ?? ''}`}
             draggable="true"
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
@@ -164,7 +169,6 @@ const Item: Component<IProps> = (props) => {
             data-subtype=""
             data-treetype="bookmark"
             data-def-path=""
-            // data-item-order={props.orderedItem.order}
             onContextMenu={showItemContextMenu}
             onClick={openBlock}
         >

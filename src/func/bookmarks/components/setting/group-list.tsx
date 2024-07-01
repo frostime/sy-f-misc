@@ -19,16 +19,16 @@ const App = () => {
         return Cnt;
     })
 
-    const onDragover = (e) => {
+    const onDragover = (e: DragEvent) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
     };
 
-    const onDrop = (e) => {
+    const onDrop = (e: DragEvent) => {
         e.preventDefault();
         let srcGroupIdx: string = e.dataTransfer.getData("text/plain");
         e.dataTransfer.clearData();
-        let target = e.target.closest(".bookmark-group") as HTMLElement;
+        let target = (e.target as HTMLElement).closest(".bookmark-group") as HTMLElement;
         if (!target) return;
         let targetGroupIndex: string = target.dataset.index;
         let from = Number.parseInt(srcGroupIdx);
@@ -36,7 +36,6 @@ const App = () => {
         if (from === to) return;
 
         setGroups((groups) => moveItem(groups, from, to));
-
     };
 
     return (
@@ -79,7 +78,7 @@ const App = () => {
                         <span class="counter ariaLabel" aria-label="Indexed" style={{ margin: 0, "background-color": "var(--b3-card-success-background)" }}>
                             {Counts()[group.id].indexed}
                         </span>
-                        <span class="counter ariaLabel" aria-label="Box Deleted" style={{ margin: 0, "background-color": "var(--b3-card-warning-background)" }}>
+                        <span class="counter ariaLabel" aria-label="Box Closed" style={{ margin: 0, "background-color": "var(--b3-card-warning-background)" }}>
                             {Counts()[group.id].closed}
                         </span>
                         <span class="counter ariaLabel" aria-label="Not Found" style={{ margin: 0, "background-color": "var(--b3-card-error-background)" }}>
