@@ -24,6 +24,10 @@ main#custom-bookmark-body {
     }
 }
 
+li.custom-bookmark-item {
+    margin-bottom: 2px;
+}
+
 li.custom-bookmark-item, li.custom-bookmark-group-header {
     &.b3-list-item {
         box-sizing: border-box;
