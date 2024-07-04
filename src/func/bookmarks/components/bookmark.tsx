@@ -111,7 +111,9 @@ const BookmarkComponent: Component<Props> = (props) => {
     };
 
     const Bookmark = () => (
-        <>
+        <section id="custom-bookmark-container" style={{
+            display: 'contents',
+        }}>
             <div class="block__icons custom-bookmark-icons" onContextMenu={bookmarkContextMenu}
             >
                 <div class="block__logo">
@@ -190,7 +192,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     </svg>
                 </span>
             </div>
-            <main class="fn__flex-1 b3-list b3-list--background" id="custom-bookmark-body">
+            <main class="fn__flex-1 b3-list b3-list--background custom-bookmark-body">
                 <For each={shownGroups()}>
                     {(group) => (
                         <Group
@@ -202,7 +204,7 @@ const BookmarkComponent: Component<Props> = (props) => {
                     )}
                 </For>
             </main>
-        </>
+        </section>
     );
 
     return (<BookmarkContext.Provider value={{ plugin: props.plugin, model: props.model, shownGroups, doAction }}>
