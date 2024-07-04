@@ -3,16 +3,15 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2024-07-04 20:23:12
+ * @LastEditTime : 2024-07-04 20:30:11
  * @Description  : 
  */
-import { Menu, Protyle, showMessage } from "siyuan";
+import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { addProcessor, delProcessor } from "@/global-paste";
 import { ILute } from "@/utils/lute";
 
 import { ZoteroDBModal } from "./zoteroModal";
-import { html2ele } from "@/utils";
 
 const pasteProcessor = (detail: ISiyuanEventPaste) => {
     let textPlain = detail.textPlain;
@@ -35,9 +34,9 @@ const pasteProcessor = (detail: ISiyuanEventPaste) => {
 
 let zotero: ZoteroDBModal = null;
 
-const SPECIAL_CHAR_DOLLAR = '焯！转义美元';
+const SPECIAL_CHAR_DOLLAR = '转义美元真麻烦';
 
-const parseNoteHtml = (html: string) => {
+const parseNoteHtml = (html: string, zoteroDir: string) => {
     let div = document.createElement('div');
     div.innerHTML = html;
     let ele = div.firstElementChild as HTMLElement;
@@ -77,7 +76,7 @@ const parseNoteHtml = (html: string) => {
     });
     ele.querySelectorAll('img[data-attachment-key]')?.forEach((img: HTMLImageElement) => {
         let key = img.getAttribute('data-attachment-key');
-        let zoteroDir = 'H:\\Media\\Zotero';
+        // let zoteroDir = 'H:\\Media\\Zotero';
         let imagePath = `${zoteroDir}/storage/${key}/image.png`;
         let uri = `file:///${imagePath.replace(/\\/g, '/')}`;
         let newimg: HTMLImageElement = document.createElement('img');
@@ -132,7 +131,7 @@ export const load = (plugin: FMiscPlugin) => {
 
             if (keys.length === 1) {
 
-                let html = parseNoteHtml(data[keys[0]]);
+                let html = parseNoteHtml(data[keys[0]], plugin.getConfig('Misc', 'zoteroDir'));
                 let lute: ILute = window.Lute.New();
                 let md = lute.HTML2Md(html);
                 // md = `我是 $\\alpha$ 河梁哦`

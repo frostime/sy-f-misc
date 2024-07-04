@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-06-23 16:38:09
+ * @LastEditTime : 2024-07-04 20:26:41
  * @Description  : 
  */
 import { render } from 'solid-js/web';
@@ -144,6 +144,13 @@ const Misc: ISettingItem[] = [
         description: 'Zotero Debug-Bridge 的密码',
         key: 'zoteroPassword',
         value: 'CTT'
+    },
+    {
+        type: 'textinput',
+        title: 'Zotero 存储目录',
+        description: 'Zotero 的数据存储位置',
+        key: 'zoteroDir',
+        value: ''
     }
 ];
 
