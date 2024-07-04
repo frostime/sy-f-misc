@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 18:46:22
  * @FilePath     : /src/func/zotero/zoteroModal.ts
- * @LastEditTime : 2024-07-04 17:47:37
+ * @LastEditTime : 2024-07-04 18:02:22
  * @Description  : 拷贝自思源 zotero 文件引用插件，做了一些修改
  * @Source       : https://github.com/WingDr/siyuan-plugin-citation
  */
@@ -59,6 +59,22 @@ export class ZoteroDBModal {
         let isRunning = await this.checkZoteroRunning();
         if (isRunning) {
             return await this._getSelectedItems();
+        } else {
+            showMessage("无法连接到 Zotero", 5000, 'error');
+            return null;
+        }
+    }
+
+    public async getItemNote() {
+        return this.requests(async () => {
+            return await this._callZoteroJS("getItemNote", "");
+        });
+    }
+
+    private async requests(call: CallableFunction) {
+        let isRunning = await this.checkZoteroRunning();
+        if (isRunning) {
+            return await call();
         } else {
             showMessage("无法连接到 Zotero", 5000, 'error');
             return null;
