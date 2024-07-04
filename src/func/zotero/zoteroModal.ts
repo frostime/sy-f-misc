@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 18:46:22
  * @FilePath     : /src/func/zotero/zoteroModal.ts
- * @LastEditTime : 2024-06-24 16:03:42
+ * @LastEditTime : 2024-07-04 17:47:37
  * @Description  : 拷贝自思源 zotero 文件引用插件，做了一些修改
  * @Source       : https://github.com/WingDr/siyuan-plugin-citation
  */
@@ -52,7 +52,7 @@ export class ZoteroDBModal {
 
     constructor(plugin: FMiscPlugin) {
         this.plugin = plugin;
-        this.absZoteroJSPath = `/data/plugins/${plugin.name}/zoteroJS/`;
+        this.absZoteroJSPath = `/data/plugins/${plugin.name}/zotero/`;
     }
 
     public async getSelectedItems(): Promise<ISelectedItem[]> {
