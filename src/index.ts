@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-06-30 16:20:46
+ * @LastEditTime : 2024-07-04 20:43:10
  * @Description  : 
  */
 import {
@@ -53,6 +53,7 @@ export default class FMiscPlugin extends Plugin {
             };
             Misc: {
                 zoteroPassword: string;
+                zoteroDir: string;
             };
         };
         bookmarks: {
@@ -195,11 +196,22 @@ export default class FMiscPlugin extends Plugin {
             }
         }
         this.data[StorageNameConfigs] = currentData;
+        //读入 zoteroDir 进行覆盖
+        let zoteroDir = localStorage.getItem('zoteroDir');
+        if (zoteroDir) {
+            this.data[StorageNameConfigs].Misc.zoteroDir = zoteroDir;
+        }
     }
 
     saveConfigs() {
-        console.debug('SaveConfigs', JSON.stringify(this.data[StorageNameConfigs]));
-        this.saveData(StorageNameConfigs + '.json', this.data[StorageNameConfigs]);
+        //zoteroDir 不同步保存
+        localStorage.setItem('zoteroDir', this.data[StorageNameConfigs].Misc.zoteroDir);
+        let s = JSON.stringify(this.data[StorageNameConfigs]);
+        console.debug('SaveConfigs', s);
+        // 创建 this.data[StorageNameConfigs] 的副本，并去掉 zoteroDir
+        let dataToSave: any = JSON.parse(s);
+        dataToSave.Misc.zoteroDir = "/";
+        this.saveData(StorageNameConfigs + '.json', dataToSave);
     }
 
     private initTopBar() {
