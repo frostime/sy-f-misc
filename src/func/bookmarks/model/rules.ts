@@ -3,7 +3,7 @@
  * @Author       : Yp Z
  * @Date         : 2023-07-29 15:17:15
  * @FilePath     : /src/func/bookmarks/model/rules.ts
- * @LastEditTime : 2024-07-06 20:27:55
+ * @LastEditTime : 2024-07-06 22:07:07
  * @Description  : 
  */
 import * as api from "@/api";
@@ -27,7 +27,7 @@ export abstract class MatchRule implements IDynamicRule {
         }
     }
 
-    abstract fetch(): BlockId[] | Promise<BlockId[]>;
+    abstract fetch(): Promise<Block[]>;
 
     iseof() {
         return this.eof;
@@ -90,8 +90,7 @@ export class Backlinks extends MatchRule {
             limit 999;
         `;
         const blocks = await api.sql(sql);
-        const ids = blocks?.map((item) => item.id);
-        return ids ?? [];
+        return blocks ?? [];
     }
 
 }
@@ -123,8 +122,18 @@ export class SQL extends MatchRule {
             return [];
         }
         let result = await api.sql(this.input);
-        let ids = result?.map((item) => item?.id).filter((item) => typeof item === "string");
-        return ids ?? [];
+        return result ?? [];
     }
+}
+
+export const getRule = (dynamicRule: IDynamicRule): MatchRule => {
+    const maps = {
+        'sql': SQL,
+        'backlinks': Backlinks
+    };
+    const Rule = maps[dynamicRule.type];
+    if (!Rule) return null;
+    let RuleObj = new Rule(dynamicRule.input);
+    return RuleObj
 }
 
