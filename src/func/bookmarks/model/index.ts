@@ -1,31 +1,27 @@
-import { createStore, unwrap } from "solid-js/store";
+import { unwrap } from "solid-js/store";
 
 import type FMiscPlugin from "@/index";
 
-import { getBlocks, getDocInfos } from "./libs/data";
-import { rmItem, insertItem, moveItem } from "./libs/op";
+import { getBlocks, getDocInfos } from "../libs/data";
+import { rmItem, insertItem, moveItem } from "../libs/op";
 import { showMessage } from "siyuan";
-import { batch, createMemo } from "solid-js";
+import { batch } from "solid-js";
 
 import { debounce } from '@/utils';
+
+import {
+    itemInfo,
+    setItemInfo,
+    setGroups,
+    groupMap,
+    configs,
+    setConfigs
+} from './stores';
+export * from './stores';
 
 const StorageNameBookmarks = 'bookmarks';  //书签
 const StorageFileConfigs = 'bookmark-configs.json';  //书签插件相关的配置
 const StorageFileItemSnapshot = 'bookmark-items-snapshot.json';  //书签项目的缓存，防止出现例如 box 关闭导致插件以为书签被删除的问题
-
-
-export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
-
-export const [groups, setGroups] = createStore<IBookmarkGroup[]>([]);
-export const groupMap = createMemo<Map<TBookmarkGroupId, IBookmarkGroup & {index: number}>>(() => {
-    return new Map(groups.map((group, index) => [group.id, {...group, index: index}]));
-});
-
-
-export const [configs, setConfigs] = createStore({
-    hideClosed: true,
-    hideDeleted: true
-});
 
 
 export class BookmarkDataModel {
