@@ -120,6 +120,7 @@ export const confirmDialog = (args: IConfirmDialogArgs) => {
         }
         dialog.destroy();
     });
+    return dialog;
 };
 
 
