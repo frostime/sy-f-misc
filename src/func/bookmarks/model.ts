@@ -196,7 +196,7 @@ export class BookmarkDataModel {
         }
     }
 
-    newGroup(name: string) {
+    newGroup(name: string, type?: TBookmarkGroupType, rule?: IDynamicRule) {
         //6位 36进制
         let id: TBookmarkGroupId;
         while (id === undefined || groupMap().has(id)) {
@@ -205,7 +205,9 @@ export class BookmarkDataModel {
         let group = {
             id,
             name,
-            items: []
+            items: [],
+            type,
+            rule
         };
 
         setGroups((gs) => [...gs, group]);

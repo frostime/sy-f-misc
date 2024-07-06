@@ -187,7 +187,7 @@ const Item: Component<IProps> = (props) => {
             app: plugin.app,
             doc: {
                 id: item().id,
-                zoomIn: true,
+                zoomIn: item().type === 'd' ? false : true,
             },
         });
     };

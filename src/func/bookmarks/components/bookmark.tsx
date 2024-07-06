@@ -3,7 +3,7 @@ import { render } from "solid-js/web";
 import Group from "./group";
 import { confirm, Menu, Plugin, showMessage } from "siyuan";
 import { type BookmarkDataModel, groups } from "../model";
-import { confirmDialog, confirmDialogSync, inputDialog, simpleDialog } from "@/libs/dialog";
+import { confirmDialog, simpleDialog } from "@/libs/dialog";
 
 import { BookmarkContext } from "./context";
 
@@ -75,6 +75,8 @@ const BookmarkComponent: Component<Props> = (props) => {
     const groupAdd = () => {
         createNewGroup((result: {group: any, rule: any}) => {
             console.log(result);
+            let { group, rule } = result;
+            props.model.newGroup(group.name, group.type, rule);
         });
     };
 
