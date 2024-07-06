@@ -74,6 +74,9 @@ const NewGroup = (props: IPrpos) => {
                     changed={(v) => {
                         props.setGroup({ type: v });
                         setGroupType(v);
+                        if (v !== 'normal') {
+                            props.setRule({ type: ruleType() });
+                        }
                     }}
                 />
             </ItemWrap>

@@ -82,7 +82,7 @@ const BookmarkComponent: Component<Props> = (props) => {
 
     const bookmarkRefresh = () => {
         setFnRotate("fn__rotate");
-        props.model.updateItems().then(() => {
+        props.model.updateAll().then(() => {
             setTimeout(() => {
                 setFnRotate("");
             }, 500);

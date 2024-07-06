@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 21:52:48
  * @FilePath     : /src/func/bookmarks/index.ts
- * @LastEditTime : 2024-06-26 21:44:18
+ * @LastEditTime : 2024-07-06 22:31:44
  * @Description  : 
  */
 import { render } from "solid-js/web";
@@ -17,7 +17,7 @@ let model: BookmarkDataModel;
 
 const initBookmark = async (ele: HTMLElement, plugin: FMiscPlugin) => {
     await model.load();
-    await model.updateItems();
+    await model.updateAll();
     ele.classList.add('fn__flex-column');
     render(() => Bookmark({
         plugin: plugin,
