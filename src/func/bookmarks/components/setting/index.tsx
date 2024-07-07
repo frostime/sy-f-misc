@@ -10,6 +10,23 @@ const App = () => {
             padding: '10px 20px'
         }}>
             <SettingItemWrap
+                title="展示模式"
+                description="选择书签栏展示的样式"
+            >
+                <InputItem
+                    type='select'
+                    key='viewMode'
+                    value={configs['viewMode']}
+                    changed={(v: any) => {
+                        setConfigs('viewMode', v);
+                    }}
+                    options={{
+                        'bookmark': '书签样式',
+                        'card': '卡片样式'
+                    }}
+                />
+            </SettingItemWrap>
+            <SettingItemWrap
                 title="隐藏关闭项目"
                 description="开启后，隐藏那些来自被关闭的笔记本中的项目"
             >

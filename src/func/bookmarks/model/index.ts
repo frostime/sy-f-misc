@@ -39,7 +39,7 @@ export class BookmarkDataModel {
         let snapshot: { [key: BlockId]: IBookmarkItemInfo } = await this.plugin.loadData(StorageFileItemSnapshot);
 
         if (configs_) {
-            setConfigs(configs_);
+            setConfigs({...configs, ...configs_});
         }
 
         this.plugin.data.bookmarks = bookmarks ?? {};

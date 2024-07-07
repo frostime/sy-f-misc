@@ -2,7 +2,7 @@ import { Component, For, createMemo, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import Group from "./group";
 import { confirm, Menu, Plugin, showMessage } from "siyuan";
-import { type BookmarkDataModel, groups } from "../model";
+import { type BookmarkDataModel, configs, groups } from "../model";
 import { confirmDialog, simpleDialog } from "@/libs/dialog";
 
 import { BookmarkContext } from "./context";
@@ -220,7 +220,11 @@ const BookmarkComponent: Component<Props> = (props) => {
                     </svg>
                 </span>
             </div>
-            <main class="fn__flex-1 b3-list b3-list--background custom-bookmark-body">
+            <main class="fn__flex-1 b3-list b3-list--background custom-bookmark-body"
+                classList={{
+                    'card-view': configs.viewMode === 'card'
+                }}
+            >
                 <For each={shownGroups()}>
                     {(group) => (
                         <Group

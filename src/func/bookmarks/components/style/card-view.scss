@@ -1,0 +1,32 @@
+:root {
+    --fmisc-bookmark-body-bg__card-view: var(--b3-theme-surface);
+    --fmisc-bookmark-group-bg__card-view: var(--b3-theme-background);
+}
+
+.custom-bookmark-body.card-view {
+    background-color: var(--fmisc-bookmark-body-bg__card-view);
+}
+
+.custom-bookmark-body.card-view .custom-bookmark-group {
+    &:not(.dragover) {
+      background-color: var(--fmisc-bookmark-group-bg__card-view);
+    }
+    border-radius: 20px;
+    margin: 10px 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+
+    & .custom-bookmark-group-header {
+        font-size: 1.2em;
+        line-height: 1.4em;
+    }
+
+    & .custom-bookmark-item {
+        margin: 5px 0px;
+        padding-left: 4px;
+        padding-right: 4px;
+        & span.b3-list-item__toggle {
+            padding-left: 12px !important;
+        }
+    }
+}
