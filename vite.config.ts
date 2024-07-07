@@ -64,9 +64,10 @@ export default defineConfig({
     build: {
         outDir: distDir,
         emptyOutDir: false,
-        sourcemap: isWatch ? 'inline' : false,
-        // minify: !isWatch,
-        minify: true,
+        // sourcemap: isWatch ? 'inline' : false,
+        // minify: true,
+        sourcemap: false,
+        minify: !isWatch,
 
         lib: {
             entry: resolve(__dirname, "src/index.ts"),

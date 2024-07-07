@@ -197,7 +197,7 @@ const Item: Component<IProps> = (props) => {
     };
 
     const onDragStart = (event: DragEvent) => {
-        if (inDynamicGroup()) return;
+        console.log('Drag Start', item());
         event.dataTransfer.setData("bookmark/item", JSON.stringify({ group: props.group, id: item().id }));
         event.dataTransfer.effectAllowed = "move";
         setOpacityStyle('opacity: 0.5;');
@@ -220,13 +220,17 @@ const Item: Component<IProps> = (props) => {
         });
     };
 
+    const BindDragEvent = {
+        draggable: true,
+        onDragStart: onDragStart ,
+        onDragEnd: onDragEnd ,
+    }
+
     return (
         <li
             class={`b3-list-item b3-list-item--hide-action custom-bookmark-item ${dragovered()}`}
             style={`${opacityStyle()} ${props.itemCore?.style ?? ''}`}
-            draggable="true"
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
+            {...(inDynamicGroup() ? {draggable: false} : BindDragEvent)}
             data-node-id={item().id}
             data-ref-text=""
             data-def-id=""

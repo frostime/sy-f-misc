@@ -19,7 +19,7 @@ interface Props {
 const Group: Component<Props> = (props) => {
     const { model, doAction } = useContext(BookmarkContext);
 
-    const isDynamic = () => props.group.type === 'dynamic';
+    const isDynamicGroup = () => props.group.type === 'dynamic';
 
     let shownItems = createMemo(() => {
         let index = groups.findIndex((g) => g.id === props.group.id);
@@ -291,8 +291,8 @@ const Group: Component<Props> = (props) => {
     };
 
     const onDragOver = (event: DragEvent) => {
-        if (isDynamic()) return;
         const type = event.dataTransfer.types[0];
+        if (!type) return;
         if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
             event.preventDefault();
             event.dataTransfer.dropEffect = "copy";
@@ -310,15 +310,14 @@ const Group: Component<Props> = (props) => {
     };
 
     const onDragLeave = (event: DragEvent) => {
-        if (isDynamic()) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "none";
         setIsDragOver(false);
     };
 
     const onDrop = async (event: DragEvent) => {
-        if (isDynamic()) return;
         const type = event.dataTransfer.types[0];
+        if (!type) return;
         if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
             const meta = type.replace(Constants.SIYUAN_DROP_GUTTER, "");
             const info = meta.split(Constants.ZWSP);
@@ -330,6 +329,12 @@ const Group: Component<Props> = (props) => {
         setIsDragOver(false);
     };
 
+    const DragDropEvents = {
+        onDragOver: onDragOver,
+        onDragLeave: onDragLeave,
+        onDrop: onDrop
+    }
+
     const svgArrowClass = () => isOpen() ? "b3-list-item__arrow--open" : "";
     const itemsClass = () => isOpen() ? "" : "fn__none";
 
@@ -338,9 +343,7 @@ const Group: Component<Props> = (props) => {
             class={`custom-bookmark-group ${isDragOver() ? 'dragover' : ''}`}
             data-groupid={props.group.id}
             data-groupname={props.group.name}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
+            {...(isDynamicGroup() ? {} : DragDropEvents)}
             role="list"
             style={{
                 transition: 'background-color 0.2s ease-in-out'
@@ -369,7 +372,7 @@ const Group: Component<Props> = (props) => {
                         <Match when={props.group.type === 'normal'}>
                             <use href="#iconFolder"></use>
                         </Match>
-                        <Match when={isDynamic()}>
+                        <Match when={isDynamicGroup()}>
                             <use href="#iconSearch"></use>
                         </Match>
                     </Switch>
