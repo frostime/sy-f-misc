@@ -313,6 +313,12 @@ export class BookmarkDataModel {
         return group;
     }
 
+    updateGroupRule(gid: TBookmarkGroupId, ruleInput: string) {
+        setGroups((g) => g.id === gid, 'rule', 'input', ruleInput);
+        let group = groupMap().get(gid);
+        this.updateDynamicGroup(group);
+    }
+
     delGroup(id: TBookmarkGroupId) {
         if (groupMap().has(id)) {
             setGroups((gs: IBookmarkGroup[]) => gs.filter((g) => g.id !== id));

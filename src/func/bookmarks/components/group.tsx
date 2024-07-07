@@ -167,13 +167,30 @@ const Group: Component<Props> = (props) => {
                 const title = await inputDialogSync({
                     title: "重命名书签组",
                     defaultText: props.group.name,
-                    width: "20em",
+                    width: "300px",
                 });
                 if (title) {
                     model.renameGroup(props.group.id, title.trim());
                 }
             },
         });
+        if (isDynamicGroup()) {
+            menu.addItem({
+                label: "更改规则值",
+                icon: "iconEdit",
+                click: async () => {
+                    const ruleinput = await inputDialogSync({
+                        title: "编辑规则",
+                        defaultText: props.group.rule.input,
+                        width: "500px",
+                        height: "300px"
+                    });
+                    if (ruleinput) {
+                        model.updateGroupRule(props.group.id, ruleinput);
+                    }
+                },
+            });
+        }
         menu.addItem({
             label: "删除书签组",
             icon: "iconTrashcan",

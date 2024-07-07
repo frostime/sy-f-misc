@@ -3,7 +3,7 @@
  * @Author       : Yp Z
  * @Date         : 2023-07-29 15:17:15
  * @FilePath     : /src/func/bookmarks/model/rules.ts
- * @LastEditTime : 2024-07-07 15:13:34
+ * @LastEditTime : 2024-07-07 15:33:15
  * @Description  : 
  */
 import * as api from "@/api";
@@ -94,7 +94,7 @@ export class Backlinks extends MatchRule {
 export class SQL extends MatchRule {
     constructor(sqlCode: string) {
         super("sql");
-        this.updateInput(sqlCode);
+        this.updateInput(sqlCode.trim());
     }
 
     updateInput(sqlCode: any) {
@@ -132,7 +132,7 @@ class Attr extends MatchRule {
 
     constructor(input: string) {
         super("attr");
-        this._input = input;
+        this._input = input.trim();
     }
 
     /**

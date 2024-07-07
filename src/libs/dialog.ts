@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:37:33
  * @FilePath     : /src/libs/dialog.ts
- * @LastEditTime : 2024-06-20 10:24:59
+ * @LastEditTime : 2024-07-07 15:29:33
  * @Description  : 对话框相关工具
  */
 import { Dialog } from "siyuan";
@@ -15,8 +15,8 @@ export const inputDialog = (args: {
 }) => {
     const dialog = new Dialog({
         title: args.title,
-        content: `<div class="b3-dialog__content">
-    <div class="ft__breakword"><textarea class="b3-text-field fn__block" style="height: 100%;" placeholder=${args?.placeholder ?? ''}>${args?.defaultText ?? ''}</textarea></div>
+        content: `<div class="b3-dialog__content" style="height: 100%;">
+    <div class="ft__breakword" style="height: 100%;"><textarea class="b3-text-field fn__block" style="height: 100%;" placeholder=${args?.placeholder ?? ''}>${args?.defaultText ?? ''}</textarea></div>
 </div>
 <div class="b3-dialog__action">
     <button class="b3-button b3-button--cancel">${window.siyuan.languages.cancel}</button><div class="fn__space"></div>
@@ -26,6 +26,11 @@ export const inputDialog = (args: {
         height: args.height
     });
     const target: HTMLTextAreaElement = dialog.element.querySelector(".b3-dialog__content>div.ft__breakword>textarea");
+    target.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.stopImmediatePropagation();
+        }
+    });
     const btnsElement = dialog.element.querySelectorAll(".b3-button");
     btnsElement[0].addEventListener("click", () => {
         if (args?.cancel) {
