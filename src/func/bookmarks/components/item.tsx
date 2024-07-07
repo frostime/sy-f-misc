@@ -14,12 +14,23 @@ interface IProps {
 
 
 const setStyleBtn = (key: string, label: string): HTMLElement => {
-    let html = `
-<button class="b3-menu__item" style="align-items: center;">
-<span style="color: var(--b3-card-${key}-color); background-color: var(--b3-card-${key}-background);" class="color__square">A</span>
-<span class="b3-menu__label">${label}</span>
-</button>
-`;
+    let html = '';
+    if (key === 'clear') {
+        html = `
+    <button class="b3-menu__item" style="align-items: center;">
+        <span  class="color__square">A</span>
+        <span class="b3-menu__label">${label}</span>
+    </button>
+    `;
+    } else {
+        html = `
+    <button class="b3-menu__item" style="align-items: center;">
+        <span style="color: var(--b3-card-${key}-color); background-color: var(--b3-card-${key}-background);" class="color__square">A</span>
+        <span class="b3-menu__label">${label}</span>
+    </button>
+    `;
+    }
+
     let div = document.createElement('div');
     div.innerHTML = html;
     return div.firstElementChild as HTMLElement;
@@ -129,7 +140,7 @@ const Item: Component<IProps> = (props) => {
                     }
                 },
                 {
-                    label: '清除',
+                    element: setStyleBtn('clear', '清除'),
                     click: () => {
                         setStyle('')
                     }

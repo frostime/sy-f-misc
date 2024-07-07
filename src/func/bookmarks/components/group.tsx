@@ -235,46 +235,48 @@ const Group: Component<Props> = (props) => {
                 }
             ]
         });
-        menu.addSeparator();
-        menu.addItem({
-            label: "从剪贴板中插入块",
-            icon: "iconAdd",
-            click: () => {
-                const BlockRegex = {
-                    id: /^(\d{14}-[0-9a-z]{7})$/, // 块 ID 正则表达式
-                    ref: /^\(\((\d{14}-[0-9a-z]{7}) ['"'].+?['"']\)\)$/,
-                    url: /^siyuan:\/\/blocks\/(\d{14}-[0-9a-z]{7})/, // 思源 URL Scheme 正则表达式
-                };
+        if (!isDynamicGroup()) {
+            menu.addSeparator();
+            menu.addItem({
+                label: "从剪贴板中插入块",
+                icon: "iconAdd",
+                click: () => {
+                    const BlockRegex = {
+                        id: /^(\d{14}-[0-9a-z]{7})$/, // 块 ID 正则表达式
+                        ref: /^\(\((\d{14}-[0-9a-z]{7}) ['"'].+?['"']\)\)$/,
+                        url: /^siyuan:\/\/blocks\/(\d{14}-[0-9a-z]{7})/, // 思源 URL Scheme 正则表达式
+                    };
 
-                navigator.clipboard.readText().then(async (text) => {
-                    for (const regex of Object.values(BlockRegex)) {
-                        const match = text.match(regex);
-                        if (match) {
-                            addItemByBlockId(match[1]);
-                            return;
+                    navigator.clipboard.readText().then(async (text) => {
+                        for (const regex of Object.values(BlockRegex)) {
+                            const match = text.match(regex);
+                            if (match) {
+                                addItemByBlockId(match[1]);
+                                return;
+                            }
                         }
-                    }
-                    showMessage(`无法从[${text}]中解析到块`, 5000, "error");
-                });
-            },
-        });
-        menu.addItem({
-            label: "添加当前文档块",
-            icon: "iconAdd",
-            click: () => {
-                const li = document.querySelector(
-                    "ul.layout-tab-bar>li.item--focus"
-                );
-                if (!li) return;
-                const dataId = li.getAttribute("data-id");
-                const protyle = document.querySelector(
-                    `div.protyle[data-id="${dataId}"] .protyle-title`
-                );
-                if (!protyle) return;
-                const id = protyle.getAttribute("data-node-id");
-                addItemByBlockId(id);
-            },
-        });
+                        showMessage(`无法从[${text}]中解析到块`, 5000, "error");
+                    });
+                },
+            });
+            menu.addItem({
+                label: "添加当前文档块",
+                icon: "iconAdd",
+                click: () => {
+                    const li = document.querySelector(
+                        "ul.layout-tab-bar>li.item--focus"
+                    );
+                    if (!li) return;
+                    const dataId = li.getAttribute("data-id");
+                    const protyle = document.querySelector(
+                        `div.protyle[data-id="${dataId}"] .protyle-title`
+                    );
+                    if (!protyle) return;
+                    const id = protyle.getAttribute("data-node-id");
+                    addItemByBlockId(id);
+                },
+            });
+        }
         menu.open({
             x: e.clientX,
             y: e.clientY,
