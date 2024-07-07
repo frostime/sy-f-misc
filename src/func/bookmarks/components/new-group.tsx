@@ -42,7 +42,9 @@ const NewGroup = (props: IPrpos) => {
     return (
         <div class="config__tab-container fn__flex fn__flex-1 fn__flex-column"
             onkeydown={(e) => {
-                e.stopImmediatePropagation(); //防止 enter 让 dialog 直接 confirm 了
+                if (e.key === 'Enter') {
+                    e.stopImmediatePropagation(); // 防止 enter 让 dialog 直接 confirm 了
+                }
             }}
         >
             <ItemWrap

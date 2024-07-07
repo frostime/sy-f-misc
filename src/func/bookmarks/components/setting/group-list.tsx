@@ -1,6 +1,22 @@
-import { createMemo, For } from "solid-js";
+import { createMemo, For, Switch, Match } from "solid-js";
 import { groups, setGroups, itemInfo } from "../../model";
 import { moveItem } from "../../libs/op";
+
+
+const GroupIcon = (props: {
+    groupType?: TBookmarkGroupType
+}) => {
+    return (
+        <Switch fallback={<use href="#iconFolder"></use>}>
+            <Match when={props.groupType === 'normal'}>
+                <use href="#iconFolder"></use>
+            </Match>
+            <Match when={props.groupType === 'dynamic'}>
+                <use href="#iconSearch"></use>
+            </Match>
+        </Switch>
+    )
+}
 
 
 const App = () => {
@@ -69,7 +85,7 @@ const App = () => {
                         onDrop={onDrop}
                     >
                         <svg class="b3-list-item__graphic">
-                            <use href="#iconFolder"></use>
+                            <GroupIcon groupType={group.type}/>
                         </svg>
                         <span class="b3-list-item__text ariaLabel" data-position="parentE">
                             {group.name}

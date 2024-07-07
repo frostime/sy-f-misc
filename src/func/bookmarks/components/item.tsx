@@ -2,7 +2,7 @@ import { Component, createEffect, createMemo, createSignal, useContext } from "s
 import { Menu, openTab, showMessage } from "siyuan";
 import { buildItemDetail } from "../libs/dom";
 
-import { itemInfo, setGroups } from "../model";
+import { itemInfo, setGroups, groupMap } from "../model";
 
 import { BookmarkContext, itemMoving, setItemMoving } from "./context";
 
@@ -33,6 +33,10 @@ const Item: Component<IProps> = (props) => {
     const [Icon, setIcon] = createSignal<string>("");
     const [opacityStyle, setOpacityStyle] = createSignal<string>("");
     const [titleStyle, setTitleStyle] = createSignal<string>("");
+
+    const inDynamicGroup = () => {
+        return groupMap().get(props.group)?.type === 'dynamic';
+    }
 
     const dragovered = createMemo(() => {
         let value = itemMoving();
@@ -133,7 +137,7 @@ const Item: Component<IProps> = (props) => {
             ]
         })
         menu.addSeparator();
-        const groups = shownGroups().filter((g) => g.id !== props.group).map((g) => {
+        const groups = shownGroups().filter((g) => g.id !== props.group && g.type !== 'dynamic').map((g) => {
             return {
                 label: g.name,
                 click: () => {
@@ -193,6 +197,7 @@ const Item: Component<IProps> = (props) => {
     };
 
     const onDragStart = (event: DragEvent) => {
+        if (inDynamicGroup()) return;
         event.dataTransfer.setData("bookmark/item", JSON.stringify({ group: props.group, id: item().id }));
         event.dataTransfer.effectAllowed = "move";
         setOpacityStyle('opacity: 0.5;');
