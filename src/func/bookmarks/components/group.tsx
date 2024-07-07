@@ -1,5 +1,5 @@
-import { Component, createEffect, createMemo, createSignal, useContext } from "solid-js";
-import { For } from "solid-js";
+import { Component, createEffect, createMemo, createSignal, Match, useContext } from "solid-js";
+import { For, Switch } from "solid-js";
 import { Menu, Constants, confirm, showMessage } from "siyuan";
 import Item from "./item";
 import { inputDialogSync } from "@/libs/dialog";
@@ -18,6 +18,8 @@ interface Props {
 
 const Group: Component<Props> = (props) => {
     const { model, doAction } = useContext(BookmarkContext);
+
+    const isDynamicGroup = () => props.group.type === 'dynamic';
 
     let shownItems = createMemo(() => {
         let index = groups.findIndex((g) => g.id === props.group.id);
@@ -100,6 +102,16 @@ const Group: Component<Props> = (props) => {
     const showGroupContextMenu = (e: MouseEvent) => {
         e.stopPropagation();
         const menu = new Menu();
+        if (props.group.type === 'dynamic') {
+            menu.addItem({
+                label: '刷新',
+                icon: 'iconRefresh',
+                click: () => {
+                    model.updateDynamicGroup(props.group);
+                }
+            });
+            menu.addSeparator();
+        }
         menu.addItem({
             label: "复制为引用列表",
             icon: "iconRef",
@@ -280,6 +292,7 @@ const Group: Component<Props> = (props) => {
 
     const onDragOver = (event: DragEvent) => {
         const type = event.dataTransfer.types[0];
+        if (!type) return;
         if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
             event.preventDefault();
             event.dataTransfer.dropEffect = "copy";
@@ -304,6 +317,7 @@ const Group: Component<Props> = (props) => {
 
     const onDrop = async (event: DragEvent) => {
         const type = event.dataTransfer.types[0];
+        if (!type) return;
         if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
             const meta = type.replace(Constants.SIYUAN_DROP_GUTTER, "");
             const info = meta.split(Constants.ZWSP);
@@ -315,6 +329,12 @@ const Group: Component<Props> = (props) => {
         setIsDragOver(false);
     };
 
+    const DragDropEvents = {
+        onDragOver: onDragOver,
+        onDragLeave: onDragLeave,
+        onDrop: onDrop
+    }
+
     const svgArrowClass = () => isOpen() ? "b3-list-item__arrow--open" : "";
     const itemsClass = () => isOpen() ? "" : "fn__none";
 
@@ -323,9 +343,7 @@ const Group: Component<Props> = (props) => {
             class={`custom-bookmark-group ${isDragOver() ? 'dragover' : ''}`}
             data-groupid={props.group.id}
             data-groupname={props.group.name}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
+            {...(isDynamicGroup() ? {} : DragDropEvents)}
             role="list"
             style={{
                 transition: 'background-color 0.2s ease-in-out'
@@ -350,7 +368,14 @@ const Group: Component<Props> = (props) => {
                     </svg>
                 </span>
                 <svg class="b3-list-item__graphic">
-                    <use href="#iconFolder"></use>
+                    <Switch fallback={<use href="#iconFolder"></use>}>
+                        <Match when={props.group.type === 'normal'}>
+                            <use href="#iconFolder"></use>
+                        </Match>
+                        <Match when={isDynamicGroup()}>
+                            <use href="#iconSearch"></use>
+                        </Match>
+                    </Switch>
                 </svg>
                 <span class="b3-list-item__text ariaLabel" data-position="parentE">
                     {props.group.name}

@@ -3,17 +3,47 @@ import { render } from "solid-js/web";
 import Group from "./group";
 import { confirm, Menu, Plugin, showMessage } from "siyuan";
 import { type BookmarkDataModel, groups } from "../model";
-import { inputDialog, simpleDialog } from "@/libs/dialog";
+import { confirmDialog, simpleDialog } from "@/libs/dialog";
 
 import { BookmarkContext } from "./context";
 
 import Setting from './setting';
+import NewGroup from "./new-group";
 
 import "./index.scss";
 
 interface Props {
     plugin: Plugin;
     model: BookmarkDataModel;
+}
+
+const createNewGroup = (confirmCb: (data: any) => void) => {
+    let container = document.createElement("div") as HTMLDivElement;
+    container.style.display = 'contents';
+
+    const [group, setGroup] = createSignal({name: "", type: "normal"});
+    const [rule, setRule] = createSignal({type: "", input: ""});
+
+    render(() => NewGroup({
+        setGroup: (args) => {
+            let current = group();
+            let newval = {...current, ...args};
+            setGroup(newval);
+        },
+        setRule: (args) => {
+            let current = rule();
+            let newval = {...current, ...args};
+            setRule(newval);
+        }
+    }), container);
+    confirmDialog({
+        title: "新建书签组",
+        content: container,
+        width: '600px',
+        confirm: () => {
+            confirmCb({group: group(), rule: rule()});
+        }
+    });
 }
 
 const BookmarkComponent: Component<Props> = (props) => {
@@ -43,18 +73,16 @@ const BookmarkComponent: Component<Props> = (props) => {
     }
 
     const groupAdd = () => {
-        inputDialog({
-            title: "添加书签组",
-            placeholder: "请输入书签组名称",
-            confirm: (title: string) => {
-                props.model.newGroup(title);
-            },
+        createNewGroup((result: {group: any, rule: any}) => {
+            console.log(result);
+            let { group, rule } = result;
+            props.model.newGroup(group.name, group.type, rule);
         });
     };
 
     const bookmarkRefresh = () => {
         setFnRotate("fn__rotate");
-        props.model.updateItems().then(() => {
+        props.model.updateAll().then(() => {
             setTimeout(() => {
                 setFnRotate("");
             }, 500);

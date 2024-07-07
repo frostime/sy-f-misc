@@ -15,11 +15,10 @@ interface SettingItemWrapProps {
 }
 
 const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
-    const { title, description, direction = 'column' } = props;
 
     return (
         <>
-            {direction === "row" ? (
+            {props.direction === "row" ? (
                 <div class="item-wrap b3-label" style={{
                     "box-shadow": "unset",
                     "padding-bottom": "16px",
@@ -30,8 +29,8 @@ const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
                         <span class="title" style={{
                             "font-weight": "bold",
                             "color": "var(--b3-theme-primary)"
-                        }}>{title}</span>
-                        <div class="b3-label__text" innerHTML={description}></div>
+                        }}>{props.title}</span>
+                        <div class="b3-label__text" innerHTML={props.description}></div>
                         <div class="fn__hr"></div>
                         {props?.children}
                     </div>
@@ -47,8 +46,8 @@ const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
                         <span class="title" style={{
                             "font-weight": "bold",
                             "color": "var(--b3-theme-primary)"
-                        }}>{title}</span>
-                        <div class="b3-label__text" innerHTML={description}></div>
+                        }}>{props.title}</span>
+                        <div class="b3-label__text" innerHTML={props.description}></div>
                     </div>
                     <span class="fn__space" />
                     {props?.children}

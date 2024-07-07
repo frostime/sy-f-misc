@@ -64,6 +64,8 @@ export default defineConfig({
     build: {
         outDir: distDir,
         emptyOutDir: false,
+        // sourcemap: isWatch ? 'inline' : false,
+        // minify: true,
         sourcemap: false,
         minify: !isWatch,
 

@@ -1,31 +1,29 @@
-import { createStore, unwrap } from "solid-js/store";
+import { unwrap } from "solid-js/store";
 
 import type FMiscPlugin from "@/index";
 
-import { getBlocks, getDocInfos } from "./libs/data";
-import { rmItem, insertItem, moveItem } from "./libs/op";
+import { getBlocks, getDocInfos } from "../libs/data";
+import { rmItem, insertItem, moveItem } from "../libs/op";
 import { showMessage } from "siyuan";
-import { batch, createMemo } from "solid-js";
+import { batch } from "solid-js";
 
 import { debounce } from '@/utils';
+
+import {
+    itemInfo,
+    setItemInfo,
+    setGroups,
+    groupMap,
+    configs,
+    setConfigs,
+    groups
+} from './stores';
+import { getRule } from "./rules";
+export * from './stores';
 
 const StorageNameBookmarks = 'bookmarks';  //书签
 const StorageFileConfigs = 'bookmark-configs.json';  //书签插件相关的配置
 const StorageFileItemSnapshot = 'bookmark-items-snapshot.json';  //书签项目的缓存，防止出现例如 box 关闭导致插件以为书签被删除的问题
-
-
-export const [itemInfo, setItemInfo] = createStore<{ [key: BlockId]: IBookmarkItemInfo }>({});
-
-export const [groups, setGroups] = createStore<IBookmarkGroup[]>([]);
-export const groupMap = createMemo<Map<TBookmarkGroupId, IBookmarkGroup & {index: number}>>(() => {
-    return new Map(groups.map((group, index) => [group.id, {...group, index: index}]));
-});
-
-
-export const [configs, setConfigs] = createStore({
-    hideClosed: true,
-    hideDeleted: true
-});
 
 
 export class BookmarkDataModel {
@@ -72,18 +70,23 @@ export class BookmarkDataModel {
         }
         batch(() => {
             allGroups.forEach((groupV2) => {
-                setGroups((gs) => [...gs, groupV2] )
+                setGroups((gs) => [...gs, groupV2])
             })
         })
     }
 
     private async saveCore(fpath?: string) {
         console.log('save bookmarks');
-        let result: {[key: TBookmarkGroupId]: IBookmarkGroup} = {};
+        let result: { [key: TBookmarkGroupId]: IBookmarkGroup } = {};
 
         for (let [id, group] of groupMap()) {
             result[id] = unwrap(group);
-            result[id].items = unwrap(result[id].items);
+            let items = unwrap(result[id].items);
+            //如果是动态规则，就只保存一部分自定义过的 item
+            if (group.type === 'dynamic') {
+                items = items.filter(item => item.style);
+            }
+            result[id].items = items;
         }
         this.plugin.data.bookmarks = result;
         fpath = fpath ?? StorageNameBookmarks + '.json';
@@ -105,6 +108,100 @@ export class BookmarkDataModel {
                 return false;
             }
         }
+    }
+
+    async updateAll() {
+        let toUpdated: Promise<any>[] = [];
+        groups.forEach(group => {
+            if (group.hidden) return;
+            if (group.type === 'dynamic') {
+                toUpdated.push(this.updateDynamicGroup(group));
+            }
+        });
+        await Promise.all(toUpdated);
+        this.updateItems();
+    }
+
+    /**
+     * 查询动态规则中的块
+     * @param group
+     * @returns
+     */
+    async updateDynamicGroup(group: IBookmarkGroup) {
+        if (group.type !== 'dynamic') return;
+        if (!group.rule) return;
+        let rule = getRule(group.rule);
+        if (!rule) {
+            showMessage(`未能正确解析配置规则: ${group.name}`);
+            return;
+        }
+        if (!rule.validateInput()) {
+            showMessage(`分组规则输入格式有误: ${group.name}`);
+            return;
+        }
+        let blocks: Block[] = await rule.fetch();
+
+        let blocksMap: Map<BlockId, Block> = new Map();
+        blocks.forEach(b => {
+            blocksMap.set(b.id, b);
+        });
+
+        let idsInFetch: string[] = blocks.map(b => b.id);
+        let idsInGroup: string[] = group.items.map(b => b.id);
+
+        let idsInFetchSet = new Set(idsInFetch);
+        let idsInGroupSet = new Set(idsInGroup);
+        // 新增的 id (在 idsInFetch 中但不在 idsInGroup 中)
+        let addedIds = Array.from(idsInFetchSet).filter(id => !idsInGroupSet.has(id));
+        // 被删掉的 id (在 idsInGroup 中但不在 idsInFetch 中)
+        let removedIds = Array.from(idsInGroupSet).filter(id => !idsInFetchSet.has(id));
+
+        //update item infos, 要首先更新 items 在更新 group
+        batch(() => {
+            //删掉已经不存在的 items
+            removedIds.forEach(id => {
+                let item = itemInfo[id];
+                if (item) {
+                    let ref = item.ref;
+                    if (ref === 1) {
+                        setItemInfo(id, undefined!);
+                    } else {
+                        setItemInfo(id, 'ref', (ref) => ref - 1);
+                    }
+                }
+            });
+            //添加新的 items
+            addedIds.forEach(id => {
+                let item = itemInfo[id];
+                if (item) {
+                    //引用 +1
+                    setItemInfo(item.id, 'ref', (ref) => ref + 1);
+                    return;
+                } else {
+                    //新增条目
+                    let block = blocksMap.get(id);
+                    const { name, fcontent, content, box, type, subtype } = block;
+                    let iteminfo = {
+                        id, title: name || fcontent || content,
+                        box, type, subtype: subtype,
+                        icon: '', ref: 1
+                    };
+                    setItemInfo(id, iteminfo);
+                }
+            });
+            //更新 group
+            let itemCores: { [key: string]: IItemCore } = group.items.reduce((acc, item) => {
+                acc[item.id] = item;
+                return acc;
+            }, {});
+            setGroups((g) => g.id === group.id, 'items', () => {
+                let iitemcores = idsInFetch.map(id => {
+                    return {id, style: itemCores?.[id]?.style ?? ''};
+                });
+                return iitemcores;
+            })
+        });
+
     }
 
     async updateItems() {
@@ -196,7 +293,7 @@ export class BookmarkDataModel {
         }
     }
 
-    newGroup(name: string) {
+    newGroup(name: string, type?: TBookmarkGroupType, rule?: IDynamicRule) {
         //6位 36进制
         let id: TBookmarkGroupId;
         while (id === undefined || groupMap().has(id)) {
@@ -205,10 +302,13 @@ export class BookmarkDataModel {
         let group = {
             id,
             name,
-            items: []
+            items: [],
+            type,
+            rule
         };
 
         setGroups((gs) => [...gs, group]);
+        this.updateDynamicGroup(group);
         this.save();
         return group;
     }
@@ -297,7 +397,7 @@ export class BookmarkDataModel {
         }
         let from = groupMap().get(fromGroup);
         let to = groupMap().get(toGroup);
-        if(!(from && to)) {
+        if (!(from && to)) {
             return false;
         }
         if (to.items.some(itmin => itmin.id === item.id)) {
