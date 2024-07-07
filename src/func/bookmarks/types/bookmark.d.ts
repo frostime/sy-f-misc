@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-20 18:54:29
  * @FilePath     : /src/func/bookmarks/types/bookmark.d.ts
- * @LastEditTime : 2024-07-06 20:28:29
+ * @LastEditTime : 2024-07-07 14:51:19
  * @Description  : 
  */
 type TBookmarkGroupId = string;
@@ -33,7 +33,7 @@ interface IItemCore {
 
 type TBookmarkGroupType = 'normal' | 'dynamic' | 'composed';
 
-type TRuleType = 'sql' | 'backlinks';
+type TRuleType = 'sql' | 'backlinks' | 'attr';
 interface IDynamicRule {
     type: TRuleType;
     input: string;

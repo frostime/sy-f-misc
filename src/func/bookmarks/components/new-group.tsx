@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 
 import ItemWrap from "@/libs/components/item-wrap";
 import InputItem from "@/libs/components/item-input";
@@ -25,6 +25,13 @@ const NewGroup = (props: IPrpos) => {
             case 'backlinks':
                 return {
                     desc: "请输入反链的块 ID",
+                    direction: "column",
+                    input: "textinput"
+                }
+
+            case 'attr':
+                return {
+                    desc: "请输入要查找的属性",
                     direction: "column",
                     input: "textinput"
                 }
@@ -93,7 +100,8 @@ const NewGroup = (props: IPrpos) => {
                         type="select"
                         options={{
                             sql: 'SQL',
-                            backlinks: '反向链接'
+                            backlinks: '反向链接',
+                            attr: '块属性'
                         }}
                         changed={(v) => {
                             props.setRule({ type: v });

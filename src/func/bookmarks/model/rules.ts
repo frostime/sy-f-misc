@@ -3,7 +3,7 @@
  * @Author       : Yp Z
  * @Date         : 2023-07-29 15:17:15
  * @FilePath     : /src/func/bookmarks/model/rules.ts
- * @LastEditTime : 2024-07-06 22:07:07
+ * @LastEditTime : 2024-07-07 15:13:34
  * @Description  : 
  */
 import * as api from "@/api";
@@ -47,7 +47,7 @@ export abstract class MatchRule implements IDynamicRule {
         return `${this.input}`;
     }
 
-    abstract updateInput(input: any);
+    // abstract updateInput(input: any);
 
     validateInput() { return true; } // 检查输入的 this.input 的格式是否符合要
 }
@@ -65,10 +65,6 @@ const matchIDFormat = (id: string) => {
 export class Backlinks extends MatchRule {
     constructor(id: BlockId) {
         super("backlinks");
-        this.updateInput(id);
-    }
-
-    updateInput(id: BlockId) {
         this.input = id;
     }
 
@@ -126,10 +122,62 @@ export class SQL extends MatchRule {
     }
 }
 
+
+class Attr extends MatchRule {
+
+    _input: string;
+    private attrname: string = '';
+    private attrop: string = '=';
+    private attrval: string = '';
+
+    constructor(input: string) {
+        super("attr");
+        this._input = input;
+    }
+
+    /**
+     * 检查 this._input 的格式是否正确
+     * @returns 
+     */
+    validateInput(): boolean {
+        const inputPattern = /^([\-\w]+)(?:\s*(=|like)\s*(.+))?$/;
+        let ok = inputPattern.test(this._input);
+        if (!ok) return false;
+        const matches = this._input.match(inputPattern);
+
+        if (matches) {
+            this.attrname = matches[1];
+            if (matches[2]) {
+                this.attrop = matches[2];
+            }
+            if (matches[3]) {
+                this.attrval = matches[3];
+            }
+        }
+        return true;
+    }
+
+    async fetch() {
+        let query = `
+        SELECT B.*
+        FROM blocks AS B
+        WHERE B.id IN (
+            SELECT A.block_id
+            FROM attributes AS A
+            WHERE A.name like '${this.attrname}'
+            ${this.attrval ? `AND A.value ${this.attrop} '${this.attrval}'` : ''}
+        );`;
+        let result = await api.sql(query);
+        return result ?? [];
+    }
+}
+
+
 export const getRule = (dynamicRule: IDynamicRule): MatchRule => {
     const maps = {
         'sql': SQL,
-        'backlinks': Backlinks
+        'backlinks': Backlinks,
+        'attr': Attr
     };
     const Rule = maps[dynamicRule.type];
     if (!Rule) return null;
