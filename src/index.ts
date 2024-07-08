@@ -56,9 +56,6 @@ export default class FMiscPlugin extends Plugin {
                 zoteroDir: string;
             };
         };
-        bookmarks: {
-            [key: TBookmarkGroupId]: IBookmarkGroup;
-        };
     }
 
     eb: EventBusSync;

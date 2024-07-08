@@ -30,13 +30,13 @@ const Enable: ISettingItem[] = [
         key: 'EnableDocky',
         value: true
     },
-    {
-        type: 'checkbox',
-        title: '📚 自定义书签',
-        description: '启用自定义书签功能',
-        key: 'EnableCustomBookmark',
-        value: true
-    },
+    // {
+    //     type: 'checkbox',
+    //     title: '📚 自定义书签',
+    //     description: '启用自定义书签功能',
+    //     key: 'EnableCustomBookmark',
+    //     value: true
+    // },
     {
         type: 'checkbox',
         title: '🔍 简单搜索',

@@ -20,7 +20,7 @@ import * as ss from './simple-search';
 import * as dq from './data-query';
 import * as dc from './doc-context';
 
-import * as bookmark from './bookmarks';
+// import * as bookmark from './bookmarks';
 
 interface IFuncModule {
     name: string;
@@ -40,7 +40,7 @@ const ModulesToEnable = [
     docky,
     tr,
     ss,
-    bookmark
+    // bookmark
 ]
 
 const ModulesAlwaysEnable = [
