@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 16:11:07
  * @FilePath     : /src/func/websocket/ws-manager.ts
- * @LastEditTime : 2024-07-10 16:12:29
+ * @LastEditTime : 2024-07-10 16:42:28
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -22,8 +22,11 @@ interface IWsConfig {
 export default class WebSocketManager {
     private ws: WebSocket | null = null;
     private url: string = '';
-    private reconnectTimeout: number | null = null;
+
+    private isRunning: boolean = true;
     private isReconnecting: boolean = false;
+
+    private reconnectTimeout: number | null = null;
     private reconnectAttempts: number = 0;
     private config: IWsConfig;
     private messageHandlers: { [key: string]: (payload: any) => void } = {};
@@ -101,11 +104,13 @@ export default class WebSocketManager {
     }
 
     private onClose(event: CloseEvent) {
-        console.debug('[WebSocket] connection closed:', event.reason);
+        console.debug('[WebSocket] connection closed:', event.code, event.reason);
         this.ws = null;
-        if (!this.isReconnecting && this.reconnectAttempts < this.config.maxReconnectAttempts) {
-            this.scheduleReconnect();
-        }
+
+        if (!this.isRunning) return; //已经退出，不要安排重连调度
+        if (this.isReconnecting) return; //正在重连，不要安排重连调度
+        if (this.reconnectAttempts > this.config.maxReconnectAttempts) return;
+        this.scheduleReconnect();
     }
 
     private onError(error: Event) {
@@ -134,15 +139,19 @@ export default class WebSocketManager {
     }
 
     public unload() {
+        this.isRunning = false;
+        this.isReconnecting = false;
+
+        //关闭 ws
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
+        //如果有正在排队中的重连任务，就关掉
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
         }
-        this.isReconnecting = false;
     }
 
     public registerMessageHandler<T>(method: string, handler: (payload: T) => void) {
