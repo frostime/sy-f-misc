@@ -17,7 +17,7 @@ interface IProps {
 
 const TextInput = (props: IProps) => {
     if (props.type === 'area') {
-        <textarea class="b3-text-field fn__block" onkeydown={Enter}
+        return <textarea class="b3-text-field fn__block" onkeydown={Enter}
             style={{
                 resize: 'none',
                 "font-size": props.fontSize,

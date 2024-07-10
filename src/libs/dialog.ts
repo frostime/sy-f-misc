@@ -3,10 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:37:33
  * @FilePath     : /src/libs/dialog.ts
- * @LastEditTime : 2024-07-10 11:24:14
+ * @LastEditTime : 2024-07-10 14:18:32
  * @Description  : 对话框相关工具
  */
 import { Dialog } from "siyuan";
+import { JSXElement } from "solid-js";
+import { render } from "solid-js/web";
 
 export const simpleDialog = (args: {
     title: string, ele: HTMLElement | DocumentFragment,
@@ -21,6 +23,23 @@ export const simpleDialog = (args: {
         destroyCallback: args.callback
     });
     dialog.element.querySelector(".dialog-content").appendChild(args.ele);
+    return dialog;
+}
+
+export const solidDialog = (args: {
+    title: string, loader: () => JSXElement,
+    width?: string, height?: string,
+    callback?: () => void;
+}) => {
+    const dialog = new Dialog({
+        title: args.title,
+        content: `<div class="dialog-content" style="display: contents;"/>`,
+        width: args.width,
+        height: args.height,
+        destroyCallback: args.callback
+    });
+    let ele = dialog.element.querySelector(".dialog-content");
+    render(args.loader, ele);
     return dialog;
 }
 
