@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 16:11:07
  * @FilePath     : /src/func/websocket/ws-manager.ts
- * @LastEditTime : 2024-07-10 16:42:28
+ * @LastEditTime : 2024-07-10 18:00:56
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -59,9 +59,22 @@ export default class WebSocketManager {
         this.url = `${prefix}/broadcast?channel=${this.plugin.name}`;
     }
 
-    private parseRequest<T>(msg: string): IWsHandler<T> | null {
+    private parseRequest(msg: string) {
         try {
-            const data = JSON.parse(msg);
+            // Check if msg matches the format {{method}}{{payload}}
+            const match = msg.match(/^\{\{(.+?)\}\}\{\{(.+?)\}\}$/);
+            if (!match) {
+                return null;
+            }
+
+            const [, method, payload] = match;
+
+            // Construct the data object
+            const data: IWsHandler<any> = {
+                method: method,
+                payload: payload
+            };
+
             if (data.method && data.payload !== undefined) {
                 return data;
             }
@@ -118,6 +131,7 @@ export default class WebSocketManager {
     }
 
     private handleMessage<T>(message: IWsHandler<T>) {
+        console.log(`[WebSocket] handler: ${JSON.stringify(message)}`);
         const handler = this.messageHandlers[message.method];
         if (handler) {
             handler(message.payload);
