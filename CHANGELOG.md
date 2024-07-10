@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.2.1
+
+- 添加 websocket
+- 基于 ws 实现在外部快速添加 dn quick note 的服务
+
 ## v4.0.0 | 2024-07-08
 
 - 🔥 Bookmark 被拆分为独立的插件，相关功能、代码从本插件中删除。

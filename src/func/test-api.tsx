@@ -20,7 +20,8 @@ const Panel = () => {
             if (!line) return;
             let parts = line.split(':');
             if (parts.length < 2) return;
-            obj[parts[0].trim()] = parts[1].trim();
+            let name = parts.splice(0, 1);
+            obj[name[0].trim()] = parts.join(':').trim();
         });
         return obj;
     }

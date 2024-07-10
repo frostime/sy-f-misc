@@ -15,7 +15,7 @@ export async function request(url: string, data: any) {
     return res;
 }
 
-export const postMessage = async(channel: string, message: string) => {
+export const postMessage = async(channel: string, message: any) => {
     return request('/api/broadcast/postMessage', {
         channel, message
     });
