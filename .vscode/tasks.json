@@ -16,6 +16,13 @@
 			"problemMatcher": [],
 			"label": "npm: make-install",
 			"detail": "install scripts"
+		},
+		{
+			"type": "npm",
+			"script": "dev",
+			"problemMatcher": [],
+			"label": "npm: dev",
+			"detail": "vite build --watch"
 		}
 	]
 }

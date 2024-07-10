@@ -74,6 +74,13 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
+        title: '📄 New file',
+        description: '启用新建文件功能',
+        key: 'EnableNewFile',
+        value: true
+    },
+    {
+        type: 'checkbox',
         title: '💻 Run Javascript',
         description: '启用 Run Js 功能',
         key: 'EnableRunJs',
@@ -84,14 +91,14 @@ const Enable: ISettingItem[] = [
         title: '💭 转移引用',
         description: '启用转移引用功能',
         key: 'EnableTransferRef',
-        value: true
+        value: false
     },
     {
         type: 'checkbox',
-        title: '📄 New file',
-        description: '启用新建文件功能',
-        key: 'EnableNewFile',
-        value: true
+        title: '🌐 测试 API',
+        description: '启用测试 API 功能',
+        key: 'EnableTestAPI',
+        value: false
     },
 ];
 

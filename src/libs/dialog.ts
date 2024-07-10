@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:37:33
  * @FilePath     : /src/libs/dialog.ts
- * @LastEditTime : 2024-07-10 14:18:32
+ * @LastEditTime : 2024-07-10 15:16:34
  * @Description  : 对话框相关工具
  */
 import { Dialog } from "siyuan";
@@ -33,7 +33,7 @@ export const solidDialog = (args: {
 }) => {
     const dialog = new Dialog({
         title: args.title,
-        content: `<div class="dialog-content" style="display: contents;"/>`,
+        content: `<div class="dialog-content" style="display: flex; height: 100%;"/>`,
         width: args.width,
         height: args.height,
         destroyCallback: args.callback
