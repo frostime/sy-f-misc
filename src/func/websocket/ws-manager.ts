@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 16:11:07
  * @FilePath     : /src/func/websocket/ws-manager.ts
- * @LastEditTime : 2024-07-10 18:00:56
+ * @LastEditTime : 2024-07-10 18:15:33
  * @Description  : 
  */
-import type FMiscPlugin from "@/index";
+import { Plugin } from 'siyuan';
 
 interface IWsHandler<T = any> {
     method: string;
@@ -31,7 +31,10 @@ export default class WebSocketManager {
     private config: IWsConfig;
     private messageHandlers: { [key: string]: (payload: any) => void } = {};
 
-    constructor(private plugin: FMiscPlugin, config?: Partial<IWsConfig>) {
+    private plugin: Plugin
+
+    constructor(plugin: Plugin, config?: Partial<IWsConfig>) {
+        this.plugin = plugin;
         this.config = {
             reconnectInterval: 5000,
             maxReconnectAttempts: Infinity,

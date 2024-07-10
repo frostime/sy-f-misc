@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-07-10 15:35:35
+ * @FilePath     : /src/func/websocket/index.ts
+ * @LastEditTime : 2024-07-10 18:16:35
+ * @Description  : 
+ */
 import type FMiscPlugin from "@/index";
 import WebSocketManager from "./ws-manager";
 import { appendBlock } from "@/api";
@@ -26,7 +34,7 @@ const appendDnList = async (text: string) => {
     let seconds = today.getSeconds().toString().padStart(2, '0');
     let timestr = `${hours}:${minutes}:${seconds}`; // 12:10:10
 
-    appendBlock('markdown', `- ${timestr} ${text}`, id);
+    appendBlock('markdown', `- [${timestr}] ${text}`, id);
 }
 
 
