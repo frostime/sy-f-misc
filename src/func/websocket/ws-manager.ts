@@ -61,8 +61,8 @@ export default class WebSocketManager {
 
     private parseRequest(msg: string) {
         try {
-            // Check if msg matches the format {{method}}{{payload}}
-            const match = msg.match(/^\{\{(.+?)\}\}\{\{(.+?)\}\}$/);
+            // Check if msg matches the format [[method]][[payload]]
+            const match = msg.match(/^\[\[(.+?)\]\]\[\[(.+?)\]\]$/);
             if (!match) {
                 return null;
             }

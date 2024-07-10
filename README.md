@@ -12,6 +12,6 @@
 ```json
 {
    "channel": "sy-f-misc",
-   "message": "{{method}}{{payload}}"
+   "message": "[[method]][[payload]]"
 }
 ```
