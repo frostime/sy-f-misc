@@ -1,11 +1,12 @@
 import type FMiscPlugin from "@/index";
 import TextInput from "@/libs/components/text-input";
 import { createSignal } from "solid-js";
-
-import { solidDialog } from "@/libs/dialog";
+import { render } from "solid-js/web";
 
 import { request } from "@/api";
-import { Menu } from "siyuan";
+import { Menu, openTab } from "siyuan";
+
+let plugin: FMiscPlugin;
 
 const Panel = () => {
     const [endpoint, setEndpoint] = createSignal("");
@@ -42,58 +43,78 @@ const Panel = () => {
             display: "flex",
             "flex-direction": "column",
             flex: 1,
-            padding: '10px',
-            gap: '10px',
+            margin: '25px',
+            gap: '15px',
         }}>
-            <div class="fn__flex" style="gap: 10px;">
+            <div class="fn__flex" style="gap: 30px;">
                 <TextInput
                     text={endpoint()}
                     update={setEndpoint}
-                    styles={{'flex': 1}}
-                    fontSize="16px"
+                    styles={{'flex': 1, 'line-height': '22px'}}
+                    fontSize="18px"
                 />
                 <button class="b3-button" onClick={send}>Send</button>
             </div>
-            <div class="fn__flex fn__flex-1" style={{gap: '10px'}}>
+            <div class="fn__flex fn__flex-1" style={{gap: '20px'}}>
                 <TextInput text={payload()}
                     update={setPayload} type="area"
-                    fontSize="18px"
+                    fontSize="20px"
+                    styles={{
+                        'line-height': '24px'
+                    }}
                 />
                 <TextInput text={result()}
                     update={setResult} type="area"
-                    fontSize="18px"
+                    fontSize="20px"
+                    styles={{
+                        'line-height': '24px'
+                    }}
                 />
             </div>
         </div>
     )
 }
 
+function openPanel() {
+    //random string
+    const id = Math.random().toString(36).substring(7);
+    plugin.addTab({
+        'type': id,
+        init() {
+            this.element.style.display = 'flex';
+            render(Panel, this.element);
+        }
+    });
+    openTab({
+        app: plugin.app,
+        custom: {
+            title: 'TestAPI',
+            icon: 'iconBug',
+            id: 'sy-f-misc' + id,
+        }
+    });
+}
+
 const showMenu = (menu: Menu) => {
     menu.addItem({
         icon: 'iconBug',
         label: '测试 API',
-        click: () => {
-            solidDialog({
-                title: '测试 API',
-                loader: Panel,
-                width: '900px',
-                height: '500px'
-            });
-        }
+        click: openPanel
     })
 }
 
 export let name = "TestAPI";
 export let enabled = false;
-export const load = (plugin: FMiscPlugin) => {
+export const load = (plugin_: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
-    plugin.eb.on('on-topbar-menu', showMenu);
-
+    plugin_.eb.on('on-topbar-menu', showMenu);
+    plugin = plugin_;
 }
 
-export const unload = (plugin: FMiscPlugin) => {
+export const unload = (plugin_: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
-    plugin.eb.off('on-topbar-menu', showMenu);
+    plugin_.eb.off('on-topbar-menu', showMenu);
+    plugin = null;
 }
