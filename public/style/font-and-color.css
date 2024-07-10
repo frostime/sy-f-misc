@@ -5,7 +5,7 @@
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url("/public/Twemoji.Mozilla.ttf");
+    src: url("/public/Twemoji-15.1.0.ttf");
 }
 
 :root {
