@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-07-04 20:43:10
+ * @LastEditTime : 2024-07-10 16:20:56
  * @Description  : 
  */
 import {
@@ -39,7 +39,7 @@ export default class FMiscPlugin extends Plugin {
 
     isMobile: boolean;
 
-    private globalContextMenuHandler: (event: MouseEvent) => void;
+    // private globalContextMenuHandler: (event: MouseEvent) => void;
 
     private callbacksOnLayoutReady: ((p: FMiscPlugin) => void)[];
 
@@ -74,7 +74,7 @@ export default class FMiscPlugin extends Plugin {
 
         //Default functions
         this.initDefaultFunctions();
-        this.globalContextMenuHandler = this.globalContextMenu.bind(this);
+        // this.globalContextMenuHandler = this.globalContextMenu.bind(this);
         // document.addEventListener('mousedown', this.globalContextMenuHandler);
     }
 

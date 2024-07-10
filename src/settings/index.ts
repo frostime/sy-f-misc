@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-07-04 20:26:41
+ * @LastEditTime : 2024-07-10 16:19:02
  * @Description  : 
  */
 import { render } from 'solid-js/web';
@@ -30,13 +30,6 @@ const Enable: ISettingItem[] = [
         key: 'EnableDocky',
         value: true
     },
-    // {
-    //     type: 'checkbox',
-    //     title: '📚 自定义书签',
-    //     description: '启用自定义书签功能',
-    //     key: 'EnableCustomBookmark',
-    //     value: true
-    // },
     {
         type: 'checkbox',
         title: '🔍 简单搜索',
@@ -95,11 +88,18 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
+        title: '🩺 Websocket 监听',
+        description: '启用插件 WS 事件监听',
+        key: 'EnableWebSocket',
+        value: false
+    },
+    {
+        type: 'checkbox',
         title: '🌐 测试 API',
         description: '启用测试 API 功能',
         key: 'EnableTestAPI',
         value: false
-    },
+    }
 ];
 
 //侧边栏

@@ -15,6 +15,13 @@ export async function request(url: string, data: any) {
     return res;
 }
 
+export const postMessage = async(channel: string, message: string) => {
+    return request('/api/broadcast/postMessage', {
+        channel, message
+    });
+}
+
+
 // **************************************** Noteboook ****************************************
 
 

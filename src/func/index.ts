@@ -20,6 +20,7 @@ import * as ss from './simple-search';
 import * as dq from './data-query';
 import * as dc from './doc-context';
 import * as ta from './test-api';
+import * as ws from './websocket';
 
 // import * as bookmark from './bookmarks';
 
@@ -41,7 +42,8 @@ const ModulesToEnable = [
     docky,
     tr,
     ss,
-    ta
+    ta,
+    ws
 ]
 
 const ModulesAlwaysEnable = [
