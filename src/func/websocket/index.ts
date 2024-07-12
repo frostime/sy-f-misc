@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2024-07-10 18:16:35
+ * @LastEditTime : 2024-07-12 16:36:00
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -61,4 +61,9 @@ export const unload = () => {
         webSocketManager.unload();
         webSocketManager = null;
     }
+}
+
+export const getAlive = () => {
+    let alive = webSocketManager?.isOpen() ?? false;
+    return alive;
 }
