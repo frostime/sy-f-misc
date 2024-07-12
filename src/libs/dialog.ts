@@ -33,10 +33,9 @@ export const solidDialog = (args: {
 }) => {
     let container = document.createElement('div')
     container.style.display = 'contents';
-    render(args.loader, container);
+    let disposer = render(args.loader, container);
     return simpleDialog({...args, ele: container, callback: () => {
-        container.parentElement?.removeChild(container);
-        container.innerHTML = '';
+        disposer();
         if (args.callback) args.callback();;
     }});
 }

@@ -79,11 +79,15 @@ const Panel = () => {
 function openPanel() {
     //random string
     const id = Math.random().toString(36).substring(7);
+    let disposer: () => void;
     plugin.addTab({
         'type': id,
         init() {
             this.element.style.display = 'flex';
-            render(Panel, this.element);
+            disposer = render(Panel, this.element);
+        },
+        destroy() {
+            disposer();
         }
     });
     openTab({

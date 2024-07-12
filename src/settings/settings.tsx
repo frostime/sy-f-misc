@@ -1,4 +1,4 @@
-import { Component, For, createEffect, createSignal, onCleanup } from "solid-js";
+import { Component, For, createSignal, onCleanup } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
 import SettingItemWrap from "@/libs/components/item-wrap";
 import { getAlive } from "@/func/websocket";
@@ -20,12 +20,7 @@ const WebSocketStatus: Component = () => {
         setAlive(getAlive());
         console.debug('Websocket Alive:', alive?.());
     }, 1000 * 5);
-    //onCleanup 无法正常调用，先用这个顶一顶
-    setTimeout(() => {
-        clearInterval(timer);
-    }, 1000 * 30);
 
-    //BUG 在 MISC 页面直接退出 dialog，会无法调用 onCleanup
     onCleanup(() => {
         console.log("WebSokect Status Clearup");
         clearInterval(timer);
@@ -85,7 +80,7 @@ const App: Component<IArgs> = (props) => {
         >
             <SettingItemWrap
                 title="Websocket 状态"
-                description="当前 Websocket 的运行状态 (目前只跟踪 30s)"
+                description="当前 Websocket 的运行状态"
             >
                 <WebSocketStatus/>
             </SettingItemWrap>
