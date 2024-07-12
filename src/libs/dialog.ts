@@ -37,7 +37,7 @@ export const solidDialog = (args: {
     return simpleDialog({...args, ele: container, callback: () => {
         container.parentElement?.removeChild(container);
         container.innerHTML = '';
-        args.callback();
+        if (args.callback) args.callback();;
     }});
 }
 

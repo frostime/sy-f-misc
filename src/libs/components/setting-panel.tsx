@@ -5,24 +5,24 @@
 // LastEditTime : 2024-06-08 18:25:34
 // Description  :
 
-import { Component, For, JSXElement, children, createMemo } from "solid-js";
+import { Component, For, JSXElement, children } from "solid-js";
 import ItemWrap from "./item-wrap";
 import InputItem from "./item-input";
 
 interface SettingPanelProps {
     group: string;
     settingItems: ISettingItem[];
-    display: boolean;
+    // display: boolean;
     onChanged: (e: { group: string, key: string, value: any }) => void;
     children?: JSXElement
 }
 
 const SettingPanel: Component<SettingPanelProps> = (props) => {
-    const fn__none = createMemo(() => props.display === true ? "" : "fn__none");
+    // const fn__none = createMemo(() => props.display === true ? "" : "fn__none");
     const useChildren = children(() => props.children);
 
     return (
-        <div class={`config__tab-container ${fn__none()}`} data-name={props.group}>
+        <div class={`config__tab-container`} data-name={props.group}>
             <For each={props.settingItems}>
                 {(item) => (
                     <ItemWrap
