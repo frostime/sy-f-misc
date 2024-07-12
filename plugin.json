@@ -5,18 +5,10 @@
   "version": "4.2.2",
   "minAppVersion": "3.0.0",
   "backends": [
-    "windows",
-    "linux",
-    "darwin",
-    "ios",
-    "android"
+    "all"
   ],
   "frontends": [
-    "desktop",
-    "mobile",
-    "browser-desktop",
-    "browser-mobile",
-    "desktop-window"
+    "all"
   ],
   "displayName": {
     "en_US": "F-Misc",
