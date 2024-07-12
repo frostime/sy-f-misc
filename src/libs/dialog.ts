@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:37:33
  * @FilePath     : /src/libs/dialog.ts
- * @LastEditTime : 2024-07-10 15:16:34
+ * @LastEditTime : 2024-07-12 18:01:35
  * @Description  : 对话框相关工具
  */
 import { Dialog } from "siyuan";
@@ -17,7 +17,7 @@ export const simpleDialog = (args: {
 }) => {
     const dialog = new Dialog({
         title: args.title,
-        content: `<div class="fn__flex fn__flex dialog-content"/>`,
+        content: `<div class="dialog-content" style="display: flex; height: 100%;"/>`,
         width: args.width,
         height: args.height,
         destroyCallback: args.callback
@@ -31,16 +31,14 @@ export const solidDialog = (args: {
     width?: string, height?: string,
     callback?: () => void;
 }) => {
-    const dialog = new Dialog({
-        title: args.title,
-        content: `<div class="dialog-content" style="display: flex; height: 100%;"/>`,
-        width: args.width,
-        height: args.height,
-        destroyCallback: args.callback
-    });
-    let ele = dialog.element.querySelector(".dialog-content");
-    render(args.loader, ele);
-    return dialog;
+    let container = document.createElement('div')
+    container.style.display = 'contents';
+    render(args.loader, container);
+    return simpleDialog({...args, ele: container, callback: () => {
+        container.parentElement?.removeChild(container);
+        container.innerHTML = '';
+        args.callback();
+    }});
 }
 
 

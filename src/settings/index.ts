@@ -3,16 +3,15 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-07-10 16:19:02
+ * @LastEditTime : 2024-07-12 18:02:27
  * @Description  : 
  */
-import { render } from 'solid-js/web';
 import type FMiscPlugin from '@/index';
 import { selectIconDialog } from '@/func/docky';
 import { toggleEnable } from '@/func';
 
 import Settings from "@/settings/settings";
-import { Dialog } from 'siyuan';
+import { solidDialog } from '@/libs/dialog';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
 const Enable: ISettingItem[] = [
@@ -218,19 +217,17 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     }
 
     plugin.openSetting = () => {
-        let dialog = new Dialog({
+        solidDialog({
             title: "F-Misc 设置",
-            content: `<div id="SettingPanel" style="height: 100%; display: flex;"></div>`,
             width: "800px",
-            height: "500px"
+            height: "500px",
+            loader: () => Settings({
+                GroupEnabled: Enable,
+                GroupDocky: Docky,
+                GroupMisc: Misc,
+                changed: onChanged
+            })
         });
-        let div = dialog.element.querySelector("#SettingPanel") as HTMLElement;
-        render(() => Settings({
-            GroupEnabled: Enable,
-            GroupDocky: Docky,
-            GroupMisc: Misc,
-            changed: onChanged
-        }), div);
     }
 }
 

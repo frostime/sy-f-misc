@@ -26,7 +26,7 @@ const WebSocketStatus: Component<{ show: boolean }> = (props) => {
     });
 
     onCleanup(() => {
-        console.log("WebSokect Status Closed");
+        console.log("WebSokect Status Clearup");
         clearInterval(timer);
         timer = null;
     });
@@ -55,6 +55,10 @@ const App: Component<IArgs> = (props) => {
     let [focus, setFocus] = createSignal(groups[0].key);
 
     const changed = props.changed;
+
+    onCleanup(() => {
+        console.log("Setting Pannel Clearup");
+    });
 
     return (
         <>
