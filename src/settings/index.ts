@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-07-12 18:02:27
+ * @LastEditTime : 2024-07-13 21:51:55
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -12,6 +12,7 @@ import { toggleEnable } from '@/func';
 
 import Settings from "@/settings/settings";
 import { solidDialog } from '@/libs/dialog';
+import { debounce } from '@/utils';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
 const Enable: ISettingItem[] = [
@@ -204,6 +205,9 @@ export const initSetting = async (plugin: FMiscPlugin) => {
 
     updateConfigs();
 
+    const saveConfigDebounced = debounce(() => plugin.saveConfigs(), 1000 * 10);
+    const settingChangedDebounced = debounce(onSettingChanged, 1000 * 2);
+
     const onChanged = (e: {group: string, key: string, value: any}) => {
         let { group, key, value } = e;
         console.debug(`Group: ${group}, Key: ${key}, Value: ${value}`);
@@ -211,9 +215,10 @@ export const initSetting = async (plugin: FMiscPlugin) => {
         if (pluginConfigs[group] && pluginConfigs[group][key] !== undefined) {
             pluginConfigs[group][key] = value;
         }
-        plugin.saveConfigs();
-        onSettingChanged(plugin, group, key, value);
         updateConfigs();
+
+        saveConfigDebounced();
+        settingChangedDebounced(plugin, group, key, value);
     }
 
     plugin.openSetting = () => {

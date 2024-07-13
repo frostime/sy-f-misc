@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-07-12 17:55:20
+ * @LastEditTime : 2024-07-13 21:38:04
  * @Description  : 
  */
 import {
@@ -29,6 +29,8 @@ import { updateStyleDom } from "./utils/style";
 
 // import type {} from "solid-styled-jsx";
 import { request, getFile } from "./api";
+
+import DeviceStorage from "./libs/device-storage";
 
 const electron = require('electron');
 
@@ -59,6 +61,8 @@ export default class FMiscPlugin extends Plugin {
     }
 
     eb: EventBusSync;
+
+    deviceStorage: Awaited<ReturnType<typeof DeviceStorage>>;
 
     async onload() {
         this.callbacksOnLayoutReady = [];
@@ -194,18 +198,20 @@ export default class FMiscPlugin extends Plugin {
         }
         this.data[StorageNameConfigs] = currentData;
         //读入 zoteroDir 进行覆盖
-        let zoteroDir = localStorage.getItem('zoteroDir');
+        this.deviceStorage = await DeviceStorage(this);
+        let zoteroDir = this.deviceStorage.get('zoteroDir');
         if (zoteroDir) {
             this.data[StorageNameConfigs].Misc.zoteroDir = zoteroDir;
         }
     }
 
-    saveConfigs() {
+    async saveConfigs() {
         //zoteroDir 不同步保存
-        localStorage.setItem('zoteroDir', this.data[StorageNameConfigs].Misc.zoteroDir);
+        await this.deviceStorage.set('zoteroDir', this.data[StorageNameConfigs].Misc.zoteroDir);
+
+        // 创建 this.data[StorageNameConfigs] 的副本，并去掉 zoteroDir
         let s = JSON.stringify(this.data[StorageNameConfigs]);
         console.debug('SaveConfigs', s);
-        // 创建 this.data[StorageNameConfigs] 的副本，并去掉 zoteroDir
         let dataToSave: any = JSON.parse(s);
         dataToSave.Misc.zoteroDir = "/";
         this.saveData(StorageNameConfigs + '.json', dataToSave);
