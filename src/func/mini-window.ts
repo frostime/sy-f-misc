@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 21:23:19
  * @FilePath     : /src/func/mini-window.ts
- * @LastEditTime : 2024-06-23 19:00:14
+ * @LastEditTime : 2024-07-14 22:03:31
  * @Description  : 
  */
 /*
@@ -17,8 +17,7 @@
  */
 // import type FMiscPlugin from '@/index';
 import { openWindow } from "siyuan";
-import { removeStyleDom, updateStyleDom } from "@/utils/style";
-import type FMiscPlugin from "..";
+import { updateStyleDom } from "@/utils/style";
 
 
 const InMiniWindow = () => {

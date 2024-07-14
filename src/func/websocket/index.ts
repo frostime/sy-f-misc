@@ -3,12 +3,15 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2024-07-12 16:36:00
+ * @LastEditTime : 2024-07-14 22:05:36
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 import WebSocketManager from "./ws-manager";
 import { appendBlock } from "@/api";
+import { formatDate } from "@/utils/time";
+
+import { openWindow } from "siyuan";
 
 
 /**
@@ -38,6 +41,37 @@ const appendDnList = async (text: string) => {
 }
 
 
+const appendDnH2 = async (title: string) => {
+    let date = formatDate();
+    const attr = `custom-dailynote-${date}`;
+    const boxLife = '20220305173526-4yjl33h';
+    let docs: Block[] = await globalThis.Query.attr(attr, date);
+    docs = docs.filter(b => b.box === boxLife);
+    if (docs.length !== 1) return;
+
+    let ans = await appendBlock('markdown', `## ${title}`, docs[0].id);
+    if (ans.length === 0) return;
+    let doOp = ans[0].doOperations;
+    if (doOp.length === 0) return;
+    let id = doOp[0].id;
+
+    let width = 800;
+    let height = 500;
+    let x = (window.screen.width - width) / 2;
+    let y = (window.screen.height - height) / 2 - 100;
+    openWindow({
+        position: {
+            x: x,
+            y: y
+        },
+        height: height,
+        width: width,
+        doc: {
+            id: id
+        }
+    });
+}
+
 
 export let name = "WebSocket";
 export let enabled = false;
@@ -52,6 +86,7 @@ export const load = (plugin: FMiscPlugin) => {
     webSocketManager.createWebSocket();
 
     webSocketManager.registerMessageHandler('dn-quicklist', appendDnList)
+    webSocketManager.registerMessageHandler('dn-h2', appendDnH2)
 }
 
 export const unload = () => {

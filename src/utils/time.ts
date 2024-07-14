@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-07-11 14:21:11
+ * @FilePath     : /src/utils/time.ts
+ * @LastEditTime : 2024-07-14 21:52:43
+ * @Description  : 
+ */
 export function formatDate(date?: Date, sep=''): string {
     date = date === undefined ? new Date() : date;
     let year = date.getFullYear();
@@ -13,6 +21,12 @@ const renderString = (template: string, data: { [key: string]: string }) => {
     return template;
 }
 
+/**
+ * yyyy-MM-dd HH:mm:ss
+ * @param template 
+ * @param now 
+ * @returns 
+ */
 export const formatDateTime = (template: string, now?: Date) => {
     now = now || new Date();
     let year = now.getFullYear();
