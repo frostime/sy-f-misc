@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-06-07 11:28:01
+ * @LastEditTime : 2024-07-15 11:11:59
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -47,10 +47,10 @@ class Table {
     tableData: any[][];
     private center: boolean;
 
-    constructor(options: { target: HTMLElement, tableData: any[][], center: boolean }) {
+    constructor(options: { target: HTMLElement, tableData: any[][], center?: boolean }) {
         this.element = options.target;
         this.tableData = options.tableData;
-        this.center = options.center;
+        this.center = options?.center ?? false;
         this.render();
     }
 
@@ -72,6 +72,67 @@ class Table {
         `;
 
         this.element.innerHTML = tableHtml;
+    }
+}
+
+const renderProps = (b: Block, prop: keyof Block, options?: {
+    onlyDate?: boolean;
+    onlyTime?: boolean;
+}) => {
+    let v: string | number = '';
+
+    const link = (title: string, id: BlockId) => `[${title}](siyuan://blocks/${id})`;
+    const parseTime = (dt: string) => {
+        let date = sy2Date(dt);
+        if (options?.onlyDate) {
+            return formatDateTime('yyyy-MM-dd', date);
+        } else if (options?.onlyTime) {
+            return formatDateTime('HH:mm:ss', date);
+        } else {
+            return formatDateTime('yyyy-MM-dd HH:mm:ss', date);
+        }
+    }
+
+    switch (prop) {
+        case 'type':
+            const type = BlockTypeShort[b.type];
+            v = link(type, b.id);
+            break;
+
+        case 'id':
+            v = link(b.id, b.id);
+            break;
+
+        case 'content':
+            v = b.fcontent || b.content
+            break;
+
+        case 'box':
+            let notebook = getNotebook(b.box);
+            v = notebook.name;
+            break;
+
+        case 'updated':
+        case 'created':
+            v = parseTime(b[prop]);
+            break;
+    
+        default:
+            v = b[prop];
+            break;
+    }
+    return v;
+}
+
+class BlockTable extends Table {
+    constructor(options: { target: HTMLElement, blocks: Block[], center?: boolean, col?: (keyof Block)[] }) {
+        let cols = options?.col ?? ['type', 'content', 'box', 'created'];
+        let tables: ((string | number)[])[] = [cols];
+        options.blocks.forEach((b: Block) => {
+            let rows = cols.map(c => renderProps(b, c));
+            tables.push(rows);
+        });
+        super({...options, tableData: tables})
     }
 }
 
@@ -170,6 +231,18 @@ export class DataView {
         return table.element.firstChild as HTMLElement;
     }
 
+    addBlockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean, ) {
+        let tableContainer = document.createElement('div');
+        let table = new BlockTable({
+            target: tableContainer,
+            blocks,
+            col: cols,
+            center: center ?? true
+        });
+        this.element.append(tableContainer);
+        return table.element.firstChild as HTMLElement;
+    }
+
     addtable = this.addTable;
 
     render() {
@@ -218,6 +291,9 @@ export class DataView {
 /**************************************** Query 函数 ****************************************/
 
 import { request, sql, listDocsByPath } from "@/api";
+import { formatDateTime, sy2Date } from "@/utils/time";
+import { BlockTypeShort } from "@/utils/const";
+import { getNotebook } from "@/utils";
 
 /**
  * Filter blocks in sql search scenario to eliminate duplicate blocks
@@ -363,7 +439,7 @@ export const load = () => {
                 if (!['NodeBlockquote', 'NodeListItem'].includes(info.parentType)) continue;
                 let resultp = result[result.length - 1];
                 resultp.id = info.parentID;
-                resultp.type = {'NodeBlockquote': 'bq', 'NodeListItem': 'li'}[info.parentType];
+                resultp.type = {'NodeBlockquote': 'b', 'NodeListItem': 'i'}[info.parentType];
             }
             return types === 'block' ? result : result.map(b => b.id);
         },
