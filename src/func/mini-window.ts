@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 21:23:19
  * @FilePath     : /src/func/mini-window.ts
- * @LastEditTime : 2024-07-14 22:03:31
+ * @LastEditTime : 2024-07-16 12:46:28
  * @Description  : 
  */
 /*
@@ -25,14 +25,18 @@ const InMiniWindow = () => {
     return body.classList.contains('body--window');
 }
 
+const pos = (loc: number, size: number) => {
+    return Math.max(loc - size / 2, 0);
+}
+
 const openSiyuanWindow = (
     id: BlockId,
     e?: MouseEvent
 ): void => {
     openWindow({
         position: {
-            x: e?.x || 0,
-            y: e?.y || 0
+            x: pos(e?.x || 0, 750),
+            y: pos(e?.y || 0, 500),
         },
         height: 500,
         width: 750,
