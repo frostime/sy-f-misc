@@ -1,11 +1,12 @@
-import { getBlockByID, getFile } from "@/api";
+import { getBlockByID } from "@/api";
+import { showMessage } from "siyuan";
 
 /*
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-17 13:53:40
+ * @LastEditTime : 2024-07-17 20:59:18
  * @Description  : 
  */
 interface IPost {
@@ -41,45 +42,99 @@ const request = async (ip: string, port: number, token: string, endpoint: string
     });
 
     if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        return null;
     }
 
     return response.json();
 }
 
+/**
+ * getFile 会擅自改变获取数据的类型，这里自定义一个 getFile
+ * @param endpoint 
+ * @returns 
+ */
+const fetchFile = async (path: string): Promise<Blob | null> => {
+    const endpoint = '/api/file/getFile'
+    let response = await fetch(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+            path: path
+        })
+    });
+    if (!response.ok) {
+        return null;
+    }
+    let data = await response.blob();
+    return data;
+}
 
-const createForm = (path: string, isDir: boolean, file: any) => {
+
+const createForm = (path: string, isDir: boolean, file: Blob | any, stream?: boolean) => {
     let form = new FormData();
     form.append('path', path);
     form.append('isDir', isDir.toString());
     form.append('modTime', Math.floor(Date.now() / 1000).toString());
-    form.append('file', new Blob([file], { type: 'application/octet-stream' }));
+    if (file instanceof Blob && !stream) {
+        form.append('file', file);
+    } else {
+        form.append('file', new Blob([file], { type: 'application/octet-stream' }));
+    }
 
     return form;
 }
 
 
+/**
+ * 获取思源文档 sy 文件
+ * @param docId 
+ * @returns sy: { file: Blob; assets: string[]; }
+ */
 const getSyFile = async (docId: DocumentId) => {
     let block = await getBlockByID(docId);
     let { path, box } = block;
-    let syFile: Object = await getFile(`/data/${box}${path}`, 'text');
-    let syfileContent: string = JSON.stringify(syFile);
+    const syPath = `/data/${box}${path}`;
+
+    let syblob: Blob = await fetchFile(syPath);
+    let syfileContent: string = await syblob.text();
 
     const assetPattern = /"assets\/[^"]+"/g;
     let matches = [...syfileContent.matchAll(assetPattern)];
     let assetsLinks = matches.map(match => match[0].slice(1, -1));
 
-    return {file: syfileContent, assets: assetsLinks};
+    return { file: syblob, assets: assetsLinks };
 }
 
 
 export const post = async (props: IPost) => {
     const { ip, port, token } = props.target;
 
+    //check connection
+    let data = await request(ip, port, token, '/api/system/version', null);
+    if (data === null) {
+        showMessage(`无法连接到 ${ip}:${port}`, 5000, 'error');
+        return false;
+    }
+
     let { file, assets } = await getSyFile(props.src.doc);
 
     let form = createForm(props.target.path, false, file);
     await request(ip, port, token, '/api/file/putFile', form, 'form');
+
+    let uploaders = assets.map(async (asset: string, index: number) => {
+        return (async () => {
+            let file = await fetchFile(asset);
+            if (file === null) {
+                console.log(`[${index + 1}/${assets.length}] Assets: Failed to read`, asset);
+                return;
+            }
+            let form = createForm(`/data/${asset}`, false, file);
+            console.log(`[${index + 1}/${assets.length}] Assets:`, asset);
+            await request(ip, port, token, '/api/file/putFile', form, 'form');
+        })();
+    })
+    await Promise.all(uploaders);
+
     //远端服务器重新索引
-    request(ip, port, token, '/api/filetree/refreshFiletree', {});
+    await request(ip, port, token, '/api/filetree/refreshFiletree', {});
+    return true;
 }
