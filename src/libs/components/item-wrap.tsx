@@ -5,7 +5,7 @@
 // LastEditTime : 2024-06-07 19:14:28
 // Description  : The setting item container
 
-import { Component, JSX } from "solid-js";
+import { children, Component, JSX } from "solid-js";
 
 interface SettingItemWrapProps {
     title: string;
@@ -15,6 +15,8 @@ interface SettingItemWrapProps {
 }
 
 const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
+
+    const c = children(() => props.children);
 
     return (
         <>
@@ -32,7 +34,9 @@ const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
                         }}>{props.title}</span>
                         <div class="b3-label__text" innerHTML={props.description}></div>
                         <div class="fn__hr"></div>
-                        {props?.children}
+                        <div style="display: flex; flex-direction: column; gap: 5px; position: relative;">
+                            {c()}
+                        </div>
                     </div>
                 </div>
             ) : (
@@ -41,6 +45,7 @@ const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
                     "padding-bottom": "16px",
                     "margin-bottom": "16px",
                     "border-bottom": "1px solid var(--b3-border-color)",
+                    "position": "relative"
                 }}>
                     <div class="fn__flex-1">
                         <span class="title" style={{
@@ -50,7 +55,7 @@ const SettingItemWrap: Component<SettingItemWrapProps> = (props) => {
                         <div class="b3-label__text" innerHTML={props.description}></div>
                     </div>
                     <span class="fn__space" />
-                    {props?.children}
+                    {c()}
                 </div>
             )}
         </>

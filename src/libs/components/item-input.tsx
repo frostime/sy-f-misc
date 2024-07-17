@@ -1,22 +1,33 @@
-import { createSignal } from "solid-js";
+import { createMemo } from "solid-js";
 
 interface IProps extends ISettingItemCore {
     changed: (v?: any) => void;
-    nofnSize?: boolean;
+    style?: { [key: string]: string | number };
 }
 
 export default function InputItem(props: IProps) {
-    const [value, setValue] = createSignal(props.value);
 
-    const fn_size = props?.nofnSize === true ? false : true;
+    const fn_size = true;
 
     function click() {
         props.button?.callback();
     }
 
-    function changed() {
-        props?.changed(value());
+    function changed(val: any) {
+        props?.changed(val);
     }
+
+    const attrStyle = createMemo(() => {
+        let styles = {};
+        if (props.type === 'textarea') {
+            styles = { resize: "vertical", height: '10rem', "white-space": "nowrap" };
+        }
+        let propstyle = props.style ?? {};
+        styles = {...styles, ...propstyle};
+        return {
+            style: styles
+        };
+    })
 
     function renderInput() {
         if (props.type === "checkbox") {
@@ -24,11 +35,11 @@ export default function InputItem(props: IProps) {
                 <input
                     class="b3-switch fn__flex-center"
                     id={props.key}
+                    {...attrStyle()}
                     type="checkbox"
-                    checked={value()}
+                    checked={props.value}
                     onInput={(e) => {
-                        setValue(e.currentTarget.checked);
-                        changed();
+                        changed(e.currentTarget.checked);
                     }}
                 />
             );
@@ -38,11 +49,11 @@ export default function InputItem(props: IProps) {
                     class="b3-text-field fn__flex-center"
                     classList={{ fn__size200: fn_size }}
                     id={props.key}
+                    {...attrStyle()}
                     placeholder={props.placeholder}
-                    value={value()}
+                    value={props.value}
                     onInput={(e) => {
-                        setValue(e.currentTarget.value);
-                        changed();
+                        changed(e.currentTarget.value);
                     }}
                 />
             );
@@ -50,11 +61,11 @@ export default function InputItem(props: IProps) {
             return (
                 <textarea
                     class="b3-text-field fn__block"
-                    style="resize: vertical; height: 10em; white-space: nowrap;"
-                    value={value()}
+                    // style="resize: vertical; height: 10em; white-space: nowrap;"
+                    {...attrStyle()}
+                    value={props.value}
                     onInput={(e) => {
-                        setValue(e.currentTarget.value);
-                        changed();
+                        changed(e.currentTarget.value);
                     }}
                 />
             );
@@ -64,11 +75,11 @@ export default function InputItem(props: IProps) {
                     class="b3-text-field fn__flex-center"
                     classList={{ fn__size200: fn_size }}
                     id={props.key}
+                    {...attrStyle()}
                     type="number"
-                    value={value()}
+                    value={props.value}
                     onInput={(e) => {
-                        setValue(e.currentTarget.value);
-                        changed();
+                        changed(e.currentTarget.value);
                     }}
                 />
             );
@@ -78,6 +89,7 @@ export default function InputItem(props: IProps) {
                     class="b3-button b3-button--outline fn__flex-center"
                     classList={{ fn__size200: fn_size }}
                     id={props.key}
+                    {...attrStyle()}
                     onClick={click}
                 >
                     {props.button.label}
@@ -88,11 +100,11 @@ export default function InputItem(props: IProps) {
                 <select
                     class="b3-select fn__flex-center"
                     classList={{ fn__size200: fn_size }}
+                    {...attrStyle()}
                     id={props.key}
-                    value={value()}
+                    value={props.value}
                     onChange={(e) => {
-                        setValue(e.currentTarget.value);
-                        changed();
+                        changed(e.currentTarget.value);
                     }}
                 >
                     {Object.entries(props.options).map(([optionValue, text]) => (
@@ -102,19 +114,19 @@ export default function InputItem(props: IProps) {
             );
         } else if (props.type === "slider") {
             return (
-                <div class="b3-tooltips b3-tooltips__n" aria-label={value()}>
+                <div class="b3-tooltips b3-tooltips__n" aria-label={props.value}>
                     <input
                         class="b3-slider"
                         classList={{ fn__size200: fn_size }}
+                        {...attrStyle()}
                         id={props.key}
                         min={props.slider.min}
                         max={props.slider.max}
                         step={props.slider.step}
                         type="range"
-                        value={value()}
+                        value={props.value}
                         onInput={(e) => {
-                            setValue(e.currentTarget.value);
-                            changed();
+                            changed(e.currentTarget.value);
                         }}
                     />
                 </div>
