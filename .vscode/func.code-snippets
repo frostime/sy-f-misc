@@ -25,14 +25,14 @@
 
 		  "export const load = (plugin: FMiscPlugin) => {",
 		  "\tif (enabled) return;",
-		  "\t",
 		  "\tenabled = true;",
+		  "\t",
 		  "}",
 		  "",
 		  "export const unload = (plugin: FMiscPlugin) => {",
 		  "\tif (!enabled) return;",
-		  "\t",
 		  "\tenabled = false;",
+		  "\t",
 		  "}"
 		],
 		"description": "Load and unload functions for FMiscPlugin."

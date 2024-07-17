@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-07-10 15:19:48
+ * @LastEditTime : 2024-07-17 12:28:27
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -21,6 +21,7 @@ import * as dq from './data-query';
 import * as dc from './doc-context';
 import * as ta from './test-api';
 import * as ws from './websocket';
+import * as pd from './post-doc';
 
 // import * as bookmark from './bookmarks';
 
@@ -48,7 +49,8 @@ const ModulesToEnable = [
 
 const ModulesAlwaysEnable = [
     dq,
-    dc
+    dc,
+    pd
 ]
 
 //`Enable${module.name}`: module
