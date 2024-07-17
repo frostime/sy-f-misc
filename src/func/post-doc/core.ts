@@ -1,29 +1,16 @@
-import { getBlockByID } from "@/api";
-import { showMessage } from "siyuan";
-
 /*
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-17 20:59:18
+ * @LastEditTime : 2024-07-17 21:12:35
  * @Description  : 
  */
-interface IPost {
-    src: {
-        doc: DocumentId;
-        recursive: boolean;
-    }
-    target: {
-        ip: string;
-        port: number;
-        token: string;
-        box: string;
-        path: string;
-    }
-}
+import { getBlockByID } from "@/api";
+import { showMessage } from "siyuan";
 
-const request = async (ip: string, port: number, token: string, endpoint: string, payload?: any, type: 'json' | 'form' = 'json') => {
+
+export const request = async (ip: string, port: number, token: string, endpoint: string, payload?: any, type: 'json' | 'form' = 'json') => {
     const url = `http://${ip}:${port}${endpoint}`;
     const headers: any = {
         Authorization: `Token ${token}`
@@ -105,7 +92,7 @@ const getSyFile = async (docId: DocumentId) => {
 }
 
 
-export const post = async (props: IPost) => {
+export const post = async (props: IPostProps) => {
     const { ip, port, token } = props.target;
 
     //check connection
