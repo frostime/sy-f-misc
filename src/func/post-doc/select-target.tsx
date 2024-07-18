@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-07-17 21:20:21
+ * @FilePath     : /src/func/post-doc/select-target.tsx
+ * @LastEditTime : 2024-07-18 15:01:14
+ * @Description  : 
+ */
 import InputItem from "@/libs/components/item-input";
 import SettingItemWrap from "@/libs/components/item-wrap";
 import { Component, createSignal, Show } from "solid-js";
@@ -37,7 +45,7 @@ const SelectTarget: Component<IProps> = (props) => {
 
     const [dir, setDir] = createSignal({
         box: history?.box ?? '',
-        path: history?.path ?? '/'
+        dir: history?.dir ?? '/'
     });
 
     const [notebooks, setNotebooks] = createSignal({});
@@ -45,7 +53,7 @@ const SelectTarget: Component<IProps> = (props) => {
     const [validWorkspace, setValidWorkspace] = createSignal(false);
 
     const confirm = () => {
-        if (!dir().path.startsWith('/')) {
+        if (!dir().dir.startsWith('/')) {
             showMessage("路径必须以 / 开头", 5000, 'error');
             return false;
         }
@@ -55,7 +63,7 @@ const SelectTarget: Component<IProps> = (props) => {
 
     const checkInputFormat = () => {
         //检查 workspace() 是否符合格式
-        const { ip, port } = workspace();
+        let { ip, port } = workspace();
         if (port < 1000) return false;
         // if (token === '') return false;
         //check ip
@@ -71,6 +79,7 @@ const SelectTarget: Component<IProps> = (props) => {
         }
         let { ip, port, token } = workspace();
         let succeed = await checkConnection(ip, port, token);
+        if (!succeed) return;
         if (succeed && showMsg) {
             showMessage("连接成功!", 3000);
         }
@@ -201,7 +210,7 @@ const SelectTarget: Component<IProps> = (props) => {
                 <InputItem
                     key="path"
                     type="textinput"
-                    value={dir().path}
+                    value={dir().dir}
                     changed={(path) => {
                         setDir((dir) => {
                             return { ...dir, path };

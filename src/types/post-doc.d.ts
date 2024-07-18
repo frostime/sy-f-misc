@@ -11,7 +11,7 @@ interface IWorkspace {
 
 interface ITraget extends IWorkspace {
     box: string;
-    path: string;
+    dir: string;
 }
 
 interface IPostProps {

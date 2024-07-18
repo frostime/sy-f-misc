@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-17 22:05:09
+ * @LastEditTime : 2024-07-18 14:56:00
  * @Description  : 
  */
 import { getBlockByID } from "@/api";
@@ -92,7 +92,9 @@ const getSyFile = async (docId: DocumentId) => {
 }
 
 export const checkConnection = async (ip: string, port: number, token: string) => {
-    let data = await request(ip, port, token, '/api/system/version', null);
+    let data = await request(ip, port, token, '/api/query/sql', {
+        fmt: "select * from blocks limit 1"
+    });
     if (data === null) {
         showMessage(`无法连接到 ${ip}:${port}`, 5000, 'error');
         return false;
@@ -101,11 +103,13 @@ export const checkConnection = async (ip: string, port: number, token: string) =
 }
 
 export const post = async (props: IPostProps) => {
-    const { ip, port, token } = props.target;
+    const { ip, port, token, box, dir } = props.target;
+
+    let targetSypath = `/data/${box}${dir}/${props.src.doc}.sy`;
 
     let { file, assets } = await getSyFile(props.src.doc);
 
-    let form = createForm(props.target.path, false, file);
+    let form = createForm(targetSypath, false, file);
     await request(ip, port, token, '/api/file/putFile', form, 'form');
 
     let uploaders = assets.map(async (asset: string, index: number) => {

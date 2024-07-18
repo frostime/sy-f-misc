@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 11:55:32
  * @FilePath     : /src/func/post-doc/index.ts
- * @LastEditTime : 2024-07-18 14:37:12
+ * @LastEditTime : 2024-07-18 14:50:07
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -45,22 +45,7 @@ const postDoc = async (srcDoc: {
         payload[ATTR_NAME] = JSON.stringify(props);
         setBlockAttrs(srcDoc.docId, payload);
 
-        target.box + target.path; 
-        let path = `/data/${target.box}${target.path}/${srcDoc.docId}.sy`;
-        props.target.path = path;
-        // post({
-        //     src: {
-        //         doc: srcDoc.docId,
-        //         recursive: false
-        //     },
-        //     target: {
-        //         ip: '172.16.25.64',
-        //         port: 6806,
-        //         token: 'm2vh3v1fpobm1ksg',
-        //         box: '20240717113959-40g3nwy',
-        //         path: `/data/20240717113959-40g3nwy/${srcDoc.docId}.sy`
-        //     }
-        // })
+        post(props);
     }
 
 
