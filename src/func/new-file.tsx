@@ -114,7 +114,6 @@ const NewFileApp = (props: {updated: (v) => void}) => {
                         ext = v;
                         props.updated(fname + ext);
                     }}
-                    nofnSize={true}
                 />
             </div>
         </div>
