@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-18 16:07:19
+ * @LastEditTime : 2024-07-18 16:45:03
  * @Description  : 
  */
-import { getBlockByID } from "@/api";
+import { getBlockByID, listDocTree } from "@/api";
 import { simpleDialog } from "@/libs/dialog";
 
 
@@ -143,47 +143,71 @@ const showLog = () => {
 }
 
 
+const checkTarget = () => {
+
+}
+
+
 export const post = async (props: IPostProps) => {
     const { ip, port, token, box, dir } = props.target;
 
-    let targetSypath = `/data/${box}${dir}/${props.src.doc}.sy`;
-
-    let { file, assets } = await getSyFile(props.src.doc);
-
     const log = showLog();
-
-    let form = createForm(targetSypath, false, file);
-    await request(ip, port, token, '/api/file/putFile', form, 'form');
-    log(`Post SiYun File:`, targetSypath);
 
     // Create a Set to store the uploaded assets
     const uploadedAssets = new Set<string>();
 
-    let uploaders = assets.map(async (asset: string, index: number) => {
-        return (async () => {
-            // Check if the asset has already been uploaded
-            if (uploadedAssets.has(asset)) {
-                log(`Asset File | [${index + 1}/${assets.length}] | Already uploaded`, asset);
-                return;
+    const uploadSingleDoc = async (docId: DocumentId, parentDir: string) => {
+        log(`=============== 开始上传文档 ${docId} ===============`);
+        let targetSypath = `${parentDir}${docId}.sy`;
+        let { file, assets } = await getSyFile(docId);
+        let form = createForm(targetSypath, false, file);
+        await request(ip, port, token, '/api/file/putFile', form, 'form');
+        log(`Post SiYun File:`, targetSypath);
+
+        let uploaders = assets.map(async (asset: string, index: number) => {
+            return (async () => {
+                // Check if the asset has already been uploaded
+                if (uploadedAssets.has(asset)) {
+                    log(`Asset File | [${index + 1}/${assets.length}] | Already uploaded`, asset);
+                    return;
+                }
+
+                let path = `/data/${asset}`;
+                let file = await fetchFile(path);
+                if (file === null) {
+                    log(`Post Asset File | [${index + 1}/${assets.length}] | Failed to read`, asset);
+                    return;
+                }
+
+                let form = createForm(path, false, file);
+                await request(ip, port, token, '/api/file/putFile', form, 'form');
+                log(`Post Asset File | [${index + 1}/${assets.length}] | [${strsize(file.size)}] |`, asset);
+
+                // Add the asset to the Set of uploaded assets
+                uploadedAssets.add(asset);
+            })();
+        })
+        await Promise.all(uploaders);
+        log(`文档 ${targetSypath} 及其全部附件上传成功!\n`)
+    }
+
+    const traverseTree = async (nodes: IDocTreeNode[], dir: string) => {
+        for (let node of nodes) {
+            // console.log(dir, node.id);
+            await uploadSingleDoc(node.id, dir);
+            if (node.children) {
+                await traverseTree(node.children, `${dir}${node.id}/`);
             }
+        }
+    }
 
-            let path = `/data/${asset}`;
-            let file = await fetchFile(path);
-            if (file === null) {
-                log(`Post Asset File | [${index + 1}/${assets.length}] | Failed to read`, asset);
-                return;
-            }
-
-            let form = createForm(path, false, file);
-            await request(ip, port, token, '/api/file/putFile', form, 'form');
-            log(`Post Asset File | [${index + 1}/${assets.length}] | [${strsize(file.size)}] |`, asset);
-
-            // Add the asset to the Set of uploaded assets
-            uploadedAssets.add(asset);
-        })();
-    })
-    await Promise.all(uploaders);
-    log(`文档 ${targetSypath} 及其全部附件上传成功!\n\n`)
+    let root = `/data/${box}${dir}`;
+    await uploadSingleDoc(props.src.doc, root);
+    if (props.src.recursive) {
+        let doc = await getBlockByID(props.src.doc);
+        let tree: IDocTreeNode[] = await listDocTree(doc.box, doc.path.replace('.sy', ''));
+        await traverseTree(tree, `${root}${doc.id}/`);
+    }
 
     //远端服务器重新索引
     await request(ip, port, token, '/api/filetree/refreshFiletree', {});
