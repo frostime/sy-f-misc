@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-07-13 21:51:55
+ * @LastEditTime : 2024-07-18 15:09:54
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -98,6 +98,13 @@ const Enable: ISettingItem[] = [
         title: '🌐 测试 API',
         description: '启用测试 API 功能',
         key: 'EnableTestAPI',
+        value: false
+    },
+    {
+        type: 'checkbox',
+        title: '📤 推送文档发布远端',
+        description: '启用推送文档发布远端功能',
+        key: 'EnablePostDoc',
         value: false
     }
 ];

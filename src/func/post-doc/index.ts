@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 11:55:32
  * @FilePath     : /src/func/post-doc/index.ts
- * @LastEditTime : 2024-07-18 14:50:07
+ * @LastEditTime : 2024-07-18 15:20:50
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";

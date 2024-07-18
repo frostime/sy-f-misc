@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-18 14:56:00
+ * @LastEditTime : 2024-07-18 15:40:12
  * @Description  : 
  */
 import { getBlockByID } from "@/api";
@@ -100,6 +100,23 @@ export const checkConnection = async (ip: string, port: number, token: string) =
     return true;
 }
 
+
+const strsize = (bytes: number) => {
+    let kb = bytes / 1024;
+    if (kb < 1024) {
+        return `${kb.toFixed(2)} KB`;
+    } else {
+        let mb = kb / 1024;
+        if (mb < 1024) {
+            return `${mb.toFixed(2)} MB`;
+        } else {
+            let gb = mb / 1024;
+            return `${gb.toFixed(2)} GB`;
+        }
+    }
+}
+
+
 export const post = async (props: IPostProps) => {
     const { ip, port, token, box, dir } = props.target;
 
@@ -109,17 +126,19 @@ export const post = async (props: IPostProps) => {
 
     let form = createForm(targetSypath, false, file);
     await request(ip, port, token, '/api/file/putFile', form, 'form');
+    console.debug(`Post SiYun File:`, targetSypath);
 
     let uploaders = assets.map(async (asset: string, index: number) => {
         return (async () => {
-            let file = await fetchFile(asset);
+            let path = `/data/${asset}`;
+            let file = await fetchFile(path);
             if (file === null) {
-                console.log(`[${index + 1}/${assets.length}] Assets: Failed to read`, asset);
+                console.debug(`Post Asset File: [${index + 1}/${assets.length}] Failed to read`, asset);
                 return;
             }
-            let form = createForm(`/data/${asset}`, false, file);
-            console.log(`[${index + 1}/${assets.length}] Assets:`, asset);
+            let form = createForm(path, false, file);
             await request(ip, port, token, '/api/file/putFile', form, 'form');
+            console.debug(`Post Asset File: [${index + 1}/${assets.length}]`, asset, strsize(file.size));
         })();
     })
     await Promise.all(uploaders);

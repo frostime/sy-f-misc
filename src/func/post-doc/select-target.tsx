@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 21:20:21
  * @FilePath     : /src/func/post-doc/select-target.tsx
- * @LastEditTime : 2024-07-18 15:06:35
+ * @LastEditTime : 2024-07-18 15:36:48
  * @Description  : 
  */
 import InputItem from "@/libs/components/item-input";
@@ -102,6 +102,9 @@ const SelectTarget: Component<IProps> = (props) => {
         })
         console.log(options)
         setNotebooks(options);
+        setDir(() => {
+            return { ...dir(), box: Object.keys(options)[0] };
+        });
         setValidWorkspace(succeed);
     }
 

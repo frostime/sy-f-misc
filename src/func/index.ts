@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-07-17 12:28:27
+ * @LastEditTime : 2024-07-18 15:10:10
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -44,13 +44,13 @@ const ModulesToEnable = [
     tr,
     ss,
     ta,
-    ws
+    ws,
+    pd
 ]
 
 const ModulesAlwaysEnable = [
     dq,
-    dc,
-    pd
+    dc
 ]
 
 //`Enable${module.name}`: module
