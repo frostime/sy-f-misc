@@ -18,8 +18,9 @@ const isValidIP = (ip: string): boolean => {
 
 
 interface IProps {
+    recursive?: boolean;
     history?: ITraget;
-    confirm: (v: any) => void;
+    confirm: (...v: any[]) => void;
     close: () => void;
 }
 
@@ -44,11 +45,15 @@ const SelectTarget: Component<IProps> = (props) => {
     const [validWorkspace, setValidWorkspace] = createSignal(false);
 
     const confirm = () => {
+        if (!dir().path.startsWith('/')) {
+            showMessage("路径必须以 / 开头", 5000, 'error');
+            return false;
+        }
         props.close();
-        props.confirm({ ...workspace(), ...dir() });
+        props.confirm({ ...workspace(), ...dir() }, props.recursive);
     }
 
-    const checkInput = () => {
+    const checkInputFormat = () => {
         //检查 workspace() 是否符合格式
         const { ip, port } = workspace();
         if (port < 1000) return false;
@@ -58,14 +63,15 @@ const SelectTarget: Component<IProps> = (props) => {
         return true;
     }
 
-    const checkRemote = async () => {
-        if (!checkInput()) {
-            showMessage("输入错误", 5000, 'error');
+    const checkRemote = async (showMsg?: boolean) => {
+        showMsg = showMsg ?? true;
+        if (!checkInputFormat()) {
+            if (showMsg) showMessage("输入错误", 5000, 'error');
             return;
         }
         let { ip, port, token } = workspace();
         let succeed = await checkConnection(ip, port, token);
-        if (succeed) {
+        if (succeed && showMsg) {
             showMessage("连接成功!", 3000);
         }
         let msg = await request(ip, port, token, '/api/notebook/lsNotebooks');
@@ -79,12 +85,28 @@ const SelectTarget: Component<IProps> = (props) => {
         setValidWorkspace(succeed);
     }
 
+    checkRemote(false);
+
     const SelectWorkspace = () => (
         <div style={{
             display: "flex",
             "flex-direction": "column",
             flex: 1
         }}>
+            {/* recursive boolean */}
+            <SettingItemWrap
+                title="发布整个目录树?"
+                description=""
+            >
+                <InputItem
+                    key="recursive"
+                    type="checkbox"
+                    value={props.recursive}
+                    changed={(recursive) => {
+                        props.recursive = recursive;
+                    }}
+                />
+            </SettingItemWrap>
             <div style={{ color: 'var(--b3-theme-primary);', "font-weight": 'bold' }}>
                 <h2>设置远端 Workspace</h2>
             </div>
@@ -139,7 +161,7 @@ const SelectTarget: Component<IProps> = (props) => {
             <Show when={!validWorkspace()}>
                 <div style={{ display: "flex", gap: '10px', padding: '0 24px' }}>
                     <div style='flex: 1;'></div>
-                    <button class="b3-button" onClick={checkRemote}>
+                    <button class="b3-button" onClick={() => checkRemote(true)}>
                         验证服务连接
                     </button>
                 </div>

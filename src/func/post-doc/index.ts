@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 11:55:32
  * @FilePath     : /src/func/post-doc/index.ts
- * @LastEditTime : 2024-07-18 00:50:48
+ * @LastEditTime : 2024-07-18 14:37:12
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -29,14 +29,14 @@ const postDoc = async (srcDoc: {
 
     let history: IPostProps = attrs[ATTR_NAME] ? JSON.parse(attrs[ATTR_NAME]) : null;
 
-    const doPost = (target: ITraget) => {
+    const doPost = (target: ITraget, recursive: boolean) => {
         console.log(target);
 
         let payload = {};
         let props: IPostProps = {
             src: {
                 doc: srcDoc.docId,
-                recursive: false
+                recursive: recursive
             },
             target: {
                 ...target
@@ -70,7 +70,8 @@ const postDoc = async (srcDoc: {
         loader: () => SelectTarget({
             confirm: doPost,
             close: () => dialog.destroy(),
-            history: history?.target
+            history: history?.target,
+            recursive: history?.src?.recursive ?? false
         }),
         width: '500px'
     });
