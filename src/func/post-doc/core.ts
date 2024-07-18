@@ -3,10 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-18 15:40:12
+ * @LastEditTime : 2024-07-18 16:07:19
  * @Description  : 
  */
 import { getBlockByID } from "@/api";
+import { simpleDialog } from "@/libs/dialog";
 
 
 export const request = async (ip: string, port: number, token: string, endpoint: string, payload?: any, type: 'json' | 'form' = 'json') => {
@@ -104,15 +105,40 @@ export const checkConnection = async (ip: string, port: number, token: string) =
 const strsize = (bytes: number) => {
     let kb = bytes / 1024;
     if (kb < 1024) {
-        return `${kb.toFixed(2)} KB`;
+        return `${kb.toFixed(2).padStart(6)} KB`;
     } else {
         let mb = kb / 1024;
         if (mb < 1024) {
-            return `${mb.toFixed(2)} MB`;
+            return `${mb.toFixed(2).padStart(6)} MB`;
         } else {
             let gb = mb / 1024;
-            return `${gb.toFixed(2)} GB`;
+            return `${gb.toFixed(2).padStart(6)} GB`;
         }
+    }
+}
+
+
+const showLog = () => {
+    const textarea = document.createElement('textarea');
+    Object.assign(textarea.style, {
+        flex: '1',
+        fontSize: '16px',
+        lineHeight: '1.5',
+        whiteSpace: 'pre-wrap',
+        wordWrap: 'break-word',
+        resize: 'none',
+    });
+    //不允许用户编辑
+    textarea.readOnly = true;
+    simpleDialog({
+        title: '上传中...',
+        ele: textarea,
+        width: '1000px',
+        height: '500px'
+    });
+    return (...texts: string[]) => {
+        let newline = new Date().toLocaleString() + '| ' + texts.join(' ');
+        textarea.value += `${newline}\n`;
     }
 }
 
@@ -124,26 +150,44 @@ export const post = async (props: IPostProps) => {
 
     let { file, assets } = await getSyFile(props.src.doc);
 
+    const log = showLog();
+
     let form = createForm(targetSypath, false, file);
     await request(ip, port, token, '/api/file/putFile', form, 'form');
-    console.debug(`Post SiYun File:`, targetSypath);
+    log(`Post SiYun File:`, targetSypath);
+
+    // Create a Set to store the uploaded assets
+    const uploadedAssets = new Set<string>();
 
     let uploaders = assets.map(async (asset: string, index: number) => {
         return (async () => {
+            // Check if the asset has already been uploaded
+            if (uploadedAssets.has(asset)) {
+                log(`Asset File | [${index + 1}/${assets.length}] | Already uploaded`, asset);
+                return;
+            }
+
             let path = `/data/${asset}`;
             let file = await fetchFile(path);
             if (file === null) {
-                console.debug(`Post Asset File: [${index + 1}/${assets.length}] Failed to read`, asset);
+                log(`Post Asset File | [${index + 1}/${assets.length}] | Failed to read`, asset);
                 return;
             }
+
             let form = createForm(path, false, file);
             await request(ip, port, token, '/api/file/putFile', form, 'form');
-            console.debug(`Post Asset File: [${index + 1}/${assets.length}]`, asset, strsize(file.size));
+            log(`Post Asset File | [${index + 1}/${assets.length}] | [${strsize(file.size)}] |`, asset);
+
+            // Add the asset to the Set of uploaded assets
+            uploadedAssets.add(asset);
         })();
     })
     await Promise.all(uploaders);
+    log(`文档 ${targetSypath} 及其全部附件上传成功!\n\n`)
 
     //远端服务器重新索引
     await request(ip, port, token, '/api/filetree/refreshFiletree', {});
+    log('重建索引，全部上传完成!')
     return true;
 }
+
