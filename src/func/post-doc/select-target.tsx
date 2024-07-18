@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 21:20:21
  * @FilePath     : /src/func/post-doc/select-target.tsx
- * @LastEditTime : 2024-07-18 15:36:48
+ * @LastEditTime : 2024-07-18 17:14:43
  * @Description  : 
  */
 import InputItem from "@/libs/components/item-input";
@@ -13,15 +13,10 @@ import { checkConnection, request } from "./core";
 import { showMessage } from "siyuan";
 
 
-const isValidIP = (ip: string): boolean => {
-    const ipSegments = ip.split('.');
-    if (ipSegments.length !== 4) return false;
-    for (let segment of ipSegments) {
-        if (!/^\d+$/.test(segment)) return false;
-        const num = parseInt(segment, 10);
-        if (num < 0 || num > 255) return false;
-    }
-    return true;
+const isValidHost = (host: string): boolean => {
+    // Regular expression to match a valid domain or IP address
+    const domainOrIpRegex = /^(?!-)[A-Za-z0-9-]+([-.]{1}[A-Za-z0-9]+)*.[A-Za-z]{2,}$|^(\d{1,3}\.){3}\d{1,3}$/;
+    return domainOrIpRegex.test(host);
 }
 
 
@@ -38,7 +33,7 @@ const SelectTarget: Component<IProps> = (props) => {
     const { history } = props;
 
     const [workspace, setWorkspace] = createSignal<IWorkspace>({
-        ip: history?.ip ?? '127.0.0.1',
+        host: history?.host ?? '127.0.0.1',
         port: history?.port ?? 6806,
         token: history?.token ?? ''
     });
@@ -63,18 +58,18 @@ const SelectTarget: Component<IProps> = (props) => {
 
     const checkInputFormat = () => {
         //检查 workspace() 是否符合格式
-        let { ip, port } = workspace();
+        let { host, port } = workspace();
         if (port < 1000) return false;
-        // if (token === '') return false;
-        //check ip
-        if (ip.startsWith('http://') || ip.startsWith('https://')) {
-            let url = new URL(ip);
-            ip = url.hostname;
+
+        //check host
+        if (host.startsWith('http://') || host.startsWith('https://')) {
+            let url = new URL(host);
+            host = url.hostname;
         }
 
-        if (!isValidIP(ip)) return false;
+        if (!isValidHost(host)) return false;
         setWorkspace((w: IWorkspace) => {
-            return { ...w, ip };
+            return { ...w, host };
         });
         return true;
     }
@@ -85,16 +80,16 @@ const SelectTarget: Component<IProps> = (props) => {
             if (showMsg) showMessage("输入错误", 5000, 'error');
             return;
         }
-        let { ip, port, token } = workspace();
-        let succeed = await checkConnection(ip, port, token);
+        let { host, port, token } = workspace();
+        let succeed = await checkConnection(host, port, token);
         if (!succeed) {
-            if (showMsg) showMessage(`无法连接到 ${ip}:${port}`, 5000, 'error');
+            if (showMsg) showMessage(`无法连接到 ${host}:${port}`, 5000, 'error');
             return;
         }
         if (succeed && showMsg) {
             showMessage("连接成功!", 3000);
         }
-        let msg = await request(ip, port, token, '/api/notebook/lsNotebooks');
+        let msg = await request(host, port, token, '/api/notebook/lsNotebooks');
         let boxes: Notebook[] = msg?.data?.notebooks;
         let options = {};
         boxes.forEach(box => {
@@ -134,16 +129,16 @@ const SelectTarget: Component<IProps> = (props) => {
                 <h2>设置远端 Workspace</h2>
             </div>
             <SettingItemWrap
-                title="IP"
+                title="Host"
                 description=""
             >
                 <InputItem
-                    key="ip"
+                    key="host"
                     type="textinput"
-                    value={workspace().ip}
-                    changed={(ip) => {
+                    value={workspace().host}
+                    changed={(host) => {
                         setWorkspace((ws) => {
-                            return { ...ws, ip: ip };
+                            return { ...ws, host };
                         });
                         setValidWorkspace(false);
                     }}

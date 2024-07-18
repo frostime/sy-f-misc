@@ -3,15 +3,15 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-18 16:45:03
+ * @LastEditTime : 2024-07-18 17:07:13
  * @Description  : 
  */
 import { getBlockByID, listDocTree } from "@/api";
 import { simpleDialog } from "@/libs/dialog";
 
 
-export const request = async (ip: string, port: number, token: string, endpoint: string, payload?: any, type: 'json' | 'form' = 'json') => {
-    const url = `http://${ip}:${port}${endpoint}`;
+export const request = async (host: string, port: number, token: string, endpoint: string, payload?: any, type: 'json' | 'form' = 'json') => {
+    const url = `http://${host}:${port}${endpoint}`;
     const headers: any = {
         Authorization: `Token ${token}`
     };
@@ -91,8 +91,8 @@ const getSyFile = async (docId: DocumentId) => {
     return { file: syblob, assets: assetsLinks };
 }
 
-export const checkConnection = async (ip: string, port: number, token: string) => {
-    let data = await request(ip, port, token, '/api/query/sql', {
+export const checkConnection = async (host: string, port: number, token: string) => {
+    let data = await request(host, port, token, '/api/query/sql', {
         fmt: "select * from blocks limit 1"
     });
     if (data === null) {
@@ -149,7 +149,7 @@ const checkTarget = () => {
 
 
 export const post = async (props: IPostProps) => {
-    const { ip, port, token, box, dir } = props.target;
+    const { host, port, token, box, dir } = props.target;
 
     const log = showLog();
 
@@ -161,7 +161,7 @@ export const post = async (props: IPostProps) => {
         let targetSypath = `${parentDir}${docId}.sy`;
         let { file, assets } = await getSyFile(docId);
         let form = createForm(targetSypath, false, file);
-        await request(ip, port, token, '/api/file/putFile', form, 'form');
+        await request(host, port, token, '/api/file/putFile', form, 'form');
         log(`Post SiYun File:`, targetSypath);
 
         let uploaders = assets.map(async (asset: string, index: number) => {
@@ -180,7 +180,7 @@ export const post = async (props: IPostProps) => {
                 }
 
                 let form = createForm(path, false, file);
-                await request(ip, port, token, '/api/file/putFile', form, 'form');
+                await request(host, port, token, '/api/file/putFile', form, 'form');
                 log(`Post Asset File | [${index + 1}/${assets.length}] | [${strsize(file.size)}] |`, asset);
 
                 // Add the asset to the Set of uploaded assets
@@ -210,7 +210,7 @@ export const post = async (props: IPostProps) => {
     }
 
     //远端服务器重新索引
-    await request(ip, port, token, '/api/filetree/refreshFiletree', {});
+    await request(host, port, token, '/api/filetree/refreshFiletree', {});
     log('重建索引，全部上传完成!')
     return true;
 }

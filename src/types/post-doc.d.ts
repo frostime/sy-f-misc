@@ -4,7 +4,7 @@ interface ISrc {
 }
 
 interface IWorkspace {
-    ip: string;
+    host: string;
     port: number;
     token: string;
 }
