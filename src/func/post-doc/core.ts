@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-17 21:12:35
+ * @LastEditTime : 2024-07-17 22:05:09
  * @Description  : 
  */
 import { getBlockByID } from "@/api";
@@ -91,16 +91,17 @@ const getSyFile = async (docId: DocumentId) => {
     return { file: syblob, assets: assetsLinks };
 }
 
-
-export const post = async (props: IPostProps) => {
-    const { ip, port, token } = props.target;
-
-    //check connection
+export const checkConnection = async (ip: string, port: number, token: string) => {
     let data = await request(ip, port, token, '/api/system/version', null);
     if (data === null) {
         showMessage(`无法连接到 ${ip}:${port}`, 5000, 'error');
         return false;
     }
+    return true;
+}
+
+export const post = async (props: IPostProps) => {
+    const { ip, port, token } = props.target;
 
     let { file, assets } = await getSyFile(props.src.doc);
 
