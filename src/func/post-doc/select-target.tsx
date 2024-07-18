@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 21:20:21
  * @FilePath     : /src/func/post-doc/select-target.tsx
- * @LastEditTime : 2024-07-18 15:01:14
+ * @LastEditTime : 2024-07-18 15:06:35
  * @Description  : 
  */
 import InputItem from "@/libs/components/item-input";
@@ -67,7 +67,15 @@ const SelectTarget: Component<IProps> = (props) => {
         if (port < 1000) return false;
         // if (token === '') return false;
         //check ip
+        if (ip.startsWith('http://') || ip.startsWith('https://')) {
+            let url = new URL(ip);
+            ip = url.hostname;
+        }
+
         if (!isValidIP(ip)) return false;
+        setWorkspace((w: IWorkspace) => {
+            return { ...w, ip };
+        });
         return true;
     }
 
@@ -79,7 +87,10 @@ const SelectTarget: Component<IProps> = (props) => {
         }
         let { ip, port, token } = workspace();
         let succeed = await checkConnection(ip, port, token);
-        if (!succeed) return;
+        if (!succeed) {
+            if (showMsg) showMessage(`无法连接到 ${ip}:${port}`, 5000, 'error');
+            return;
+        }
         if (succeed && showMsg) {
             showMessage("连接成功!", 3000);
         }

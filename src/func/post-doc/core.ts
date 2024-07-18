@@ -7,7 +7,6 @@
  * @Description  : 
  */
 import { getBlockByID } from "@/api";
-import { showMessage } from "siyuan";
 
 
 export const request = async (ip: string, port: number, token: string, endpoint: string, payload?: any, type: 'json' | 'form' = 'json') => {
@@ -96,7 +95,6 @@ export const checkConnection = async (ip: string, port: number, token: string) =
         fmt: "select * from blocks limit 1"
     });
     if (data === null) {
-        showMessage(`无法连接到 ${ip}:${port}`, 5000, 'error');
         return false;
     }
     return true;
