@@ -7,16 +7,8 @@ import { IGetDocInfo, IProtyle } from "siyuan/types";
 const username = "frostime";
 
 let headers = {
-    'Authorization': '',
     'Content-Type': 'application/json'
 };
-
-const updateToken = (plugin: FMiscPlugin) => {
-    let password = plugin.getConfig('Misc', 'sypaiToken');
-    const credentials = `${username}:${password}`;
-    const token = Buffer.from(credentials).toString('base64');
-    headers.Authorization = `Basic ${token}`;
-}
 
 const Type: Record<string, number> = {
     未分类: 1,
@@ -36,14 +28,17 @@ type ValuesOf<T> = T[keyof T];
 type TypeValues = ValuesOf<typeof Type>; // 结果是：number
 
 
-const sendPaper = async (title: string, content: string, catergory: TypeValues) => {
+const sendPaper = async (title: string, content: string, catergory: TypeValues, tags: string) => {
     showMessage('正在发布到思源派...', 4000);
-    const url = "https://sypai.cc/wp-json/wp/v2/posts";
+    const password = fmisc.getConfig('Misc', 'sypaiToken');
+    const url = 'https://api.sypai.cc/submit';
     const post = {
-        title: title,
-        status: 'publish',
-        content: content,
-        categories: catergory
+        username: username,
+        password: password,
+        post_title: title,
+        post_content: content,
+        post_category: catergory,
+        tag: tags
     };
 
     try {
@@ -53,8 +48,11 @@ const sendPaper = async (title: string, content: string, catergory: TypeValues) 
             body: JSON.stringify(post)
         });
 
-        if (response.status === 201) {
+        console.log(response);
+
+        if (response.ok) {
             console.log('Post created successfully');
+            
             showMessage('发布成功', 4000);
             return true;
         } else {
@@ -74,24 +72,32 @@ const lute = window.Lute.New();
 const selectType = async () => {
     let ele = document.createElement('div');
     ele.style.display = 'flex';
+    ele.style.flexDirection = 'column';
+    ele.style.gap = '0.5em';
     ele.innerHTML = `
-<select class="select-type fn__flex-1">
+<select class="b3-select fn__flex-1">
     ${Object.keys(Type).map(key => `<option value="${Type[key]}">${key}</option>`).join('')}
 </select>
+<input type="text" class="b3-text-field fn__flex-1" placeholder="标签1,标签2" value=""/>
 `;
-    let initial = (ele.querySelector('.select-type') as HTMLSelectElement).value;
+    let initial = (ele.querySelector('.b3-select') as HTMLSelectElement).value;
     let catergory: number = parseInt(initial);
-    ele.querySelector('.select-type').addEventListener('change', (e) => {
+    ele.querySelector('.b3-select').addEventListener('change', (e) => {
         let choosen = (e.target as HTMLSelectElement).value;
         catergory = parseInt(choosen);
         // console.debug(`选中了 ${choosen}`);
     });
+    let tags = "";
+    ele.querySelector('.b3-text-field').addEventListener('input', (e) => {
+        tags = (e.target as HTMLInputElement).value;
+    });
+
     await confirmDialogSync({
         title: '选择发布类型',
         width: '400px',
         content: ele
     });
-    return catergory;
+    return {catergory, tags};
 }
 
 const publish = async (e: CustomEvent<{
@@ -99,11 +105,6 @@ const publish = async (e: CustomEvent<{
     protyle: IProtyle,
     data: IGetDocInfo,
 }>) => {
-    if (headers.Authorization === '') {
-        showMessage('请先设置思源派密码', 3000, 'error');
-        return;
-    }
-    console.log(e.detail);
     let name = e.detail.data.name;
     let docId = e.detail.data.rootID;
     let { menu } = e.detail;
@@ -111,13 +112,18 @@ const publish = async (e: CustomEvent<{
         icon: 'iconEmoji',
         label: '发布到思源派',
         click: async () => {
-            let catergory = await selectType();
+            let {catergory, tags} = await selectType();
             if (catergory === undefined) return;
             console.log(`发布到思源派：${name} --> ${catergory}`);
             let res = await exportMdContent(docId);
             let markdown: string = res.content;
+            const lines = markdown.split('\n');
+            //去掉重复的顶级标题
+            if (lines.length > 1 && lines[0].startsWith('# ')) {
+                markdown = lines.slice(1).join('\n');
+            }
             let html = lute.Md2HTML(markdown);
-            sendPaper(name, html, catergory);
+            sendPaper(name, html, catergory, tags);
         }
     });
 }
@@ -131,7 +137,6 @@ export const load = (plugin: FMiscPlugin) => {
     enabled = true;
     plugin.eventBus.on('click-editortitleicon', publish);
     fmisc = plugin;
-    updateToken(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
