@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-07-13 21:38:04
+ * @LastEditTime : 2024-07-20 14:10:13
  * @Description  : 
  */
 import {
@@ -56,6 +56,7 @@ export default class FMiscPlugin extends Plugin {
             Misc: {
                 zoteroPassword: string;
                 zoteroDir: string;
+                sypaiToken: string;
             };
         };
     }

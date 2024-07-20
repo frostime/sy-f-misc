@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-07-18 15:09:54
+ * @LastEditTime : 2024-07-20 14:10:49
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -165,7 +165,14 @@ const Misc: ISettingItem[] = [
         description: 'Zotero 的数据存储位置',
         key: 'zoteroDir',
         value: ''
-    }
+    },
+    {
+        type: 'textinput',
+        title: '思源派 Token',
+        description: '思源派 Token 的发布 Token',
+        key: 'sypaiToken',
+        value: ''
+    },
 ];
 
 
