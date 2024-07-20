@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-07-18 15:09:54
+ * @LastEditTime : 2024-07-20 14:10:49
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -102,6 +102,13 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
+        title: '📤 发布到思源派',
+        description: '将文章发布到思源派',
+        key: 'EnableSyPai',
+        value: false
+    },
+    {
+        type: 'checkbox',
         title: '📤 推送文档发布远端',
         description: '启用推送文档发布远端功能',
         key: 'EnablePostDoc',
@@ -165,7 +172,14 @@ const Misc: ISettingItem[] = [
         description: 'Zotero 的数据存储位置',
         key: 'zoteroDir',
         value: ''
-    }
+    },
+    {
+        type: 'textinput',
+        title: '思源派 Token',
+        description: '思源派 Token 的发布 Token',
+        key: 'sypaiToken',
+        value: ''
+    },
 ];
 
 
