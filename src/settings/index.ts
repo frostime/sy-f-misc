@@ -102,6 +102,13 @@ const Enable: ISettingItem[] = [
     },
     {
         type: 'checkbox',
+        title: '📤 发布到思源派',
+        description: '将文章发布到思源派',
+        key: 'EnableSyPai',
+        value: false
+    },
+    {
+        type: 'checkbox',
         title: '📤 推送文档发布远端',
         description: '启用推送文档发布远端功能',
         key: 'EnablePostDoc',

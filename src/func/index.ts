@@ -46,13 +46,13 @@ const ModulesToEnable = [
     ss,
     ta,
     ws,
+    sp,
     pd
 ]
 
 const ModulesAlwaysEnable = [
     dq,
     dc,
-    sp
 ]
 
 //`Enable${module.name}`: module
