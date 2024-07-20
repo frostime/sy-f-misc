@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2024-07-14 22:05:36
+ * @LastEditTime : 2024-07-20 22:09:11
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 import WebSocketManager from "./ws-manager";
-import { appendBlock } from "@/api";
+import { appendBlock, request } from "@/api";
 import { formatDate } from "@/utils/time";
 
 import { openWindow } from "siyuan";
@@ -77,9 +77,22 @@ export let name = "WebSocket";
 export let enabled = false;
 let webSocketManager: WebSocketManager | null = null;
 
-export const load = (plugin: FMiscPlugin) => {
+export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
+
+    //检查 body class 中是否有 body--window
+    if (document.body.classList.contains('body--window')) {
+        return;
+    }
+
+    let info = await request('/api/broadcast/getChannelInfo', { name: plugin.name });
+    if (info.channel?.count > 0) {
+        console.info('已经存在 Web Socket 服务，无需重复连接.')
+        console.log(info.channel);
+        return;
+    }
+
     webSocketManager = new WebSocketManager(plugin, { 
         reconnectInterval: 5000, maxReconnectAttempts: 10
     });
