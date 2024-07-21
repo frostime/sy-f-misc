@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2024-07-20 22:09:11
+ * @LastEditTime : 2024-07-21 16:01:57
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -12,6 +12,7 @@ import { appendBlock, request } from "@/api";
 import { formatDate } from "@/utils/time";
 
 import { openWindow } from "siyuan";
+import { html2ele } from "@/utils";
 
 
 /**
@@ -37,7 +38,26 @@ const appendDnList = async (text: string) => {
     let seconds = today.getSeconds().toString().padStart(2, '0');
     let timestr = `${hours}:${minutes}:${seconds}`; // 12:10:10
 
-    appendBlock('markdown', `- [${timestr}] ${text}`, id);
+    text = text.trim();
+    //将所有 _new_line_ 替换为 \n
+    text = text.replaceAll('_new_line_', '\n');
+
+    let multiBlocks = text.split('\n\n');
+    let firstPara = multiBlocks[0];
+    let ans = await appendBlock('markdown', `- [${timestr}] ${firstPara}`, id);
+
+    // console.log(ans);
+    if (multiBlocks.length === 1) return;
+
+    const html: string = ans[0].doOperations[0].data;
+    const ele = html2ele(html).firstChild as HTMLElement;
+    let liId = (ele.querySelector('div.li') as HTMLElement).getAttribute('data-node-id');
+
+    //如果还有多余的段落，则继续添加
+    multiBlocks = multiBlocks.slice(1);
+    let markdown = multiBlocks.join('\n\n');
+    // console.log(liId, markdown);
+    appendBlock('markdown', markdown, liId);
 }
 
 
