@@ -3,6 +3,7 @@ import type FMiscPlugin from "@/index";
 import { confirmDialogSync } from "@/libs/dialog";
 import { EventMenu, showMessage } from "siyuan";
 import { IGetDocInfo, IProtyle } from "siyuan/types";
+import { LuteUtil } from "@/libs/lute-utils";
 
 const username = "frostime";
 
@@ -67,8 +68,6 @@ const sendPaper = async (title: string, content: string, catergory: TypeValues, 
     }
 }
 
-const lute = window.Lute.New();
-
 const selectType = async () => {
     let ele = document.createElement('div');
     ele.style.display = 'flex';
@@ -122,7 +121,8 @@ const publish = async (e: CustomEvent<{
             if (lines.length > 1 && lines[0].startsWith('# ')) {
                 markdown = lines.slice(1).join('\n');
             }
-            let html = lute.Md2HTML(markdown);
+            // let html = lute.Md2HTML(markdown);
+            let html = LuteUtil.mdToHtml(markdown);
             sendPaper(name, html, catergory, tags);
         }
     });
