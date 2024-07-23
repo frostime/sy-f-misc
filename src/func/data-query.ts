@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-07-15 11:11:59
+ * @LastEditTime : 2024-07-23 21:51:47
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -93,6 +93,13 @@ const renderProps = (b: Block, prop: keyof Block, options?: {
         }
     }
 
+    const docName = () => {
+        let hpath = b.hpath;
+        let idx = hpath.lastIndexOf('/');
+        let docname = hpath.substring(idx + 1);
+        return docname;
+    }
+
     switch (prop) {
         case 'type':
             const type = BlockTypeShort[b.type];
@@ -101,6 +108,14 @@ const renderProps = (b: Block, prop: keyof Block, options?: {
 
         case 'id':
             v = link(b.id, b.id);
+            break;
+
+        case 'root_id':
+            v = link(docName(), b.root_id);
+            break;
+
+        case 'hpath':
+            v = link(b.hpath, b.root_id);
             break;
 
         case 'content':
@@ -126,7 +141,7 @@ const renderProps = (b: Block, prop: keyof Block, options?: {
 
 class BlockTable extends Table {
     constructor(options: { target: HTMLElement, blocks: Block[], center?: boolean, col?: (keyof Block)[] }) {
-        let cols = options?.col ?? ['type', 'content', 'box', 'created'];
+        let cols = options?.col ?? ['type', 'content', 'root_id', 'box', 'created'];
         let tables: ((string | number)[])[] = [cols];
         options.blocks.forEach((b: Block) => {
             let rows = cols.map(c => renderProps(b, c));
@@ -231,6 +246,8 @@ export class DataView {
         return table.element.firstChild as HTMLElement;
     }
 
+    addtable = this.addTable;
+
     addBlockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean, ) {
         let tableContainer = document.createElement('div');
         let table = new BlockTable({
@@ -243,7 +260,7 @@ export class DataView {
         return table.element.firstChild as HTMLElement;
     }
 
-    addtable = this.addTable;
+    addblocktable = this.addBlockTable;
 
     render() {
         this.protyle.element.addEventListener("keydown", cancelKeyEvent, true);
