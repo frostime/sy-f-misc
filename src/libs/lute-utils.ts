@@ -45,8 +45,8 @@ class LuteUtil {
             return md;
         }
 
-        console.info("found Lute =>", Lute);
-        console.info("使用Lute渲染Markdown");
+        // console.info("found Lute =>", Lute);
+        // console.info("使用Lute渲染Markdown");
         const lute = Lute.New();
         // 自定义渲染器
         const renderers = {
@@ -108,8 +108,8 @@ class LuteUtil {
         });
         // 开始渲染
         const html = lute.MarkdownStr("", md);
-        console.debug("md to html =>");
-        console.debug(html);
+        // console.debug("md to html =>");
+        // console.debug(html);
         return html;
     }
 }

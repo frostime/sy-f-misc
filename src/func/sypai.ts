@@ -13,15 +13,16 @@ let headers = {
 
 const Type: Record<string, number> = {
     未分类: 1,
+    教程: 4,
     CSS: 2,
     JS: 3,
     开发: 4,
     内测: 5,
-    字体: 6,
     新闻: 9,
     模板: 14,
     笔记模板: 15,
-    教程: 16,
+    数据库模板: 16,
+    字体: 35,
     链滴优选: 43
 };
 type ValuesOf<T> = T[keyof T];
@@ -99,6 +100,41 @@ const selectType = async () => {
     return {catergory, tags};
 }
 
+/**
+ * 将 Lute 导出的HTML 转换为思源派支持的 HTML
+ * @param html 
+ */
+const adpatHTML = (html: string): string => {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    //处理代码块
+    let codeBlocks = wrap.querySelectorAll('pre');
+    codeBlocks.forEach(pre => {
+        pre.classList.add('enlighter-pre');
+        const code = pre.querySelector('code');
+        let classLang = code.className;
+        code.classList.add('gl');
+        if (classLang && classLang.startsWith('language-')) {
+            let lang = classLang.substring(9);
+            code.setAttribute('data-enlighter-language', lang);
+        }
+    });
+    let paras = wrap.querySelectorAll('p');
+    //处理段落中的粗体和删除线样式
+    paras.forEach(p => {
+        const pat = /==(.+?)==/g;
+        if (pat.test(p.innerHTML)) {
+            p.innerHTML = p.innerHTML.replace(pat, '<strong>$1</strong>');
+        }
+        const del = /~~(.+?)~~/g;
+        if (del.test(p.innerHTML)) {
+            p.innerHTML = p.innerHTML.replace(del, '<del>$1</del>');
+        }
+    });
+
+    return wrap.innerHTML;
+}
+
 const publish = async (e: CustomEvent<{
     menu: EventMenu,
     protyle: IProtyle,
@@ -121,8 +157,9 @@ const publish = async (e: CustomEvent<{
             if (lines.length > 1 && lines[0].startsWith('# ')) {
                 markdown = lines.slice(1).join('\n');
             }
-            // let html = lute.Md2HTML(markdown);
             let html = LuteUtil.mdToHtml(markdown);
+            html = adpatHTML(html);
+            // console.log(html);
             sendPaper(name, html, catergory, tags);
         }
     });
