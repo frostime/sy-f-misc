@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-07-23 21:51:47
+ * @LastEditTime : 2024-07-27 15:05:42
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -55,7 +55,7 @@ class Table {
     }
 
     render() {
-        const tableData  = this.tableData;
+        const tableData = this.tableData;
         const headerRow = tableData[0].map(header => `<th>${lute.InlineMd2BlockDOM(`${header}`)}</th>`).join('');
         const bodyRows = tableData.slice(1).map(row => {
             const rowItems = row.map(rowItem => `<td>${lute.InlineMd2BlockDOM(`${rowItem}`)}</td>`).join('');
@@ -75,7 +75,7 @@ class Table {
     }
 }
 
-const renderProps = (b: Block, prop: keyof Block, options?: {
+const renderAttr = (b: Block, attr: keyof Block, options?: {
     onlyDate?: boolean;
     onlyTime?: boolean;
 }) => {
@@ -100,7 +100,7 @@ const renderProps = (b: Block, prop: keyof Block, options?: {
         return docname;
     }
 
-    switch (prop) {
+    switch (attr) {
         case 'type':
             const type = BlockTypeShort[b.type];
             v = link(type, b.id);
@@ -129,11 +129,11 @@ const renderProps = (b: Block, prop: keyof Block, options?: {
 
         case 'updated':
         case 'created':
-            v = parseTime(b[prop]);
+            v = parseTime(b[attr]);
             break;
-    
+
         default:
-            v = b[prop];
+            v = b[attr];
             break;
     }
     return v;
@@ -144,10 +144,10 @@ class BlockTable extends Table {
         let cols = options?.col ?? ['type', 'content', 'root_id', 'box', 'created'];
         let tables: ((string | number)[])[] = [cols];
         options.blocks.forEach((b: Block) => {
-            let rows = cols.map(c => renderProps(b, c));
+            let rows = cols.map(c => renderAttr(b, c));
             tables.push(rows);
         });
-        super({...options, tableData: tables})
+        super({ ...options, tableData: tables })
     }
 }
 
@@ -197,6 +197,7 @@ export class DataView {
 
     addElement(CustomEmbed: HTMLElement | string) {
         const customElem = document.createElement("div");
+        customElem.style.display = 'contents';
 
         if (typeof CustomEmbed === 'string') {
             const html = `<div class="protyle-wysiwyg__embed">${CustomEmbed}</div>`;
@@ -213,9 +214,17 @@ export class DataView {
     addelement = this.addElement;
     addele = this.addElement;
 
-    addMarkdown(md: string) {
+    markdown(md: string) {
         let elem = document.createElement("div");
+        elem.style.display = 'contents';
+        // elem.className = "item__readme b3-typography";
         elem.innerHTML = this.lute.Md2BlockDOM(md);
+        return elem;
+    }
+    md = this.markdown;
+
+    addMarkdown(md: string) {
+        let elem = this.markdown(md);
         this.element.append(elem);
         return elem;
     }
@@ -223,44 +232,128 @@ export class DataView {
     addmd = this.addMarkdown;
     addmarkdown = this.addMarkdown;
 
-    addList(data: any[]) {
+    list(data: any[]) {
         let listContainer = document.createElement("div");
-        let list = new List({
+        listContainer.style.display = 'contents';
+        new List({
             target: listContainer,
             dataList: data
         });
+        return listContainer;
+    }
+
+    addList(data: any[]) {
+        let listContainer = this.list(data);
         this.element.append(listContainer);
-        return list.element.firstChild as HTMLElement;
+        return listContainer.firstChild as HTMLElement;
     }
 
     addlist = this.addList;
 
-    addTable(data: any[], center: boolean = false) {
+    table(data: any[], center: boolean = false) {
         let tableContainer = document.createElement('div');
-        let table = new Table({
+        tableContainer.style.display = 'contents';
+        new Table({
             target: tableContainer,
             tableData: data,
             center
         });
+        return tableContainer;
+    }
+
+    addTable(data: any[], center: boolean = false) {
+        let tableContainer = this.table(data, center);
         this.element.append(tableContainer);
-        return table.element.firstChild as HTMLElement;
+        return tableContainer.firstChild as HTMLElement;
     }
 
     addtable = this.addTable;
 
-    addBlockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean, ) {
+    blockList(blocks: Block[]) {
+        let listData = blocks.map(block => `[${block.fcontent || block.content}](siyuan://blocks/${block.id})`);
+        return this.list(listData);
+    }
+
+    blocklist = this.blockList;
+
+    addBlockList(blocks: Block[]) {
+        let element = this.blockList(blocks);
+        this.element.append(element);
+        return element;
+    }
+
+    addblocklist = this.addBlockList;
+
+    blockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean,) {
         let tableContainer = document.createElement('div');
-        let table = new BlockTable({
+        tableContainer.style.display = 'contents';
+        new BlockTable({
             target: tableContainer,
             blocks,
             col: cols,
-            center: center ?? true
+            center: center ?? false
         });
+        return tableContainer;
+    }
+
+    addBlockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean,) {
+        let tableContainer = this.blockTable(blocks, cols, center);
         this.element.append(tableContainer);
-        return table.element.firstChild as HTMLElement;
+        return tableContainer.firstChild as HTMLElement;
     }
 
     addblocktable = this.addBlockTable;
+
+    columns(elements: HTMLElement[]) {
+        let columns = document.createElement("div");
+        Object.assign(columns.style, {
+            display: "flex",
+            flexDirection: "row",
+            gap: "5px"
+        });
+        const column = (ele: HTMLElement) => {
+            const div = document.createElement("div");
+            Object.assign(div.style, {
+                flex: "1",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                display: "flex",
+                flexDirection: "column"
+            });
+            div.append(ele);
+            return div;
+        }
+
+        elements.forEach(e => columns.append(column(e)));
+        return columns;
+    }
+
+    addColumns(elements: HTMLElement[]) {
+        let columns = this.columns(elements);
+        this.element.append(columns);
+        return columns;
+    }
+    addcolumns = this.addColumns;
+
+    rows(elements: HTMLElement[]) {
+        let rows = document.createElement("div");
+        Object.assign(rows.style, {
+            display: "flex",
+            flexDirection: "column",
+            gap: "5px"
+        });
+        elements.forEach(e => rows.append(e));
+        return rows;
+    }
+
+    addRows(elements: HTMLElement[]) {
+        let rows = this.rows(elements);
+        this.element.append(rows);
+        return rows;
+    }
+
+    addrows = this.addRows;
 
     render() {
         this.protyle.element.addEventListener("keydown", cancelKeyEvent, true);
@@ -321,7 +414,7 @@ import { getNotebook } from "@/utils";
  * @param ret 返回类型, 'block' 返回 Block[], 'id' 返回 BlockId[]
  * @returns BlockId[]
  */
-function UniBlocks(blocks: Block[], mode: 'leaf' | 'root' = 'leaf', ret: "block" | "id" ="block") {
+function UniBlocks(blocks: Block[], mode: 'leaf' | 'root' = 'leaf', ret: "block" | "id" = "block") {
     console.log('UniBlocks', blocks);
     let p2c = new Map();
     let blocksMap = new Map();
@@ -356,25 +449,64 @@ function UniBlocks(blocks: Block[], mode: 'leaf' | 'root' = 'leaf', ret: "block"
     return ret === "block" ? retBlocks : retBlocks.map(block => block.id);
 }
 
-async function GetBlocksByIDs(...ids: BlockId[]) {
+async function getBlocksByIds(...ids: BlockId[]) {
     let idList = ids.map((id) => `"${id}"`);
     let sqlCode = `select * from blocks where id in (${idList.join(",")})`;
     let data = await sql(sqlCode);
-    if (!data) {
-        return data;
-    }
-    let dataMap = {};
-    for (let block of data) {
-        dataMap[block.id] = block;
-    }
-    return dataMap;
+    return data;
+}
+
+const blocks2Maps = (blocks: Block[]): { [key: BlockId]: Block } => {
+    return blocks.reduce((map, block) => {
+        map[block.id] = block;
+        return map;
+    }, {} as { [key: BlockId]: Block });
 }
 
 /**************************************** Func ****************************************/
+/**
+ * 为 Block 添加一些辅助属性，便于直接使用
+ * @param block 
+ * @returns 
+ */
+const wrapBlock = (block: Block) => {
+    let proxy = new Proxy(block, {
+        get(target: Block, prop: keyof Block | string) {
+            if (prop in target) {
+                return target[prop];
+            }
+            //增加一些方便的属性和方法
+            switch (prop) {
+                case 'aslink':
+                case 'tolink':
+                    return `[${block.fcontent || block.content}](siyuan://blocks/${block.id})`
+                case 'asref':
+                case 'toref':
+                    return `((${block.id} '${block.fcontent || block.content}'))`
+                case 'attr':
+                    return (attr: keyof Block) => renderAttr(block, attr);
+                case 'updatedDate':
+                    return renderAttr(block, 'updated', { onlyDate: true });
+                case 'createdDate':
+                    return renderAttr(block, 'created', { onlyDate: true });
+                case 'updatedTime':
+                    return renderAttr(block, 'updated', { onlyTime: true });
+                case 'createdTime':
+                    return renderAttr(block, 'created', { onlyTime: true });
+            }
+            return null;
+        }
+    });
+    return proxy;
+}
 
 
 export let name = "DataQuery";
 export let enabled = false;
+
+const cond = async (cond: string) => {
+    return globalThis.Query.sql(`select * from blocks where ${cond}`);
+}
 
 export const load = () => {
     if (enabled) return;
@@ -387,26 +519,57 @@ export const load = () => {
         return new DataView(protyle, item, top);
     }
     globalThis.Query = {
-        UniBlocks,
-        GetBlocksByIDs,
-        uniblocks: UniBlocks,
-        id2block: GetBlocksByIDs,
-        request: request,
-        sql: sql,
-        cond: async (cond: string) => {
-            return sql(`select * from blocks where ${cond}`);
+        DataView: (protyle: IProtyle, item: HTMLElement, top: number | null) => {
+            if (!lute) {
+                lute = setLute({});
+            }
+            return new DataView(protyle, item, top);
         },
+        wrapBlocks: (...blocks: Block[]) => {
+            let wrapped = blocks.map(wrapBlock);
+            blocks.length == 1 ? wrapped[0] : wrapped;
+        },
+
+        //@deprecated 未来优化为更好的版本
+        UniBlocks,
+        uniblocks: UniBlocks,
+
+
+        /**
+         * 查询相关的 API
+         */
+        request: request,
+        getBlocksByIds: async (...ids: BlockId[]) => {
+            let blocks = await getBlocksByIds(...ids);
+            return blocks.map(wrapBlock);
+        },
+        thisDoc: async (protyle: IProtyle) => {
+            let docId = protyle.block.id;
+            let doc = await sql(`select * from blocks where id = '${docId}'`);
+            return wrapBlock(doc[0]);
+        },
+        sql: async (fmt: string) => {
+            fmt = fmt.trim();
+            let data = await sql(fmt);
+            if (fmt.toLocaleLowerCase().startsWith("select * from blocks")) {
+                return data.map(wrapBlock);
+            } else {
+                return data;
+            }
+        },
+        cond: cond,
+        where: cond,
         //查找块的反链
         backlink: async (id: BlockId, limit?: number) => {
-            return sql(`
+            return globalThis.Query.sql(`
             select * from blocks where id in (
                 select block_id from refs where def_block_id = '${id}'
             ) order by updated desc ${limit ? `limit ${limit}` : ''};
             `);
         },
         //查找具有指定属性的 block
-        attr: async (name: string, val?: string, valMatch: '=' | 'like' = '=') => {
-            return sql(`
+        attr: async (name: string, val?: string, valMatch: '=' | 'like' = '=', limit?: number) => {
+            return globalThis.Query.sql(`
             SELECT B.*
             FROM blocks AS B
             WHERE B.id IN (
@@ -414,23 +577,27 @@ export const load = () => {
                 FROM attributes AS A
                 WHERE A.name = '${name}'
                 ${val ? `AND A.value ${valMatch} '${val}'` : ''}
+                ${limit ? `limit ${limit}` : ''}
             );
             `);
         },
         childdocs: async (b: BlockId | Block) => {
             let block = null;
             if (typeof b === 'string') {
-                const _ = await GetBlocksByIDs(b);
-                block = _[b];
+                const _ = await getBlocksByIds(b);
+                block = _[0];
             } else {
                 block = b;
             }
             let data = await listDocsByPath(block.box, block.path);
             let files: any[] = data?.files || [];
             let ids: string[] = files.map(f => f.id);
-            let docsMap = await GetBlocksByIDs(...ids);
-            return ids.map(id => docsMap[id]);
+            let docs = await getBlocksByIds(...ids);
+            let docsMap = blocks2Maps(docs);
+            docs = ids.map(id => docsMap[id]);
+            return docs.map(wrapBlock);
         },
+
         /**
          * 处理容器块、段落块嵌套的情况；将容器块的第一个段落块 ID 重定向到容器块 ID
          * @param inputs 
@@ -442,9 +609,9 @@ export const load = () => {
             let blocks: Block[] = inputs as Block[];
             if (types == 'id') {
                 //@ts-ignore
-                blocks = blocks.map(id => ({id: id}));
+                blocks = blocks.map(id => ({ id: id }));
             }
-            let data: {[key: BlockId]: any} = await request('/api/block/getBlockTreeInfos', {
+            let data: { [key: BlockId]: any } = await request('/api/block/getBlockTreeInfos', {
                 ids: ids
             });
             let result: Block[] = [];
@@ -456,10 +623,12 @@ export const load = () => {
                 if (!['NodeBlockquote', 'NodeListItem'].includes(info.parentType)) continue;
                 let resultp = result[result.length - 1];
                 resultp.id = info.parentID;
-                resultp.type = {'NodeBlockquote': 'b', 'NodeListItem': 'i'}[info.parentType];
+                resultp.type = { 'NodeBlockquote': 'b', 'NodeListItem': 'i' }[info.parentType];
             }
-            return types === 'block' ? result : result.map(b => b.id);
+            return types === 'block' ? result.map(wrapBlock) : result.map(b => b.id);
         },
+
+        //@deprecated 以下这些作为兼容性函数姑且保留，推荐使用 BlockWrapper
         b2link: (b: Block) => `[${b.fcontent || b.content}](siyuan://blocks/${b.id})`,
         b2ref: (b: Block) => `((${b.id} '${b.fcontent || b.content}'))`,
         b2id: (...blocks: Block[]) => {
