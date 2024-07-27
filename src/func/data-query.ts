@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-07-27 15:05:42
+ * @LastEditTime : 2024-07-27 22:46:05
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -62,8 +62,10 @@ class Table {
             return `<tr>${rowItems}</tr>`;
         }).join('');
 
+        // max-width: 100%;
+
         const tableHtml = `
-            <table class="query-table" style="max-width: 100%; ${this.center ? 'margin: 0 auto;' : ''}">
+            <table class="query-table" style="${this.center ? 'margin: 0 auto;' : ''}">
                 <thead>
                     <tr>${headerRow}</tr>
                 </thead>
@@ -102,7 +104,7 @@ const renderAttr = (b: Block, attr: keyof Block, options?: {
 
     switch (attr) {
         case 'type':
-            const type = BlockTypeShort[b.type];
+            const type = BlockTypeShort[b.type].slice(0, -1);
             v = link(type, b.id);
             break;
 
@@ -176,6 +178,13 @@ function hasParentWithClass(element: HTMLElement, className: string) {
     return false;
 }
 
+const newDivWrapper = () => {
+    let div = document.createElement("div");
+    div.style.overflowX = "auto";
+    div.className = "js-query-container";
+    return div;
+}
+
 export class DataView {
     private protyle: IProtyle;
     private item: HTMLElement;
@@ -215,9 +224,10 @@ export class DataView {
     addele = this.addElement;
 
     markdown(md: string) {
-        let elem = document.createElement("div");
-        elem.style.display = 'contents';
+        // let elem = document.createElement("div");
+        // elem.style.display = 'contents';
         // elem.className = "item__readme b3-typography";
+        let elem = newDivWrapper();
         elem.innerHTML = this.lute.Md2BlockDOM(md);
         return elem;
     }
@@ -233,8 +243,9 @@ export class DataView {
     addmarkdown = this.addMarkdown;
 
     list(data: any[]) {
-        let listContainer = document.createElement("div");
-        listContainer.style.display = 'contents';
+        // let listContainer = document.createElement("div");
+        // listContainer.style.display = 'contents';
+        let listContainer = newDivWrapper();
         new List({
             target: listContainer,
             dataList: data
@@ -245,14 +256,15 @@ export class DataView {
     addList(data: any[]) {
         let listContainer = this.list(data);
         this.element.append(listContainer);
-        return listContainer.firstChild as HTMLElement;
+        return listContainer.firstElementChild as HTMLElement;
     }
 
     addlist = this.addList;
 
     table(data: any[], center: boolean = false) {
-        let tableContainer = document.createElement('div');
-        tableContainer.style.display = 'contents';
+        // let tableContainer = document.createElement('div');
+        // tableContainer.style.display = 'contents';
+        let tableContainer = newDivWrapper();
         new Table({
             target: tableContainer,
             tableData: data,
@@ -264,7 +276,7 @@ export class DataView {
     addTable(data: any[], center: boolean = false) {
         let tableContainer = this.table(data, center);
         this.element.append(tableContainer);
-        return tableContainer.firstChild as HTMLElement;
+        return tableContainer.firstElementChild as HTMLElement;
     }
 
     addtable = this.addTable;
@@ -285,8 +297,9 @@ export class DataView {
     addblocklist = this.addBlockList;
 
     blockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean,) {
-        let tableContainer = document.createElement('div');
-        tableContainer.style.display = 'contents';
+        // let tableContainer = document.createElement('div');
+        // tableContainer.style.display = 'contents';
+        let tableContainer = newDivWrapper();
         new BlockTable({
             target: tableContainer,
             blocks,
@@ -299,7 +312,7 @@ export class DataView {
     addBlockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean,) {
         let tableContainer = this.blockTable(blocks, cols, center);
         this.element.append(tableContainer);
-        return tableContainer.firstChild as HTMLElement;
+        return tableContainer.firstElementChild as HTMLElement;
     }
 
     addblocktable = this.addBlockTable;
@@ -551,11 +564,7 @@ export const load = () => {
         sql: async (fmt: string) => {
             fmt = fmt.trim();
             let data = await sql(fmt);
-            if (fmt.toLocaleLowerCase().startsWith("select * from blocks")) {
-                return data.map(wrapBlock);
-            } else {
-                return data;
-            }
+            return data.map(wrapBlock);
         },
         cond: cond,
         where: cond,

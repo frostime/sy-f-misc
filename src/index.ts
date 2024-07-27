@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-07-20 14:10:13
+ * @LastEditTime : 2024-07-27 22:36:02
  * @Description  : 
  */
 import {
@@ -31,6 +31,8 @@ import { updateStyleDom } from "./utils/style";
 import { request, getFile } from "./api";
 
 import DeviceStorage from "./libs/device-storage";
+import { simpleDialog } from "./libs/dialog";
+import inputDialog from "./libs/input-dialog";
 
 const electron = require('electron');
 
@@ -156,7 +158,35 @@ export default class FMiscPlugin extends Plugin {
                     protyle.insert(md, true);
                 });
             }
-        })
+        });
+
+        this.eventBus.on("click-blockicon", ({ detail }) => {
+            if (detail.blockElements.length > 1) {
+                return;
+            }
+            let ele: HTMLDivElement = detail.blockElements[0] as HTMLDivElement;
+            let type = ele.getAttribute("data-type");
+
+            let menu = detail.menu;
+            if (type === 'NodeBlockQueryEmbed') {
+                menu.addItem({
+                    icon: 'iconMarkdown',
+                    label: "显示为模板",
+                    click: async () => {
+                        let dataContent = ele.getAttribute("data-content");
+                        //换行符全部替换为 `_esc_newline_`
+                        dataContent = dataContent.replace(/\n/g, '_esc_newline_');
+                        inputDialog({
+                            title: "显示为模板",
+                            defaultText: `{{${dataContent}}}`,
+                            type: 'textarea',
+                            width: '900px',
+                            height: '300px'
+                        });
+                    }
+                });
+            }
+        });
     }
 
     /**
