@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query.ts
- * @LastEditTime : 2024-07-27 22:46:05
+ * @LastEditTime : 2024-07-28 20:04:42
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -261,15 +261,37 @@ export class DataView {
 
     addlist = this.addList;
 
-    table(data: any[], center: boolean = false) {
+    table(data: (Object | any[])[], center: boolean = false) {
         // let tableContainer = document.createElement('div');
         // tableContainer.style.display = 'contents';
         let tableContainer = newDivWrapper();
-        new Table({
-            target: tableContainer,
-            tableData: data,
-            center
-        });
+        if (data.length == 0) return;
+
+        let first = data[0];
+        //如果是 Array
+        if (Array.isArray(first)) {
+            new Table({
+                target: tableContainer,
+                tableData: data as any[],
+                center
+            });
+        }
+        //如果是 Object
+        else if (typeof first === 'object') {
+            let cols = Object.keys(first);
+            let tableData = [cols];
+            data.forEach(obj => {
+                let row = cols.map(col => obj[col]);
+                tableData.push(row);
+            });
+            new Table({
+                target: tableContainer,
+                tableData: tableData as any[],
+                center
+            });
+        }
+
+        
         return tableContainer;
     }
 
@@ -482,7 +504,7 @@ const blocks2Maps = (blocks: Block[]): { [key: BlockId]: Block } => {
  * @param block 
  * @returns 
  */
-const wrapBlock = (block: Block) => {
+const wrapBlock = (block: Block | any) => {
     let proxy = new Proxy(block, {
         get(target: Block, prop: keyof Block | string) {
             if (prop in target) {
@@ -490,6 +512,10 @@ const wrapBlock = (block: Block) => {
             }
             //增加一些方便的属性和方法
             switch (prop) {
+                case 'unwrap':
+                    return () => target;
+                case 'unwrapped':
+                    return target;
                 case 'aslink':
                 case 'tolink':
                     return `[${block.fcontent || block.content}](siyuan://blocks/${block.id})`
@@ -507,10 +533,123 @@ const wrapBlock = (block: Block) => {
                 case 'createdTime':
                     return renderAttr(block, 'created', { onlyTime: true });
             }
+            if (prop.startsWith('custom-')) {
+                let ial = block.ial;
+                // ial 格式 `{: id="20231218144345-izn0eer" custom-a="aa" }`
+                let pattern = new RegExp(`${prop}=\"(.+)\"`);
+                let match = ial.match(pattern);
+                if (match) {
+                    return match[1];
+                } else {
+                    return "";
+                }
+            }
             return null;
         }
     });
     return proxy;
+}
+
+interface IWrappedList {
+    unwrap: () => any[];
+    unwrapped: any[];
+    pick: (...attrs: any[]) => IWrappedList;
+    sort: (attr: any, order: 'asc' | 'desc') => IWrappedList;
+    group: (attr: any) => IWrappedList;
+    divide: (fn: (b: any) => boolean) => [IWrappedList, IWrappedList];
+}
+
+/**
+ * 将 SQL 查询结果的列表添加一层 Proxy，以 attach 上层一些方便的方法
+ * @param list 
+ * @returns 
+ */
+const wrapList = (list: (Partial<Block> | any)[], useWrapBlock: boolean = true) => {
+    // let wrappedBlocks = list.map(block => wrapBlock(block as Block));
+    list = useWrapBlock ? list.map(block => wrapBlock(block as Block)) : list;
+
+    return new Proxy(list, {
+        get(target: Block[], prop: any) {
+            if (prop in target) {
+                return Reflect.get(target, prop);
+            }
+            switch (prop) {
+                case 'unwrap':
+                    return () => target;
+                case 'unwrapped':
+                    return target;
+                case 'pick':
+                    return (...attrs: (keyof Block)[]) => {
+                        if (attrs.length === 1) {
+                            let picked = target.map(b => b[attrs[0]]);
+                            return wrapList(picked, false);
+                        } else {
+                            let picked = target.map(block => {
+                                let obj: any = {};
+                                attrs.forEach(attr => {
+                                    obj[attr] = block[attr] ?? null;
+                                });
+                                return obj;
+                            });
+                            return wrapList(picked);
+                        }
+                    }
+                case 'sorton':
+                    return (attr: keyof Block, order: 'asc' | 'desc' = 'asc') => {
+                        let sorted = target.sort((a, b) => {
+                            if (a[attr] > b[attr]) {
+                                return order === 'asc' ? 1 : -1;
+                            } else if (a[attr] < b[attr]) {
+                                return order === 'asc' ? -1 : 1;
+                            } else {
+                                return 0;
+                            }
+                        });
+                        // return sorted;
+                        return wrapList(sorted);
+                    }
+                case 'groupby':
+                    return (predicate: (keyof Block) | ((b: Partial<Block>) => any)) => {
+                        const maps = {};
+                        const getKey = (b: Partial<Block>) => {
+                            if (typeof predicate === 'function') {
+                                return predicate(b);
+                            } else {
+                                return b[predicate];
+                            }
+                        };
+                        target.forEach(block => {
+                            const key = getKey(block);
+                            if (!(key in maps)) {
+                                maps[key] = wrapList([]);
+                            }
+                            maps[key].push(block);
+                        });
+                        return maps;
+                    }
+                case 'groupbyfn':
+                        return (fn: (b: Partial<Block>) => any) => {
+                            const maps = {};
+                            target.forEach(block => {
+                                const key = fn(block);
+                                if (!(key in maps)) {
+                                    maps[key] = wrapList([]);
+                                }
+                                maps[key].push(block);
+                            });
+                            return maps;
+                        }
+                case 'divide':
+                    return (predicate: (block: Block, index?: number) => boolean) => {
+                        let matched = target.filter(block => predicate(block));
+                        let unmatched = target.filter(block => !predicate(block));
+                        // return [matched, unmatched];
+                        return [wrapList(matched), wrapList(unmatched)];
+                    }
+            };
+            return null;
+        }
+    });
 }
 
 
@@ -556,15 +695,17 @@ export const load = () => {
             let blocks = await getBlocksByIds(...ids);
             return blocks.map(wrapBlock);
         },
+        docId: (protyle: IProtyle) => protyle.block.rootID,
         thisDoc: async (protyle: IProtyle) => {
             let docId = protyle.block.id;
             let doc = await sql(`select * from blocks where id = '${docId}'`);
             return wrapBlock(doc[0]);
         },
-        sql: async (fmt: string) => {
+        sql: async (fmt: string, wrap: boolean = true) => {
             fmt = fmt.trim();
             let data = await sql(fmt);
-            return data.map(wrapBlock);
+            // return wrap ? data.map(wrapBlock) : data;
+            return wrap ? wrapList(data) : data;
         },
         cond: cond,
         where: cond,
@@ -604,7 +745,8 @@ export const load = () => {
             let docs = await getBlocksByIds(...ids);
             let docsMap = blocks2Maps(docs);
             docs = ids.map(id => docsMap[id]);
-            return docs.map(wrapBlock);
+            // return docs.map(wrapBlock);
+            return wrapList(docs);
         },
 
         /**
@@ -634,7 +776,7 @@ export const load = () => {
                 resultp.id = info.parentID;
                 resultp.type = { 'NodeBlockquote': 'b', 'NodeListItem': 'i' }[info.parentType];
             }
-            return types === 'block' ? result.map(wrapBlock) : result.map(b => b.id);
+            return types === 'block' ? wrapList(result) : result.map(b => b.id);
         },
 
         //@deprecated 以下这些作为兼容性函数姑且保留，推荐使用 BlockWrapper
