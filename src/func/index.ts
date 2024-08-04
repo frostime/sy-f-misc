@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-08-11 21:19:23
+ * @LastEditTime : 2024-08-12 20:35:45
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -22,7 +22,7 @@ import * as dc from './doc-context';
 import * as ta from './test-api';
 import * as ws from './websocket';
 import * as pd from './post-doc';
-// import * as sm from './sync-markdown';
+import * as wb from './webview';
 
 // import * as bookmark from './bookmarks';
 
@@ -51,8 +51,8 @@ const ModulesToEnable = [
 
 const ModulesAlwaysEnable = [
     dq,
-    dc
-    // sm
+    dc,
+    wb
 ]
 
 //`Enable${module.name}`: module
