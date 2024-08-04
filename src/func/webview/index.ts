@@ -4,6 +4,8 @@ import { IMenuBaseDetail } from "siyuan";
 import { renderView } from "./render";
 import { IWebApp } from "./utils/types";
 
+import webapp from "./utils/webapp";
+
 let plugin_: FMiscPlugin;
 
 const createApp = (url: string): IWebApp => {
@@ -49,7 +51,9 @@ const openUrlTab = (e: CustomEvent<IMenuBaseDetail>) => {
             render: (container: HTMLElement) => {
                 destroy = renderView({
                     element: container,
-                    data: createApp(dataHref)
+                    data: webapp({
+                        url: dataHref
+                    })
                 }, plugin_);
             },
             destroyCb: () => {

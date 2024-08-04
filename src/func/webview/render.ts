@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-03 21:22:00
  * @FilePath     : /src/func/webview/render.ts
- * @LastEditTime : 2024-08-03 22:19:16
+ * @LastEditTime : 2024-08-04 17:09:14
  * @Description  : 从 Webapp 插件当中拿过来的代码
  */
 import siyuan from 'siyuan';
@@ -138,9 +138,6 @@ export const renderView = (context: { element: Element, data: IWebApp }, plugin:
     document.addEventListener('dragend', onDragStop, true);
 
     let menu;
-    // const plugin = context.plugin;
-    const i18n = plugin?.i18n;
-    console.log(webview)
     webview?.addEventListener?.("context-menu", e => {
         console.log('context-menu', e)
         const { params } = e;
