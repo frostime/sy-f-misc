@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-07-20 14:10:49
+ * @LastEditTime : 2024-08-07 14:56:46
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -98,13 +98,6 @@ const Enable: ISettingItem[] = [
         title: '🌐 测试 API',
         description: '启用测试 API 功能',
         key: 'EnableTestAPI',
-        value: false
-    },
-    {
-        type: 'checkbox',
-        title: '📤 发布到思源派',
-        description: '将文章发布到思源派',
-        key: 'EnableSyPai',
         value: false
     },
     {
