@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-07 15:34:04
  * @FilePath     : /src/func/custom-export.tsx
- * @LastEditTime : 2024-08-07 22:21:10
+ * @LastEditTime : 2024-08-07 22:23:59
  * @Description  : 
  */
 import { Component, createSignal, JSXElement } from "solid-js";
@@ -211,7 +211,13 @@ const ExportConfig: Component<{
                         class="b3-button"
                         style="max-width: 100px"
                         onClick={() => {
-                            chooseDirectory(setMdDir);
+                            chooseDirectory((v) => {
+                                setMdDir(v);
+                                props.updateMdDir(v);
+                                if (assetDir() === '') {
+                                    updateAssetDir(`${v}/assets`);
+                                }
+                            });
                         }}
                     >
                         {i18n.choose}
