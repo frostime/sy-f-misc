@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-07 15:34:04
  * @FilePath     : /src/func/custom-export.tsx
- * @LastEditTime : 2024-08-07 22:23:59
+ * @LastEditTime : 2024-08-07 22:26:42
  * @Description  : 
  */
 import { Component, createSignal, JSXElement } from "solid-js";
@@ -129,6 +129,14 @@ const ExportConfig: Component<{
         }
     }
 
+    const updateMdDir = (dir: string) => {
+        setMdDir(dir);
+        props.updateMdDir(dir);
+        if (assetDir() === '') {
+            updateAssetDir(`${dir}/assets`);
+        }
+    }
+
     const updateAssetDir = (dir: string) => {
         setAssetDir(dir);
         props.updateAsset(dir);
@@ -200,24 +208,14 @@ const ExportConfig: Component<{
                         placeholder={i18n.mdExportDirPlaceholder}
                         style={{ flex: '1' }}
                         changed={(v) => {
-                            setMdDir(v);
-                            props.updateMdDir(v);
-                            if (assetDir() === '') {
-                                updateAssetDir(`${v}/assets`);
-                            }
+                            updateMdDir(v)
                         }}
                     />
                     <button
                         class="b3-button"
                         style="max-width: 100px"
                         onClick={() => {
-                            chooseDirectory((v) => {
-                                setMdDir(v);
-                                props.updateMdDir(v);
-                                if (assetDir() === '') {
-                                    updateAssetDir(`${v}/assets`);
-                                }
-                            });
+                            chooseDirectory(updateMdDir);
                         }}
                     >
                         {i18n.choose}
@@ -378,11 +376,12 @@ const eventHandler = async (e: CustomEvent<IEventBusMap['click-editortitleicon']
             let doc = await getBlockByID(docId);
 
             let { fname, mdDir, assetDir, assetPrefix } = await getCustomAttr(doc);
+            fname = fname || doc.content;
 
             const dialog = solidDialog({
                 'title': i18n.menuLabel,
                 loader: () => ExportConfig({
-                    fname: fname || doc.content,
+                    fname: fname,
                     mdDir, assetDir, assetPrefix,
                     updateFname: (v) => {
                         fname = v;
@@ -403,6 +402,8 @@ const eventHandler = async (e: CustomEvent<IEventBusMap['click-editortitleicon']
                             updateCustomAttr(doc, fname, mdDir, assetDir, assetPrefix);
                         } else {
                             showMessage(i18n.notSet, 4000, 'error');
+                            console.log(`Export failed: ${i18n.notSet}`);
+                            console.log(fname, mdDir, assetDir);
                         }
                         dialog.destroy();
                     },
