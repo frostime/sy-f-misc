@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2024-07-21 16:01:57
+ * @LastEditTime : 2024-08-10 19:42:14
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -11,7 +11,7 @@ import WebSocketManager from "./ws-manager";
 import { appendBlock, request } from "@/api";
 import { formatDate } from "@/utils/time";
 
-import { openWindow } from "siyuan";
+import { openTab, openWindow } from "siyuan";
 import { html2ele } from "@/utils";
 
 
@@ -21,6 +21,26 @@ import { html2ele } from "@/utils";
  * @returns 
  */
 const appendDnList = async (text: string) => {
+
+    const refreshDocument = () => {
+        let docId = blocks[0].root_id;
+        let title = document.querySelector(`.protyle-title[data-node-id="${docId}"]`);
+        const protyle = title?.closest('div.protyle');
+        if (!protyle) return;
+        const dataId = protyle?.getAttribute('data-id');
+        let tabHeader = document.querySelector(`li[data-type="tab-header"][data-id="${dataId}"]`);
+        let closeEle = tabHeader?.querySelector('span.item__close') as HTMLSpanElement;
+        closeEle?.click();
+        setTimeout(() => {
+            openTab({
+                app: webSocketManager.plugin.app,
+                doc: {
+                    id: docId,
+                }
+            })
+        }, 0); //关闭再打开，以刷新文档内容
+    }
+
     let name = 'custom-dn-quicklist';
 
     let today = new Date();
@@ -47,17 +67,18 @@ const appendDnList = async (text: string) => {
     let ans = await appendBlock('markdown', `- [${timestr}] ${firstPara}`, id);
 
     // console.log(ans);
-    if (multiBlocks.length === 1) return;
+    if (multiBlocks.length !== 1) {
+        const html: string = ans[0].doOperations[0].data;
+        const ele = html2ele(html).firstChild as HTMLElement;
+        let liId = (ele.querySelector('div.li') as HTMLElement).getAttribute('data-node-id');
 
-    const html: string = ans[0].doOperations[0].data;
-    const ele = html2ele(html).firstChild as HTMLElement;
-    let liId = (ele.querySelector('div.li') as HTMLElement).getAttribute('data-node-id');
-
-    //如果还有多余的段落，则继续添加
-    multiBlocks = multiBlocks.slice(1);
-    let markdown = multiBlocks.join('\n\n');
-    // console.log(liId, markdown);
-    appendBlock('markdown', markdown, liId);
+        //如果还有多余的段落，则继续添加
+        multiBlocks = multiBlocks.slice(1);
+        let markdown = multiBlocks.join('\n\n');
+        // console.log(liId, markdown);
+        await appendBlock('markdown', markdown, liId);
+    }
+    refreshDocument();
 }
 
 

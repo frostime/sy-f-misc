@@ -31,7 +31,7 @@ export default class WebSocketManager {
     private config: IWsConfig;
     private messageHandlers: { [key: string]: (payload: any) => void } = {};
 
-    private plugin: Plugin
+    public plugin: Plugin
 
     constructor(plugin: Plugin, config?: Partial<IWsConfig>) {
         this.plugin = plugin;
