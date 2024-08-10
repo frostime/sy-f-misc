@@ -1,11 +1,11 @@
 import { createMemo, For } from "solid-js";
 
 interface IProps extends ISettingItemCore {
-    changed: (v?: any) => void;
+    changed?: (v?: any) => void;
     style?: { [key: string]: string | number };
 }
 
-export default function InputItem(props: IProps) {
+export default function FormInput(props: IProps) {
 
     const fn_size = true;
 
@@ -23,7 +23,7 @@ export default function InputItem(props: IProps) {
             styles = { resize: "vertical", height: '10rem', "white-space": "nowrap" };
         }
         let propstyle = props.style ?? {};
-        styles = { ...styles, ...propstyle };
+        styles = {...styles, ...propstyle};
         return {
             style: styles
         };
@@ -92,7 +92,7 @@ export default function InputItem(props: IProps) {
                     {...attrStyle()}
                     onClick={click}
                 >
-                    {props.button.label}
+                    {props.button?.label ?? props.value}
                 </button>
             );
         } else if (props.type === "select") {
@@ -102,14 +102,13 @@ export default function InputItem(props: IProps) {
                     classList={{ fn__size200: fn_size }}
                     {...attrStyle()}
                     id={props.key}
-                    value={props.value}
                     onChange={(e) => {
                         changed(e.currentTarget.value);
                     }}
                 >
                     <For each={Object.entries(props.options)}>
                         {([optionValue, text]) => (
-                            <option value={optionValue}>{text}</option>
+                            <option value={optionValue} selected={props.value === optionValue}>{text}</option>
                         )}
                     </For>
                 </select>

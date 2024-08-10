@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 21:20:21
  * @FilePath     : /src/func/post-doc/select-target.tsx
- * @LastEditTime : 2024-07-18 17:14:43
+ * @LastEditTime : 2024-08-10 21:24:38
  * @Description  : 
  */
-import InputItem from "@/libs/components/item-input";
-import SettingItemWrap from "@/libs/components/item-wrap";
+import { FormInput as InputItem, FormWrap as SettingItemWrap } from '@/libs/components/Form';
+
 import { Component, createSignal, Show } from "solid-js";
 import { checkConnection, request } from "./core";
 import { showMessage } from "siyuan";

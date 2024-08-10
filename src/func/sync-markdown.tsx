@@ -2,13 +2,14 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-08-07 15:34:04
- * @FilePath     : /src/func/custom-export.tsx
- * @LastEditTime : 2024-08-07 22:52:20
+ * @FilePath     : /src/func/sync-markdown.tsx
+ * @LastEditTime : 2024-08-10 21:25:03
  * @Description  : 
  */
 import { Component, createSignal, JSXElement } from "solid-js";
-import ItemWrap from '@/libs/components/item-wrap';
-import InputItem from "@/libs/components/item-input";
+
+import { FormInput as InputItem, FormWrap as ItemWrap } from '@/libs/components/Form';
+
 import type FMiscPlugin from "@/index";
 import { solidDialog } from "@/libs/dialog";
 import { IEventBusMap, showMessage } from "siyuan";

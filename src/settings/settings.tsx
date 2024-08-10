@@ -1,6 +1,8 @@
 import { Component, For, createSignal, onCleanup } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
-import SettingItemWrap from "@/libs/components/item-wrap";
+
+import { FormWrap as SettingItemWrap } from '@/libs/components/Form';
+
 import { getAlive } from "@/func/websocket";
 import { Dynamic } from "solid-js/web";
 

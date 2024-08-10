@@ -2,7 +2,7 @@ import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { upload } from "@/api";
 import { confirmDialog } from "@/libs/dialog";
-import ItemInput from '@/libs/components/item-input';
+import { FormInput } from '@/libs/components/Form';
 import { render } from "solid-js/web";
 
 const BlankFileContent = {
@@ -91,7 +91,7 @@ const NewFileApp = (props: {updated: (v) => void}) => {
     return (
         <div class="fn__flex" style="gap: 5px;">
             <div class="fn__flex">
-                <ItemInput
+                <FormInput
                     type='textinput'
                     key='fname'
                     value=''
@@ -102,7 +102,7 @@ const NewFileApp = (props: {updated: (v) => void}) => {
                 />
             </div>
             <div class="fn__flex fn__flex-1">
-                <ItemInput
+                <FormInput
                     type='select'
                     key='ext'
                     value=''

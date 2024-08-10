@@ -1,0 +1,16 @@
+/* item-wrap.module.css */
+
+.item-wrap {
+    box-shadow: unset;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+}
+
+.item-wrap:not(:last-child) {
+    border-bottom: 1px solid var(--b3-border-color);
+}
+
+.title {
+    font-weight: bold;
+    color: var(--b3-theme-primary);
+}
