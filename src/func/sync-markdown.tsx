@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-07 15:34:04
  * @FilePath     : /src/func/custom-export.tsx
- * @LastEditTime : 2024-08-07 22:26:42
+ * @LastEditTime : 2024-08-07 22:52:20
  * @Description  : 
  */
 import { Component, createSignal, JSXElement } from "solid-js";
@@ -420,7 +420,7 @@ const eventHandler = async (e: CustomEvent<IEventBusMap['click-editortitleicon']
 }
 
 
-export let name = "CustomExport";
+export let name = "SyncMarkdown";
 export let enabled = false;
 export const load = (plugin: FMiscPlugin) => {
     if (!nodeFs || !nodePath) return;
