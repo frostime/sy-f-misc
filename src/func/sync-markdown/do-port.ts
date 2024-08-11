@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-11 14:55:52
  * @FilePath     : /src/func/sync-markdown/do-port.ts
- * @LastEditTime : 2024-08-11 17:59:56
+ * @LastEditTime : 2024-08-11 19:58:53
  * @Description  : 
  */
 import { openTab, showMessage } from "siyuan";
@@ -184,6 +184,7 @@ export const doExport = async (document: Block, mdPath: string, assetDir: string
         }, {});
         for (let [oldPath, newPath] of Object.entries(replaceMaps)) {
             // content = content.replace(new RegExp(oldPath, 'g'), newPath);
+            newPath = newPath.replace(/\\/g, '/');
             content = content.replaceAll(oldPath, newPath);
         }
 
