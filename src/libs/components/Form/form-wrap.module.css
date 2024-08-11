@@ -3,7 +3,7 @@
 .item-wrap {
     box-shadow: unset;
     padding-bottom: 16px;
-    margin-bottom: 16px;
+    /* margin-bottom: 16px; */
 }
 
 .item-wrap:not(:last-child) {
