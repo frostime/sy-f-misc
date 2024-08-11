@@ -43,7 +43,7 @@ export const solidDialog = (args: {
 
 interface IConfirmDialogArgs {
     title: string;
-    content: string | HTMLElement;
+    content: string | HTMLElement | DocumentFragment;
     confirm?: (ele?: HTMLElement) => void;
     cancel?: (ele?: HTMLElement) => void;
     width?: string;
@@ -56,7 +56,7 @@ export const confirmDialog = (args: IConfirmDialogArgs) => {
     const dialog = new Dialog({
         title,
         content: `<div class="b3-dialog__content">
-    <div class="ft__breakword">
+    <div class="ft__breakword" style="height: 100%;">
     </div>
 </div>
 <div class="b3-dialog__action">

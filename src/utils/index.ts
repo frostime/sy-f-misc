@@ -7,7 +7,12 @@
  * @Description  : 
  */
 import * as api from '../api';
+import { type Plugin } from 'siyuan';
 
+export const getPlugin = (): Plugin => {
+    let plugin = window.siyuan.ws.app.plugins.find(p => p.name === 'sy-f-misc');
+    return plugin;
+}
 
 export function debounce<F extends (...args: Parameters<F>) => ReturnType<F>>(func: F, wait: number) {
     let timeout: ReturnType<typeof setTimeout> | undefined;
