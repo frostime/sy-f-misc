@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-11 14:55:52
  * @FilePath     : /src/func/sync-markdown/do-port.ts
- * @LastEditTime : 2024-08-11 17:18:17
+ * @LastEditTime : 2024-08-11 17:59:56
  * @Description  : 
  */
 import { openTab, showMessage } from "siyuan";
@@ -76,7 +76,10 @@ export const doImport = async (
 
             //解析所有的 asset 的 link 地址
             for (let asset of assets) {
-                let localPath = asset.replace(assetPrefix, assetDir);
+                let localPath = asset;
+                if (asset.startsWith(assetPrefix)) {
+                    localPath = asset.replace(assetPrefix, assetDir);
+                }
                 console.log(`Asset 文件: ${localPath}`);
 
                 /**
@@ -149,8 +152,8 @@ export const doExport = async (document: Block, mdPath: string, assetDir: string
     assetDir = assetDir.replace(/\\/g, '/');
 
     let assets: string[] = await request('/api/asset/getDocImageAssets', { id: document.id });
-    assets = assets.filter((asset) => {
-        if (asset.startsWith('file:///') || asset.startsWith('http://') || asset.startsWith('https://')) {
+    assets = assets?.filter((asset) => {
+        if (asset.startsWith('http://') || asset.startsWith('https://')) {
             return false;
         }
         return true;
@@ -164,11 +167,24 @@ export const doExport = async (document: Block, mdPath: string, assetDir: string
 
         // Replace asset URLs in the markdown content
         let replaceMaps: Record<string, string> = assets.reduce((obj, asset) => {
-            obj[asset] = nodePath.join(assetPrefix, nodePath.basename(asset));
+            let fname = nodePath.basename(asset);
+            if (!asset.startsWith('file:///')) {
+                obj[asset] = nodePath.join(assetPrefix, fname);
+            } else {
+                //转换为本地路径
+                let localpath = asset.replace('file:///', '');
+                let dir = nodePath.dirname(localpath);
+                //如果 localpath 实际上就是 assetDir，那么就使用 assetPrifix 替换
+                if (dir.replace(/\\/g, '/') === assetDir.replace(/\\/g, '/')) {
+                    asset = asset.replaceAll(' ', '%20');  //导入的 md content 中的 file:/// 协议是编码过的
+                    obj[asset] = nodePath.join(assetPrefix, fname);
+                }
+            }
             return obj;
         }, {});
         for (let [oldPath, newPath] of Object.entries(replaceMaps)) {
-            content = content.replace(new RegExp(oldPath, 'g'), newPath);
+            // content = content.replace(new RegExp(oldPath, 'g'), newPath);
+            content = content.replaceAll(oldPath, newPath);
         }
 
         const dataDir = window.siyuan.config.system.dataDir;
