@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-03 21:22:00
  * @FilePath     : /src/func/webview/render.ts
- * @LastEditTime : 2024-08-04 17:09:14
+ * @LastEditTime : 2024-08-12 20:50:32
  * @Description  : 从 Webapp 插件当中拿过来的代码
  */
 import siyuan from 'siyuan';
@@ -13,7 +13,7 @@ import { ElectronParams, IWebApp } from './utils/types';
 
 import './index.scss';
 
-export const renderView = (context: { element: Element, data: IWebApp }, plugin: siyuan.Plugin) => {
+export const renderView = (context: { element: Element, data: IWebApp, controller?: boolean }, plugin: siyuan.Plugin) => {
     /**
      * Browserview Implement
      */
@@ -35,6 +35,8 @@ export const renderView = (context: { element: Element, data: IWebApp }, plugin:
     //   win.removeBrowserView(view);
     // });
 
+    const useController = context.controller ?? true;
+
     /**
      * Webview Implement
      */
@@ -42,7 +44,7 @@ export const renderView = (context: { element: Element, data: IWebApp }, plugin:
   <div style="display: flex" class="webapp-view fn__flex-column fn__flex fn__flex-1 ${context.data.name}__custom-tab">
       <webview allowfullscreen allowpopups style="border: none" class="fn__flex-column fn__flex  fn__flex-1" src="${context.data.url}"
         ${context.data.proxy ? 'partition="' + context.data.name + '"' : ''}></webview>
-      <div class="webapp-view-controller">
+      <div class="webapp-view-controller ${useController ? '' : 'fn__none'}">
         <span class="pointer handle"><svg><use xlink:href="#iconSettings"></use></svg></span> 
         <span class="pointer func home"><svg><use xlink:href="#iconLanguage"></use></svg>Home</span>
         <span class="pointer func refresh"><svg><use xlink:href="#iconRefresh"></use></svg>刷新</span>
