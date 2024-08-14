@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-07-27 22:36:02
+ * @LastEditTime : 2024-08-04 16:52:04
  * @Description  : 
  */
 import {
@@ -31,7 +31,7 @@ import { updateStyleDom } from "./utils/style";
 import { request, getFile } from "./api";
 
 import DeviceStorage from "./libs/device-storage";
-import { simpleDialog } from "./libs/dialog";
+// import { simpleDialog } from "./libs/dialog";
 import inputDialog from "./libs/input-dialog";
 
 const electron = require('electron');
