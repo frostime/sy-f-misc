@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v4.8.0
+
+- 和 Toggl 通信，并将今天的活动同步到 daily note 中
+
 ## v4.2.1
 
 - 添加 websocket
