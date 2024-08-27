@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-08-27 13:23:39
+ * @FilePath     : /src/func/toggl/setting.tsx
+ * @LastEditTime : 2024-08-27 15:59:16
+ * @Description  : 
+ */
 // Copyright (c) 2023 by frostime All Rights Reserved.
 // Author       : frostime
 // Date         : 2023-07-01 19:23:50
@@ -93,8 +101,23 @@ const TogglSetting = () => {
                 title="用户检查状态"
                 description={checkText()}
                 direction="row"
+                style={{ "max-height": "150px", "overflow": "auto" }}
             >
                 <DisplayRecord record={store.me()} />
+            </Form.Wrap>
+            <Form.Wrap
+                title="笔记本"
+                description="填入笔记本 ID，toggl 日志将会写入对应笔记本的 daily note 当中"
+            >
+                <Form.Input
+                    type="textinput"
+                    key="box"
+                    value={config.dailynoteBox}
+                    placeholder="Please enter notebook ID"
+                    changed={(v) => {
+                        setConfig('dailynoteBox', v);
+                    }}
+                />
             </Form.Wrap>
         </div>
     );

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 15:31:05
  * @FilePath     : /src/func/toggl/utils/time.ts
- * @LastEditTime : 2024-08-27 15:42:28
+ * @LastEditTime : 2024-08-27 17:43:23
  * @Description  : 
  */
 export const startOfToday = (): number => {
@@ -31,4 +31,11 @@ export const formatDate = (date?: Date, sep=''): string => {
     let month = date.getMonth() + 1;
     let day = date.getDate();
     return `${year}${sep}${month < 10 ? '0' + month : month}${sep}${day < 10 ? '0' + day : day}`;
+}
+
+export const formatSeconds = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const seconds_ = seconds % 60;
+    return `${hours}:${minutes < 10 ? '0' + minutes : minutes}:${seconds_ < 10 ? '0' + seconds_ : seconds_}`;
 }

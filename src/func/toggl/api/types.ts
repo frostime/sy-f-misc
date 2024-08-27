@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 11:22:23
  * @FilePath     : /src/func/toggl/api/types.ts
- * @LastEditTime : 2024-08-27 12:03:54
+ * @LastEditTime : 2024-08-27 18:02:31
  * @Description  : 
  */
 // types.ts
@@ -19,7 +19,6 @@ export interface User {
     country_id: number;
     timezone: string;
     default_workspace_id: number;
-    beginning_of_week: number;
 }
 
 export interface Workspace {
@@ -46,24 +45,15 @@ export interface Project {
 export interface TimeEntry {
     at: string;
     billable: boolean;
-    client_name: string;
     description?: string;
     duration: number;
     id: number;
-    project_active: boolean;
-    project_billable: boolean;
-    project_color: string;
     project_id?: number;
-    project_name: string;
     start: string;
-    stop: string;
+    stop: string | null;
     tag_ids?: number[];
     tags?: string[];
-    task_id?: number;
-    task_name: string;
-    user_avatar_url: string;
     user_id: number;
-    user_name: string;
     workspace_id: number;
 }
 

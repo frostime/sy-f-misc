@@ -7,10 +7,12 @@ import { getMe } from "./api/me";
 
 interface IConfig {
     token: string;
+    dailynoteBox: NotebookId;
 }
 
 const [config, setConfig] = createStore<IConfig>({
-    token: ""
+    token: "",
+    dailynoteBox: ""
 });
 
 const [me, setMe] = createSignal<User>();
