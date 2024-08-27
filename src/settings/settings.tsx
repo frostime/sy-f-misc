@@ -4,12 +4,14 @@ import SettingPanel from "@/libs/components/setting-panel";
 import { FormWrap as SettingItemWrap } from '@/libs/components/Form';
 
 import { getAlive } from "@/func/websocket";
+import TogglSetting from "@/func/toggl/setting";
 import { Dynamic } from "solid-js/web";
 
 const groups: { key: string, text: string }[] = [
     { key: 'Enable', text: '✅ 启用功能' },
     { key: 'Docky', text: '⛩️ 侧边栏显示' },
-    { key: 'Misc', text: '🔧 其他设置' }
+    { key: 'Misc', text: '🔧 其他设置' },
+    { key: 'Toggl', text: '⏲️ Toggl' }
 ];
 
 let timer = null;
@@ -92,7 +94,8 @@ const App: Component<IArgs> = (props) => {
     const showGroups = {
         Enable,
         Docky,
-        Misc
+        Misc,
+        Toggl: TogglSetting
     }
 
     return (
