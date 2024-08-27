@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2024-08-27 17:52:27
+ * @LastEditTime : 2024-08-27 18:44:56
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock } from "@/api";
@@ -16,6 +16,7 @@ import { formatDate, formatSeconds, startOfToday } from "../utils/time";
 import { checkDailynoteToday } from "../utils/dailynote";
 import { TimeEntry } from "../api/types";
 import { formatDateTime } from "@/utils/time";
+import { createEffect, on, untrack } from "solid-js";
 
 
 const entriesToMd = (entries: TimeEntry[]) => {
@@ -25,8 +26,9 @@ const entriesToMd = (entries: TimeEntry[]) => {
 
         let duration = entry.stop ? formatSeconds(entry.duration) : '进行中';
 
-        let item = `- [${duration}] **${entry.description}**: ${start} ~ ${stop}`;
-
+        let item = `- **${entry.description}**`;
+        item += `\n    - **时间段**: ${start} ~ ${stop}`
+        item += `\n    - **持续时间**: ${duration}`
         if (entry.project_id) item += `\n    - **项目**: ${entry.project_id}`
         if (entry.tags && entry.tags.length > 0) item += `\n    - **标签**: #${entry.tags.join(', #')}`
         return item;
@@ -90,3 +92,33 @@ export const recordTodayEntriesToDN = async () => {
     await updateRecordNote(markdown);
     showMessage('已将 toggl 记录添加到 daily note 中', 4000, 'info');
 }
+
+
+let timer: ReturnType<typeof setInterval> | null = null;
+const clearTimer = () => {
+    if (timer) {
+        clearInterval(timer);
+        timer = null;
+    }
+}
+/**
+ * 自动获取 toggl 记录到 daily note 中
+ */
+export const toggleAutoFetch = (enable: boolean) => {
+    if (enable === false) {
+        clearTimer();
+    } else {
+        if (timer === null) {
+            const interval = store.config.dnAutoFetchInterval * 60 * 1000;
+            timer = setInterval(() => {
+                console.debug('自动获取 toggl 记录');
+                recordTodayEntriesToDN();
+            }, interval);
+            console.info(`开始自动获取 toggl 记录, 间隔 ${store.config.dnAutoFetchInterval} 分钟`);
+        }
+    }
+}
+
+createEffect(() => {
+    toggleAutoFetch(store.config.dnAutoFetch);
+});

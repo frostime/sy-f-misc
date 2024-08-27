@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2024-08-27 17:57:12
+ * @LastEditTime : 2024-08-27 18:26:18
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -12,7 +12,7 @@ import * as store from './store';
 
 import * as togglAPI from './api';
 import { Menu } from "siyuan";
-import { recordTodayEntriesToDN } from "./func/record-to-dn";
+import { recordTodayEntriesToDN, toggleAutoFetch } from "./func/record-to-dn";
 
 const topbar = (menu: Menu) => {
     menu.addItem({
@@ -23,31 +23,19 @@ const topbar = (menu: Menu) => {
     });
 }
 
-let timer: ReturnType<typeof setInterval> | null = null;
-const clearTimer = () => {
-    if (timer) {
-        clearInterval(timer);
-        timer = null;
-    }
-}
+
 
 export let name = "Toggl";
 export let enabled = false;
-export const load = (plugin: FMiscPlugin) => {
+export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
-    store.load(plugin);
+    await store.load(plugin);
 
     globalThis.toggl = togglAPI;
 
     plugin.eb.on('on-topbar-menu', topbar);
-
-    clearTimer();
-    //一个小时
-    const interval = 60 * 60 * 1000;
-    timer = setInterval(() => {
-        recordTodayEntriesToDN();
-    }, interval);
+    toggleAutoFetch(store.config.dnAutoFetch);
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -55,5 +43,5 @@ export const unload = (plugin: FMiscPlugin) => {
     enabled = false;
     globalThis.toggl = null;
     plugin.eb.off('on-topbar-menu', topbar);
-    clearTimer();
+    toggleAutoFetch(false);
 }

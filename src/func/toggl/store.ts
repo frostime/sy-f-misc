@@ -2,20 +2,24 @@ import { debounce } from "@/utils";
 import { type Plugin } from "siyuan";
 import { createMemo, createSignal } from "solid-js";
 import { createStore, unwrap } from 'solid-js/store'
-import { type User } from "./api/types";
+import { type Project, type User } from "./api/types";
 import { getMe } from "./api/me";
+
+//******************** Config ********************
 
 interface IConfig {
     token: string;
     dailynoteBox: NotebookId;
+    dnAutoFetch: boolean; //自动获取今天的 toggl 活动
+    dnAutoFetchInterval: number; //自动获取今天的 toggl 活动的时间间隔 (分钟)
 }
 
 const [config, setConfig] = createStore<IConfig>({
     token: "",
-    dailynoteBox: ""
+    dailynoteBox: "",
+    dnAutoFetch: false,
+    dnAutoFetchInterval: 60,
 });
-
-const [me, setMe] = createSignal<User>();
 
 const mergeConfig = (newConfig: Partial<IConfig>) => {
     setConfig(prevConfig => ({ ...prevConfig, ...newConfig }));
@@ -23,7 +27,22 @@ const mergeConfig = (newConfig: Partial<IConfig>) => {
 
 //Auth token in base64 format
 const token64 = createMemo(() => btoa(config.token + ':api_token'));
+
+
+//******************** Toggl Status ********************
+
+const [me, setMe] = createSignal<User>(); //Toggl 当前用户
+
 const isConnected = createMemo(() => me() !== undefined && me()?.api_token !== undefined);
+
+interface IProject extends Project {
+    bind_siyuan_doc?: DocumentId;
+}
+const [projects, setProjects] = createStore<Record<string, IProject>>({}); //Toggl 所有 Project
+
+// const [tags, setTags] = createStore<Record<string,Tag>>({}); //Toggl 所有 Tag
+
+//******************** Data IO ********************
 
 const StoreName = 'toggl.json';
 
@@ -54,6 +73,8 @@ export {
     save,
     me,
     setMe,
-    isConnected
+    isConnected,
+    projects,
+    setProjects,
 };
 

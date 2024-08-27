@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2024-08-27 15:59:16
+ * @LastEditTime : 2024-08-27 18:35:48
  * @Description  : 
  */
 // Copyright (c) 2023 by frostime All Rights Reserved.
@@ -116,6 +116,32 @@ const TogglSetting = () => {
                     placeholder="Please enter notebook ID"
                     changed={(v) => {
                         setConfig('dailynoteBox', v);
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="是否自动获取 Toggle 记录"
+                description="定时获取今天的 Toggle 记录，并写入 daily note 当中"
+            >
+                <Form.Input
+                    type="checkbox"
+                    key="autoFetch"
+                    value={config.dnAutoFetch}
+                    changed={(v) => {
+                        setConfig('dnAutoFetch', v);
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="自动获取间隔"
+                description="定时获取今天的 Toggle 记录的定时间隔 (分钟)"
+            >
+                <Form.Input
+                    type="number"
+                    key="autoFetchInterval"
+                    value={config.dnAutoFetchInterval}
+                    changed={(v) => {
+                        setConfig('dnAutoFetchInterval', v);
                     }}
                 />
             </Form.Wrap>
