@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2024-08-27 18:26:18
+ * @LastEditTime : 2024-08-27 20:17:24
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -17,6 +17,7 @@ import { recordTodayEntriesToDN, toggleAutoFetch } from "./func/record-to-dn";
 const topbar = (menu: Menu) => {
     menu.addItem({
         label: '今日 Toggl',
+        icon: 'iconClock',
         click: () => {
             recordTodayEntriesToDN();
         }

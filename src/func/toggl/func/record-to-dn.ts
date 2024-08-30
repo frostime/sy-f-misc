@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2024-08-27 18:44:56
+ * @LastEditTime : 2024-08-28 00:06:03
  * @Description  : 
  */
-import { sql, updateBlock, prependBlock } from "@/api";
+import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
 
 import * as api from '../api';
 import * as store from '../store';
@@ -69,7 +69,8 @@ export const recordTodayEntriesToDN = async () => {
             await prependBlock('markdown', `${markdown}\n{: ${attrName}="${attrValue}" }`, dnId);
         } else {
             blockId = blocks[0].id;
-            updateBlock('markdown', markdown, blockId);
+            await updateBlock('markdown', markdown, blockId);
+            setBlockAttrs(blockId, { [attrName]: attrValue })
         }
 
     }
