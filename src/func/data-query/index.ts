@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query/index.ts
- * @LastEditTime : 2024-07-28 20:31:38
+ * @LastEditTime : 2024-09-07 20:13:29
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -180,28 +180,79 @@ export const load = () => {
          * @param inputs 
          * @returns 
          */
-        fb2p: async (inputs: BlockId[] | Block[]) => {
+        fb2p: async (inputs: BlockId[] | Block[], enable?: { heading?: boolean, doc?: boolean }) => {
+            /**
+             * 处理输入参数
+             */
             let types = typeof inputs[0] === 'string' ? 'id' : 'block';
             let ids = types === 'id' ? inputs as BlockId[] : (inputs as Block[]).map(b => b.id);
             let blocks: Block[] = inputs as Block[];
+            enable = { heading: true, doc: true, ...(enable ?? {}) };
+
             if (types == 'id') {
                 //@ts-ignore
                 blocks = blocks.map(id => ({ id: id }));
             }
+
+            /**
+             * 获取块的上下文关系
+             */
             let data: { [key: BlockId]: any } = await request('/api/block/getBlockTreeInfos', {
                 ids: ids
             });
             let result: Block[] = [];
+
+            /**
+             * 处理标题、文档块这种特殊情况；在执行 fb2p 后需要使用新的 ID 块的 content 替换旧的 ID 块的 content
+             */
+            let ReplaceContentTask = {
+                blocks: {} as Record<BlockId, Block>,
+                addTask: (block: Block) => {
+                    ReplaceContentTask.blocks[block.id] = block;
+                },
+                run: async () => {
+                    let blocks = await getBlocksByIds(...Object.keys(ReplaceContentTask.blocks));
+                    for (let block of blocks) {
+                        if (ReplaceContentTask.blocks[block.id]) {
+                            // replaceContentTask.blocks[block.id].content = block.content;
+                            Object.assign(ReplaceContentTask.blocks[block.id], block);
+                        }
+                    }
+                }
+            };
+
+            /**
+             * 执行 fb2p
+             */
             for (let block of blocks) {
                 result.push(block);
                 let info = data[block.id];
                 if (info.type !== 'NodeParagraph') continue;
-                if (info.previousID !== '') continue;
-                if (!['NodeBlockquote', 'NodeListItem'].includes(info.parentType)) continue;
-                let resultp = result[result.length - 1];
-                resultp.id = info.parentID;
-                resultp.type = { 'NodeBlockquote': 'b', 'NodeListItem': 'i' }[info.parentType];
+
+                if (
+                    info.previousID === '' &&
+                    ['NodeBlockquote', 'NodeListItem'].includes(info.parentType) // 容器块的第一个段落块
+                ) {
+                    let resultp = result[result.length - 1];
+                    resultp.id = info.parentID;
+                    resultp.type = { 'NodeBlockquote': 'b', 'NodeListItem': 'i' }[info.parentType];
+                } else if (enable.heading && info.previousType === "NodeHeading") { // 标题块下方第一个段落
+                    let resultp = result[result.length - 1];
+                    resultp.id = info.previousID;
+                    resultp.type = 'h';
+                    ReplaceContentTask.addTask(resultp); // 对标题下方的段落块，执行替换 content 的任务
+                } else if (
+                    enable.doc &&
+                    info.previousID === '' &&
+                    info.parentType === "NodeDocument"
+                ) { // 文档下第一个段落
+                    let resultp = result[result.length - 1];
+                    resultp.id = info.parentID;
+                    resultp.type = 'd';
+                    ReplaceContentTask.addTask(resultp); // 对文档下面的段落块，执行替换 content 的任务
+                }
             }
+            await ReplaceContentTask.run();
             return types === 'block' ? wrapList(result) : result.map(b => b.id);
         },
 

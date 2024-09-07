@@ -23,6 +23,13 @@
 			"problemMatcher": [],
 			"label": "npm: dev",
 			"detail": "vite build --watch"
+		},
+		{
+			"type": "npm",
+			"script": "make-link-win",
+			"problemMatcher": [],
+			"label": "npm: make-link-win",
+			"detail": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/elevate.ps1 -scriptPath ./scripts/make_dev_link.js"
 		}
 	]
 }
