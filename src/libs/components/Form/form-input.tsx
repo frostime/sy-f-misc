@@ -3,11 +3,12 @@ import { createMemo, For } from "solid-js";
 interface IProps extends ISettingItemCore {
     changed?: (v?: any) => void;
     style?: { [key: string]: string | number };
+    fn_size?: boolean;
 }
 
 export default function FormInput(props: IProps) {
 
-    const fn_size = true;
+    const fn_size = props.fn_size ?? true;
 
     function click() {
         props.button?.callback();

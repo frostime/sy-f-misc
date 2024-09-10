@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-08-07 14:56:46
+ * @LastEditTime : 2024-09-10 22:50:47
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -238,7 +238,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     plugin.openSetting = () => {
         solidDialog({
             title: "F-Misc 设置",
-            width: "800px",
+            width: "1000px",
             height: "500px",
             loader: () => Settings({
                 GroupEnabled: Enable,

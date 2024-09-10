@@ -12,6 +12,7 @@ interface IConfig {
     dailynoteBox: NotebookId;
     dnAutoFetch: boolean; //自动获取今天的 toggl 活动
     dnAutoFetchInterval: number; //自动获取今天的 toggl 活动的时间间隔 (分钟)
+    topDevice: string; //最高优先级的设备的 ID
 }
 
 const [config, setConfig] = createStore<IConfig>({
@@ -19,6 +20,7 @@ const [config, setConfig] = createStore<IConfig>({
     dailynoteBox: "",
     dnAutoFetch: false,
     dnAutoFetchInterval: 60,
+    topDevice: "",
 });
 
 const mergeConfig = (newConfig: Partial<IConfig>) => {

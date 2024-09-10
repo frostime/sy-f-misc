@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2024-08-27 18:35:48
+ * @LastEditTime : 2024-09-10 22:51:14
  * @Description  : 
  */
 // Copyright (c) 2023 by frostime All Rights Reserved.
@@ -142,6 +142,31 @@ const TogglSetting = () => {
                     value={config.dnAutoFetchInterval}
                     changed={(v) => {
                         setConfig('dnAutoFetchInterval', v);
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="优先在该设备上运行"
+                description="填写设备 ID，当有多个设备同时运行的时候，只在该设备上自动获取记录"
+                direction="row"
+                action={
+                    (() => {
+                        if (config.topDevice === window.siyuan.config.system.id) {
+                            return (<span style={{ color: 'var(--b3-theme-primary' }}>当前设备!将执行自动获取。</span>)
+                        } else {
+                            return <span style={{ color: 'var(--b3-theme-primary' }}>非当前设备，将不会实际执行自动获取！</span>
+                        }
+                    })()
+                }
+            >
+                <Form.Input
+                    type="textinput"
+                    key=""
+                    value={config.topDevice}
+                    fn_size={false}
+                    style={{ width: '100%' }}
+                    changed={(v) => {
+                        setConfig('topDevice', v);
                     }}
                 />
             </Form.Wrap>

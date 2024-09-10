@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2024-08-28 00:06:03
+ * @LastEditTime : 2024-09-10 22:48:51
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
@@ -17,6 +17,7 @@ import { checkDailynoteToday } from "../utils/dailynote";
 import { TimeEntry } from "../api/types";
 import { formatDateTime } from "@/utils/time";
 import { createEffect, on, untrack } from "solid-js";
+import { config } from "../store";
 
 
 const entriesToMd = (entries: TimeEntry[]) => {
@@ -109,6 +110,12 @@ export const toggleAutoFetch = (enable: boolean) => {
     if (enable === false) {
         clearTimer();
     } else {
+
+        if (config.topDevice !== window.siyuan.config.system.id) {
+            //为了避免多个设备同时执行自动获取造成文档冲突, 只在顶层设备上执行自动获取
+            return;
+        }
+
         if (timer === null) {
             const interval = store.config.dnAutoFetchInterval * 60 * 1000;
             timer = setInterval(() => {

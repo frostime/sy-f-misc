@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "4.8.1",
+  "version": "4.8.2",
   "type": "module",
   "description": "Frostime 自动工具代码",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -12,7 +12,8 @@
     "make-link-win": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/elevate.ps1 -scriptPath ./scripts/make_dev_link.js",
     "make-install": "vite build && node  --no-warnings ./scripts/make_install.js",
     "dev": "vite build --watch",
-    "build": "vite build"
+    "build": "vite build",
+    "update-version": "node ./scripts/update_version.js"
   },
   "devDependencies": {
     "@types/node": "^20.3.0",

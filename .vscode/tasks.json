@@ -30,6 +30,13 @@
 			"problemMatcher": [],
 			"label": "npm: make-link-win",
 			"detail": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/elevate.ps1 -scriptPath ./scripts/make_dev_link.js"
+		},
+		{
+			"type": "npm",
+			"script": "update-version",
+			"problemMatcher": [],
+			"label": "npm: update-version",
+			"detail": "node ./scripts/update_version.js"
 		}
 	]
 }
