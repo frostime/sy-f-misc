@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query/index.ts
- * @LastEditTime : 2024-09-13 18:06:20
+ * @LastEditTime : 2024-09-13 18:10:48
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -238,9 +238,10 @@ export const load = () => {
                 const refPattern = /#(文档引用|DOCREF)#/;
                 if (refPattern.test(content)) {
                     console.debug('发现文档引用', block.id);
-                    block.id = block.root_id;
-                    block.type = 'd';
-                    ReplaceContentTask.addTask(block);
+                    let resultp = result[result.length - 1];
+                    resultp.id = block.root_id;
+                    resultp.type = 'd';
+                    ReplaceContentTask.addTask(resultp);
                     continue;
                 }
 
