@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query/index.ts
- * @LastEditTime : 2024-09-07 20:13:29
+ * @LastEditTime : 2024-09-13 17:55:27
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -228,6 +228,22 @@ export const load = () => {
                 result.push(block);
                 let info = data[block.id];
                 if (info.type !== 'NodeParagraph') continue;
+
+                /**
+                 * 特殊处理：文档引用标识
+                 * 由于「文献引用」插件的文档第一行被强行占用不能改；再考虑到确实存在在文档中进行引用的情况
+                 * 所以规定：如果段落中含有标签 '文档引用' 或者 'DOCREF'，则认定为文档级引用
+                 */
+                const content = block.content.trim();
+                const refPattern = /#(文档引用|DOCREF)#/;
+                if (refPattern.test(content)) {
+                    console.debug('发现文档引用', block.id);
+                    block.id = block.root_id;
+                    block.type = 'd';
+                    ReplaceContentTask.addTask(block);
+                }
+
+                // ---------- 以下为常规的 fb2p 处理逻辑 ----------
 
                 if (
                     info.previousID === '' &&
