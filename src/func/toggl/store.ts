@@ -51,13 +51,16 @@ const StoreName = 'toggl.json';
 const save_ = async (plugin: Plugin) => {
     let data = unwrap(config);
     plugin.saveData(StoreName, data);
+    console.debug('Save toggl data:', data);
 }
 const save = debounce(save_, 2000);
 const load = async (plugin: Plugin) => {
     let data = await plugin.loadData(StoreName);
     data = data || {};
     if (data) {
+        console.debug('Load toggl data:', data);
         mergeConfig(data);
+        console.debug('Merge toggl data:', config);
         getMe().then((data) => {
             if (data.ok) {
                 setMe(data.data);

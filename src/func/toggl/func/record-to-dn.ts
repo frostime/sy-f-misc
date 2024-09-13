@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2024-09-10 22:48:51
+ * @LastEditTime : 2024-09-11 17:49:44
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
@@ -107,12 +107,14 @@ const clearTimer = () => {
  * 自动获取 toggl 记录到 daily note 中
  */
 export const toggleAutoFetch = (enable: boolean) => {
+    console.log('ToggleAutoFetch', enable);
     if (enable === false) {
         clearTimer();
     } else {
 
         if (config.topDevice !== window.siyuan.config.system.id) {
             //为了避免多个设备同时执行自动获取造成文档冲突, 只在顶层设备上执行自动获取
+            console.log('非主设备, 不执行自动获取');
             return;
         }
 
