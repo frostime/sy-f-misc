@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query/index.ts
- * @LastEditTime : 2024-09-13 17:55:27
+ * @LastEditTime : 2024-09-13 18:06:20
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -241,6 +241,7 @@ export const load = () => {
                     block.id = block.root_id;
                     block.type = 'd';
                     ReplaceContentTask.addTask(block);
+                    continue;
                 }
 
                 // ---------- 以下为常规的 fb2p 处理逻辑 ----------
