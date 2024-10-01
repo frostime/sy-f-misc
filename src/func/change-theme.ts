@@ -69,20 +69,20 @@ function showThemesMenu(menu: Menu) {
     // let menu: Menu = new Menu("ThemeChange");
     const appearance = SIYUAN.config.appearance;
     const mode = appearance.mode === 0 ? 'light' : 'dark';
-    const themesList: string[] = mode === 'light' ? appearance.lightThemes : appearance.darkThemes;
-    const current = mode === 'light' ? appearance.themeLight : appearance.themeDark;
+    const themesList: { name: string, label: string }[] = mode === 'light' ? appearance.lightThemes : appearance.darkThemes;
+    const current: string = mode === 'light' ? appearance.themeLight : appearance.themeDark;
 
     const submenu = [];
     for (const theme of themesList) {
         let icon = null;
-        if (theme === current) {
+        if (theme.name === current) {
             icon = 'iconSelect';
         }
         submenu.push({
-            label: themes.getDisplayName(theme),
+            label: theme.label,
             icon: icon,
             click: () => {
-                useTheme(theme, mode);
+                useTheme(theme.name, mode);
             }
         });
     }
@@ -95,19 +95,19 @@ function showThemesMenu(menu: Menu) {
     });
 }
 
-function useTheme(theme: string, mode: string) {
+function useTheme(themeName: string, mode: string) {
     const appearance = SIYUAN.config.appearance;
     const current = mode === 'light' ? appearance.themeLight : appearance.themeDark;
-    if (theme === current) {
+    if (themeName === current) {
         return;
     }
     const obj = {
         ...SIYUAN.config.appearance,
     };
     if (mode === 'light') {
-        obj.themeLight = theme;
+        obj.themeLight = themeName;
     } else {
-        obj.themeDark = theme;
+        obj.themeDark = themeName;
     }
     request('/api/setting/setAppearance', obj).then(() => window.location.reload());
 }
