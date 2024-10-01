@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 11:21:28
  * @FilePath     : /src/func/toggl/api/requests.ts
- * @LastEditTime : 2024-08-27 15:35:53
+ * @LastEditTime : 2024-09-16 20:55:58
  * @Description  : 
  */
 // requests.ts
@@ -23,7 +23,7 @@ interface ResponseData<T> {
     data: T;
 }
 
-const request = async <T>(url: string, options: RequestOptions): Promise<ResponseData<T>> => {
+const request_ = async <T>(url: string, options: RequestOptions): Promise<ResponseData<T>> => {
     let finalUrl = url;
     const payloads = {
         method: options.method,
@@ -49,6 +49,15 @@ const request = async <T>(url: string, options: RequestOptions): Promise<Respons
 
     return { ok, status, data };
 };
+
+const request = async (...args: Parameters<typeof request_>) => {
+    try {
+        return request_(...args);
+    } catch (error) {
+        console.error(error);
+        return { ok: false, status: 500, data: { error: 'Internal Server Error' } }
+    }
+}
 
 
 export { request };

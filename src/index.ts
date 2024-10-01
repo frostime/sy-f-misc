@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-08-04 16:52:04
+ * @LastEditTime : 2024-09-13 18:55:41
  * @Description  : 
  */
 import {
@@ -15,6 +15,7 @@ import {
     Protyle
 } from "siyuan";
 
+import { provide } from "simple-inject";
 
 import { load, unload } from "./func";
 
@@ -68,6 +69,8 @@ export default class FMiscPlugin extends Plugin {
     deviceStorage: Awaited<ReturnType<typeof DeviceStorage>>;
 
     async onload() {
+        provide('plugin', this);
+
         this.callbacksOnLayoutReady = [];
 
         const frontEnd = getFrontend();
