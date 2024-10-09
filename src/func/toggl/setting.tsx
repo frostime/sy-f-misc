@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2024-09-10 22:51:14
+ * @LastEditTime : 2024-10-09 15:56:46
  * @Description  : 
  */
 // Copyright (c) 2023 by frostime All Rights Reserved.
@@ -73,6 +73,16 @@ const TogglSetting = () => {
     onCleanup(() => {
         save(plugin);
     });
+
+    const descDeviceID = (): string => {
+        if (config.topDevice === window.siyuan.config.system.id) {
+            // return (<span style={{ color: 'var(--b3-theme-primary' }}>当前设备!将执行自动获取。</span>)
+            return `<span style="color: var(--b3-theme-primary);">当前设备!将执行自动获取。</span>`;
+        } else {
+            // return <span style={{ color: 'var(--b3-theme-primary' }}>非当前设备，将不会实际执行自动获取！</span>
+            return `<span style="color: var(--b3-theme-primary);">非当前设备，将不会实际执行自动获取！</span>`;
+        }
+    }
 
     return (
         <div class={`config__tab-container`} data-name="toggl">
@@ -147,16 +157,12 @@ const TogglSetting = () => {
             </Form.Wrap>
             <Form.Wrap
                 title="优先在该设备上运行"
-                description="填写设备 ID，当有多个设备同时运行的时候，只在该设备上自动获取记录"
+                description={descDeviceID()}
                 direction="row"
                 action={
-                    (() => {
-                        if (config.topDevice === window.siyuan.config.system.id) {
-                            return (<span style={{ color: 'var(--b3-theme-primary' }}>当前设备!将执行自动获取。</span>)
-                        } else {
-                            return <span style={{ color: 'var(--b3-theme-primary' }}>非当前设备，将不会实际执行自动获取！</span>
-                        }
-                    })()
+                    <button class="button b3-button" onClick={() => {
+                        setConfig('topDevice', window.siyuan.config.system.id);
+                    }}>设置为当前设备</button>
                 }
             >
                 <Form.Input

@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 11:22:44
  * @FilePath     : /src/func/toggl/api/me.ts
- * @LastEditTime : 2024-08-27 12:10:45
+ * @LastEditTime : 2024-10-09 15:54:52
  * @Description  : 
  */
 // me.ts
 
 import { request } from './requests';
-import { Project, Tag, User } from './types';
+import { type Project, type Tag, type User } from './types';
 
 const BASE_URL = 'https://api.track.toggl.com/api/v9/me';
 
