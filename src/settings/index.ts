@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-09-10 22:50:47
+ * @LastEditTime : 2024-10-09 15:50:52
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -71,13 +71,6 @@ const Enable: ISettingItem[] = [
         description: '启用新建文件功能',
         key: 'EnableNewFile',
         value: true
-    },
-    {
-        type: 'checkbox',
-        title: '💻 Run Javascript',
-        description: '启用 Run Js 功能',
-        key: 'EnableRunJs',
-        value: false
     },
     {
         type: 'checkbox',
@@ -166,13 +159,13 @@ const Misc: ISettingItem[] = [
         key: 'zoteroDir',
         value: ''
     },
-    {
-        type: 'textinput',
-        title: '思源派 Token',
-        description: '思源派 Token 的发布 Token',
-        key: 'sypaiToken',
-        value: ''
-    },
+    // {
+    //     type: 'textinput',
+    //     title: '思源派 Token',
+    //     description: '思源派 Token 的发布 Token',
+    //     key: 'sypaiToken',
+    //     value: ''
+    // },
 ];
 
 
