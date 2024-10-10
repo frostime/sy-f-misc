@@ -26,6 +26,7 @@ const createEmptyFileObject = (fname: string): File => {
         'drawio': 'application/vnd.jgraph.mxfile',
         'csv': 'text/csv',
         'json': 'application/json',
+        'js': 'text/plain',
         'xml': 'application/xml',
         'html': 'text/html',
         'jpg': 'image/jpeg',
@@ -76,7 +77,7 @@ const addNewEmptyFile = async (fname: string) => {
     return res.succMap;
 }
 
-const PredefinedExt = ['drawio', 'docx', 'xlsx', 'pptx', 'md', 'json'];
+const PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'js'];
 
 const NewFileApp = (props: {updated: (v) => void}) => {
 
@@ -106,6 +107,7 @@ const NewFileApp = (props: {updated: (v) => void}) => {
                     type='select'
                     key='ext'
                     value=''
+                    fn_size={false}
                     options={{
                         '': '自定义',
                         ...options
@@ -124,12 +126,19 @@ const NewFileApp = (props: {updated: (v) => void}) => {
 export let name = 'NewFile';
 export let enabled = false;
 
+const HTML = `
+<div class="b3-list-item__first">
+    <svg class="b3-list-item__graphic"><use xlink:href="#iconAdd"></use></svg>
+    <span class="b3-list-item__text">新建空白附件</span>
+</div>
+`;
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
 
     const slash = {
         filter: ['ni', '新建', 'new'],
-        html: '新建空白附件',
+        html: HTML,
         id: 'new-file',
         callback: async (protyle: Protyle) => {
             let fname: string = '';
