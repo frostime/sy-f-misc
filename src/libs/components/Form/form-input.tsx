@@ -1,8 +1,8 @@
-import { createMemo, For } from "solid-js";
+import { createMemo, For, JSX } from "solid-js";
 
 interface IProps extends ISettingItemCore {
     changed?: (v?: any) => void;
-    style?: { [key: string]: string | number };
+    style?: JSX.CSSProperties;
     fn_size?: boolean;
 }
 
