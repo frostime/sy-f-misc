@@ -520,3 +520,37 @@ export async function version(): Promise<string> {
 export async function currentTime(): Promise<number> {
     return request('/api/system/currentTime', {});
 }
+
+// **************************************** Transactions ****************************************
+
+export async function fold(blockID: BlockId, sessionId: string = "", appId: string = "") {
+    let payload = {
+        session: sessionId,
+        app: appId,
+        reqId: new Date().getTime(),
+        transactions: [
+            {
+                doOperations: [{ action: "foldHeading", id: blockID }],
+                undoOperations: [{ action: "unfoldHeading", id: blockID }]
+            }
+        ]
+    }
+    let url = '/api/transactions'
+    return request(url, payload);
+}
+
+export async function unfold(blockID: BlockId, sessionId: string = "", appId: string = "") {
+    let payload = {
+        session: sessionId,
+        app: appId,
+        reqId: new Date().getTime(),
+        transactions: [
+            {
+                doOperations: [{ action: "unfoldHeading", id: blockID }],
+                undoOperations: [{ action: "foldHeading", id: blockID }]
+            }
+        ]
+    }
+    let url = '/api/transactions'
+    return request(url, payload);
+}

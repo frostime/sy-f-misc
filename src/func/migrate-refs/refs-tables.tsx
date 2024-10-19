@@ -7,18 +7,11 @@ import { BlockTypeShort } from "@/utils/const";
 import { getNotebook } from "@/utils";
 
 import { FormInput } from "@/libs/components/Form";
+import { createSignalRef } from "@frostime/solid-signal-ref";
+import { doMove } from "./move";
+import { getBlockByID } from "@/api";
+import { showMessage } from "siyuan";
 
-
-const useCheckStatus = (refBlocks: Block[]) => {
-    let [status, setStatus] = createStore(Object.fromEntries(refBlocks.map(refBlock => [refBlock.id, false])));
-    const setAll = (checked: boolean) => {
-        for (let refBlock of refBlocks) {
-            setStatus(refBlock.id, checked);
-        }
-    }
-
-    return { status, setStatus, setAll };
-}
 
 const A = (props: { id: string, children: any }) => (
     <a class="popover__block" data-id={props.id} href={`siyuan://blocks/${props.id}`}>
@@ -26,9 +19,13 @@ const A = (props: { id: string, children: any }) => (
     </a>
 );
 
-const Row = (props: { refBlock: Block }) => {
+const Row = (props: { refBlock: Block, doMigrate: (id: BlockId, action: TMigrate) => void }) => {
 
-    let { defBlock } = useSimpleContext();
+    let { defBlock } = useSimpleContext() as {
+        defBlock: Block
+    };
+
+    let action = createSignalRef<TMigrate>('no');
 
     let notebookName = createMemo(() => {
         let notebook = getNotebook(props.refBlock.box);
@@ -37,7 +34,7 @@ const Row = (props: { refBlock: Block }) => {
 
     let boxWarn = () => {
         if (props.refBlock.box !== defBlock.box) return { background: 'var(--b3-card-warning-background)' };
-        else if (props.refBlock.root_id === defBlock.root_id) return { background: 'var(--b3-card-success-background)' };
+        else if (props.refBlock.root_id === defBlock.root_id) return { opacity: 0.2 };
         else return {};
     }
 
@@ -61,19 +58,25 @@ const Row = (props: { refBlock: Block }) => {
                     <FormInput
                         type="select"
                         key="actions"
-                        value="no"
+                        value={action()}
                         options={{
                             no: "无行为",
-                            thisdoc: "迁移到当前文档中",
+                            samepath: "迁移到当前Box的相同路径下",
+                            dailynote: "迁移到当前Box的日记中",
                             childdoc: "迁移到单独的子文档中",
-                            samepath: "迁移到当前Box的相同路径下"
+                            thisdoc: "迁移到当前文档中",
                         }}
+                        changed={(value: TMigrate) => action(value)}
                     />
                     <FormInput
                         type="button"
                         key="migrate"
                         value="GO!"
                         style={{ 'width': 'unset', padding: '2px 5px' }}
+                        button={{
+                            label: 'GO!',
+                            callback: () => props.doMigrate(props.refBlock.id, action())
+                        }}
                     />
                 </div>
             </Table.Cell>
@@ -82,23 +85,39 @@ const Row = (props: { refBlock: Block }) => {
 }
 
 const RefsTable: Component<{
-    defBlock: Block,
-    refBlocks: Block[]
+    defBlock: Block,  // 主文档块
+    refBlocks: Block[]  // 反链块
 }> = (props) => {
 
-    // const { status, setStatus, setAll } = useCheckStatus(props.refBlocks);
+    const refBlocks = createSignalRef(props.refBlocks);
+
+    const notSameDoc = refBlocks.derived((blocks: Block[]) => {
+        return blocks.filter(block => block.root_id !== props.defBlock.root_id);
+    });
+
+    const doMigrate = async (refBlockId: BlockId, action: TMigrate) => {
+        console.log(`迁移引用块: ${refBlockId}; 行为: ${action}`);
+        const refBlock = await getBlockByID(refBlockId);
+        if (!refBlock) {
+            showMessage(`引用块 ${refBlockId} 不存在`, 3000, 'error');
+            return;
+        }
+        let result = await doMove(refBlock, props.defBlock, action);
+    }
 
     return (
         <SimpleContextProvider state={{
-            defBlock: props.defBlock, refBlocks: props.refBlocks,
-            // checkedStatus: status, setCheckedStatus: setStatus
+            defBlock: props.defBlock, refBlocks: refBlocks
         }}>
             <section style={{ padding: '20px 15px', width: '100%' }}>
-                <Table.Body columns={["block", "type", "notebook", "hpath", "迁移"]} styles={{ 'font-size': '18px' }}>
-                    <For each={props.refBlocks}>
+                <Table.Body
+                    columns={["block", "type", "notebook", "hpath", "迁移"]}
+                    styles={{ 'font-size': '18px' }}
+                >
+                    <For each={notSameDoc()}>
                         {
                             (refBlock) => (
-                                <Row refBlock={refBlock} />
+                                <Row refBlock={refBlock} doMigrate={doMigrate} />
                             )
                         }
                     </For>
