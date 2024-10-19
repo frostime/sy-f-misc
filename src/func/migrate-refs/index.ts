@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-14 22:13:04
  * @FilePath     : /src/func/migrate-refs/index.ts
- * @LastEditTime : 2024-08-15 15:54:16
+ * @LastEditTime : 2024-10-19 22:17:20
  * @Description  : 
  */
 import { type EventMenu, type IGetDocInfo, type IProtyle } from "siyuan";
@@ -35,11 +35,16 @@ const clickDocIcon = async (event: CustomEvent<{
         label: '迁移反链',
         click: async () => {
             let defBlock = await getBlockByID(rootID);
-            let blocks = await searchRefs(rootID);
-            blocks = await globalThis.Query.fb2p(blocks); //依赖于 data-query 中的功能
+            const queryRefBlocks = async (fb2p?: boolean) => {
+                let blocks = await searchRefs(rootID);
+                if (fb2p) {
+                    blocks = await globalThis.Query.fb2p(blocks); //依赖于 data-query 中的功能
+                }
+                return blocks;
+            }
             solidDialog({
                 title: `Refs ${name}`,
-                loader: () => RefsTable({ defBlock: defBlock, refBlocks: blocks }),
+                loader: () => RefsTable({ defBlock: defBlock, queryRefBlocks }),
                 width: '1000px'
             })
         }

@@ -1,4 +1,4 @@
-import { Component, createMemo, For } from "solid-js";
+import { Component, createEffect, createMemo, For, onMount } from "solid-js";
 import { createStore } from "solid-js/store";
 import Table from "@/libs/components/Table";
 import { SimpleContextProvider, useSimpleContext } from "@/libs/simple-context";
@@ -6,7 +6,7 @@ import { SimpleContextProvider, useSimpleContext } from "@/libs/simple-context";
 import { BlockTypeShort } from "@/utils/const";
 import { getNotebook } from "@/utils";
 
-import { FormInput } from "@/libs/components/Form";
+import { FormInput, FormWrap } from "@/libs/components/Form";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { doMove } from "./move";
 import { getBlockByID } from "@/api";
@@ -60,11 +60,11 @@ const Row = (props: { refBlock: Block, doMigrate: (id: BlockId, action: TMigrate
                         key="actions"
                         value={action()}
                         options={{
-                            no: "无行为",
-                            samepath: "迁移到当前Box的相同路径下",
-                            dailynote: "迁移到当前Box的日记中",
-                            childdoc: "迁移到单独的子文档中",
-                            thisdoc: "迁移到当前文档中",
+                            no: "No Action",
+                            thisdoc: "This Doc",
+                            childdoc: "Child Doc",
+                            dailynote: "Daily Note",
+                            samepath: "Same Path",
                         }}
                         changed={(value: TMigrate) => action(value)}
                     />
@@ -86,10 +86,25 @@ const Row = (props: { refBlock: Block, doMigrate: (id: BlockId, action: TMigrate
 
 const RefsTable: Component<{
     defBlock: Block,  // 主文档块
-    refBlocks: Block[]  // 反链块
+    queryRefBlocks: (fb2p?: boolean) => Promise<Block[]>  // 反链块
 }> = (props) => {
 
-    const refBlocks = createSignalRef(props.refBlocks);
+    const refBlocks = createSignalRef<Block[]>([]);
+
+    const ifFb2p = createSignalRef(false);
+
+    const updateRefBlocks = async () => {
+        props.queryRefBlocks().then(async (blocks) => {
+            if (ifFb2p()) {
+                blocks = await globalThis.Query.fb2p(blocks);
+            }
+            refBlocks(blocks);
+        });
+    }
+
+    onMount(async () => {
+        updateRefBlocks();
+    });
 
     const notSameDoc = refBlocks.derived((blocks: Block[]) => {
         return blocks.filter(block => block.root_id !== props.defBlock.root_id);
@@ -103,6 +118,10 @@ const RefsTable: Component<{
             return;
         }
         let result = await doMove(refBlock, props.defBlock, action);
+        if (result) {
+            showMessage("迁移完成!")
+            setTimeout(updateRefBlocks, 500);
+        }
     }
 
     return (
@@ -110,6 +129,17 @@ const RefsTable: Component<{
             defBlock: props.defBlock, refBlocks: refBlocks
         }}>
             <section style={{ padding: '20px 15px', width: '100%' }}>
+                <FormWrap
+                    title="是否 fb2p"
+                    description=""
+                >
+                    <FormInput
+                        type="checkbox"
+                        key="fb2p"
+                        value={ifFb2p()}
+                        changed={(value: boolean) => { ifFb2p(value); updateRefBlocks(); }}
+                    />
+                </FormWrap>
                 <Table.Body
                     columns={["block", "type", "notebook", "hpath", "迁移"]}
                     styles={{ 'font-size': '18px' }}
