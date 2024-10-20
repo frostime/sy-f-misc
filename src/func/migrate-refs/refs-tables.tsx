@@ -91,7 +91,7 @@ const RefsTable: Component<{
 
     const refBlocks = createSignalRef<Block[]>([]);
 
-    const ifFb2p = createSignalRef(false);
+    const ifFb2p = createSignalRef(true);
 
     const updateRefBlocks = async () => {
         props.queryRefBlocks().then(async (blocks) => {

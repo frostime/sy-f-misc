@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-10-11 21:04:03
  * @FilePath     : /src/func/migrate-refs/move.ts
- * @LastEditTime : 2024-10-19 22:41:12
+ * @LastEditTime : 2024-10-20 12:13:56
  * @Description  : 
  */
 
-import { getChildBlocks, moveBlock, prependBlock, foldBlock, unfoldBlock, deleteBlock } from "@/api";
+import { getChildBlocks, moveBlock, prependBlock, foldBlock, unfoldBlock, deleteBlock, moveDocs, createDocWithMd, listDocsByPath, getIDsByHPath, sql } from "@/api";
 import { createDiary, getPastDNHPath, searchDailynote } from "@/libs/dailynote";
 import { showMessage } from "siyuan";
 
@@ -18,7 +18,7 @@ const moveBlockToDoc = async (block: Block, docId: string) => {
     //移动块
     if (block.type === 'i') {
         //如果是列表项，需要先新建一个列表块，然后把列表项插入到列表块中
-        let ans = await prependBlock('markdown',  '* ', docId);
+        let ans = await prependBlock('markdown', '* ', docId);
         let newListId = ans[0].doOperations[0].id;
         await moveBlock(block.id, null, newListId);
         console.debug(`移动列表项 ${block.id} --> ${newListId}`);
@@ -44,6 +44,85 @@ const moveBlockToDoc = async (block: Block, docId: string) => {
     }
 }
 
+const ensureHpath = async (box: NotebookId, hpath: string) => {
+    let docs = await getIDsByHPath(box, hpath);
+    if (docs.length > 0) {
+        return true;
+    }
+    return false;
+}
+
+const ensurePath = async (box: NotebookId, path: string) => {
+    const docs = await sql(`SELECT * FROM blocks WHERE box = '${box}' AND path = '${path}'`);
+    if (docs.length > 0) {
+        return true;
+    }
+    return false;
+}
+
+const moveBlockAsDoc = async (block: Block, box: NotebookId, parent: {
+    path?: string,
+    hpath?: string
+}) => {
+    if (block.type === 'd' && parent?.path) {
+        if (block.box === box && block.path.startsWith(parent.path.replace('.sy', ''))) {
+            showMessage(`原文档已经在目标文档的目录树下, 无需重复移动`, 3000, 'error');
+            return false;
+        }
+
+        if (!await ensurePath(box, parent.path)) {
+            showMessage(`目标路径 ${parent.path} 不存在`, 3000, 'error');
+            return false;
+        }
+
+        await moveDocs([block.path], box, parent.path);
+        return true;
+    }
+
+    /* 检查内容中是否有双链
+    const pattern = /\(\((\d{14}-[0-9a-z]{7}) ["'](.*)["']\)/g;
+    let refs: string[] = [];
+    let match: RegExpExecArray | null = null;
+    while ((match = pattern.exec(block.markdown)) !== null) {
+        refs.push(match[0]); // 保存完整的双链
+    }
+    // [xxx](siyuan://blocks/20240629190950-na9p8fn)
+    const mdUrl = /\[(.*)\]\(siyuan:\/\/blocks\/(\d{14}-[0-9a-z]{7})\)/g;
+    match = null;
+    while ((match = mdUrl.exec(block.markdown)) !== null) {
+        refs.push(match[0]); // 保存完整的 md url
+    }
+
+    if (block.type === 'h') {
+        await fetch('/api/filetree/heading2Doc', {
+            method: 'POST',
+            body: JSON.stringify({
+                pushMode: 0,
+                srcHeading: block.id,
+                targetNoteBook: box,
+                targetPath: parentPath
+            })
+        });
+        return true;
+    }*/
+
+    if (!parent?.hpath) {
+        showMessage(`无法找到目标路径 hpath`, 3000, 'error');
+        return false;
+    }
+
+    if (!await ensureHpath(box, parent.hpath)) {
+        showMessage(`目标路径 ${parent.hpath} 不存在`, 3000, 'error');
+        return false;
+    }
+
+    const title = block.fcontent || block.content;
+
+    let doc = await createDocWithMd(box, `${parent.hpath}/${title}`, '');
+    await moveBlockToDoc(block, doc);
+    return true;
+}
+
 
 const moveToThisDoc: FuncMove = async (refBlock: Block, defBlock: Block) => {
     if (refBlock.type === 'd') {
@@ -55,11 +134,21 @@ const moveToThisDoc: FuncMove = async (refBlock: Block, defBlock: Block) => {
 }
 
 const moveToChildDoc: FuncMove = async (refBlock: Block, defBlock: Block) => {
-
+    if (refBlock.box === defBlock.box && refBlock.path.startsWith(defBlock.path.replace('.sy', ''))) {
+        showMessage(`原文档已经在目标文档的目录树下, 无需重复移动`, 3000, 'error');
+        return false;
+    }
+    await moveBlockAsDoc(refBlock, defBlock.box, {
+        path: defBlock.path,
+        hpath: defBlock.hpath
+    });
 }
 
 const moveToSamePath: FuncMove = async (refBlock: Block, defBlock: Block) => {
-
+    await moveBlockAsDoc(refBlock, defBlock.box, {
+        path: refBlock.path,
+        hpath: refBlock.hpath
+    });
 }
 
 const moveToDailyNote: FuncMove = async (refBlock: Block, defBlock: Block) => {
