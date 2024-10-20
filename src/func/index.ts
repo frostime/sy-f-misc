@@ -3,9 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-10-20 17:09:48
+ * @LastEditTime : 2024-10-20 17:25:38
  * @Description  : 
  */
+import { type JSX } from "solid-js";
+
 import type FMiscPlugin from "@/index";
 import * as nf from './new-file';
 import * as it from './insert-time';
@@ -37,7 +39,13 @@ interface IFuncModule {
         title: string;
         description: string;
         defaultEnabled?: boolean;
-    }
+    },
+    // 放入 Setting 面板中的界面
+    declareSettingPanel?: {
+        key: string;
+        title: string;
+        element: () => JSX.Element;
+    }[];
 }
 
 export const ModulesToEnable = [
@@ -56,7 +64,7 @@ export const ModulesToEnable = [
     ta,
 ]
 
-const ModulesAlwaysEnable = [
+export const ModulesAlwaysEnable = [
     dq,
     dc,
     wb,

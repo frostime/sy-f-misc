@@ -1,18 +1,11 @@
-import { Component, For, createSignal, onCleanup } from "solid-js";
+import { Component, For, JSX, createSignal, onCleanup } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
 
 import { FormWrap as SettingItemWrap } from '@/libs/components/Form';
 
 import { getAlive } from "@/func/websocket";
-import TogglSetting from "@/func/toggl/setting";
+// import TogglSetting from "@/func/toggl/setting";
 import { Dynamic } from "solid-js/web";
-
-const groups: { key: string, text: string }[] = [
-    { key: 'Enable', text: '✅ 启用功能' },
-    { key: 'Docky', text: '⛩️ 侧边栏显示' },
-    { key: 'Misc', text: '🔧 其他设置' },
-    { key: 'Toggl', text: '⏲️ Toggl' }
-];
 
 let timer = null;
 
@@ -47,11 +40,30 @@ interface IArgs {
     GroupEnabled: ISettingItem[];
     GroupDocky: ISettingItem[];
     GroupMisc: ISettingItem[];
-    changed: (e: IChangeEvent) => void
+    changed: (e: IChangeEvent) => void;
+    customPanels?: {
+        key: string;
+        title: string;
+        element: () => JSX.Element;
+    }[];
 }
 
 
 const App: Component<IArgs> = (props) => {
+    let groups: { key: string, text: string }[] = [
+        { key: 'Enable', text: '✅ 启用功能' },
+        { key: 'Docky', text: '⛩️ 侧边栏显示' },
+        { key: 'Misc', text: '🔧 其他设置' },
+        // { key: 'Toggl', text: '⏲️ Toggl' }
+    ];
+
+    props.customPanels?.forEach(panel => {
+        groups.push({
+            key: panel.key,
+            text: panel.title,
+        });
+    });
+
     let [focus, setFocus] = createSignal(groups[0].key);
 
     const changed = props.changed;
@@ -91,12 +103,15 @@ const App: Component<IArgs> = (props) => {
         </SettingPanel>
     );
 
-    const showGroups = {
+    let showGroups = {
         Enable,
         Docky,
         Misc,
-        Toggl: TogglSetting
     }
+
+    props.customPanels?.forEach(panel => {
+        showGroups[panel.key] = panel.element;
+    });
 
     return (
         <>

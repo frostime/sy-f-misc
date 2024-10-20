@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-10-20 16:59:50
+ * @LastEditTime : 2024-10-20 17:27:20
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
 import { selectIconDialog } from '@/func/docky';
-import { toggleEnable, ModulesToEnable } from '@/func';
+import { toggleEnable, ModulesAlwaysEnable, ModulesToEnable } from '@/func';
 
 import Settings from "@/settings/settings";
 import { solidDialog } from '@/libs/dialog';
@@ -118,6 +118,20 @@ const Enable: ISettingItem[] = ModulesToEnable.filter(module => module.declareTo
     key: `Enable${module.name}`,
     value: module.declareToggleEnabled.defaultEnabled ?? false
 }));
+
+let CustomPanels: {
+    key: string;
+    title: string;
+    element: any;
+}[] = [];
+[...ModulesAlwaysEnable, ...ModulesToEnable].forEach(module => {
+    //@ts-ignore
+    if (module?.declareSettingPanel) {
+        //@ts-ignore
+        CustomPanels.push(...module.declareSettingPanel);
+    }
+});
+
 
 //侧边栏
 const Docky: ISettingItem[] = [
@@ -254,7 +268,8 @@ export const initSetting = async (plugin: FMiscPlugin) => {
                 GroupEnabled: Enable,
                 GroupDocky: Docky,
                 GroupMisc: Misc,
-                changed: onChanged
+                changed: onChanged,
+                customPanels: CustomPanels
             })
         });
     }

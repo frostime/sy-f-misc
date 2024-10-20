@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2024-08-27 20:17:24
+ * @LastEditTime : 2024-10-20 17:29:57
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -13,6 +13,7 @@ import * as store from './store';
 import * as togglAPI from './api';
 import { Menu } from "siyuan";
 import { recordTodayEntriesToDN, toggleAutoFetch } from "./func/record-to-dn";
+import TogglSetting from "./setting";
 
 const topbar = (menu: Menu) => {
     menu.addItem({
@@ -24,7 +25,13 @@ const topbar = (menu: Menu) => {
     });
 }
 
-
+export const declareSettingPanel = [
+    {
+        key: 'Toggl',
+        title: '⏲️ Toggl',
+        element: TogglSetting
+    }
+]
 
 export let name = "Toggl";
 export let enabled = false;
