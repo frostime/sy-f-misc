@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:37:33
  * @FilePath     : /src/libs/dialog.ts
- * @LastEditTime : 2024-07-12 18:01:35
+ * @LastEditTime : 2024-10-20 17:47:11
  * @Description  : 对话框相关工具
  */
 import { Dialog } from "siyuan";
@@ -13,6 +13,7 @@ import { render } from "solid-js/web";
 export const simpleDialog = (args: {
     title: string, ele: HTMLElement | DocumentFragment,
     width?: string, height?: string,
+    maxHeight?: string,
     callback?: () => void;
 }) => {
     const dialog = new Dialog({
@@ -23,12 +24,15 @@ export const simpleDialog = (args: {
         destroyCallback: args.callback
     });
     dialog.element.querySelector(".dialog-content").appendChild(args.ele);
+    const maxHeight = args.maxHeight || "100%";
+    (dialog.element.querySelector(".b3-dialog__container") as HTMLElement).style.maxHeight = maxHeight;
     return dialog;
 }
 
 export const solidDialog = (args: {
     title: string, loader: () => JSXElement,
     width?: string, height?: string,
+    maxHeight?: string,
     callback?: () => void;
 }) => {
     let container = document.createElement('div')
