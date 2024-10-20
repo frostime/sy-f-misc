@@ -64,7 +64,7 @@ const Row = (props: { refBlock: Block, doMigrate: (id: BlockId, action: TMigrate
                             thisdoc: "This Doc",
                             childdoc: "Child Doc",
                             dailynote: "Daily Note",
-                            samepath: "Same Path",
+                            inbox: "Inbox",
                         }}
                         changed={(value: TMigrate) => action(value)}
                     />
@@ -93,6 +93,8 @@ const RefsTable: Component<{
 
     const ifFb2p = createSignalRef(true);
 
+    const inboxHpath = createSignalRef('/Inbox');
+
     const updateRefBlocks = async () => {
         props.queryRefBlocks().then(async (blocks) => {
             if (ifFb2p()) {
@@ -117,7 +119,9 @@ const RefsTable: Component<{
             showMessage(`引用块 ${refBlockId} 不存在`, 3000, 'error');
             return;
         }
-        let result = await doMove(refBlock, props.defBlock, action);
+        let result = await doMove(refBlock, props.defBlock, action, {
+            inboxHpath: inboxHpath()
+        });
         if (result) {
             showMessage("迁移完成!")
             setTimeout(updateRefBlocks, 500);
@@ -130,28 +134,54 @@ const RefsTable: Component<{
         }}>
             <section style={{ padding: '20px 15px', width: '100%' }}>
                 <FormWrap
-                    title="是否 fb2p"
+                    title="查询"
+                    description=""
+                >
+                    <div style={{ display: 'flex', gap: '10px', "align-items": 'center' }}>
+                        <span>是否 fb2p</span>
+                        <FormInput
+                            type="checkbox"
+                            key="fb2p"
+                            value={ifFb2p()}
+                            changed={(value: boolean) => { ifFb2p(value); updateRefBlocks(); }}
+                        />
+                        <FormInput
+                            type="button"
+                            key="query"
+                            value="重新查询"
+                            fn_size={false}
+                            button={{
+                                label: "重新查询",
+                                callback: () => updateRefBlocks()
+                            }}
+                        />
+                    </div>
+                </FormWrap>
+                <FormWrap
+                    title="Inbox 目录 (Hpath)"
                     description=""
                 >
                     <FormInput
-                        type="checkbox"
-                        key="fb2p"
-                        value={ifFb2p()}
-                        changed={(value: boolean) => { ifFb2p(value); updateRefBlocks(); }}
+                        type="textinput"
+                        key="inboxHpath"
+                        value={inboxHpath()}
+                        changed={(value: string) => { inboxHpath(value); }}
                     />
                 </FormWrap>
-                <Table.Body
-                    columns={["block", "type", "notebook", "hpath", "迁移"]}
-                    styles={{ 'font-size': '18px' }}
-                >
-                    <For each={notSameDoc()}>
-                        {
-                            (refBlock) => (
-                                <Row refBlock={refBlock} doMigrate={doMigrate} />
-                            )
-                        }
-                    </For>
-                </Table.Body>
+                <div style={{ margin: '8px 24px' }}>
+                    <Table.Body
+                        columns={["block", "type", "notebook", "hpath", "迁移"]}
+                        styles={{ 'font-size': '18px' }}
+                    >
+                        <For each={notSameDoc()}>
+                            {
+                                (refBlock) => (
+                                    <Row refBlock={refBlock} doMigrate={doMigrate} />
+                                )
+                            }
+                        </For>
+                    </Table.Body>
+                </div>
             </section>
         </SimpleContextProvider>
     );

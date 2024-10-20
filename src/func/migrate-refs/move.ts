@@ -3,15 +3,18 @@
  * @Author       : frostime
  * @Date         : 2024-10-11 21:04:03
  * @FilePath     : /src/func/migrate-refs/move.ts
- * @LastEditTime : 2024-10-20 12:13:56
+ * @LastEditTime : 2024-10-20 12:39:02
  * @Description  : 
  */
 
-import { getChildBlocks, moveBlock, prependBlock, foldBlock, unfoldBlock, deleteBlock, moveDocs, createDocWithMd, listDocsByPath, getIDsByHPath, sql } from "@/api";
+import {
+    getChildBlocks, moveBlock, prependBlock, foldBlock,
+    unfoldBlock, deleteBlock, moveDocs, createDocWithMd,
+    listDocsByPath, getIDsByHPath, sql,
+    getBlockByID
+} from "@/api";
 import { createDiary, getPastDNHPath, searchDailynote } from "@/libs/dailynote";
 import { showMessage } from "siyuan";
-
-type FuncMove = (refBlock: Block, defBlock: Block) => void;
 
 
 const moveBlockToDoc = async (block: Block, docId: string) => {
@@ -47,17 +50,17 @@ const moveBlockToDoc = async (block: Block, docId: string) => {
 const ensureHpath = async (box: NotebookId, hpath: string) => {
     let docs = await getIDsByHPath(box, hpath);
     if (docs.length > 0) {
-        return true;
+        return docs[0];
     }
-    return false;
+    return null;
 }
 
 const ensurePath = async (box: NotebookId, path: string) => {
     const docs = await sql(`SELECT * FROM blocks WHERE box = '${box}' AND path = '${path}'`);
     if (docs.length > 0) {
-        return true;
+        return docs[0].id;
     }
-    return false;
+    return null;
 }
 
 const moveBlockAsDoc = async (block: Block, box: NotebookId, parent: {
@@ -124,7 +127,7 @@ const moveBlockAsDoc = async (block: Block, box: NotebookId, parent: {
 }
 
 
-const moveToThisDoc: FuncMove = async (refBlock: Block, defBlock: Block) => {
+const moveToThisDoc = async (refBlock: Block, defBlock: Block) => {
     if (refBlock.type === 'd') {
         showMessage(`${refBlock.content} 是文档块，不能移动到 DN 中`, 3000, 'error');
         return false;
@@ -133,7 +136,7 @@ const moveToThisDoc: FuncMove = async (refBlock: Block, defBlock: Block) => {
     await moveBlockToDoc(refBlock, defBlock.id);
 }
 
-const moveToChildDoc: FuncMove = async (refBlock: Block, defBlock: Block) => {
+const moveToChildDoc = async (refBlock: Block, defBlock: Block) => {
     if (refBlock.box === defBlock.box && refBlock.path.startsWith(defBlock.path.replace('.sy', ''))) {
         showMessage(`原文档已经在目标文档的目录树下, 无需重复移动`, 3000, 'error');
         return false;
@@ -142,16 +145,21 @@ const moveToChildDoc: FuncMove = async (refBlock: Block, defBlock: Block) => {
         path: defBlock.path,
         hpath: defBlock.hpath
     });
+    return true;
 }
 
-const moveToSamePath: FuncMove = async (refBlock: Block, defBlock: Block) => {
-    await moveBlockAsDoc(refBlock, defBlock.box, {
-        path: refBlock.path,
-        hpath: refBlock.hpath
-    });
+const moveToInbox = async (refBlock: Block, defBlock: Block, inboxHpath: string = '/Inbox') => {
+    let docId = await ensureHpath(defBlock.box, inboxHpath);
+    if (!docId) {
+        docId = await createDocWithMd(defBlock.box, inboxHpath, '');
+    }
+
+    const doc = await getBlockByID(docId);
+
+    return await moveToChildDoc(refBlock, doc);
 }
 
-const moveToDailyNote: FuncMove = async (refBlock: Block, defBlock: Block) => {
+const moveToDailyNote = async (refBlock: Block, defBlock: Block) => {
     if (refBlock.type === 'd') {
         showMessage(`${refBlock.content} 是文档块，不能移动到 DN 中`, 3000, 'error');
         return false;
@@ -176,7 +184,9 @@ const moveToDailyNote: FuncMove = async (refBlock: Block, defBlock: Block) => {
  * @param type 
  * @returns 
  */
-export const doMove = async (refBlock: Block, defBlock: Block, type: TMigrate) => {
+export const doMove = async (refBlock: Block, defBlock: Block, type: TMigrate, props?: {
+    inboxHpath?: string
+}) => {
     try {
         switch (type) {
             case 'no':
@@ -185,8 +195,8 @@ export const doMove = async (refBlock: Block, defBlock: Block, type: TMigrate) =
                 return moveToThisDoc(refBlock, defBlock);
             case 'childdoc':
                 return moveToChildDoc(refBlock, defBlock);
-            case 'samepath':
-                return moveToSamePath(refBlock, defBlock);
+            case 'inbox':
+                return moveToInbox(refBlock, defBlock, props?.inboxHpath);
             case 'dailynote':
                 return moveToDailyNote(refBlock, defBlock);
             default:
