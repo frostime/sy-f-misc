@@ -3,18 +3,19 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-10-20 16:46:13
+ * @LastEditTime : 2024-10-20 16:59:50
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
 import { selectIconDialog } from '@/func/docky';
-import { toggleEnable } from '@/func';
+import { toggleEnable, ModulesToEnable } from '@/func';
 
 import Settings from "@/settings/settings";
 import { solidDialog } from '@/libs/dialog';
 import { debounce } from '@/utils';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
+/*
 const Enable: ISettingItem[] = [
     {
         type: 'checkbox',
@@ -108,6 +109,15 @@ const Enable: ISettingItem[] = [
         value: false
     }
 ];
+*/
+
+const Enable: ISettingItem[] = ModulesToEnable.filter(module => module.declareToggleEnabled !== undefined).map(module => ({
+    type: 'checkbox',
+    title: module.declareToggleEnabled.title,
+    description: module.declareToggleEnabled.description,
+    key: `Enable${module.name}`,
+    value: module.declareToggleEnabled.defaultEnabled ?? false
+}));
 
 //侧边栏
 const Docky: ISettingItem[] = [
@@ -222,7 +232,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     const saveConfigDebounced = debounce(() => plugin.saveConfigs(), 1000 * 10);
     const settingChangedDebounced = debounce(onSettingChanged, 1000 * 2);
 
-    const onChanged = (e: {group: string, key: string, value: any}) => {
+    const onChanged = (e: { group: string, key: string, value: any }) => {
         let { group, key, value } = e;
         console.debug(`Group: ${group}, Key: ${key}, Value: ${value}`);
         const pluginConfigs = plugin.data['configs'];

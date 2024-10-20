@@ -145,6 +145,13 @@ const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
 
 export let name = "Docky";
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '📋 侧边栏Protyle',
+    description: '启用侧边栏自定义 Protyle 功能',
+    defaultEnabled: true
+};
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     let protyles: string = plugin.getConfig('Docky', 'DockyProtyle');

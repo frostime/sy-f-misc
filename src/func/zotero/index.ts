@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2024-07-04 20:30:11
+ * @LastEditTime : 2024-10-20 17:06:14
  * @Description  : 
  */
 import { Protyle, showMessage } from "siyuan";
@@ -92,6 +92,12 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
 
 export let name = 'Zotero';
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '📚 Zotero',
+    description: '启用 Zotero 相关功能',
+    defaultEnabled: true
+};
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 15:11:11
  * @FilePath     : /src/func/insert-time.ts
- * @LastEditTime : 2024-03-24 15:33:41
+ * @LastEditTime : 2024-10-20 17:05:46
  * @Description  : 
  */
 import {
@@ -94,6 +94,12 @@ const updateTime = (e) => {
 
 export let name = 'InsertTime';
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '⌚ Insert time',
+    description: '启用插入时间功能',
+    defaultEnabled: true
+};
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;

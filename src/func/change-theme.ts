@@ -44,6 +44,12 @@ let themes: Themes;
 export let name = 'ChangeTheme';
 export let enabled = false;
 
+export const declareToggleEnabled = {
+    title: '🎨 更换主题',
+    description: '启用更换主题功能',
+    defaultEnabled: true
+};
+
 export function load(plugin: FMiscPlugin) {
 
     if (enabled) return;

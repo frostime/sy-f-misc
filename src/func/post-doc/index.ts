@@ -83,6 +83,13 @@ const clickDocIcon = async (event: CustomEvent<{
 
 export let name = "PostDoc";
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '📤 推送文档发布远端',
+    description: '启用推送文档发布远端功能',
+    defaultEnabled: false
+};
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;

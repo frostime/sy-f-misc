@@ -48,6 +48,13 @@ let plugin: FMiscPlugin = null;
 
 export let name = "TransferRef";
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '💭 转移引用',
+    description: '启用转移引用功能',
+    defaultEnabled: false
+};
+
 export const load = (plugin_: FMiscPlugin) => {
     if (enabled) return;
     plugin_.eventBus.on("click-blockicon", onBlockGutterClicked);

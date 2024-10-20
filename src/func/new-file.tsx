@@ -5,6 +5,12 @@ import { confirmDialog } from "@/libs/dialog";
 import { FormInput } from '@/libs/components/Form';
 import { render } from "solid-js/web";
 
+export const declareToggleEnabled = {
+    title: '📄 New file',
+    description: '新建空白附件',
+    defaultEnabled: true
+};
+
 const BlankFileContent = {
     drawio: `<mxfile host="Electron" modified="2024-04-04T12:48:56.358Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.0.4 Chrome/120.0.6099.109 Electron/28.1.0 Safari/537.36" etag="2hwdI9Fb9SLygm8eVMT2" version="24.0.4" type="device">
     <diagram name="第 1 页" id="lQk7rp0_sSzAOVxkQR8i">

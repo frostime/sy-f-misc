@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-14 22:13:04
  * @FilePath     : /src/func/migrate-refs/index.ts
- * @LastEditTime : 2024-10-20 12:28:53
+ * @LastEditTime : 2024-10-20 17:06:53
  * @Description  : 
  */
 import { type EventMenu, type IGetDocInfo, type IProtyle } from "siyuan";
@@ -53,6 +53,13 @@ const clickDocIcon = async (event: CustomEvent<{
 
 export let name = "MigrateRefs";
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '💭 迁移引用',
+    description: '将引用迁移到同一个笔记本中',
+    defaultEnabled: false
+};
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;

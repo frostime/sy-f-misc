@@ -110,6 +110,13 @@ const showMenu = (menu: Menu) => {
 
 export let name = "TestAPI";
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '🐞 TestAPI',
+    description: '测试 API 功能',
+    defaultEnabled: false
+};
+
 export const load = (plugin_: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;

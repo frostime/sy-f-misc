@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-10-20 16:43:57
+ * @LastEditTime : 2024-10-20 17:09:48
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -32,22 +32,28 @@ interface IFuncModule {
     enabled: boolean;
     load: (plugin: FMiscPlugin) => void;
     unload: (plugin?: FMiscPlugin) => void;
+    // 如果声明了, 在会在设置面板中显示启用的按钮
+    declareToggleEnabled?: {
+        title: string;
+        description: string;
+        defaultEnabled?: boolean;
+    }
 }
 
-const ModulesToEnable = [
-    nf,
-    it,
-    tl,
-    zt,
-    ct,
+export const ModulesToEnable = [
     mw,
     docky,
-    tr,
     ss,
-    ta,
+    it,
+    tl,
+    ct,
+    zt,
+    nf,
+    tr,
+    mr,
     ws,
     pd,
-    mr
+    ta,
 ]
 
 const ModulesAlwaysEnable = [

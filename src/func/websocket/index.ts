@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2024-08-10 19:42:14
+ * @LastEditTime : 2024-10-20 17:07:05
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -116,6 +116,13 @@ const appendDnH2 = async (title: string) => {
 
 export let name = "WebSocket";
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '💬 WebSocket',
+    description: '启用 WebSocket 功能',
+    defaultEnabled: false
+};
+
 let webSocketManager: WebSocketManager | null = null;
 
 export const load = async (plugin: FMiscPlugin) => {

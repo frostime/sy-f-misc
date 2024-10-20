@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 21:23:19
  * @FilePath     : /src/func/mini-window.ts
- * @LastEditTime : 2024-07-16 12:46:28
+ * @LastEditTime : 2024-10-20 16:59:24
  * @Description  : 
  */
 /*
@@ -18,6 +18,13 @@
 // import type FMiscPlugin from '@/index';
 import { openWindow } from "siyuan";
 import { updateStyleDom } from "@/utils/style";
+
+
+export const declareToggleEnabled = {
+    title: '🖥️ 中键小窗',
+    description: '启用中键点击元素打开独立小窗功能',
+    defaultEnabled: true
+};
 
 
 const InMiniWindow = () => {
