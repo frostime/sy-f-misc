@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-10-09 15:50:52
+ * @LastEditTime : 2024-10-20 16:46:13
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -77,6 +77,13 @@ const Enable: ISettingItem[] = [
         title: '💭 转移引用',
         description: '启用转移引用功能',
         key: 'EnableTransferRef',
+        value: false
+    },
+    {
+        type: 'checkbox',
+        title: '💭 迁移引用',
+        description: '将引用迁移到同一个笔记本中',
+        key: 'EnableMigrateRefs',
         value: false
     },
     {
@@ -197,7 +204,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     plugin.data['configs'] = configs;
 
     //3. 导入文件并合并配置
-    await plugin.loadConfigs(); 
+    await plugin.loadConfigs();
 
     const updateConfigs = () => {
         const UpdateConfig = (setting: ISettingItem[], key: string) => {

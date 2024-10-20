@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "4.9.1",
+  "version": "4.10.0",
   "type": "module",
   "description": "Frostime 自动工具代码",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -32,7 +32,7 @@
     "vite-plugin-zip-pack": "^1.2.2"
   },
   "dependencies": {
-    "@frostime/solid-signal-ref": "^1.1.0",
+    "@frostime/solid-signal-ref": "^2.0.0",
     "simple-inject": "^0.1.0"
   }
 }
