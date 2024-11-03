@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-11 21:04:03
  * @FilePath     : /src/func/migrate-refs/move.ts
- * @LastEditTime : 2024-10-20 12:39:02
+ * @LastEditTime : 2024-11-03 22:17:45
  * @Description  : 
  */
 
@@ -30,13 +30,13 @@ const moveBlockToDoc = async (block: Block, docId: string) => {
         let blankItem = allChild[1]; // 上述行为会导致出现一个额外的多余列表项
         await deleteBlock(blankItem.id);
     } else if (block.type === 'h') {
-        let div: HTMLDivElement = document.querySelector(`#layouts div.protyle-content div[data-node-id="${block.id}"]`);
-        let fold = div.getAttribute('fold');
-        if (fold != "1") {
+
+        let isFolded = block.ial.search('fold="1"') !== -1;
+        if (!isFolded) {
             await foldBlock(block.id);
         }
         await moveBlock(block.id, null, docId);
-        if (fold != "1") {
+        if (!isFolded) {
             //如果原来是展开的，那么移动后也展开, 等待 500ms
             setTimeout(() => {
                 unfoldBlock(block.id);
@@ -134,6 +134,7 @@ const moveToThisDoc = async (refBlock: Block, defBlock: Block) => {
     }
 
     await moveBlockToDoc(refBlock, defBlock.id);
+    return true;
 }
 
 const moveToChildDoc = async (refBlock: Block, defBlock: Block) => {

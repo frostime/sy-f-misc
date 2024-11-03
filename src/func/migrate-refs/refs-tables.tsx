@@ -124,7 +124,7 @@ const RefsTable: Component<{
         });
         if (result) {
             showMessage("迁移完成!")
-            setTimeout(updateRefBlocks, 500);
+            setTimeout(updateRefBlocks, 1000);
         }
     }
 
