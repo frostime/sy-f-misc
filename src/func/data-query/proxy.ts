@@ -24,7 +24,13 @@ export const wrapBlock = (block: Block | any) => {
                 case 'toref':
                     return `((${block.id} '${block.fcontent || block.content}'))`
                 case 'attr':
-                    return (attr: keyof Block) => renderAttr(block, attr);
+                    return (attr: keyof Block, renderer?: (block: Block, attr: keyof Block) => string | null) => {
+                        let ans: string;
+                        if (renderer) {
+                            ans = renderer(block, attr);
+                        }
+                        return ans ?? renderAttr(block, attr);
+                    }
                 case 'updatedDate':
                     return renderAttr(block, 'updated', { onlyDate: true });
                 case 'createdDate':
@@ -33,11 +39,15 @@ export const wrapBlock = (block: Block | any) => {
                     return renderAttr(block, 'updated', { onlyTime: true });
                 case 'createdTime':
                     return renderAttr(block, 'created', { onlyTime: true });
+                case 'updatedDatetime':
+                    return renderAttr(block, 'updated');
+                case 'createdDatetime':
+                    return renderAttr(block, 'created');
             }
             if (prop.startsWith('custom-')) {
                 let ial = block.ial;
                 // ial 格式 `{: id="20231218144345-izn0eer" custom-a="aa" }`
-                let pattern = new RegExp(`${prop}=\"(.+)\"`);
+                let pattern = new RegExp(`${prop}=\"(.*?)\"`);
                 let match = ial.match(pattern);
                 if (match) {
                     return match[1];

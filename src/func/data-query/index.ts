@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query/index.ts
- * @LastEditTime : 2024-09-13 18:10:48
+ * @LastEditTime : 2024-10-25 22:57:45
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -151,7 +151,7 @@ export const load = () => {
             WHERE B.id IN (
                 SELECT A.block_id
                 FROM attributes AS A
-                WHERE A.name = '${name}'
+                WHERE A.name like '${name}'
                 ${val ? `AND A.value ${valMatch} '${val}'` : ''}
                 ${limit ? `limit ${limit}` : ''}
             );
