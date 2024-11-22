@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-06-10 14:55:35
  * @FilePath     : /src/func/doc-context.tsx
- * @LastEditTime : 2024-11-17 20:03:57
+ * @LastEditTime : 2024-11-17 20:23:38
  * @Description  : 
  */
 import { createSignal, For, JSXElement, onMount, Show } from 'solid-js';
@@ -339,11 +339,12 @@ export const load = (plugin: FMiscPlugin) => {
             let dialog = simpleDialog({
                 title: I18n.name,
                 ele: element,
-                width: "800px",
+                width: "1000px",
             });
             render(() => DocContextComponent({ ...context, dialog }), element);
             let container = dialog.element.querySelector('.b3-dialog__container') as HTMLElement;
             container.style.setProperty('max-width', '80%');
+            container.style.setProperty('min-width', '40%');
             container.style.setProperty('max-height', '75%');
         }
     });
