@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-10-20 17:25:38
+ * @LastEditTime : 2024-11-23 16:07:33
  * @Description  : 
  */
 import { type JSX } from "solid-js";
@@ -26,6 +26,7 @@ import * as pd from './post-doc';
 import * as wb from './webview';
 import * as tg from './toggl';
 import * as mr from './migrate-refs';
+import * as css from './custom-css-file';
 
 // import * as bookmark from './bookmarks';
 
@@ -69,6 +70,7 @@ export const ModulesAlwaysEnable = [
     dc,
     wb,
     tg,
+    css
 ]
 
 //`Enable${module.name}`: module
