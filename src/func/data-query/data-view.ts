@@ -38,6 +38,19 @@ const newDivWrapper = () => {
     return div;
 }
 
+interface ListOptions {
+    type?: 'u' | 'o';
+    columns?: number;
+    renderer?: (b: Block) => string | number | undefined | null;
+}
+
+interface TableOptions {
+    center?: boolean;
+    fullwidth?: boolean;
+    index?: boolean;
+    renderer?: (b: Block, attr: keyof Block) => string | number | undefined | null; //仅对BlockTable有效
+}
+
 export class DataView {
     private protyle: IProtyle;
     private item: HTMLElement;
@@ -95,38 +108,63 @@ export class DataView {
     addmd = this.addMarkdown;
     addmarkdown = this.addMarkdown;
 
-    list(data: any[]) {
-        // let listContainer = document.createElement("div");
-        // listContainer.style.display = 'contents';
+    list(data: any[], options: ListOptions = {}) {
+        let defaultRenderer = (x: any) => {
+            if (typeof x === 'object') {
+                return JSON.stringify(x);
+            }
+            return x.toString();
+        };
+        if (data.length > 0 && data[0].id && data[0].content) {
+            defaultRenderer = (b: Block) => `[${b.fcontent || b.content}](siyuan://blocks/${b.id})`;
+        }
+
+        defaultRenderer = options.renderer ?? defaultRenderer;
+
+        data = data.map(defaultRenderer);
+
+
         let listContainer = newDivWrapper();
-        new List({
+        const list = new List({
             target: listContainer,
-            dataList: data
+            dataList: data,
+            type: options.type ?? 'u'
         });
+        if (options.columns) {
+            list.element.style.columnCount = options.columns.toString();
+        }
         return listContainer;
     }
 
-    addList(data: any[]) {
-        let listContainer = this.list(data);
+    addList(data: any[], options: ListOptions = {}) {
+        let listContainer = this.list(data, options);
         this.element.append(listContainer);
         return listContainer.firstElementChild as HTMLElement;
     }
 
     addlist = this.addList;
 
-    table(data: (Object | any[])[], center: boolean = false) {
-        // let tableContainer = document.createElement('div');
-        // tableContainer.style.display = 'contents';
+    //@deprecated 兼容之前的写法
+
+    blocklist = this.list;
+
+    addBlockList = this.addList;
+
+    addblocklist = this.addBlockList;
+
+    table(data: (Object | any[])[], options: TableOptions = {}) {
         let tableContainer = newDivWrapper();
         if (data.length == 0) return;
 
         let first = data[0];
+        let table: Table;
         //如果是 Array
         if (Array.isArray(first)) {
-            new Table({
+            table = new Table({
                 target: tableContainer,
                 tableData: data as any[],
-                center
+                center: options.center ?? false,
+                indices: options.index ?? false
             });
         }
         //如果是 Object
@@ -137,55 +175,46 @@ export class DataView {
                 let row = cols.map(col => obj[col]);
                 tableData.push(row);
             });
-            new Table({
+            table = new Table({
                 target: tableContainer,
                 tableData: tableData as any[],
-                center
+                center: options.center ?? false,
+                indices: options.index ?? false
             });
         }
+        if (options.fullwidth) {
+            table.element.style.width = '100%';
+        }
 
-        
         return tableContainer;
     }
 
-    addTable(data: any[], center: boolean = false) {
-        let tableContainer = this.table(data, center);
+    addTable(data: any[], options: TableOptions = {}) {
+        let tableContainer = this.table(data, options);
         this.element.append(tableContainer);
         return tableContainer.firstElementChild as HTMLElement;
     }
 
     addtable = this.addTable;
 
-    blockList(blocks: Block[]) {
-        let listData = blocks.map(block => `[${block.fcontent || block.content}](siyuan://blocks/${block.id})`);
-        return this.list(listData);
-    }
-
-    blocklist = this.blockList;
-
-    addBlockList(blocks: Block[]) {
-        let element = this.blockList(blocks);
-        this.element.append(element);
-        return element;
-    }
-
-    addblocklist = this.addBlockList;
-
-    blockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean,) {
-        // let tableContainer = document.createElement('div');
-        // tableContainer.style.display = 'contents';
+    blockTable(blocks: Block[], cols?: (keyof Block)[], options: TableOptions = {}) {
         let tableContainer = newDivWrapper();
-        new BlockTable({
+        const table = new BlockTable({
             target: tableContainer,
             blocks,
             col: cols,
-            center: center ?? false
+            center: options.center ?? false,
+            indices: options.index ?? false,
+            renderer: options.renderer
         });
+        if (options.fullwidth) {
+            table.element.style.width = '100%';
+        }
         return tableContainer;
     }
 
-    addBlockTable(blocks: Block[], cols?: (keyof Block)[], center?: boolean,) {
-        let tableContainer = this.blockTable(blocks, cols, center);
+    addBlockTable(blocks: Block[], cols?: (keyof Block)[], options: TableOptions = {}) {
+        let tableContainer = this.blockTable(blocks, cols, options);
         this.element.append(tableContainer);
         return tableContainer.firstElementChild as HTMLElement;
     }

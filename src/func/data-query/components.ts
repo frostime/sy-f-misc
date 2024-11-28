@@ -11,17 +11,24 @@ class List {
     element: HTMLElement;
     //嵌套列表
     dataList: any[];
+    type: 'u' | 'o' = 'u';
 
-    constructor(options: { target: HTMLElement, dataList: any[] }) {
+    constructor(options: { target: HTMLElement, dataList: any[], type?: 'u' | 'o' }) {
         this.element = options.target;
         this.dataList = options.dataList;
+        this.type = options.type ?? 'u';
         this.render();
     }
 
     render() {
         const lute = getLute();
         const dataList = this.dataList;
-        const trimList = dataList.map(x => "* " + x.toString());
+        let trimList: string[];
+        if (this.type === 'u') {
+            trimList = dataList.map(x => "* " + x.toString());
+        } else {
+            trimList = dataList.map((x, idx) => `${idx + 1}. ${x.toString()}`);
+        }
         const mdStr = trimList.join("\n");
         const html = lute.Md2BlockDOM(mdStr);
 
@@ -33,11 +40,23 @@ class Table {
     element: HTMLElement;
     tableData: any[][];
     private center: boolean;
-
-    constructor(options: { target: HTMLElement, tableData: any[][], center?: boolean }) {
+    private indices: boolean;
+    constructor(options: {
+        target: HTMLElement, tableData: any[][], center?: boolean,
+        indices?: boolean
+    }) {
         this.element = options.target;
-        this.tableData = options.tableData;
+
         this.center = options?.center ?? false;
+        this.indices = options?.indices ?? false;
+        if (this.indices) {
+            this.tableData = options.tableData.map((row, idx) => [idx, ...row]);
+            if (this.tableData[0]?.length > 1) {
+                this.tableData[0][0] = '#';
+            }
+        } else {
+            this.tableData = options.tableData;
+        }
         this.render();
     }
 
@@ -130,11 +149,22 @@ const renderAttr = (b: Block, attr: keyof Block, options?: {
 }
 
 class BlockTable extends Table {
-    constructor(options: { target: HTMLElement, blocks: Block[], center?: boolean, col?: (keyof Block)[] }) {
-        let cols = options?.col ?? ['type', 'content', 'root_id', 'box', 'created'];
+    constructor(options: {
+        target: HTMLElement, blocks: Block[], center?: boolean,
+        col?: (keyof Block)[], indices?: boolean,
+        renderer?: (b: Block, attr: keyof Block) => string | number | undefined | null,
+    }) {
+        let cols: any[] = options?.col ?? ['type', 'content', 'root_id', 'box', 'created'];
         let tables: ((string | number)[])[] = [cols];
+        const render = (b: Block, c: keyof Block) => {
+            if (options?.renderer) {
+                return options.renderer(b, c) ?? renderAttr(b, c);
+            } else {
+                return renderAttr(b, c);
+            }
+        }
         options.blocks.forEach((b: Block) => {
-            let rows = cols.map(c => renderAttr(b, c));
+            let rows = cols.map(c => render(b, c) ?? '');
             tables.push(rows);
         });
         super({ ...options, tableData: tables })
