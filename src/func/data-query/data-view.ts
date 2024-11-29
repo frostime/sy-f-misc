@@ -4,7 +4,7 @@ import {
     Lute
 } from "siyuan";
 import { getLute } from "./lute";
-import { List, Table, BlockTable } from './components';
+import { List, Table, BlockTable, Mermaid, BlockNodes } from './components';
 
 /**************************************** ZX写的 DataView 类 ****************************************/
 
@@ -34,7 +34,9 @@ function hasParentWithClass(element: HTMLElement, className: string) {
 const newDivWrapper = () => {
     let div = document.createElement("div");
     div.style.overflowX = "auto";
-    div.className = "js-query-container";
+    div.className = "js-query-data-view";
+    div.style.paddingLeft = "0.5em";
+    div.style.paddingRight = "0.5em";
     return div;
 }
 
@@ -71,8 +73,7 @@ export class DataView {
     }
 
     addElement(CustomEmbed: HTMLElement | string) {
-        const customElem = document.createElement("div");
-        customElem.style.display = 'contents';
+        const customElem = newDivWrapper();
 
         if (typeof CustomEmbed === 'string') {
             const html = `<div class="protyle-wysiwyg__embed">${CustomEmbed}</div>`;
@@ -271,6 +272,71 @@ export class DataView {
     }
 
     addrows = this.addRows;
+
+    mermaid(map: Record<BlockId, BlockId | BlockId[]>, options: {
+        blocks?: Block[],
+        type?: "flowchart" | "mindmap",
+        flowchart?: 'TD' | 'LR',
+        renderer?: (b: Block) => string;
+    } = {}) {
+        let mermaidContainer = newDivWrapper();
+        new Mermaid({
+            target: mermaidContainer,
+            type: options.type ?? "flowchart",
+            map,
+            blocks: options.blocks,
+            renderer: options.renderer ?? (b => (b.fcontent || b.content) || b.id),
+            flowchart: options.flowchart ?? 'LR'
+        });
+        return mermaidContainer;
+    }
+
+    addFlowchart(map: Record<BlockId, BlockId | BlockId[]>, options: {
+        blocks?: Block[],
+        renderer?: (b: Block) => string;
+        flowchart?: 'TD' | 'LR';
+    } = {}) {
+        const flowchart = this.mermaid(map, { type: "flowchart", ...options });
+        this.element.append(flowchart);
+        return flowchart.firstElementChild as HTMLElement;
+    }
+
+    addflowchart = this.addFlowchart;
+
+    addMindmap(map: Record<BlockId, BlockId | BlockId[]>, options: {
+        blocks?: Block[],
+        renderer?: (b: Block) => string;
+    } = {}) {
+        //@ts-ignore
+        options.renderer = options.renderer ?? (b => `${b.id}["${b.fcontent || b.content}"]`);
+        const mindmap = this.mermaid(map, { type: "mindmap", ...options });
+        this.element.append(mindmap);
+        return mindmap.firstElementChild as HTMLElement;
+    }
+
+    addmindmap = this.addMindmap;
+
+    embed(...blocks: (Block | BlockId)[]) {
+        const container = newDivWrapper();
+
+        let blockIds: BlockId[] = blocks.map(b => {
+            if (typeof b === 'object') {
+                return b.id ?? null;
+            }
+            return b;
+        });
+        blockIds = blockIds.filter(b => b !== null);
+        new BlockNodes({ target: container, blockIds });
+        return container;
+    }
+
+    addEmbed(...blocks: (Block | BlockId)[]) {
+        const container = this.embed(...blocks);
+        this.element.append(container);
+        return container.firstElementChild as HTMLElement;
+    }
+
+    addembed = this.addEmbed;
 
     render() {
         this.protyle.element.addEventListener("keydown", cancelKeyEvent, true);

@@ -116,7 +116,8 @@ declare interface Window {
         emojis: any;
     };
     Lute: any;
-    fmisc: FMiscPlugin
+    fmisc: FMiscPlugin;
+    mermaid: any;
 }
 
 interface IPluginProtyleSlash {
