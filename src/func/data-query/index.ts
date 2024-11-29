@@ -11,6 +11,7 @@
 // import type FMiscPlugin from "@/index";
 import {
     IProtyle,
+    Plugin,
 } from "siyuan";
 import { DataView } from "./data-view";
 
@@ -21,6 +22,7 @@ import { request, sql, listDocsByPath } from "@/api";
 import { initLute } from "./lute";
 import { wrapBlock, wrapList } from "./proxy";
 import { formatDateTime } from "@/utils/time";
+import { embedBlockEvent } from "./editor";
 
 
 /**
@@ -324,7 +326,7 @@ const Query = {
     }
 }
 
-export const load = () => {
+export const load = (plugin: Plugin) => {
     if (enabled) return;
 
     // lute = setLute({});
@@ -334,14 +336,18 @@ export const load = () => {
     }
     globalThis.Query = Query;
 
+    plugin.eventBus.on("click-blockicon", embedBlockEvent);
+
     enabled = true;
 }
 
-export const unload = () => {
+export const unload = (plugin: Plugin) => {
     if (!enabled) return;
 
     delete globalThis.newDV;
     delete globalThis.Query;
+
+    plugin.eventBus.off("click-blockicon", embedBlockEvent);
 
     enabled = false;
 }

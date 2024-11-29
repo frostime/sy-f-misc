@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-10-20 17:27:20
+ * @LastEditTime : 2024-11-29 21:57:32
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -189,6 +189,14 @@ const Misc: ISettingItem[] = [
         description: 'Zotero 的数据存储位置',
         key: 'zoteroDir',
         value: ''
+    },
+    {
+        type: 'textinput',
+        title: '代码编辑器',
+        description: '代码编辑器路径, {{filepath}} 会被替换为真实的文件路径',
+        key: 'codeEditor',
+        value: 'code {{filepath}}',
+        direction: 'row'
     },
     // {
     //     type: 'textinput',

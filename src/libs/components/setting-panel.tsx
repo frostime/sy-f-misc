@@ -38,6 +38,7 @@ const SettingPanel: Component<SettingPanelProps> = (props) => {
                             slider={item?.slider}
                             button={item?.button}
                             changed={(v) => props.onChanged({ group: props.group, key: item.key, value: v })}
+                            style={item?.direction === 'row' ? { width: '100%' } : null}
                         />
                     </Form.Wrap>
                 )}

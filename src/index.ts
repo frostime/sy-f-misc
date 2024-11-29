@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-09-13 18:55:41
+ * @LastEditTime : 2024-11-29 21:52:51
  * @Description  : 
  */
 import {
@@ -60,6 +60,7 @@ export default class FMiscPlugin extends Plugin {
                 zoteroPassword: string;
                 zoteroDir: string;
                 sypaiToken: string;
+                codeEditor: string;
             };
         };
     }
@@ -234,20 +235,26 @@ export default class FMiscPlugin extends Plugin {
         //读入 zoteroDir 进行覆盖
         this.deviceStorage = await DeviceStorage(this);
         let zoteroDir = this.deviceStorage.get('zoteroDir');
+        let codeEditor = this.deviceStorage.get('codeEditor');
         if (zoteroDir) {
             this.data[StorageNameConfigs].Misc.zoteroDir = zoteroDir;
+        }
+        if (codeEditor) {
+            this.data[StorageNameConfigs].Misc.codeEditor = codeEditor;
         }
     }
 
     async saveConfigs() {
-        //zoteroDir 不同步保存
+        //本地的不同步保存的项目
         await this.deviceStorage.set('zoteroDir', this.data[StorageNameConfigs].Misc.zoteroDir);
+        await this.deviceStorage.set('codeEditor', this.data[StorageNameConfigs].Misc.codeEditor);
 
         // 创建 this.data[StorageNameConfigs] 的副本，并去掉 zoteroDir
         let s = JSON.stringify(this.data[StorageNameConfigs]);
         console.debug('SaveConfigs', s);
         let dataToSave: any = JSON.parse(s);
         dataToSave.Misc.zoteroDir = "/";
+        dataToSave.Misc.codeEditor = "";
         this.saveData(StorageNameConfigs + '.json', dataToSave);
     }
 
