@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query/index.ts
- * @LastEditTime : 2024-11-28 10:50:01
+ * @LastEditTime : 2024-11-29 16:45:53
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -20,6 +20,7 @@ import { DataView } from "./data-view";
 import { request, sql, listDocsByPath } from "@/api";
 import { initLute } from "./lute";
 import { wrapBlock, wrapList } from "./proxy";
+import { formatDateTime } from "@/utils/time";
 
 
 /**
@@ -90,11 +91,59 @@ const cond = async (cond: string) => {
     return globalThis.Query.sql(`select * from blocks where ${cond}`);
 }
 
+const beginOfDay = (date: Date) => {
+    date.setHours(0, 0, 0, 0);
+    return date;
+}
+
 const Query = {
     DataView: (protyle: IProtyle, item: HTMLElement, top: number | null) => {
         initLute();
         return new DataView(protyle, item, top);
     },
+    Utils: {
+        today: () => formatDateTime('yyyyMMddHHmmss', beginOfDay(new Date())),
+        thisWeek: () => {
+            let date = beginOfDay(new Date());
+            date.setDate(date.getDate() - date.getDay());
+            return formatDateTime('yyyyMMddHHmmss', date);
+        },
+        nextWeek: () => {
+            let date = beginOfDay(new Date());
+            date.setDate(date.getDate() + 7 - date.getDay());
+            return formatDateTime('yyyyMMddHHmmss', date);
+        },
+        thisMonth: () => {
+            let date = beginOfDay(new Date());
+            date.setDate(1);
+            return formatDateTime('yyyyMMddHHmmss', date);
+        },
+        nextMonth: () => {
+            let date = beginOfDay(new Date());
+            date.setMonth(date.getMonth() + 1);
+            date.setDate(1);
+            return formatDateTime('yyyyMMddHHmmss', date);
+        },
+        thisYear: () => {
+            let date = beginOfDay(new Date());
+            date.setMonth(0);
+            date.setDate(1);
+            return formatDateTime('yyyyMMddHHmmss', date);
+        },
+        nextYear: () => {
+            let date = beginOfDay(new Date());
+            date.setMonth(11);
+            date.setDate(31);
+            return formatDateTime('yyyyMMddHHmmss', date);
+        },
+        now: (days?: number) => {
+            let date = beginOfDay(new Date());
+            date.setDate(date.getDate() + (days ?? 0));
+            return formatDateTime('yyyyMMddHHmmss', date);
+        }
+    },
+
+
     wrapBlocks: (...blocks: Block[]) => {
         let wrapped = blocks.map(wrapBlock);
         blocks.length == 1 ? wrapped[0] : wrapped;

@@ -1,0 +1,21 @@
+.embed-container[data-node-id] {
+    border: 1px solid var(--b3-border-color);
+    padding: 0.5em;
+    border-radius: 0;
+}
+
+a.embed-jump-icon {
+    opacity: 0;
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-decoration: none;
+
+    &:hover {
+        opacity: 1;
+        background-color: var(--b3-theme-primary-lightest);
+        text-decoration: none;
+    }
+}

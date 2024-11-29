@@ -4,6 +4,9 @@ import { debounce, getNotebook } from "@/utils";
 import { getLute } from "./lute";
 import { request } from "@/api";
 
+import './index.css';
+import { IWrappedBlock } from "./proxy";
+
 const renderAttr = (b: Block, attr: keyof Block, options?: {
     onlyDate?: boolean;
     onlyTime?: boolean;
@@ -321,11 +324,15 @@ class Mermaid {
 
 class EmbedNodes {
     element: HTMLElement;
-    blockIds: BlockId[];
+    blocks: Block[];
+    limit: number;
+    breadcrumb: boolean;
 
-    constructor(options: { target: HTMLElement, blockIds: BlockId[] }) {
+    constructor(options: { target: HTMLElement, blocks: Block[], limit?: number, breadcrumb?: boolean }) {
         this.element = options.target;
-        this.blockIds = options.blockIds;
+        this.blocks = options.blocks;
+        this.limit = options.limit;
+        this.breadcrumb = options.breadcrumb ?? true;
         this.render();
     }
 
@@ -333,38 +340,67 @@ class EmbedNodes {
         const frag = document.createDocumentFragment();
 
         // Create array of promises for all block content requests
-        const promises = this.blockIds.map(id =>
-            request('/api/block/getBlockDOM', { id })
+        const promises = this.blocks.map(b =>
+            request('/api/block/getBlockDOM', { id: b.id })
         );
 
         const results = await Promise.all(promises);
 
         results.forEach((content, index) => {
             const div = document.createElement('div');
-            div.className = 'block-content';
+            div.className = 'embed-container';
             Object.assign(div.style, {
-                'padding': '0.5em',
-                'border': results.length > 1 ? '1px solid var(--b3-border-color)' : 'initial',
-                'border-radius': '0',
+                'margin-top': results.length > 1 ? '0' : 'initial',
+                'margin-bottom': results.length > 1 ? '0' : 'initial',
             });
-            div.dataset.nodeId = this.blockIds[index];
+            div.dataset.nodeId = this.blocks[index].id;
             div.innerHTML = content.dom;
+            div.firstElementChild.classList.add('embed-node');
+
+            // 添加一个面包屑
+            if (this.breadcrumb) {
+                const breadcrumb = this.newBreadcrumb(this.blocks[index] as IWrappedBlock);
+                div.prepend(breadcrumb);
+            }
+
+            // 右上方添加一个跳转的角标
+            const jumpIcon = document.createElement('a');
+            jumpIcon.className = 'embed-jump-icon';
+            jumpIcon.innerHTML = '🔗';
+            jumpIcon.href = `siyuan://blocks/${this.blocks[index].id}`;
+            div.appendChild(jumpIcon);
+
+            if (this.limit) {
+                // TODO 仅仅保留前 limit 个节点
+            }
             frag.appendChild(div);
         });
         frag.querySelectorAll('[contenteditable]').forEach(el => {
             el.setAttribute('contenteditable', 'false');
         });
 
-        const div = document.createElement('div');
-        div.className = 'render-node';
-        div.dataset.type = 'NodeBlockQueryEmbed';
-        div.dataset.nodeId = "";
+        // const div = document.createElement('div');
+        // div.className = 'render-node';
+        // div.dataset.type = 'NodeBlockQueryEmbed';
+        // div.dataset.nodeId = "";
         // Object.assign(div.style, {
         //     'margin': '0.25em 0.5em'
         // });
-        div.appendChild(frag);
+        this.element.appendChild(frag);
+    }
 
-        this.element.appendChild(div);
+    private newBreadcrumb(block: IWrappedBlock) {
+        const box = block.attr?.('box') ?? ''
+        const template = `<span class="protyle-breadcrumb__item" data-id="${block.id}">
+    <svg class="popover__block" data-id="${block.id}"><use xlink:href="#iconFile"></use></svg>
+    <span class="protyle-breadcrumb__text" title="${box}${block.hpath}">${box}${block.hpath}</span>
+</span>`;
+        const div = document.createElement('div');
+        Object.assign(div.style, {
+            'font-size': '0.85rem',
+        });
+        div.innerHTML = template;
+        return div;
     }
 }
 

@@ -1,6 +1,6 @@
 import { renderAttr } from "./components";
 
-interface IWrappedBlock extends Block {
+export interface IWrappedBlock extends Block {
     unwrap(): Block;
     unwrapped: Block;
     asuri: string;
@@ -19,7 +19,7 @@ interface IWrappedBlock extends Block {
     [key: `custom-${string}`]: string;
 }
 
-interface IWrappedList extends Array<IWrappedBlock> {
+export interface IWrappedList extends Array<IWrappedBlock> {
     unwrap(): Block[];
     unwrapped: Block[];
     pick(...attrs: (keyof Block)[]): IWrappedList;
@@ -230,6 +230,13 @@ export const wrapList = (list: (Partial<Block> | any)[], useWrapBlock: boolean =
                             });
                         }
                         return maps;
+                    }
+                case 'filter':
+                    /**
+                     * 返回过滤后的新数组
+                     */
+                    return (predicate: (value: Block, index: number, array: Block[]) => boolean) => {
+                        return wrapList(target.filter(predicate));
                     }
             };
             return null;

@@ -5,6 +5,7 @@ import {
 } from "siyuan";
 import { getLute } from "./lute";
 import { List, Table, BlockTable, Mermaid, BlockNodes } from './components';
+import { getBlockByID } from "@/api";
 
 /**************************************** ZX写的 DataView 类 ****************************************/
 
@@ -130,6 +131,9 @@ export class DataView {
         this._element = document.createElement("div");
         this._ele = new WeakRef(this._element);
         this._element.classList.add('data-query-embed');
+        Object.assign(this._element.style, {
+            'cursor': 'default',
+        });
         this.item.lastElementChild.insertAdjacentElement("beforebegin", this._element);
         this.lute = getLute();
 
@@ -227,7 +231,7 @@ export class DataView {
             });
         }
         if (options.fullwidth) {
-            table.element.style.width = '100%';
+            table.element.querySelector('table').style.width = '100%';
         }
 
         return tableContainer;
@@ -244,7 +248,7 @@ export class DataView {
             renderer: options.renderer
         });
         if (options.fullwidth) {
-            table.element.style.width = '100%';
+            table.element.querySelector('table').style.width = '100%';
         }
         return tableContainer;
     }
@@ -303,17 +307,16 @@ export class DataView {
         return mermaidContainer;
     }
 
-    embed(...blocks: (Block | BlockId)[]) {
+    embed(blocks: Block[] | Block, options: {
+        breadcrumb?: boolean;
+    }) {
         const container = newDivWrapper();
 
-        let blockIds: BlockId[] = blocks.map(b => {
-            if (typeof b === 'object') {
-                return b.id ?? null;
-            }
-            return b;
-        });
-        blockIds = blockIds.filter(b => b !== null);
-        new BlockNodes({ target: container, blockIds });
+        if (!Array.isArray(blocks)) {
+            blocks = [blocks];
+        }
+
+        new BlockNodes({ target: container, blocks, breadcrumb: options?.breadcrumb });
         return container;
     }
 
@@ -326,18 +329,19 @@ export class DataView {
         }
 
         this._element.setAttribute("contenteditable", "false");
-        this._element.onmousedown = (el) => { el.stopPropagation(); };
-        this._element.onmouseup = (el) => { el.stopPropagation(); };
-        this._element.onkeydown = (el) => { el.stopPropagation(); };
-        this._element.onkeyup = (el) => { el.stopPropagation(); };
-        this._element.oninput = (el) => { el.stopPropagation(); };
+        this._element.onmousedown = (el) => { el.stopImmediatePropagation(); };
+        this._element.onmouseup = (el) => { el.stopImmediatePropagation(); };
+        this._element.onkeydown = (el) => { el.stopImmediatePropagation(); };
+        this._element.onkeyup = (el) => { el.stopImmediatePropagation(); };
+        this._element.oninput = (el) => { el.stopImmediatePropagation(); };
         this._element.onclick = (el) => {
+            el.stopImmediatePropagation();
             const selection = window.getSelection();
             const length = selection.toString().length;
             if (length === 0 && (el.target as HTMLElement).tagName === "SPAN") {
                 return;
             }
-            el.stopPropagation();
+            // el.stopPropagation();
         };
 
         if (this.top) {
