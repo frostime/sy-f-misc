@@ -53,23 +53,94 @@ interface TableOptions {
     renderer?: (b: Block, attr: keyof Block) => string | number | undefined | null; //仅对BlockTable有效
 }
 
+const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
+
 export class DataView {
     private protyle: IProtyle;
     private item: HTMLElement;
     private top: number | null;
     private lute: Lute;
-    element: HTMLElement;
-    ele: WeakRef<HTMLElement>;  //alias for element
+    _element: HTMLElement;
+    _ele: WeakRef<HTMLElement>;  //alias for element
+
+    private PROHIBIT_METHOD_NAMES = ['register', 'element', 'ele', 'render'];
+
+
+    /**
+     * 注册组件 View
+     * @param method: `(...args: any[]) => HTMLElement`, 一个返回 HTMLElement 的方法
+     * @param options: 其他配置
+     *  - aliases: 组件的别名
+     *  - addViewFn: 一个返回 HTMLElement 的方法，用于添加组件
+     *  - outsideMethod: 是否为外部方法，默认为 false，将会自动执行 `method.bind(this)`
+     */
+    register(method: (...args: any[]) => HTMLElement, options: {
+        aliases?: string[], addViewFn?: (...args: any[]) => HTMLElement,
+        outsideMethod?: boolean
+    } = {}) {
+
+        const methodName = method.name;
+        const aliasSet = new Set(options.aliases ?? []);
+        const newAliases = [];
+
+        if (this.PROHIBIT_METHOD_NAMES.includes(methodName)) {
+            console.warn(`Method name ${methodName} is prohibited, please use another name.`);
+            return;
+        }
+
+        // 先收集所有需要添加的新别名
+        aliasSet.add(methodName);
+        for (const alias of aliasSet) {
+            newAliases.push(capitalize(alias));
+            newAliases.push(alias.toLowerCase());
+        }
+
+        // 然后一次性添加到 Set 中
+        newAliases.forEach(alias => aliasSet.add(alias));
+
+        const aliases = Array.from(aliasSet);
+
+        // console.debug(`Alias for ${methodName}:`, aliases);
+
+        // Register base method and its aliases
+        aliases.forEach(alias => {
+            this[alias] = options.outsideMethod ? method : method.bind(this);
+            this[alias.toLowerCase()] = options.outsideMethod ? method : method.bind(this);
+        });
+
+        const addViewFn = options.addViewFn?.bind(this) ?? ((...args: any[]) => {
+            const result = options.outsideMethod ? method(args) : method.apply(this, args);
+            this._element.append(result);
+            return result.firstElementChild || result;
+        });
+
+        // Register add method
+        this['add' + methodName] = addViewFn;
+        aliases.forEach(alias => {
+            const fnName = 'add' + alias;
+            this[fnName] = addViewFn;
+            this[fnName.toLowerCase()] = addViewFn;
+        });
+    }
 
     constructor(protyle: IProtyle, item: HTMLElement, top: number | null) {
         this.protyle = protyle;
         this.item = item;
         this.top = top;
-        this.element = document.createElement("div");
-        this.ele = new WeakRef(this.element);
-        this.element.classList.add('data-query-embed');
-        this.item.lastElementChild.insertAdjacentElement("beforebegin", this.element);
+        this._element = document.createElement("div");
+        this._ele = new WeakRef(this._element);
+        this._element.classList.add('data-query-embed');
+        this.item.lastElementChild.insertAdjacentElement("beforebegin", this._element);
         this.lute = getLute();
+
+        this.register(this.markdown, { aliases: ['md'] });
+        this.register(this.list, { aliases: ['BlockList'] });
+        this.register(this.table);
+        this.register(this.blockTable);
+        this.register(this.columns, { aliases: ['Cols'] });
+        this.register(this.rows);
+        this.register(this.mermaid);
+        this.register(this.embed);
     }
 
     addElement(CustomEmbed: HTMLElement | string) {
@@ -83,7 +154,7 @@ export class DataView {
             customElem.appendChild(CustomEmbed);
         }
 
-        this.element.append(customElem);
+        this._element.append(customElem);
         return customElem;
     }
 
@@ -91,23 +162,10 @@ export class DataView {
     addele = this.addElement;
 
     markdown(md: string) {
-        // let elem = document.createElement("div");
-        // elem.style.display = 'contents';
-        // elem.className = "item__readme b3-typography";
         let elem = newDivWrapper();
         elem.innerHTML = this.lute.Md2BlockDOM(md);
         return elem;
     }
-    md = this.markdown;
-
-    addMarkdown(md: string) {
-        let elem = this.markdown(md);
-        this.element.append(elem);
-        return elem;
-    }
-
-    addmd = this.addMarkdown;
-    addmarkdown = this.addMarkdown;
 
     list(data: any[], options: ListOptions = {}) {
         let defaultRenderer = (x: any) => {
@@ -134,24 +192,9 @@ export class DataView {
         if (options.columns) {
             list.element.style.columnCount = options.columns.toString();
         }
-        return listContainer;
+        const result = listContainer;
+        return result;
     }
-
-    addList(data: any[], options: ListOptions = {}) {
-        let listContainer = this.list(data, options);
-        this.element.append(listContainer);
-        return listContainer.firstElementChild as HTMLElement;
-    }
-
-    addlist = this.addList;
-
-    //@deprecated 兼容之前的写法
-
-    blocklist = this.list;
-
-    addBlockList = this.addList;
-
-    addblocklist = this.addBlockList;
 
     table(data: (Object | any[])[], options: TableOptions = {}) {
         let tableContainer = newDivWrapper();
@@ -190,14 +233,6 @@ export class DataView {
         return tableContainer;
     }
 
-    addTable(data: any[], options: TableOptions = {}) {
-        let tableContainer = this.table(data, options);
-        this.element.append(tableContainer);
-        return tableContainer.firstElementChild as HTMLElement;
-    }
-
-    addtable = this.addTable;
-
     blockTable(blocks: Block[], cols?: (keyof Block)[], options: TableOptions = {}) {
         let tableContainer = newDivWrapper();
         const table = new BlockTable({
@@ -213,14 +248,6 @@ export class DataView {
         }
         return tableContainer;
     }
-
-    addBlockTable(blocks: Block[], cols?: (keyof Block)[], options: TableOptions = {}) {
-        let tableContainer = this.blockTable(blocks, cols, options);
-        this.element.append(tableContainer);
-        return tableContainer.firstElementChild as HTMLElement;
-    }
-
-    addblocktable = this.addBlockTable;
 
     columns(elements: HTMLElement[]) {
         let columns = document.createElement("div");
@@ -247,13 +274,6 @@ export class DataView {
         return columns;
     }
 
-    addColumns(elements: HTMLElement[]) {
-        let columns = this.columns(elements);
-        this.element.append(columns);
-        return columns;
-    }
-    addcolumns = this.addColumns;
-
     rows(elements: HTMLElement[]) {
         let rows = document.createElement("div");
         Object.assign(rows.style, {
@@ -264,14 +284,6 @@ export class DataView {
         elements.forEach(e => rows.append(e));
         return rows;
     }
-
-    addRows(elements: HTMLElement[]) {
-        let rows = this.rows(elements);
-        this.element.append(rows);
-        return rows;
-    }
-
-    addrows = this.addRows;
 
     mermaid(map: Record<BlockId, BlockId | BlockId[]>, options: {
         blocks?: Block[],
@@ -291,31 +303,6 @@ export class DataView {
         return mermaidContainer;
     }
 
-    addFlowchart(map: Record<BlockId, BlockId | BlockId[]>, options: {
-        blocks?: Block[],
-        renderer?: (b: Block) => string;
-        flowchart?: 'TD' | 'LR';
-    } = {}) {
-        const flowchart = this.mermaid(map, { type: "flowchart", ...options });
-        this.element.append(flowchart);
-        return flowchart.firstElementChild as HTMLElement;
-    }
-
-    addflowchart = this.addFlowchart;
-
-    addMindmap(map: Record<BlockId, BlockId | BlockId[]>, options: {
-        blocks?: Block[],
-        renderer?: (b: Block) => string;
-    } = {}) {
-        //@ts-ignore
-        options.renderer = options.renderer ?? (b => `${b.id}["${b.fcontent || b.content}"]`);
-        const mindmap = this.mermaid(map, { type: "mindmap", ...options });
-        this.element.append(mindmap);
-        return mindmap.firstElementChild as HTMLElement;
-    }
-
-    addmindmap = this.addMindmap;
-
     embed(...blocks: (Block | BlockId)[]) {
         const container = newDivWrapper();
 
@@ -330,14 +317,6 @@ export class DataView {
         return container;
     }
 
-    addEmbed(...blocks: (Block | BlockId)[]) {
-        const container = this.embed(...blocks);
-        this.element.append(container);
-        return container.firstElementChild as HTMLElement;
-    }
-
-    addembed = this.addEmbed;
-
     render() {
         this.protyle.element.addEventListener("keydown", cancelKeyEvent, true);
         const rotateElement = this.item.querySelector(".fn__rotate");
@@ -346,13 +325,13 @@ export class DataView {
             rotateElement.classList.remove("fn__rotate");
         }
 
-        this.element.setAttribute("contenteditable", "false");
-        this.element.onmousedown = (el) => { el.stopPropagation(); };
-        this.element.onmouseup = (el) => { el.stopPropagation(); };
-        this.element.onkeydown = (el) => { el.stopPropagation(); };
-        this.element.onkeyup = (el) => { el.stopPropagation(); };
-        this.element.oninput = (el) => { el.stopPropagation(); };
-        this.element.onclick = (el) => {
+        this._element.setAttribute("contenteditable", "false");
+        this._element.onmousedown = (el) => { el.stopPropagation(); };
+        this._element.onmouseup = (el) => { el.stopPropagation(); };
+        this._element.onkeydown = (el) => { el.stopPropagation(); };
+        this._element.onkeyup = (el) => { el.stopPropagation(); };
+        this._element.oninput = (el) => { el.stopPropagation(); };
+        this._element.onclick = (el) => {
             const selection = window.getSelection();
             const length = selection.toString().length;
             if (length === 0 && (el.target as HTMLElement).tagName === "SPAN") {
@@ -367,13 +346,13 @@ export class DataView {
         }
 
         // 确保内部节点不可编辑
-        let editableNodeList = this.element.querySelectorAll('[contenteditable="true"]');
+        let editableNodeList = this._element.querySelectorAll('[contenteditable="true"]');
         editableNodeList.forEach(node => {
             node.setAttribute('contenteditable', 'false');
         });
 
         this.item.style.height = "";
-        let content = this.lute.BlockDOM2Content(this.element.innerText).replaceAll('\n', ' ');
+        let content = this.lute.BlockDOM2Content(this._element.innerText).replaceAll('\n', ' ');
         fetchSyncPost('/api/search/updateEmbedBlock', {
             id: this.item.getAttribute("data-node-id"),
             content: content
