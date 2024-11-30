@@ -6,6 +6,10 @@ import { request } from "@/api";
 
 import './index.css';
 import { IWrappedBlock } from "./proxy";
+import { Constants, Lute, showMessage } from "siyuan";
+import { addScript, matchIDFormat } from "./utils";
+import { inject } from "simple-inject";
+import FMiscPlugin from "@/index";
 
 const renderAttr = (b: Block, attr: keyof Block, options?: {
     onlyDate?: boolean;
@@ -73,6 +77,10 @@ const renderAttr = (b: Block, attr: keyof Block, options?: {
 
 
 /**************************************** 重构几个默认显示组件 ****************************************/
+
+const errorMessage = (element: HTMLElement, message: string) => {
+    element.innerHTML = `<span style="color: var(--b3-card-error-color);background-color: var(--b3-card-error-background);">${message}</span>`;
+}
 
 
 class List {
@@ -176,6 +184,9 @@ class BlockTable extends Table {
     }
 }
 
+const oneline = (text: string) => {
+    return text.split('\n').map(line => line.trim()).join(' ');
+}
 
 class Mermaid {
     element: HTMLElement;
@@ -187,6 +198,23 @@ class Mermaid {
     private blockSet: Set<BlockId>; //在 mermaid 中定义的节点
     private renderer: (b: Block) => string | null;
     private direction: 'TD' | 'LR';
+    private lute: Lute;
+
+    private DEFAULT_RENDERER = (b: Block | string) => {
+        if (typeof b === 'string') {
+            return oneline(b);
+        }
+        if ((b as Block)?.type === 'query_embed') {
+            return 'Query Embed';
+        }
+        if ((b as Block)?.type === 'c') {
+            return 'Code Block';
+        }
+
+        const text = ((b?.fcontent || b?.content) || b?.id) || 'empty';
+        const str = oneline(text);
+        return str;
+    }
     constructor(options: {
         target: HTMLElement,
         type: 'flowchart' | 'mindmap',
@@ -195,6 +223,7 @@ class Mermaid {
         renderer?: (b: Block) => string | null,
         flowchart?: 'TD' | 'LR',
     }) {
+        this.lute = getLute();
         this.element = options.target;
         this.type = options.type;
         this.code = '';
@@ -213,35 +242,63 @@ class Mermaid {
     }
 
     private async render() {
+        let success = false;
         if (this.type === 'flowchart') {
-            this.buildFlowchartCode();
+            success = this.buildFlowchartCode();
         } else if (this.type === 'mindmap') {
-            this.buildMindmapCode();
+            success = this.buildMindmapCode();
         }
-        console.log(this.code);
+
+        if (!success) return;
+        await this.checkMermaid();
+        console.groupCollapsed('JS Query DataView Mermaid Code:');
+        console.debug(this.code);
+        console.groupEnd();
         const id = "mermaid" + window.Lute.NewNodeID();
-        const mermaidData = await window.mermaid.render(id, this.code);
-        this.element.innerHTML = mermaidData.svg;
-        //add 悬浮 Event, 悬浮超过 3s 则触发回调
-        const handler = (event: MouseEvent) => {
-            const element = event.target as HTMLElement;
-            if (!element.dataset.id) return;
-            console.log(element.dataset.id);
+        try {
+            const mermaidData = await window.mermaid.render(id, this.code);
+            this.element.innerHTML = mermaidData.svg;
+
+        } catch (e) {
+            // 如果渲染失败，会在 body 中生成一个 div#dmermaid{id} 的元素，需要手动删掉
+            showMessage('Mermaid 渲染失败, 请检查代码', 3000, 'error');
+            console.error(e);
+            console.groupCollapsed('Mermaid failed to render code:');
+            console.debug(this.code);
+            console.groupEnd();
+            const ele: HTMLElement = document.querySelector(`body>div#d${id}`);
+            if (ele) {
+                ele.style.position = 'absolute';
+                ele.style.bottom = '0';
+                ele.classList.add('remove-mermaid');
+                ele.style.opacity = '0';
+                ele.style.transform = 'translateY(50px)';
+                setTimeout(() => {
+                    ele.remove();
+                }, 1000);
+            }
+            errorMessage(this.element, 'Failed to render mermaid, something wrong with mermaid code');
         }
-        const debouncedHandler = debounce(handler, 1000);
-        this.element.addEventListener('mouseenter', debouncedHandler);
+
+        this.postProcess();
     }
 
 
     private async checkRelationMap() {
         // 1. 遍历 this.map，检查所有出现的 blockId
         const set = new Set<BlockId>();
+        const addID = (id: BlockId) => {
+            if (matchIDFormat(id)) {
+                set.add(id);
+            }
+        }
         Object.entries(this.map).forEach(([k, v]) => {
-            set.add(k);
+            addID(k);
+            if (!v) return;
             if (Array.isArray(v)) {
-                v.forEach(id => set.add(id));
+                v.forEach(id => addID(id));
             } else {
-                set.add(v);
+                addID(v);
             }
         });
 
@@ -271,7 +328,7 @@ class Mermaid {
         //1. 定义各个节点
         this.blockSet.forEach(id => {
             const b = this.blocks[id];
-            let content = this.renderer?.(b) ?? (b.fcontent || b.content);
+            let content = this.renderer?.(b) || this.DEFAULT_RENDERER(b);
             lines.push(`${id}["${content ?? id}"]`);
             // 定义 click 事件
             lines.push(`click ${id} "siyuan://blocks/${b.id}"`);
@@ -286,6 +343,7 @@ class Mermaid {
             }
         });
         this.code += lines.map(l => `    ${l}`).join('\n');
+        return true;
     }
 
     private buildMindmapCode() {
@@ -300,12 +358,18 @@ class Mermaid {
         const rootIds = Array.from(this.blockSet)
             .filter(id => !targetIds.has(id));
 
+        if (rootIds.length === 0) {
+            errorMessage(this.element, 'No root nodes found, can not build mindmap');
+            return false;
+        }
+
         // Recursive function to build mindmap branches
         const buildBranch = (id: BlockId, depth: number = 1) => {
             const b = this.blocks[id];
-            const content = this.renderer?.(b) ?? (b.fcontent || b.content || id);
+            const content = this.renderer?.(b) || this.DEFAULT_RENDERER(b);
             // Add current node
             lines.push(`${'    '.repeat(depth)}${content}`);
+            lines.push(`${'    '.repeat(depth)}:::data-id-${id}`); // 添加 id 作为标注
 
             // Process children
             const children = this.map[id];
@@ -319,6 +383,113 @@ class Mermaid {
         rootIds.forEach(rootId => buildBranch(rootId));
 
         this.code += lines.join('\n');
+        return true;
+    }
+
+    private postProcess() {
+        if (this.type === 'mindmap') {
+            const nodeId = (element: HTMLElement) => {
+                const node = element.closest('.mindmap-node') as HTMLElement;
+                if (!node) return;
+                let id = null;
+                node.classList.forEach(cls => {
+                    cls = cls.trim();
+                    if (cls.startsWith('data-id-')) {
+                        id = cls.split('data-id-')[1];
+                    }
+                });
+
+                if (!id || !matchIDFormat(id)) return;
+                return id;
+            }
+            const overHandler = (event: MouseEvent) => {
+                let { x, y } = { x: event.pageX, y: event.pageY };
+
+                const element = event.target as HTMLElement;
+                const syNode = element.closest('.mindmap-node-siyuan') as HTMLElement;
+                if (!syNode) return;
+                const id = syNode.dataset.id;
+                const plugin = inject<FMiscPlugin>('plugin');
+                plugin.addFloatLayer({
+                    ids: [id],
+                    x,
+                    y,
+                });
+            }
+            const clickHandler = (event: MouseEvent) => {
+                const element = event.target as HTMLElement;
+                const syNode = element.closest('.mindmap-node-siyuan') as HTMLElement;
+                if (!syNode) return;
+                const id = syNode.dataset.id;
+                if (!id) return;
+                window.open(`siyuan://blocks/${id}`, '_blank');
+            }
+            const debouncedHandler = debounce(overHandler, 750);
+            this.element.addEventListener('mouseover', debouncedHandler);
+            this.element.addEventListener('click', clickHandler);
+
+            this.element.querySelectorAll('.mindmap-node').forEach((node: HTMLElement) => {
+                const id = nodeId(node);
+                if (!id) return;
+                node.dataset.id = id;
+                node.classList.add('mindmap-node-siyuan');  //绑定了某个思源块的节点
+            });
+
+
+        } else if (this.type === 'flowchart') {
+            // 添加悬浮事件
+            const handler = (event: MouseEvent) => {
+                let { x, y } = { x: event.pageX, y: event.pageY };
+
+                const element = event.target as HTMLElement;
+                const anchor = element.closest('a[data-id]') as HTMLAnchorElement;
+                if (!anchor) return;
+                const id = anchor.dataset.id;
+                if (!id || !matchIDFormat(id)) return;
+                const plugin = inject<FMiscPlugin>('plugin');
+                plugin.addFloatLayer({
+                    ids: [id],
+                    x,
+                    y,
+                });
+            }
+            const debouncedHandler = debounce(handler, 750);
+            this.element.addEventListener('mouseover', debouncedHandler);
+        }
+    }
+
+    private async checkMermaid() {
+        if (window.mermaid) return;
+        const CDN = Constants.PROTYLE_CDN;
+        console.debug('Initializing mermaid...');
+        //https://github.com/siyuan-note/siyuan/blob/master/app/src/protyle/render/mermaidRender.ts
+        const flag = await addScript(`${CDN}/js/mermaid/mermaid.min.js`, "protyleMermaidScript");
+        if (!flag) return;
+        const config: any = {
+            securityLevel: "loose", // 升级后无 https://github.com/siyuan-note/siyuan/issues/3587，可使用该选项
+            altFontFamily: "sans-serif",
+            fontFamily: "sans-serif",
+            startOnLoad: false,
+            flowchart: {
+                htmlLabels: true,
+                useMaxWidth: !0
+            },
+            sequence: {
+                useMaxWidth: true,
+                diagramMarginX: 8,
+                diagramMarginY: 8,
+                boxMargin: 8,
+                showSequenceNumbers: true // Mermaid 时序图增加序号 https://github.com/siyuan-note/siyuan/pull/6992 https://mermaid.js.org/syntax/sequenceDiagram.html#sequencenumbers
+            },
+            gantt: {
+                leftPadding: 75,
+                rightPadding: 20
+            }
+        };
+        if (window.siyuan.config.appearance.mode === 1) {
+            config.theme = "dark";
+        }
+        window.mermaid.initialize(config);
     }
 }
 

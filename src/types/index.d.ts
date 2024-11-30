@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/types/index.d.ts
- * @LastEditTime : 2024-06-12 22:16:03
+ * @LastEditTime : 2024-11-30 19:35:22
  * @Description  : 
  */
 
@@ -62,7 +62,7 @@ type NotebookConf = {
     dailyNoteTemplatePath: string;
 }
 
-type BlockType = "c" | "d" | "s" | "h" | "t" | "i" | "p" | "f" | "audio" | "video" | "other";
+type BlockType = "c" | "d" | "s" | "h" | "t" | "i" | "p" | "f" | "audio" | "video" | "query_embed";
 
 type BlockSubType = "d1" | "d2" | "s1" | "s2" | "s3" | "t1" | "t2" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "table" | "task" | "toggle" | "latex" | "quote" | "html" | "code" | "footnote" | "cite" | "collection" | "bookmark" | "attachment" | "comment" | "mindmap" | "spreadsheet" | "calendar" | "image" | "audio" | "video" | "other";
 

@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-11-28 21:29:40
  * @FilePath     : /src/func/data-query/utils.ts
- * @LastEditTime : 2024-11-28 21:30:36
+ * @LastEditTime : 2024-11-30 16:18:55
  * @Description  : 
  */
 //https://github.com/siyuan-note/siyuan/blob/master/app/src/protyle/util/addScript.ts
-const addScript = (path: string, id: string) => {
+export const addScript = (path: string, id: string) => {
     return new Promise((resolve) => {
         if (document.getElementById(id)) {
             // 脚本加载后再次调用直接返回
@@ -31,3 +31,12 @@ const addScript = (path: string, id: string) => {
         };
     });
 };
+
+export const matchIDFormat = (id: string) => {
+    let match = id.match(/^\d{14}-[a-z0-9]{7}$/);
+    if (match) {
+        return true;
+    } else {
+        return false;
+    }
+}

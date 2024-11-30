@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-08 15:00:37
  * @FilePath     : /src/func/data-query/index.ts
- * @LastEditTime : 2024-11-29 16:45:53
+ * @LastEditTime : 2024-11-30 15:47:29
  * @Description  :
  *      - Fork from project https://github.com/zxhd863943427/siyuan-plugin-data-query
  *      - 基于该项目的 v0.0.7 版本进行修改
@@ -23,6 +23,7 @@ import { initLute } from "./lute";
 import { wrapBlock, wrapList } from "./proxy";
 import { formatDateTime } from "@/utils/time";
 import { embedBlockEvent } from "./editor";
+import { getNotebook } from "@/utils";
 
 
 /**
@@ -138,10 +139,43 @@ const Query = {
             date.setDate(31);
             return formatDateTime('yyyyMMddHHmmss', date);
         },
+        /**
+         * 获取当前时间, 可以指定偏移量
+         * @param days 天数的偏移量
+         * @returns Date, 时间为 "当前时间" + days
+         */
         now: (days?: number) => {
             let date = beginOfDay(new Date());
             date.setDate(date.getDate() + (days ?? 0));
             return formatDateTime('yyyyMMddHHmmss', date);
+        },
+
+        aslink: (b: Block) => `[${b.fcontent || b.content}](siyuan://blocks/${b.id})`,
+        asref: (b: Block) => `((${b.id} '${b.fcontent || b.content}'))`,
+        /**
+         * 将思源的时间格式转换为 Date
+         * @param timestr 思源的时间格式, 例如 block.created
+         * @returns Date
+         */
+        asdate: (timestr: string) => {
+            const year = parseInt(timestr.slice(0, 4), 10);
+            const month = parseInt(timestr.slice(4, 6), 10) - 1;
+            const day = parseInt(timestr.slice(6, 8), 10);
+            const hour = parseInt(timestr.slice(8, 10), 10);
+            const minute = parseInt(timestr.slice(10, 12), 10);
+            const second = parseInt(timestr.slice(12, 14), 10);
+
+            return new Date(year, month, day, hour, minute, second);
+        },
+        /**
+         * 将 Date 转换为思源的时间格式
+         * @param date 
+         * @returns 思源的时间格式 (block.created, block.updated)
+         */
+        astimestr: (date: Date) => formatDateTime('yyyyMMddHHmmss', date),
+        notebook: (input: Block | NotebookId) => {
+            const boxid = typeof input === 'string' ? input : input.box;
+            return getNotebook(boxid);
         }
     },
 
@@ -152,7 +186,6 @@ const Query = {
     },
 
     //@deprecated 未来优化为更好的版本
-    UniBlocks,
     uniblocks: UniBlocks,
 
 
@@ -164,8 +197,8 @@ const Query = {
         let blocks = await getBlocksByIds(...ids);
         return blocks.map(wrapBlock);
     },
-    docId: (protyle: IProtyle) => protyle.block.rootID,
-    thisDoc: async (protyle: IProtyle) => {
+    docid: (protyle: IProtyle) => protyle.block.rootID,
+    thisdoc: async (protyle: IProtyle) => {
         let docId = protyle.block.id;
         let doc = await sql(`select * from blocks where id = '${docId}'`);
         return wrapBlock(doc[0]);
@@ -200,7 +233,7 @@ const Query = {
         );
         `);
     },
-    childdocs: async (b: BlockId | Block) => {
+    childdoc: async (b: BlockId | Block) => {
         let block = null;
         if (typeof b === 'string') {
             const _ = await getBlocksByIds(b);
@@ -316,15 +349,26 @@ const Query = {
         await ReplaceContentTask.run();
         return types === 'block' ? wrapList(result) : result.map(b => b.id);
     },
-
-    //@deprecated 以下这些作为兼容性函数姑且保留，推荐使用 BlockWrapper
-    b2link: (b: Block) => `[${b.fcontent || b.content}](siyuan://blocks/${b.id})`,
-    b2ref: (b: Block) => `((${b.id} '${b.fcontent || b.content}'))`,
-    b2id: (...blocks: Block[]) => {
-        let ids = blocks.map(b => b.id);
-        return ids.length === 1 ? ids[0] : ids;
-    }
 }
+
+const addAlias = (obj: any, attr: string, alias: string[]) => {
+    if (!(attr in obj)) return;
+    alias.forEach(alias => {
+        if (alias in obj) return;
+        obj[alias] = obj[attr];
+    });
+}
+
+addAlias(Query, 'Utils', ['utils']);
+addAlias(Query, 'getBlocksByIds', ['getBlocksByIDs']);
+addAlias(Query, 'docid', ['docId']);
+addAlias(Query, 'thisdoc', ['thisDoc']);
+addAlias(Query, 'childdoc', ['childDoc', 'childDocs', 'childdocs']);
+addAlias(Query, 'wrapBlocks', ['wrapblocks']);
+const utils = Object.keys(Query.Utils);
+utils.forEach(key => {
+    addAlias(Query.Utils, key, [key.toLocaleLowerCase()]);
+});
 
 export const load = (plugin: Plugin) => {
     if (enabled) return;

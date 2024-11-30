@@ -296,12 +296,14 @@ export class DataView {
         renderer?: (b: Block) => string;
     } = {}) {
         let mermaidContainer = newDivWrapper();
+        // 检查 map，防止出现 null 或者 undefined
+        map = Object.fromEntries(Object.entries(map).filter(([k, v]) => k && v));
         new Mermaid({
             target: mermaidContainer,
             type: options.type ?? "flowchart",
             map,
             blocks: options.blocks,
-            renderer: options.renderer ?? (b => (b.fcontent || b.content) || b.id),
+            renderer: options.renderer,  // undefined 也不要紧, 组件里有默认渲染方式
             flowchart: options.flowchart ?? 'LR'
         });
         return mermaidContainer;

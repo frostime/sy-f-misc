@@ -19,3 +19,12 @@ a.embed-jump-icon {
         text-decoration: none;
     }
 }
+
+.remove-mermaid {
+    /* 缓慢删除, 向下移动退场 */
+    transition: opacity 1s ease-in-out, transform 1s ease-in-out;
+}
+
+.mindmap-node-siyuan {
+    cursor: pointer;
+}
