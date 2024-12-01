@@ -198,7 +198,7 @@ class Mermaid {
     private blockSet: Set<BlockId>; //在 mermaid 中定义的节点
     private renderer: (b: Block) => string | null;
     private direction: 'TD' | 'LR';
-    private lute: Lute;
+    private lute: Lute = getLute();
 
     private disposeCb: (() => void)[] = [];
 
@@ -225,7 +225,7 @@ class Mermaid {
         renderer?: (b: Block) => string | null,
         flowchart?: 'TD' | 'LR',
     }) {
-        this.lute = getLute();
+        // this.lute = getLute();
         this.element = options.target;
         this.type = options.type;
         this.code = '';
@@ -400,24 +400,26 @@ class Mermaid {
                         id = cls.split('data-id-')[1];
                     }
                 });
+                node.classList.add('popover__block');
+                node.dataset.id = id;
 
                 if (!id || !matchIDFormat(id)) return;
                 return id;
             }
-            const overHandler = (event: MouseEvent) => {
-                let { x, y } = { x: event.pageX, y: event.pageY };
+            // const overHandler = (event: MouseEvent) => {
+            //     let { x, y } = { x: event.pageX, y: event.pageY };
 
-                const element = event.target as HTMLElement;
-                const syNode = element.closest('.mindmap-node-siyuan') as HTMLElement;
-                if (!syNode) return;
-                const id = syNode.dataset.id;
-                const plugin = inject<FMiscPlugin>('plugin');
-                plugin.addFloatLayer({
-                    ids: [id],
-                    x,
-                    y,
-                });
-            }
+            //     const element = event.target as HTMLElement;
+            //     const syNode = element.closest('.mindmap-node-siyuan') as HTMLElement;
+            //     if (!syNode) return;
+            //     const id = syNode.dataset.id;
+            //     const plugin = inject<FMiscPlugin>('plugin');
+            //     plugin.addFloatLayer({
+            //         ids: [id],
+            //         x,
+            //         y,
+            //     });
+            // }
             const clickHandler = (event: MouseEvent) => {
                 const element = event.target as HTMLElement;
                 const syNode = element.closest('.mindmap-node-siyuan') as HTMLElement;
@@ -426,8 +428,8 @@ class Mermaid {
                 if (!id) return;
                 window.open(`siyuan://blocks/${id}`, '_blank');
             }
-            const debouncedHandler = debounce(overHandler, 750);
-            this.element.addEventListener('mouseover', debouncedHandler);
+            // const debouncedHandler = debounce(overHandler, 750);
+            // this.element.addEventListener('mouseover', debouncedHandler);
             this.element.addEventListener('click', clickHandler);
 
             this.element.querySelectorAll('.mindmap-node').forEach((node: HTMLElement) => {
@@ -438,32 +440,36 @@ class Mermaid {
             });
 
             this.disposeCb.push(() => {
-                this.element.removeEventListener('mouseover', debouncedHandler);
+                // this.element.removeEventListener('mouseover', debouncedHandler);
                 this.element.removeEventListener('click', clickHandler);
             });
 
         } else if (this.type === 'flowchart') {
-            // 添加悬浮事件
-            const handler = (event: MouseEvent) => {
-                let { x, y } = { x: event.pageX, y: event.pageY };
-
-                const element = event.target as HTMLElement;
-                const anchor = element.closest('a[data-id]') as HTMLAnchorElement;
-                if (!anchor) return;
-                const id = anchor.dataset.id;
-                if (!id || !matchIDFormat(id)) return;
-                const plugin = inject<FMiscPlugin>('plugin');
-                plugin.addFloatLayer({
-                    ids: [id],
-                    x,
-                    y,
-                });
-            }
-            const debouncedHandler = debounce(handler, 750);
-            this.element.addEventListener('mouseover', debouncedHandler);
-            this.disposeCb.push(() => {
-                this.element.removeEventListener('mouseover', debouncedHandler);
+            this.element.querySelectorAll('a[data-id]').forEach(anchor => {
+                anchor.classList.add('popover__block');
+                // anchor.dataset.id = anchor.dataset.id;
             });
+            // 添加悬浮事件
+            // const handler = (event: MouseEvent) => {
+            //     let { x, y } = { x: event.pageX, y: event.pageY };
+
+            //     const element = event.target as HTMLElement;
+            //     const anchor = element.closest('a[data-id]') as HTMLAnchorElement;
+            //     if (!anchor) return;
+            //     const id = anchor.dataset.id;
+            //     if (!id || !matchIDFormat(id)) return;
+            //     const plugin = inject<FMiscPlugin>('plugin');
+            //     plugin.addFloatLayer({
+            //         ids: [id],
+            //         x,
+            //         y,
+            //     });
+            // }
+            // const debouncedHandler = debounce(handler, 750);
+            // this.element.addEventListener('mouseover', debouncedHandler);
+            // this.disposeCb.push(() => {
+            //     this.element.removeEventListener('mouseover', debouncedHandler);
+            // });
         }
     }
 
@@ -512,67 +518,110 @@ class EmbedNodes {
     blocks: Block[];
     limit: number;
     breadcrumb: boolean;
+    embedBlockID: BlockId;
+    columns: number;
+    zoom: number;
 
-    constructor(options: { target: HTMLElement, blocks: Block[], limit?: number, breadcrumb?: boolean }) {
+    constructor(options: {
+        target: HTMLElement, blocks: Block[],
+        embedBlockID: BlockId, limit?: number,
+        breadcrumb?: boolean,
+        columns?: number,
+        zoom?: number,
+    }) {
         this.element = options.target;
         this.blocks = options.blocks;
         this.limit = options.limit;
         this.breadcrumb = options.breadcrumb ?? true;
+        this.embedBlockID = options.embedBlockID;
+        this.columns = options.columns ?? 1;
+        this.zoom = options.zoom ?? 1;
         this.render();
     }
 
     private async render() {
         const frag = document.createDocumentFragment();
 
-        // Create array of promises for all block content requests
-        const promises = this.blocks.map(b =>
-            request('/api/block/getBlockDOM', { id: b.id })
-        );
+        const embeds = await request("/api/search/getEmbedBlock", {
+            embedBlockID: this.embedBlockID,
+            includeIDs: this.blocks.map(b => b.id),
+            headingMode: 0,
+            breadcrumb: this.breadcrumb
+        });
+        // console.info(embeds);
 
-        const results = await Promise.all(promises);
+        if (!embeds.blocks || embeds.blocks.length === 0) {
+            errorMessage(this.element, 'Failed to get embed blocks, check console for details');
+            return;
+        }
 
-        results.forEach((content, index) => {
-            const div = document.createElement('div');
-            div.className = 'embed-container';
-            Object.assign(div.style, {
-                'margin-top': results.length > 1 ? '0' : 'initial',
-                'margin-bottom': results.length > 1 ? '0' : 'initial',
-            });
-            div.dataset.nodeId = this.blocks[index].id;
-            div.innerHTML = content.dom;
-            div.firstElementChild.classList.add('embed-node');
+        embeds.blocks.forEach(embed => {
+            // Create temporary container to parse HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = embed.block.content;
 
-            // 添加一个面包屑
-            if (this.breadcrumb) {
-                const breadcrumb = this.newBreadcrumb(this.blocks[index] as IWrappedBlock);
-                div.prepend(breadcrumb);
+            // Apply limit if needed
+            if (this.limit && tempDiv.childNodes.length > this.limit) {
+                Array.from(tempDiv.children).forEach(child => {
+                    //@ts-ignore
+                    const nodeIndex = parseInt(child.dataset.nodeIndex);
+                    if (nodeIndex > this.limit) {
+                        child.remove();
+                    }
+                });
+                const moreSvgSymbol = 'iconMore';
+                const svg = `<svg class="popover__block" data-id="${embed.block.id}"><use xlink:href="#${moreSvgSymbol}"></use></svg>`;
+                const more = document.createElement('div');
+                more.innerHTML = svg;
+                more.className = 'embed-more-svg';
+                tempDiv.appendChild(more);
             }
 
-            // 右上方添加一个跳转的角标
+            // Create final container and append processed content
+            const container = document.createElement('div');
+            container.className = 'embed-container';
+            container.dataset.nodeId = embed.block.id;
+            container.append(...tempDiv.childNodes);
+
+            // Add jump icon
+            const jumpSvgSymbol = 'iconFocus';
             const jumpIcon = document.createElement('a');
             jumpIcon.className = 'embed-jump-icon';
-            jumpIcon.innerHTML = '🔗';
-            jumpIcon.href = `siyuan://blocks/${this.blocks[index].id}`;
-            div.appendChild(jumpIcon);
+            jumpIcon.innerHTML = `<svg class="popover__block" data-id="${embed.block.id}"><use xlink:href="#${jumpSvgSymbol}"></use></svg>`;
+            jumpIcon.href = `siyuan://blocks/${embed.block.id}`;
+            container.appendChild(jumpIcon);
 
-            if (this.limit) {
-                // TODO 仅仅保留前 limit 个节点
+            if (this.breadcrumb && embed.blockPaths?.length > 0) {
+                const breadcrumb = this.newBreadcrumb(embed.blockPaths[0].id, embed.blockPaths[0].name);
+                container.insertBefore(breadcrumb, container.firstChild);
             }
-            frag.appendChild(div);
+
+            frag.appendChild(container);
         });
         frag.querySelectorAll('[contenteditable]').forEach(el => {
             el.setAttribute('contenteditable', 'false');
         });
 
         this.element.appendChild(frag);
+        if (this.columns > 1) {
+            //grid 布局, 双列
+            // this.element.style.display = 'grid';
+            // this.element.style.gridTemplateColumns = `repeat(${this.columns}, 1fr)`;
+            // this.element.style.gap = '0px';
+            //多列瀑布流
+            this.element.style.columnCount = this.columns.toString();
+            this.element.style.columnGap = '0px';
+        }
+        this.element.style.zoom = `${this.zoom}`;
     }
 
-    private newBreadcrumb(block: IWrappedBlock) {
-        const box = block.attr?.('box') ?? ''
-        const template = `<span class="protyle-breadcrumb__item" data-id="${block.id}">
-    <svg class="popover__block" data-id="${block.id}"><use xlink:href="#iconFile"></use></svg>
-    <span class="protyle-breadcrumb__text" title="${box}${block.hpath}">${box}${block.hpath}</span>
-</span>`;
+    private newBreadcrumb(id: BlockId, path: string) {
+        const template = `
+        <div contenteditable="false" class="protyle-breadcrumb__bar protyle-breadcrumb__bar--nowrap"><span class="protyle-breadcrumb__item protyle-breadcrumb__item--active" data-id="${id}">
+    <svg class="popover__block" data-id="${id}"><use xlink:href="#iconFile"></use></svg>
+            <span class="protyle-breadcrumb__text" title="${path}">${path}</span>
+        </span></div>
+        `
         const div = document.createElement('div');
         Object.assign(div.style, {
             'font-size': '0.85rem',

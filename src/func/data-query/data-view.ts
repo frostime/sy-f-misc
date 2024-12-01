@@ -489,11 +489,17 @@ export class DataView {
      * Embeds blocks into the DataView
      * @param blocks - Single Block or array of Blocks to embed
      * @param options - Configuration options
-     * @param options.breadcrumb - Whether to show breadcrumb navigation
+     * @param {boolean} options.breadcrumb - Whether to show breadcrumb navigation
+     * @param {number} options.limit - Maximum number of blocks to embed
+     * @param {number} options.columns - Number of columns to display
+     * @param {number} options.zoom - Zoom factor, from 0 to 1
      * @returns HTMLElement containing the embedded blocks
      */
     embed(blocks: Block[] | Block, options: {
         breadcrumb?: boolean;
+        limit?: number;
+        columns?: number;
+        zoom?: number;
     }) {
         const container = newDivWrapper();
 
@@ -501,7 +507,11 @@ export class DataView {
             blocks = [blocks];
         }
 
-        new BlockNodes({ target: container, blocks, breadcrumb: options?.breadcrumb });
+        new BlockNodes({
+            target: container, blocks,
+            embedBlockID: this.EMBED_BLOCK_ID,
+            ...options
+        });
         return container;
     }
 
