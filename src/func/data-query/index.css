@@ -1,3 +1,7 @@
+.js-query-data-view {
+    margin: 5px auto;
+}
+
 .embed-container[data-node-id] {
     border: 1px solid var(--b3-border-color);
     padding: 0.5em;

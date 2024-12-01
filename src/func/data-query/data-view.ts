@@ -34,8 +34,8 @@ function hasParentWithClass(element: HTMLElement, className: string) {
     return false;
 }
 
-const newDivWrapper = () => {
-    let div = document.createElement("div");
+const newDivWrapper = (tag: string = 'div') => {
+    let div = document.createElement(tag);
     div.style.overflowX = "auto";
     div.className = "js-query-data-view";
     div.style.paddingLeft = "0.5em";
@@ -199,6 +199,7 @@ export class DataView {
         this.EMBED_BLOCK_ID = embedNode.dataset.nodeId;
 
         this.register(this.markdown, { aliases: ['md'] });
+        this.register(this.details, { aliases: ['Details', 'Detail'] });
         this.register(this.list, { aliases: ['BlockList'] });
         this.register(this.table);
         this.register(this.blockTable);
@@ -287,6 +288,16 @@ export class DataView {
         let elem = newDivWrapper();
         elem.innerHTML = this.lute.Md2BlockDOM(md);
         return elem;
+    }
+
+    details(summary: string, content: string | HTMLElement) {
+        const details: HTMLDetailsElement = newDivWrapper('details') as HTMLDetailsElement;
+        details.innerHTML = `<summary>${summary}</summary>${typeof content === 'string' ? content : ''}`;
+        if (content instanceof HTMLElement) {
+            details.appendChild(content);
+        }
+        details.open = true;
+        return details;
     }
 
     /**
@@ -533,20 +544,13 @@ export class DataView {
     } = {}) {
         const container = newDivWrapper();
 
-        if (container.style.height === '' && container.style.minHeight === '') {
-            container.style.height = options.height ?? '300px';
-        }
-        if (container.style.width === '' && container.style.maxWidth === '') {
-            container.style.width = options.width ?? '100%';
-        }
-
         const DEFAULT_COLOR = [getCSSVar('--b3-theme-primary'), '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
         echartOption.color = echartOption.color ?? DEFAULT_COLOR;
 
         const echarts = new Echarts({
             target: container,
             option: echartOption,
-            events: options.events  // 传递事件配置到 Echarts 类
+            ...options
         });
         this.disposers.push(() => echarts.dispose());
 

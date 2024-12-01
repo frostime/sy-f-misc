@@ -633,6 +633,8 @@ class EmbedNodes {
 
 class Echarts {
     element: HTMLElement;
+    width: string;
+    height: string;
     option: any;
     chart: any;
     private eventHandlers: Map<string, (params: any) => void> = new Map();
@@ -640,11 +642,15 @@ class Echarts {
     constructor(options: {
         target: HTMLElement,
         option: any,
+        width?: string,
+        height?: string,
         events?: {
             [eventName: string]: (params: any) => void;
         }
     }) {
         this.element = options.target;
+        this.width = options.width;
+        this.height = options.height;
         this.option = options.option;
 
         // 保存事件处理器
@@ -665,11 +671,29 @@ class Echarts {
 
     private async render() {
         try {
-            // Initialize chart with dark mode support
+            // 确保容器有足够的高度和宽度
+            if (!this.element.style.height) {
+                this.element.style.height = this.height ?? '300px';  // 设置默认高度
+            }
+            if (!this.element.style.width) {
+                this.element.style.width = this.width ?? '100%';    // 设置默认宽度
+            }
+            this.element.style.padding = '0px';
+            this.element.style.overflow = 'hidden';
+
+            // 初始化图表
             this.chart = window.echarts.init(
                 this.element,
                 window.siyuan.config.appearance.mode === 1 ? "dark" : undefined
             );
+
+            // 设置默认grid配置，确保图表有适当的边距
+            if (!this.option.grid) {
+                this.option.grid = {
+                    containLabel: true // 确保刻度标签在容器内
+                };
+            }
+
             this.chart.setOption(this.option);
 
             // 绑定事件

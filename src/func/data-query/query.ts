@@ -92,71 +92,73 @@ const Query = {
     Utils: {
         /**
          * Gets the timestamp for the start of today
+         * @param {boolean} hms - Whether to include time, e.g today(false) returns 20241201, today(true) returns 20241201000000
          * @returns Timestamp string in yyyyMMddHHmmss format
          */
-        today: () => formatDateTime('yyyyMMddHHmmss', beginOfDay(new Date())),
+        today: (hms: boolean = true) => formatDateTime('yyyyMMdd' + (hms ? 'HHmmss' : ''), beginOfDay(new Date())),
 
         /**
          * Gets the timestamp for the start of current week
+         * @param {boolean} hms - Whether to include time, e.g thisWeek(false) returns 20241201, thisWeek(true) returns 20241201000000
          * @returns Timestamp string in yyyyMMddHHmmss format
          */
-        thisWeek: () => {
+        thisWeek: (hms: boolean = true) => {
             let date = beginOfDay(new Date());
             date.setDate(date.getDate() - date.getDay());
-            return formatDateTime('yyyyMMddHHmmss', date);
+            return formatDateTime('yyyyMMdd' + (hms ? 'HHmmss' : ''), date);
         },
 
         /**
          * Gets the timestamp for the start of next week
          * @returns Timestamp string in yyyyMMddHHmmss format
          */
-        nextWeek: () => {
+        nextWeek: (hms: boolean = true) => {
             let date = beginOfDay(new Date());
             date.setDate(date.getDate() + 7 - date.getDay());
-            return formatDateTime('yyyyMMddHHmmss', date);
+            return formatDateTime('yyyyMMdd' + (hms ? 'HHmmss' : ''), date);
         },
 
         /**
          * Gets the timestamp for the start of current month
          * @returns Timestamp string in yyyyMMddHHmmss format
          */
-        thisMonth: () => {
+        thisMonth: (hms: boolean = true) => {
             let date = beginOfDay(new Date());
             date.setDate(1);
-            return formatDateTime('yyyyMMddHHmmss', date);
+            return formatDateTime('yyyyMMdd' + (hms ? 'HHmmss' : ''), date);
         },
 
         /**
          * Gets the timestamp for the start of next month
          * @returns Timestamp string in yyyyMMddHHmmss format
          */
-        nextMonth: () => {
+        nextMonth: (hms: boolean = true) => {
             let date = beginOfDay(new Date());
             date.setMonth(date.getMonth() + 1);
             date.setDate(1);
-            return formatDateTime('yyyyMMddHHmmss', date);
+            return formatDateTime('yyyyMMdd' + (hms ? 'HHmmss' : ''), date);
         },
 
         /**
          * Gets the timestamp for the start of current year
          * @returns Timestamp string in yyyyMMddHHmmss format
          */
-        thisYear: () => {
+        thisYear: (hms: boolean = true) => {
             let date = beginOfDay(new Date());
             date.setMonth(0);
             date.setDate(1);
-            return formatDateTime('yyyyMMddHHmmss', date);
+            return formatDateTime('yyyyMMdd' + (hms ? 'HHmmss' : ''), date);
         },
 
         /**
          * Gets the timestamp for the end of current year
          * @returns Timestamp string in yyyyMMddHHmmss format
          */
-        nextYear: () => {
+        nextYear: (hms: boolean = true) => {
             let date = beginOfDay(new Date());
             date.setMonth(11);
             date.setDate(31);
-            return formatDateTime('yyyyMMddHHmmss', date);
+            return formatDateTime('yyyyMMdd' + (hms ? 'HHmmss' : ''), date);
         },
 
         /**
@@ -164,10 +166,10 @@ const Query = {
          * @param days - Number of days to offset (positive or negative)
          * @returns Timestamp string in yyyyMMddHHmmss format
          */
-        now: (days?: number) => {
+        now: (days?: number, hms: boolean = true) => {
             let date = beginOfDay(new Date());
             date.setDate(date.getDate() + (days ?? 0));
-            return formatDateTime('yyyyMMddHHmmss', date);
+            return formatDateTime('yyyyMMdd' + (hms ? 'HHmmss' : ''), date);
         },
 
         /**
