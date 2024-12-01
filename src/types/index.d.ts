@@ -118,6 +118,7 @@ declare interface Window {
     Lute: any;
     fmisc: FMiscPlugin;
     mermaid: any;
+    echarts: any;
 }
 
 interface IPluginProtyleSlash {

@@ -200,6 +200,8 @@ class Mermaid {
     private direction: 'TD' | 'LR';
     private lute: Lute;
 
+    private disposeCb: (() => void)[] = [];
+
     private DEFAULT_RENDERER = (b: Block | string) => {
         if (typeof b === 'string') {
             return oneline(b);
@@ -435,6 +437,10 @@ class Mermaid {
                 node.classList.add('mindmap-node-siyuan');  //绑定了某个思源块的节点
             });
 
+            this.disposeCb.push(() => {
+                this.element.removeEventListener('mouseover', debouncedHandler);
+                this.element.removeEventListener('click', clickHandler);
+            });
 
         } else if (this.type === 'flowchart') {
             // 添加悬浮事件
@@ -455,6 +461,9 @@ class Mermaid {
             }
             const debouncedHandler = debounce(handler, 750);
             this.element.addEventListener('mouseover', debouncedHandler);
+            this.disposeCb.push(() => {
+                this.element.removeEventListener('mouseover', debouncedHandler);
+            });
         }
     }
 
@@ -490,6 +499,11 @@ class Mermaid {
             config.theme = "dark";
         }
         window.mermaid.initialize(config);
+    }
+
+    dispose() {
+        this.disposeCb.forEach(cb => cb());
+        this.disposeCb = [];
     }
 }
 
@@ -550,13 +564,6 @@ class EmbedNodes {
             el.setAttribute('contenteditable', 'false');
         });
 
-        // const div = document.createElement('div');
-        // div.className = 'render-node';
-        // div.dataset.type = 'NodeBlockQueryEmbed';
-        // div.dataset.nodeId = "";
-        // Object.assign(div.style, {
-        //     'margin': '0.25em 0.5em'
-        // });
         this.element.appendChild(frag);
     }
 
@@ -575,11 +582,132 @@ class EmbedNodes {
     }
 }
 
+class Echarts {
+    element: HTMLElement;
+    option: any;
+    chart: any;
+    private eventHandlers: Map<string, (params: any) => void> = new Map();
+
+    constructor(options: {
+        target: HTMLElement,
+        option: any,
+        events?: {
+            [eventName: string]: (params: any) => void;
+        }
+    }) {
+        this.element = options.target;
+        this.option = options.option;
+
+        // 保存事件处理器
+        if (options.events) {
+            Object.entries(options.events).forEach(([event, handler]) => {
+                this.eventHandlers.set(event, handler);
+            });
+        }
+
+        this.checkEcharts().then((flag) => {
+            if (flag) {
+                this.render();
+            } else {
+                errorMessage(this.element, 'Failed to initialize echarts.');
+            }
+        });
+    }
+
+    private async render() {
+        try {
+            // Initialize chart with dark mode support
+            this.chart = window.echarts.init(
+                this.element,
+                window.siyuan.config.appearance.mode === 1 ? "dark" : undefined
+            );
+            this.chart.setOption(this.option);
+
+            // 绑定事件
+            this.eventHandlers.forEach((handler, event) => {
+                this.chart.on(event, handler);
+            });
+
+            // Handle window resize
+            const resizeHandler = () => this.chart?.resize();
+            window.addEventListener('resize', resizeHandler);
+
+            this.dispose = () => {
+                console.debug('Echarts dispose');
+                // 解绑所有事件
+                this.eventHandlers.forEach((handler, event) => {
+                    this.chart?.off(event, handler);
+                });
+                this.eventHandlers.clear();
+
+                window.removeEventListener('resize', resizeHandler);
+                this.chart?.dispose();
+            }
+
+        } catch (e) {
+            console.error('Echarts render error:', e);
+            errorMessage(this.element, 'Failed to render echarts, check console for details');
+        }
+    }
+
+    private async checkEcharts() {
+        if (window.echarts) return true;
+
+        const CDN = Constants.PROTYLE_CDN;
+        console.debug('Initializing echarts...');
+
+        // Load main echarts library
+        const flag = await addScript(
+            `${CDN}/js/echarts/echarts.min.js`,
+            "protyleEchartsScript"
+        );
+        if (!flag) return false;
+
+        // Optionally load GL extension
+        await addScript(
+            `${CDN}/js/echarts/echarts-gl.min.js`,
+            "protyleEchartsGLScript"
+        );
+        return true;
+    }
+
+    // Public method to update chart options
+    updateOption(newOption: any, notMerge: boolean = false) {
+        if (this.chart) {
+            this.chart.setOption(newOption, notMerge);
+        }
+    }
+
+    // Public method to resize chart
+    resize() {
+        this.chart?.resize();
+    }
+
+    // 添加事件
+    on(eventName: string, handler: (params: any) => void) {
+        this.eventHandlers.set(eventName, handler);
+        this.chart?.on(eventName, handler);
+    }
+
+    // 移除事件
+    off(eventName: string) {
+        const handler = this.eventHandlers.get(eventName);
+        if (handler) {
+            this.chart?.off(eventName, handler);
+            this.eventHandlers.delete(eventName);
+        }
+    }
+
+    // Public method to dispose chart
+    dispose = () => { }
+}
+
 export {
     List,
     Table,
     BlockTable,
     Mermaid,
     EmbedNodes as BlockNodes,
-    renderAttr
+    renderAttr,
+    Echarts
 }
