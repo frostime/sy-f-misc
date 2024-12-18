@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 16:11:07
  * @FilePath     : /src/func/websocket/ws-manager.ts
- * @LastEditTime : 2024-07-10 18:15:33
+ * @LastEditTime : 2024-12-16 22:19:23
  * @Description  : 
  */
 import { Plugin } from 'siyuan';
 
-interface IWsHandler<T = any> {
-    method: string;
-    payload: T;
+interface IMessage {
+    command: string;
+    body: string | Record<string, any>;
 }
 
 interface IWsConfig {
@@ -62,23 +62,15 @@ export default class WebSocketManager {
         this.url = `${prefix}/broadcast?channel=${this.plugin.name}`;
     }
 
-    private parseRequest(msg: string) {
+    private parseRequest(msg: string): IMessage | null {
         try {
             // Check if msg matches the format [[method]][[payload]]
-            const match = msg.match(/^\[\[(.+?)\]\]\[\[(.+?)\]\]$/);
-            if (!match) {
+            const data = JSON.parse(msg);
+            if (!data) {
                 return null;
             }
 
-            const [, method, payload] = match;
-
-            // Construct the data object
-            const data: IWsHandler<any> = {
-                method: method,
-                payload: payload
-            };
-
-            if (data.method && data.payload !== undefined) {
+            if (data.command && data.body !== undefined) {
                 return data;
             }
         } catch (error) {
@@ -133,13 +125,13 @@ export default class WebSocketManager {
         console.error('[WebSocket] error:', error);
     }
 
-    private handleMessage<T>(message: IWsHandler<T>) {
-        console.log(`[WebSocket] handler: ${JSON.stringify(message)}`);
-        const handler = this.messageHandlers[message.method];
+    private handleMessage(message: IMessage) {
+        console.log(`[WebSocket] handler: ${message}`);
+        const handler = this.messageHandlers[message.command];
         if (handler) {
-            handler(message.payload);
+            handler(message.body);
         } else {
-            console.warn(`[WebSocket] no handler found for method: ${message.method}`);
+            console.warn(`[WebSocket] no handler found for method: ${message.command}`);
         }
     }
 

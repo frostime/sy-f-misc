@@ -130,7 +130,9 @@ export const load = async (plugin: FMiscPlugin) => {
     enabled = true;
 
     //检查 body class 中是否有 body--window
-    if (document.body.classList.contains('body--window')) {
+    const body = document.body;
+    if (body.classList.contains('body--window')) {
+        console.warn(`F-Misc::WebSocket 不在 SiYuan mini windows 中运行.`);
         return;
     }
 

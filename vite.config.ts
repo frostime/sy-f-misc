@@ -63,7 +63,8 @@ export default defineConfig({
         sourcemap: isWatch ? 'inline' : false,
         // minify: true,
         // sourcemap: false,
-        minify: !isWatch,
+        // minify: !isWatch,
+        minify: false,
 
         lib: {
             entry: resolve(__dirname, "src/index.ts"),
