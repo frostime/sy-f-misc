@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
- * @LastEditTime : 2024-07-18 17:07:13
+ * @LastEditTime : 2024-12-19 14:45:31
  * @Description  : 
  */
 import { getBlockByID, listDocTree } from "@/api";
-import { simpleDialog } from "@/libs/dialog";
+import { simpleDialog } from "@frostime/siyuan-plugin-kits";
 
 
 export const request = async (host: string, port: number, token: string, endpoint: string, payload?: any, type: 'json' | 'form' = 'json') => {

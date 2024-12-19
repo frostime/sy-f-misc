@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-08-14 22:13:04
  * @FilePath     : /src/func/migrate-refs/index.ts
- * @LastEditTime : 2024-10-20 17:54:29
+ * @LastEditTime : 2024-12-19 14:37:58
  * @Description  : 
  */
-import { type EventMenu, type IGetDocInfo, type IProtyle } from "siyuan";
+import { subMenu, type IGetDocInfo, type IProtyle } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { getBlockByID, sql } from "@/api";
 import { solidDialog } from "@/libs/dialog";
@@ -23,7 +23,7 @@ const searchRefs = async (id: BlockId) => {
 }
 
 const clickDocIcon = async (event: CustomEvent<{
-    menu: EventMenu,
+    menu: subMenu,
     protyle: IProtyle,
     data: IGetDocInfo,
 }>) => {

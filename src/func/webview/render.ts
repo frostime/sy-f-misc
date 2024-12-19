@@ -146,16 +146,16 @@ export const renderView = (context: { element: Element, data: IWebApp, controlle
         const title = params.titleText || params.linkText || params.altText || params.suggestedFilename;
 
         // 添加右键菜单
-        const items: siyuan.IMenuItemOption[] = [];
+        const items: siyuan.IMenu[] = [];
 
-        function buildOpenMenuItems(url: string, title: string, action: string, current: boolean = true): siyuan.IMenuItemOption[] {
-            const items: siyuan.IMenuItemOption[] = [];
+        function buildOpenMenuItems(url: string, title: string, action: string, current: boolean = true): siyuan.IMenu[] {
+            const items: siyuan.IMenu[] = [];
 
             return items;
         }
 
-        function buildCopyMenuItems(params: ElectronParams): siyuan.IMenuItemOption[] {
-            const items: siyuan.IMenuItemOption[] = [];
+        function buildCopyMenuItems(params: ElectronParams): siyuan.IMenu[] {
+            const items: siyuan.IMenu[] = [];
 
             /* 复制链接地址 */
             if (params.linkURL) {
@@ -499,7 +499,7 @@ export const renderView = (context: { element: Element, data: IWebApp, controlle
         items.push({ type: "separator" });
         items.push(...buildCopyMenuItems(params));
 
-        function washMenuItems(items: siyuan.IMenuItemOption[]): siyuan.IMenuItemOption[] {
+        function washMenuItems(items: siyuan.IMenu[]): siyuan.IMenu[] {
             /* 清理首尾两端的分割线 */
             items = items.slice(
                 items.findIndex(item => item.type !== "separator"),

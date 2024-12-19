@@ -3,16 +3,16 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2024-10-20 17:07:05
+ * @LastEditTime : 2024-12-19 01:43:34
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 import WebSocketManager from "./ws-manager";
 import { appendBlock, request } from "@/api";
-import { formatDate } from "@/utils/time";
+import { formatSiYuanDate } from "@frostime/siyuan-plugin-kits";
 
 import { openTab, openWindow } from "siyuan";
-import { html2ele } from "@/utils";
+import { html2ele } from "@frostime/siyuan-plugin-kits";
 
 
 /**
@@ -83,7 +83,7 @@ const appendDnList = async (text: string) => {
 
 
 const appendDnH2 = async (title: string) => {
-    let date = formatDate();
+    let date = formatSiYuanDate(new Date());
     const attr = `custom-dailynote-${date}`;
     const boxLife = '20220305173526-4yjl33h';
     let docs: Block[] = await globalThis.Query.attr(attr, date);

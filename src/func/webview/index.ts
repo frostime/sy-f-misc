@@ -1,6 +1,16 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-08-14 22:02:49
+ * @FilePath     : /src/func/webview/index.ts
+ * @LastEditTime : 2024-12-19 14:39:57
+ * @Description  : 
+ */
 import type FMiscPlugin from "@/index";
-import { openCustomTab } from "@/libs/open-tab";
 import { IMenuBaseDetail } from "siyuan";
+
+import { openCustomTab } from "@frostime/siyuan-plugin-kits";
+
 import { renderView } from "./render";
 import { IWebApp } from "./utils/types";
 
@@ -46,8 +56,8 @@ const openUrlTab = (e: CustomEvent<IMenuBaseDetail>) => {
     let uri = encodeURI(dataHref);
 
     const open = () => {
-        openCustomTab(plugin_, {
-            id: "webview" + uri,
+        openCustomTab({
+            tabId: "webview" + uri,
             render: (container: HTMLElement) => {
                 destroy = renderView({
                     element: container,
@@ -58,7 +68,8 @@ const openUrlTab = (e: CustomEvent<IMenuBaseDetail>) => {
             },
             destroyCb: () => {
                 destroy();
-            }
+            },
+            plugin: plugin_
         });
     };
 

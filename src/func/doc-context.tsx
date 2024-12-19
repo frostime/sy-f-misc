@@ -3,16 +3,16 @@
  * @Author       : frostime
  * @Date         : 2024-06-10 14:55:35
  * @FilePath     : /src/func/doc-context.tsx
- * @LastEditTime : 2024-11-17 20:23:38
+ * @LastEditTime : 2024-12-19 14:44:43
  * @Description  : 
  */
 import { createSignal, For, JSXElement, onMount, Show } from 'solid-js';
 import { render } from 'solid-js/web';
-import { type Dialog, openTab, showMessage, IProtyle, confirm } from "siyuan";
+import { simpleDialog } from "@frostime/siyuan-plugin-kits";
 
-import { simpleDialog } from "@/libs/dialog";
+import { type Dialog, openTab, showMessage, confirm } from "siyuan";
 import { createDocWithMd, getBlockByID, listDocsByPath, request } from "@/api";
-import { getActiveDoc, getNotebook } from "@/utils";
+import { getActiveDoc, getNotebook } from '@frostime/siyuan-plugin-kits';
 import type FMiscPlugin from '..';
 
 
@@ -124,6 +124,7 @@ const OutlineComponent = (props: { docId: string, dialog: Dialog }) => {
 
     // 转换数据结构，保留层级关系
     const iterate = (data) => {
+        if (!data) return [];
         return data.map(item => ({
             depth: item.depth,
             name: item.name || item.content,
@@ -336,7 +337,7 @@ export const load = (plugin: FMiscPlugin) => {
 
             let element = document.createElement('div');
             element.style.display = 'contents';
-            let dialog = simpleDialog({
+            const { dialog } = simpleDialog({
                 title: I18n.name,
                 ele: element,
                 width: "1000px",

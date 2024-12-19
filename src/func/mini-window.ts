@@ -17,7 +17,7 @@
  */
 // import type FMiscPlugin from '@/index';
 import { openWindow } from "siyuan";
-import { updateStyleDom } from "@/utils/style";
+import { updateStyleDom } from "@frostime/siyuan-plugin-kits";
 
 
 export const declareToggleEnabled = {

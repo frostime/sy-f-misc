@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-11-29 21:57:32
+ * @LastEditTime : 2024-12-18 22:58:30
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -12,7 +12,7 @@ import { toggleEnable, ModulesAlwaysEnable, ModulesToEnable } from '@/func';
 
 import Settings from "@/settings/settings";
 import { solidDialog } from '@/libs/dialog';
-import { debounce } from '@/utils';
+import { debounce } from '@frostime/siyuan-plugin-kits';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
 /*

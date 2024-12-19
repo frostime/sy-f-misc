@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2024-10-20 17:29:57
+ * @LastEditTime : 2024-12-19 14:21:04
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -43,7 +43,9 @@ export const load = async (plugin: FMiscPlugin) => {
     globalThis.toggl = togglAPI;
 
     plugin.eb.on('on-topbar-menu', topbar);
-    toggleAutoFetch(store.config.dnAutoFetch);
+    if (store.config.token) {
+        toggleAutoFetch(store.config.dnAutoFetch);
+    }
 }
 
 export const unload = (plugin: FMiscPlugin) => {

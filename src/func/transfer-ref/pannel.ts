@@ -2,8 +2,8 @@ import { showMessage } from "siyuan";
 
 import type FMiscPlugin from "@/index";
 import * as api from '@/api';
-import { getChildDocs, getNotebook, isnot } from "@/utils";
-import { BlockTypeShort } from "@/utils/const";
+import { getNotebook } from "@frostime/siyuan-plugin-kits";
+import { BlockTypeShort } from "@frostime/siyuan-plugin-kits";
 
 export class TransferRefsComponent {
     private plugin: FMiscPlugin;
@@ -239,4 +239,24 @@ export class TransferRefsComponent {
 
         this.element = container;
     }
+}
+
+function isnot(value: any) {
+    if (value === undefined || value === null) {
+        return true;
+    } else if (value === false) {
+        return true;
+    } else if (typeof value === 'string' && value.trim() === '') {
+        return true;
+    } else if (value?.length === 0) {
+        return true;
+    }
+    return false;
+}
+
+async function getChildDocs(block: BlockId, limit = 64) {
+    let sqlCode = `select * from blocks where path regexp '.*/${block}/[0-9a-z\-]+\.sy' and type='d'
+    order by hpath desc limit ${limit};`;
+    let childDocs = await api.sql(sqlCode);
+    return childDocs;
 }

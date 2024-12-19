@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 15:53:33
  * @FilePath     : /src/func/toggl/utils/dailynote.ts
- * @LastEditTime : 2024-08-27 17:29:31
+ * @LastEditTime : 2024-12-19 00:54:49
  * @Description  : 
  */
 import { formatDate } from "./time";
 import { sql, request } from "@/api";
 import * as store from '../store';
-import { getPlugin } from "@/utils";
+import { findPlugin } from "@frostime/siyuan-plugin-kits";
 
 
 const queryDailynoteToday = async () => {
@@ -31,7 +31,7 @@ export const checkDailynoteToday = async () => {
     if (dn) return dn.id;
 
     let url = '/api/filetree/createDailyNote';
-    let app = getPlugin().app;
+    let app = findPlugin('sy-f-misc').app;
     let ans = await request(url, { notebook: store.config.dailynoteBox, app: app?.appId });
     let docId = ans.id;
     return docId;
