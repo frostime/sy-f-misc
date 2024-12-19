@@ -6,7 +6,7 @@
  * @LastEditTime : 2024-08-04 16:42:36
  * @Description  : 
  */
-import { ITabModel, openTab, type Plugin } from "siyuan";
+import { Custom, openTab, type Plugin } from "siyuan";
 export const openCustomTab = (plugin: Plugin, args: {
     id: string,
     render: (container: HTMLElement) => void,
@@ -15,8 +15,8 @@ export const openCustomTab = (plugin: Plugin, args: {
 }) => {
     plugin.addTab({
         'type': args.id,
-        init(this: ITabModel) {
-            args.render(this.element);
+        init(this: Custom) {
+            args.render(this.element as HTMLElement);
         },
         beforeDestroy() {
             args.destroyCb();

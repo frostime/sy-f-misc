@@ -1,7 +1,8 @@
 import { Protyle, Dialog, showMessage, openTab } from "siyuan";
 import type FMiscPlugin from "@/index";
-import { html2ele } from "@/utils";
-import { updateStyleDom, removeStyleDom } from "@/utils/style";
+
+import { html2ele } from "@frostime/siyuan-plugin-kits";
+import { updateStyleDom, removeStyleDom } from "@frostime/siyuan-plugin-kits";
 // import * as api from '../api';
 
 export const selectIconDialog = () => {

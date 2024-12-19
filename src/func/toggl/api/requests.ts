@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 11:21:28
  * @FilePath     : /src/func/toggl/api/requests.ts
- * @LastEditTime : 2024-10-09 16:03:24
+ * @LastEditTime : 2024-12-19 14:17:15
  * @Description  : 
  */
 // requests.ts
@@ -41,13 +41,16 @@ const request_ = async <T>(url: string, options: RequestOptions): Promise<Respon
         payloads['body'] = options.body ? JSON.stringify(options.body) : undefined;
     }
 
-    const response = await fetch(finalUrl, payloads);
-
-    const ok = response.ok;
-    const status = response.status;
-    const data = ok ? await response.json() : {};
-
-    return { ok, status, data };
+    try {
+        const response = await fetch(finalUrl, payloads);
+        const ok = response.ok;
+        const status = response.status;
+        const data = ok ? await response.json() : {};
+        return { ok, status, data };
+    } catch (error) {
+        console.error(error);
+        return { ok: false, status: 500, data: { error: 'Internal Server Error' } as T }
+    }
 };
 
 const request = async <T>(...args: Parameters<typeof request_>): Promise<ResponseData<T>> => {

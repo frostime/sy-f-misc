@@ -1,4 +1,4 @@
-import { debounce } from "@/utils";
+import { debounce } from "@frostime/siyuan-plugin-kits";
 import { type Plugin } from "siyuan";
 import { createMemo, createSignal } from "solid-js";
 import { createStore, unwrap } from 'solid-js/store'
@@ -65,6 +65,8 @@ const load = async (plugin: Plugin) => {
             if (data.ok) {
                 setMe(data.data);
             }
+        }).catch((error) => {
+            console.error('Failed to get me:', error);
         }); //初始化的时候，获取当前的用户
     }
 }

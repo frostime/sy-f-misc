@@ -1,10 +1,10 @@
-import { Component, createEffect, createMemo, For, onMount } from "solid-js";
-import { createStore } from "solid-js/store";
+import { Component, createMemo, For, onMount } from "solid-js";
 import Table from "@/libs/components/Table";
 import { SimpleContextProvider, useSimpleContext } from "@/libs/simple-context";
 
-import { BlockTypeShort } from "@/utils/const";
-import { getNotebook } from "@/utils";
+// import { BlockTypeShort } from "@/utils/const";
+// import { getNotebook } from "@/utils";
+import { getNotebook, BlockTypeShort } from "@frostime/siyuan-plugin-kits";
 
 import { FormInput, FormWrap } from "@/libs/components/Form";
 import { createSignalRef } from "@frostime/solid-signal-ref";

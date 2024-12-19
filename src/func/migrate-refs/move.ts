@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-11 21:04:03
  * @FilePath     : /src/func/migrate-refs/move.ts
- * @LastEditTime : 2024-11-03 22:17:45
+ * @LastEditTime : 2024-12-19 01:37:29
  * @Description  : 
  */
 
@@ -13,7 +13,8 @@ import {
     listDocsByPath, getIDsByHPath, sql,
     getBlockByID
 } from "@/api";
-import { createDiary, getPastDNHPath, searchDailynote } from "@/libs/dailynote";
+import { getPastDNHPath } from "@/libs/dailynote";
+import { createDiary, searchDailynote } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 
 

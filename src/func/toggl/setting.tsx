@@ -1,6 +1,14 @@
 /*
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
+ * @Date         : 2024-10-10 20:33:25
+ * @FilePath     : /src/func/toggl/setting.tsx
+ * @LastEditTime : 2024-12-19 14:23:16
+ * @Description  : 
+ */
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
  * @LastEditTime : 2024-10-09 15:56:46
@@ -21,7 +29,7 @@ import { createSignal, onCleanup, Show } from "solid-js";
 // import type FMiscPlugin from "@/index";
 // import { User } from "./api/types";
 import { getMe } from "./api/me";
-import { getPlugin } from "@/utils";
+import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 const DisplayRecord = (props: { record: Record<string, any> }) => {
     return (
@@ -68,7 +76,8 @@ const TogglSetting = () => {
 
     const { checkText, updateAboutMe, tobeCheck } = useAboutMe();
 
-    const plugin = getPlugin();
+    // const plugin = getPlugin();
+    const plugin = thisPlugin();
 
     onCleanup(() => {
         save(plugin);

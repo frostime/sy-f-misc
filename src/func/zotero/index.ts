@@ -3,13 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2024-10-20 17:06:14
+ * @LastEditTime : 2024-12-19 01:21:44
  * @Description  : 
  */
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { addProcessor, delProcessor } from "@/global-paste";
-import { ILute } from "@/utils/lute";
 
 import { ZoteroDBModal } from "./zoteroModal";
 
@@ -138,7 +137,7 @@ export const load = (plugin: FMiscPlugin) => {
             if (keys.length === 1) {
 
                 let html = parseNoteHtml(data[keys[0]], plugin.getConfig('Misc', 'zoteroDir'));
-                let lute: ILute = window.Lute.New();
+                let lute = window.Lute.New();
                 let md = lute.HTML2Md(html);
                 // md = `我是 $\\alpha$ 河梁哦`
                 md = md.replaceAll(SPECIAL_CHAR_DOLLAR, '$');

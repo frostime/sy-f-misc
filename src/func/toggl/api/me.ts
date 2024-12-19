@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 11:22:44
  * @FilePath     : /src/func/toggl/api/me.ts
- * @LastEditTime : 2024-10-09 15:54:52
+ * @LastEditTime : 2024-12-19 14:24:54
  * @Description  : 
  */
 // me.ts
@@ -16,6 +16,7 @@ const BASE_URL = 'https://api.track.toggl.com/api/v9/me';
 const url = (route?: string) => `${BASE_URL}${route ? `/${route}` : ''}`;
 
 export const getMe = async (with_related_data?: boolean) => {
+    with_related_data = with_related_data ?? false;
     return request<User>(BASE_URL, { method: 'GET', body: { with_related_data: with_related_data } });
 };
 
