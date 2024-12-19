@@ -1,5 +1,4 @@
-// import { createSignal } from "solid-js";
-// import { render } from "solid-js/web";
+import { JSX } from "solid-js";
 
 const Enter = (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -12,7 +11,7 @@ interface IProps {
     update: (v: string) => void;
     type?: 'line' | 'area';
     fontSize?: string;
-    styles?: {[key: string]: string | number | boolean}
+    styles?: JSX.CSSProperties;
 }
 
 const TextInput = (props: IProps) => {

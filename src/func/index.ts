@@ -27,6 +27,7 @@ import * as wb from './webview';
 import * as tg from './toggl';
 import * as mr from './migrate-refs';
 import * as css from './custom-css-file';
+import * as gpt from './gpt';
 
 // import * as bookmark from './bookmarks';
 
@@ -70,7 +71,8 @@ export const ModulesAlwaysEnable = [
     dc,
     wb,
     tg,
-    css
+    css,
+    gpt
 ]
 
 //`Enable${module.name}`: module
