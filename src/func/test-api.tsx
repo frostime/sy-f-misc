@@ -83,7 +83,7 @@ function openPanel() {
     plugin.addTab({
         'type': id,
         init() {
-            this.element.style.display = 'flex';
+            (this.element as HTMLElement).style.display = 'flex';
             disposer = render(Panel, this.element);
         },
         destroy() {

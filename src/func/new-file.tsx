@@ -1,9 +1,10 @@
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { upload } from "@/api";
-import { confirmDialog } from "@/libs/dialog";
+import { confirmDialog } from "@frostime/siyuan-plugin-kits";
 import { FormInput } from '@/libs/components/Form';
 import { render } from "solid-js/web";
+import { onMount } from "solid-js";
 
 export const declareToggleEnabled = {
     title: '📄 New file',
@@ -127,9 +128,20 @@ const NewFileApp = (props: { updated: (v) => void }) => {
         return acc;
     }, {} as { [key: string]: string });
 
+    let ref: HTMLDivElement;
+
+    onMount(() => {
+        const input = ref?.querySelector('input');
+        if (input) {
+            setTimeout(() => {
+                input.focus();
+            }, 100);
+        }
+    });
+
     return (
         <div class="fn__flex" style="gap: 5px;">
-            <div class="fn__flex">
+            <div class="fn__flex" ref={ref}>
                 <FormInput
                     type='textinput'
                     key='fname'

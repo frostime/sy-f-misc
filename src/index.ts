@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-12-19 01:31:43
+ * @LastEditTime : 2024-12-19 15:10:47
  * @Description  : 
  */
 import {
-    IMenuItemOption,
+    IMenu,
     Menu,
     Plugin,
     getFrontend,
@@ -29,9 +29,7 @@ import { updateStyleDom, registerPlugin } from "@frostime/siyuan-plugin-kits";
 // import type {} from "solid-styled-jsx";
 import { request, getFile } from "./api";
 
-import DeviceStorage from "./libs/device-storage";
-// import { simpleDialog } from "./libs/dialog";
-import inputDialog from "./libs/input-dialog";
+import { useLocalDeviceStorage, inputDialog } from "@frostime/siyuan-plugin-kits";
 
 const electron = require('electron');
 
@@ -65,7 +63,7 @@ export default class FMiscPlugin extends Plugin {
 
     eb: EventBusSync;
 
-    deviceStorage: Awaited<ReturnType<typeof DeviceStorage>>;
+    deviceStorage: Awaited<ReturnType<typeof useLocalDeviceStorage>>;
 
     async onload() {
         registerPlugin(this);
@@ -231,7 +229,7 @@ export default class FMiscPlugin extends Plugin {
         }
         this.data[StorageNameConfigs] = currentData;
         //读入 zoteroDir 进行覆盖
-        this.deviceStorage = await DeviceStorage(this);
+        this.deviceStorage = await useLocalDeviceStorage(this);
         let zoteroDir = this.deviceStorage.get('zoteroDir');
         let codeEditor = this.deviceStorage.get('codeEditor');
         if (zoteroDir) {
@@ -259,7 +257,7 @@ export default class FMiscPlugin extends Plugin {
     private initTopBar() {
         const showMenu = () => {
             let menu = new Menu("f-misc-topbar");
-            let menuItems: IMenuItemOption[] = [
+            let menuItems: IMenu[] = [
                 // {
                 //     label: '垂直标签页',
                 //     icon: 'iconVertical',

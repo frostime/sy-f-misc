@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-07-17 11:55:32
  * @FilePath     : /src/func/post-doc/index.ts
- * @LastEditTime : 2024-07-18 15:20:50
+ * @LastEditTime : 2024-12-19 14:59:51
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 
 import { post } from "./core";
-import { type EventMenu, type IGetDocInfo, type IProtyle } from "siyuan";
+import { subMenu, type IGetDocInfo, type IProtyle } from "siyuan";
 
 import SelectTarget from "./select-target";
 
@@ -50,11 +50,11 @@ const postDoc = async (srcDoc: {
 
 
 
-    const dialog = solidDialog({
+    const { close } = solidDialog({
         title: '推送目标',
         loader: () => SelectTarget({
             confirm: doPost,
-            close: () => dialog.destroy(),
+            close: () => close(),
             history: history?.target,
             recursive: history?.src?.recursive ?? false
         }),
@@ -63,7 +63,7 @@ const postDoc = async (srcDoc: {
 }
 
 const clickDocIcon = async (event: CustomEvent<{
-    menu: EventMenu,
+    menu: subMenu,
     protyle: IProtyle,
     data: IGetDocInfo,
 }>) => {
