@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-12-19 15:10:47
+ * @LastEditTime : 2024-12-19 15:17:30
  * @Description  : 
  */
 import {
@@ -159,34 +159,6 @@ export default class FMiscPlugin extends Plugin {
                 });
             }
         });
-
-        this.eventBus.on("click-blockicon", ({ detail }) => {
-            if (detail.blockElements.length > 1) {
-                return;
-            }
-            let ele: HTMLDivElement = detail.blockElements[0] as HTMLDivElement;
-            let type = ele.getAttribute("data-type");
-
-            let menu = detail.menu;
-            if (type === 'NodeBlockQueryEmbed') {
-                menu.addItem({
-                    icon: 'iconMarkdown',
-                    label: "显示为模板",
-                    click: async () => {
-                        let dataContent = ele.getAttribute("data-content");
-                        //换行符全部替换为 `_esc_newline_`
-                        dataContent = dataContent.replace(/\n/g, '_esc_newline_');
-                        inputDialog({
-                            title: "显示为模板",
-                            defaultText: `{{${dataContent}}}`,
-                            type: 'textarea',
-                            width: '900px',
-                            height: '300px'
-                        });
-                    }
-                });
-            }
-        });
     }
 
     /**
@@ -258,20 +230,6 @@ export default class FMiscPlugin extends Plugin {
         const showMenu = () => {
             let menu = new Menu("f-misc-topbar");
             let menuItems: IMenu[] = [
-                // {
-                //     label: '垂直标签页',
-                //     icon: 'iconVertical',
-                //     iconClass: StatusFlag.IsTabbarVertical ? 'highlight-icon' : '',
-                //     click: () => {
-                //         if (!StatusFlag.IsTabbarVertical) {
-                //             updateStyleLink('f-misc-vertical-title', Href.Style_Vertical_Tabbar);
-                //             StatusFlag.IsTabbarVertical = true;
-                //         } else {
-                //             removeDomById('f-misc-vertical-title');
-                //             StatusFlag.IsTabbarVertical = false;
-                //         }
-                //     }
-                // },
                 {
                     label: '打开目录',
                     icon: 'iconFolder',
