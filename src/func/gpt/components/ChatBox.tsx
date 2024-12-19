@@ -5,15 +5,74 @@ import styles from './ChatBox.module.scss';
 
 import { gpt } from '../gpt';
 
-interface Message {
+interface IMessage {
     role: 'user' | 'assistant';
     content: string;
 }
 
+const lute = window.Lute.New();
+
+
+const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props) => {
+
+    const message = () => {
+        if (props.markdown) {
+            let html = lute.Md2HTML(props.message.content);
+            return html;
+        }
+        return props.message.content;
+    }
+
+    // #iconAccount
+    const IconUser = () => (
+        <svg>
+            <use href="#iconAccount" />
+        </svg>
+    );
+
+    const IconAssistant = () => (
+        <svg>
+            <use href="#iconGithub" />
+        </svg>
+    );
+
+    const copyMessage = () => {
+        navigator.clipboard.writeText(props.message.content);
+    };
+
+    return (
+        <div class={styles.messageWrapper}>
+            {props.message.role === 'user' ? (
+                <div class={styles.icon}><IconUser /></div>
+            ) : (
+                <div class={styles.icon}><IconAssistant /></div>
+            )}
+            <div class={styles.messageContainer}>
+                <div
+                    class={`${styles.message} ${styles[props.message.role]} b3-typography`}
+                    innerHTML={message()}
+                />
+                <div class={styles.toolbar}>
+                    <button
+                        class={`${styles.toolbarButton} b3-button b3-button--text`}
+                        onClick={copyMessage}
+                        title="复制"
+                    >
+                        <svg><use href="#iconCopy" /></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+
 const ChatSession: Component = () => {
     const input = useSignalRef<string>('');
-    const messages = useSignalRef<Message[]>([]);
+    const messages = useSignalRef<IMessage[]>([]);
     const loading = useSignalRef<boolean>(false);
+
+    const streamingReply = useSignalRef<string>('');
 
     let textareaRef: HTMLTextAreaElement;
 
@@ -29,14 +88,19 @@ const ChatSession: Component = () => {
         try {
             // 这里替换为实际的 API 调用
             const reply = await gpt(userMessage, {
-                returnRaw: false
+                returnRaw: false,
+                stream: true,
+                streamInterval: 2,
+                streamMsg(msg) {
+                    streamingReply(msg);
+                },
             });
-
             messages.update(prev => [...prev, { role: 'assistant', content: reply }]);
         } catch (error) {
             console.error('Error:', error);
         } finally {
             loading.update(false);
+            streamingReply('');
         }
     };
 
@@ -61,12 +125,15 @@ const ChatSession: Component = () => {
             <div class={styles.messageList}>
                 <For each={messages()}>
                     {(message) => (
-                        <div class={`${styles.message} ${styles[message.role]}`}>
-                            {message.content}
-                        </div>
+                        <MessageItem message={message} markdown={true} />
                     )}
                 </For>
-                {loading() && <div class={styles.loading}>正在思考...</div>}
+                {loading() && (
+                    <>
+                        <div class={styles.loading}>正在思考...</div>
+                        <MessageItem message={{ role: 'assistant', content: streamingReply() }} />
+                    </>
+                )}
             </div>
 
             <form class={styles.inputForm} onSubmit={sendMessage}>
@@ -85,7 +152,7 @@ const ChatSession: Component = () => {
                     }}
                 />
                 <button type="submit" class={`${styles.sendButton} b3-button`} disabled={loading()}>
-                    发送
+                    🚀
                 </button>
             </form>
         </div>
@@ -96,7 +163,7 @@ const ChatSession: Component = () => {
             "display": "flex",
             "justify-content": "center",
             "width": "100%",
-            "height": "95%"
+            "height": "100%"
         }}>
             <ChatContainer />
         </div>

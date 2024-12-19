@@ -1,30 +1,35 @@
 :root {
-    --chat-bg-color: var(--b3-theme-background);
+    --chat-bg-color: var(--b3-theme-surface);
+
     --chat-user-bg: var(--b3-theme-primary-lightest);
     --chat-assistant-bg: var(--b3-theme-primary-lightest);
-    --chat-input-bg: var(--b3-theme-surface);
+
+    --chat-input-bg: var(--b3-theme-background);
 
     --chat-text-color: var(--b3-theme-on-surface);
-
     --chat-border-color: var(--b3-theme-border);
 
-    --chat-font-size: 18px;
+    --chat-input-font-size: 18px;
+    --chat-message-zoom: 0.85; //缩放一下，让字体看起来更小
     --chat-max-width: 1250px;
 }
 
 .chatContainer {
     width: 100%;
-    // min-height: 400px;
     height: 100%;
     max-width: var(--chat-max-width);
     flex: 1;
     margin: 0 auto;
-    // padding: 20px 0;
+    padding: 0 min(20px, 4%);
+    padding-bottom: min(20px, 5%);
+
     background: var(--chat-bg-color);
 
     display: flex;
     flex-direction: column;
     align-self: center;
+
+    overflow-x: auto;
 }
 
 .messageList {
@@ -34,24 +39,90 @@
     margin-bottom: 20px;
 }
 
-.message {
+.messageWrapper {
+    display: flex;
+    align-items: flex-start;
     margin: 10px 0;
-    padding: 12px;
-    border-radius: 8px;
-    max-width: 80%;
-    word-wrap: break-word;
-    font-size: var(--chat-font-size);
+    transform: scale(var(--chat-message-zoom));
+    transform-origin: top left;
 
-    &.user {
-        background: var(--chat-user-bg);
-        margin-left: auto;
+    &:has(.user) {
+        flex-direction: row-reverse;
+        transform-origin: top right;
+
+        .messageContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
     }
 
-    &.assistant {
-        background: var(--chat-assistant-bg);
-        margin-right: auto;
+    .icon {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        margin: 0 8px;
+
+        svg {
+            width: 100%;
+            height: 100%;
+            fill: var(--b3-theme-on-surface);
+            opacity: 0.6;
+        }
+    }
+
+    .message {
+        margin: 0;
+        padding: 12px;
+        border-radius: 8px;
+        max-width: 80%;
+        word-wrap: break-word;
+
+        user-select: text;
+
+        &.user {
+            background: var(--chat-user-bg);
+        }
+
+        &.assistant {
+            background: var(--chat-assistant-bg);
+        }
     }
 }
+
+.messageContainer {
+    position: relative;
+    flex: 1;
+
+    &:hover {
+        .toolbar {
+            opacity: 1;
+        }
+    }
+
+    .toolbar {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+
+        padding: 2px;
+        display: flex;
+        gap: 4px;
+    }
+
+    .toolbarButton {
+        padding: 4px;
+        height: 24px;
+        width: 24px;
+
+        svg {
+            height: 14px;
+            width: 14px;
+            fill: currentColor;
+        }
+    }
+}
+
+
 
 .inputForm {
     position: sticky;
@@ -65,11 +136,11 @@
         flex: 1;
         padding: 10px;
         padding-right: 100px;
-        border: 1px solid var(--chat-border-color);
+        border: 2px solid var(--b3-theme-primary);
         border-radius: 4px;
         background: var(--chat-input-bg);
-        font-size: var(--chat-font-size);
-        min-height: 40px;
+        font-size: var(--chat-input-font-size);
+        min-height: 50px;
         max-height: 200px;
         overflow-y: auto;
         color: var(--chat-text-color);
@@ -85,25 +156,23 @@
     position: absolute;
     right: 10px;
     bottom: 10px;
-    width: 80px;
+    width: 50px;
     height: 32px;
-    padding: 0;
+
+    font-size: var(--chat-input-font-size);
+
     background: var(--b3-theme-primary-light);
-    color: var(--b3-theme-on-primary);
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    opacity: 0.8;
 
     &:disabled {
         background: var(--b3-theme-surface);
+        opacity: 0.5;
         cursor: not-allowed;
     }
 
     &:hover:not(:disabled) {
         background: var(--b3-theme-primary-light);
+        opacity: 1;
     }
 }
 
