@@ -42,6 +42,9 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
             <div class={styles.messageContainer}>
                 <div
                     class={`${styles.message} ${styles[props.message.role]} b3-typography`}
+                    style={{
+                        'white-space': 'pre-wrap'
+                    }}
                     innerHTML={message()}
                 />
                 <div class={styles.toolbar}>

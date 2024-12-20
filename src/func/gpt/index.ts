@@ -2,10 +2,10 @@ import type FMiscPlugin from "@/index";
 
 import { openCustomTab } from "@frostime/siyuan-plugin-kits";
 
-import { solidDialog } from "@/libs/dialog";
+// import { solidDialog } from "@/libs/dialog";
 import { render } from "solid-js/web";
 
-import ChatBox from "./components/ChatBox";
+import ChatBox from "./components/ChatSession";
 import { translateHotkey } from "@/libs/hotkey";
 
 export let name = "GPT";
@@ -21,10 +21,11 @@ const openChatBox = () => {
     openCustomTab({
         tabId: 'gpt-chat' + new Date().getTime(),
         render: (container: HTMLElement) => {
-            // container.style.display = 'flex';
-            // container.style.flexDirection = 'column';
-            // container.style.height = '100%';
             render(() => ChatBox({}), container);
+            let tabContainer: HTMLElement = container.closest('[data-id]');
+            if (tabContainer) {
+                tabContainer.style.overflowY = 'clip';
+            }
         },
         destroyCb: () => {},
         title: `和 ${apiModel} 对话`,

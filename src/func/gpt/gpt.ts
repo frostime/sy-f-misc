@@ -5,20 +5,18 @@
  * @param options.url - Custom API URL
  * @param options.model - Custom API model
  * @param options.apiKey - Custom API key
- * @param options.returnRaw - Whether to return raw response (default: false)
- * @param options.history - Chat history
+ * @param options.returnRaw - Whether to return raw response (default: false)history
  * @param options.stream - Whether to use streaming mode, default: false
  * @param options.streamMsg - Callback function for streaming messages, only works when options.stream is true
  * @param options.streamInterval - Interval for calling options.streamMsg on each chunk, default: 1
  * @returns GPT response
  */
-export const complete = async (prompt: string, options?: {
+export const complete = async (input: string | IMessage[], options?: {
     url?: string,
     model?: string,
     apiKey?: string,
     systemPrompt?: string,
     returnRaw?: boolean,
-    history?: { role: 'user' | 'assistant', content: string }[],
     stream?: boolean,
     streamMsg?: (msg: string) => void,
     streamInterval?: number
@@ -33,19 +31,21 @@ export const complete = async (prompt: string, options?: {
         url = `${apiBaseURL.endsWith('/') ? apiBaseURL : apiBaseURL + '/'}chat/completions`;
     }
 
-    let messages = [{
-        "role": "user",
-        "content": prompt
-    }];
+    let messages: IMessage[] = [];
+    if (typeof input === 'string') {
+        messages = [{
+            "role": "user",
+            "content": input
+        }];
+    } else {
+        messages = [...input];
+    }
 
     if (options?.systemPrompt) {
         messages.unshift({
             "role": "system",
             "content": options.systemPrompt
         });
-    }
-    if (options?.history) {
-        messages = [...messages, ...options.history];
     }
 
     const payload = {
