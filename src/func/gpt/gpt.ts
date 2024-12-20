@@ -12,7 +12,7 @@
  * @param options.streamInterval - Interval for calling options.streamMsg on each chunk, default: 1
  * @returns GPT response
  */
-export const gpt = async (prompt: string, options?: {
+export const complete = async (prompt: string, options?: {
     url?: string,
     model?: string,
     apiKey?: string,
@@ -37,6 +37,7 @@ export const gpt = async (prompt: string, options?: {
         "role": "user",
         "content": prompt
     }];
+
     if (options?.systemPrompt) {
         messages.unshift({
             "role": "system",

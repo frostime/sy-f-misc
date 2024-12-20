@@ -1,69 +1,14 @@
-import { Component, For } from 'solid-js';
+import { Component, For, onMount } from 'solid-js';
 import { useSignalRef } from '@frostime/solid-signal-ref';
 
+import MessageItem from './MessageItem';
 import styles from './ChatBox.module.scss';
 
-import { gpt } from '../gpt';
-
-interface IMessage {
-    role: 'user' | 'assistant';
-    content: string;
-}
-
-const lute = window.Lute.New();
+import * as gpt from '../gpt';
 
 
-const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props) => {
-
-    const message = () => {
-        if (props.markdown) {
-            let html = lute.Md2HTML(props.message.content);
-            return html;
-        }
-        return props.message.content;
-    }
-
-    // #iconAccount
-    const IconUser = () => (
-        <svg>
-            <use href="#iconAccount" />
-        </svg>
-    );
-
-    const IconAssistant = () => (
-        <svg>
-            <use href="#iconGithub" />
-        </svg>
-    );
-
-    const copyMessage = () => {
-        navigator.clipboard.writeText(props.message.content);
-    };
-
-    return (
-        <div class={styles.messageWrapper}>
-            {props.message.role === 'user' ? (
-                <div class={styles.icon}><IconUser /></div>
-            ) : (
-                <div class={styles.icon}><IconAssistant /></div>
-            )}
-            <div class={styles.messageContainer}>
-                <div
-                    class={`${styles.message} ${styles[props.message.role]} b3-typography`}
-                    innerHTML={message()}
-                />
-                <div class={styles.toolbar}>
-                    <button
-                        class={`${styles.toolbarButton} b3-button b3-button--text`}
-                        onClick={copyMessage}
-                        title="复制"
-                    >
-                        <svg><use href="#iconCopy" /></svg>
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
+const useSessionMessages = () => {
+    
 }
 
 
@@ -75,6 +20,25 @@ const ChatSession: Component = () => {
     const streamingReply = useSignalRef<string>('');
 
     let textareaRef: HTMLTextAreaElement;
+    let messageListRef: HTMLDivElement;
+
+    const scrollToBottom = () => {
+        if (messageListRef) {
+            messageListRef.scrollTop = messageListRef.scrollHeight;
+        }
+    };
+
+    const adjustTextareaHeight = () => {
+        const textarea = textareaRef;
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+    };
+
+
+    onMount(() => {
+        adjustTextareaHeight();
+        textareaRef?.focus();
+    });
 
     const sendMessage = async (e: Event) => {
         e.preventDefault();
@@ -82,20 +46,23 @@ const ChatSession: Component = () => {
         if (!userMessage) return;
 
         messages.update(prev => [...prev, { role: 'user', content: userMessage }]);
+        scrollToBottom();
         input.update('');
         loading.update(true);
+        adjustTextareaHeight();
 
         try {
-            // 这里替换为实际的 API 调用
-            const reply = await gpt(userMessage, {
+            const reply = await gpt.complete(userMessage, {
                 returnRaw: false,
                 stream: true,
                 streamInterval: 2,
                 streamMsg(msg) {
                     streamingReply(msg);
+                    scrollToBottom();
                 },
             });
             messages.update(prev => [...prev, { role: 'assistant', content: reply }]);
+            scrollToBottom();
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -114,15 +81,9 @@ const ChatSession: Component = () => {
         }
     }
 
-    const adjustTextareaHeight = (e: Event) => {
-        const textarea = textareaRef;
-        textarea.style.height = 'auto';
-        textarea.style.height = `${textarea.scrollHeight}px`;
-    };
-
     const ChatContainer = () => (
         <div class={styles.chatContainer}>
-            <div class={styles.messageList}>
+            <div class={styles.messageList} ref={messageListRef}>
                 <For each={messages()}>
                     {(message) => (
                         <MessageItem message={message} markdown={true} />
@@ -136,13 +97,13 @@ const ChatSession: Component = () => {
                 )}
             </div>
 
-            <form class={styles.inputForm} onSubmit={sendMessage}>
+            <form class={styles.inputContainer} onSubmit={sendMessage}>
                 <textarea
                     ref={textareaRef}
                     value={input()}
                     onInput={(e) => {
                         input.update(e.currentTarget.value);
-                        adjustTextareaHeight(e);
+                        adjustTextareaHeight();
                     }}
                     placeholder="输入消息..."
                     class={`${styles.input}`}
