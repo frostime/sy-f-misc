@@ -1,6 +1,7 @@
 import { createMemo, For, JSX } from "solid-js";
 
-interface IProps extends ISettingItemCore {
+interface IProps extends Partial<ISettingItemCore> {
+    key?: string;
     changed?: (v?: any) => void;
     style?: JSX.CSSProperties;
     fn_size?: boolean;
@@ -82,6 +83,9 @@ export default function FormInput(props: IProps) {
                     onInput={(e) => {
                         changed(e.currentTarget.value);
                     }}
+                    min={props.number?.min}
+                    max={props.number?.max}
+                    step={props.number?.step}
                 />
             );
         } else if (props.type === "button") {

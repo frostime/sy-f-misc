@@ -1,26 +1,15 @@
-export const defaultProvider = (): IGPTProvider => {
-    let { apiBaseURL, apiModel, apiKey } = window.siyuan.config.ai.openAI;
-    let url = `${apiBaseURL.endsWith('/') ? apiBaseURL : apiBaseURL + '/'}chat/completions`;
-    return {
-        id: 'default',
-        url,
-        model: apiModel,
-        apiKey: apiKey
-    }
-}
-
+import { useModel } from "./setting/store";
 
 export const complete = async (input: string | IMessage[], options?: {
-    provider?: IGPTProvider,
+    model?: IGPTModel,
     systemPrompt?: string,
     returnRaw?: boolean,
     stream?: boolean,
     streamMsg?: (msg: string) => void,
-    streamInterval?: number
+    streamInterval?: number,
+    option?: IChatOption
 }) => {
-    let provider = options?.provider ?? defaultProvider();
-
-    let { url, model, apiKey } = provider;
+    let { url, model, apiKey } = options?.model ?? useModel('siyuan')();
 
     let messages: IMessage[] = [];
     if (typeof input === 'string') {
@@ -42,7 +31,8 @@ export const complete = async (input: string | IMessage[], options?: {
     const payload = {
         "model": model,
         "messages": messages,
-        "stream": options?.stream ?? false
+        "stream": options?.stream ?? false,
+        ...(options?.option ?? {})
     };
 
     try {

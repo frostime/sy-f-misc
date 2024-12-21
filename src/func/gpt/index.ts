@@ -7,6 +7,7 @@ import { render } from "solid-js/web";
 
 import ChatBox from "./components/ChatSession";
 import { translateHotkey } from "@/libs/hotkey";
+import * as setting from "./setting";
 
 export let name = "GPT";
 export let enabled = false;
@@ -15,6 +16,13 @@ export const declareToggleEnabled = {
     description: '使用GPT进行对话',
     defaultEnabled: false
 };
+export const declareSettingPanel = [
+    {
+        key: 'GPT',
+        title: '🤖 GPT',
+        element: setting.ChatSessionDefaultSetting
+    }
+]
 
 const openChatBox = () => {
     let { apiModel } = window.siyuan.config.ai.openAI;
@@ -53,7 +61,8 @@ export const load = (plugin: FMiscPlugin) => {
         callback: () => {
             openChatBox();
         }
-    })
+    });
+    setting.load(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {

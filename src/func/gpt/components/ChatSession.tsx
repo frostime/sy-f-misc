@@ -1,16 +1,20 @@
 import { Component, For, Match, onMount, Switch } from 'solid-js';
-import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
 import styles from './ChatSession.module.scss';
 
 import * as gpt from '../gpt';
+import { defaultConfig, useModel } from '../setting/store';
+import { solidDialog } from '@/libs/dialog';
+import { ChatSessionSetting } from '../setting';
 
 /**
  * 
  */
 const useSessionMessages = (props: {
-    config: ISignalRef<IChatSessionConfig>;
+    model: IStoreRef<IGPTModel>;
+    config: IStoreRef<IChatSessionConfig>;
 }) => {
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
     const loading = useSignalRef<boolean>(false);
@@ -90,7 +94,7 @@ const useSessionMessages = (props: {
 
         try {
             const reply = await gpt.complete(getAttachedHistory(), {
-                provider: props.config().provider,
+                model: props.model(),
                 returnRaw: false,
                 stream: true,
                 streamInterval: 2,
@@ -129,15 +133,12 @@ const Seperator = (props: { title: string }) => (
 );
 
 const ChatSession: Component = () => {
-    const provider = gpt.defaultProvider();
-    const config = useSignalRef<IChatSessionConfig>({
-        provider: provider,
-        attachedHistory: 4
-    });
+    const model = useModel('siyuan');
+    const config = useStoreRef<IChatSessionConfig>({...defaultConfig()});
 
 
     const input = useSignalRef<string>('');
-    const { messages, loading, streamingReply, sendMessage, toggleClearContext } = useSessionMessages({ config });
+    const { messages, loading, streamingReply, sendMessage, toggleClearContext } = useSessionMessages({ model, config });
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -178,6 +179,17 @@ const ChatSession: Component = () => {
         }
     }
 
+    const openSetting = () => {
+        solidDialog({
+            title: '当前对话设置',
+            loader: () => {
+                return <ChatSessionSetting config={config} onClose={() => { }} />
+            },
+            width: '600px',
+            height: '500px'
+        })
+    }
+
     const ChatContainer = () => (
         <div class={styles.chatContainer}>
             <div class={styles.messageList} ref={messageListRef}>
@@ -208,9 +220,12 @@ const ChatSession: Component = () => {
                     <button class="b3-button b3-button--outline" onClick={toggleClearContext} >
                         🧹
                     </button>
+                    <button class="b3-button b3-button--outline" onClick={openSetting}>
+                        ⚙️
+                    </button>
                     <div style={{flex: 1}}></div>
                     <span>附带消息: {config().attachedHistory}</span>
-                    <span>{config().provider.model}</span>
+                    <span>{model().model}</span>
                 </div>
                 <textarea
                     ref={textareaRef}

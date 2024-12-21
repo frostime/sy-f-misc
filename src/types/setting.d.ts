@@ -22,6 +22,11 @@ interface ISettingItemCore {
     button?: {
         label: string;
         callback: () => void;
+    };
+    number: {
+        min?: number;
+        max?: number;
+        step?: number;
     }
 }
 
