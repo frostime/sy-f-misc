@@ -8,6 +8,7 @@ export const complete = async (input: string | IMessage[], options?: {
     streamMsg?: (msg: string) => void,
     streamInterval?: number,
     option?: IChatOption
+    abortControler?: AbortController
 }) => {
     let { url, model, apiKey } = options?.model ?? useModel('siyuan')();
 
@@ -36,6 +37,9 @@ export const complete = async (input: string | IMessage[], options?: {
     };
 
     try {
+        // const controller = new AbortController();
+        // const signal = controller.signal;
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -44,8 +48,11 @@ export const complete = async (input: string | IMessage[], options?: {
                 'Accept': 'text/event-stream'
             },
             body: JSON.stringify(payload),
-            // signal: AbortSignal.timeout(options?.timeout ?? 1000 * 12)
+            signal: options?.abortControler?.signal // 添加 signal 以支持中断
         });
+
+        // 在需要中断请求时调用
+        // controller.abort();
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -95,7 +102,7 @@ export const complete = async (input: string | IMessage[], options?: {
                 }
             } catch (error) {
                 console.error('Stream reading error:', error);
-                throw error;
+                return fullText + '\n' + `[Error] Failed to request openai api, ${error}`;
             } finally {
                 reader.releaseLock();
             }

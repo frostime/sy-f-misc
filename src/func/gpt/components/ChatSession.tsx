@@ -98,6 +98,9 @@ const useSessionMessages = (props: {
         }
     }
 
+
+    let controller: AbortController;
+
     const sendMessage = async (userMessage: string) => {
         if (!userMessage.trim()) return;
 
@@ -107,6 +110,7 @@ const useSessionMessages = (props: {
         props.scrollToBottom();
 
         try {
+            controller = new AbortController();
             const reply = await gpt.complete(getAttachedHistory(), {
                 model: props.model(),
                 systemPrompt: systemPrompt().trim() || undefined,
@@ -116,7 +120,8 @@ const useSessionMessages = (props: {
                 streamMsg(msg) {
                     streamingReply.update(msg);
                     props.scrollToBottom();
-                }
+                },
+                abortControler: controller
             });
             appendAssistantMsg(reply);
             props.scrollToBottom();
@@ -125,6 +130,13 @@ const useSessionMessages = (props: {
         } finally {
             loading.update(false);
             streamingReply.update('');
+            controller = null;
+        }
+    }
+
+    const abortMessage = () => {
+        if (loading()) {
+            controller && controller.abort();
         }
     }
 
@@ -134,12 +146,14 @@ const useSessionMessages = (props: {
         loading,
         streamingReply,
         sendMessage,
+        abortMessage,
         toggleClearContext: () => {
             if (endWithSeperator()) {
                 removeSeperator();
             } else {
                 appendSeperator();
             }
+            props.scrollToBottom();
         }
     }
 }
@@ -293,6 +307,13 @@ const ChatSession: Component = (props: {
 
             <section class={styles.inputContainer} onSubmit={handleSubmit}>
                 <div class={styles.toolbar}>
+                    <Show when={session.loading()}>
+                        <button class="b3-button b3-button--outline" onClick={session.abortMessage} >
+                            <svg>
+                                <use href="#iconPause" />
+                            </svg>
+                        </button>
+                    </Show>
                     <button class="b3-button b3-button--outline" onClick={session.toggleClearContext} >
                         🧹
                     </button>
