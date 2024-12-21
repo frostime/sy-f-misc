@@ -1,35 +1,26 @@
-/**
- * Send GPT request, use AI configuration in `siyuan.config.ai.openAI` by default
- * @param prompt - Prompt
- * @param options - Options
- * @param options.url - Custom API URL
- * @param options.model - Custom API model
- * @param options.apiKey - Custom API key
- * @param options.returnRaw - Whether to return raw response (default: false)history
- * @param options.stream - Whether to use streaming mode, default: false
- * @param options.streamMsg - Callback function for streaming messages, only works when options.stream is true
- * @param options.streamInterval - Interval for calling options.streamMsg on each chunk, default: 1
- * @returns GPT response
- */
+export const defaultProvider = (): IGPTProvider => {
+    let { apiBaseURL, apiModel, apiKey } = window.siyuan.config.ai.openAI;
+    let url = `${apiBaseURL.endsWith('/') ? apiBaseURL : apiBaseURL + '/'}chat/completions`;
+    return {
+        id: 'default',
+        url,
+        model: apiModel,
+        apiKey: apiKey
+    }
+}
+
+
 export const complete = async (input: string | IMessage[], options?: {
-    url?: string,
-    model?: string,
-    apiKey?: string,
+    provider?: IGPTProvider,
     systemPrompt?: string,
     returnRaw?: boolean,
     stream?: boolean,
     streamMsg?: (msg: string) => void,
     streamInterval?: number
 }) => {
-    let { apiBaseURL, apiModel, apiKey } = window.siyuan.config.ai.openAI;
-    apiModel = options?.model ?? apiModel;
-    apiKey = options?.apiKey ?? apiKey;
-    let url;
-    if (options?.url) {
-        url = options.url;
-    } else {
-        url = `${apiBaseURL.endsWith('/') ? apiBaseURL : apiBaseURL + '/'}chat/completions`;
-    }
+    let provider = options?.provider ?? defaultProvider();
+
+    let { url, model, apiKey } = provider;
 
     let messages: IMessage[] = [];
     if (typeof input === 'string') {
@@ -49,7 +40,7 @@ export const complete = async (input: string | IMessage[], options?: {
     }
 
     const payload = {
-        "model": apiModel,
+        "model": model,
         "messages": messages,
         "stream": options?.stream ?? false
     };

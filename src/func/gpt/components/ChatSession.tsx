@@ -20,6 +20,11 @@ const useSessionMessages = (props: {
         return window.Lute.NewNodeID();
     }
 
+    const endWithSeperator = () => {
+        if (messages().length === 0) return false;
+        return messages()[messages().length - 1].type === 'seperator';
+    }
+
     const appendUserMsg = (msg: string) => {
         messages.update(prev => [...prev, {
             type: 'message',
@@ -42,11 +47,22 @@ const useSessionMessages = (props: {
         }]);
     }
 
-    const appendSeperatorMsg = () => {
+    const appendSeperator = () => {
+        if (messages().length === 0) return;
+        const last = messages()[messages().length - 1];
+        if (last.type === 'seperator') return;
         messages.update(prev => [...prev, {
             type: 'seperator',
             id: newID()
         }]);
+    }
+
+    const removeSeperator = () => {
+        if (messages().length === 0) return;
+        const last = messages()[messages().length - 1];
+        if (last.type === 'seperator') {
+            messages.update(prev => prev.slice(0, -1));
+        }
     }
 
     const getAttachedHistory = () => {
@@ -74,6 +90,7 @@ const useSessionMessages = (props: {
 
         try {
             const reply = await gpt.complete(getAttachedHistory(), {
+                provider: props.config().provider,
                 returnRaw: false,
                 stream: true,
                 streamInterval: 2,
@@ -95,7 +112,13 @@ const useSessionMessages = (props: {
         loading,
         streamingReply,
         sendMessage,
-        appendSeperatorMsg
+        toggleClearContext: () => {
+            if (endWithSeperator()) {
+                removeSeperator();
+            } else {
+                appendSeperator();
+            }
+        }
     }
 }
 
@@ -106,13 +129,15 @@ const Seperator = (props: { title: string }) => (
 );
 
 const ChatSession: Component = () => {
+    const provider = gpt.defaultProvider();
     const config = useSignalRef<IChatSessionConfig>({
-        provider: null,
-        attachedHistory: 3
+        provider: provider,
+        attachedHistory: 4
     });
 
+
     const input = useSignalRef<string>('');
-    const { messages, loading, streamingReply, sendMessage } = useSessionMessages({ config });
+    const { messages, loading, streamingReply, sendMessage, toggleClearContext } = useSessionMessages({ config });
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -179,6 +204,14 @@ const ChatSession: Component = () => {
             </div>
 
             <section class={styles.inputContainer} onSubmit={handleSubmit}>
+                <div class={styles.toolbar}>
+                    <button class="b3-button b3-button--outline" onClick={toggleClearContext} >
+                        🧹
+                    </button>
+                    <div style={{flex: 1}}></div>
+                    <span>附带消息: {config().attachedHistory}</span>
+                    <span>{config().provider.model}</span>
+                </div>
                 <textarea
                     ref={textareaRef}
                     value={input()}

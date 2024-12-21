@@ -39,6 +39,22 @@
     margin-bottom: 20px;
 }
 
+.toolbar {
+    position: absolute;
+    top: -25px;
+    width: 100%;
+
+    padding: 0 2px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    gap: 10px;
+
+    background-color: var(--chat-bg-color);
+    border-bottom: 1px solid var(--chat-border-color);
+}
 
 .inputContainer {
     position: sticky;
@@ -52,7 +68,7 @@
         flex: 1;
         padding: 10px;
         padding-right: 100px;
-        border: 2px solid var(--b3-theme-primary);
+        border: 2px solid var(--b3-theme-primary-light);
         border-radius: 4px;
         background: var(--chat-input-bg);
         font-size: var(--chat-input-font-size);
@@ -63,7 +79,7 @@
 
         &:focus {
             outline: none;
-            border-color: var(--b3-theme-primary-light);
+            border-color: var(--b3-theme-primary);
         }
     }
 }
@@ -78,17 +94,16 @@
     font-family: var(--b3-font-family-protyle), inherit;
     font-size: var(--chat-input-font-size);
 
-    background: var(--b3-theme-primary-light);
-    opacity: 0.8;
+    background: var(--b3-theme-primary);
+    opacity: 0.9;
 
     &:disabled {
         background: var(--b3-theme-surface);
-        opacity: 0.5;
+        opacity: 0.6;
         cursor: not-allowed;
     }
 
     &:hover:not(:disabled) {
-        background: var(--b3-theme-primary-light);
         opacity: 1;
     }
 }
