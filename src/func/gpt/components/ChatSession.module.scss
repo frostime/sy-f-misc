@@ -1,0 +1,115 @@
+:root {
+    --chat-bg-color: var(--b3-theme-surface);
+
+    --chat-user-bg: var(--b3-theme-primary-lightest);
+    --chat-assistant-bg: var(--b3-theme-primary-lightest);
+
+    --chat-input-bg: var(--b3-theme-background);
+
+    --chat-text-color: var(--b3-theme-on-surface);
+    --chat-border-color: var(--b3-theme-border);
+
+    --chat-input-font-size: 20px;
+    --chat-message-font-size: 19px;
+
+    --chat-max-width: 1250px;
+}
+
+.chatContainer {
+    width: 100%;
+    height: 100%;
+    max-width: var(--chat-max-width);
+    flex: 1;
+    margin: 0 auto;
+    padding: 0 min(20px, 4%);
+    padding-bottom: min(20px, 5%);
+
+    background: var(--chat-bg-color);
+
+    display: flex;
+    flex-direction: column;
+    align-self: center;
+
+    overflow-x: auto;
+}
+
+.messageList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+.toolbar {
+    position: absolute;
+    top: -25px;
+    width: 100%;
+
+    padding: 0 2px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    gap: 10px;
+
+    background-color: var(--chat-bg-color);
+    border-bottom: 1px solid var(--chat-border-color);
+}
+
+.inputContainer {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    gap: 10px;
+    background: var(--chat-bg-color);
+    padding-top: 10px;
+
+    .input {
+        flex: 1;
+        padding: 10px;
+        padding-right: 100px;
+        border: 2px solid var(--b3-theme-primary-light);
+        border-radius: 4px;
+        background: var(--chat-input-bg);
+        font-size: var(--chat-input-font-size);
+        min-height: 50px;
+        max-height: 200px;
+        overflow-y: auto;
+        color: var(--chat-text-color);
+
+        &:focus {
+            outline: none;
+            border-color: var(--b3-theme-primary);
+        }
+    }
+}
+
+.sendButton {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: 50px;
+    height: 32px;
+
+    font-family: var(--b3-font-family-protyle), inherit;
+    font-size: var(--chat-input-font-size);
+
+    background: var(--b3-theme-primary);
+    opacity: 0.9;
+
+    &:disabled {
+        background: var(--b3-theme-surface);
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+        opacity: 1;
+    }
+}
+
+.text-seperator {
+    text-align: center;
+    color: #666;
+}
