@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-21 12:39:10
+ * @LastEditTime : 2024-12-21 13:05:58
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -14,7 +14,7 @@ import { debounce, deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 
 export const defaultConfig = useStoreRef<IChatSessionConfig>({
-    attachedHistory: 4,
+    attachedHistory: 3,
     temperature: 1
 });
 

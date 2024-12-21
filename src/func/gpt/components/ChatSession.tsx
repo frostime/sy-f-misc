@@ -8,6 +8,17 @@ import * as gpt from '../gpt';
 import { defaultConfig, useModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import { ChatSessionSetting } from '../setting';
+import Form from '@/libs/components/Form';
+import { createSimpleContext } from '@/libs/simple-context';
+
+
+interface ISimpleContext {
+    model: IStoreRef<IGPTModel>;
+    config: IStoreRef<IChatSessionConfig>;
+    session: ReturnType<typeof useSessionMessages>;
+}
+
+const {SimpleProvider, useSimpleContext} = createSimpleContext<ISimpleContext>();
 
 /**
  * 
@@ -15,7 +26,9 @@ import { ChatSessionSetting } from '../setting';
 const useSessionMessages = (props: {
     model: IStoreRef<IGPTModel>;
     config: IStoreRef<IChatSessionConfig>;
+    scrollToBottom: () => void;
 }) => {
+    const systemPrompt = useSignalRef<string>('');
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
     const loading = useSignalRef<boolean>(false);
     const streamingReply = useSignalRef<string>('');
@@ -95,11 +108,13 @@ const useSessionMessages = (props: {
         try {
             const reply = await gpt.complete(getAttachedHistory(), {
                 model: props.model(),
+                systemPrompt: systemPrompt().trim() || undefined,
                 returnRaw: false,
                 stream: true,
                 streamInterval: 2,
                 streamMsg(msg) {
                     streamingReply.update(msg);
+                    props.scrollToBottom();
                 }
             });
             appendAssistantMsg(reply);
@@ -112,6 +127,7 @@ const useSessionMessages = (props: {
     }
 
     return {
+        systemPrompt,
         messages,
         loading,
         streamingReply,
@@ -132,13 +148,36 @@ const Seperator = (props: { title: string }) => (
     </div>
 );
 
+const useSessionSetting = () => {
+    let context = useSimpleContext();
+    let { config, session } = context;
+
+    return (
+        <ChatSessionSetting config={config} onClose={() => { }} >
+            <Form.Wrap
+                title="System Prompt"
+                description="附带的系统级提示消息"
+                direction="row"
+            >
+                <Form.Input
+                    type="textarea"
+                    value={session.systemPrompt()}
+                    changed={(v) => {
+                        session.systemPrompt(v);
+                    }}
+                    style={{
+                        height: '5em'
+                    }}
+                />
+            </Form.Wrap>
+        </ChatSessionSetting>
+    )
+
+}
+
 const ChatSession: Component = () => {
     const model = useModel('siyuan');
-    const config = useStoreRef<IChatSessionConfig>({...defaultConfig()});
-
-
-    const input = useSignalRef<string>('');
-    const { messages, loading, streamingReply, sendMessage, toggleClearContext } = useSessionMessages({ model, config });
+    const config = useStoreRef<IChatSessionConfig>({ ...defaultConfig() });
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -155,6 +194,11 @@ const ChatSession: Component = () => {
         textarea.style.height = `${textarea.scrollHeight}px`;
     };
 
+
+    const input = useSignalRef<string>('');
+    const session = useSessionMessages({ model, config, scrollToBottom });
+
+
     onMount(() => {
         adjustTextareaHeight();
         textareaRef?.focus();
@@ -167,7 +211,7 @@ const ChatSession: Component = () => {
 
         input.update('');
         adjustTextareaHeight();
-        await sendMessage(userMessage);
+        await session.sendMessage(userMessage);
         scrollToBottom();
     };
 
@@ -182,18 +226,20 @@ const ChatSession: Component = () => {
     const openSetting = () => {
         solidDialog({
             title: '当前对话设置',
-            loader: () => {
-                return <ChatSessionSetting config={config} onClose={() => { }} />
-            },
-            width: '600px',
-            height: '500px'
+            loader: () => (
+                <SimpleProvider state={{ model, config, session }}>
+                    {useSessionSetting()}
+                </SimpleProvider>
+            ),
+            width: '1000px',
+            height: '600px'
         })
     }
 
     const ChatContainer = () => (
         <div class={styles.chatContainer}>
             <div class={styles.messageList} ref={messageListRef}>
-                <For each={messages()}>
+                <For each={session.messages()}>
                     {(item: IChatSessionMsgItem) => (
                         <Switch fallback={<></>}>
                             <Match when={item.type === 'message'}>
@@ -207,23 +253,23 @@ const ChatSession: Component = () => {
 
                     }
                 </For>
-                {loading() && (
+                {session.loading() && (
                     <>
                         <Seperator title="正在思考中..." />
-                        <MessageItem message={{ role: 'assistant', content: streamingReply() }} />
+                        <MessageItem message={{ role: 'assistant', content: session.streamingReply() }} />
                     </>
                 )}
             </div>
 
             <section class={styles.inputContainer} onSubmit={handleSubmit}>
                 <div class={styles.toolbar}>
-                    <button class="b3-button b3-button--outline" onClick={toggleClearContext} >
+                    <button class="b3-button b3-button--outline" onClick={session.toggleClearContext} >
                         🧹
                     </button>
                     <button class="b3-button b3-button--outline" onClick={openSetting}>
                         ⚙️
                     </button>
-                    <div style={{flex: 1}}></div>
+                    <div style={{ flex: 1 }}></div>
                     <span>附带消息: {config().attachedHistory}</span>
                     <span>{model().model}</span>
                 </div>
@@ -241,7 +287,12 @@ const ChatSession: Component = () => {
                         'resize': 'none'
                     }}
                 />
-                <button type="submit" class={`${styles.sendButton} b3-button`} disabled={loading()}>
+                <button
+                    type="submit"
+                    class={`${styles.sendButton} b3-button`}
+                    disabled={session.loading()}
+                    onclick={handleSubmit}
+                >
                     🚀
                 </button>
             </section>
@@ -255,7 +306,13 @@ const ChatSession: Component = () => {
             "width": "100%",
             "height": "100%"
         }}>
-            <ChatContainer />
+            <SimpleProvider state={{
+                model,
+                config,
+                session
+            }}>
+                <ChatContainer />
+            </SimpleProvider>
         </div>
     );
 };
