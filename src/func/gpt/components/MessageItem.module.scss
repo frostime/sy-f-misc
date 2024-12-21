@@ -70,12 +70,26 @@
 
             font-size: var(--chat-message-font-size) !important;
 
+            overflow-x: auto;
+            max-width: 100%;
+
             &.user {
                 background: var(--chat-user-bg);
             }
 
             &.assistant {
                 background: var(--chat-assistant-bg);
+            }
+
+            :global(pre) {
+                overflow-x: auto;
+                max-width: 100%;
+            }
+
+            :global(code) {
+                overflow-x: auto;
+                max-width: 100%;
+                white-space: pre;
             }
         }
     }

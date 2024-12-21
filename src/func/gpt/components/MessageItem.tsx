@@ -34,7 +34,7 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
 
     onMount(() => {
         if (!window.hljs) return;
-        msgRef.querySelectorAll('pre>code').forEach((ele) => {
+        msgRef.querySelectorAll('pre>code').forEach((ele: HTMLElement) => {
             const language = ele.className.replace('language-', '').trim();
 
             let codeContent = ele.textContent;
@@ -42,7 +42,15 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
             let btn = useCodeToolbar(language || 'text', codeContent);
             const pre = ele.parentElement;
             pre.prepend(btn);
-            pre.style.marginTop = '0';
+            if (['markdown', 'md', 'text', 'plaintext', 'tex'].includes(language)) {
+                ele.style.whiteSpace = 'pre-wrap';
+            }
+            // pre.style.marginTop = '0';
+            Object.assign(pre.style, {
+                'margin-top': 0,
+                'overflow-x': 'auto',
+                'white-space': 'pre'
+            })
         });
     });
 

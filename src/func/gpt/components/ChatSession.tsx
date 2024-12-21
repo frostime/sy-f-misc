@@ -1,5 +1,5 @@
-import { Component, For, Match, onMount, Show, Switch } from 'solid-js';
-import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { Component, createRenderEffect, For, Match, on, onMount, Show, Switch } from 'solid-js';
+import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
 import styles from './ChatSession.module.scss';
@@ -192,7 +192,7 @@ const useSessionSetting = () => {
 }
 
 const ChatSession: Component = (props: {
-    prompt?: string;
+    input?: ISignalRef<string>;
     systemPrompt?: string;
 }) => {
     const model = useModel('siyuan');
@@ -214,22 +214,43 @@ const ChatSession: Component = (props: {
     };
 
 
-    const input = useSignalRef<string>(props.prompt || '');
+    const input = useSignalRef<string>('');
     const session = useSessionMessages({ model, config, scrollToBottom });
 
     if (props.systemPrompt) {
         session.systemPrompt(props.systemPrompt);
     }
 
+    /**
+     * 当外部的 input signal 变化的时候，自动添加到文本框内
+     */
+    createRenderEffect(on(props.input.signal, (text: string) => {
+        if (!text) return;
+        input.value += text;
+        //可能在 DOM 创建之前被调用
+        if (textareaRef) {
+            focusTextarea();
+        }
+    }));
 
-    onMount(() => {
+
+    /**
+     * 外部输入的
+     * @returns 
+     */
+    const focusTextarea = () => {
         adjustTextareaHeight();
-        textareaRef.focus();
-        if (input().length > 0) {
+        setTimeout(() => {
+            textareaRef.focus();
+            //scroll 到当前光标的位置
             textareaRef.scrollTop = 0;
             textareaRef.selectionStart = 0;
             textareaRef.selectionEnd = 0;
-        }
+        }, 0);
+    }
+
+    onMount(() => {
+        focusTextarea();
     });
 
     const handleSubmit = async (e: Event) => {
@@ -324,6 +345,7 @@ const ChatSession: Component = (props: {
                     <Show when={session.systemPrompt().trim()}>
                         <ToolbarLabel>✅ System Prompt</ToolbarLabel>
                     </Show>
+                    <ToolbarLabel>{input().length}</ToolbarLabel>
                     <ToolbarLabel>附带消息: {config().attachedHistory}</ToolbarLabel>
                     <ToolbarLabel>{model().model}</ToolbarLabel>
                 </div>

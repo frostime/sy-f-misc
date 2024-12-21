@@ -3,21 +3,20 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-21 15:27:37
+ * @LastEditTime : 2024-12-21 22:22:02
  * @Description  : 
  */
-import { Lute } from "siyuan";
 import type FMiscPlugin from "@/index";
 
 import { openCustomTab } from "@frostime/siyuan-plugin-kits";
 
-// import { solidDialog } from "@/libs/dialog";
 import { render } from "solid-js/web";
 
 import ChatSession from "./components/ChatSession";
 import { translateHotkey } from "@/libs/hotkey";
 import * as setting from "./setting";
 import { getLute } from "@frostime/siyuan-plugin-kits";
+import { ISignalRef, useSignalRef } from "@frostime/solid-signal-ref";
 
 export let name = "GPT";
 export let enabled = false;
@@ -43,11 +42,18 @@ const attachSelectedText = () => {
 
     // 获取对应的 element
     const range = selection.getRangeAt(0);
-    const element = range.startContainer.parentElement.closest('.protyle-wysiwyg');
+    const element = range?.startContainer.parentElement.closest('.protyle-wysiwyg');
+
+    if (!element) return '';
 
     let nodes = element.querySelectorAll('.protyle-wysiwyg--select');
     if (nodes.length === 0) {
-        return '';
+        const selectedText = selection.toString().trim();
+        if (!selectedText) {
+            return '';
+        }
+
+        return `\n\n<Context>\n${selectedText}\n</Context>`;
     }
 
     let lute = getLute();
@@ -56,25 +62,46 @@ const attachSelectedText = () => {
         let markdown = lute.BlockDOM2StdMd(node.outerHTML);
         blockMarkdown.push(markdown);
     });
-    return `\n\n<Context lang="markdown">\n${blockMarkdown.join('\n')}\n</Context>`
+    return `\n\n<Context lang="markdown">\n${blockMarkdown.join('\n').trim()}\n</Context>`
 }
 
-const openChatBox = () => {
+let activeTabId = null;
+
+/**
+ * 外部传递给 Chat Session 的信号
+ */
+const outsideInputs = {}
+
+const openChatTab = () => {
     let { apiModel } = window.siyuan.config.ai.openAI;
 
     const prompt = attachSelectedText();
-
+    //input 用于在从外部给内部 Chat 添加文本内容
+    let input: ISignalRef<string>;
+    if (activeTabId === null) {
+        activeTabId = 'gpt-chat' + new Date().getTime();
+        input = useSignalRef(prompt);
+        outsideInputs[activeTabId] = input;
+    } else {
+        input = outsideInputs[activeTabId];
+        input.value = prompt;
+    }
     openCustomTab({
-        tabId: 'gpt-chat' + new Date().getTime(),
+        tabId: activeTabId,
         render: (container: HTMLElement) => {
-            render(() => ChatSession({prompt: prompt}), container);
+            render(() => ChatSession({
+                input: input
+            }), container);
             let tabContainer: HTMLElement = container.closest('[data-id]');
             if (tabContainer) {
                 tabContainer.style.overflowY = 'clip';
             }
         },
-        destroyCb: () => {},
-        title: `和 ${apiModel} 对话`,
+        beforeDestroy: () => {
+            activeTabId = null;
+            delete outsideInputs[activeTabId];
+        },
+        title: apiModel,
         icon: 'iconGithub',
         position: prompt.trim() ? 'right' : undefined
     });
@@ -88,7 +115,7 @@ export const load = (plugin: FMiscPlugin) => {
             label: '和 GPT 对话',
             icon: 'iconGithub',
             click: () => {
-                openChatBox();
+                openChatTab();
             }
         });
     });
@@ -98,13 +125,13 @@ export const load = (plugin: FMiscPlugin) => {
         langText: '打开GPT对话',
         hotkey: translateHotkey('Ctrl+Shift+L'),
         callback: () => {
-            openChatBox();
+            openChatTab();
         }
     });
     setting.load(plugin);
 }
 
-export const unload = (plugin: FMiscPlugin) => {
+export const unload = () => {
     if (!enabled) return;
     enabled = false;
 }
