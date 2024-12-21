@@ -5,7 +5,7 @@ import MessageItem from './MessageItem';
 import styles from './ChatSession.module.scss';
 
 import * as gpt from '../gpt';
-import { defaultConfig, useModel } from '../setting/store';
+import { defaultConfig, UIConfig, useModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import { ChatSessionSetting } from '../setting';
 import Form from '@/libs/components/Form';
@@ -115,7 +115,7 @@ const useSessionMessages = (props: {
                 streamInterval: 2,
                 streamMsg(msg) {
                     streamingReply.update(msg);
-                    // props.scrollToBottom();
+                    props.scrollToBottom();
                 }
             });
             appendAssistantMsg(reply);
@@ -258,8 +258,16 @@ const ChatSession: Component = (props: {
         })
     }
 
+    const styleVars = () => {
+        return {
+            '--chat-input-font-size': `${UIConfig().inputFontsize}px`,
+            '--chat-message-font-size': `${UIConfig().msgFontsize}px`,
+            '--chat-max-width': `${UIConfig().maxWidth}px`,
+        };
+    };
+
     const ChatContainer = () => (
-        <div class={styles.chatContainer}>
+        <div class={styles.chatContainer} style={styleVars()}>
             <div class={styles.messageList} ref={messageListRef}>
                 <For each={session.messages()}>
                     {(item: IChatSessionMsgItem) => (

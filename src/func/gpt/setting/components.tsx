@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/components.tsx
- * @LastEditTime : 2024-12-21 12:47:19
+ * @LastEditTime : 2024-12-21 17:04:08
  * @Description  : 
  */
 
@@ -13,6 +13,7 @@ import Form from "@/libs/components/Form";
 import { children, JSX, onCleanup } from "solid-js";
 
 import { IStoreRef } from "@frostime/solid-signal-ref";
+import { UIConfig } from "./store";
 
 
 export const ChatSessionSetting = (props: {
@@ -35,6 +36,7 @@ export const ChatSessionSetting = (props: {
         <div classList={{
             'config__tab-container': props.insideTab ?? false
         }} data-name="gpt" style={{width: '100%'}}>
+            {C()}
             <h3 style={{padding: '5px 20px', "text-align": 'center'}}>GPT 对话参数</h3>
             <Form.Wrap
                 title="附带历史消息"
@@ -70,7 +72,60 @@ export const ChatSessionSetting = (props: {
                     }}
                 />
             </Form.Wrap>
-            {C()}
+            <h3 style={{padding: '5px 20px', "text-align": 'center'}}>用户界面配置</h3>
+            <Form.Wrap
+                title="输入框字体"
+                description="用户输入框的字体大小, 单位 px"
+            >
+                <Form.Input
+                    type="number"
+                    value={UIConfig().inputFontsize}
+                    changed={(v) => {
+                        if (!v) return;
+                        UIConfig.update('inputFontsize', parseInt(v));
+                    }}
+                    number={{
+                        min: 12,
+                        max: 24,
+                        step: 1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="对话消息字体"
+                description="对话消息的字体大小, 单位 px"
+            >
+                <Form.Input
+                    type="number"
+                    value={UIConfig().msgFontsize}
+                    changed={(v) => {
+                        if (!v) return;
+                        UIConfig.update('msgFontsize', parseInt(v));
+                    }}
+                    number={{
+                        min: 12,
+                        max: 24,
+                        step: 1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="对话界面最大宽度"
+                description="对话区域的最大的宽度, 单位 px"
+            >
+                <Form.Input
+                    type="number"
+                    value={UIConfig().maxWidth}
+                    changed={(v) => {
+                        if (!v) return;
+                        UIConfig.update('maxWidth', parseInt(v));
+                    }}
+                    number={{
+                        min: 500,
+                        step: 1
+                    }}
+                />
+            </Form.Wrap>
         </div>
     );
 };

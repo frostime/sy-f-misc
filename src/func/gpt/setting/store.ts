@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-21 13:05:58
+ * @LastEditTime : 2024-12-21 16:55:31
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -21,6 +21,13 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
 
 export const providers = useStoreRef<IGPTProvider[]>([]);
 
+
+export const UIConfig = useStoreRef({
+    inputFontsize: 20,
+    msgFontsize: 19,
+    maxWidth: 1250
+});
+
 /**
  * 返回可以用于保存为 json 的配置信息
  * @returns 
@@ -31,7 +38,8 @@ const asStorage = () => {
     let pData= unwrap(providers.store);
     return {
         config: {...cData},
-        providers: {...pData}
+        providers: {...pData},
+        ui: {...UIConfig.store}
     }
 }
 
@@ -97,8 +105,9 @@ export const load = async (plugin?: Plugin) => {
     data = data;
     if (data) {
         let current = deepMerge(defaultData, data);
-        defaultConfig(current.config);
-        providers(current.providers);
+        current.config && defaultConfig(current.config);
+        current.providers && providers(current.providers);
+        current.ui && UIConfig(current.ui)
         console.debug('Load GPT config:', current);
     }
 }
