@@ -5,7 +5,7 @@ import styles from './MessageItem.module.scss';
 
 const useCodeToolbar = (language: string, code: string) => {
     let html = `
-    <div class="fn__flex" style="gap: 10px; align-items: center; height: 25px;">
+    <div class="${styles['code-toolbar']}">
         <div class="fn__flex-1"></div>
         <span class="b3-label__text" style="font-family: var(--b3-font-family-code); margin: 0px;">
             ${language}
@@ -39,8 +39,23 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
 
             let codeContent = ele.textContent;
             window.hljs.highlightElement(ele);
+
+            //Create boolbar
             let btn = useCodeToolbar(language || 'text', codeContent);
             const pre = ele.parentElement;
+
+
+            // Create scroll container
+            const scrollContainer = document.createElement('div');
+            scrollContainer.className = styles['pre-scroll-container'];
+
+            // Move code into scroll container
+            scrollContainer.appendChild(ele);
+
+            // Add elements to pre in correct order
+            pre.appendChild(btn);
+            pre.appendChild(scrollContainer);
+
             pre.prepend(btn);
             if (['markdown', 'md', 'text', 'plaintext', 'tex'].includes(language)) {
                 ele.style.whiteSpace = 'pre-wrap';
@@ -48,7 +63,6 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
             // pre.style.marginTop = '0';
             Object.assign(pre.style, {
                 'margin-top': 0,
-                'overflow-x': 'auto',
                 'white-space': 'pre'
             })
         });

@@ -3,12 +3,15 @@
     align-items: flex-start;
     margin: 5px 0;
 
+    width: auto;  // 让宽度由内容决定
+    max-width: 100%;  // 但不超过容器宽度
+
     // transform: scale(var(--chat-message-zoom));
-    transform-origin: top left;
+    // transform-origin: top left;
 
     &[data-role="user"] {
         flex-direction: row-reverse;
-        transform-origin: top right;
+        // transform-origin: top right;
 
         .messageContainer {
             display: flex;
@@ -27,9 +30,8 @@
         margin-left: 0;
         margin-right: 10%;
 
-        :global(pre>code) {
-            border: 1px solid var(--b3-theme-primary);
-        }
+        min-width: 0;
+        max-width: 100%;
 
         &:hover {
             .toolbar {
@@ -63,15 +65,18 @@
             margin: 0;
             padding: 12px;
             border-radius: 8px;
-            // max-width: 95%;
+
             word-wrap: break-word;
+            overflow-wrap: break-word;
+            width: auto;  // 让宽度适应内容
+            max-width: 100%;  // 不超过父容器宽度
+            box-sizing: border-box;
 
             user-select: text;
 
             font-size: var(--chat-message-font-size) !important;
 
-            overflow-x: auto;
-            max-width: 100%;
+            overflow-x: visible;
 
             &.user {
                 background: var(--chat-user-bg);
@@ -81,15 +86,51 @@
                 background: var(--chat-assistant-bg);
             }
 
+            // Ensure pre blocks handle overflow properly
             :global(pre) {
-                overflow-x: auto;
-                max-width: 100%;
-            }
+                margin: 1em 0;
+                position: relative;
+                width: 100%;
+                box-sizing: border-box;
 
-            :global(code) {
-                overflow-x: auto;
-                max-width: 100%;
-                white-space: pre;
+                // Create a wrapper for scrolling
+                >.pre-scroll-container {
+                    border: 1px solid var(--b3-theme-primary);
+                    border-radius: 4px;
+                    overflow-x: auto;
+                    width: 100%;
+                    background: var(--b3-theme-background);
+                }
+
+                // Remove horizontal scroll from code element itself
+                >.pre-scroll-container>code {
+                    overflow-x: visible;
+                    white-space: pre;
+                    width: max-content; // 允许代码内容自然延展
+                    min-width: 100%; // 确保至少占满容器
+                    display: block;
+                    padding: 1em;
+                    border: none !important;
+                }
+
+                // Style for the toolbar
+                >.code-toolbar {
+                    display: flex;
+                    gap: 10px;
+                    align-items: center;
+                    height: 25px;
+
+                    position: sticky;
+                    left: 0;
+                    right: 0;
+                    background: var(--chat-assistant-bg);
+
+                    margin: 0;
+
+                    // padding: 0 20px;
+                    width: 100%;
+                    box-sizing: border-box;
+                }
             }
         }
     }
