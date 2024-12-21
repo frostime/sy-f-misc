@@ -23,16 +23,16 @@
     "rollup-plugin-livereload": "^2.0.5",
     "sass": "^1.72.0",
     "siyuan": "1.0.7",
-    "solid-js": "^1.8.17",
+    "solid-js": "^1.9.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2",
     "vite": "^5.2.13",
-    "vite-plugin-solid": "^2.10.2",
+    "vite-plugin-solid": "^2.11.0",
     "vite-plugin-static-copy": "^1.0.5",
     "vite-plugin-zip-pack": "^1.2.2"
   },
   "dependencies": {
-    "@frostime/siyuan-plugin-kits": "^1.1.4",
+    "@frostime/siyuan-plugin-kits": "^1.1.5",
     "@frostime/solid-signal-ref": "^2.0.0",
     "simple-inject": "^0.1.0"
   }

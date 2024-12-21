@@ -119,6 +119,7 @@ declare interface Window {
     fmisc: FMiscPlugin;
     mermaid: any;
     echarts: any;
+    hljs: any;
 }
 
 interface IPluginProtyleSlash {

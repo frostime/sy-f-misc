@@ -1,4 +1,4 @@
-import { Component, For, Match, onMount, Switch } from 'solid-js';
+import { Component, For, Match, onMount, Show, Switch } from 'solid-js';
 import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -18,7 +18,7 @@ interface ISimpleContext {
     session: ReturnType<typeof useSessionMessages>;
 }
 
-const {SimpleProvider, useSimpleContext} = createSimpleContext<ISimpleContext>();
+const { SimpleProvider, useSimpleContext } = createSimpleContext<ISimpleContext>();
 
 /**
  * 
@@ -104,6 +104,7 @@ const useSessionMessages = (props: {
         appendUserMsg(userMessage);
         loading.update(true);
         streamingReply.update('');
+        props.scrollToBottom();
 
         try {
             const reply = await gpt.complete(getAttachedHistory(), {
@@ -114,10 +115,11 @@ const useSessionMessages = (props: {
                 streamInterval: 2,
                 streamMsg(msg) {
                     streamingReply.update(msg);
-                    props.scrollToBottom();
+                    // props.scrollToBottom();
                 }
             });
             appendAssistantMsg(reply);
+            props.scrollToBottom();
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -175,7 +177,10 @@ const useSessionSetting = () => {
 
 }
 
-const ChatSession: Component = () => {
+const ChatSession: Component = (props: {
+    prompt?: string;
+    systemPrompt?: string;
+}) => {
     const model = useModel('siyuan');
     const config = useStoreRef<IChatSessionConfig>({ ...defaultConfig() });
 
@@ -195,13 +200,22 @@ const ChatSession: Component = () => {
     };
 
 
-    const input = useSignalRef<string>('');
+    const input = useSignalRef<string>(props.prompt || '');
     const session = useSessionMessages({ model, config, scrollToBottom });
+
+    if (props.systemPrompt) {
+        session.systemPrompt(props.systemPrompt);
+    }
 
 
     onMount(() => {
         adjustTextareaHeight();
-        textareaRef?.focus();
+        textareaRef.focus();
+        if (input().length > 0) {
+            textareaRef.scrollTop = 0;
+            textareaRef.selectionStart = 0;
+            textareaRef.selectionEnd = 0;
+        }
     });
 
     const handleSubmit = async (e: Event) => {
@@ -222,6 +236,14 @@ const ChatSession: Component = () => {
             handleSubmit(e);
         }
     }
+
+    const ToolbarLabel = (props: { children: any }) => (
+        <span class="b3-label__text b3-button b3-button--outline" style={{
+            'box-shadow': 'inset 0 0 0 .6px var(--b3-theme-primary)',
+        }}>
+            {props.children}
+        </span>
+    )
 
     const openSetting = () => {
         solidDialog({
@@ -270,8 +292,11 @@ const ChatSession: Component = () => {
                         ⚙️
                     </button>
                     <div style={{ flex: 1 }}></div>
-                    <span>附带消息: {config().attachedHistory}</span>
-                    <span>{model().model}</span>
+                    <Show when={session.systemPrompt().trim()}>
+                        <ToolbarLabel>✅ System Prompt</ToolbarLabel>
+                    </Show>
+                    <ToolbarLabel>附带消息: {config().attachedHistory}</ToolbarLabel>
+                    <ToolbarLabel>{model().model}</ToolbarLabel>
                 </div>
                 <textarea
                     ref={textareaRef}

@@ -2,7 +2,8 @@
     display: flex;
     align-items: flex-start;
     margin: 5px 0;
-    transform: scale(var(--chat-message-zoom));
+
+    // transform: scale(var(--chat-message-zoom));
     transform-origin: top left;
 
     &[data-role="user"] {
@@ -13,8 +14,72 @@
             display: flex;
             flex-direction: column;
             align-items: flex-end;
+
+            margin-right: 0;
+            margin-left: 10%;
         }
     }
+
+    .messageContainer {
+        position: relative;
+        flex: 1;
+
+        margin-left: 0;
+        margin-right: 10%;
+
+        :global(pre>code) {
+            border: 1px solid var(--b3-theme-primary);
+        }
+
+        &:hover {
+            .toolbar {
+                opacity: 1;
+            }
+        }
+
+        .toolbar {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+
+            padding: 2px;
+            display: flex;
+            gap: 4px;
+        }
+
+        .toolbarButton {
+            padding: 4px;
+            height: 24px;
+            width: 24px;
+
+            svg {
+                height: 14px;
+                width: 14px;
+                fill: currentColor;
+            }
+        }
+
+
+        .message {
+            margin: 0;
+            padding: 12px;
+            border-radius: 8px;
+            // max-width: 95%;
+            word-wrap: break-word;
+
+            user-select: text;
+
+            font-size: var(--chat-message-font-size) !important;
+
+            &.user {
+                background: var(--chat-user-bg);
+            }
+
+            &.assistant {
+                background: var(--chat-assistant-bg);
+            }
+        }
+    }
+
 
     .icon {
         flex-shrink: 0;
@@ -27,56 +92,6 @@
             height: 100%;
             fill: var(--b3-theme-on-surface);
             opacity: 0.6;
-        }
-    }
-
-    .message {
-        margin: 0;
-        padding: 12px;
-        border-radius: 8px;
-        max-width: 80%;
-        word-wrap: break-word;
-
-        user-select: text;
-
-        &.user {
-            background: var(--chat-user-bg);
-        }
-
-        &.assistant {
-            background: var(--chat-assistant-bg);
-        }
-    }
-}
-
-.messageContainer {
-    position: relative;
-    flex: 1;
-
-    &:hover {
-        .toolbar {
-            opacity: 1;
-        }
-    }
-
-    .toolbar {
-        opacity: 0;
-        transition: opacity 0.2s ease;
-
-        padding: 2px;
-        display: flex;
-        gap: 4px;
-    }
-
-    .toolbarButton {
-        padding: 4px;
-        height: 24px;
-        width: 24px;
-
-        svg {
-            height: 14px;
-            width: 14px;
-            fill: currentColor;
         }
     }
 }
