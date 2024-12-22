@@ -1,4 +1,4 @@
-import { Accessor, Component, createMemo, createRenderEffect, For, Match, on, onMount, Show, Switch } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect } from 'solid-js';
 import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -12,7 +12,6 @@ import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
 import { Menu } from 'siyuan';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
-import { get } from 'http';
 import { render } from 'solid-js/web';
 
 
@@ -255,12 +254,20 @@ const ChatSession: Component = (props: {
         }
     };
 
+    let textareaRefMaxHeight: number;
     const adjustTextareaHeight = () => {
-        const textarea = textareaRef;
-        textarea.style.height = 'auto';
-        textarea.style.height = `${textarea.scrollHeight}px`;
-    };
+        if (!textareaRef) return;
+        textareaRef.style.height = 'auto'; // 临时设置为 auto，以便获取正确的 scrollHeight
+        textareaRef.style.height = textareaRef.scrollHeight + 'px';
 
+        // 获取 max-height 并进行比较
+        if (textareaRefMaxHeight === undefined) {
+            textareaRefMaxHeight = parseInt(getComputedStyle(textareaRef).maxHeight);
+        }
+        if (textareaRef.scrollHeight > textareaRefMaxHeight) {
+            textareaRef.style.height = textareaRefMaxHeight + 'px';
+        }
+    };
 
     const input = useSignalRef<string>('');
     const session = useSessionMessages({ model, config, scrollToBottom });
@@ -275,30 +282,26 @@ const ChatSession: Component = (props: {
     createRenderEffect(on(props.input.signal, (text: string) => {
         if (!text) return;
         input.value += text;
-        //可能在 DOM 创建之前被调用
-        if (textareaRef) {
-            focusTextarea();
-        }
+        //刚刚创建的时候，可能还没有 textarea 元素
+        if (!textareaRef) return;
+        //获取当前 selection 位置
+        const selectionStart = textareaRef.selectionStart;
+        //需要等待 textarea 调整高度后再设置值
+        setTimeout(() => {
+            adjustTextareaHeight();
+            textareaRef?.focus();
+            //重新设置当前光标位置
+            textareaRef.setSelectionRange(selectionStart, selectionStart);
+        }, 0);
     }));
 
-
-    /**
-     * 外部输入的
-     * @returns 
-     */
-    const focusTextarea = () => {
-        adjustTextareaHeight();
-        setTimeout(() => {
-            textareaRef.focus();
-            //scroll 到当前光标的位置
-            textareaRef.scrollTop = 0;
-            textareaRef.selectionStart = 0;
-            textareaRef.selectionEnd = 0;
-        }, 0);
-    }
-
     onMount(() => {
-        focusTextarea();
+        adjustTextareaHeight();
+        textareaRef.focus();
+        //scroll 到当前光标的位置
+        textareaRef.scrollTop = 0;
+        // 将光标设置在开头位置
+        textareaRef.setSelectionRange(0, 0);
     });
 
     const useUserPrompt = (e: MouseEvent) => {
@@ -338,6 +341,7 @@ const ChatSession: Component = (props: {
                 fn_size={false}
                 value={config().attachedHistory}
                 changed={(v) => {
+                    v = parseInt(v);
                     config.update('attachedHistory', v);
                 }}
                 slider={{

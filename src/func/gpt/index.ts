@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-22 15:08:53
+ * @LastEditTime : 2024-12-22 21:48:28
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -15,8 +15,8 @@ import { render } from "solid-js/web";
 import ChatSession from "./components/ChatSession";
 import { translateHotkey } from "@/libs/hotkey";
 import * as setting from "./setting";
-import { getLute } from "@frostime/siyuan-plugin-kits";
 import { ISignalRef, useSignalRef } from "@frostime/solid-signal-ref";
+import { id2block } from "./utils";
 
 export let name = "GPT";
 export let enabled = false;
@@ -33,7 +33,7 @@ export const declareSettingPanel = [
     }
 ]
 
-const attachSelectedText = () => {
+const attachSelectedText = async () => {
     // 获取光标所在位置
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
@@ -56,12 +56,12 @@ const attachSelectedText = () => {
         return `\n\n<Context>\n${selectedText}\n</Context>`;
     }
 
-    let lute = getLute();
-    let blockMarkdown = [];
+    let blocksIds = [];
     nodes.forEach((node: HTMLElement) => {
-        let markdown = lute.BlockDOM2StdMd(node.outerHTML);
-        blockMarkdown.push(markdown);
+        blocksIds.push(node.dataset.nodeId);
     });
+    let blocks: Block[] = await id2block(...blocksIds);
+    let blockMarkdown = blocks.map((block) => block.markdown);
     return `\n\n<Context lang="markdown">\n${blockMarkdown.join('\n').trim()}\n</Context>`
 }
 
@@ -72,9 +72,9 @@ let activeTabId = null;
  */
 const outsideInputs = {}
 
-const openChatTab = () => {
+const openChatTab = async () => {
 
-    const prompt = attachSelectedText();
+    const prompt = await attachSelectedText();
     //input 用于在从外部给内部 Chat 添加文本内容
     let input: ISignalRef<string>;
     if (activeTabId === null) {
@@ -94,6 +94,7 @@ const openChatTab = () => {
             let tabContainer: HTMLElement = container.closest('[data-id]');
             if (tabContainer) {
                 tabContainer.style.overflowY = 'clip';
+                tabContainer.style.background = 'var(--chat-bg-color)';
             }
         },
         beforeDestroy: () => {

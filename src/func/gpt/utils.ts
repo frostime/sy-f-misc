@@ -6,6 +6,9 @@
  * @LastEditTime : 2024-12-22 17:56:26
  * @Description  : 
  */
+
+import { sql } from "@/api";
+
 //https://github.com/siyuan-note/siyuan/blob/master/app/src/protyle/util/addScript.ts
 export const addScript = (path: string, id: string) => {
     return new Promise((resolve) => {
@@ -72,4 +75,12 @@ export function convertMathFormulas(text: string): string {
     });
 
     return result;
+}
+
+
+export async function id2block(...ids: BlockId[]): Promise<Block[]> {
+    let idList = ids.map((id) => `"${id}"`);
+    let sqlCode = `select * from blocks where id in (${idList.join(",")})`;
+    let data = await sql(sqlCode);
+    return data;
 }

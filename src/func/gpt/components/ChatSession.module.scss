@@ -75,7 +75,7 @@
     background: var(--chat-bg-color);
     padding-top: 10px;
 
-    .input {
+    textarea.input {
         flex: 1;
         padding: 10px;
         padding-right: 100px;
@@ -83,8 +83,9 @@
         border-radius: 4px;
         background: var(--chat-input-bg);
         font-size: var(--chat-input-font-size);
+
         min-height: 50px;
-        max-height: 200px;
+        max-height: 250px;
         overflow-y: auto;
         color: var(--chat-text-color);
 
