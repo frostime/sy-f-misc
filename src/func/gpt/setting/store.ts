@@ -3,13 +3,19 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-22 13:07:11
+ * @LastEditTime : 2024-12-22 15:07:53
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
-import { useStoreRef } from "@frostime/solid-signal-ref";
+import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 
 import { debounce, deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
+
+
+/**
+ * `siyuan` or `modelName@providerName`
+ */
+export const defaultModelId = useSignalRef<string>('siyuan');
 
 
 export const defaultConfig = useStoreRef<IChatSessionConfig>({
@@ -33,6 +39,7 @@ export const UIConfig = useStoreRef({
  */
 const asStorage = () => {
     return {
+        defaultModel: defaultModelId.unwrap(),
         config: {...defaultConfig.unwrap()},
         providers: [...providers.unwrap()],
         ui: {...UIConfig.unwrap()}
@@ -50,6 +57,19 @@ const siyuanModel = (): IGPTModel => {
 }
 
 
+export const listAvialableModels = (): Record<string, string> => {
+    let availableModels = {
+        'siyuan': '思源内置模型'
+    };
+    providers().forEach((provider) => {
+        provider.models.forEach((model) => {
+            availableModels[`${model}@${provider.name}`] = `(${provider.name}) ${model}`;
+        });
+    });
+    return availableModels;
+}
+
+
 /**
  * 
  * @param id: `modelName@providerName` | 'siyuan'
@@ -57,7 +77,7 @@ const siyuanModel = (): IGPTModel => {
  */
 export const useModel = (id: string) => {
     if (id === 'siyuan') {
-        return useStoreRef(siyuanModel());
+        return siyuanModel();
     }
     const [modelName, providerName] = id.trim().split('@');
     if (!modelName || !providerName) {
@@ -69,13 +89,13 @@ export const useModel = (id: string) => {
         throw new Error('Provider not found');
     }
     if (!provider.models.includes(modelName)) {
-        throw new Error('Model not found');
+        console.warn(`Model ${modelName} not found in provider ${providerName}`);
     }
-    return useStoreRef({
+    return {
         model: modelName,
         url: provider.url,
         apiKey: provider.apiKey
-    });
+    };
 }
 
 
@@ -101,6 +121,7 @@ export const load = async (plugin?: Plugin) => {
     data = data;
     if (data) {
         let current = deepMerge(defaultData, data);
+        current.defaultModel && defaultModelId(current.defaultModel);
         current.config && defaultConfig(current.config);
         current.providers && providers(current.providers);
         current.ui && UIConfig(current.ui)

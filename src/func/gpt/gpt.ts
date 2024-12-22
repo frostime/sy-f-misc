@@ -10,7 +10,7 @@ export const complete = async (input: string | IMessage[], options?: {
     option?: IChatOption
     abortControler?: AbortController
 }) => {
-    let { url, model, apiKey } = options?.model ?? useModel('siyuan')();
+    let { url, model, apiKey } = options?.model ?? useModel('siyuan');
 
     let messages: IMessage[] = [];
     if (typeof input === 'string') {

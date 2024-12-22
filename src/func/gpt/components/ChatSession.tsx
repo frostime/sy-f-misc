@@ -1,19 +1,21 @@
-import { Component, createRenderEffect, For, Match, on, onMount, Show, Switch } from 'solid-js';
+import { Accessor, Component, createMemo, createRenderEffect, For, Match, on, onMount, Show, Switch } from 'solid-js';
 import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
 import styles from './ChatSession.module.scss';
 
 import * as gpt from '../gpt';
-import { defaultConfig, UIConfig, useModel } from '../setting/store';
+import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import { ChatSetting } from '../setting';
 import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
+import { Menu } from 'siyuan';
+import { inputDialog } from '@frostime/siyuan-plugin-kits';
 
 
 interface ISimpleContext {
-    model: IStoreRef<IGPTModel>;
+    model: Accessor<IGPTModel>;
     config: IStoreRef<IChatSessionConfig>;
     session: ReturnType<typeof useSessionMessages>;
 }
@@ -24,7 +26,7 @@ const { SimpleProvider, useSimpleContext } = createSimpleContext<ISimpleContext>
  * 
  */
 const useSessionMessages = (props: {
-    model: IStoreRef<IGPTModel>;
+    model: Accessor<IGPTModel>;
     config: IStoreRef<IChatSessionConfig>;
     scrollToBottom: () => void;
 }) => {
@@ -169,7 +171,7 @@ const useSessionSetting = () => {
     let { config, session } = context;
 
     return (
-        <>
+        <div class="fn__flex-1">
             <Form.Wrap
                 title="System Prompt"
                 description="附带的系统级提示消息"
@@ -187,7 +189,7 @@ const useSessionSetting = () => {
                 />
             </Form.Wrap>
             <ChatSetting config={config} />
-        </>
+        </div>
     )
 
 }
@@ -196,7 +198,8 @@ const ChatSession: Component = (props: {
     input?: ISignalRef<string>;
     systemPrompt?: string;
 }) => {
-    const model = useModel('siyuan');
+    const modelId = useSignalRef(defaultModelId());
+    const model = createMemo(() => useModel(modelId()));
     const config = useStoreRef<IChatSessionConfig>({ ...defaultConfig() });
 
     let textareaRef: HTMLTextAreaElement;
@@ -273,10 +276,18 @@ const ChatSession: Component = (props: {
         }
     }
 
-    const ToolbarLabel = (props: { children: any }) => (
-        <span class="b3-label__text b3-button b3-button--outline" style={{
-            'box-shadow': 'inset 0 0 0 .6px var(--b3-theme-primary)',
-        }}>
+    const ToolbarLabel = (props: { children: any, maxWidth?: string, onclick?: (e: MouseEvent) => void }) => (
+        <span
+            onclick={props.onclick}
+            class="b3-label__text b3-button b3-button--outline"
+            style={{
+                'box-shadow': 'inset 0 0 0 .6px var(--b3-theme-primary)',
+                'max-width': props.maxWidth || '15em',
+                'overflow': 'hidden',
+                'text-overflow': 'ellipsis',
+                'white-space': 'nowrap',
+                display: 'inline-block',
+            }}>
             {props.children}
         </span>
     )
@@ -343,12 +354,49 @@ const ChatSession: Component = (props: {
                         ⚙️
                     </button>
                     <div style={{ flex: 1 }}></div>
-                    <Show when={session.systemPrompt().trim()}>
-                        <ToolbarLabel>✅ System Prompt</ToolbarLabel>
-                    </Show>
-                    <ToolbarLabel>{input().length}</ToolbarLabel>
-                    <ToolbarLabel>附带消息: {config().attachedHistory}</ToolbarLabel>
-                    <ToolbarLabel>{model().model}</ToolbarLabel>
+                    <ToolbarLabel onclick={() => {
+                        inputDialog({
+                            title: '系统提示',
+                            defaultText: session.systemPrompt(),
+                            type: 'textarea',
+                            confirm: (text) => {
+                                session.systemPrompt(text);
+                            },
+                            width: '600px',
+                            height: '400px'
+                        })
+                    }}>
+                        {session.systemPrompt().length > 0 ? `✅ ` : ''}System
+                    </ToolbarLabel>
+                    <ToolbarLabel>
+                        字数: {input().length}
+                    </ToolbarLabel>
+                    <ToolbarLabel>
+                        附带消息: {config().attachedHistory}
+                    </ToolbarLabel>
+                    <ToolbarLabel maxWidth='10em'
+                        onclick={(e: MouseEvent) => {
+                            e.stopImmediatePropagation();
+                            e.preventDefault();
+                            let menu = new Menu();
+                            Object.entries(listAvialableModels()).forEach(([id, name]) => {
+                                menu.addItem({
+                                    icon: id === modelId() ? 'iconSelect' : null,
+                                    label: name,
+                                    click: () => {
+                                        modelId.value = id;
+                                    }
+                                });
+                            });
+                            menu.open({
+                                x: e.clientX,
+                                y: e.clientY,
+                                isLeft: false
+                            })
+                        }}
+                    >
+                        {model().model}
+                    </ToolbarLabel>
                 </div>
                 <textarea
                     ref={textareaRef}

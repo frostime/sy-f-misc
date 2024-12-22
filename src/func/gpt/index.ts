@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-22 14:10:56
+ * @LastEditTime : 2024-12-22 15:08:53
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -73,7 +73,6 @@ let activeTabId = null;
 const outsideInputs = {}
 
 const openChatTab = () => {
-    let { apiModel } = window.siyuan.config.ai.openAI;
 
     const prompt = attachSelectedText();
     //input 用于在从外部给内部 Chat 添加文本内容
@@ -101,7 +100,7 @@ const openChatTab = () => {
             activeTabId = null;
             delete outsideInputs[activeTabId];
         },
-        title: apiModel,
+        title: '和 GPT 对话',
         icon: 'iconGithub',
         position: prompt.trim() ? 'right' : undefined
     });

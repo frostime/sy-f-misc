@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2024-12-22 13:54:48
+ * @LastEditTime : 2024-12-22 15:08:18
  * @Description  : 
  */
 
@@ -11,7 +11,7 @@
 import Form from "@/libs/components/Form";
 
 import { IStoreRef } from "@frostime/solid-signal-ref";
-import { UIConfig } from "./store";
+import { UIConfig, defaultModelId, listAvialableModels } from "./store";
 import Heading from "./Heading";
 
 
@@ -24,6 +24,19 @@ const ChatSessionSetting = (props: {
     return (
         <>
             <Heading>GPT 对话参数</Heading>
+            <Form.Wrap
+                title="默认使用模型"
+                description="可以在思源默认配置或者自定义配置中选择模型"
+            >
+                <Form.Input
+                    type="select"
+                    value={defaultModelId()}
+                    changed={(v) => {
+                       defaultModelId.update(v);
+                    }}
+                    options={listAvialableModels()}
+                />
+            </Form.Wrap>
             <Form.Wrap
                 title="附带历史消息"
                 description="对话的时候附带的历史消息数量，包含用户输入的消息, 例如：<br/>附带 1 条(最低限度)，则只包含用户当前输入的 [user] 消息<br/>附带 3 条，则会包含 [user, assistant, user] 三条消息"
