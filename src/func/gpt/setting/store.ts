@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-22 15:07:53
+ * @LastEditTime : 2024-12-22 15:53:51
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -33,6 +33,8 @@ export const UIConfig = useStoreRef({
     maxWidth: 1250
 });
 
+export const promptTemplates = useStoreRef<IPromptTemplate[]>([]);
+
 /**
  * 返回可以用于保存为 json 的配置信息
  * @returns 
@@ -42,7 +44,8 @@ const asStorage = () => {
         defaultModel: defaultModelId.unwrap(),
         config: {...defaultConfig.unwrap()},
         providers: [...providers.unwrap()],
-        ui: {...UIConfig.unwrap()}
+        ui: {...UIConfig.unwrap()},
+        promptTemplates: [...promptTemplates.unwrap()]
     }
 }
 
@@ -125,6 +128,7 @@ export const load = async (plugin?: Plugin) => {
         current.config && defaultConfig(current.config);
         current.providers && providers(current.providers);
         current.ui && UIConfig(current.ui)
+        current.promptTemplates && promptTemplates(current.promptTemplates)
         console.debug('Load GPT config:', current);
     }
 }

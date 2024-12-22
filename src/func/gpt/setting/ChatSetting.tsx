@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2024-12-22 15:08:18
+ * @LastEditTime : 2024-12-22 16:33:00
  * @Description  : 
  */
 
@@ -39,17 +39,17 @@ const ChatSessionSetting = (props: {
             </Form.Wrap>
             <Form.Wrap
                 title="附带历史消息"
-                description="对话的时候附带的历史消息数量，包含用户输入的消息, 例如：<br/>附带 1 条(最低限度)，则只包含用户当前输入的 [user] 消息<br/>附带 3 条，则会包含 [user, assistant, user] 三条消息"
+                description="对话的时候附带的历史消息数量，包含用户输入的消息, 例如：<br/>附带 0 条(最低限度)，则只包含用户当前输入的 [user] 消息<br/>附带 2 条，则会包含用户输入 + 过去两条消息;<br/>附带 -1 条，则会附带所有历史消息"
             >
                 <Form.Input
                     type="number"
                     value={config().attachedHistory}
                     changed={(v) => {
-                        v = v || '1';
+                        v = v || '0';
                         config.update('attachedHistory', parseInt(v));
                     }}
                     number={{
-                        min: 1,
+                        min: -1,
                         step: 1
                     }}
                 />

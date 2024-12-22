@@ -5,13 +5,14 @@ import MessageItem from './MessageItem';
 import styles from './ChatSession.module.scss';
 
 import * as gpt from '../gpt';
-import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels } from '../setting/store';
+import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import { ChatSetting } from '../setting';
 import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
 import { Menu } from 'siyuan';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
+import { get } from 'http';
 
 
 interface ISimpleContext {
@@ -86,18 +87,26 @@ const useSessionMessages = (props: {
 
     const getAttachedHistory = () => {
         const { attachedHistory } = props.config();
-        const history = messages();
-        const lastMessages = history.slice(-attachedHistory);
+        const history = [...messages()];
+        const lastMessage = history.pop(); // 弹出最后一条消息（当前输入）
+
+        if (attachedHistory === 0) {
+            return [lastMessage!.message!]; // 只返回当前输入的消息
+        }
+
+        // 根据 attachedHistory 截取历史消息
+        const lastMessages = attachedHistory > 0 ? history.slice(-attachedHistory) : history;
         const lastSeperatorIndex = lastMessages.findIndex(item => item.type === 'seperator');
 
+        let attachedMessages: IChatSessionMsgItem[] = [];
+
         if (lastSeperatorIndex === -1) {
-            return lastMessages.filter(item => item.type === 'message')
-                .map(item => item.message!);
+            attachedMessages = lastMessages.filter(item => item.type === 'message');
         } else {
-            return lastMessages.slice(lastSeperatorIndex + 1)
-                .filter(item => item.type === 'message')
-                .map(item => item.message!);
+            attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(item => item.type === 'message');
         }
+
+        return [...attachedMessages, lastMessage].map(item => item.message!);
     }
 
 
@@ -106,6 +115,14 @@ const useSessionMessages = (props: {
     const sendMessage = async (userMessage: string) => {
         if (!userMessage.trim()) return;
 
+        // 里面有 </Context>
+        const hasContext = userMessage.includes('</Context>');
+
+        let sysPrompt = systemPrompt().trim() || '';
+        if (hasContext) {
+            sysPrompt += 'Note: <Context>...</Context> 是附带的上下文信息，只关注其内容，不要将 <Context> 标签作为正文的一部分';
+        }
+
         appendUserMsg(userMessage);
         loading.update(true);
         streamingReply.update('');
@@ -113,9 +130,11 @@ const useSessionMessages = (props: {
 
         try {
             controller = new AbortController();
-            const reply = await gpt.complete(getAttachedHistory(), {
+            const msgToSend = getAttachedHistory();
+            // console.log(msgToSend);
+            const reply = await gpt.complete(msgToSend, {
                 model: props.model(),
-                systemPrompt: systemPrompt().trim() || undefined,
+                systemPrompt: sysPrompt || undefined,
                 returnRaw: false,
                 stream: true,
                 streamInterval: 2,
@@ -170,12 +189,33 @@ const useSessionSetting = () => {
     let context = useSimpleContext();
     let { config, session } = context;
 
+    const availableSystemPrompts = (): Record<string, string> => {
+        const systemPrompts = promptTemplates().filter(item => item.type === 'system');
+        return systemPrompts.reduce((acc, cur) => {
+            acc[cur.content] = cur.name;
+            return acc;
+        }, { '': 'No Prompt' });
+    }
+
     return (
         <div class="fn__flex-1">
             <Form.Wrap
                 title="System Prompt"
                 description="附带的系统级提示消息"
                 direction="row"
+                action={
+                    <Form.Input
+                        type="select"
+                        value={""}
+                        changed={(v) => {
+                            v = v.trim();
+                            if (v) {
+                                session.systemPrompt(v);
+                            }
+                        }}
+                        options={availableSystemPrompts()}
+                    />
+                }
             >
                 <Form.Input
                     type="textarea"
@@ -184,7 +224,9 @@ const useSessionSetting = () => {
                         session.systemPrompt(v);
                     }}
                     style={{
-                        height: '5em'
+                        height: '7em',
+                        "font-size": UIConfig().inputFontsize + "px",
+                        "line-height": "1.35"
                     }}
                 />
             </Form.Wrap>
@@ -256,6 +298,33 @@ const ChatSession: Component = (props: {
     onMount(() => {
         focusTextarea();
     });
+
+    const useUserPrompt = (e: MouseEvent) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        const userPrompts = promptTemplates().filter(item => item.type === 'user');
+        if (userPrompts.length === 0) return;
+
+        let menu = new Menu();
+        userPrompts.forEach((prompt) => {
+            menu.addItem({
+                icon: null,
+                label: prompt.name,
+                click: () => {
+                    input.value = (prompt.content + '\n\n' + input.value).trim();
+                    let pos = prompt.content.length + 2;
+                    textareaRef.focus();
+                    textareaRef.setSelectionRange(pos, pos);
+                    adjustTextareaHeight();
+                }
+            });
+        });
+        menu.open({
+            x: e.clientX,
+            y: e.clientY,
+            isLeft: false
+        });
+    }
 
     const handleSubmit = async (e: Event) => {
         e.preventDefault();
@@ -341,21 +410,24 @@ const ChatSession: Component = (props: {
             <section class={styles.inputContainer} onSubmit={handleSubmit}>
                 <div class={styles.toolbar}>
                     <Show when={session.loading()}>
-                        <button class="b3-button b3-button--outline" onClick={session.abortMessage} >
+                        <ToolbarLabel onclick={session.abortMessage} >
                             <svg>
                                 <use href="#iconPause" />
                             </svg>
-                        </button>
+                        </ToolbarLabel>
                     </Show>
-                    <button class="b3-button b3-button--outline" onClick={session.toggleClearContext} >
-                        🧹
-                    </button>
-                    <button class="b3-button b3-button--outline" onClick={openSetting}>
-                        ⚙️
-                    </button>
+                    <ToolbarLabel onclick={openSetting}>
+                        ⚙️ 设置
+                    </ToolbarLabel>
+                    <ToolbarLabel onclick={session.toggleClearContext} >
+                        🧹 清空上下文
+                    </ToolbarLabel>
+                    <ToolbarLabel onclick={useUserPrompt}>
+                        🖋️ 快速 Prompt
+                    </ToolbarLabel>
                     <div style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
-                        inputDialog({
+                        const { dialog } = inputDialog({
                             title: '系统提示',
                             defaultText: session.systemPrompt(),
                             type: 'textarea',
@@ -364,7 +436,13 @@ const ChatSession: Component = (props: {
                             },
                             width: '600px',
                             height: '400px'
-                        })
+                        });
+                        const textarea = dialog.element.querySelector('textarea');
+                        if (textarea) {
+                            textarea.style.fontSize = `${UIConfig().inputFontsize}px`;
+                            textarea.style.lineHeight = '1.35';
+                            textarea.focus();
+                        }
                     }}>
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
                     </ToolbarLabel>
@@ -390,9 +468,8 @@ const ChatSession: Component = (props: {
                             });
                             menu.open({
                                 x: e.clientX,
-                                y: e.clientY,
-                                isLeft: false
-                            })
+                                y: e.clientY
+                            });
                         }}
                     >
                         {model().model}

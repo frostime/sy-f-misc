@@ -3,12 +3,18 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.d.ts
- * @LastEditTime : 2024-12-21 11:42:17
+ * @LastEditTime : 2024-12-22 15:53:25
  * @Description  : 
  */
 interface IMessage {
     role: 'user' | 'assistant' | 'system';
     content: string;
+}
+
+interface IPromptTemplate {
+    name: string;
+    content: string;
+    type: 'system' | 'user';
 }
 
 /**
