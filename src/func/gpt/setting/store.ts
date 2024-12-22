@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-22 17:59:19
+ * @LastEditTime : 2024-12-22 19:15:02
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -21,8 +21,11 @@ export const defaultModelId = useSignalRef<string>('siyuan');
 export const defaultConfig = useStoreRef<IChatSessionConfig>({
     attachedHistory: 3,
     convertMathSyntax: true,
-    temperature: 1,
-    max_tokens: 2048
+    temperature: 0.7,
+    max_tokens: 4096,
+    top_p: 1, // 默认值，与 temperature: 0.7 配合使用
+    frequency_penalty: 0, // 默认值
+    presence_penalty: 0, // 默认值
 });
 
 

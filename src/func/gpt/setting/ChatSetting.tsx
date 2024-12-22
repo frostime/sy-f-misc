@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2024-12-22 18:01:28
+ * @LastEditTime : 2024-12-22 19:23:00
  * @Description  : 
  */
 
@@ -32,7 +32,7 @@ const ChatSessionSetting = (props: {
                     type="select"
                     value={defaultModelId()}
                     changed={(v) => {
-                       defaultModelId.update(v);
+                        defaultModelId.update(v);
                     }}
                     options={listAvialableModels()}
                 />
@@ -78,6 +78,77 @@ const ChatSessionSetting = (props: {
                     }}
                     slider={{
                         min: 0,
+                        max: 2,
+                        step: 0.1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="最大 Token 数"
+                description="控制生成文本的最大 Token 数量"
+            >
+                <Form.Input
+                    type="number"
+                    value={config().max_tokens}
+                    changed={(v) => {
+                        if (!v) return;
+                        config.update('max_tokens', parseInt(v));
+                    }}
+                    number={{
+                        min: 1,
+                        step: 1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="Top P"
+                description="控制生成文本的多样性。值越低，生成的文本越保守和确定性；值越高（最大为1），生成的文本越多样和随机。注意不要和温度参数一同变更。"
+            >
+                <Form.Input
+                    type="number"
+                    value={config().top_p}
+                    changed={(v) => {
+                        if (!v) return;
+                        config.update('top_p', parseFloat(v));
+                    }}
+                    number={{
+                        min: 0,
+                        max: 1,
+                        step: 0.05
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="存在惩罚 (Presence Penalty)"
+                description="控制生成文本中新词的惩罚力度。值越高（最大为2），生成的文本中引入新词的频率越低；值越低（最小为-2），鼓励使用更多新词。"
+            >
+                <Form.Input
+                    type="number"
+                    value={config().presence_penalty}
+                    changed={(v) => {
+                        if (!v) return;
+                        config.update('presence_penalty', parseFloat(v));
+                    }}
+                    number={{
+                        min: -2,
+                        max: 2,
+                        step: 0.1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="频率惩罚 (Frequency Penalty)"
+                description="控制生成文本中重复词的惩罚力度。值越高（最大为2），生成的文本中重复词的出现频率越低；值越低（最小为-2），允许更多重复词的出现。"
+            >
+                <Form.Input
+                    type="number"
+                    value={config().frequency_penalty}
+                    changed={(v) => {
+                        if (!v) return;
+                        config.update('frequency_penalty', parseFloat(v));
+                    }}
+                    number={{
+                        min: -2,
                         max: 2,
                         step: 0.1
                     }}

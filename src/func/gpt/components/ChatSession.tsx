@@ -13,6 +13,7 @@ import { createSimpleContext } from '@/libs/simple-context';
 import { Menu } from 'siyuan';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { get } from 'http';
+import { render } from 'solid-js/web';
 
 
 interface ISimpleContext {
@@ -327,6 +328,38 @@ const ChatSession: Component = (props: {
         });
     }
 
+    const slideAttachHistoryCnt = (e: MouseEvent) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        const contaner = document.createElement('div');
+        render(() => (
+            <Form.Input
+                type="slider"
+                fn_size={false}
+                value={config().attachedHistory}
+                changed={(v) => {
+                    config.update('attachedHistory', v);
+                }}
+                slider={{
+                    min: -1,
+                    max: 16,
+                    step: 1,
+                }}
+            />
+        ), contaner);
+        let menu = new Menu();
+        menu.addItem({
+            element: contaner
+        });
+        let targetElement = e.target as HTMLElement;
+        let rect = targetElement.getBoundingClientRect();
+        menu.open({
+            x: rect.left,
+            y: rect.bottom,
+            isLeft: false
+        });
+    }
+
     const handleSubmit = async (e: Event) => {
         e.preventDefault();
         const userMessage = input().trim();
@@ -450,7 +483,7 @@ const ChatSession: Component = (props: {
                     <ToolbarLabel>
                         字数: {input().length}
                     </ToolbarLabel>
-                    <ToolbarLabel>
+                    <ToolbarLabel onclick={slideAttachHistoryCnt}>
                         附带消息: {config().attachedHistory}
                     </ToolbarLabel>
                     <ToolbarLabel maxWidth='10em'

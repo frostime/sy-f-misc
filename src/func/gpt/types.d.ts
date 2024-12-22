@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.d.ts
- * @LastEditTime : 2024-12-22 15:53:25
+ * @LastEditTime : 2024-12-22 19:12:12
  * @Description  : 
  */
 interface IMessage {
@@ -24,14 +24,32 @@ interface IChatOption {
     /**
      * Controls the randomness of the output.
      * Lower values (e.g., 0.2) make it more deterministic, higher values (e.g., 1.0) make it more creative.
-     * Default is 1.
+     * Default is 0.7 for Chat Completions.
      * @type {number}
      * @range 0.0 - 2.0
      */
     temperature?: number;
 
     /**
-     * Penalizes tokens based on how frequently they have appeared so far.
+     * Nucleus sampling. An alternative to temperature.
+     * Only the tokens comprising the smallest set that exceeds the probability mass of this value are considered.
+     * Use either temperature or top_p, not both.
+     * Default is 1.0 for Chat Completions.
+     * @type {number}
+     * @range 0.0 - 1.0
+     */
+    top_p?: number;
+
+    /**
+     * The maximum number of tokens in the response.
+     * Useful for limiting costs and preventing long responses.
+     * Default is model-dependent (e.g., 4096 for gpt-3.5-turbo).
+     * @type {number}
+     */
+    max_tokens?: number;
+
+    /**
+     * Penalizes tokens based on how frequently they have appeared so far in the text.
      * Between -2.0 and 2.0. Positive values will reduce repetition and help the model generate novel text.
      * Default is 0.
      * @type {number}
@@ -40,48 +58,7 @@ interface IChatOption {
     frequency_penalty?: number;
 
     /**
-     * Nucleus sampling. An alternative to temperature.
-     * Only the tokens with a cumulative probability mass greater than this value are considered.
-     * Use either temperature or top_p, not both.
-     * Default is 1.
-     * @type {number}
-     * @range 0.0 - 1.0
-     */
-    top_p?: number;
-
-    /**
-     * The number of responses to generate.
-     * Default is 1.
-     * @type {number}
-     */
-    n?: number;
-
-    /**
-     * Whether to stream results.
-     * If true, you'll receive the response in chunks. Requires different handling of the response.
-     * Default is false.
-     * @type {boolean}
-     */
-    stream?: boolean;
-
-    /**
-     * A list of sequences where the generation should stop.
-     * Useful for limiting the output to a specific structure or length.
-     * Default is null.
-     * @type {string[] | null}
-     */
-    stop?: string[] | null;
-
-    /**
-     * The maximum number of tokens in the response.
-     * Useful for limiting costs and preventing long responses.
-     * Default is null.
-     * @type {number}
-     */
-    max_tokens?: number;
-
-    /**
-     * Penalizes tokens that have already appeared in the text.
+     * Penalizes tokens that have already appeared in the text, regardless of how many times they have appeared.
      * Between -2.0 and 2.0. Positive values will reduce the likelihood of repeated content.
      * Default is 0.
      * @type {number}
@@ -89,6 +66,13 @@ interface IChatOption {
      */
     presence_penalty?: number;
 
+    /**
+     * Specifies a stop sequence or multiple stop sequences for the API to stop generating further tokens.
+     * The returned text will not contain the stop sequence.
+     * Default is null.
+     * @type {string | string[]}
+     */
+    stop?: string | string[];
 }
 
 interface IGPTProvider {
