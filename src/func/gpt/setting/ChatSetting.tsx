@@ -10,28 +10,20 @@
 
 import Form from "@/libs/components/Form";
 
-import { onCleanup } from "solid-js";
-
 import { IStoreRef } from "@frostime/solid-signal-ref";
 import { UIConfig } from "./store";
-import H3 from "./H3";
+import Heading from "./Heading";
 
 
 const ChatSessionSetting = (props: {
     config: IStoreRef<IChatSessionConfig>,
-    onClose?: () => void,
 }) => {
 
     const { config } = props;
 
-    onCleanup(() => {
-        props?.onClose();
-    });
-
-
     return (
         <>
-            <H3>GPT 对话参数</H3>
+            <Heading>GPT 对话参数</Heading>
             <Form.Wrap
                 title="附带历史消息"
                 description="对话的时候附带的历史消息数量，包含用户输入的消息, 例如：<br/>附带 1 条(最低限度)，则只包含用户当前输入的 [user] 消息<br/>附带 3 条，则会包含 [user, assistant, user] 三条消息"
@@ -66,7 +58,7 @@ const ChatSessionSetting = (props: {
                     }}
                 />
             </Form.Wrap>
-            <H3>用户界面配置</H3>
+            <Heading>用户界面配置</Heading>
             <Form.Wrap
                 title="输入框字体"
                 description="用户输入框的字体大小, 单位 px"

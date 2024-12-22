@@ -4,6 +4,7 @@ interface IProps extends Partial<ISettingItemCore> {
     key?: string;
     changed?: (v?: any) => void;
     style?: JSX.CSSProperties;
+    password?: boolean;
     fn_size?: boolean;
 }
 
@@ -57,6 +58,7 @@ export default function FormInput(props: IProps) {
                     onInput={(e) => {
                         changed(e.currentTarget.value);
                     }}
+                    type={props.password ? "password" : "text"}
                 />
             );
         } else if (props.type === "textarea") {

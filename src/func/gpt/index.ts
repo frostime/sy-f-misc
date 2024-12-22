@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-21 22:22:02
+ * @LastEditTime : 2024-12-22 14:10:56
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -29,7 +29,7 @@ export const declareSettingPanel = [
     {
         key: 'GPT',
         title: '🤖 GPT',
-        element: setting.ChatSessionDefaultSetting
+        element: setting.GlobalSetting
     }
 ]
 
