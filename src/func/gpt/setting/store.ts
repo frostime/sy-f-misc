@@ -3,12 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-21 16:55:31
+ * @LastEditTime : 2024-12-22 13:07:11
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
 import { useStoreRef } from "@frostime/solid-signal-ref";
-import { unwrap } from "solid-js/store";
 
 import { debounce, deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
@@ -33,13 +32,10 @@ export const UIConfig = useStoreRef({
  * @returns 
  */
 const asStorage = () => {
-    //BUG 不知道为啥似乎 unwrap 对 ref 不起作用，可能是 lib 的 bug
-    let cData = unwrap(defaultConfig.store);
-    let pData= unwrap(providers.store);
     return {
-        config: {...cData},
-        providers: {...pData},
-        ui: {...UIConfig.store}
+        config: {...defaultConfig.unwrap()},
+        providers: [...providers.unwrap()],
+        ui: {...UIConfig.unwrap()}
     }
 }
 

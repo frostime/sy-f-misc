@@ -7,7 +7,7 @@ import styles from './ChatSession.module.scss';
 import * as gpt from '../gpt';
 import { defaultConfig, UIConfig, useModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
-import { ChatSessionSetting } from '../setting';
+import { ChatSetting } from '../setting';
 import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
 
@@ -169,7 +169,7 @@ const useSessionSetting = () => {
     let { config, session } = context;
 
     return (
-        <ChatSessionSetting config={config} onClose={() => { }} >
+        <>
             <Form.Wrap
                 title="System Prompt"
                 description="附带的系统级提示消息"
@@ -186,7 +186,8 @@ const useSessionSetting = () => {
                     }}
                 />
             </Form.Wrap>
-        </ChatSessionSetting>
+            <ChatSetting config={config} />
+        </>
     )
 
 }

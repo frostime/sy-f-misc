@@ -102,6 +102,8 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
     let msgRef: HTMLDivElement;
 
     onMount(async () => {
+        //仅仅只在需要配置调整 Lute 渲染的 markdown 内容时才会执行
+        if (props.markdown !== true) return;
         const codeBlocks = msgRef.querySelectorAll('pre>code');
         if (codeBlocks.length === 0) {
             return;

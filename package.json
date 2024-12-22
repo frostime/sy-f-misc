@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@frostime/siyuan-plugin-kits": "^1.2.1",
-    "@frostime/solid-signal-ref": "^2.0.0",
+    "@frostime/solid-signal-ref": "^2.1.0",
     "simple-inject": "^0.1.0"
   }
 }

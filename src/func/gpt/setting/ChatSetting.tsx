@@ -2,42 +2,36 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
- * @FilePath     : /src/func/gpt/setting/components.tsx
- * @LastEditTime : 2024-12-21 17:04:08
+ * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
+ * @LastEditTime : 2024-12-22 13:54:48
  * @Description  : 
  */
 
 
 import Form from "@/libs/components/Form";
 
-import { children, JSX, onCleanup } from "solid-js";
+import { onCleanup } from "solid-js";
 
 import { IStoreRef } from "@frostime/solid-signal-ref";
 import { UIConfig } from "./store";
+import H3 from "./H3";
 
 
-export const ChatSessionSetting = (props: {
-    insideTab?: boolean,
+const ChatSessionSetting = (props: {
     config: IStoreRef<IChatSessionConfig>,
-    onClose: () => void,
-    children?: JSX.Element;
+    onClose?: () => void,
 }) => {
 
     const { config } = props;
 
-    const C = children(() => props.children);
-
     onCleanup(() => {
-        props.onClose();
+        props?.onClose();
     });
 
 
     return (
-        <div classList={{
-            'config__tab-container': props.insideTab ?? false
-        }} data-name="gpt" style={{width: '100%'}}>
-            {C()}
-            <h3 style={{padding: '5px 20px', "text-align": 'center'}}>GPT 对话参数</h3>
+        <>
+            <H3>GPT 对话参数</H3>
             <Form.Wrap
                 title="附带历史消息"
                 description="对话的时候附带的历史消息数量，包含用户输入的消息, 例如：<br/>附带 1 条(最低限度)，则只包含用户当前输入的 [user] 消息<br/>附带 3 条，则会包含 [user, assistant, user] 三条消息"
@@ -72,7 +66,7 @@ export const ChatSessionSetting = (props: {
                     }}
                 />
             </Form.Wrap>
-            <h3 style={{padding: '5px 20px', "text-align": 'center'}}>用户界面配置</h3>
+            <H3>用户界面配置</H3>
             <Form.Wrap
                 title="输入框字体"
                 description="用户输入框的字体大小, 单位 px"
@@ -126,7 +120,8 @@ export const ChatSessionSetting = (props: {
                     }}
                 />
             </Form.Wrap>
-        </div>
+        </>
     );
 };
 
+export default ChatSessionSetting;

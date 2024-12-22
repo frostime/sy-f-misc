@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-22 10:26:12
  * @FilePath     : /src/func/gpt/utils.ts
- * @LastEditTime : 2024-12-22 10:44:49
+ * @LastEditTime : 2024-12-22 10:59:19
  * @Description  : 
  */
 //https://github.com/siyuan-note/siyuan/blob/master/app/src/protyle/util/addScript.ts
@@ -49,3 +49,9 @@ export const addStyle = (url: string, id: string) => {
         }
     }
 };
+
+export function convertLatexDelimiters(markdown: string) {
+    return markdown
+        .replace(/\\\((.*?)\\\)/g, '$$1$') // 将 \(...\) 替换为 $...$
+        .replace(/\\\[(.*?)\\\]/g, '$$$$1$$'); // 将 \[...\] 替换为 $$...$$
+}
