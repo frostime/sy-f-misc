@@ -120,6 +120,7 @@ declare interface Window {
     mermaid: any;
     echarts: any;
     hljs: any;
+    katex: any;
 }
 
 interface IPluginProtyleSlash {

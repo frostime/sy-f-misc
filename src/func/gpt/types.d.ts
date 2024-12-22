@@ -119,4 +119,6 @@ interface IChatSessionMsgItem {
 
 interface IChatSessionConfig extends IChatOption {
     attachedHistory: number;
+    //GPT 常常使用 \( \) 语法，但是 md 习惯使用 $ $ 语法，需要转换
+    convertMathSyntax: boolean;
 }

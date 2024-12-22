@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-22 10:26:12
  * @FilePath     : /src/func/gpt/utils.ts
- * @LastEditTime : 2024-12-22 10:59:19
+ * @LastEditTime : 2024-12-22 17:56:26
  * @Description  : 
  */
 //https://github.com/siyuan-note/siyuan/blob/master/app/src/protyle/util/addScript.ts
@@ -50,8 +50,26 @@ export const addStyle = (url: string, id: string) => {
     }
 };
 
-export function convertLatexDelimiters(markdown: string) {
-    return markdown
-        .replace(/\\\((.*?)\\\)/g, '$$1$') // 将 \(...\) 替换为 $...$
-        .replace(/\\\[(.*?)\\\]/g, '$$$$1$$'); // 将 \[...\] 替换为 $$...$$
+/**
+ * Converts GPT-style math formulas to Markdown format
+ * - Converts inline formulas from \(...\) to $...$
+ * - Converts block formulas from \[...\] to $$...$$
+ */
+export function convertMathFormulas(text: string): string {
+    // Handle multiline text by processing it in steps
+
+    // Step 1: Replace block formulas first to avoid conflicts
+    // Look for \[...\] patterns and replace with $$...$$
+    let result = text.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
+        // Add newlines before and after block formulas for better markdown compatibility
+        return `\n$$\n${formula.trim()}\n$$\n`;
+    });
+
+    // Step 2: Replace inline formulas
+    // Look for \(...\) patterns and replace with $...$
+    result = result.replace(/\\\((.*?)\\\)/g, (match, formula) => {
+        return `$${formula.trim()}$`;
+    });
+
+    return result;
 }

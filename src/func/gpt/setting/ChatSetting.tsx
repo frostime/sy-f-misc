@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2024-12-22 16:33:00
+ * @LastEditTime : 2024-12-22 18:01:28
  * @Description  : 
  */
 
@@ -51,6 +51,18 @@ const ChatSessionSetting = (props: {
                     number={{
                         min: -1,
                         step: 1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="转换数学符号"
+                description="GPT 在输出公式的时候可能使用 \(..\) 符号，如果开启则会将内容转换为 $...$"
+            >
+                <Form.Input
+                    type="checkbox"
+                    value={config().convertMathSyntax ?? false}
+                    changed={(v) => {
+                        config.update('convertMathSyntax', v);
                     }}
                 />
             </Form.Wrap>

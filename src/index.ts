@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-12-19 15:17:30
+ * @LastEditTime : 2024-12-22 17:22:41
  * @Description  : 
  */
 import {
@@ -29,7 +29,7 @@ import { updateStyleDom, registerPlugin } from "@frostime/siyuan-plugin-kits";
 // import type {} from "solid-styled-jsx";
 import { request, getFile } from "./api";
 
-import { useLocalDeviceStorage, inputDialog } from "@frostime/siyuan-plugin-kits";
+import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
 
 const electron = require('electron');
 

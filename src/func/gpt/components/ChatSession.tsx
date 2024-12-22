@@ -142,7 +142,8 @@ const useSessionMessages = (props: {
                     streamingReply.update(msg);
                     props.scrollToBottom();
                 },
-                abortControler: controller
+                abortControler: controller,
+                option: props.config()
             });
             appendAssistantMsg(reply);
             props.scrollToBottom();

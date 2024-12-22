@@ -150,3 +150,13 @@
         }
     }
 }
+
+.katex-center-display {
+    text-align: center !important;
+    margin: 0 auto;
+
+    >:global(.katex-display) {
+        overflow-x: clip;
+        width: max-content;
+    }
+}

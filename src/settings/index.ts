@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-12-18 22:58:30
+ * @LastEditTime : 2024-12-22 17:23:32
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -270,8 +270,8 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     plugin.openSetting = () => {
         solidDialog({
             title: "F-Misc 设置",
-            width: "1000px",
-            height: "500px",
+            width: "1200px",
+            height: "700px",
             loader: () => Settings({
                 GroupEnabled: Enable,
                 GroupDocky: Docky,
@@ -280,6 +280,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
                 customPanels: CustomPanels
             })
         });
+        // const container = dialog.element.querySelector('.b3-dialog__container') as HTMLElement;
     }
 }
 
