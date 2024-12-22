@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.d.ts
- * @LastEditTime : 2024-12-22 19:12:12
+ * @LastEditTime : 2024-12-22 23:42:49
  * @Description  : 
  */
 interface IMessage {
@@ -99,6 +99,7 @@ interface IChatSessionMsgItem {
     type: 'message' | 'seperator';
     id: string;
     message?: IMessage;
+    token?: number;
 }
 
 interface IChatSessionConfig extends IChatOption {

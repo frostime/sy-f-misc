@@ -3,13 +3,12 @@ import { useModel } from "./setting/store";
 export const complete = async (input: string | IMessage[], options?: {
     model?: IGPTModel,
     systemPrompt?: string,
-    returnRaw?: boolean,
     stream?: boolean,
     streamMsg?: (msg: string) => void,
     streamInterval?: number,
     option?: IChatOption
     abortControler?: AbortController
-}) => {
+}): Promise<{ content: string, usage: any | null }> => {
     let { url, model, apiKey } = options?.model ?? useModel('siyuan');
 
     let messages: IMessage[] = [];
@@ -68,7 +67,7 @@ export const complete = async (input: string | IMessage[], options?: {
 
             const decoder = new TextDecoder();
             let fullText = '';
-
+            let usage: Record<string, any> | null = null;
             try {
                 let chunkIndex = 0;
                 while (true) {
@@ -85,12 +84,11 @@ export const complete = async (input: string | IMessage[], options?: {
                         if (!line.startsWith('data: ')) continue;
 
                         try {
-                            const data = JSON.parse(line.slice(6));
-                            if (!data.choices[0].delta?.content) continue;
-
-                            const content = data.choices[0].delta.content;
+                            let responseData = JSON.parse(line.slice(6));
+                            usage = responseData.usage ?? usage;
+                            if (!responseData.choices[0].delta?.content) continue;
+                            const content = responseData.choices[0].delta.content;
                             fullText += content;
-                            // options.streamMsg?.(fullText);
                         } catch (e) {
                             console.warn('Failed to parse stream data:', e);
                         }
@@ -102,16 +100,23 @@ export const complete = async (input: string | IMessage[], options?: {
                 }
             } catch (error) {
                 console.error('Stream reading error:', error);
-                return fullText + '\n' + `[Error] Failed to request openai api, ${error}`;
+                return {
+                    content: fullText + '\n' + `[Error] Failed to request openai api, ${error}`,
+                    usage: null
+                }
             } finally {
                 reader.releaseLock();
             }
-            return fullText;
+            /**
+             * Stream 模式下不一定有 usage，大概率是空（可能部分其他厂商会有这个字段）
+             */
+            return { content: fullText, usage: usage };
+        } else {
+            const data = await response.json();
+            return { content: data.choices[0].message.content, usage: data.usage };
         }
 
-        const data = await response.json();
-        return options?.returnRaw ? data : data.choices[0].message.content;
     } catch (error) {
-        return `[Error] Failed to request openai api, ${error}`;
+        return { content: `[Error] Failed to request openai api, ${error}`, usage: null };
     }
 }

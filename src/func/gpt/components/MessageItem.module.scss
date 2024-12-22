@@ -20,6 +20,10 @@
 
             margin-right: 0;
             margin-left: 10%;
+
+            .toolbar {
+                flex-direction: row-reverse;
+            }
         }
     }
 
@@ -46,6 +50,8 @@
             padding: 2px;
             display: flex;
             gap: 4px;
+
+            align-items: center;
         }
 
         .toolbarButton {

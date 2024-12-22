@@ -1,4 +1,4 @@
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch } from 'solid-js';
 import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -112,6 +112,13 @@ const useSessionMessages = (props: {
 
     let controller: AbortController;
 
+    const gptOption = () => {
+        let option = {...props.config()};
+        delete option.attachedHistory;
+        delete option.convertMathSyntax;
+        return option;
+    }
+
     const sendMessage = async (userMessage: string) => {
         if (!userMessage.trim()) return;
 
@@ -132,10 +139,9 @@ const useSessionMessages = (props: {
             controller = new AbortController();
             const msgToSend = getAttachedHistory();
             // console.log(msgToSend);
-            const reply = await gpt.complete(msgToSend, {
+            const { content, usage } = await gpt.complete(msgToSend, {
                 model: props.model(),
                 systemPrompt: sysPrompt || undefined,
-                returnRaw: false,
                 stream: true,
                 streamInterval: 2,
                 streamMsg(msg) {
@@ -143,9 +149,20 @@ const useSessionMessages = (props: {
                     props.scrollToBottom();
                 },
                 abortControler: controller,
-                option: props.config()
+                option: gptOption()
             });
-            appendAssistantMsg(reply);
+            appendAssistantMsg(content);
+
+            if (usage) {
+                // 为前面两个记录添加 token 信息
+                batch(() => {
+                    const lastIdx = messages().length - 1;
+                    if (lastIdx < 1) return;
+                    messages.update(lastIdx, 'token', usage?.completion_tokens);
+                    messages.update(lastIdx - 1, 'token', usage?.prompt_tokens);
+                });
+            }
+
             props.scrollToBottom();
         } catch (error) {
             console.error('Error:', error);
@@ -420,6 +437,19 @@ const ChatSession: Component = (props: {
         };
     };
 
+    const Topbar = () => (
+        <div class={styles.topToolbar}>
+            <div style={{
+                "display": "flex",
+                flex: 1,
+                "align-items": "center",
+                "justify-content": "center"
+            }}>
+                New Chat
+            </div>
+        </div>
+    );
+
     const ChatContainer = () => (
         <div class={styles.chatContainer} style={styleVars()}>
             <div class={styles.messageList} ref={messageListRef}>
@@ -427,7 +457,7 @@ const ChatSession: Component = (props: {
                     {(item: IChatSessionMsgItem) => (
                         <Switch fallback={<></>}>
                             <Match when={item.type === 'message'}>
-                                <MessageItem message={item.message!} markdown={true} />
+                                <MessageItem messageItem={item} markdown={true} />
                             </Match>
                             <Match when={item.type === 'seperator'}>
                                 <Seperator title="新的对话" />
@@ -440,7 +470,12 @@ const ChatSession: Component = (props: {
                 {session.loading() && (
                     <>
                         <Seperator title="正在思考中..." />
-                        <MessageItem message={{ role: 'assistant', content: session.streamingReply() }} />
+                        <MessageItem messageItem={{
+                            type: 'message',
+                            id: '',
+                            token: null,
+                            message: { role: 'assistant', content: session.streamingReply() }
+                        }} />
                     </>
                 )}
             </div>
@@ -542,6 +577,7 @@ const ChatSession: Component = (props: {
     return (
         <div style={{
             "display": "flex",
+            "flex-direction": "column",
             "justify-content": "center",
             "width": "100%",
             "height": "100%"
@@ -551,6 +587,8 @@ const ChatSession: Component = (props: {
                 config,
                 session
             }}>
+                {/* 添加顶部工具栏 */}
+                <Topbar />
                 <ChatContainer />
             </SimpleProvider>
         </div>

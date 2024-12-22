@@ -1,4 +1,4 @@
-import { Component, onMount } from 'solid-js';
+import { Component, onMount, Show } from 'solid-js';
 import { getLute, html2ele } from "@frostime/siyuan-plugin-kits";
 
 import styles from './MessageItem.module.scss';
@@ -135,7 +135,7 @@ const renderMathBlock = (element: HTMLElement) => {
     }
 }
 
-const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props) => {
+const MessageItem: Component<{ messageItem: IChatSessionMsgItem, markdown?: boolean }> = (props) => {
 
     let lute = getLute();
 
@@ -181,7 +181,7 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
     });
 
     const markdownContent = () => {
-        let text = props.message.content;
+        let text = props.messageItem.message.content;
         if (defaultConfig().convertMathSyntax) {
             text = convertMathFormulas(text);
         }
@@ -195,7 +195,7 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
             let html = lute.Md2HTML(text);
             return html;
         }
-        return props.message.content;
+        return props.messageItem.message.content;
     }
 
     // #iconAccount
@@ -216,15 +216,15 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
     };
 
     return (
-        <div class={styles.messageItem} data-role={props.message.role}>
-            {props.message.role === 'user' ? (
+        <div class={styles.messageItem} data-role={props.messageItem.message.role}>
+            {props.messageItem.message.role === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (
                 <div class={styles.icon}><IconAssistant /></div>
             )}
             <div class={styles.messageContainer}>
                 <div
-                    class={`${styles.message} ${styles[props.message.role]} b3-typography`}
+                    class={`${styles.message} ${styles[props.messageItem.message.role]} b3-typography`}
                     style={{
                         'white-space': props.markdown ? '' : 'pre-line'
                     }}
@@ -239,6 +239,9 @@ const MessageItem: Component<{ message: IMessage, markdown?: boolean }> = (props
                     >
                         <svg><use href="#iconCopy" /></svg>
                     </button>
+                    <Show when={props.messageItem.token}>
+                        <span class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
+                    </Show>
                 </div>
             </div>
         </div>

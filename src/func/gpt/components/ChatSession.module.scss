@@ -15,6 +15,17 @@
     --chat-max-width: 1250px;
 }
 
+.topToolbar {
+    position: sticky;
+    top: 0;
+    height: 50px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--chat-bg-color);
+}
+
 .chatContainer {
     width: 100%;
     height: 100%;
