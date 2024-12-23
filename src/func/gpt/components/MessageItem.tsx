@@ -244,7 +244,7 @@ const MessageItem: Component<{ messageItem: IChatSessionMsgItem, markdown?: bool
                     </Show>
                     <div class="fn__flex-1" />
                     <span>
-                        {props.messageItem.model}
+                        {props.messageItem.author}
                     </span>
                     <span>
                         {formatDateTime(null, new Date(props.messageItem.timestamp))}

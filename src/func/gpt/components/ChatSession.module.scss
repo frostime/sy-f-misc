@@ -20,10 +20,15 @@
     top: 0;
     height: 50px;
 
+    padding: 0 10px;
+
     display: flex;
     justify-content: space-between;
     align-items: center;
     background-color: var(--chat-bg-color);
+
+    font-size: var(--chat-input-font-size);
+    font-weight: 500;
 }
 
 .chatContainer {
@@ -111,8 +116,8 @@
     position: absolute;
     right: 10px;
     bottom: 10px;
-    width: 50px;
-    height: 32px;
+    width: 40px;
+    height: 35px;
 
     font-family: var(--b3-font-family-protyle), inherit;
     font-size: var(--chat-input-font-size);

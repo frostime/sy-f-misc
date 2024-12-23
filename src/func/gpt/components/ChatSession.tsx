@@ -1,4 +1,4 @@
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch, JSX } from 'solid-js';
 import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -13,12 +13,14 @@ import { createSimpleContext } from '@/libs/simple-context';
 import { Menu } from 'siyuan';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
+import { saveToSiYuan } from '../persistence/sy-doc';
+import { has } from '@/func/webview/utils/clipboard';
 
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
     config: IStoreRef<IChatSessionConfig>;
-    session: ReturnType<typeof useSessionMessages>;
+    session: ReturnType<typeof useSession>;
 }
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<ISimpleContext>();
@@ -26,15 +28,22 @@ const { SimpleProvider, useSimpleContext } = createSimpleContext<ISimpleContext>
 /**
  * 
  */
-const useSessionMessages = (props: {
+const useSession = (props: {
     model: Accessor<IGPTModel>;
     config: IStoreRef<IChatSessionConfig>;
     scrollToBottom: () => void;
 }) => {
+    let sessionId = window.Lute.NewNodeID();
+
     const systemPrompt = useSignalRef<string>('');
+
+    const timestamp = new Date().getTime();
+    const title = useSignalRef<string>('新的对话');
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
     const loading = useSignalRef<boolean>(false);
     const streamingReply = useSignalRef<string>('');
+
+    let hasStarted = false;
 
     const newID = () => {
         return window.Lute.NewNodeID();
@@ -50,7 +59,7 @@ const useSessionMessages = (props: {
             type: 'message',
             id: newID(),
             timestamp: new Date().getTime(),
-            model: 'user',
+            author: 'user',
             message: {
                 role: 'user',
                 content: msg
@@ -63,7 +72,7 @@ const useSessionMessages = (props: {
             type: 'message',
             id: newID(),
             timestamp: new Date().getTime(),
-            model,
+            author: model,
             message: {
                 role: 'assistant',
                 content: msg
@@ -89,8 +98,10 @@ const useSessionMessages = (props: {
         }
     }
 
-    const getAttachedHistory = () => {
-        const { attachedHistory } = props.config();
+    const getAttachedHistory = (attachedHistory?: number) => {
+        if (attachedHistory === undefined) {
+            attachedHistory = props.config().attachedHistory;
+        }
         const history = [...messages()];
         const lastMessage = history.pop(); // 弹出最后一条消息（当前输入）
 
@@ -117,10 +128,39 @@ const useSessionMessages = (props: {
     let controller: AbortController;
 
     const gptOption = () => {
-        let option = {...props.config()};
+        let option = { ...props.config() };
         delete option.attachedHistory;
         delete option.convertMathSyntax;
         return option;
+    }
+
+    const customComplete = async (message: string, attachedHistory?: number) => {
+        try {
+            const histories = getAttachedHistory(attachedHistory);
+            let model = props.model();
+            const messageToSend: IMessage[] = [
+                ...histories,
+                {
+                    role: 'user',
+                    content: message
+                }
+            ];
+            const { content } = await gpt.complete(messageToSend, {
+                model: model,
+                stream: false,
+                option: gptOption()
+            });
+            return content;
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    const generateTitle = async () => {
+        let newTitle = await customComplete('请根据以上对话生成一个合适的对话主题标题，字数控制在 15 字之内', -1);
+        if (newTitle?.trim()) {
+            title.update(newTitle.trim());
+        }
     }
 
     const sendMessage = async (userMessage: string) => {
@@ -169,6 +209,13 @@ const useSessionMessages = (props: {
             }
 
             props.scrollToBottom();
+
+            //创建标题
+            if (!hasStarted) {
+                hasStarted = true;
+                setTimeout(generateTitle, 100);
+            }
+
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -189,6 +236,7 @@ const useSessionMessages = (props: {
         messages,
         loading,
         streamingReply,
+        title,
         sendMessage,
         abortMessage,
         toggleClearContext: () => {
@@ -198,6 +246,14 @@ const useSessionMessages = (props: {
                 appendSeperator();
             }
             props.scrollToBottom();
+        },
+        sessionHistory: (): IChatSessionHistory => {
+            return {
+                id: sessionId,
+                timestamp,
+                title: title(),
+                items: messages.unwrap()
+            }
         }
     }
 }
@@ -292,7 +348,7 @@ const ChatSession: Component = (props: {
     };
 
     const input = useSignalRef<string>('');
-    const session = useSessionMessages({ model, config, scrollToBottom });
+    const session = useSession({ model, config, scrollToBottom });
 
     if (props.systemPrompt) {
         session.systemPrompt(props.systemPrompt);
@@ -415,7 +471,8 @@ const ChatSession: Component = (props: {
                 'overflow': 'hidden',
                 'text-overflow': 'ellipsis',
                 'white-space': 'nowrap',
-                display: 'inline-block',
+                display: 'flex',
+                "align-items": "center",
             }}>
             {props.children}
         </span>
@@ -442,18 +499,57 @@ const ChatSession: Component = (props: {
         };
     };
 
-    const Topbar = () => (
-        <div class={styles.topToolbar}>
-            <div style={{
-                "display": "flex",
-                flex: 1,
-                "align-items": "center",
-                "justify-content": "center"
+    const SVGButton = (props: {
+        icon: string,
+        label?: string,
+        onclick: (e: MouseEvent) => void,
+        style?: JSX.CSSProperties
+    }) => (
+        <div class="toolbar__item ariaLabel" onclick={props.onclick}
+            aria-label={props.label}
+            style={{
+                height: '30px',
+                width: '30px',
+                ...props.style
+            }}
+        >
+            <svg style={{
+                height: '100%',
+                width: '100%',
+                margin: '0 auto',
+                fill: 'currentColor'
             }}>
-                New Chat
-            </div>
+                <use href={`#${props.icon}`} />
+            </svg>
         </div>
     );
+
+    const SvgSymbol = (props: { children: string, size?: string }) => (
+        <svg style={{
+            height: props.size || '100%',
+            width: props.size || '100%',
+            margin: '0 auto',
+            fill: 'currentColor'
+        }}>
+            <use href={`#${props.children}`} />
+        </svg>
+    );
+
+    const Topbar = () => {
+
+        return (
+            <div class={styles.topToolbar}>
+                <div style={{
+                    "display": "flex",
+                    flex: 1,
+                    "align-items": "center",
+                    "justify-content": "center"
+                }}>
+                    {session.title()}
+                </div>
+            </div>
+        )
+    };
 
     const ChatContainer = () => (
         <div class={styles.chatContainer} style={styleVars()}>
@@ -479,7 +575,9 @@ const ChatSession: Component = (props: {
                             type: 'message',
                             id: '',
                             token: null,
-                            message: { role: 'assistant', content: session.streamingReply() }
+                            message: { role: 'assistant', content: session.streamingReply() },
+                            author: model().model,
+                            timestamp: new Date().getTime()
                         }} />
                     </>
                 )}
@@ -495,15 +593,20 @@ const ChatSession: Component = (props: {
                         </ToolbarLabel>
                     </Show>
                     <ToolbarLabel onclick={openSetting}>
-                        ⚙️ 设置
+                        <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>
                     <ToolbarLabel onclick={session.toggleClearContext} >
-                        🧹 清空上下文
+                        <SvgSymbol size="15px">iconTrashcan</SvgSymbol>
                     </ToolbarLabel>
                     <ToolbarLabel onclick={useUserPrompt}>
-                        🖋️ 快速 Prompt
+                        <SvgSymbol size="15px">iconEdit</SvgSymbol>
                     </ToolbarLabel>
                     <div style={{ flex: 1 }}></div>
+                    <ToolbarLabel onclick={() => {
+                        saveToSiYuan(session.sessionHistory())
+                    }}>
+                        <SvgSymbol size="15px">iconDownload</SvgSymbol>
+                    </ToolbarLabel>
                     <ToolbarLabel onclick={() => {
                         const { dialog } = inputDialog({
                             title: '系统提示',
@@ -573,7 +676,7 @@ const ChatSession: Component = (props: {
                     disabled={session.loading()}
                     onclick={handleSubmit}
                 >
-                    🚀
+                    <SvgSymbol>iconSparkles</SvgSymbol>
                 </button>
             </section>
         </div>
