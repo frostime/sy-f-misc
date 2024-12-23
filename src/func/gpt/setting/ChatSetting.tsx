@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2024-12-23 21:41:14
+ * @LastEditTime : 2024-12-23 22:11:50
  * @Description  : 
  */
 
@@ -80,6 +80,18 @@ const ChatSessionSetting = (props: {
                     value={config().convertMathSyntax ?? false}
                     changed={(v) => {
                         config.update('convertMathSyntax', v);
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="Stream"
+                description="以 Stream 模式请求"
+            >
+                <Form.Input
+                    type="checkbox"
+                    value={config().chatOption.stream ?? true}
+                    changed={(v) => {
+                        config.update('chatOption', 'stream', v);
                     }}
                 />
             </Form.Wrap>

@@ -133,13 +133,13 @@ const useSession = (props: {
         return option;
     }
 
-    const customComplete = async (messageToSend: IMessage[] | string) => {
+    const customComplete = async (messageToSend: IMessage[] | string, stream: boolean = false) => {
         try {
             let model = props.model();
             const { content } = await gpt.complete(messageToSend, {
                 model: model,
-                stream: false,
-                option: gptOption()
+                option: gptOption(),
+                stream: stream,
             });
             return content;
         } catch (error) {
@@ -195,17 +195,21 @@ ${inputContent}
             const msgToSend = getAttachedHistory();
             // console.log(msgToSend);
             let model = props.model();
+            let option = gptOption();
+            if (option.stream === false) {
+                streamingReply.update('请求中，请耐心等等');
+            }
             const { content, usage } = await gpt.complete(msgToSend, {
                 model: model,
                 systemPrompt: sysPrompt || undefined,
-                stream: true,
+                stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
                     streamingReply.update(msg);
                     props.scrollToBottom();
                 },
                 abortControler: controller,
-                option: gptOption()
+                option: option,
             });
             appendAssistantMsg(model.model, content);
 
@@ -224,7 +228,9 @@ ${inputContent}
             //创建标题
             if (!hasStarted) {
                 hasStarted = true;
-                setTimeout(autoGenerateTitle, 100);
+                if (messages().length <= 2) {
+                    setTimeout(autoGenerateTitle, 100);
+                }
             }
 
         } catch (error) {

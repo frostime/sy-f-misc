@@ -12,6 +12,8 @@ export const complete = async (input: string | IMessage[], options?: {
 }): Promise<{ content: string, usage: any | null }> => {
     let { url, model, apiKey } = options?.model ?? useModel('siyuan');
 
+    options.option = options.option && {};
+
     let messages: IMessage[] = [];
     if (typeof input === 'string') {
         messages = [{
@@ -39,12 +41,13 @@ export const complete = async (input: string | IMessage[], options?: {
             };
         });
     }
-
+    if (options?.stream !== undefined && options?.stream !== null) {
+        options.option.stream = options.stream;
+    }
     const payload = {
         "model": model,
         "messages": messages,
-        "stream": options?.stream ?? false,
-        ...(options?.option ?? {})
+        ...options.option
     };
 
     try {

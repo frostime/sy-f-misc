@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-23 21:28:44
+ * @LastEditTime : 2024-12-23 22:09:38
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -24,6 +24,7 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     maxInputLenForAutoTitle: 500,
     chatOption: {
         temperature: 0.7,
+        stream: true,
         max_tokens: 4096,
         top_p: 1,
         frequency_penalty: 0,

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.d.ts
- * @LastEditTime : 2024-12-23 21:38:00
+ * @LastEditTime : 2024-12-23 22:10:05
  * @Description  : 
  */
 interface IMessage {
@@ -73,6 +73,8 @@ interface IChatOption {
      * @type {string | string[]}
      */
     stop?: string | string[];
+
+    stream?: boolean
 }
 
 interface IGPTProvider {
