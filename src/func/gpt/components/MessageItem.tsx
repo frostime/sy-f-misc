@@ -1,5 +1,5 @@
 import { Component, onMount, Show } from 'solid-js';
-import { getLute, html2ele } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, getLute, html2ele } from "@frostime/siyuan-plugin-kits";
 
 import styles from './MessageItem.module.scss';
 import { addScript, addStyle, convertMathFormulas } from '../utils';
@@ -242,6 +242,13 @@ const MessageItem: Component<{ messageItem: IChatSessionMsgItem, markdown?: bool
                     <Show when={props.messageItem.token}>
                         <span class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
                     </Show>
+                    <div class="fn__flex-1" />
+                    <span>
+                        {props.messageItem.model}
+                    </span>
+                    <span>
+                        {formatDateTime(null, new Date(props.messageItem.timestamp))}
+                    </span>
                 </div>
             </div>
         </div>

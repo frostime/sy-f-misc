@@ -49,6 +49,8 @@ const useSessionMessages = (props: {
         messages.update(prev => [...prev, {
             type: 'message',
             id: newID(),
+            timestamp: new Date().getTime(),
+            model: 'user',
             message: {
                 role: 'user',
                 content: msg
@@ -56,10 +58,12 @@ const useSessionMessages = (props: {
         }]);
     }
 
-    const appendAssistantMsg = (msg: string) => {
+    const appendAssistantMsg = (model: string, msg: string) => {
         messages.update(prev => [...prev, {
             type: 'message',
             id: newID(),
+            timestamp: new Date().getTime(),
+            model,
             message: {
                 role: 'assistant',
                 content: msg
@@ -139,8 +143,9 @@ const useSessionMessages = (props: {
             controller = new AbortController();
             const msgToSend = getAttachedHistory();
             // console.log(msgToSend);
+            let model = props.model();
             const { content, usage } = await gpt.complete(msgToSend, {
-                model: props.model(),
+                model: model,
                 systemPrompt: sysPrompt || undefined,
                 stream: true,
                 streamInterval: 2,
@@ -151,7 +156,7 @@ const useSessionMessages = (props: {
                 abortControler: controller,
                 option: gptOption()
             });
-            appendAssistantMsg(content);
+            appendAssistantMsg(model.model, content);
 
             if (usage) {
                 // 为前面两个记录添加 token 信息
