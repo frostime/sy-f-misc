@@ -85,10 +85,11 @@ const openChatTab = async () => {
         input = outsideInputs[activeTabId];
         input.value = prompt;
     }
+    let disposer = () => {};
     openCustomTab({
         tabId: activeTabId,
         render: (container: HTMLElement) => {
-            render(() => ChatSession({
+            disposer = render(() => ChatSession({
                 input: input
             }), container);
             let tabContainer: HTMLElement = container.closest('[data-id]');
@@ -100,6 +101,7 @@ const openChatTab = async () => {
         beforeDestroy: () => {
             activeTabId = null;
             delete outsideInputs[activeTabId];
+            disposer(); //调用 solidjs 的 onCleanup
         },
         title: '和 GPT 对话',
         icon: 'iconGithub',

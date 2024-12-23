@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-12-23 14:17:37
+ * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
+ * @LastEditTime : 2024-12-23 17:31:09
+ * @Description  : 
+ */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, setBlockAttrs, sql, updateBlock } from "@/api";
 import { id2block } from "../utils";
@@ -24,7 +32,8 @@ const checkExportDocument = async (attr: string, value: string) => {
             SELECT A.block_id
             FROM attributes AS A
             WHERE A.name = '${attr}' AND A.value = '${value}'
-        ) AND B.type = 'd';
+        ) AND B.type = 'd'
+        order by created;
         `);
     if (docs?.length > 0) {
         if (docs.length !== 1) {
@@ -63,14 +72,15 @@ async function ensureRootDocument(newTitle: string, notebookId?: NotebookId): Pr
 
 
 export const saveToSiYuan = async (history: IChatSessionHistory) => {
-    let { items, title, id, timestamp } = history;
+    let { items, title, timestamp } = history;
     // 1. 检查之前是否已经导出过
     let markdownText = items.map(message2markdown).join('\n\n');
-    let doc = await checkExportDocument('custom-gpt-export-doc', id);
+    let doc = await checkExportDocument('custom-gpt-export-doc', history.id);
 
     // 2. 如果存在, 更新
     if (doc) {
         await updateBlock('markdown', markdownText, doc.id);
+        return;
     }
 
     // 3. 如果不存在, 创建
@@ -84,7 +94,7 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
     let docid = await createDocWithMd(rootDoc.box, `${path}/${title}`, markdownText);
     await setBlockAttrs(docid,
         {
-            'custom-gpt-export-doc': id
+            'custom-gpt-export-doc': history.id
         }
     );
     showMessage(`保存到 ${getNotebook(rootDoc.box).name}${path}/${title}`);

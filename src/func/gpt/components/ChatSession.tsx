@@ -1,4 +1,4 @@
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch, JSX } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch, JSX, onCleanup } from 'solid-js';
 import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -13,8 +13,8 @@ import { createSimpleContext } from '@/libs/simple-context';
 import { Menu } from 'siyuan';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
-import { saveToSiYuan } from '../persistence/sy-doc';
-import { has } from '@/func/webview/utils/clipboard';
+import * as persist from '../persistence';
+import HistoryList from './HistoryList';
 
 
 interface ISimpleContext {
@@ -37,7 +37,7 @@ const useSession = (props: {
 
     const systemPrompt = useSignalRef<string>('');
 
-    const timestamp = new Date().getTime();
+    let timestamp = new Date().getTime();
     const title = useSignalRef<string>('新的对话');
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
     const loading = useSignalRef<boolean>(false);
@@ -157,7 +157,7 @@ const useSession = (props: {
     }
 
     const generateTitle = async () => {
-        let newTitle = await customComplete('请根据以上对话生成一个合适的对话主题标题，字数控制在 15 字之内', -1);
+        let newTitle = await customComplete('请根据以上对话生成唯一一个最合适的对话主题标题，字数控制在 15 字之内; 除了标题之外不要回复任何别的信息', -1);
         if (newTitle?.trim()) {
             title.update(newTitle.trim());
         }
@@ -254,6 +254,12 @@ const useSession = (props: {
                 title: title(),
                 items: messages.unwrap()
             }
+        },
+        applyHistory: (history: IChatSessionHistory) => {
+            history.id && (sessionId = history.id);
+            history.timestamp && (timestamp = history.timestamp);
+            history.title && (title.update(history.title));
+            history.items && (messages.update(history.items));
         }
     }
 }
@@ -382,6 +388,10 @@ const ChatSession: Component = (props: {
         textareaRef.setSelectionRange(0, 0);
     });
 
+    onCleanup(() => {
+        persist.saveToLocalStorage(session.sessionHistory());
+    });
+
     const useUserPrompt = (e: MouseEvent) => {
         e.stopImmediatePropagation();
         e.preventDefault();
@@ -491,6 +501,24 @@ const ChatSession: Component = (props: {
         })
     }
 
+    const openHistoryList = () => {
+        const { close } = solidDialog({
+            title: '历史记录',
+            loader: () => (
+                <SimpleProvider state={{ model, config, session }}>
+                    <HistoryList
+                        history={persist.listFromLocalStorage()}
+                        onclick={(history: IChatSessionHistory) => {
+                            session.applyHistory(history);
+                            close();
+                        }} />
+                </SimpleProvider>
+            ),
+            width: '600px',
+            height: '600px'
+        });
+    }
+
     const styleVars = () => {
         return {
             '--chat-input-font-size': `${UIConfig().inputFontsize}px`,
@@ -531,6 +559,9 @@ const ChatSession: Component = (props: {
                 }}>
                     {session.title()}
                 </div>
+                <ToolbarLabel onclick={openHistoryList}>
+                    <SvgSymbol size="15px">iconHistory</SvgSymbol>
+                </ToolbarLabel>
             </div>
         )
     };
@@ -590,7 +621,7 @@ const ChatSession: Component = (props: {
                     </ToolbarLabel>
                     <div style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
-                        saveToSiYuan(session.sessionHistory())
+                        persist.persistHistory(session.sessionHistory())
                     }}>
                         <SvgSymbol size="15px">iconDownload</SvgSymbol>
                     </ToolbarLabel>
