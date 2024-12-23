@@ -109,6 +109,9 @@ const openChatTab = async () => {
     });
 }
 
+
+// TODO: 点击导出的文档，从存储的 json 中恢复对话
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;

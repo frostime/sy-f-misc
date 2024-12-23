@@ -15,6 +15,7 @@ import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
+import { time } from 'console';
 
 
 interface ISimpleContext {
@@ -260,6 +261,16 @@ const useSession = (props: {
             history.timestamp && (timestamp = history.timestamp);
             history.title && (title.update(history.title));
             history.items && (messages.update(history.items));
+        },
+        newSession: () => {
+            sessionId = window.Lute.NewNodeID();
+            systemPrompt.update('');
+            timestamp = new Date().getTime();
+            title.update('新的对话');
+            messages.update([]);
+            loading.update(false);
+            streamingReply.update('');
+            hasStarted = false;
         }
     }
 }
@@ -360,6 +371,16 @@ const ChatSession: Component = (props: {
         session.systemPrompt(props.systemPrompt);
     }
 
+    const newChatSession = () => {
+        if (session.messages().length > 0) {
+            persist.saveToLocalStorage(session.sessionHistory());
+        }
+        session.newSession();
+        input.update('');
+        adjustTextareaHeight();
+        scrollToBottom();
+    }
+
     /**
      * 当外部的 input signal 变化的时候，自动添加到文本框内
      */
@@ -389,7 +410,9 @@ const ChatSession: Component = (props: {
     });
 
     onCleanup(() => {
-        persist.saveToLocalStorage(session.sessionHistory());
+        if (session.messages().length > 0) {
+            persist.saveToLocalStorage(session.sessionHistory());
+        }
     });
 
     const useUserPrompt = (e: MouseEvent) => {
@@ -471,10 +494,21 @@ const ChatSession: Component = (props: {
         }
     }
 
-    const ToolbarLabel = (props: { children: any, maxWidth?: string, onclick?: (e: MouseEvent) => void }) => (
+    const ToolbarLabel = (props: {
+        children: any, maxWidth?: string,
+        onclick?: (e: MouseEvent) => void,
+        label?: string,
+        styles?: JSX.CSSProperties
+    }) => (
         <span
-            onclick={props.onclick}
-            class="b3-label__text b3-button b3-button--outline"
+            onclick={(e: MouseEvent) => {
+                if (session.loading()) {
+                    return;
+                }
+                props.onclick(e);
+            }}
+            class="b3-label__text b3-button b3-button--outline ariaLabel"
+            aria-label={props.label}
             style={{
                 'box-shadow': 'inset 0 0 0 .6px var(--b3-theme-primary)',
                 'max-width': props.maxWidth || '15em',
@@ -483,6 +517,7 @@ const ChatSession: Component = (props: {
                 'white-space': 'nowrap',
                 display: 'flex',
                 "align-items": "center",
+                ...props.styles
             }}>
             {props.children}
         </span>
@@ -509,6 +544,9 @@ const ChatSession: Component = (props: {
                     <HistoryList
                         history={persist.listFromLocalStorage()}
                         onclick={(history: IChatSessionHistory) => {
+                            if (session.messages().length > 0) {
+                                persist.saveToLocalStorage(session.sessionHistory());
+                            }
                             session.applyHistory(history);
                             close();
                         }} />
@@ -540,8 +578,36 @@ const ChatSession: Component = (props: {
 
     const Topbar = () => {
 
+        const Item = (props: any) => (
+            <ToolbarLabel
+                onclick={props.onclick ?? (() => { })}
+                label={props.label}
+                styles={{
+                    background: 'var(--chat-bg-color)',
+                    color: 'var(--chat-text-color)',
+                    border: 'none',
+                    'box-shadow': 'none',
+                    cursor: props.placeholder ? 'default' : 'pointer',
+                }}
+            >
+                <SvgSymbol size="20px">{props.icon}</SvgSymbol>
+            </ToolbarLabel>
+        );
+
         return (
             <div class={styles.topToolbar}>
+                <Item
+                    onclick={() => {
+                        persist.persistHistory(session.sessionHistory())
+                    }}
+                    label='保存对话'
+                    icon='iconDownload'
+                />
+                {/* Placeholder, 为了保证左右对称 */}
+                <Item
+                    icon=''
+                    placeholder={true}
+                />
                 <div style={{
                     "display": "flex",
                     flex: 1,
@@ -559,9 +625,16 @@ const ChatSession: Component = (props: {
                 }}>
                     {session.title()}
                 </div>
-                <ToolbarLabel onclick={openHistoryList}>
-                    <SvgSymbol size="15px">iconHistory</SvgSymbol>
-                </ToolbarLabel>
+                <Item
+                    onclick={openHistoryList}
+                    label='历史记录'
+                    icon='iconHistory'
+                />
+                <Item
+                    onclick={newChatSession}
+                    label='新建对话'
+                    icon='iconAdd'
+                />
             </div>
         )
     };
@@ -604,27 +677,20 @@ const ChatSession: Component = (props: {
             <section class={styles.inputContainer} onSubmit={handleSubmit}>
                 <div class={styles.toolbar}>
                     <Show when={session.loading()}>
-                        <ToolbarLabel onclick={session.abortMessage} >
-                            <svg>
-                                <use href="#iconPause" />
-                            </svg>
+                        <ToolbarLabel onclick={session.abortMessage} label='暂停' >
+                            <SvgSymbol size="15px">iconPause</SvgSymbol>
                         </ToolbarLabel>
                     </Show>
-                    <ToolbarLabel onclick={openSetting}>
+                    <ToolbarLabel onclick={openSetting} label='设置' >
                         <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>
-                    <ToolbarLabel onclick={session.toggleClearContext} >
+                    <ToolbarLabel onclick={session.toggleClearContext} label='清除上下文' >
                         <SvgSymbol size="15px">iconTrashcan</SvgSymbol>
                     </ToolbarLabel>
-                    <ToolbarLabel onclick={useUserPrompt}>
+                    <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>
                     </ToolbarLabel>
                     <div style={{ flex: 1 }}></div>
-                    <ToolbarLabel onclick={() => {
-                        persist.persistHistory(session.sessionHistory())
-                    }}>
-                        <SvgSymbol size="15px">iconDownload</SvgSymbol>
-                    </ToolbarLabel>
                     <ToolbarLabel onclick={() => {
                         const { dialog } = inputDialog({
                             title: '系统提示',
@@ -642,16 +708,16 @@ const ChatSession: Component = (props: {
                             textarea.style.lineHeight = '1.35';
                             textarea.focus();
                         }
-                    }}>
+                    }} label='系统提示' >
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
                     </ToolbarLabel>
                     <ToolbarLabel>
                         字数: {input().length}
                     </ToolbarLabel>
-                    <ToolbarLabel onclick={slideAttachHistoryCnt}>
+                    <ToolbarLabel onclick={slideAttachHistoryCnt} label='更改附带消息条数' >
                         附带消息: {config().attachedHistory}
                     </ToolbarLabel>
-                    <ToolbarLabel maxWidth='10em'
+                    <ToolbarLabel maxWidth='10em' label='切换模型'
                         onclick={(e: MouseEvent) => {
                             e.stopImmediatePropagation();
                             e.preventDefault();

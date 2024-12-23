@@ -6,6 +6,8 @@
     padding: 10px;
     width: 100%;
     font-size: 1em;
+
+    box-sizing: border-box;
 }
 
 .historyItem {
@@ -18,24 +20,41 @@
     display: flex;
     align-items: center;
     gap: 10px;
+
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .historyItem:hover {
     background-color: var(--b3-theme-primary-lighter);
 }
 
-.historyTitle {
-    font-weight: bold;
+.historyTitleLine {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
 }
 
-.historyContent {
+.historyTitle {
+    font-weight: bold;
+    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
+}
+
+.historyContent {
+    font-size: 0.8em;
+    overflow: hidden;
+    max-height: 75px;
+    color: var(--b3-theme-on-surface-light);
+    mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+    white-space: pre-line;
 }
 
 .historyTime {
     font-size: 0.8em;
     color: var(--b3-theme-on-surface-light);
+    white-space: nowrap;
 }

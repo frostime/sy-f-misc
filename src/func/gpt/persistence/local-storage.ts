@@ -14,3 +14,8 @@ export const listFromLocalStorage = (): IChatSessionHistory[] => {
     const keys = Object.keys(localStorage).filter(key => key.startsWith('gpt-chat-'));
     return keys.map(key => JSON.parse(localStorage.getItem(key)));
 }
+
+export const removeFromLocalStorage = (id: string) => {
+    const key = `gpt-chat-${id}`;
+    localStorage.removeItem(key);
+}
