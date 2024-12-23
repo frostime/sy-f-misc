@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2024-12-22 19:23:00
+ * @LastEditTime : 2024-12-23 21:41:14
  * @Description  : 
  */
 
@@ -55,6 +55,23 @@ const ChatSessionSetting = (props: {
                 />
             </Form.Wrap>
             <Form.Wrap
+                title="自动生成标题时输入限制"
+                description="在进入对话时，会将头两条消息交给 GPT 自动生成标题; 这一选项用来限制输入给 GPT 的字符的最大长度"
+            >
+                <Form.Input
+                    type="number"
+                    value={config().maxInputLenForAutoTitle}
+                    changed={(v) => {
+                        v = v || '0';
+                        config.update('maxInputLenForAutoTitle', parseInt(v) || 400);
+                    }}
+                    number={{
+                        min: 5,
+                        step: 1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
                 title="转换数学符号"
                 description="GPT 在输出公式的时候可能使用 \(..\) 符号，如果开启则会将内容转换为 $...$"
             >
@@ -72,9 +89,9 @@ const ChatSessionSetting = (props: {
             >
                 <Form.Input
                     type="slider"
-                    value={config().temperature ?? 1}
+                    value={config().chatOption.temperature ?? 1}
                     changed={(v) => {
-                        config.update('temperature', parseFloat(v));
+                        config.update('chatOption', 'temperature', parseFloat(v));
                     }}
                     slider={{
                         min: 0,
@@ -89,10 +106,10 @@ const ChatSessionSetting = (props: {
             >
                 <Form.Input
                     type="number"
-                    value={config().max_tokens}
+                    value={config().chatOption.max_tokens}
                     changed={(v) => {
                         if (!v) return;
-                        config.update('max_tokens', parseInt(v));
+                        config.update('chatOption', 'max_tokens', parseInt(v));
                     }}
                     number={{
                         min: 1,
@@ -106,10 +123,10 @@ const ChatSessionSetting = (props: {
             >
                 <Form.Input
                     type="number"
-                    value={config().top_p}
+                    value={config().chatOption.top_p}
                     changed={(v) => {
                         if (!v) return;
-                        config.update('top_p', parseFloat(v));
+                        config.update('chatOption', 'top_p', parseFloat(v));
                     }}
                     number={{
                         min: 0,
@@ -124,10 +141,10 @@ const ChatSessionSetting = (props: {
             >
                 <Form.Input
                     type="number"
-                    value={config().presence_penalty}
+                    value={config().chatOption.presence_penalty}
                     changed={(v) => {
                         if (!v) return;
-                        config.update('presence_penalty', parseFloat(v));
+                        config.update('chatOption', 'presence_penalty', parseFloat(v));
                     }}
                     number={{
                         min: -2,
@@ -142,10 +159,10 @@ const ChatSessionSetting = (props: {
             >
                 <Form.Input
                     type="number"
-                    value={config().frequency_penalty}
+                    value={config().chatOption.frequency_penalty}
                     changed={(v) => {
                         if (!v) return;
-                        config.update('frequency_penalty', parseFloat(v));
+                        config.update('chatOption', 'frequency_penalty', parseFloat(v));
                     }}
                     number={{
                         min: -2,

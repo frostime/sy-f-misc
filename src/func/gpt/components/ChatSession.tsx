@@ -15,7 +15,6 @@ import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
-import { time } from 'console';
 
 
 interface ISimpleContext {
@@ -128,24 +127,15 @@ const useSession = (props: {
 
     let controller: AbortController;
 
+    // src/func/gpt/components/ChatSession.tsx
     const gptOption = () => {
-        let option = { ...props.config() };
-        delete option.attachedHistory;
-        delete option.convertMathSyntax;
+        let option = { ...props.config().chatOption };
         return option;
     }
 
-    const customComplete = async (message: string, attachedHistory?: number) => {
+    const customComplete = async (messageToSend: IMessage[] | string) => {
         try {
-            const histories = getAttachedHistory(attachedHistory);
             let model = props.model();
-            const messageToSend: IMessage[] = [
-                ...histories,
-                {
-                    role: 'user',
-                    content: message
-                }
-            ];
             const { content } = await gpt.complete(messageToSend, {
                 model: model,
                 stream: false,
@@ -157,8 +147,28 @@ const useSession = (props: {
         }
     }
 
-    const generateTitle = async () => {
-        let newTitle = await customComplete('请根据以上对话生成唯一一个最合适的对话主题标题，字数控制在 15 字之内; 除了标题之外不要回复任何别的信息', -1);
+    const autoGenerateTitle = async () => {
+        let attachedHistory = props.config().attachedHistory;
+        attachedHistory = Math.max(attachedHistory, 2);
+        attachedHistory = Math.min(attachedHistory, 6);
+        const histories = getAttachedHistory(attachedHistory);
+        if (histories.length == 0) return;
+        let sizeLimit = props.config().maxInputLenForAutoTitle;
+        let averageLimit = Math.floor(sizeLimit / histories.length);
+
+        let inputContent = histories.map(item => {
+            let clippedContent = item.content.substring(0, averageLimit);
+            if (clippedContent.length < item.content.length) {
+                clippedContent += '...(clipped as too long)'
+            }
+            return `<${item.role}>:\n${clippedContent}`;
+        }).join('\n\n');
+        const messageToSend = `
+请根据以下对话生成唯一一个最合适的对话主题标题，字数控制在 15 字之内; 除了标题之外不要回复任何别的信息
+---
+${inputContent}
+`.trim();
+        const newTitle = await customComplete(messageToSend);
         if (newTitle?.trim()) {
             title.update(newTitle.trim());
         }
@@ -214,7 +224,7 @@ const useSession = (props: {
             //创建标题
             if (!hasStarted) {
                 hasStarted = true;
-                setTimeout(generateTitle, 100);
+                setTimeout(autoGenerateTitle, 100);
             }
 
         } catch (error) {
@@ -238,6 +248,7 @@ const useSession = (props: {
         loading,
         streamingReply,
         title,
+        autoGenerateTitle,
         sendMessage,
         abortMessage,
         toggleClearContext: () => {
@@ -497,12 +508,13 @@ const ChatSession: Component = (props: {
     const ToolbarLabel = (props: {
         children: any, maxWidth?: string,
         onclick?: (e: MouseEvent) => void,
+        forceClick?: boolean,
         label?: string,
         styles?: JSX.CSSProperties
     }) => (
         <span
             onclick={(e: MouseEvent) => {
-                if (session.loading()) {
+                if (session.loading() && props.forceClick !== true) {
                     return;
                 }
                 props.onclick(e);
@@ -605,8 +617,11 @@ const ChatSession: Component = (props: {
                 />
                 {/* Placeholder, 为了保证左右对称 */}
                 <Item
-                    icon=''
-                    placeholder={true}
+                    onclick={() => {
+                        session.autoGenerateTitle()
+                    }}
+                    label='自动生成标题'
+                    icon='iconH1'
                 />
                 <div style={{
                     "display": "flex",
@@ -677,7 +692,7 @@ const ChatSession: Component = (props: {
             <section class={styles.inputContainer} onSubmit={handleSubmit}>
                 <div class={styles.toolbar}>
                     <Show when={session.loading()}>
-                        <ToolbarLabel onclick={session.abortMessage} label='暂停' >
+                        <ToolbarLabel onclick={session.abortMessage} label='暂停' forceClick={true} >
                             <SvgSymbol size="15px">iconPause</SvgSymbol>
                         </ToolbarLabel>
                     </Show>
