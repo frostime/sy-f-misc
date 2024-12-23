@@ -499,31 +499,6 @@ const ChatSession: Component = (props: {
         };
     };
 
-    const SVGButton = (props: {
-        icon: string,
-        label?: string,
-        onclick: (e: MouseEvent) => void,
-        style?: JSX.CSSProperties
-    }) => (
-        <div class="toolbar__item ariaLabel" onclick={props.onclick}
-            aria-label={props.label}
-            style={{
-                height: '30px',
-                width: '30px',
-                ...props.style
-            }}
-        >
-            <svg style={{
-                height: '100%',
-                width: '100%',
-                margin: '0 auto',
-                fill: 'currentColor'
-            }}>
-                <use href={`#${props.icon}`} />
-            </svg>
-        </div>
-    );
-
     const SvgSymbol = (props: { children: string, size?: string }) => (
         <svg style={{
             height: props.size || '100%',
@@ -544,6 +519,15 @@ const ChatSession: Component = (props: {
                     flex: 1,
                     "align-items": "center",
                     "justify-content": "center"
+                }} onclick={() => {
+                    inputDialog({
+                        title: '更改标题',
+                        defaultText: session.title(),
+                        confirm: (text) => {
+                            session.title(text);
+                        },
+                        width: '600px',
+                    })
                 }}>
                     {session.title()}
                 </div>
@@ -553,6 +537,9 @@ const ChatSession: Component = (props: {
 
     const ChatContainer = () => (
         <div class={styles.chatContainer} style={styleVars()}>
+            {/* 添加顶部工具栏 */}
+            <Topbar />
+
             <div class={styles.messageList} ref={messageListRef}>
                 <For each={session.messages()}>
                     {(item: IChatSessionMsgItem) => (
@@ -685,7 +672,7 @@ const ChatSession: Component = (props: {
     return (
         <div style={{
             "display": "flex",
-            "flex-direction": "column",
+            // "flex-direction": "column",  //加了之后可能会在 tab 变窄的时候导致溢出..
             "justify-content": "center",
             "width": "100%",
             "height": "100%"
@@ -695,8 +682,6 @@ const ChatSession: Component = (props: {
                 config,
                 session
             }}>
-                {/* 添加顶部工具栏 */}
-                <Topbar />
                 <ChatContainer />
             </SimpleProvider>
         </div>

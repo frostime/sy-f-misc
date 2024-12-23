@@ -19,7 +19,7 @@
             align-items: flex-end;
 
             margin-right: 0;
-            margin-left: 10%;
+            margin-left: max(5%, 20px);
 
             .toolbar {
                 flex-direction: row-reverse;
@@ -32,7 +32,7 @@
         flex: 1;
 
         margin-left: 0;
-        margin-right: 10%;
+        margin-right: max(5%, 20px);
 
         min-width: 0;
         max-width: 100%;

@@ -226,7 +226,7 @@ const MessageItem: Component<{ messageItem: IChatSessionMsgItem, markdown?: bool
                 <div
                     class={`${styles.message} ${styles[props.messageItem.message.role]} b3-typography`}
                     style={{
-                        'white-space': props.markdown ? '' : 'pre-line'
+                        'white-space': props.markdown ? '' : 'pre'
                     }}
                     innerHTML={message()}
                     ref={msgRef}
