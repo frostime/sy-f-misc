@@ -15,6 +15,7 @@ import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
+import { SvgSymbol } from './Elements';
 
 
 interface ISimpleContext {
@@ -596,17 +597,6 @@ const ChatSession: Component = (props: {
             '--chat-max-width': `${UIConfig().maxWidth}px`,
         };
     };
-
-    const SvgSymbol = (props: { children: string, size?: string }) => (
-        <svg style={{
-            height: props.size || '100%',
-            width: props.size || '100%',
-            margin: '0 auto',
-            fill: 'currentColor'
-        }}>
-            <use href={`#${props.children}`} />
-        </svg>
-    );
 
     const Topbar = () => {
 

@@ -6,6 +6,7 @@ interface IProps extends Partial<ISettingItemCore> {
     style?: JSX.CSSProperties;
     password?: boolean;
     fn_size?: boolean;
+    spellcheck?: boolean;
 }
 
 export default function FormInput(props: IProps) {
@@ -58,6 +59,7 @@ export default function FormInput(props: IProps) {
                     onInput={(e) => {
                         changed(e.currentTarget.value);
                     }}
+                    spellcheck={props?.spellcheck}
                     type={props.password ? "password" : "text"}
                 />
             );
@@ -68,6 +70,7 @@ export default function FormInput(props: IProps) {
                     // style="resize: vertical; height: 10em; white-space: nowrap;"
                     {...attrStyle()}
                     value={props.value}
+                    spellcheck={props?.spellcheck}
                     onInput={(e) => {
                         changed(e.currentTarget.value);
                     }}
