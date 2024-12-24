@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2024 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-12-21 17:13:44
+ * @FilePath     : /src/func/gpt/components/ChatSession.tsx
+ * @LastEditTime : 2024-12-24 17:37:53
+ * @Description  : 
+ */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch, JSX, onCleanup } from 'solid-js';
 import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
@@ -622,11 +630,40 @@ const ChatSession: Component = (props: {
         return (
             <div class={styles.topToolbar}>
                 <Item
-                    onclick={() => {
-                        persist.persistHistory(session.sessionHistory())
+                    onclick={(e: MouseEvent) => {
+                        // persist.persistHistory(session.sessionHistory())
+                        e.stopPropagation();
+                        e.preventDefault();
+                        let menu = new Menu();
+                        menu.addItem({
+                            icon: 'iconSiYuan',
+                            label: '保存到思源中',
+                            click: () => {
+                                persist.persistHistory(session.sessionHistory());
+                            }
+                        });
+                        menu.addItem({
+                            icon: 'iconMarkdown',
+                            label: '显示为 Markdown',
+                            click: () => {
+                                inputDialog({
+                                    title: '导出对话',
+                                    defaultText: persist.itemsToMarkdown(session.messages()),
+                                    type: 'textarea',
+                                    'width': '800px',
+                                    'height': '700px'
+                                })
+                            }
+                        });
+                        const target = e.target as HTMLElement;
+                        const rect = target.getBoundingClientRect();
+                        menu.open({
+                            x: rect.left,
+                            y: rect.bottom
+                        })
                     }}
-                    label='保存对话'
-                    icon='iconDownload'
+                    label='导出对话'
+                    icon='iconUpload'
                 />
                 {/* Placeholder, 为了保证左右对称 */}
                 <Item

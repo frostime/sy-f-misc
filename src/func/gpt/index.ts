@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-23 16:27:29
+ * @LastEditTime : 2024-12-24 23:42:32
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -61,7 +61,9 @@ const attachSelectedText = async () => {
         blocksIds.push(node.dataset.nodeId);
     });
     let blocks: Block[] = await id2block(...blocksIds);
-    let blockMarkdown = blocks.map((block) => block.markdown);
+    let blocksMap = new Map(blocks.map(block => [block.id, block]));
+    let sortedBlocks = blocksIds.map(id => blocksMap.get(id));
+    let blockMarkdown = sortedBlocks.map((block) => block.markdown);
     return `\n\n<Context lang="markdown">\n${blockMarkdown.join('\n').trim()}\n\n</Context>`
 }
 
@@ -85,7 +87,7 @@ const openChatTab = async () => {
         input = outsideInputs[activeTabId];
         input.value = prompt;
     }
-    let disposer = () => {};
+    let disposer = () => { };
     openCustomTab({
         tabId: activeTabId,
         render: (container: HTMLElement) => {

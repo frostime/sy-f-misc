@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2024-12-23 17:31:09
+ * @LastEditTime : 2024-12-24 17:44:13
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -11,16 +11,20 @@ import { createDocWithMd, setBlockAttrs, sql, updateBlock } from "@/api";
 import { id2block } from "../utils";
 import { showMessage } from "siyuan";
 
-const message2markdown = (message: IChatSessionMsgItem) => {
-    if (message.type === 'seperator') {
+const item2markdown = (item: IChatSessionMsgItem) => {
+    if (item.type === 'seperator') {
         return '---\n > 开始新的对话';
+    }
+    let author: string = item.message.role;
+    if (item.message.role === 'assistant') {
+        author = `${item.message.role} [${item.author}]`;
     }
     return `
 ---
 
-> ${message.timestamp ? formatDateTime(null, new Date(message.timestamp)) : '--:--:--'} ${message.author}
+> ${item.timestamp ? formatDateTime(null, new Date(item.timestamp)) : '--:--:--'} ${author}
 
-${message.message.content}
+${item.message.content}
 `.trim();
 }
 
@@ -70,11 +74,16 @@ async function ensureRootDocument(newTitle: string, notebookId?: NotebookId): Pr
     return blocks;
 }
 
+export const itemsToMarkdown = (items: IChatSessionMsgItem[]) => {
+    let markdownText = items.map(item2markdown).join('\n\n');
+    return markdownText;
+}
+
 
 export const saveToSiYuan = async (history: IChatSessionHistory) => {
-    let { items, title, timestamp } = history;
+    let { title, timestamp } = history;
     // 1. 检查之前是否已经导出过
-    let markdownText = items.map(message2markdown).join('\n\n');
+    let markdownText = itemsToMarkdown(history.items);
     let doc = await checkExportDocument('custom-gpt-export-doc', history.id);
 
     // 2. 如果存在, 更新
