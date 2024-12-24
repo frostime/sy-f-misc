@@ -68,8 +68,10 @@ const PromptTemplateEditForm: Component<{
                     value={template().content}
                     changed={(v) => updateTemplate(index(), 'content', v)}
                     style={{
-                        height: '100px',
-                        width: '100%'
+                        height: '250px',
+                        width: '100%',
+                        'font-size': '1.2em',
+                        'line-height': '1.3em'
                     }}
                 />
             </Form.Wrap>

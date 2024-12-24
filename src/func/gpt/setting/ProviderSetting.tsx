@@ -20,14 +20,14 @@ const ProviderEditForm: Component<{
 }> = (props) => {
     const { updateProvider } = useSimpleContext();
 
-    // const { provider, index } = props;
     const provider = () => providers()[props.index()];
     const index = () => props.index();
-
     const handleModelChange = (value: string) => {
-        const models = value.split(',').map(s => s.trim()).filter(Boolean);
+        const models = value.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
         updateProvider(index(), 'models', models);
     }
+
+    let initModels = provider().models.join('\n');
 
     return (
         <div style={{
@@ -47,6 +47,9 @@ const ProviderEditForm: Component<{
                     type="textinput"
                     value={provider().name}
                     changed={(v) => updateProvider(index(), 'name', v)}
+                    style={{
+                        width: '400px'
+                    }}
                 />
             </Form.Wrap>
 
@@ -58,6 +61,9 @@ const ProviderEditForm: Component<{
                     type="textinput"
                     value={provider().url}
                     changed={(v) => updateProvider(index(), 'url', v)}
+                    style={{
+                        width: '400px'
+                    }}
                 />
             </Form.Wrap>
 
@@ -70,20 +76,25 @@ const ProviderEditForm: Component<{
                     value={provider().apiKey}
                     changed={(v) => updateProvider(index(), 'apiKey', v)}
                     password={true}
+                    style={{
+                        width: '400px'
+                    }}
                 />
             </Form.Wrap>
 
             <Form.Wrap
                 title="支持的模型"
-                description="支持的模型名称，使用英文逗号分隔"
+                description="支持的模型名称，使用英文逗号或者换行符分隔"
                 direction="row"
             >
                 <Form.Input
-                    type="textinput"
-                    value={provider().models.join(', ')}
+                    type="textarea"
+                    value={initModels}
                     changed={handleModelChange}
                     style={{
-                        width: "100%"
+                        width: "100%",
+                        'font-size': '1.3em',
+                        'line-height': '1.2em'
                     }}
                     spellcheck={false}
                 />
