@@ -1,128 +1,252 @@
-import { For } from "solid-js";
+import { Accessor, Component, For, createSignal } from "solid-js";
 import Form from "@/libs/components/Form";
 import { providers } from "./store";
 import Heading from "./Heading";
-import { confirm } from "siyuan";
+
+import { createSimpleContext } from "@/libs/simple-context";
+import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
+import { solidDialog } from "@/libs/dialog";
+import { SvgSymbol } from "../components/Elements";
+
+
+const { SimpleProvider, useSimpleContext } = createSimpleContext<{
+    updateProvider: (index: number, key: keyof IGPTProvider, value: any) => void;
+    removeProvider: (target: number | string) => void;
+}>();
+
+
+const ProviderEditForm: Component<{
+    index: Accessor<number>;
+}> = (props) => {
+    const { updateProvider } = useSimpleContext();
+
+    // const { provider, index } = props;
+    const provider = () => providers()[props.index()];
+    const index = () => props.index();
+
+    const handleModelChange = (value: string) => {
+        const models = value.split(',').map(s => s.trim()).filter(Boolean);
+        updateProvider(index(), 'models', models);
+    }
+
+    return (
+        <div style={{
+            "border": "2px dashed var(--b3-theme-secondary)",
+            "border-radius": "4px",
+            "margin": "16px",
+            "position": "relative",
+            flex: 1,
+            width: '100%',
+            "box-sizing": "border-box"
+        }}>
+            <Form.Wrap
+                title="Provider 名称"
+                description="用于区分不同的服务商"
+            >
+                <Form.Input
+                    type="textinput"
+                    value={provider().name}
+                    changed={(v) => updateProvider(index(), 'name', v)}
+                />
+            </Form.Wrap>
+
+            <Form.Wrap
+                title="API URL"
+                description="完整的 API 接口地址"
+            >
+                <Form.Input
+                    type="textinput"
+                    value={provider().url}
+                    changed={(v) => updateProvider(index(), 'url', v)}
+                />
+            </Form.Wrap>
+
+            <Form.Wrap
+                title="API Key"
+                description="API 密钥"
+            >
+                <Form.Input
+                    type="textinput"
+                    value={provider().apiKey}
+                    changed={(v) => updateProvider(index(), 'apiKey', v)}
+                    password={true}
+                />
+            </Form.Wrap>
+
+            <Form.Wrap
+                title="支持的模型"
+                description="支持的模型名称，使用英文逗号分隔"
+                direction="row"
+            >
+                <Form.Input
+                    type="textinput"
+                    value={provider().models.join(', ')}
+                    changed={handleModelChange}
+                    style={{
+                        width: "100%"
+                    }}
+                    spellcheck={false}
+                />
+            </Form.Wrap>
+        </div>
+    );
+};
+
+const ProviderListItem = (props: {
+    index: Accessor<number>;
+    dragHandle: (e: DragEvent) => void;
+}) => {
+
+    const { updateProvider, removeProvider } = useSimpleContext();
+
+    const onEdit = () => {
+        solidDialog({
+            title: '编辑 Provider',
+            loader: () => (
+                <SimpleProvider state={{ updateProvider, removeProvider }}>
+                    <ProviderEditForm index={props.index} />
+                </SimpleProvider>
+            ),
+            width: '750px',
+            height: '600px'
+        })
+    }
+
+    const onDelete = () => {
+        removeProvider(props.index());
+    }
+    return (
+        <div
+            draggable={true}
+            onDragStart={props.dragHandle}
+            style={{
+                display: 'flex',
+                gap: '7px',
+                'align-items': 'center',
+                padding: '10px 16px',
+                margin: '8px 22px',
+                border: '1px solid var(--b3-border-color)',
+                'border-radius': '4px',
+                'box-shadow': '0 2px 4px var(--b3-theme-surface-light)'
+            }}
+        >
+            <span style={{ flex: 1 , "font-weight": "bold" }}>
+                {providers()[props.index()].name}
+                </span>
+            <button class="b3-button b3-button--text" onclick={() => onEdit()}>
+                <SvgSymbol size="15px">iconEdit</SvgSymbol>
+            </button>
+            <button class="b3-button b3-button--text" onclick={() => onDelete()}>
+                <SvgSymbol size="15px">iconTrashcan</SvgSymbol>
+            </button>
+        </div>
+    )
+}
+
+const useDndReorder = () => {
+    const [draggedIndex, setDraggedIndex] = createSignal<number | null>(null);
+    const [targetIndex, setTargetIndex] = createSignal<number | null>(null);
+
+    const handleDragStart = (index: number) => (e: DragEvent) => {
+        setDraggedIndex(index);
+        e.dataTransfer!.effectAllowed = 'move';
+        e.dataTransfer!.setData('text/plain', String(index));
+    };
+
+    const handleDragOver = (index: number) => (e: DragEvent) => {
+        e.preventDefault();
+        setTargetIndex(index);
+    };
+
+    const handleDrop = (e: DragEvent) => {
+        e.preventDefault();
+        const _draggedIndex = draggedIndex();
+        const _targetIndex = targetIndex();
+        console.log(_draggedIndex, _targetIndex);
+        if (_draggedIndex !== null && _targetIndex !== null && _draggedIndex !== _targetIndex) {
+            providers.update(prev => {
+                const items = [...prev];
+                // 将 draggedIndex 移动到 targetIndex 的位置，其余的保持不变
+                const draggedItem = items[_draggedIndex];
+                items.splice(_draggedIndex, 1);
+                items.splice(_targetIndex, 0, draggedItem);
+                return items;
+            });
+        }
+        setDraggedIndex(null);
+        setTargetIndex(null);
+    };
+
+
+    return { handleDragStart, handleDragOver, handleDrop };
+};
 
 const ProviderSetting = () => {
     const addProvider = () => {
-        providers.update(prev => [...prev, {
-            name: '',
-            url: '',
-            apiKey: '',
-            models: []
-        }]);
+        inputDialog({
+            title: '新建 Provider',
+            confirm: (text) => {
+                if (!text) return;
+                providers.update(prev => [ {
+                    name: text,
+                    url: '',
+                    apiKey: '',
+                    models: []
+                }, ...prev]);
+            },
+        });
     };
 
-    const removeProvider = (index: number) => {
-        providers.update(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const updateProvider = (index: number, field: keyof IGPTProvider, value: string) => {
-        providers.update(index, field, () => {
-            if (field === 'models') {
-                return value.split(',').map(m => m.trim());
-            } else {
-                return value;
+    const removeProvider = (target: number | string) => {
+        confirmDialog({
+            title: `确认删除 Provider 配置 ${providers()[target].name}?`,
+            content: `该 Provider 下的 ${providers()[target].models.length} 个 Model 将会被删除<br/>${providers()[target].models.join(', ')}`,
+            confirm: () => {
+                if (typeof target === 'number') {
+                    providers.update(prev => prev.filter((_, i) => i !== target));
+                } else {
+                    providers.update(prev => prev.filter(p => p.name !== target));
+                }
             }
         });
     };
 
+    const updateProvider = (index: number, field: keyof IGPTProvider, value: string | string[]) => {
+        providers.update(index, field, value);
+    };
+
+    const { handleDragStart, handleDragOver, handleDrop } = useDndReorder();
+
     return (
-        <div>
-            <Heading>
-                Provider 配置
-                <button
-                    class="b3-button b3-button--text"
-                    style={{
-                        position: "absolute",
-                        top: "0px",
-                        right: "0px",
-                    }}
-                    onClick={addProvider}
-                >
-                    添加
-                </button>
-            </Heading>
+        <SimpleProvider state={{ updateProvider, removeProvider }}>
+            <div>
+                <Heading>
+                    Provider 配置
+                    <button
+                        class="b3-button b3-button--text"
+                        style={{
+                            position: "absolute",
+                            top: "0px",
+                            right: "0px",
+                        }}
+                        onClick={addProvider}
+                    >
+                        <SvgSymbol size="20px">iconAdd</SvgSymbol>
+                    </button>
+                </Heading>
 
-            <For each={providers()}>
-                {(provider, index) => (
-                    <div style={{
-                        "border": "2px dashed var(--b3-theme-secondary)",
-                        "border-radius": "4px",
-                        "margin": "16px",
-                        "position": "relative"
-                    }}>
-                        <Form.Wrap
-                            title="Provider 名称"
-                            description="用于区分不同的服务商"
-                        >
-                            <Form.Input
-                                type="textinput"
-                                value={provider.name}
-                                changed={(v) => updateProvider(index(), 'name', v)}
-                            />
-                        </Form.Wrap>
+                <div class="fn__flex-1">
+                    <For each={providers()}>
+                        {(provider, index) => (
+                            <div onDragOver={handleDragOver(index())} onDrop={handleDrop}>
+                                <ProviderListItem index={index} dragHandle={handleDragStart(index())} />
+                            </div>
+                        )}
+                    </For>
+                </div>
+            </div>
+        </SimpleProvider>
 
-                        <Form.Wrap
-                            title="API URL"
-                            description="完整的 API 接口地址"
-                        >
-                            <Form.Input
-                                type="textinput"
-                                value={provider.url}
-                                changed={(v) => updateProvider(index(), 'url', v)}
-                            />
-                        </Form.Wrap>
-
-                        <Form.Wrap
-                            title="API Key"
-                            description="API 密钥"
-                        >
-                            <Form.Input
-                                type="textinput"
-                                value={provider.apiKey}
-                                changed={(v) => updateProvider(index(), 'apiKey', v)}
-                                password={true}
-                            />
-                        </Form.Wrap>
-
-                        <Form.Wrap
-                            title="支持的模型"
-                            description="支持的模型名称，使用英文逗号分隔"
-                            direction="row"
-                        >
-                            <Form.Input
-                                type="textinput"
-                                value={provider.models.join(', ')}
-                                changed={(v) => updateProvider(index(), 'models', v)}
-                                style={{
-                                    width: "100%"
-                                }}
-                            />
-                        </Form.Wrap>
-
-                        <button
-                            class="b3-button b3-button--text"
-                            style={{
-                                position: "absolute",
-                                top: "-5px",
-                                left: "-5px",
-                                padding: '0px',
-                                color: "var(--b3-theme-error)"
-                            }}
-                            onClick={() => {
-                                confirm('确认删除?', `将删除第 ${index() + 1} 个 Provider 配置 ${provider.name}`, () => {
-                                    removeProvider(index());
-                                })
-                            }}
-                        >
-                            <svg><use href="#iconTrashcan"></use></svg>
-                        </button>
-                    </div>
-                )}
-            </For>
-        </div>
     );
 };
 
