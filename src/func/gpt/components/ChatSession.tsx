@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-24 17:37:53
+ * @LastEditTime : 2024-12-25 01:07:03
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch, JSX, onCleanup } from 'solid-js';
@@ -18,7 +18,7 @@ import { solidDialog } from '@/libs/dialog';
 import { ChatSetting } from '../setting';
 import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
-import { Menu } from 'siyuan';
+import { Menu, showMessage } from 'siyuan';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
@@ -50,7 +50,7 @@ const useSession = (props: {
     const title = useSignalRef<string>('新的对话');
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
     const loading = useSignalRef<boolean>(false);
-    const streamingReply = useSignalRef<string>('');
+    // const streamingReply = useSignalRef<string>('');
 
     let hasStarted = false;
 
@@ -107,30 +107,31 @@ const useSession = (props: {
         }
     }
 
-    const getAttachedHistory = (attachedHistory?: number) => {
+    const getAttachedHistory = (attachedHistory?: number, fromIndex?: number) => {
         if (attachedHistory === undefined) {
             attachedHistory = props.config().attachedHistory;
         }
         const history = [...messages()];
-        const lastMessage = history.pop(); // 弹出最后一条消息（当前输入）
+        const targetIndex = fromIndex ?? history.length - 1;
+        const targetMessage = history[targetIndex];
 
         if (attachedHistory === 0) {
-            return [lastMessage!.message!]; // 只返回当前输入的消息
+            return [targetMessage.message!];
         }
 
-        // 根据 attachedHistory 截取历史消息
-        const lastMessages = attachedHistory > 0 ? history.slice(-attachedHistory) : history;
+        // 从指定位置向前截取历史消息
+        const previousMessages = history.slice(0, targetIndex);
+        const lastMessages = attachedHistory > 0 ? previousMessages.slice(-attachedHistory) : previousMessages;
         const lastSeperatorIndex = lastMessages.findIndex(item => item.type === 'seperator');
 
         let attachedMessages: IChatSessionMsgItem[] = [];
-
         if (lastSeperatorIndex === -1) {
             attachedMessages = lastMessages.filter(item => item.type === 'message');
         } else {
             attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(item => item.type === 'message');
         }
 
-        return [...attachedMessages, lastMessage].map(item => item.message!);
+        return [...attachedMessages, targetMessage].map(item => item.message!);
     }
 
 
@@ -194,15 +195,108 @@ ${inputContent}
      *  - 如果他的上一条为 assistant 信息，则拒绝执行 rerun，并showMessage 报错
      */
     const reRunMessage = async (atIndex: number) => {
+        if (atIndex < 0 || atIndex >= messages().length) return;
+        const targetMsg = messages()[atIndex];
+        if (targetMsg.type !== 'message') return;
 
+        // 如果是 assistant 消息，检查上一条是否为 user 消息
+        if (targetMsg.message.role === 'assistant') {
+            if (atIndex === 0 || messages()[atIndex - 1].message?.role !== 'user') {
+                showMessage('无法重新生成此消息：需要用户输入作为前文');
+                return;
+            }
+            atIndex = atIndex - 1; // 将焦点移到上一条 user 消息
+        }
+
+        loading.update(true);
+        // props.scrollToBottom(); //不要滚动到最底部
+
+        try {
+            controller = new AbortController();
+            const msgToSend = getAttachedHistory(props.config().attachedHistory, atIndex);
+            let model = props.model();
+            let option = gptOption();
+            // 更新或插入 assistant 消息
+            const nextIndex = atIndex + 1;
+            // const nextMsg = messages()[nextIndex];
+
+            // 准备或更新目标消息
+            if (messages()[nextIndex]?.message?.role === 'assistant') {
+                messages.update(prev => {
+                    const updated = [...prev];
+                    updated[nextIndex] = {
+                        ...updated[nextIndex],
+                        loading: true
+                    };
+                    return updated;
+                });
+            } else {
+                messages.update(prev => {
+                    const updated = [...prev];
+                    updated.splice(nextIndex, 0, {
+                        type: 'message',
+                        id: newID(),
+                        timestamp: new Date().getTime(),
+                        author: model.model,
+                        loading: true,
+                        message: {
+                            role: 'assistant',
+                            content: ''
+                        }
+                    });
+                    return updated;
+                });
+            }
+
+            const { content, usage } = await gpt.complete(msgToSend, {
+                model: model,
+                systemPrompt: systemPrompt().trim() || undefined,
+                stream: option.stream ?? true,
+                streamInterval: 2,
+                streamMsg(msg) {
+                    messages.update(nextIndex, 'message', 'content', msg);
+                    // props.scrollToBottom();
+                },
+                abortControler: controller,
+                option: option,
+            });
+
+
+            // 更新最终内容
+            messages.update(prev => {
+                const updated = [...prev];
+                updated[nextIndex] = {
+                    ...updated[nextIndex],
+                    loading: false,
+                    message: {
+                        role: 'assistant',
+                        content: content
+                    }
+                };
+                delete updated[nextIndex]['loading'];  //不需要这个了
+                return updated;
+            });
+
+            if (usage) {
+                batch(() => {
+                    messages.update(nextIndex, 'token', usage?.completion_tokens);
+                    messages.update(atIndex, 'token', usage?.prompt_tokens);
+                });
+            }
+
+            // props.scrollToBottom(); rerun, 不需要滚动到底部
+        } catch (error) {
+            console.error('Error:', error);
+        } finally {
+            loading.update(false);
+            controller = null;
+        }
     };
 
     const sendMessage = async (userMessage: string) => {
         if (!userMessage.trim()) return;
 
-        // 里面有 </Context>
         const hasContext = userMessage.includes('</Context>');
-
         let sysPrompt = systemPrompt().trim() || '';
         if (hasContext) {
             sysPrompt += 'Note: <Context>...</Context> 是附带的上下文信息，只关注其内容，不要将 <Context> 标签作为正文的一部分';
@@ -210,34 +304,57 @@ ${inputContent}
 
         appendUserMsg(userMessage);
         loading.update(true);
-        streamingReply.update('');
         props.scrollToBottom();
 
         try {
             controller = new AbortController();
             const msgToSend = getAttachedHistory();
-            // console.log(msgToSend);
             let model = props.model();
             let option = gptOption();
-            if (option.stream === false) {
-                streamingReply.update('请求中，请耐心等等');
-            }
+
+            // 添加助手消息占位
+            const assistantMsg: IChatSessionMsgItem = {
+                type: 'message',
+                id: newID(),
+                token: null,
+                message: { role: 'assistant', content: '' },
+                author: model.model,
+                timestamp: new Date().getTime(),
+                loading: true
+            };
+            messages.update(prev => [...prev, assistantMsg]);
+
+            const lastIdx = messages().length - 1;
             const { content, usage } = await gpt.complete(msgToSend, {
                 model: model,
                 systemPrompt: sysPrompt || undefined,
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
-                    streamingReply.update(msg);
+                    messages.update(lastIdx, 'message', 'content', msg);
                     props.scrollToBottom();
                 },
                 abortControler: controller,
                 option: option,
             });
-            appendAssistantMsg(model.model, content);
+
+            // 更新最终内容
+            messages.update(prev => {
+                const lastIdx = prev.length - 1;
+                const updated = [...prev];
+                updated[lastIdx] = {
+                    ...updated[lastIdx],
+                    loading: false,
+                    message: {
+                        role: 'assistant',
+                        content: content
+                    }
+                };
+                delete updated[lastIdx]['loading'];
+                return updated;
+            });
 
             if (usage) {
-                // 为前面两个记录添加 token 信息
                 batch(() => {
                     const lastIdx = messages().length - 1;
                     if (lastIdx < 1) return;
@@ -248,7 +365,6 @@ ${inputContent}
 
             props.scrollToBottom();
 
-            //创建标题
             if (!hasStarted) {
                 hasStarted = true;
                 if (messages().length <= 2) {
@@ -260,7 +376,6 @@ ${inputContent}
             console.error('Error:', error);
         } finally {
             loading.update(false);
-            streamingReply.update('');
             controller = null;
         }
     }
@@ -275,9 +390,9 @@ ${inputContent}
         systemPrompt,
         messages,
         loading,
-        streamingReply,
         title,
         autoGenerateTitle,
+        reRunMessage,
         sendMessage,
         abortMessage,
         toggleClearContext: () => {
@@ -309,7 +424,6 @@ ${inputContent}
             title.update('新的对话');
             messages.update([]);
             loading.update(false);
-            streamingReply.update('');
             hasStarted = false;
         }
     }
@@ -714,19 +828,26 @@ const ChatSession: Component = (props: {
                     {(item: IChatSessionMsgItem, index: Accessor<number>) => (
                         <Switch fallback={<></>}>
                             <Match when={item.type === 'message'}>
+                                {/* 如果是正在流式输出的消息，在其上方显示分隔符 */}
+                                {item.loading === true && (
+                                    <Seperator title="正在思考中..." />
+                                )}
                                 <MessageItem
                                     messageItem={item}
-                                    markdown={true}
+                                    markdown={item.loading !== true} // 流式输出时禁用 markdown
                                     updateIt={(message) => {
+                                        if (session.loading()) return;
                                         session.messages.update(index(), 'message', 'content', message);
                                     }}
                                     deleteIt={() => {
+                                        if (session.loading()) return;
                                         session.messages.update((oldList: IChatSessionMsgItem[]) => {
                                             return oldList.filter((i) => i.id !== item.id);
                                         })
                                     }}
                                     rerunIt={() => {
-                                        //TODO
+                                        if (session.loading()) return;
+                                        session.reRunMessage(index());
                                     }}
                                 />
                             </Match>
@@ -734,23 +855,8 @@ const ChatSession: Component = (props: {
                                 <Seperator title="新的对话" />
                             </Match>
                         </Switch>
-                    )
-
-                    }
+                    )}
                 </For>
-                {session.loading() && (
-                    <>
-                        <Seperator title="正在思考中..." />
-                        <MessageItem messageItem={{
-                            type: 'message',
-                            id: '',
-                            token: null,
-                            message: { role: 'assistant', content: session.streamingReply() },
-                            author: model().model,
-                            timestamp: new Date().getTime()
-                        }} />
-                    </>
-                )}
             </div>
 
             <section class={styles.inputContainer} onSubmit={handleSubmit}>

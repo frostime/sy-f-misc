@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
- * @FilePath     : /src/func/gpt/types.d.ts
- * @LastEditTime : 2024-12-23 22:10:05
+ * @FilePath     : /src/func/gpt/types.ts
+ * @LastEditTime : 2024-12-25 00:41:39
  * @Description  : 
  */
 interface IMessage {
@@ -105,6 +105,7 @@ interface IChatSessionMsgItem {
     author?: string;
     timestamp?: number;
     title?: string;
+    loading?: boolean;  // 用于存储消息的输出状态，仅仅在等待过程中需求使用
 }
 
 interface IChatSessionHistory {
