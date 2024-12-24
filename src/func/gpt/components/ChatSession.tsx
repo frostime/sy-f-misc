@@ -174,6 +174,20 @@ ${inputContent}
         }
     }
 
+    /**
+     * 首先检查 index 是否在合法范围内
+     * 确认无误
+     * 如果为 user 信息，则同 sendMessage 逻辑一样，把 user 消息当作最新的输入，获得的 gpt 结果
+     *  - 如果下一条本来就是 assistant 信息，则直接替换
+     *  - 如果下一条是 user 信息，则插入一条新的 assistant 信息
+     * 如果为 assistant 信息
+     *  - 如果他的上一条为 user 信息，则等价于上面的情况，也就是最后会更新他自己
+     *  - 如果他的上一条为 assistant 信息，则拒绝执行 rerun，并showMessage 报错
+     */
+    const reRunMessage = async (atIndex: number) => {
+
+    };
+
     const sendMessage = async (userMessage: string) => {
         if (!userMessage.trim()) return;
 
@@ -667,10 +681,24 @@ const ChatSession: Component = (props: {
 
             <div class={styles.messageList} ref={messageListRef}>
                 <For each={session.messages()}>
-                    {(item: IChatSessionMsgItem) => (
+                    {(item: IChatSessionMsgItem, index: Accessor<number>) => (
                         <Switch fallback={<></>}>
                             <Match when={item.type === 'message'}>
-                                <MessageItem messageItem={item} markdown={true} />
+                                <MessageItem
+                                    messageItem={item}
+                                    markdown={true}
+                                    updateIt={(message) => {
+                                        session.messages.update(index(), 'message', 'content', message);
+                                    }}
+                                    deleteIt={() => {
+                                        session.messages.update((oldList: IChatSessionMsgItem[]) => {
+                                            return oldList.filter((i) => i.id !== item.id);
+                                        })
+                                    }}
+                                    rerunIt={() => {
+                                        //TODO
+                                    }}
+                                />
                             </Match>
                             <Match when={item.type === 'seperator'}>
                                 <Seperator title="新的对话" />

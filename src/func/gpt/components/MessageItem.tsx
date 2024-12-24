@@ -1,9 +1,9 @@
 import { Component, onMount, Show } from 'solid-js';
-import { formatDateTime, getLute, html2ele } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, getLute, html2ele, inputDialog } from "@frostime/siyuan-plugin-kits";
 
 import styles from './MessageItem.module.scss';
 import { addScript, addStyle, convertMathFormulas } from '../utils';
-import { Constants } from 'siyuan';
+import { Constants, showMessage } from 'siyuan';
 import { defaultConfig } from '../setting/store';
 
 const useCodeToolbar = (language: string, code: string) => {
@@ -135,7 +135,12 @@ const renderMathBlock = (element: HTMLElement) => {
     }
 }
 
-const MessageItem: Component<{ messageItem: IChatSessionMsgItem, markdown?: boolean }> = (props) => {
+const MessageItem: Component<{
+    messageItem: IChatSessionMsgItem, markdown?: boolean,
+    updateIt?: (message: string) => void,
+    deleteIt?: () => void,
+    rerunIt?: () => void
+}> = (props) => {
 
     let lute = getLute();
 
@@ -211,9 +216,55 @@ const MessageItem: Component<{ messageItem: IChatSessionMsgItem, markdown?: bool
         </svg>
     );
 
+    const editMessage = () => {
+        inputDialog({
+            title: '编辑消息',
+            defaultText: markdownContent(),
+            confirm: (text) => {
+                props.updateIt?.(text);
+            },
+            width: '700px',
+            height: '500px'
+        });
+    }
+
     const copyMessage = () => {
-        navigator.clipboard.writeText(markdownContent());
+        try {
+            // 强制将焦点设置到文档的 body 元素上
+            document.body.focus();
+            navigator.clipboard.writeText(markdownContent());
+            showMessage('已复制到剪贴板');
+        } catch (error) {
+            console.error('剪贴板操作失败:', error);
+            showMessage('复制失败，请重试');
+        }
     };
+
+    const deleteMessage = () => {
+        props.deleteIt?.();
+    }
+
+    const rerunMessage = () => {
+        props.rerunIt?.();
+    }
+
+    const ToolbarButton = (props: {
+        icon: string, title?: string, onclick: (e?: MouseEvent) => void
+    }) => {
+        return (
+            <button
+                class={`${styles.toolbarButton} b3-button b3-button--text`}
+                onclick={(e) => {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    props.onclick(e);
+                }}
+                title={props.title}
+            >
+                <svg><use href={`#${props.icon}`} /></svg>
+            </button>
+        );
+    }
 
     return (
         <div class={styles.messageItem} data-role={props.messageItem.message.role}>
@@ -232,23 +283,21 @@ const MessageItem: Component<{ messageItem: IChatSessionMsgItem, markdown?: bool
                     ref={msgRef}
                 />
                 <div class={styles.toolbar}>
-                    <button
-                        class={`${styles.toolbarButton} b3-button b3-button--text`}
-                        onClick={copyMessage}
-                        title="复制"
-                    >
-                        <svg><use href="#iconCopy" /></svg>
-                    </button>
-                    <Show when={props.messageItem.token}>
-                        <span class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
-                    </Show>
-                    <div class="fn__flex-1" />
-                    <span>
-                        {props.messageItem.author}
-                    </span>
                     <span>
                         {formatDateTime(null, new Date(props.messageItem.timestamp))}
                     </span>
+                    <span>
+                        {props.messageItem.author}
+                    </span>
+
+                    <div class="fn__flex-1" />
+                    <Show when={props.messageItem.token}>
+                        <span class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
+                    </Show>
+                    <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
+                    <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
+                    <ToolbarButton icon="iconTrashcan" title="删除" onclick={deleteMessage} />
+                    <ToolbarButton icon="iconRedo" title="重新运行" onclick={rerunMessage} />
                 </div>
             </div>
         </div>
