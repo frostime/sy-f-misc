@@ -49,12 +49,12 @@ export const complete = async (input: string | IMessage[], options?: {
         "messages": messages,
         ...options.option
     };
-
+    let response: Response;
     try {
         // const controller = new AbortController();
         // const signal = controller.signal;
 
-        const response = await fetch(url, {
+        response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -100,6 +100,11 @@ export const complete = async (input: string | IMessage[], options?: {
 
                         try {
                             let responseData = JSON.parse(line.slice(6));
+                            if (responseData.error && !responseData.choices) {
+                                fullText += JSON.stringify(responseData.error);
+                                continue;
+                            }
+
                             usage = responseData.usage ?? usage;
                             if (!responseData.choices[0].delta?.content) continue;
                             const content = responseData.choices[0].delta.content;
@@ -128,6 +133,12 @@ export const complete = async (input: string | IMessage[], options?: {
             return { content: fullText, usage: usage };
         } else {
             const data = await response.json();
+            if (data.error && !data.data) {
+                return {
+                    usage: null,
+                    content: JSON.stringify(data.error)
+                };
+            }
             return { content: data.choices[0].message.content, usage: data.usage };
         }
 

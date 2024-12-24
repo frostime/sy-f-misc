@@ -80,7 +80,7 @@ const PromptTemplateEditForm: Component<{
 
 const PromptTemplateListItem = (props: {
     index: Accessor<number>;
-    dragHandle: (e: DragEvent) => void;
+    dragHandle: (e: DragEvent, index: number) => void;
 }) => {
 
     const { updateTemplate, removeTemplate } = useSimpleContext();
@@ -104,7 +104,7 @@ const PromptTemplateListItem = (props: {
     return (
         <div
             draggable={true}
-            onDragStart={props.dragHandle}
+            onDragStart={(e: DragEvent) => props.dragHandle(e, props.index())}
             style={{
                 display: 'flex',
                 gap: '7px',
@@ -137,13 +137,13 @@ const useDndReorder = () => {
     const [draggedIndex, setDraggedIndex] = createSignal<number | null>(null);
     const [targetIndex, setTargetIndex] = createSignal<number | null>(null);
 
-    const handleDragStart = (index: number) => (e: DragEvent) => {
+    const handleDragStart = (e: DragEvent, index: number) => {
         setDraggedIndex(index);
         e.dataTransfer!.effectAllowed = 'move';
         e.dataTransfer!.setData('text/plain', String(index));
     };
 
-    const handleDragOver = (index: number) => (e: DragEvent) => {
+    const handleDragOver = (e: DragEvent, index: number) => {
         e.preventDefault();
         setTargetIndex(index);
     };
@@ -188,7 +188,7 @@ const PromptTemplateSetting = () => {
     };
 
     const removeTemplate = (target: number | string) => {
-         confirmDialog({
+        confirmDialog({
             title: `确认删除 Prompt Template 配置 ${promptTemplates()[target].name}?`,
             content: ``,
             confirm: () => {
@@ -228,8 +228,8 @@ const PromptTemplateSetting = () => {
                 <div class="fn__flex-1">
                     <For each={promptTemplates()}>
                         {(template, index) => (
-                            <div onDragOver={handleDragOver(index())} onDrop={handleDrop}>
-                                <PromptTemplateListItem index={index} dragHandle={handleDragStart(index())} />
+                            <div onDragOver={(e) => handleDragOver(e, index())} onDrop={handleDrop}>
+                                <PromptTemplateListItem index={index} dragHandle={handleDragStart} />
                             </div>
                         )}
                     </For>

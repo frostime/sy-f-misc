@@ -223,6 +223,7 @@ const MessageItem: Component<{
             confirm: (text) => {
                 props.updateIt?.(text);
             },
+            'type': 'textarea',
             width: '700px',
             height: '500px'
         });
@@ -296,8 +297,22 @@ const MessageItem: Component<{
                     </Show>
                     <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
                     <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
-                    <ToolbarButton icon="iconTrashcan" title="删除" onclick={deleteMessage} />
-                    <ToolbarButton icon="iconRedo" title="重新运行" onclick={rerunMessage} />
+                    <ToolbarButton icon="iconTrashcan" title="删除" onclick={(e: MouseEvent) => {
+                        // Ctrl + 点击
+                        if (e.ctrlKey) {
+                            deleteMessage();
+                        } else {
+                            showMessage('如果想要删除此消息，请按 Ctrl + 点击');
+                        }
+                    }} />
+                    <ToolbarButton icon="iconRedo" title="重新运行" onclick={(e: MouseEvent) => {
+                        // Ctrl + 点击
+                        if (e.ctrlKey) {
+                            rerunMessage();
+                        } else {
+                            showMessage('如果想要重新运行，请按 Ctrl + 点击');
+                        }
+                    }} />
                 </div>
             </div>
         </div>

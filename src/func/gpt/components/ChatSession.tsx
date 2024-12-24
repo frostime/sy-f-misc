@@ -498,6 +498,9 @@ const ChatSession: Component = (props: {
         menu.addItem({
             element: contaner
         });
+        let btn = contaner.closest('button.b3-menu__item') as HTMLButtonElement;
+        btn.style.background = 'var(--b3-menu-background) !important';
+
         let targetElement = e.target as HTMLElement;
         let rect = targetElement.getBoundingClientRect();
         menu.open({

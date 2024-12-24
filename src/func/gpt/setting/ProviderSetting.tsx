@@ -94,7 +94,7 @@ const ProviderEditForm: Component<{
 
 const ProviderListItem = (props: {
     index: Accessor<number>;
-    dragHandle: (e: DragEvent) => void;
+    dragHandle: (e: DragEvent, index: number) => void;
 }) => {
 
     const { updateProvider, removeProvider } = useSimpleContext();
@@ -118,7 +118,7 @@ const ProviderListItem = (props: {
     return (
         <div
             draggable={true}
-            onDragStart={props.dragHandle}
+            onDragStart={(e: DragEvent) => props.dragHandle(e, props.index())}
             style={{
                 display: 'flex',
                 gap: '7px',
@@ -130,9 +130,9 @@ const ProviderListItem = (props: {
                 'box-shadow': '0 2px 4px var(--b3-theme-surface-light)'
             }}
         >
-            <span style={{ flex: 1 , "font-weight": "bold" }}>
+            <span style={{ flex: 1, "font-weight": "bold" }}>
                 {providers()[props.index()].name}
-                </span>
+            </span>
             <button class="b3-button b3-button--text" onclick={() => onEdit()}>
                 <SvgSymbol size="15px">iconEdit</SvgSymbol>
             </button>
@@ -147,13 +147,13 @@ const useDndReorder = () => {
     const [draggedIndex, setDraggedIndex] = createSignal<number | null>(null);
     const [targetIndex, setTargetIndex] = createSignal<number | null>(null);
 
-    const handleDragStart = (index: number) => (e: DragEvent) => {
+    const handleDragStart = (e: DragEvent, index: number) => {
         setDraggedIndex(index);
         e.dataTransfer!.effectAllowed = 'move';
         e.dataTransfer!.setData('text/plain', String(index));
     };
 
-    const handleDragOver = (index: number) => (e: DragEvent) => {
+    const handleDragOver = (e: DragEvent, index: number) => {
         e.preventDefault();
         setTargetIndex(index);
     };
@@ -162,7 +162,7 @@ const useDndReorder = () => {
         e.preventDefault();
         const _draggedIndex = draggedIndex();
         const _targetIndex = targetIndex();
-        console.log(_draggedIndex, _targetIndex);
+        // console.log(_draggedIndex, _targetIndex);
         if (_draggedIndex !== null && _targetIndex !== null && _draggedIndex !== _targetIndex) {
             providers.update(prev => {
                 const items = [...prev];
@@ -187,7 +187,7 @@ const ProviderSetting = () => {
             title: '新建 Provider',
             confirm: (text) => {
                 if (!text) return;
-                providers.update(prev => [ {
+                providers.update(prev => [{
                     name: text,
                     url: '',
                     apiKey: '',
@@ -238,8 +238,8 @@ const ProviderSetting = () => {
                 <div class="fn__flex-1">
                     <For each={providers()}>
                         {(provider, index) => (
-                            <div onDragOver={handleDragOver(index())} onDrop={handleDrop}>
-                                <ProviderListItem index={index} dragHandle={handleDragStart(index())} />
+                            <div onDragOver={(e) => handleDragOver(e, index())} onDrop={handleDrop}>
+                                <ProviderListItem index={index} dragHandle={handleDragStart} />
                             </div>
                         )}
                     </For>
