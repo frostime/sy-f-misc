@@ -3,16 +3,16 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2024-12-25 19:17:14
+ * @LastEditTime : 2024-12-26 00:21:41
  * @Description  : 
  */
-import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
 import { id2block } from "../utils";
 import { showMessage } from "siyuan";
 
 const ATTR_GPT_EXPORT_ROOT = 'custom-gpt-export-root';
-const ATTR_GPT_EXPORT_DOC = 'custom-gpt-export-doc';
+export const ATTR_GPT_EXPORT_DOC = 'custom-gpt-export-doc';
 
 const item2markdown = (item: IChatSessionMsgItem) => {
     if (item.type === 'seperator') {

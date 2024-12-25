@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:31:26
  * @FilePath     : /src/func/gpt/persistence/json-files.ts
- * @LastEditTime : 2024-12-25 18:45:06
+ * @LastEditTime : 2024-12-26 00:41:20
  * @Description  : 
  */
 import { thisPlugin, api, matchIDFormat } from "@frostime/siyuan-plugin-kits";
@@ -14,7 +14,7 @@ export const saveToJson = (history: IChatSessionHistory) => {
     const plugin = thisPlugin();
 
     const filepath = `${rootName}/${history.id}.json`;
-    plugin.saveData(filepath, {...history});
+    plugin.saveData(filepath, { ...history });
 }
 
 
@@ -56,6 +56,13 @@ export const listFromJson = async (): Promise<IChatSessionHistory[]> => {
     });
     let storages: any[] = await Promise.all(promises);
     return storages.filter(s => s) as IChatSessionHistory[];
+}
+
+export const getFromJson = async (id: string): Promise<IChatSessionHistory> => {
+    const dir = `data/storage/petal/${thisPlugin().name}/${rootName}/`;
+    const filepath = `${dir}${id}.json`;
+    const content = await tryRecoverFromJson(filepath);
+    return content as IChatSessionHistory;
 }
 
 

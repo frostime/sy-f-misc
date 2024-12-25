@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-25 23:50:23
+ * @LastEditTime : 2024-12-26 00:47:20
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -30,6 +30,7 @@ import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 const ChatSession: Component = (props: {
     input?: ISignalRef<string>;
     systemPrompt?: string;
+    history?: IChatSessionHistory;
     updateTitleCallback?: (title: string) => void;
 }) => {
     const modelId = useSignalRef(defaultModelId());
@@ -65,6 +66,10 @@ const ChatSession: Component = (props: {
 
     if (props.systemPrompt) {
         session.systemPrompt(props.systemPrompt);
+    }
+
+    if (props.history) {
+        session.applyHistory(props.history);
     }
 
     createEffect(() => {

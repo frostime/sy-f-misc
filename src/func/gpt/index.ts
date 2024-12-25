@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-26 00:00:00
+ * @LastEditTime : 2024-12-26 00:48:40
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -17,6 +17,9 @@ import { translateHotkey } from "@/libs/hotkey";
 import * as setting from "./setting";
 import { ISignalRef, useSignalRef } from "@frostime/solid-signal-ref";
 import { id2block } from "./utils";
+
+import * as persist from './persistence';
+import { showMessage } from "siyuan";
 
 export let name = "GPT";
 export let enabled = false;
@@ -75,7 +78,7 @@ let activeTabId = null;
 const outsideInputs = {}
 
 // src/func/gpt/index.ts (70-112)
-const openChatTab = async (reuse: boolean = true) => {
+const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory) => {
 
     const prompt = await attachSelectedText();
     //input 用于在从外部给内部 Chat 添加文本内容
@@ -96,6 +99,7 @@ const openChatTab = async (reuse: boolean = true) => {
         render: (container: HTMLElement) => {
             disposer = render(() => ChatSession({
                 input: input,
+                history: history,
                 updateTitleCallback: (title: string) => {
                     if (!title) return;
                     if (title.length > 25) return;
@@ -131,7 +135,42 @@ const openChatTab = async (reuse: boolean = true) => {
 }
 
 
-// TODO: 点击导出的文档，从存储的 json 中恢复对话
+/**
+ * 点击文档图标时触发的事件，用于打开绑定的 GPT 记录
+ * @returns 
+ */
+export const useSyDocClickEvent = () => {
+    let disposer = () => { };
+    return {
+        register: () => {
+            const plugin = thisPlugin();
+            disposer = plugin.registerOnClickDocIcon((detail) => {
+                if (!detail.data.ial[persist.ATTR_GPT_EXPORT_DOC]) {
+                    return;
+                }
+                const exportId = detail.data.ial[persist.ATTR_GPT_EXPORT_DOC];
+                detail.menu.addItem({
+                    label: '打开 GPT 记录',
+                    icon: 'iconGithub',
+                    click: async () => {
+                        const history = await persist.getFromJson(exportId);
+                        //@ts-ignore
+                        if (!history || history?.code === 404) {
+                            showMessage(`未找到 GPT 记录 ${exportId}`, 4000, 'error');
+                            return;
+                        }
+                        openChatTab(false, history);
+                    }
+                })
+            });
+        },
+        dispose: () => {
+            disposer();
+        }
+    }
+}
+
+const clickEvent = useSyDocClickEvent();
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
@@ -155,9 +194,11 @@ export const load = (plugin: FMiscPlugin) => {
         }
     });
     setting.load(plugin);
+    clickEvent.register();
 }
 
 export const unload = () => {
     if (!enabled) return;
     enabled = false;
+    clickEvent.dispose();
 }
