@@ -109,10 +109,10 @@ interface IChatSessionMsgItem {
 }
 
 interface IChatSessionHistory {
+    id: string;
     title: string;
     timestamp: number;
     items: IChatSessionMsgItem[];
-    id: string;
 }
 
 interface IChatSessionConfig {

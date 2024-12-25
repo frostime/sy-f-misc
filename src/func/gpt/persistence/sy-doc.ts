@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2024-12-25 13:43:19
+ * @LastEditTime : 2024-12-25 19:09:15
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
-import { createDocWithMd, setBlockAttrs, sql, updateBlock } from "@/api";
+import { createDocWithMd, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
 import { id2block } from "../utils";
 import { showMessage } from "siyuan";
 
@@ -95,6 +95,9 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
     // 2. 如果存在, 更新
     if (doc) {
         await updateBlock('markdown', markdownText, doc.id);
+        // 更新标题
+        await renameDoc(doc.box, doc.hpath, title);
+        showMessage(`更新到 ${getNotebook(doc.box).name}${doc.hpath}/${title}`);
         return;
     }
 
@@ -116,18 +119,7 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
 }
 
 
-export const listFromSiYuan = async (): Promise<IChatSessionHistory[]> => {
-    // 列出所有有 custom-gpt-export-doc 属性的文档
-    let docs = await sql(`
-        SELECT B.*
-        FROM blocks AS B
-        WHERE B.id IN (
-            SELECT A.block_id
-            FROM attributes AS A
-            WHERE A.name = '${ATTR_GPT_EXPORT_DOC}'
-            ORDER BY A.value DESC
-        ) AND B.type = 'd'
-        order by created desc;
-        `);
-    return docs;
+export const findBindDoc = async (historyId: string) => {
+    let doc = await checkExportDocument(ATTR_GPT_EXPORT_DOC, historyId);
+    return doc;
 }

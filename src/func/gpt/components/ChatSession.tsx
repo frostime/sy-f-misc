@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-25 01:29:15
+ * @LastEditTime : 2024-12-25 19:12:29
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch, JSX, onCleanup } from 'solid-js';
@@ -19,11 +19,12 @@ import { ChatSetting } from '../setting';
 import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
 import { Menu, showMessage } from 'siyuan';
-import { inputDialog } from '@frostime/siyuan-plugin-kits';
+import { confirmDialog, inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
+import { deleteBlock, removeDoc } from '@/api';
 
 
 interface ISimpleContext {
@@ -259,7 +260,9 @@ ${inputContent}
                     message: {
                         role: 'assistant',
                         content: content
-                    }
+                    },
+                    author: model.model,
+                    timestamp: new Date().getTime(),
                 };
                 delete updated[nextIndex]['loading'];  //不需要这个了
                 return updated;
@@ -336,7 +339,9 @@ ${inputContent}
                     message: {
                         role: 'assistant',
                         content: content
-                    }
+                    },
+                    author: model.model,
+                    timestamp: new Date().getTime()
                 };
                 delete updated[lastIdx]['loading'];
                 return updated;
@@ -401,8 +406,8 @@ ${inputContent}
         },
         applyHistory: (history: IChatSessionHistory) => {
             history.id && (sessionId = history.id);
-            history.timestamp && (timestamp = history.timestamp);
             history.title && (title.update(history.title));
+            history.timestamp && (timestamp = history.timestamp);
             history.items && (messages.update(history.items));
         },
         newSession: () => {
@@ -677,24 +682,80 @@ const ChatSession: Component = (props: {
         })
     }
 
-    const openHistoryList = () => {
-        const { close } = solidDialog({
-            title: '历史记录',
-            loader: () => (
-                <SimpleProvider state={{ model, config, session }}>
-                    <HistoryList
-                        history={persist.listFromLocalStorage()}
-                        onclick={(history: IChatSessionHistory) => {
-                            if (session.messages().length > 0) {
-                                persist.saveToLocalStorage(session.sessionHistory());
+    const openHistoryList = (e: MouseEvent) => {
+        const showHistory = (historyList: IChatSessionHistory[], onremove?: (id: string, callback: () => void) => void) => {
+            const { close } = solidDialog({
+                title: '历史记录',
+                loader: () => (
+                    <SimpleProvider state={{ model, config, session }}>
+                        <HistoryList
+                            history={historyList}
+                            onclick={(history: IChatSessionHistory) => {
+
+                                if (session.messages().length > 0) {
+                                    persist.saveToLocalStorage(session.sessionHistory());
+                                }
+                                session.applyHistory(history);
+                                close();
+                            }}
+                            onremove={onremove}
+                        />
+                    </SimpleProvider>
+                ),
+                width: '600px',
+                height: '600px'
+            });
+        }
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        let menu = new Menu();
+        menu.addItem({
+            icon: 'iconHistory',
+            label: '缓存记录',
+            click: () => {
+                let historyList = persist.listFromLocalStorage()
+                showHistory(historyList, (id: string, callback: Function) => {
+                    persist.removeFromLocalStorage(id);
+                    callback();
+                });
+            }
+        });
+        menu.addItem({
+            icon: 'iconSiYuan',
+            label: '归档记录',
+            click: async () => {
+                let historyList = await persist.listFromJson();
+                showHistory(historyList, async (id: string, callback: Function) => {
+                    let history = historyList.find(history => history.id === id);
+                    let title = history.title;
+                    let syDoc = await persist.findBindDoc(id);
+
+                    confirmDialog({
+                        title: `确认删除记录 ${title}@${id}?`,
+                        content: `<div class="fn__flex" style="gap: 10px;">
+                            <p style="flex: 1;">同时删除思源文档 ${syDoc?.hpath ?? '未绑定'}?</p>
+                            <input type="checkbox" class="b3-switch" />
+                        </div>
+                        `,
+                        confirm: async (ele: HTMLElement) => {
+                            persist.removeFromJson(id);
+                            const checkbox = ele.querySelector('input') as HTMLInputElement;
+                            if (checkbox.checked) {
+                                // showMessage(`正在删除思源文档 ${id}...`);
+                                if (syDoc.id) {
+                                    await removeDoc(syDoc.box, syDoc.path);
+                                }
                             }
-                            session.applyHistory(history);
-                            close();
-                        }} />
-                </SimpleProvider>
-            ),
-            width: '600px',
-            height: '600px'
+                            callback();
+                        }
+                    })
+                });
+            }
+        });
+        menu.open({
+            x: e.clientX,
+            y: e.clientY,
+            isLeft: true
         });
     }
 

@@ -2,12 +2,12 @@
 import { createMemo } from "solid-js";
 import styles from "./HistoryList.module.scss";
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
-import { removeFromLocalStorage } from "../persistence/local-storage";
 import { useSignalRef } from "@frostime/solid-signal-ref";
 
 const HistoryList = (props: {
     history: IChatSessionHistory[],
-    onclick: (history: IChatSessionHistory) => void
+    onclick: (history: IChatSessionHistory) => void,
+    onremove: (id: string, callback: () => void) => void
 }) => {
     const historyRef = useSignalRef(props.history);
     const sortedHistory = createMemo(() => {
@@ -15,8 +15,9 @@ const HistoryList = (props: {
     });
 
     const removeHistory = (id: string) => {
-        removeFromLocalStorage(id);
-        historyRef.update(h => h.filter(h => h.id !== id));
+        props.onremove(id, () => {
+            historyRef.update(h => h.filter(h => h.id !== id));
+        });
     }
 
     const contentShotCut = (history: IChatSessionHistory) => {
