@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-12-22 17:22:41
+ * @LastEditTime : 2024-12-25 23:37:58
  * @Description  : 
  */
 import {
@@ -24,10 +24,10 @@ import { EventBusSync } from "./libs/event-bus";
 import { initSetting } from "./settings";
 import { onPaste } from "./global-paste";
 
-import { updateStyleDom, registerPlugin } from "@frostime/siyuan-plugin-kits";
+import { updateStyleDom, registerPlugin, thisPlugin, inputDialog } from "@frostime/siyuan-plugin-kits";
 
 // import type {} from "solid-styled-jsx";
-import { request, getFile } from "./api";
+import { request, getFile, exportMdContent } from "./api";
 
 import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
 
@@ -66,7 +66,7 @@ export default class FMiscPlugin extends Plugin {
     deviceStorage: Awaited<ReturnType<typeof useLocalDeviceStorage>>;
 
     async onload() {
-        registerPlugin(this);
+        const plugin = registerPlugin(this);
 
         this.callbacksOnLayoutReady = [];
 
@@ -159,6 +159,25 @@ export default class FMiscPlugin extends Plugin {
                 });
             }
         });
+
+        const plugin = thisPlugin();
+        plugin.registerOnClickDocIcon((detail) => {
+            const { root_id } = detail;
+            detail.menu.addItem({
+                label: '查看 Markdown',
+                icon: 'iconMarkdown',
+                click: async () => {
+                    let md = await exportMdContent(root_id);
+                    inputDialog({
+                        title: md.hPath,
+                        type: 'textarea',
+                        defaultText: md.content,
+                        width: '1200px',
+                        height: '700px',
+                    });
+                }
+            });
+        })
     }
 
     /**

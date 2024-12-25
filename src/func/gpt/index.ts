@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-24 23:42:32
+ * @LastEditTime : 2024-12-26 00:00:00
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 
-import { openCustomTab } from "@frostime/siyuan-plugin-kits";
+import { openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { render } from "solid-js/web";
 
@@ -74,25 +74,42 @@ let activeTabId = null;
  */
 const outsideInputs = {}
 
-const openChatTab = async () => {
+// src/func/gpt/index.ts (70-112)
+const openChatTab = async (reuse: boolean = true) => {
 
     const prompt = await attachSelectedText();
     //input 用于在从外部给内部 Chat 添加文本内容
     let input: ISignalRef<string>;
-    if (activeTabId === null) {
-        activeTabId = 'gpt-chat' + new Date().getTime();
-        input = useSignalRef(prompt);
-        outsideInputs[activeTabId] = input;
-    } else {
+    let tabId = 'gpt-chat' + new Date().getTime();
+    if (reuse === true && activeTabId !== null) {
+        tabId = activeTabId;
         input = outsideInputs[activeTabId];
         input.value = prompt;
+    } else {
+        activeTabId = tabId;
+        input = useSignalRef(prompt);
+        outsideInputs[activeTabId] = input;
     }
     let disposer = () => { };
     openCustomTab({
-        tabId: activeTabId,
+        tabId: tabId,
         render: (container: HTMLElement) => {
             disposer = render(() => ChatSession({
-                input: input
+                input: input,
+                updateTitleCallback: (title: string) => {
+                    if (!title) return;
+                    if (title.length > 25) return;
+                    const plugin = thisPlugin();
+                    const tabs = plugin.getOpenedTab();
+                    let tab = tabs[tabId];
+                    if (tab && tab?.[0]) {
+                        let id = tab[0].tab.id;
+                        let ele = document.querySelector(`li.item[data-id="${id}"] .item__text`);
+                        if (ele) {
+                            (ele as HTMLElement).innerText = title;
+                        }
+                    }
+                }
             }), container);
             let tabContainer: HTMLElement = container.closest('[data-id]');
             if (tabContainer) {
@@ -101,8 +118,10 @@ const openChatTab = async () => {
             }
         },
         beforeDestroy: () => {
-            activeTabId = null;
-            delete outsideInputs[activeTabId];
+            if (activeTabId === tabId) {
+                activeTabId = null;
+            }
+            delete outsideInputs[tabId];
             disposer(); //调用 solidjs 的 onCleanup
         },
         title: '和 GPT 对话',
@@ -119,10 +138,10 @@ export const load = (plugin: FMiscPlugin) => {
     enabled = true;
     plugin.eb.on('on-topbar-menu', (menu) => {
         menu.addItem({
-            label: '和 GPT 对话',
+            label: '新建 GPT 对话',
             icon: 'iconGithub',
             click: () => {
-                openChatTab();
+                openChatTab(false);
             }
         });
     });
@@ -132,7 +151,7 @@ export const load = (plugin: FMiscPlugin) => {
         langText: '打开GPT对话',
         hotkey: translateHotkey('Ctrl+Shift+L'),
         callback: () => {
-            openChatTab();
+            openChatTab(true);
         }
     });
     setting.load(plugin);
