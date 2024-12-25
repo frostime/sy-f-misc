@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2024-12-25 19:09:15
+ * @LastEditTime : 2024-12-25 19:17:14
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -96,8 +96,8 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
     if (doc) {
         await updateBlock('markdown', markdownText, doc.id);
         // 更新标题
-        await renameDoc(doc.box, doc.hpath, title);
-        showMessage(`更新到 ${getNotebook(doc.box).name}${doc.hpath}/${title}`);
+        await renameDoc(doc.box, doc.path, title);
+        showMessage(`更新到 ${getNotebook(doc.box).name}/${title}`);
         return;
     }
 
