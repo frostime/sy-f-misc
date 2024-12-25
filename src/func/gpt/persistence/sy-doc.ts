@@ -3,13 +3,16 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2024-12-24 17:44:13
+ * @LastEditTime : 2024-12-25 13:43:19
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, setBlockAttrs, sql, updateBlock } from "@/api";
 import { id2block } from "../utils";
 import { showMessage } from "siyuan";
+
+const ATTR_GPT_EXPORT_ROOT = 'custom-gpt-export-root';
+const ATTR_GPT_EXPORT_DOC = 'custom-gpt-export-doc';
 
 const item2markdown = (item: IChatSessionMsgItem) => {
     if (item.type === 'seperator') {
@@ -51,7 +54,7 @@ const checkExportDocument = async (attr: string, value: string) => {
 
 async function ensureRootDocument(newTitle: string, notebookId?: NotebookId): Promise<Block> {
     // 'custom-gpt-export-root', 'true', 
-    const attr = 'custom-gpt-export-root';
+    const attr = ATTR_GPT_EXPORT_ROOT;
     const value = 'true';
     let doc = await checkExportDocument(attr, value);
     if (doc) {
@@ -79,12 +82,15 @@ export const itemsToMarkdown = (items: IChatSessionMsgItem[]) => {
     return markdownText;
 }
 
-
+/**
+ * 保存到思源笔记
+ * @param history 
+ */
 export const saveToSiYuan = async (history: IChatSessionHistory) => {
     let { title, timestamp } = history;
     // 1. 检查之前是否已经导出过
     let markdownText = itemsToMarkdown(history.items);
-    let doc = await checkExportDocument('custom-gpt-export-doc', history.id);
+    let doc = await checkExportDocument(ATTR_GPT_EXPORT_DOC, history.id);
 
     // 2. 如果存在, 更新
     if (doc) {
@@ -107,4 +113,21 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
         }
     );
     showMessage(`保存到 ${getNotebook(rootDoc.box).name}${path}/${title}`);
+}
+
+
+export const listFromSiYuan = async (): Promise<IChatSessionHistory[]> => {
+    // 列出所有有 custom-gpt-export-doc 属性的文档
+    let docs = await sql(`
+        SELECT B.*
+        FROM blocks AS B
+        WHERE B.id IN (
+            SELECT A.block_id
+            FROM attributes AS A
+            WHERE A.name = '${ATTR_GPT_EXPORT_DOC}'
+            ORDER BY A.value DESC
+        ) AND B.type = 'd'
+        order by created desc;
+        `);
+    return docs;
 }

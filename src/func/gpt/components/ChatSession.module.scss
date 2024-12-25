@@ -139,5 +139,21 @@
 
 .text-seperator {
     text-align: center;
-    color: #666;
+    color: var(--b3-theme-on-surface);
+    position: relative;
+    margin-bottom: 20px;
+
+    span[data-type="button"] {
+        position: absolute;
+        left: 10px;
+        cursor: pointer;
+        opacity: 0;
+    }
+
+    &:hover {
+        span[data-type="button"] {
+            opacity: 1;
+            transition: opacity 0.2s ease-in-out;
+        }
+    }
 }

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-25 01:07:03
+ * @LastEditTime : 2024-12-25 01:29:15
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, batch, JSX, onCleanup } from 'solid-js';
@@ -76,20 +76,8 @@ const useSession = (props: {
         }]);
     }
 
-    const appendAssistantMsg = (model: string, msg: string) => {
-        messages.update(prev => [...prev, {
-            type: 'message',
-            id: newID(),
-            timestamp: new Date().getTime(),
-            author: model,
-            message: {
-                role: 'assistant',
-                content: msg
-            }
-        }]);
-    }
 
-    const appendSeperator = () => {
+    const appendSeperator = (index?: number) => {
         if (messages().length === 0) return;
         const last = messages()[messages().length - 1];
         if (last.type === 'seperator') return;
@@ -429,11 +417,6 @@ ${inputContent}
     }
 }
 
-const Seperator = (props: { title: string }) => (
-    <div class={styles['text-seperator']}>
-        {props.title}
-    </div>
-);
 
 const useSessionSetting = () => {
     let context = useSimpleContext();
@@ -818,6 +801,24 @@ const ChatSession: Component = (props: {
         )
     };
 
+    const Seperator = (props: { title: string, id?: string }) => (
+        <div class={styles['text-seperator']}>
+            {props.title}
+            {
+                (props.id && (
+                    <span data-type="button" onclick={() => {
+                        //删除指定 id 的 seperator
+                        session.messages.update((oldList: IChatSessionMsgItem[]) => {
+                            return oldList.filter((i) => i.id !== props.id);
+                        });
+                    }}>
+                        <SvgSymbol size="10px">iconClose</SvgSymbol>
+                    </span>
+                ))
+            }
+        </div>
+    );
+
     const ChatContainer = () => (
         <div class={styles.chatContainer} style={styleVars()}>
             {/* 添加顶部工具栏 */}
@@ -852,7 +853,7 @@ const ChatSession: Component = (props: {
                                 />
                             </Match>
                             <Match when={item.type === 'seperator'}>
-                                <Seperator title="新的对话" />
+                                <Seperator title="新的对话" id={item.id} />
                             </Match>
                         </Switch>
                     )}
