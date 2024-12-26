@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-22 10:26:12
  * @FilePath     : /src/func/gpt/utils.ts
- * @LastEditTime : 2024-12-23 15:48:41
+ * @LastEditTime : 2024-12-26 14:13:49
  * @Description  : 
  */
 
@@ -79,7 +79,7 @@ export function convertMathFormulas(text: string): string {
 
 
 export async function id2block(...ids: BlockId[]): Promise<Block[]> {
-    let idList = ids.map((id) => `"${id}"`);
+    let idList = ids.map((id) => `'${id}'`);
     let sqlCode = `select * from blocks where id in (${idList.join(",")})`;
     let data = await sql(sqlCode);
     return data;

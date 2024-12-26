@@ -3,16 +3,22 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2024-12-26 01:02:42
+ * @LastEditTime : 2024-12-26 14:57:28
  * @Description  : 
  */
-import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { createDocWithMd, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
+import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
+import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
 import { id2block } from "../utils";
 import { showMessage } from "siyuan";
 
 const ATTR_GPT_EXPORT_ROOT = 'custom-gpt-export-root';
 export const ATTR_GPT_EXPORT_DOC = 'custom-gpt-export-doc';
+const ATTR_GPT_EXPORT_DOC_EDITABLE_AREA = 'custom-gpt-export-doc-editable-area';
+
+const CUSTOM_EDITABLE_AREA = `
+> **可编辑区域**
+{: id="20241226142458-lrm1v3l" ${ATTR_GPT_EXPORT_DOC_EDITABLE_AREA}="true" custom-b="note" memo="可编辑区域" }
+`.trim();
 
 const item2markdown = (item: IChatSessionMsgItem) => {
     if (item.type === 'seperator') {
@@ -31,7 +37,7 @@ ${item.message.content}
 `.trim();
 }
 
-const checkExportDocument = async (attr: string, value: string) => {
+const checkBlockWithAttr = async (attr: string, value: string, cond: string = `B.type = 'd'`): Promise<Block[]> => {
     let docs = await sql(`
         SELECT B.*
         FROM blocks AS B
@@ -39,14 +45,15 @@ const checkExportDocument = async (attr: string, value: string) => {
             SELECT A.block_id
             FROM attributes AS A
             WHERE A.name = '${attr}' AND A.value = '${value}'
-        ) AND B.type = 'd'
+        ) ${cond ? 'AND ' + cond : ''}
         order by created;
         `);
     if (docs?.length > 0) {
-        if (docs.length !== 1) {
-            console.warn(`Multiple documents found with attribute ${attr}=${value}`);
-        }
-        return docs[0];
+        // if (docs.length !== 1) {
+        //     console.warn(`Multiple documents found with attribute ${attr}=${value}`);
+        // }
+        // return docs[0];
+        return docs;
     }
     return null;
 }
@@ -56,9 +63,9 @@ async function ensureRootDocument(newTitle: string, notebookId?: NotebookId): Pr
     // 'custom-gpt-export-root', 'true', 
     const attr = ATTR_GPT_EXPORT_ROOT;
     const value = 'true';
-    let doc = await checkExportDocument(attr, value);
-    if (doc) {
-        return doc;
+    let docs = await checkBlockWithAttr(attr, value);
+    if (docs && docs?.length > 0) {
+        return docs[0];
     }
     if (!notebookId) {
         const notebooks = window.siyuan.notebooks.filter(n => n.closed === false);
@@ -67,6 +74,7 @@ async function ensureRootDocument(newTitle: string, notebookId?: NotebookId): Pr
         }
         notebookId = notebooks[0].id;
     }
+    showMessage(`创建导出文档位置: ${getNotebook(notebookId).name}/${newTitle}`);
     let docid = await createDocWithMd(notebookId, `/${newTitle}`, '');
     await setBlockAttrs(docid,
         {
@@ -90,10 +98,23 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
     let { title, timestamp } = history;
     // 1. 检查之前是否已经导出过
     let markdownText = itemsToMarkdown(history.items);
-    let doc = await checkExportDocument(ATTR_GPT_EXPORT_DOC, history.id);
+    let docs = await checkBlockWithAttr(ATTR_GPT_EXPORT_DOC, history.id);
+
+    let doc = docs?.[0] ?? null;
 
     // 2. 如果存在, 更新
     if (doc) {
+        let editableAreas = await checkBlockWithAttr(ATTR_GPT_EXPORT_DOC_EDITABLE_AREA, 'true', `B.root_id = '${doc.root_id}'`);
+        if (editableAreas) {
+            let ids = Array.from(editableAreas).map(b => b.id);
+            const markdowns = await Promise.all(ids.map(async (id) => {
+                let markdown = await getBlockKramdown(id);
+                return markdown.kramdown;
+            }));
+            markdownText = markdowns.join('\n\n') + '\n\n' + markdownText;
+        } else {
+            // markdownText = markdownText + '\n\n' + CUSTOM_EDITABLE_AREA;
+        }
         await updateBlock('markdown', markdownText, doc.id);
         title = formatDateTime('yyyy-MM-dd', new Date(timestamp)) + ' ' + title;
         // 更新标题
@@ -104,23 +125,37 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
 
     // 3. 如果不存在, 创建
     // 3.1 首先找到导出文档的根目录文档
-    const rootDoc = await ensureRootDocument('GPT 导出文档');
-
+    let rootDoc = await ensureRootDocument('GPT 导出文档');
     //3.2 创建导出文档
-    title = title || `GPT 导出文档`;
-    title = formatDateTime('yyyy-MM-dd', new Date(timestamp)) + ' ' + title;
-    let path = rootDoc.hpath;
-    let docid = await createDocWithMd(rootDoc.box, `${path}/${title}`, markdownText);
-    await setBlockAttrs(docid,
-        {
-            'custom-gpt-export-doc': history.id
-        }
-    );
-    showMessage(`保存到 ${getNotebook(rootDoc.box).name}${path}/${title}`);
+    const exportDoc = async (rootDoc: Block) => {
+        title = title || `GPT 导出文档`;
+        title = formatDateTime('yyyy-MM-dd', new Date(timestamp)) + ' ' + title;
+        let path = rootDoc.hpath;
+        let docid = await createDocWithMd(rootDoc.box, `${path}/${title}`, CUSTOM_EDITABLE_AREA + '\n\n' + markdownText);
+        await setBlockAttrs(docid,
+            {
+                'custom-gpt-export-doc': history.id
+            }
+        );
+        showMessage(`保存到 ${getNotebook(rootDoc.box).name}${path}/${title}`);
+    }
+
+    if (!rootDoc) {
+        setTimeout(async () => {
+            rootDoc = await ensureRootDocument('GPT 导出文档');
+            if (!rootDoc) {
+                showMessage('导出失败，请再尝试一次');
+                return;
+            }
+            await exportDoc(rootDoc);
+        }, 1000);
+    } else {
+        exportDoc(rootDoc);
+    }
 }
 
 
 export const findBindDoc = async (historyId: string) => {
-    let doc = await checkExportDocument(ATTR_GPT_EXPORT_DOC, historyId);
+    let doc = await checkBlockWithAttr(ATTR_GPT_EXPORT_DOC, historyId);
     return doc;
 }
