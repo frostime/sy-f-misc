@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-27 19:28:06
+ * @LastEditTime : 2024-12-27 21:13:29
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -489,6 +489,19 @@ const ChatSession: Component = (props: {
     );
 
     const BatchOperationBar = () => {
+        const Button = (props: {
+            icon: string;
+            label: string;
+            onclick: () => void;
+        }) => (
+            <button
+                class="b3-button b3-button--outline"
+                onclick={props.onclick}
+            >
+                <SvgSymbol size="15px">{props.icon}</SvgSymbol>
+                {props.label}
+            </button>
+        );
 
         const Body = (props: {
             selectedCount: number;
@@ -496,8 +509,33 @@ const ChatSession: Component = (props: {
             <div class={styles.batchOperationBar}>
                 <span class="counter">已选择 {props.selectedCount} 条消息</span>
                 <div class="fn__flex-1" />
-                <button
-                    class="b3-button b3-button--outline"
+                <Button
+                    icon="iconCheck"
+                    label="全选"
+                    onclick={() => {
+                        const messageIds = session.messages().map(m => m.id);
+                        selectedMessages.update(new Set(messageIds));
+                    }}
+                />
+                <Button
+                    icon="iconUndo"
+                    label="反选"
+                    onclick={() => {
+                        const messageIds = session.messages().map(m => m.id);
+                        const newSet = new Set(selectedMessages());
+                        messageIds.forEach(id => {
+                            if (newSet.has(id)) {
+                                newSet.delete(id);
+                            } else {
+                                newSet.add(id);
+                            }
+                        });
+                        selectedMessages.update(newSet);
+                    }}
+                />
+                <Button
+                    icon="iconAdd"
+                    label="提取为新对话"
                     onclick={() => {
                         const messageIds = Array.from(selectedMessages());
                         const msgItems = session.messages().filter(m => messageIds.includes(m.id));
@@ -509,29 +547,22 @@ const ChatSession: Component = (props: {
                         multiSelect.update(false);
                         selectedMessages.update(new Set<string>());
                     }}
-                >
-                    <SvgSymbol size="20px">iconAdd</SvgSymbol>
-                    提取为新对话
-                </button>
-                <button
-                    class="b3-button b3-button--outline"
+                />
+                <Button
+                    icon="iconTrashcan"
+                    label="删除选中消息"
                     onclick={() => {
                         session.messages.update(msgs =>
                             msgs.filter(m => !selectedMessages().has(m.id))
                         );
                         selectedMessages.update(new Set<string>());
                     }}
-                >
-                    <SvgSymbol size="20px">iconTrashcan</SvgSymbol>
-                    删除选中消息
-                </button>
+                />
             </div>
         );
 
-        // if (!multiSelect() || selectedCount === 0) return null;
-
         return (
-            <Show when={multiSelect() && selectedMessages().size > 0}>
+            <Show when={multiSelect()}>
                 <Body selectedCount={selectedMessages().size} />
             </Show>
         )
@@ -558,6 +589,7 @@ const ChatSession: Component = (props: {
                                     updateIt={(message) => {
                                         if (session.loading()) return;
                                         session.messages.update(index(), 'message', 'content', message);
+                                        // session.messages.update(index(), 'msgChars', message.length);
                                     }}
                                     deleteIt={() => {
                                         if (session.loading()) return;
@@ -580,6 +612,14 @@ const ChatSession: Component = (props: {
                                         }
                                         selectedMessages.update(newSet);
                                     }}
+                                    toggleSeperator={() => {
+                                        if (session.loading()) return;
+                                        session.toggleSeperatorAt(index());
+                                    }}
+                                    toggleHidden={() => {
+                                        if (session.loading()) return;
+                                        session.toggleHidden(index());
+                                    }}
                                 />
                             </Match>
                             <Match when={item.type === 'seperator'}>
@@ -600,8 +640,8 @@ const ChatSession: Component = (props: {
                     <ToolbarLabel onclick={openSetting} label='设置' >
                         <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>
-                    <ToolbarLabel onclick={session.toggleClearContext} label='清除上下文' >
-                        <SvgSymbol size="15px">iconTrashcan</SvgSymbol>
+                    <ToolbarLabel onclick={session.toggleClearContext} label='新的上下文' >
+                        <SvgSymbol size="15px">iconLine</SvgSymbol>
                     </ToolbarLabel>
                     <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>

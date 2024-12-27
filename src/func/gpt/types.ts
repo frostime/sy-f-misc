@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2024-12-27 16:58:57
+ * @LastEditTime : 2024-12-27 21:07:34
  * @Description  : 
  */
 interface IMessage {
@@ -106,6 +106,10 @@ interface IChatSessionMsgItem {
     timestamp?: number;
     title?: string;
     loading?: boolean;  // 用于存储消息的输出状态，仅仅在等待过程中需求使用
+    hidden?: boolean;   // 用于标识是否在获取上下文时跳过此消息
+    // msgChars?: number;  //消息的字数
+    attachedItems?: number;  //上下文消息条目数量, 不包括自身
+    attachedChars?: number;  //上下文的字数, 不包括自身
 }
 
 interface IChatSessionHistory {

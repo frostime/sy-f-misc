@@ -46,11 +46,6 @@ export const useSession = (props: {
         return window.Lute.NewNodeID();
     }
 
-    const endWithSeperator = () => {
-        if (messages().length === 0) return false;
-        return messages()[messages().length - 1].type === 'seperator';
-    }
-
     const appendUserMsg = (msg: string) => {
         messages.update(prev => [...prev, {
             type: 'message',
@@ -60,61 +55,72 @@ export const useSession = (props: {
             message: {
                 role: 'user',
                 content: msg
+            },
+            // msgChars: msg.length
+        }]);
+    }
+
+
+    const toggleSeperator = (index?: number) => {
+        if (messages().length === 0) return;
+
+        if (index !== undefined) {
+            // 检查下一条消息
+            const nextIndex = index + 1;
+            if (nextIndex < messages().length) {
+                if (messages()[nextIndex].type === 'seperator') {
+                    // 如果下一条是分隔符，删除它
+                    messages.update(prev => {
+                        const newMessages = [...prev];
+                        newMessages.splice(nextIndex, 1);
+                        return newMessages;
+                    });
+                } else {
+                    // 如果下一条不是分隔符，添加一个
+                    messages.update(prev => {
+                        const newMessages = [...prev];
+                        newMessages.splice(nextIndex, 0, {
+                            type: 'seperator',
+                            id: newID()
+                        });
+                        return newMessages;
+                    });
+                }
+            } else {
+                // 如果是最后一条消息，就在后面添加分隔符
+                messages.update(prev => [...prev, {
+                    type: 'seperator',
+                    id: newID()
+                }]);
             }
-        }]);
-    }
-
-
-    const appendSeperator = (index?: number) => {
-        if (messages().length === 0) return;
-        const last = messages()[messages().length - 1];
-        if (last.type === 'seperator') return;
-        messages.update(prev => [...prev, {
-            type: 'seperator',
-            id: newID()
-        }]);
-    }
-
-    const removeSeperator = () => {
-        if (messages().length === 0) return;
-        const last = messages()[messages().length - 1];
-        if (last.type === 'seperator') {
-            messages.update(prev => prev.slice(0, -1));
-        }
-    }
-
-    const getAttachedHistory = (attachedHistory?: number, fromIndex?: number) => {
-        if (attachedHistory === undefined) {
-            attachedHistory = props.config().attachedHistory;
-        }
-        const history = [...messages()];
-        const targetIndex = fromIndex ?? history.length - 1;
-        const targetMessage = history[targetIndex];
-
-        if (attachedHistory === 0) {
-            return [targetMessage.message!];
-        }
-
-        // 从指定位置向前截取历史消息
-        const previousMessages = history.slice(0, targetIndex);
-        const lastMessages = attachedHistory > 0  && previousMessages.length >= attachedHistory ? previousMessages.slice(-attachedHistory) : previousMessages;
-        const lastSeperatorIndex = lastMessages.findIndex(item => item.type === 'seperator');
-
-        let attachedMessages: IChatSessionMsgItem[] = [];
-        if (lastSeperatorIndex === -1) {
-            attachedMessages = lastMessages.filter(item => item.type === 'message');
         } else {
-            attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(item => item.type === 'message');
+            // 原来的末尾添加/删除逻辑
+            const last = messages()[messages().length - 1];
+            if (last.type === 'seperator') {
+                messages.update(prev => prev.slice(0, -1));
+            } else {
+                messages.update(prev => [...prev, {
+                    type: 'seperator',
+                    id: newID()
+                }]);
+            }
         }
-
-        if (!attachedMessages || attachedMessages.length == 0) {
-            showMessage('没有足以生成标题的历史消息');
-            return [];
-        }
-
-        return [...attachedMessages, targetMessage].map(item => item.message!);
     }
 
+    // const appendSeperator = toggleSeperator;
+
+    // const removeSeperator = () => {
+    //     if (messages().length === 0) return;
+    //     const last = messages()[messages().length - 1];
+    //     if (last.type === 'seperator') {
+    //         messages.update(prev => prev.slice(0, -1));
+    //     }
+    // }
+
+    const toggleSeperatorAt = (index: number) => {
+        if (index < 0 || index >= messages().length) return;
+        toggleSeperator(index);
+    }
 
     let controller: AbortController;
 
@@ -126,7 +132,7 @@ export const useSession = (props: {
 
     const customComplete = async (messageToSend: IMessage[] | string, stream: boolean = false, model?: IGPTModel) => {
         try {
-            model = model ??props.model();
+            model = model ?? props.model();
             const { content } = await gpt.complete(messageToSend, {
                 model: model,
                 option: gptOption(),
@@ -140,9 +146,9 @@ export const useSession = (props: {
 
     const autoGenerateTitle = async () => {
         let attachedHistory = props.config().attachedHistory;
-        attachedHistory = Math.max(attachedHistory, 2);
+        attachedHistory = Math.max(attachedHistory, 0);
         attachedHistory = Math.min(attachedHistory, 6);
-        const histories = getAttachedHistory(attachedHistory);
+        const histories = getAttachedContext(attachedHistory);
         if (histories.length == 0) return;
         let sizeLimit = props.config().maxInputLenForAutoTitle;
         let averageLimit = Math.floor(sizeLimit / histories.length);
@@ -183,11 +189,14 @@ ${inputContent}
     const reRunMessage = async (atIndex: number) => {
         if (atIndex < 0 || atIndex >= messages().length) return;
         const targetMsg = messages()[atIndex];
-        if (targetMsg.type !== 'message') return;
+        if (targetMsg.type !== 'message' || targetMsg.hidden) {
+            if (targetMsg.hidden) showMessage('无法重新生成此消息：已隐藏');
+            return;
+        }
 
         // 如果是 assistant 消息，检查上一条是否为 user 消息
         if (targetMsg.message.role === 'assistant') {
-            if (atIndex === 0 || messages()[atIndex - 1].message?.role !== 'user') {
+            if (atIndex === 0 || messages()[atIndex - 1].message?.role !== 'user' || messages()[atIndex - 1].hidden) {
                 showMessage('无法重新生成此消息：需要用户输入作为前文');
                 return;
             }
@@ -199,7 +208,7 @@ ${inputContent}
 
         try {
             controller = new AbortController();
-            const msgToSend = getAttachedHistory(props.config().attachedHistory, atIndex);
+            const msgToSend = getAttachedContext(props.config().attachedHistory, atIndex);
             let model = props.model();
             let option = gptOption();
             // 更新或插入 assistant 消息
@@ -247,7 +256,6 @@ ${inputContent}
                 option: option,
             });
 
-
             // 更新最终内容
             messages.update(prev => {
                 const updated = [...prev];
@@ -260,6 +268,9 @@ ${inputContent}
                     },
                     author: model.model,
                     timestamp: new Date().getTime(),
+                    // msgChars: content.length,
+                    attachedItems: msgToSend.length,
+                    attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
                 };
                 delete updated[nextIndex]['loading'];  //不需要这个了
                 return updated;
@@ -296,7 +307,7 @@ ${inputContent}
 
         try {
             controller = new AbortController();
-            const msgToSend = getAttachedHistory();
+            const msgToSend = getAttachedContext();
             let model = props.model();
             let option = gptOption();
 
@@ -338,7 +349,10 @@ ${inputContent}
                         content: content
                     },
                     author: model.model,
-                    timestamp: new Date().getTime()
+                    timestamp: new Date().getTime(),
+                    // msgChars: content.length,
+                    attachedItems: msgToSend.length,
+                    attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0),
                 };
                 delete updated[lastIdx]['loading'];
                 return updated;
@@ -376,6 +390,71 @@ ${inputContent}
         }
     }
 
+    const toggleHidden = (index: number) => {
+        if (index < 0 || index >= messages().length) return;
+        const targetMsg = messages()[index];
+        if (targetMsg.type !== 'message') return;
+        messages.update(index, 'hidden', !targetMsg.hidden);
+    }
+
+    const getAttachedContext = (contextNum?: number, fromIndex?: number) => {
+        if (contextNum === undefined) {
+            contextNum = props.config().attachedHistory;
+        }
+        const history = [...messages()];
+        const targetIndex = fromIndex ?? history.length - 1;
+        const targetMessage = history[targetIndex];
+
+        if (contextNum === 0) {
+            return [targetMessage.message!];
+        }
+
+        const isAttachable = (msg: IChatSessionMsgItem) => {
+            return msg.type === 'message' && !msg.hidden;
+        }
+
+        // 从指定位置向前截取历史消息
+        const previousMessages = history.slice(0, targetIndex);
+        let lastMessages: IChatSessionMsgItem[] = previousMessages;
+        if (contextNum > 0) {
+            // 计算需要获取的消息数量，考虑hidden消息
+            let visibleCount = 0;
+            let startIndex = previousMessages.length - 1;
+
+            if (contextNum > 0) {
+                for (let i = startIndex; i >= 0; i--) {
+                    const msg = previousMessages[i];
+                    if (msg.type === 'message' && !msg.hidden) {
+                        visibleCount++;
+                        if (visibleCount >= contextNum) {
+                            startIndex = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            lastMessages = previousMessages.slice(startIndex);
+        }
+
+        //查找最后一个为 seperator 的消息
+        let lastSeperatorIndex = -1;
+        for (let i = lastMessages.length - 1; i >= 0; i--) {
+            if (lastMessages[i].type === 'seperator') {
+                lastSeperatorIndex = i;
+                break;
+            }
+        }
+
+        let attachedMessages: IChatSessionMsgItem[] = [];
+        if (lastSeperatorIndex === -1) {
+            attachedMessages = lastMessages.filter(isAttachable);
+        } else {
+            attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(isAttachable);
+        }
+
+        return [...attachedMessages, targetMessage].map(item => item.message!);
+    }
+
     return {
         systemPrompt,
         messages,
@@ -385,12 +464,10 @@ ${inputContent}
         reRunMessage,
         sendMessage,
         abortMessage,
+        toggleHidden,
+        toggleSeperatorAt,
         toggleClearContext: () => {
-            if (endWithSeperator()) {
-                removeSeperator();
-            } else {
-                appendSeperator();
-            }
+            toggleSeperator();
             props.scrollToBottom();
         },
         sessionHistory: (): IChatSessionHistory => {

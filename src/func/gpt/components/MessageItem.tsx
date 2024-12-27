@@ -1,10 +1,11 @@
-import { Component, onMount, Show } from 'solid-js';
+import { Component, createMemo, onMount, Show } from 'solid-js';
 import { formatDateTime, getLute, html2ele, inputDialog } from "@frostime/siyuan-plugin-kits";
 
 import styles from './MessageItem.module.scss';
 import { addScript, addStyle, convertMathFormulas } from '../utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig } from '../setting/store';
+import { create } from 'domain';
 
 const useCodeToolbar = (language: string, code: string) => {
     let html = `
@@ -142,7 +143,9 @@ const MessageItem: Component<{
     rerunIt?: () => void,
     multiSelect?: boolean,
     selected?: boolean,
-    onSelect?: (id: string, selected: boolean) => void
+    onSelect?: (id: string, selected: boolean) => void,
+    toggleSeperator?: () => void,
+    toggleHidden?: () => void
 }> = (props) => {
 
     let lute = getLute();
@@ -188,13 +191,13 @@ const MessageItem: Component<{
         renderMath();
     });
 
-    const markdownContent = () => {
+    const markdownContent = createMemo(() => {
         let text = props.messageItem.message.content;
         if (defaultConfig().convertMathSyntax) {
             text = convertMathFormulas(text);
         }
         return text;
-    }
+    });
 
     const message = () => {
         if (props.markdown) {
@@ -205,6 +208,10 @@ const MessageItem: Component<{
         }
         return props.messageItem.message.content;
     }
+
+    const msgLength = createMemo(() => {
+        return markdownContent().length;
+    });
 
     // #iconAccount
     const IconUser = () => (
@@ -291,7 +298,8 @@ const MessageItem: Component<{
                 <div
                     class={`${styles.message} ${styles[props.messageItem.message.role]} b3-typography`}
                     style={{
-                        'white-space': props.markdown ? '' : 'pre'
+                        'white-space': props.markdown ? '' : 'pre',
+                        'opacity': props.messageItem.hidden ? '0.5' : '1'
                     }}
                     innerHTML={message()}
                     ref={msgRef}
@@ -303,6 +311,15 @@ const MessageItem: Component<{
                     <span>
                         {props.messageItem.author}
                     </span>
+                    <span>
+                        消息长度: {msgLength()}
+                    </span>
+                    <span>
+                        {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''}
+                    </span>
+                    <span>
+                        {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
+                    </span>
 
                     <div class="fn__flex-1" />
                     <Show when={props.messageItem.token}>
@@ -310,6 +327,16 @@ const MessageItem: Component<{
                     </Show>
                     <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
                     <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
+                    <ToolbarButton icon="iconLine" title="下方添加分隔" onclick={(e: MouseEvent) => {
+                        props.toggleSeperator?.();
+                    }} />
+                    <ToolbarButton
+                        icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
+                        title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
+                        onclick={(e: MouseEvent) => {
+                            props.toggleHidden?.();
+                        }}
+                    />
                     <ToolbarButton icon="iconTrashcan" title="删除" onclick={(e: MouseEvent) => {
                         // Ctrl + 点击
                         if (e.ctrlKey) {
@@ -318,7 +345,7 @@ const MessageItem: Component<{
                             showMessage('如果想要删除此消息，请按 Ctrl + 点击');
                         }
                     }} />
-                    <ToolbarButton icon="iconRedo" title="重新运行" onclick={(e: MouseEvent) => {
+                    <ToolbarButton icon="iconRefresh" title="重新运行" onclick={(e: MouseEvent) => {
                         // Ctrl + 点击
                         if (e.ctrlKey) {
                             rerunMessage();
