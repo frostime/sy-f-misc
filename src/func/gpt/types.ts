@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2024-12-25 00:41:39
+ * @LastEditTime : 2024-12-27 16:58:57
  * @Description  : 
  */
 interface IMessage {
@@ -120,5 +120,6 @@ interface IChatSessionConfig {
     //GPT 常常使用 \( \) 语法，但是 md 习惯使用 $ $ 语法，需要转换
     convertMathSyntax: boolean;
     maxInputLenForAutoTitle: number;
+    autoTitleModelId?: string;
     chatOption: IChatOption;
 }

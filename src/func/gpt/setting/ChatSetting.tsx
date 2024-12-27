@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2024-12-23 22:31:16
+ * @LastEditTime : 2024-12-27 17:01:04
  * @Description  : 
  */
 
@@ -51,6 +51,18 @@ const ChatSessionSetting = (props: {
                     number={{
                         min: -1,
                         step: 1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="自动生成标题时使用的模型 ID"
+                description="如果不填写，就使用当前对话的模型"
+            >
+                <Form.Input
+                    type="textinput"
+                    value={config().autoTitleModelId ?? ''}
+                    changed={(v) => {
+                        config.update('autoTitleModelId', v);
                     }}
                 />
             </Form.Wrap>

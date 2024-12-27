@@ -22,6 +22,7 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     attachedHistory: 3,
     convertMathSyntax: true,
     maxInputLenForAutoTitle: 500,
+    autoTitleModelId: '',
     chatOption: {
         temperature: 0.7,
         stream: true,

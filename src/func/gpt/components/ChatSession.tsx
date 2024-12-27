@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-26 00:47:20
+ * @LastEditTime : 2024-12-27 17:18:14
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -16,7 +16,7 @@ import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels,
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu } from 'siyuan';
-import { confirmDialog, inputDialog } from '@frostime/siyuan-plugin-kits';
+import { confirmDialog, deepMerge, inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
@@ -35,7 +35,9 @@ const ChatSession: Component = (props: {
 }) => {
     const modelId = useSignalRef(defaultModelId());
     const model = createMemo(() => useModel(modelId()));
-    const config = useStoreRef<IChatSessionConfig>({ ...defaultConfig() });
+    //Detach from the solidjs store's reactive system
+    let defaultConfigVal = JSON.parse(JSON.stringify(defaultConfig.unwrap()));
+    const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -293,7 +295,8 @@ const ChatSession: Component = (props: {
                 showHistory(historyList, async (id: string, callback: Function) => {
                     let history = historyList.find(history => history.id === id);
                     let title = history.title;
-                    let syDoc = await persist.findBindDoc(id);
+                    let docs = await persist.findBindDoc(id);
+                    let syDoc = docs?.[0] ?? null;
 
                     confirmDialog({
                         title: `确认删除记录 ${title}@${id}?`,

@@ -5,7 +5,7 @@ import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
 
 import { ChatSetting } from '../setting';
-import { UIConfig, promptTemplates } from '../setting/store';
+import { UIConfig, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '../gpt';
 
 interface ISimpleContext {
@@ -118,9 +118,9 @@ export const useSession = (props: {
         return option;
     }
 
-    const customComplete = async (messageToSend: IMessage[] | string, stream: boolean = false) => {
+    const customComplete = async (messageToSend: IMessage[] | string, stream: boolean = false, model?: IGPTModel) => {
         try {
-            let model = props.model();
+            model = model ??props.model();
             const { content } = await gpt.complete(messageToSend, {
                 model: model,
                 option: gptOption(),
@@ -153,7 +153,12 @@ export const useSession = (props: {
 ---
 ${inputContent}
 `.trim();
-        const newTitle = await customComplete(messageToSend);
+        let autoTitleModel = props.config().autoTitleModelId;
+        let model = null;
+        if (autoTitleModel) {
+            model = useModel(autoTitleModel);
+        }
+        const newTitle = await customComplete(messageToSend, false, model);
         if (newTitle?.trim()) {
             title.update(newTitle.trim());
         }
