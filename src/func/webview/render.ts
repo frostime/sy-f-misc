@@ -13,7 +13,14 @@ import { ElectronParams, IWebApp } from './utils/types';
 
 import './index.scss';
 
-export const renderView = (context: { element: Element, data: IWebApp, controller?: boolean }, plugin: siyuan.Plugin) => {
+export const renderView = (
+    context: {
+        element: Element,
+        data: IWebApp,
+        controller?: boolean
+    },
+    plugin: siyuan.Plugin
+) => {
     /**
      * Browserview Implement
      */

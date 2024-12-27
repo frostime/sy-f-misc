@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-12-25 23:37:58
+ * @LastEditTime : 2024-12-27 15:50:03
  * @Description  : 
  */
 import {
@@ -27,9 +27,9 @@ import { onPaste } from "./global-paste";
 import { updateStyleDom, registerPlugin, thisPlugin, inputDialog } from "@frostime/siyuan-plugin-kits";
 
 // import type {} from "solid-styled-jsx";
-import { request, getFile, exportMdContent } from "./api";
+import { request, getFile, exportMdContent, putFile, removeFile } from "./api";
 
-import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
+import { useLocalDeviceStorage, api } from "@frostime/siyuan-plugin-kits";
 
 const electron = require('electron');
 
@@ -245,6 +245,17 @@ export default class FMiscPlugin extends Plugin {
         this.saveData(StorageNameConfigs + '.json', dataToSave);
     }
 
+    public customMenuItems: Record<string, IMenu[]> = {};
+
+    public registerMenuTopMenu(key: string, menu: IMenu[]) {
+        this.customMenuItems[key] = menu;
+    }
+
+    public unRegisterMenuTopMenu(key: string) {
+        if (!this.customMenuItems[key]) return;
+        delete this.customMenuItems[key];
+    }
+
     private initTopBar() {
         const showMenu = () => {
             let menu = new Menu("f-misc-topbar");
@@ -285,6 +296,13 @@ export default class FMiscPlugin extends Plugin {
                 menu.addItem(item);
             }
             this.eb.emit('on-topbar-menu', menu);
+            for (let key in this.customMenuItems) {
+                let menuItems = this.customMenuItems[key];
+                for (let item of menuItems) {
+                    menu.addItem(item);
+                }
+            }
+
             menu.addSeparator();
             menu.addItem({
                 label: '重载',
@@ -342,6 +360,39 @@ export default class FMiscPlugin extends Plugin {
 
     addLayoutReadyCallback(cb: ((p: FMiscPlugin) => void)) {
         this.callbacksOnLayoutReady.push(cb);
+    }
+
+    public loadBlob(storageName: string, prefix: string = '/data/storage/petal/{{plugin}}'): Promise<Blob | null> {
+        prefix = prefix.replace('{{plugin}}', this.name);
+        return api.getFileBlob(`${prefix}/${storageName}`);
+    }
+
+    public saveBlob(storageName: string, data: Blob | File | Object | string, prefix: string = '/data/storage/petal/{{plugin}}'): Promise<Blob | null> {
+        let dataBlob: Blob | File;
+
+        if (data instanceof Blob) {
+            dataBlob = data;
+        } else if (data instanceof File) {
+            dataBlob = data;
+        } else if (typeof data === 'object') {
+            dataBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        } else if (typeof data === 'string') {
+            dataBlob = new Blob([data], { type: 'text/plain' });
+        } else {
+            throw new Error('Unsupported data type');
+        }
+
+        prefix = prefix.replace('{{plugin}}', this.name);
+        const pathString = `${prefix}/${storageName}`;
+        const file = new File([dataBlob], pathString.split("/").pop());
+
+        return putFile(pathString, false, file);
+    }
+
+
+    public removeBlob(storageName: string, prefix: string = '/data/storage/petal/{{plugin}}'): Promise<any> {
+        prefix = prefix.replace('{{plugin}}', this.name);
+        return removeFile(`${prefix}/${storageName}`);
     }
 
 }
