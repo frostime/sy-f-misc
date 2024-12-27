@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-27 17:18:14
+ * @LastEditTime : 2024-12-27 19:28:06
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -16,7 +16,7 @@ import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels,
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu } from 'siyuan';
-import { confirmDialog, deepMerge, inputDialog } from '@frostime/siyuan-plugin-kits';
+import { confirmDialog, inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
@@ -38,6 +38,8 @@ const ChatSession: Component = (props: {
     //Detach from the solidjs store's reactive system
     let defaultConfigVal = JSON.parse(JSON.stringify(defaultConfig.unwrap()));
     const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
+    const multiSelect = useSignalRef(false);
+    const selectedMessages = useSignalRef<Set<string>>(new Set());
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -80,11 +82,12 @@ const ChatSession: Component = (props: {
         }
     });
 
-    const newChatSession = () => {
+    const newChatSession = (history?: Partial<IChatSessionHistory>) => {
         if (session.messages().length > 0) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
         session.newSession();
+        history && session.applyHistory(history);
         input.update('');
         adjustTextareaHeight();
         scrollToBottom();
@@ -250,28 +253,18 @@ const ChatSession: Component = (props: {
     }
 
     const openHistoryList = (e: MouseEvent) => {
-        const showHistory = (historyList: IChatSessionHistory[], onremove?: (id: string, callback: () => void) => void) => {
+        const showHistory = (component: () => JSX.Element) => {
             const { close } = solidDialog({
                 title: '历史记录',
                 loader: () => (
-                    <SimpleProvider state={{ model, config, session }}>
-                        <HistoryList
-                            history={historyList}
-                            onclick={(history: IChatSessionHistory) => {
-
-                                if (session.messages().length > 0) {
-                                    persist.saveToLocalStorage(session.sessionHistory());
-                                }
-                                session.applyHistory(history);
-                                close();
-                            }}
-                            onremove={onremove}
-                        />
+                    <SimpleProvider state={{ model, config, session, close: () => close() }}>
+                        {component()}
                     </SimpleProvider>
                 ),
                 width: '600px',
                 height: '600px'
             });
+            return close;
         }
         e.stopImmediatePropagation();
         e.preventDefault();
@@ -280,11 +273,26 @@ const ChatSession: Component = (props: {
             icon: 'iconHistory',
             label: '缓存记录',
             click: () => {
-                let historyList = persist.listFromLocalStorage()
-                showHistory(historyList, (id: string, callback: Function) => {
-                    persist.removeFromLocalStorage(id);
-                    callback();
-                });
+                let historyList = persist.listFromLocalStorage();
+                const close = showHistory(
+                    () => (
+                        <HistoryList
+                            type="temporary"
+                            history={historyList}
+                            onclick={(history: IChatSessionHistory) => {
+                                if (session.messages().length > 0) {
+                                    persist.saveToLocalStorage(session.sessionHistory());
+                                }
+                                session.applyHistory(history);
+                                close();
+                            }}
+                            onremove={(id: string, callback: Function) => {
+                                persist.removeFromLocalStorage(id);
+                                callback();
+                            }}
+                        />
+                    )
+                );
             }
         });
         menu.addItem({
@@ -292,32 +300,48 @@ const ChatSession: Component = (props: {
             label: '归档记录',
             click: async () => {
                 let historyList = await persist.listFromJson();
-                showHistory(historyList, async (id: string, callback: Function) => {
-                    let history = historyList.find(history => history.id === id);
-                    let title = history.title;
-                    let docs = await persist.findBindDoc(id);
-                    let syDoc = docs?.[0] ?? null;
-
-                    confirmDialog({
-                        title: `确认删除记录 ${title}@${id}?`,
-                        content: `<div class="fn__flex" style="gap: 10px;">
-                            <p style="flex: 1;">同时删除思源文档 ${syDoc?.hpath ?? '未绑定'}?</p>
-                            <input type="checkbox" class="b3-switch" />
-                        </div>
-                        `,
-                        confirm: async (ele: HTMLElement) => {
-                            persist.removeFromJson(id);
-                            const checkbox = ele.querySelector('input') as HTMLInputElement;
-                            if (checkbox.checked) {
-                                // showMessage(`正在删除思源文档 ${id}...`);
-                                if (syDoc.id) {
-                                    await removeDoc(syDoc.box, syDoc.path);
+                const close = showHistory(
+                    () => (
+                        <HistoryList
+                            type="permanent"
+                            history={historyList}
+                            onclick={(history: IChatSessionHistory) => {
+                                if (session.messages().length > 0) {
+                                    persist.saveToLocalStorage(session.sessionHistory());
                                 }
-                            }
-                            callback();
-                        }
-                    })
-                });
+                                session.applyHistory(history);
+                                close();
+                            }}
+                            onremove={async (id: string, callback: Function) => {
+                                persist.removeFromJson(id);
+                                let history = historyList.find(history => history.id === id);
+                                let title = history.title;
+                                let docs = await persist.findBindDoc(id);
+                                let syDoc = docs?.[0] ?? null;
+
+                                confirmDialog({
+                                    title: `确认删除记录 ${title}@${id}?`,
+                                    content: `<div class="fn__flex" style="gap: 10px;">
+                                    <p style="flex: 1;">同时删除思源文档 ${syDoc?.hpath ?? '未绑定'}?</p>
+                                    <input type="checkbox" class="b3-switch" />
+                                </div>
+                                `,
+                                    confirm: async (ele: HTMLElement) => {
+                                        persist.removeFromJson(id);
+                                        const checkbox = ele.querySelector('input') as HTMLInputElement;
+                                        if (checkbox.checked) {
+                                            // showMessage(`正在删除思源文档 ${id}...`);
+                                            if (syDoc.id) {
+                                                await removeDoc(syDoc.box, syDoc.path);
+                                            }
+                                        }
+                                        callback();
+                                    }
+                                })
+                            }}
+                        />
+                    )
+                );
             }
         });
         menu.open({
@@ -347,6 +371,7 @@ const ChatSession: Component = (props: {
                     border: 'none',
                     'box-shadow': 'none',
                     cursor: props.placeholder ? 'default' : 'pointer',
+                    ...(props.styles ?? {})
                 }}
             >
                 <SvgSymbol size="20px">{props.icon}</SvgSymbol>
@@ -391,7 +416,20 @@ const ChatSession: Component = (props: {
                     label='导出对话'
                     icon='iconUpload'
                 />
-                {/* Placeholder, 为了保证左右对称 */}
+                <Item
+                    onclick={() => {
+                        multiSelect.update(!multiSelect());
+                        if (!multiSelect()) {
+                            selectedMessages.update(new Set<string>());
+                        }
+                    }}
+                    label='多选'
+                    icon='iconCheck'
+                    styles={{
+                        'background-color': multiSelect() ? 'var(--b3-theme-primary)' : '',
+                        'color': multiSelect() ? 'var(--b3-theme-on-primary)' : ''
+                    }}
+                />
                 <Item
                     onclick={() => {
                         session.autoGenerateTitle()
@@ -416,6 +454,8 @@ const ChatSession: Component = (props: {
                 }}>
                     {session.title()}
                 </div>
+                {/* 为了左右对称 */}
+                <Item placeholder={true} />
                 <Item
                     onclick={openHistoryList}
                     label='历史记录'
@@ -448,10 +488,60 @@ const ChatSession: Component = (props: {
         </div>
     );
 
+    const BatchOperationBar = () => {
+
+        const Body = (props: {
+            selectedCount: number;
+        }) => (
+            <div class={styles.batchOperationBar}>
+                <span class="counter">已选择 {props.selectedCount} 条消息</span>
+                <div class="fn__flex-1" />
+                <button
+                    class="b3-button b3-button--outline"
+                    onclick={() => {
+                        const messageIds = Array.from(selectedMessages());
+                        const msgItems = session.messages().filter(m => messageIds.includes(m.id));
+                        const newSession = {
+                            title: '新对话',
+                            items: msgItems
+                        };
+                        newChatSession(newSession);
+                        multiSelect.update(false);
+                        selectedMessages.update(new Set<string>());
+                    }}
+                >
+                    <SvgSymbol size="20px">iconAdd</SvgSymbol>
+                    提取为新对话
+                </button>
+                <button
+                    class="b3-button b3-button--outline"
+                    onclick={() => {
+                        session.messages.update(msgs =>
+                            msgs.filter(m => !selectedMessages().has(m.id))
+                        );
+                        selectedMessages.update(new Set<string>());
+                    }}
+                >
+                    <SvgSymbol size="20px">iconTrashcan</SvgSymbol>
+                    删除选中消息
+                </button>
+            </div>
+        );
+
+        // if (!multiSelect() || selectedCount === 0) return null;
+
+        return (
+            <Show when={multiSelect() && selectedMessages().size > 0}>
+                <Body selectedCount={selectedMessages().size} />
+            </Show>
+        )
+    };
+
     const ChatContainer = () => (
         <div class={styles.chatContainer} style={styleVars()}>
             {/* 添加顶部工具栏 */}
             <Topbar />
+            <BatchOperationBar />
 
             <div class={styles.messageList} ref={messageListRef}>
                 <For each={session.messages()}>
@@ -478,6 +568,17 @@ const ChatSession: Component = (props: {
                                     rerunIt={() => {
                                         if (session.loading()) return;
                                         session.reRunMessage(index());
+                                    }}
+                                    multiSelect={multiSelect()}
+                                    selected={selectedMessages().has(item.id)}
+                                    onSelect={(id, selected) => {
+                                        const newSet = new Set(selectedMessages());
+                                        if (selected) {
+                                            newSet.add(id);
+                                        } else {
+                                            newSet.delete(id);
+                                        }
+                                        selectedMessages.update(newSet);
                                     }}
                                 />
                             </Match>

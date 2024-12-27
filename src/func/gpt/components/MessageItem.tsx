@@ -86,7 +86,6 @@ const renderCodeblock = (ele: HTMLElement) => {
     // Create scroll container
     const scrollContainer = document.createElement('div');
     scrollContainer.className = styles['pre-scroll-container'];
-
     // Move code into scroll container
     scrollContainer.appendChild(ele);
 
@@ -136,10 +135,14 @@ const renderMathBlock = (element: HTMLElement) => {
 }
 
 const MessageItem: Component<{
-    messageItem: IChatSessionMsgItem, markdown?: boolean,
+    messageItem: IChatSessionMsgItem,
+    markdown?: boolean,
     updateIt?: (message: string) => void,
     deleteIt?: () => void,
-    rerunIt?: () => void
+    rerunIt?: () => void,
+    multiSelect?: boolean,
+    selected?: boolean,
+    onSelect?: (id: string, selected: boolean) => void
 }> = (props) => {
 
     let lute = getLute();
@@ -269,6 +272,16 @@ const MessageItem: Component<{
 
     return (
         <div class={styles.messageItem} data-role={props.messageItem.message.role}>
+            <Show when={props.multiSelect}>
+                <div class={styles.checkbox} onclick={(e) => {
+                    e.stopPropagation();
+                    props.onSelect?.(props.messageItem.id, !props.selected);
+                }}>
+                    <svg>
+                        <use href={props.selected ? "#iconCheck" : "#iconUncheck"} />
+                    </svg>
+                </div>
+            </Show>
             {props.messageItem.message.role === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (

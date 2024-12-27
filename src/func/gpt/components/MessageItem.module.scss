@@ -1,18 +1,36 @@
 .messageItem {
     display: flex;
+    padding: 1em;
+    gap: 1em;
+    // border-bottom: 1px solid var(--b3-border-color);
+    position: relative;
     align-items: flex-start;
     margin: 5px 0;
     margin-bottom: 20px;
-
     width: auto;  // 让宽度由内容决定
     max-width: 100%;  // 但不超过容器宽度
 
-    // transform: scale(var(--chat-message-zoom));
-    // transform-origin: top left;
+    .checkbox {
+        position: absolute;
+        left: 0.1em;
+        top: 0.2em;
+        cursor: pointer;
+        padding: 0.2em;
+        border-radius: 4px;
+
+        &:hover {
+            background-color: var(--b3-theme-background-light);
+        }
+
+        svg {
+            height: 16px;
+            width: 16px;
+            display: block;
+        }
+    }
 
     &[data-role="user"] {
         flex-direction: row-reverse;
-        // transform-origin: top right;
 
         .messageContainer {
             display: flex;
@@ -69,7 +87,6 @@
                 fill: currentColor;
             }
         }
-
 
         .message {
             margin: 0;
@@ -146,7 +163,6 @@
             }
         }
     }
-
 
     .icon {
         flex-shrink: 0;

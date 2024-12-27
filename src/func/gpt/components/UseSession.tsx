@@ -12,6 +12,7 @@ interface ISimpleContext {
     model: Accessor<IGPTModel>;
     config: IStoreRef<IChatSessionConfig>;
     session: ReturnType<typeof useSession>;
+    [key: string]: any
 }
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<ISimpleContext>();
@@ -96,7 +97,7 @@ export const useSession = (props: {
 
         // 从指定位置向前截取历史消息
         const previousMessages = history.slice(0, targetIndex);
-        const lastMessages = attachedHistory > 0 ? previousMessages.slice(-attachedHistory) : previousMessages;
+        const lastMessages = attachedHistory > 0  && previousMessages.length >= attachedHistory ? previousMessages.slice(-attachedHistory) : previousMessages;
         const lastSeperatorIndex = lastMessages.findIndex(item => item.type === 'seperator');
 
         let attachedMessages: IChatSessionMsgItem[] = [];
@@ -104,6 +105,11 @@ export const useSession = (props: {
             attachedMessages = lastMessages.filter(item => item.type === 'message');
         } else {
             attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(item => item.type === 'message');
+        }
+
+        if (!attachedMessages || attachedMessages.length == 0) {
+            showMessage('没有足以生成标题的历史消息');
+            return [];
         }
 
         return [...attachedMessages, targetMessage].map(item => item.message!);
@@ -395,7 +401,7 @@ ${inputContent}
                 items: messages.unwrap()
             }
         },
-        applyHistory: (history: IChatSessionHistory) => {
+        applyHistory: (history: Partial<IChatSessionHistory>) => {
             history.id && (sessionId = history.id);
             history.title && (title.update(history.title));
             history.timestamp && (timestamp = history.timestamp);
