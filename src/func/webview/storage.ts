@@ -8,11 +8,13 @@
 
 import { IWebApp } from "./utils/types";
 import { CustomApps as DefaultApps } from "./app";
-import type FMiscPlugin from "@/index";
+// import type FMiscPlugin from "@/index";
+import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 export const StorageFileName = 'custom-webview-app.js';
 
-export async function loadStorage(plugin: FMiscPlugin): Promise<IWebApp[]> {
+export async function loadStorage(): Promise<IWebApp[]> {
+    let plugin = thisPlugin();
     try {
         let data = await plugin.loadBlob(StorageFileName);
         // let jsModuleCode: string = await plugin.loadData(StorageFileName);
@@ -56,7 +58,7 @@ function mergeWithDefault(customApps: IWebApp[]): IWebApp[] {
     return mergedApps;
 }
 
-async function createDefaultStorage(plugin: FMiscPlugin) {
+async function createDefaultStorage(plugin: ReturnType<typeof thisPlugin>) {
     const content = `\
 /*
  * Custom WebView Apps Configuration

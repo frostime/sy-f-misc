@@ -175,15 +175,13 @@ const clickEvent = useSyDocClickEvent();
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
-    plugin.eb.on('on-topbar-menu', (menu) => {
-        menu.addItem({
-            label: '新建 GPT 对话',
-            icon: 'iconGithub',
-            click: () => {
-                openChatTab(false);
-            }
-        });
-    });
+    plugin.registerMenuTopMenu('gpt', [{
+        label: '新建 GPT 对话',
+        icon: 'iconGithub',
+        click: () => {
+            openChatTab(false);
+        }
+    }]);
 
     plugin.addCommand({
         langKey: 'open-gpt-chat',

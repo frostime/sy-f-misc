@@ -11,27 +11,8 @@ import type FMiscPlugin from "@/index";
 import * as store from './store';
 
 import * as togglAPI from './api';
-import { Menu } from "siyuan";
 import { recordTodayEntriesToDN, toggleAutoFetch } from "./func/record-to-dn";
 import TogglSetting from "./setting";
-
-const topbar = (menu: Menu) => {
-    menu.addItem({
-        label: '今日 Toggl',
-        icon: 'iconClock',
-        click: () => {
-            recordTodayEntriesToDN();
-        }
-    });
-}
-
-export const declareSettingPanel = [
-    {
-        key: 'Toggl',
-        title: '⏲️ Toggl',
-        element: TogglSetting
-    }
-]
 
 export let name = "Toggl";
 export let enabled = false;
@@ -42,7 +23,14 @@ export const load = async (plugin: FMiscPlugin) => {
 
     globalThis.toggl = togglAPI;
 
-    plugin.eb.on('on-topbar-menu', topbar);
+    plugin.registerMenuTopMenu('toggl', [{
+        label: '今日 Toggl',
+        icon: 'iconClock',
+        click: () => {
+            recordTodayEntriesToDN();
+        }
+    }]);
+
     if (store.config.token) {
         toggleAutoFetch(store.config.dnAutoFetch);
     }
@@ -52,6 +40,14 @@ export const unload = (plugin: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
     globalThis.toggl = null;
-    plugin.eb.off('on-topbar-menu', topbar);
+    plugin.unRegisterMenuTopMenu('toggl');
     toggleAutoFetch(false);
 }
+
+export const declareSettingPanel = [
+    {
+        key: 'Toggl',
+        title: '⏲️ Toggl',
+        element: TogglSetting
+    }
+]

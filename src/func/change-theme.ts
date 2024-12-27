@@ -1,11 +1,10 @@
-import { Menu, getFrontend } from "siyuan";
+import { IMenu, Menu, getFrontend } from "siyuan";
 import { request, getInstalledTheme, getBazaarTheme } from "@/api";
 
 import type FMiscPlugin from "@/index";
 
 const SIYUAN = window.siyuan;
 const Lang = SIYUAN.config.lang;
-
 
 class Themes {
     name2displayName: { [key: string]: string } = {};
@@ -39,7 +38,6 @@ class Themes {
 let themes: Themes;
 // let bazzarThemes: ITheme[] = [];
 
-
 export let name = 'ChangeTheme';
 export let enabled = false;
 
@@ -50,27 +48,25 @@ export const declareToggleEnabled = {
 };
 
 export function load(plugin: FMiscPlugin) {
-
     if (enabled) return;
 
     themes = new Themes();
     getBazaarTheme().then((data) => {
-        // bazzarThemes = data ?? [];
         themes.updateThemes(data);
     });
 
-    plugin.eb.on('on-topbar-menu', showThemesMenu);
+    plugin.registerMenuTopMenu('change-theme', [showThemesMenu()]);
 
     enabled = true;
 }
 
 export function unload(plugin: FMiscPlugin) {
     if (!enabled) return;
-    plugin.eb.off('on-topbar-menu', showThemesMenu);
+    plugin.unRegisterMenuTopMenu('change-theme');
     enabled = false;
 }
 
-function showThemesMenu(menu: Menu) {
+function showThemesMenu(): IMenu {
     // let menu: Menu = new Menu("ThemeChange");
     const appearance = SIYUAN.config.appearance;
     const mode = appearance.mode === 0 ? 'light' : 'dark';
@@ -92,12 +88,12 @@ function showThemesMenu(menu: Menu) {
         });
     }
 
-    menu.addItem({
+    return {
         label: '更换主题',
         icon: 'iconTheme',
         type: 'submenu',
         submenu: submenu
-    });
+    };
 }
 
 function useTheme(themeName: string, mode: string) {

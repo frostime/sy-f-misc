@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-14 22:02:49
  * @FilePath     : /src/func/webview/index.ts
- * @LastEditTime : 2024-12-27 15:16:17
+ * @LastEditTime : 2024-12-27 16:36:08
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -86,7 +86,7 @@ export const load = async (plugin: FMiscPlugin) => {
     plugin.eventBus.on('open-menu-link', openUrlTab);
 
     // Load and merge configurations
-    const mergedApps = await loadStorage(plugin);
+    const mergedApps = await loadStorage();
     CustomApps.length = 0;  // Clear existing apps
     CustomApps.push(...mergedApps);  // Replace with merged apps
 
