@@ -5,7 +5,7 @@ import styles from './MessageItem.module.scss';
 import { addScript, addStyle, convertMathFormulas } from '../utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig } from '../setting/store';
-import { create } from 'domain';
+
 
 const useCodeToolbar = (language: string, code: string) => {
     let html = `
@@ -305,39 +305,46 @@ const MessageItem: Component<{
                     ref={msgRef}
                 />
                 <div class={styles.toolbar}>
-                    <span>
+                    <span data-label="timestamp">
                         {formatDateTime(null, new Date(props.messageItem.timestamp))}
                     </span>
-                    <span>
+                    <span data-label="author">
                         {props.messageItem.author}
                     </span>
-                    <span>
+                    <span data-label="msgLength">
                         消息长度: {msgLength()}
                     </span>
-                    <span>
+                    <span data-label="attachedItems">
                         {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''}
                     </span>
-                    <span>
+                    <span data-label="attachedChars">
                         {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
                     </span>
+                    <Show when={props.messageItem.token}>
+                        <span data-label="token" class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
+                    </Show>
 
                     <div class="fn__flex-1" />
-                    <Show when={props.messageItem.token}>
-                        <span class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
-                    </Show>
+
                     <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
                     <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
                     <ToolbarButton icon="iconLine" title="下方添加分隔" onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        e.preventDefault();
                         props.toggleSeperator?.();
                     }} />
                     <ToolbarButton
                         icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
                         title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
                         onclick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            e.preventDefault();
                             props.toggleHidden?.();
                         }}
                     />
                     <ToolbarButton icon="iconTrashcan" title="删除" onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        e.preventDefault();
                         // Ctrl + 点击
                         if (e.ctrlKey) {
                             deleteMessage();

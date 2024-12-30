@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-26 00:48:40
+ * @LastEditTime : 2024-12-30 16:22:54
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -119,6 +119,7 @@ const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory)
             if (tabContainer) {
                 tabContainer.style.overflowY = 'clip';
                 tabContainer.style.background = 'var(--chat-bg-color)';
+                tabContainer.style.containerType = 'inline-size';
             }
         },
         beforeDestroy: () => {

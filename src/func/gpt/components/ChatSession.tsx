@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-27 21:13:29
+ * @LastEditTime : 2024-12-30 17:43:49
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -214,19 +214,21 @@ const ChatSession: Component = (props: {
         onclick?: (e: MouseEvent) => void,
         forceClick?: boolean,
         label?: string,
-        styles?: JSX.CSSProperties
+        styles?: JSX.CSSProperties,
+        role?: string
     }) => (
         <span
             onclick={(e: MouseEvent) => {
                 if (session.loading() && props.forceClick !== true) {
                     return;
                 }
-                props.onclick(e);
+                props.onclick?.(e);
             }}
             class="b3-label__text b3-button b3-button--outline ariaLabel"
+            data-role={props.role}
             aria-label={props.label}
             style={{
-                'box-shadow': 'inset 0 0 0 .6px var(--b3-theme-primary)',
+                'box-shadow': '0 0 3px 1px var(--b3-theme-primary-lighter)',
                 'max-width': props.maxWidth || '15em',
                 'overflow': 'hidden',
                 'text-overflow': 'ellipsis',
@@ -437,21 +439,19 @@ const ChatSession: Component = (props: {
                     label='自动生成标题'
                     icon='iconH1'
                 />
-                <div style={{
-                    "display": "flex",
-                    flex: 1,
-                    "align-items": "center",
-                    "justify-content": "center"
-                }} onclick={() => {
-                    inputDialog({
-                        title: '更改标题',
-                        defaultText: session.title(),
-                        confirm: (text) => {
-                            session.title(text);
-                        },
-                        width: '600px',
-                    })
-                }}>
+                <div
+                    class={styles.chatTitle}
+                    onclick={() => {
+                        inputDialog({
+                            title: '更改标题',
+                            defaultText: session.title(),
+                            confirm: (text) => {
+                                session.title(text);
+                            },
+                            width: '600px',
+                        })
+                    }}
+                >
                     {session.title()}
                 </div>
                 {/* 为了左右对称 */}
@@ -646,7 +646,7 @@ const ChatSession: Component = (props: {
                     <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>
                     </ToolbarLabel>
-                    <div style={{ flex: 1 }}></div>
+                    <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
                         const { dialog } = inputDialog({
                             title: '系统提示',
@@ -664,16 +664,18 @@ const ChatSession: Component = (props: {
                             textarea.style.lineHeight = '1.35';
                             textarea.focus();
                         }
-                    }} label='系统提示' >
+                    }} label='系统提示' data-role="system-prompt" >
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
                     </ToolbarLabel>
                     <ToolbarLabel>
-                        字数: {input().length}
+                        <span data-hint="true">字数: </span>{input().length}
                     </ToolbarLabel>
                     <ToolbarLabel onclick={slideAttachHistoryCnt} label='更改附带消息条数' >
-                        附带消息: {config().attachedHistory}
+                        <span data-hint="true">附带消息: </span>{config().attachedHistory}
                     </ToolbarLabel>
-                    <ToolbarLabel maxWidth='10em' label='切换模型'
+                    <ToolbarLabel
+                        label={`模型 ${model().model}`}
+                        role="model"
                         onclick={(e: MouseEvent) => {
                             e.stopImmediatePropagation();
                             e.preventDefault();
@@ -717,7 +719,7 @@ const ChatSession: Component = (props: {
                         <SvgSymbol>iconSparkles</SvgSymbol>
                     </button>
                 </div>
-                <div class={styles.attachmentArea}  style={{
+                <div class={styles.attachmentArea} style={{
                     display: "none"
                 }}>
                     {/* This area is reserved for future attachment functionality */}

@@ -1,3 +1,6 @@
+$chat-narrow-container: 480px;
+$chat-very-narrow-container: 320px;
+
 .messageItem {
     display: flex;
     padding: 1em;
@@ -7,8 +10,22 @@
     align-items: flex-start;
     margin: 5px 0;
     margin-bottom: 20px;
-    width: auto;  // 让宽度由内容决定
-    max-width: 100%;  // 但不超过容器宽度
+    width: 100%; // Changed from auto to 100%
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+
+    @container (max-width: #{$chat-narrow-container}) {
+        padding: 0.8em;
+        gap: 0.8em;
+    }
+
+    @container (max-width: #{$chat-very-narrow-container}) {
+        padding: 0.6em;
+        gap: 0.6em;
+    }
 
     .checkbox {
         position: absolute;
@@ -40,6 +57,10 @@
             margin-right: 0;
             margin-left: max(5%, 20px);
 
+            @container (max-width: #{$chat-very-narrow-container}) {
+                margin-left: 1px;
+            }
+
             .toolbar {
                 flex-direction: row-reverse;
             }
@@ -53,8 +74,14 @@
         margin-left: 0;
         margin-right: max(5%, 20px);
 
-        min-width: 0;
-        max-width: 100%;
+        min-width: 0; // Add this to ensure proper flex shrinking
+        width: 100%;
+
+        &:not([data-role="user"]) {
+            @container (max-width: #{$chat-very-narrow-container}) {
+                margin-right: 1px;
+            }
+        }
 
         &:hover {
             .toolbar {
@@ -68,25 +95,45 @@
 
             padding: 2px;
             display: flex;
+            flex-wrap: nowrap;
             gap: 5px;
 
             font-size: 12px;
             color: var(--b3-theme-on-surface);
 
             align-items: center;
-        }
 
-        .toolbarButton {
-            padding: 4px;
-            height: 24px;
-            width: 24px;
+            .toolbarButton {
+                padding: 4px;
+                height: 24px;
+                width: 24px;
 
-            svg {
-                height: 14px;
-                width: 14px;
-                fill: currentColor;
+                svg {
+                    height: 14px;
+                    width: 14px;
+                    fill: currentColor;
+                }
+            }
+
+            @container (max-width: #{$chat-narrow-container}) {
+                >span {
+                    &[data-label="timestamp"],
+                    &[data-label="msgLength"],
+                    &[data-label="attachedChars"],
+                    &[data-label="token"] {
+                        display: none;
+                    }
+                }
+            }
+
+            @container (max-width: #{$chat-very-narrow-container}) {
+                // labels
+                &>span {
+                    display: none;
+                }
             }
         }
+
 
         .message {
             margin: 0;
@@ -97,8 +144,8 @@
 
             word-wrap: break-word;
             overflow-wrap: break-word;
-            width: auto;  // 让宽度适应内容
-            max-width: 100%;  // 不超过父容器宽度
+            width: auto; // 让宽度适应内容
+            max-width: 100%; // 不超过父容器宽度
             box-sizing: border-box;
 
             user-select: text;
@@ -162,6 +209,14 @@
                 }
             }
         }
+
+        .content {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            word-break: break-word;
+            width: 100%;
+            box-sizing: border-box;
+        }
     }
 
     .icon {
@@ -169,6 +224,28 @@
         width: 24px;
         height: 24px;
         margin: 0 8px;
+
+        @container (max-width: #{$chat-narrow-container}) {
+            width: 16px;
+            height: 16px;
+
+            position: absolute;
+            top: 5px;
+            z-index: 10;
+
+            &[data-role="user"] {
+                right: 5px;
+            }
+
+            &[data-role="assistant"] {
+                left: 5px;
+            }
+        }
+
+        @container (max-width: #{$chat-very-narrow-container}) {
+            width: 12px;
+            height: 12px;
+        }
 
         svg {
             width: 100%;

@@ -6,6 +6,7 @@ import livereload from "rollup-plugin-livereload"
 import solidPlugin from 'vite-plugin-solid';
 import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
+import sass from 'sass'; // Use import instead of require
 
 const args = minimist(process.argv.slice(2))
 const isWatch = args.watch || args.w || false
@@ -19,6 +20,14 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": resolve(__dirname, "src"),
+        }
+    },
+
+    css: {
+        preprocessorOptions: {
+            scss: {
+                implementation: sass
+            }
         }
     },
 

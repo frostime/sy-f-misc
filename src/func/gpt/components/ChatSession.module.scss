@@ -13,14 +13,42 @@
     --chat-message-font-size: 19px;
 
     --chat-max-width: 1250px;
+    // --chat-narrow-container: 480px;
+    // --chat-very-narrow-container: 320px;
 }
+
+$chat-narrow-container: 480px;
+$chat-very-narrow-container: 320px;
+
+// 顶层的思源容器会设置 container-type 为 inline-size
+.chatContainer {
+    // container-type: inline-size;
+    // container-name: gpt-chat;
+
+    width: 100%;
+    height: 100%;
+    max-width: var(--chat-max-width);
+    flex: 1;
+    margin: 0 auto;
+    padding: 0 min(20px, 3%);
+    padding-bottom: min(20px, 4%);
+
+    background: var(--chat-bg-color);
+
+    display: flex;
+    flex-direction: column;
+    align-self: center;
+
+    overflow-x: hidden;
+}
+
 
 .topToolbar {
     position: sticky;
     top: 0;
     height: 50px;
 
-    // padding: 0 10px;
+    padding: 0 min(10px, 2%);
     margin-top: 1em;
 
     display: flex;
@@ -30,24 +58,17 @@
 
     font-size: var(--chat-input-font-size);
     font-weight: 500;
-}
+    z-index: 2;
 
-.chatContainer {
-    width: 100%;
-    height: 100%;
-    max-width: var(--chat-max-width);
-    flex: 1;
-    margin: 0 auto;
-    padding: 0 min(20px, 4%);
-    padding-bottom: min(20px, 5%);
-
-    background: var(--chat-bg-color);
-
-    display: flex;
-    flex-direction: column;
-    align-self: center;
-
-    overflow-x: auto;
+    div.chatTitle {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap; // 防止文本换行
+        overflow: hidden; // 隐藏超出部分
+        text-overflow: ellipsis; // 使用 ... 表示被截断的文本
+    }
 }
 
 .messageList {
@@ -55,28 +76,6 @@
     overflow-y: auto;
     padding: 10px;
     margin-bottom: 20px;
-}
-
-.toolbar {
-    width: 100%;
-    padding: 8px 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    background-color: var(--chat-bg-color);
-    border-bottom: 1px solid var(--chat-border-color);
-
-    >:global(.b3-button) {
-        height: 27px;
-
-        >svg {
-            height: 100%;
-            margin: 0 auto;
-            fill: currentColor;
-        }
-    }
 }
 
 .inputContainer {
@@ -88,6 +87,49 @@
     background: var(--chat-bg-color);
     padding: 0;
     border-top: 1px solid var(--chat-border-color);
+
+    .toolbar {
+        width: 100%;
+        padding: 8px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        background-color: var(--chat-bg-color);
+        border-bottom: 1px solid var(--chat-border-color);
+
+        >:global(.b3-button) {
+            height: 27px;
+
+            >svg {
+                height: 100%;
+                margin: 0 auto;
+                fill: currentColor;
+            }
+        }
+
+        >span[data-role="model"] {
+            max-width: 10em !important;
+            justify-content: flex-start;
+        }
+
+        @container (max-width: #{$chat-narrow-container}) {
+            >div[data-role="spacer"] {
+                display: none;
+            }
+            justify-content: unset;
+            span[data-hint="true"] {
+                display: none;
+            }
+        }
+
+        @container (max-width: #{$chat-very-narrow-container}) {
+            >span[data-role="model"] {
+                max-width: 5em !important;
+            }
+        }
+    }
 
     .inputWrapper {
         position: relative;
