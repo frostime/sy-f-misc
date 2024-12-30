@@ -696,28 +696,32 @@ const ChatSession: Component = (props: {
                         {model().model}
                     </ToolbarLabel>
                 </div>
-                <textarea
-                    ref={textareaRef}
-                    value={input()}
-                    onInput={(e) => {
-                        input.update(e.currentTarget.value);
-                        adjustTextareaHeight();
-                    }}
-                    placeholder="输入消息..."
-                    class={`${styles.input}`}
-                    onKeyDown={onKeyDown}
-                    style={{
-                        'resize': 'none'
-                    }}
-                />
-                <button
-                    type="submit"
-                    class={`${styles.sendButton} b3-button`}
-                    disabled={session.loading()}
-                    onclick={handleSubmit}
-                >
-                    <SvgSymbol>iconSparkles</SvgSymbol>
-                </button>
+                <div class={styles.inputWrapper}>
+                    <textarea
+                        ref={textareaRef}
+                        value={input()}
+                        onInput={(e) => {
+                            input.update(e.currentTarget.value);
+                            adjustTextareaHeight();
+                        }}
+                        placeholder="输入消息..."
+                        class={`${styles.input}`}
+                        onKeyDown={onKeyDown}
+                    />
+                    <button
+                        type="submit"
+                        class={`${styles.sendButton} b3-button`}
+                        disabled={session.loading()}
+                        onclick={handleSubmit}
+                    >
+                        <SvgSymbol>iconSparkles</SvgSymbol>
+                    </button>
+                </div>
+                <div class={styles.attachmentArea}  style={{
+                    display: "none"
+                }}>
+                    {/* This area is reserved for future attachment functionality */}
+                </div>
             </section>
         </div>
     );

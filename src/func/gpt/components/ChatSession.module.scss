@@ -58,20 +58,13 @@
 }
 
 .toolbar {
-    position: absolute;
-    top: -25px;
     width: 100%;
-
-    padding: 0 2px;
-
+    padding: 8px 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-
     flex-wrap: wrap;
-
     gap: 10px;
-
     background-color: var(--chat-bg-color);
     border-bottom: 1px solid var(--chat-border-color);
 
@@ -90,41 +83,60 @@
     position: sticky;
     bottom: 0;
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
     background: var(--chat-bg-color);
-    padding-top: 10px;
+    padding: 0;
+    border-top: 1px solid var(--chat-border-color);
 
-    textarea.input {
-        flex: 1;
-        padding: 10px;
-        padding-right: 100px;
-        border: 2px solid var(--b3-theme-primary-light);
-        border-radius: 4px;
-        background: var(--chat-input-bg);
-        font-size: var(--chat-input-font-size);
+    .inputWrapper {
+        position: relative;
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        padding: 0px;
 
-        min-height: 50px;
-        max-height: 250px;
-        overflow-y: auto;
-        color: var(--chat-text-color);
+        textarea.input {
+            flex: 1;
+            padding: 10px;
+            padding-right: 50px;
+            border: 2px solid var(--b3-theme-primary-light);
+            border-radius: 8px;
+            background: var(--chat-input-bg);
+            font-size: var(--chat-input-font-size);
+            min-height: 50px;
+            max-height: 250px;
+            overflow-y: auto;
+            color: var(--chat-text-color);
+            resize: none;
 
-        &:focus {
-            outline: none;
-            border-color: var(--b3-theme-primary);
+            &:focus {
+                outline: none;
+                border-color: var(--b3-theme-primary);
+            }
         }
+    }
+
+    .attachmentArea {
+        min-height: 32px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 0 8px;
+        margin-bottom: 8px;
     }
 }
 
 .sendButton {
     position: absolute;
-    right: 10px;
-    bottom: 10px;
-    width: 40px;
+    right: 8px;
+    bottom: 8px;
+    width: 35px;
     height: 35px;
-
+    padding: 0;
+    border-radius: 8px;
     font-family: var(--b3-font-family-protyle), inherit;
     font-size: var(--chat-input-font-size);
-
     background: var(--b3-theme-primary);
     opacity: 0.9;
 
