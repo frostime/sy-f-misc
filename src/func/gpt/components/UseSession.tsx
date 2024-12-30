@@ -475,7 +475,8 @@ ${inputContent}
                 id: sessionId,
                 timestamp,
                 title: title(),
-                items: messages.unwrap()
+                items: messages.unwrap(),
+                sysPrompt: systemPrompt()
             }
         },
         applyHistory: (history: Partial<IChatSessionHistory>) => {
@@ -483,6 +484,7 @@ ${inputContent}
             history.title && (title.update(history.title));
             history.timestamp && (timestamp = history.timestamp);
             history.items && (messages.update(history.items));
+            history.sysPrompt && (systemPrompt.update(history.sysPrompt));
         },
         newSession: () => {
             sessionId = window.Lute.NewNodeID();

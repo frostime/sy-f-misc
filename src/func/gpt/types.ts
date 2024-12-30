@@ -117,6 +117,7 @@ interface IChatSessionHistory {
     title: string;
     timestamp: number;
     items: IChatSessionMsgItem[];
+    sysPrompt?: string;
 }
 
 interface IChatSessionConfig {
