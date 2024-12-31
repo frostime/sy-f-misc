@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2024-12-30 16:22:54
+ * @LastEditTime : 2024-12-31 19:24:00
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -20,6 +20,8 @@ import { id2block } from "./utils";
 
 import * as persist from './persistence';
 import { showMessage } from "siyuan";
+import { solidDialog } from "@/libs/dialog";
+import HistoryList from "./components/HistoryList";
 
 export let name = "GPT";
 export let enabled = false;
@@ -129,7 +131,7 @@ const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory)
             delete outsideInputs[tabId];
             disposer(); //调用 solidjs 的 onCleanup
         },
-        title: '和 GPT 对话',
+        title: history?.title || '和 GPT 对话',
         icon: 'iconGithub',
         position: prompt.trim() ? 'right' : undefined
     });
@@ -181,6 +183,24 @@ export const load = (plugin: FMiscPlugin) => {
         icon: 'iconGithub',
         click: () => {
             openChatTab(false);
+        }
+    }, {
+        label: 'GPT 对话记录',
+        icon: 'iconGithub',
+        click: () => {
+            const { close } = solidDialog({
+                title: '历史记录',
+                loader: () => (
+                    HistoryList({
+                        close: () => close(),
+                        onclick: (history: IChatSessionHistory) => {
+                            openChatTab(false, history);
+                        }
+                    })
+                ),
+                width: '600px',
+                height: '600px'
+            });
         }
     }]);
 

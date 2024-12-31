@@ -314,7 +314,7 @@ const ChatSession: Component = (props: {
                         let menu = new Menu();
                         menu.addItem({
                             icon: 'iconSiYuan',
-                            label: '保存到思源中',
+                            label: '保存对话记录',
                             click: () => {
                                 persist.persistHistory(session.sessionHistory());
                             }

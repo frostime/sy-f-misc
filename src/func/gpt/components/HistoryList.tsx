@@ -8,13 +8,17 @@ import * as persist from '../persistence';
 import { removeDoc } from "@/api";
 import { adaptIMessageContent } from "../utils";
 
-const sourceType = useSignalRef<'temporary' | 'permanent'>('temporary');
-const showShortcuts = useSignalRef(true);
 
 const HistoryList = (props: {
     onclick?: (history: IChatSessionHistory) => void,
     close: () => void
 }) => {
+
+    const sourceTypeCache = localStorage.getItem('gpt-history-list-source-type') || 'temporary';
+    let showShortcutsCache = localStorage.getItem('gpt-history-list-show-shortcuts') || true;
+
+    const sourceType = useSignalRef<'temporary' | 'permanent'>(sourceTypeCache as 'temporary' | 'permanent');
+    const showShortcuts = useSignalRef(showShortcutsCache === true || showShortcutsCache === 'true');
 
     const onclick = (history: IChatSessionHistory) => {
         props.onclick?.(history);
@@ -70,6 +74,11 @@ const HistoryList = (props: {
 
     createEffect(on(sourceType, () => {
         fetchHistory(sourceType());
+        localStorage.setItem('gpt-history-list-source-type', sourceType());
+    }));
+    // 缓存到 localStorage
+    createEffect(on(showShortcuts, () => {
+        localStorage.setItem('gpt-history-list-show-shortcuts', JSON.stringify(showShortcuts()));
     }));
 
     const sortedHistory = createMemo(() => {
