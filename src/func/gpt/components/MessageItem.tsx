@@ -2,6 +2,7 @@ import { Component, createMemo, For, onMount, Show } from 'solid-js';
 import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 
 import styles from './MessageItem.module.scss';
+import AttachmentList from './AttachmentList';
 import { adaptIMessageContent, addScript, addStyle, convertMathFormulas } from '../utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig } from '../setting/store';
@@ -367,13 +368,12 @@ const MessageItem: Component<{
                     innerHTML={messageAsHTML()}
                     ref={msgRef}
                 />
-                <div data-role="images">
-                    <For each={imageUrls()}>
-                        {(image) => (
-                            <img src={image} alt="Attachment" />
-                        )}
-                    </For>
-                </div>
+                <Show when={imageUrls().length > 0}>
+                    <AttachmentList
+                        images={imageUrls()}
+                        size="small"
+                    />
+                </Show>
                 <div class={styles.toolbar}>
                     <span data-label="timestamp">
                         {formatDateTime(null, new Date(props.messageItem.timestamp))}

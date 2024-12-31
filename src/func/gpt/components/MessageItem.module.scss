@@ -5,12 +5,11 @@ $chat-very-narrow-container: 360px;
     display: flex;
     padding: 1em;
     gap: 1em;
-    // border-bottom: 1px solid var(--b3-border-color);
+    margin-bottom: 20px;
     position: relative;
     align-items: flex-start;
     margin: 5px 0;
-    margin-bottom: 20px;
-    width: 100%; // Changed from auto to 100%
+    width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     overflow-wrap: break-word;
@@ -25,25 +24,6 @@ $chat-very-narrow-container: 360px;
     @container (max-width: #{$chat-very-narrow-container}) {
         padding: 0.6em;
         gap: 0.6em;
-    }
-
-    .checkbox {
-        position: absolute;
-        left: 0.1em;
-        top: 0.2em;
-        cursor: pointer;
-        padding: 0.2em;
-        border-radius: 4px;
-
-        &:hover {
-            background-color: var(--b3-theme-background-light);
-        }
-
-        svg {
-            height: 16px;
-            width: 16px;
-            display: block;
-        }
     }
 
     &[data-role="user"] {
@@ -64,175 +44,6 @@ $chat-very-narrow-container: 360px;
             .toolbar {
                 flex-direction: row-reverse;
             }
-        }
-    }
-
-    .messageContainer {
-        position: relative;
-        flex: 1;
-
-        margin-left: 0;
-        margin-right: max(5%, 20px);
-
-        min-width: 0; // Add this to ensure proper flex shrinking
-        width: 100%;
-
-        &:not([data-role="user"]) {
-            @container (max-width: #{$chat-very-narrow-container}) {
-                margin-right: 1px;
-            }
-        }
-
-        &:hover {
-            .toolbar {
-                opacity: 1;
-            }
-        }
-
-        .toolbar {
-            opacity: 0;
-            transition: opacity 0.2s ease;
-
-            padding: 2px;
-            display: flex;
-            flex-wrap: nowrap;
-            gap: 5px;
-
-            font-size: 12px;
-            color: var(--b3-theme-on-surface);
-
-            align-items: center;
-
-            .toolbarButton {
-                padding: 4px;
-                height: 24px;
-                width: 24px;
-
-                svg {
-                    height: 14px;
-                    width: 14px;
-                    fill: currentColor;
-                }
-            }
-
-            @container (max-width: #{$chat-narrow-container}) {
-                >span {
-
-                    &[data-label="timestamp"],
-                    &[data-label="msgLength"],
-                    &[data-label="attachedChars"],
-                    &[data-label="token"] {
-                        display: none;
-                    }
-                }
-            }
-
-            @container (max-width: #{$chat-very-narrow-container}) {
-
-                // labels
-                &>span {
-                    display: none;
-                }
-            }
-        }
-
-
-        .message {
-            margin: 0;
-            padding: 12px;
-            border-radius: 8px;
-
-            box-shadow: 0px 0px 5px 2px var(--b3-theme-primary-lighter);
-
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            width: auto; // 让宽度适应内容
-            max-width: 100%; // 不超过父容器宽度
-            box-sizing: border-box;
-
-            user-select: text;
-
-            font-size: var(--chat-message-font-size) !important;
-
-            overflow-x: visible;
-
-            opacity: 1;
-
-            &.user {
-                background: var(--chat-user-bg);
-            }
-
-            &.assistant {
-                background: var(--chat-assistant-bg);
-            }
-
-            &.hidden {
-                opacity: 0.5;
-            }
-
-            // Ensure pre blocks handle overflow properly
-            :global(pre) {
-                margin: 1em 0;
-                position: relative;
-                width: 100%;
-                box-sizing: border-box;
-
-                // Create a wrapper for scrolling
-                >.pre-scroll-container {
-                    border: 1px solid var(--b3-theme-primary);
-                    border-radius: 4px;
-                    overflow-x: auto;
-                    width: 100%;
-                    background: var(--b3-theme-background);
-                }
-
-                // Remove horizontal scroll from code element itself
-                >.pre-scroll-container>code {
-                    overflow-x: visible;
-                    white-space: pre;
-                    width: max-content; // 允许代码内容自然延展
-                    min-width: 100%; // 确保至少占满容器
-                    display: block;
-                    padding: 1em;
-                    border: none !important;
-                }
-
-                // Style for the toolbar
-                >.code-toolbar {
-                    display: flex;
-                    gap: 10px;
-                    align-items: center;
-                    height: 25px;
-
-                    position: sticky;
-                    left: 0;
-                    right: 0;
-                    background: var(--chat-assistant-bg);
-
-                    margin: 0;
-
-                    // padding: 0 20px;
-                    width: 100%;
-                    box-sizing: border-box;
-
-                    >button {
-                        color: var(--b3-theme-on-surface);
-
-                        &:hover {
-                            color: var(--b3-theme-primary-lighter);
-                            background-color: unset;
-                        }
-                    }
-                }
-            }
-        }
-
-        .content {
-            overflow-wrap: break-word;
-            word-wrap: break-word;
-            word-break: break-word;
-            width: 100%;
-            box-sizing: border-box;
         }
     }
 
@@ -271,14 +82,162 @@ $chat-very-narrow-container: 360px;
             opacity: 0.6;
         }
     }
+
+    .messageContainer {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        margin-left: 0;
+        margin-right: max(5%, 20px);
+
+        &:not([data-role="user"]) {
+            @container (max-width: #{$chat-very-narrow-container}) {
+                margin-right: 1px;
+            }
+        }
+
+        &:hover {
+            .toolbar {
+                opacity: 1;
+            }
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: var(--chat-message-font-size) !important;
+            line-height: 1.5;
+            // color: var(--chat-text-color);
+            overflow-x: auto;
+            box-shadow: 0px 0px 5px 2px var(--b3-theme-primary-lighter);
+
+            &.user {
+                background: var(--chat-user-bg);
+            }
+
+            &.assistant {
+                background: var(--chat-assistant-bg);
+            }
+
+            &.hidden {
+                opacity: 0.5;
+            }
+
+            :global(pre) {
+                position: relative;
+                margin: 8px 0;
+                padding: 0;
+                background-color: var(--b3-theme-surface);
+                border: 1px solid var(--b3-border-color);
+                border-radius: 4px;
+                overflow: hidden;
+
+                :global(code) {
+                    display: block;
+                    padding: 16px;
+                    overflow-x: auto;
+                    font-size: 0.9em;
+                    line-height: 1.45;
+                    background: transparent;
+                    border: none;
+                }
+            }
+        }
+
+        .toolbar {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 4px;
+            font-size: 12px;
+            color: var(--b3-theme-on-surface);
+            flex-wrap: wrap;
+
+            @container (max-width: #{$chat-narrow-container}) {
+                >span {
+                    &[data-label="timestamp"],
+                    &[data-label="msgLength"],
+                    &[data-label="attachedChars"],
+                    &[data-label="token"] {
+                        display: none;
+                    }
+                }
+            }
+
+            @container (max-width: #{$chat-very-narrow-container}) {
+                // labels
+                &>span {
+                    display: none;
+                }
+            }
+
+            button {
+                padding: 2px;
+                opacity: 0.6;
+
+                &:hover {
+                    opacity: 1;
+                }
+
+                svg {
+                    width: 14px;
+                    height: 14px;
+                }
+            }
+        }
+    }
+
+    .checkbox {
+        position: absolute;
+        left: 0.1em;
+        top: 0.2em;
+        cursor: pointer;
+        padding: 0.2em;
+        border-radius: 4px;
+
+        &:hover {
+            background-color: var(--b3-theme-background-light);
+        }
+
+        svg {
+            height: 16px;
+            width: 16px;
+            display: block;
+        }
+    }
+}
+
+.code-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    gap: 8px;
+    border-bottom: 1px solid var(--b3-border-color);
+    background-color: var(--b3-theme-surface);
+}
+
+.toolbarButton {
+    padding: 2px !important;
+    opacity: 0.6;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    svg {
+        width: 14px;
+        height: 14px;
+    }
 }
 
 .katex-center-display {
-    text-align: center !important;
-    margin: 0 auto;
-
-    >:global(.katex-display) {
-        overflow-x: clip;
-        width: max-content;
-    }
+    display: flex;
+    justify-content: center;
+    margin: 1em 0;
 }

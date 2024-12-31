@@ -10,6 +10,7 @@ import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch,
 import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
+import AttachmentList from './AttachmentList';
 import styles from './ChatSession.module.scss';
 
 import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
@@ -657,39 +658,17 @@ const ChatSession: Component = (props: {
                     </button>
                 </div>
                 <div class={styles.attachmentArea} style={{
-                    display: session.attachments()?.length > 0 ? "flex" : "none",
-                    "flex-wrap": "wrap",
-                    gap: "8px",
-                    padding: "8px"
+                    display: session.attachments()?.length > 0 ? "block" : "none",
                 }}>
-                    <For each={session.attachments()}>
-                        {(attachment) => (
-                            <div class={styles.attachmentItem}>
-                                <img
-                                    src={URL.createObjectURL(attachment)}
-                                    alt="Attachment"
-                                    onclick={() => {
-                                        // Show full image preview
-                                        const img = document.createElement('img');
-                                        img.src = URL.createObjectURL(attachment);
-                                        img.style.maxWidth = '100%';
-                                        img.style.maxHeight = '100%';
-                                        simpleDialog({
-                                            title: '图片预览',
-                                            ele: img,
-                                            width: '800px'
-                                        });
-                                    }}
-                                />
-                                <button
-                                    class="b3-button b3-button--text"
-                                    onclick={() => session.removeAttachment(attachment)}
-                                >
-                                    <svg><use href="#iconTrashcan" /></svg>
-                                </button>
-                            </div>
-                        )}
-                    </For>
+                    <AttachmentList
+                        images={session.attachments()}
+                        showDelete={true}
+                        size="medium"
+                        onDelete={(index) => {
+                            const attachments = session.attachments();
+                            session.removeAttachment(attachments[index]);
+                        }}
+                    />
                 </div>
             </section>
         </div>
