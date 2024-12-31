@@ -3,7 +3,7 @@ import { thisPlugin } from "@frostime/siyuan-plugin-kits"
 const rootName = 'chat-assets';
 
 
-const saveImageFile = async (image: Blob, fileName: string) => {
+export const saveImageFile = async (image: Blob, fileName: string) => {
     const plugin = thisPlugin();
     if (fileName.startsWith('/')) {
         fileName = fileName.slice(1);
@@ -20,7 +20,7 @@ const saveImageFile = async (image: Blob, fileName: string) => {
 }
 
 
-const loadImageFile = async (fileName: string) => {
+export const loadImageFile = async (fileName: string) => {
     const plugin = thisPlugin();
     if (fileName.startsWith('/')) {
         fileName = fileName.slice(1);
