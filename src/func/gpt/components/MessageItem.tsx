@@ -130,7 +130,7 @@ const renderCodeblock = (ele: HTMLElement) => {
     pre.appendChild(scrollContainer);
 
     pre.prepend(btn);
-    if (['markdown', 'md', 'text', 'plaintext', 'tex'].includes(language)) {
+    if (['markdown', 'md', 'text', 'plaintext', 'tex', 'latex'].includes(language)) {
         ele.style.whiteSpace = 'pre-wrap';
     }
     // pre.style.marginTop = '0';

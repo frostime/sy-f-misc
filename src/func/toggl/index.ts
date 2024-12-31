@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2024-12-19 14:21:04
+ * @LastEditTime : 2024-12-31 16:08:07
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -43,6 +43,13 @@ export const unload = (plugin: FMiscPlugin) => {
     plugin.unRegisterMenuTopMenu('toggl');
     toggleAutoFetch(false);
 }
+
+export const declareToggleEnabled = {
+    title: '⏰ Toggl',
+    description: 'Toggl 时间跟踪',
+    defaultEnabled: true
+};
+
 
 export const declareSettingPanel = [
     {

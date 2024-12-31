@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-12-03 17:42:04
+ * @LastEditTime : 2024-12-31 16:03:18
  * @Description  : 
  */
 import { type JSX } from "solid-js";
@@ -57,6 +57,7 @@ export const ModulesToEnable = [
     it,
     tl,
     ct,
+    tg,
     zt,
     nf,
     tr,
@@ -67,10 +68,8 @@ export const ModulesToEnable = [
 ]
 
 export const ModulesAlwaysEnable = [
-    // dq,
     dc,
     wb,
-    tg,
     css,
     gpt
 ]
