@@ -9,6 +9,7 @@
 interface IMessage {
     role: 'user' | 'assistant' | 'system';
     content: string;
+    images?: { type: 'Blob' | 'url'; content: string | Blob }[];
 }
 
 interface IPromptTemplate {

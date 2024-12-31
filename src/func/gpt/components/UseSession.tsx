@@ -470,6 +470,26 @@ ${inputContent}
             toggleSeperator();
             props.scrollToBottom();
         },
+        checkAttachedContext: (index?: number) => {
+            if (index === undefined || index < 0 || index >= messages().length) {
+                // 临时插入一个虚假的消息
+                let tempId = window.Lute.NewNodeID();
+                //@ts-ignore
+                messages.update(prev => [...prev, {
+                    type: '',  // 临时加入的虚假消息
+                    id: tempId,
+                    message: { role: 'user', content: '' },
+                    author: props.model().model,
+                    timestamp: new Date().getTime(),
+                    loading: false
+                }]);
+                let attached = getAttachedContext(props.config().attachedHistory);
+                //删掉临时插入的消息
+                messages.update(prev => prev.filter(item => item.id !== tempId));
+                return attached;
+            }
+            return getAttachedContext(props.config().attachedHistory, index);
+        },
         sessionHistory: (): IChatSessionHistory => {
             return {
                 id: sessionId,

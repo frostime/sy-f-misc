@@ -8,8 +8,19 @@ import { defaultConfig } from '../setting/store';
 
 
 const useCodeToolbar = (language: string, code: string) => {
+    const RUN_BUTTON = `
+    <button
+        class="${styles.toolbarButton} b3-button b3-button--text"
+        style="padding: 0;"
+        title="Run"
+    >
+        <svg><use href="#iconPlay" /></svg>
+    </button>
+    `;
+
     let html = `
     <div class="${styles['code-toolbar']}">
+        ${language.toLocaleLowerCase() === 'html' ? RUN_BUTTON : ''}
         <div class="fn__flex-1"></div>
         <span class="b3-label__text" style="font-family: var(--b3-font-family-code); margin: 0px;">
             ${language}
@@ -27,6 +38,7 @@ const useCodeToolbar = (language: string, code: string) => {
     ele.querySelector('button').onclick = () => {
         navigator.clipboard.writeText(code);
     }
+
     return ele;
 }
 

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-30 17:43:49
+ * @LastEditTime : 2024-12-31 01:43:12
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -16,12 +16,11 @@ import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels,
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu } from 'siyuan';
-import { confirmDialog, inputDialog } from '@frostime/siyuan-plugin-kits';
+import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
-import { removeDoc } from '@/api';
 
 import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
@@ -255,101 +254,25 @@ const ChatSession: Component = (props: {
     }
 
     const openHistoryList = (e: MouseEvent) => {
-        const showHistory = (component: () => JSX.Element) => {
-            const { close } = solidDialog({
-                title: '历史记录',
-                loader: () => (
-                    <SimpleProvider state={{ model, config, session, close: () => close() }}>
-                        {component()}
-                    </SimpleProvider>
-                ),
-                width: '600px',
-                height: '600px'
-            });
-            return close;
-        }
         e.stopImmediatePropagation();
         e.preventDefault();
-        let menu = new Menu();
-        menu.addItem({
-            icon: 'iconHistory',
-            label: '缓存记录',
-            click: () => {
-                let historyList = persist.listFromLocalStorage();
-                const close = showHistory(
-                    () => (
-                        <HistoryList
-                            type="temporary"
-                            history={historyList}
-                            onclick={(history: IChatSessionHistory) => {
-                                if (session.messages().length > 0) {
-                                    persist.saveToLocalStorage(session.sessionHistory());
-                                }
-                                session.applyHistory(history);
-                                close();
-                            }}
-                            onremove={(id: string, callback: Function) => {
-                                persist.removeFromLocalStorage(id);
-                                callback();
-                            }}
-                        />
-                    )
-                );
-            }
-        });
-        menu.addItem({
-            icon: 'iconSiYuan',
-            label: '归档记录',
-            click: async () => {
-                let historyList = await persist.listFromJson();
-                const close = showHistory(
-                    () => (
-                        <HistoryList
-                            type="permanent"
-                            history={historyList}
-                            onclick={(history: IChatSessionHistory) => {
-                                if (session.messages().length > 0) {
-                                    persist.saveToLocalStorage(session.sessionHistory());
-                                }
-                                session.applyHistory(history);
-                                close();
-                            }}
-                            onremove={async (id: string, callback: Function) => {
-                                persist.removeFromJson(id);
-                                let history = historyList.find(history => history.id === id);
-                                let title = history.title;
-                                let docs = await persist.findBindDoc(id);
-                                let syDoc = docs?.[0] ?? null;
-
-                                confirmDialog({
-                                    title: `确认删除记录 ${title}@${id}?`,
-                                    content: `<div class="fn__flex" style="gap: 10px;">
-                                    <p style="flex: 1;">同时删除思源文档 ${syDoc?.hpath ?? '未绑定'}?</p>
-                                    <input type="checkbox" class="b3-switch" />
-                                </div>
-                                `,
-                                    confirm: async (ele: HTMLElement) => {
-                                        persist.removeFromJson(id);
-                                        const checkbox = ele.querySelector('input') as HTMLInputElement;
-                                        if (checkbox.checked) {
-                                            // showMessage(`正在删除思源文档 ${id}...`);
-                                            if (syDoc.id) {
-                                                await removeDoc(syDoc.box, syDoc.path);
-                                            }
-                                        }
-                                        callback();
-                                    }
-                                })
-                            }}
-                        />
-                    )
-                );
-            }
-        });
-        menu.open({
-            x: e.clientX,
-            y: e.clientY,
-            isLeft: true
+        const { close } = solidDialog({
+            title: '历史记录',
+            loader: () => (
+                <SimpleProvider state={{ model, config, session, close: () => close() }}>
+                    <HistoryList
+                        close={() => close()}
+                        onclick={(history: IChatSessionHistory) => {
+                            if (session.messages().length > 0) {
+                                persist.saveToLocalStorage(session.sessionHistory());
+                            }
+                            session.applyHistory(history);
+                        }}
+                    />
+                </SimpleProvider>
+            ),
+            width: '600px',
+            height: '600px'
         });
     }
 
