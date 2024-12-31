@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-31 13:20:26
+ * @LastEditTime : 2024-12-31 15:39:29
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -56,6 +56,7 @@ export const promptTemplates = useStoreRef<IPromptTemplate[]>([]);
 const asStorage = () => {
     return {
         defaultModel: defaultModelId.unwrap(),
+        visualModel: visualModel.unwrap(),
         config: { ...defaultConfig.unwrap() },
         providers: [...providers.unwrap()],
         ui: { ...UIConfig.unwrap() },
@@ -139,6 +140,7 @@ export const load = async (plugin?: Plugin) => {
     if (data) {
         let current = deepMerge(defaultData, data);
         current.defaultModel && defaultModelId(current.defaultModel);
+        current.visualModel && visualModel(current.visualModel);
         current.config && defaultConfig(current.config);
         current.providers && providers(current.providers);
         current.ui && UIConfig(current.ui)

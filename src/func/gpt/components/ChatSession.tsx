@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-31 13:21:39
+ * @LastEditTime : 2024-12-31 15:03:47
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -351,10 +351,12 @@ const ChatSession: Component = (props: {
                     }}
                     label='多选'
                     icon='iconCheck'
-                    styles={{
-                        'background-color': multiSelect() ? 'var(--b3-theme-primary)' : '',
-                        'color': multiSelect() ? 'var(--b3-theme-on-primary)' : ''
-                    }}
+                    styles={
+                        multiSelect() ? {
+                            'background-color': 'var(--b3-theme-primary)',
+                            'color': 'var(--b3-theme-on-primary)'
+                        } : {}
+                    }
                 />
                 <Item
                     onclick={() => {
