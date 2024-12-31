@@ -215,8 +215,8 @@ ${inputContent}
             const nextIndex = atIndex + 1;
             // const nextMsg = messages()[nextIndex];
 
-            // 准备或更新目标消息
-            if (messages()[nextIndex]?.message?.role === 'assistant') {
+            // 准备或更新目标消息; 如果下一条消息是普通的 assistant 消息，则更新它
+            if (messages()[nextIndex]?.message?.role === 'assistant' && !messages()[nextIndex].hidden) {
                 messages.update(prev => {
                     const updated = [...prev];
                     updated[nextIndex] = {
@@ -226,6 +226,7 @@ ${inputContent}
                     return updated;
                 });
             } else {
+                // 插入新的 assistant 消息
                 messages.update(prev => {
                     const updated = [...prev];
                     updated.splice(nextIndex, 0, {

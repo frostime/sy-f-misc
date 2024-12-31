@@ -156,12 +156,18 @@ $chat-very-narrow-container: 320px;
 
             overflow-x: visible;
 
+            opacity: 1;
+
             &.user {
                 background: var(--chat-user-bg);
             }
 
             &.assistant {
                 background: var(--chat-assistant-bg);
+            }
+
+            &.hidden {
+                opacity: 0.5;
             }
 
             // Ensure pre blocks handle overflow properly

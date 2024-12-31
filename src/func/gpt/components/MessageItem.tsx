@@ -233,7 +233,7 @@ const MessageItem: Component<{
         return text;
     });
 
-    const messageAsHTML = () => {
+    const messageAsHTML = createMemo(() => {
         if (props.markdown) {
             let text = markdownContent();
             //@ts-ignore
@@ -243,7 +243,7 @@ const MessageItem: Component<{
             let content = props.messageItem.message.content;
             return window.Lute.EscapeHTMLStr(content);
         }
-    }
+    });
 
     const msgLength = createMemo(() => {
         return markdownContent().length;
@@ -332,10 +332,14 @@ const MessageItem: Component<{
             )}
             <div class={styles.messageContainer}>
                 <div
-                    class={`${styles.message} ${styles[props.messageItem.message.role]} b3-typography`}
+                    classList={{
+                        [styles.message]: true,
+                        [styles[props.messageItem.message.role]]: true,
+                        'b3-typography': true,
+                        [styles.hidden]: props.messageItem.hidden
+                    }}
                     style={{
                         'white-space': props.markdown ? '' : 'pre',
-                        'opacity': props.messageItem.hidden ? '0.5' : '1'
                     }}
                     innerHTML={messageAsHTML()}
                     ref={msgRef}
