@@ -1,5 +1,5 @@
 import { Component, createMemo, onMount, Show } from 'solid-js';
-import { formatDateTime, getLute, html2ele, inputDialog } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 
 import styles from './MessageItem.module.scss';
 import { addScript, addStyle, convertMathFormulas } from '../utils';
@@ -11,6 +11,7 @@ const useCodeToolbar = (language: string, code: string) => {
     const RUN_BUTTON = `
     <button
         class="${styles.toolbarButton} b3-button b3-button--text"
+        data-role="run"
         style="padding: 0;"
         title="Run"
     >
@@ -20,13 +21,14 @@ const useCodeToolbar = (language: string, code: string) => {
 
     let html = `
     <div class="${styles['code-toolbar']}">
-        ${language.toLocaleLowerCase() === 'html' ? RUN_BUTTON : ''}
         <div class="fn__flex-1"></div>
         <span class="b3-label__text" style="font-family: var(--b3-font-family-code); margin: 0px;">
             ${language}
         </span>
+        ${language.toLocaleLowerCase() === 'html' ? RUN_BUTTON : ''}
         <button
             class="${styles.toolbarButton} b3-button b3-button--text"
+            data-role="copy"
             style="padding: 0;"
             title="复制"
         >
@@ -35,8 +37,28 @@ const useCodeToolbar = (language: string, code: string) => {
     </div>
     `;
     let ele = html2ele(html);
-    ele.querySelector('button').onclick = () => {
+    (ele.querySelector('button[data-role="copy"]') as HTMLButtonElement).onclick = () => {
         navigator.clipboard.writeText(code);
+    }
+    let btnRun = ele.querySelector('button[data-role="run"]') as HTMLButtonElement;
+    if (btnRun) {
+        btnRun.onclick = () => {
+            let iframe = document.createElement('iframe');
+            iframe.id = 'run-iframe';
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.srcdoc = code;
+            const container = document.createElement('div');
+            container.style.display = 'contents';
+            container.appendChild(iframe);
+            simpleDialog({
+                title: '运行结果',
+                ele: container,
+                width: '1000px',
+                height: '700px'
+            });
+        }
     }
 
     return ele;
@@ -211,14 +233,16 @@ const MessageItem: Component<{
         return text;
     });
 
-    const message = () => {
+    const messageAsHTML = () => {
         if (props.markdown) {
             let text = markdownContent();
             //@ts-ignore
             let html = lute.Md2HTML(text);
             return html;
+        } else {
+            let content = props.messageItem.message.content;
+            return window.Lute.EscapeHTMLStr(content);
         }
-        return props.messageItem.message.content;
     }
 
     const msgLength = createMemo(() => {
@@ -313,7 +337,7 @@ const MessageItem: Component<{
                         'white-space': props.markdown ? '' : 'pre',
                         'opacity': props.messageItem.hidden ? '0.5' : '1'
                     }}
-                    innerHTML={message()}
+                    innerHTML={messageAsHTML()}
                     ref={msgRef}
                 />
                 <div class={styles.toolbar}>

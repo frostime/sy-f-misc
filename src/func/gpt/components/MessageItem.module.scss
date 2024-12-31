@@ -117,6 +117,7 @@ $chat-very-narrow-container: 320px;
 
             @container (max-width: #{$chat-narrow-container}) {
                 >span {
+
                     &[data-label="timestamp"],
                     &[data-label="msgLength"],
                     &[data-label="attachedChars"],
@@ -127,6 +128,7 @@ $chat-very-narrow-container: 320px;
             }
 
             @container (max-width: #{$chat-very-narrow-container}) {
+
                 // labels
                 &>span {
                     display: none;
@@ -206,6 +208,15 @@ $chat-very-narrow-container: 320px;
                     // padding: 0 20px;
                     width: 100%;
                     box-sizing: border-box;
+
+                    >button {
+                        color: var(--b3-theme-on-surface);
+
+                        &:hover {
+                            color: var(--b3-theme-primary-lighter);
+                            background-color: unset;
+                        }
+                    }
                 }
             }
         }
