@@ -7,12 +7,13 @@ import * as persist from '../persistence';
 
 import { removeDoc } from "@/api";
 
-const HistoryList = (props: { 
+const sourceType = useSignalRef<'temporary' | 'permanent'>('temporary');
+const showShortcuts = useSignalRef(true);
+
+const HistoryList = (props: {
     onclick?: (history: IChatSessionHistory) => void,
     close: () => void
 }) => {
-
-    const sourceType = useSignalRef<'temporary' | 'permanent'>('temporary');
 
     const onclick = (history: IChatSessionHistory) => {
         props.onclick?.(history);
@@ -84,14 +85,17 @@ const HistoryList = (props: {
 
     return (
         <div class={styles.historyList}>
-            <div style={{ display: "flex" }}>
+            <div style={{ display: "flex", 'align-items': 'center', 'gap': '10px' }}>
                 <div style="display: flex; align-items: center;">
-                    共计
+                    共
                     <span class="counter" style="margin: 0px;">
                         {sortedHistory().length}
                     </span>
                     条
                 </div>
+                <input type="checkbox" class="b3-switch" checked={showShortcuts()} onChange={(e) => {
+                    showShortcuts.value = e.currentTarget.checked;
+                }} />
                 <Show when={sourceType() === 'temporary'}>
                     <button class="b3-button b3-button--text"
                         onClick={() => {
@@ -149,7 +153,9 @@ const HistoryList = (props: {
                             <svg><use href="#iconClose"></use></svg>
                         </div>
                     </div>
-                    <div class={styles.historyContent}>{contentShotCut(item)}</div>
+                    <div class={styles.historyContent} classList={{
+                        'fn__none': !showShortcuts()
+                    }}>{contentShotCut(item)}</div>
                 </div>
             ))}
         </div>
