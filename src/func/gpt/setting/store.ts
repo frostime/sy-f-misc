@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-23 22:09:38
+ * @LastEditTime : 2024-12-31 13:20:26
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -17,6 +17,10 @@ import { debounce, deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
  */
 export const defaultModelId = useSignalRef<string>('siyuan');
 
+/**
+ * 视觉模型, 可以发送图片
+ */
+export const visualModel = useSignalRef<string[]>(['gpt-4o-mini']);
 
 export const defaultConfig = useStoreRef<IChatSessionConfig>({
     attachedHistory: 3,

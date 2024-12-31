@@ -3,11 +3,25 @@
  * @Author       : frostime
  * @Date         : 2024-12-22 10:26:12
  * @FilePath     : /src/func/gpt/utils.ts
- * @LastEditTime : 2024-12-26 14:13:49
+ * @LastEditTime : 2024-12-31 13:26:40
  * @Description  : 
  */
 
 import { sql } from "@/api";
+
+export const adaptIMessageContent = (content: IMessage['content']) => {
+    if (typeof content === 'string') {
+        return {
+            'text': content,
+            'images': null
+        }
+    }
+
+    return {
+        'text': content.filter((item) => item.type === 'text').map((item) => item.text).join('\n\n'),
+        'images': content.filter((item) => item.type === 'image_url').map((item) => item.image_url?.url)
+    }
+}
 
 //https://github.com/siyuan-note/siyuan/blob/master/app/src/protyle/util/addScript.ts
 export const addScript = (path: string, id: string) => {

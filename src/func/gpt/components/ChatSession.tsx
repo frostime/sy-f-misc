@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-31 01:43:12
+ * @LastEditTime : 2024-12-31 13:21:39
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -12,11 +12,11 @@ import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-re
 import MessageItem from './MessageItem';
 import styles from './ChatSession.module.scss';
 
-import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates } from '../setting/store';
+import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu } from 'siyuan';
-import { inputDialog } from '@frostime/siyuan-plugin-kits';
+import { inputDialog, simpleDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
@@ -629,6 +629,20 @@ const ChatSession: Component = (props: {
                             input.update(e.currentTarget.value);
                             adjustTextareaHeight();
                         }}
+                        onPaste={(e) => {
+                            const items = e.clipboardData?.items;
+                            if (!items) return;
+                            if (!visualModel().includes(model().model)) return;
+
+                            for (let i = 0; i < items.length; i++) {
+                                if (items[i].type.indexOf('image') !== -1) {
+                                    const blob = items[i].getAsFile();
+                                    if (blob) {
+                                        session.addAttachment(blob);
+                                    }
+                                }
+                            }
+                        }}
                         placeholder="输入消息..."
                         class={`${styles.input}`}
                         onKeyDown={onKeyDown}
@@ -643,9 +657,39 @@ const ChatSession: Component = (props: {
                     </button>
                 </div>
                 <div class={styles.attachmentArea} style={{
-                    display: "none"
+                    display: session.attachments()?.length > 0 ? "flex" : "none",
+                    "flex-wrap": "wrap",
+                    gap: "8px",
+                    padding: "8px"
                 }}>
-                    {/* This area is reserved for future attachment functionality */}
+                    <For each={session.attachments()}>
+                        {(attachment) => (
+                            <div class={styles.attachmentItem}>
+                                <img
+                                    src={URL.createObjectURL(attachment)}
+                                    alt="Attachment"
+                                    onclick={() => {
+                                        // Show full image preview
+                                        const img = document.createElement('img');
+                                        img.src = URL.createObjectURL(attachment);
+                                        img.style.maxWidth = '100%';
+                                        img.style.maxHeight = '100%';
+                                        simpleDialog({
+                                            title: '图片预览',
+                                            ele: img,
+                                            width: '800px'
+                                        });
+                                    }}
+                                />
+                                <button
+                                    class="b3-button b3-button--text"
+                                    onclick={() => session.removeAttachment(attachment)}
+                                >
+                                    <svg><use href="#iconTrashcan" /></svg>
+                                </button>
+                            </div>
+                        )}
+                    </For>
                 </div>
             </section>
         </div>

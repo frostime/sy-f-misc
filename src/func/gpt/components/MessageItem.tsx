@@ -1,8 +1,8 @@
-import { Component, createMemo, onMount, Show } from 'solid-js';
+import { Component, createMemo, For, onMount, Show } from 'solid-js';
 import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 
 import styles from './MessageItem.module.scss';
-import { addScript, addStyle, convertMathFormulas } from '../utils';
+import { adaptIMessageContent, addScript, addStyle, convertMathFormulas } from '../utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig } from '../setting/store';
 
@@ -225,28 +225,51 @@ const MessageItem: Component<{
         renderMath();
     });
 
-    const markdownContent = createMemo(() => {
-        let text = props.messageItem.message.content;
+    const textContent = createMemo(() => {
+        let { text } = adaptIMessageContent(props.messageItem.message.content);
         if (defaultConfig().convertMathSyntax) {
             text = convertMathFormulas(text);
         }
         return text;
     });
 
+    const imageUrls = createMemo(() => {
+        let { images } = adaptIMessageContent(props.messageItem.message.content);
+        images = images || [];
+        images = images.map(image => {
+            if (image.startsWith('data:image')) {
+                // 解析 data URL
+                const [header, base64data] = image.split(',');
+                // 将 base64 转换为二进制数组
+                const binaryData = atob(base64data);
+                const bytes = new Uint8Array(binaryData.length);
+                for (let i = 0; i < binaryData.length; i++) {
+                    bytes[i] = binaryData.charCodeAt(i);
+                }
+                // 从 header 中获取 MIME 类型
+                const mimeType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+                // 创建 Blob
+                const blob = new Blob([bytes], { type: mimeType });
+                return URL.createObjectURL(blob);
+            }
+            return image;
+        });
+        return images;
+    });
+
     const messageAsHTML = createMemo(() => {
+        let text = textContent();
         if (props.markdown) {
-            let text = markdownContent();
             //@ts-ignore
             let html = lute.Md2HTML(text);
             return html;
         } else {
-            let content = props.messageItem.message.content;
-            return window.Lute.EscapeHTMLStr(content);
+            return window.Lute.EscapeHTMLStr(text);
         }
     });
 
     const msgLength = createMemo(() => {
-        return markdownContent().length;
+        return textContent().length;
     });
 
     // #iconAccount
@@ -265,7 +288,7 @@ const MessageItem: Component<{
     const editMessage = () => {
         inputDialog({
             title: '编辑消息',
-            defaultText: markdownContent(),
+            defaultText: textContent(),
             confirm: (text) => {
                 props.updateIt?.(text);
             },
@@ -279,7 +302,7 @@ const MessageItem: Component<{
         try {
             // 强制将焦点设置到文档的 body 元素上
             document.body.focus();
-            navigator.clipboard.writeText(markdownContent());
+            navigator.clipboard.writeText(textContent());
             showMessage('已复制到剪贴板');
         } catch (error) {
             console.error('剪贴板操作失败:', error);
@@ -344,6 +367,13 @@ const MessageItem: Component<{
                     innerHTML={messageAsHTML()}
                     ref={msgRef}
                 />
+                <div data-role="images">
+                    <For each={imageUrls()}>
+                        {(image) => (
+                            <img src={image} alt="Attachment" />
+                        )}
+                    </For>
+                </div>
                 <div class={styles.toolbar}>
                     <span data-label="timestamp">
                         {formatDateTime(null, new Date(props.messageItem.timestamp))}

@@ -33,6 +33,8 @@ export const useSession = (props: {
     let sessionId = window.Lute.NewNodeID();
 
     const systemPrompt = useSignalRef<string>('');
+    // 当前的 attachments
+    const attachments = useSignalRef<Blob[]>([]);
 
     let timestamp = new Date().getTime();
     const title = useSignalRef<string>('新的对话');
@@ -46,7 +48,35 @@ export const useSession = (props: {
         return window.Lute.NewNodeID();
     }
 
-    const appendUserMsg = (msg: string) => {
+    const appendUserMsg = async (msg: string, images?: Blob[]) => {
+        let content: IMessageContent[];
+        if (images && images?.length > 0) {
+
+            content = [{
+                type: "text",
+                text: msg
+            }];
+
+            // 添加所有图片
+            await Promise.all(images.map(async (image) => {
+                const base64data = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const result = reader.result as string;
+                        // 只获取 base64 部分（移除 data:image/jpeg;base64, 前缀）
+                        resolve(result.split(',')[1]);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(image);
+                });
+                content.push({
+                    type: "image_url",
+                    image_url: {
+                        url: `data:image/jpeg;base64,${base64data}`
+                    }
+                });
+            }));
+        }
         messages.update(prev => [...prev, {
             type: 'message',
             id: newID(),
@@ -54,9 +84,8 @@ export const useSession = (props: {
             author: 'user',
             message: {
                 role: 'user',
-                content: msg
+                content: content ?? msg
             },
-            // msgChars: msg.length
         }]);
     }
 
@@ -154,8 +183,8 @@ export const useSession = (props: {
         let averageLimit = Math.floor(sizeLimit / histories.length);
 
         let inputContent = histories.map(item => {
-            let clippedContent = item.content.substring(0, averageLimit);
-            if (clippedContent.length < item.content.length) {
+            let clippedContent = (item.content as string).substring(0, averageLimit);
+            if (clippedContent.length < (item.content as string).length) {
                 clippedContent += '...(clipped as too long)'
             }
             return `<${item.role}>:\n${clippedContent}`;
@@ -293,8 +322,16 @@ ${inputContent}
         }
     };
 
+    const removeAttachment = (attachment: Blob) => {
+        attachments.update(prev => prev.filter(a => a !== attachment));
+    }
+
+    const addAttachment = (blob: Blob) => {
+        attachments.update(prev => [...prev, blob]);
+    }
+
     const sendMessage = async (userMessage: string) => {
-        if (!userMessage.trim()) return;
+        if (!userMessage.trim() && attachments().length === 0) return;
 
         const hasContext = userMessage.includes('</Context>');
         let sysPrompt = systemPrompt().trim() || '';
@@ -302,7 +339,7 @@ ${inputContent}
             sysPrompt += 'Note: <Context>...</Context> 是附带的上下文信息，只关注其内容，不要将 <Context> 标签作为正文的一部分';
         }
 
-        appendUserMsg(userMessage);
+        await appendUserMsg(userMessage, attachments());
         loading.update(true);
         props.scrollToBottom();
 
@@ -351,7 +388,6 @@ ${inputContent}
                     },
                     author: model.model,
                     timestamp: new Date().getTime(),
-                    // msgChars: content.length,
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0),
                 };
@@ -367,6 +403,9 @@ ${inputContent}
                     messages.update(lastIdx - 1, 'token', usage?.prompt_tokens);
                 });
             }
+
+            // Clear attachments after sending
+            attachments.update([]);
 
             props.scrollToBottom();
 
@@ -402,7 +441,7 @@ ${inputContent}
         if (contextNum === undefined) {
             contextNum = props.config().attachedHistory;
         }
-        const history = [...messages()];
+        const history = [...messages.unwrap()];
         const targetIndex = fromIndex ?? history.length - 1;
         const targetMessage = history[targetIndex];
 
@@ -461,6 +500,9 @@ ${inputContent}
         messages,
         loading,
         title,
+        attachments,
+        addAttachment,
+        removeAttachment,
         autoGenerateTitle,
         reRunMessage,
         sendMessage,
