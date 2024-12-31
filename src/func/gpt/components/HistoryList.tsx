@@ -6,6 +6,7 @@ import { useSignalRef } from "@frostime/solid-signal-ref";
 import * as persist from '../persistence';
 
 import { removeDoc } from "@/api";
+import { adaptIMessageContent } from "../utils";
 
 const sourceType = useSignalRef<'temporary' | 'permanent'>('temporary');
 const showShortcuts = useSignalRef(true);
@@ -78,7 +79,10 @@ const HistoryList = (props: {
 
     const contentShotCut = (history: IChatSessionHistory) => {
         let items = history.items.slice(0, 2);
-        let content = items.map(item => item.author + ": " + item.message?.content?.replace(/\n/g, " ")).join("\n");
+        let content = items.map(item => {
+            let { text } = adaptIMessageContent(item.message.content)
+            return item.author + ": " + text.replace(/\n/g, " ");
+        }).join("\n");
         return content;
     }
 

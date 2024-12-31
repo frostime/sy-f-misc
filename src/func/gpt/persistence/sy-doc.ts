@@ -8,7 +8,7 @@
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
-import { id2block } from "../utils";
+import { adaptIMessageContent, id2block } from "../utils";
 import { showMessage } from "siyuan";
 
 const ATTR_GPT_EXPORT_ROOT = 'custom-gpt-export-root';
@@ -28,12 +28,14 @@ const item2markdown = (item: IChatSessionMsgItem) => {
     if (item.message.role === 'assistant') {
         author = `${item.message.role} [${item.author}]`;
     }
+    const { text, images } = adaptIMessageContent(item.message.content);
     return `
 ---
 
 > ${item.timestamp ? formatDateTime(null, new Date(item.timestamp)) : '--:--:--'} ${author}
 
-${item.message.content}
+${text}
+
 `.trim();
 }
 

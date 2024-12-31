@@ -2,7 +2,6 @@ import { useModel } from "./setting/store";
 
 export const complete = async (input: string | IMessage[], options?: {
     model?: IGPTModel,
-    images?: Blob,
     systemPrompt?: string,
     stream?: boolean,
     streamMsg?: (msg: string) => void,
@@ -31,16 +30,6 @@ export const complete = async (input: string | IMessage[], options?: {
         });
     }
 
-    if (options?.images && Array.isArray(options.images)) {
-        options.images.forEach(image => {
-            const reader = new FileReader();
-            reader.readAsDataURL(image);
-            reader.onloadend = () => {
-                const base64data = reader.result as string;
-                messages[messages.length - 1].content += `\n\nImage: ${base64data}`;
-            };
-        });
-    }
     if (options?.stream !== undefined && options?.stream !== null) {
         options.option.stream = options.stream;
     }

@@ -3,20 +3,21 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-31 01:43:12
+ * @LastEditTime : 2024-12-31 15:03:47
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
 import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
+import AttachmentList from './AttachmentList';
 import styles from './ChatSession.module.scss';
 
-import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates } from '../setting/store';
+import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu } from 'siyuan';
-import { inputDialog } from '@frostime/siyuan-plugin-kits';
+import { inputDialog, simpleDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
@@ -350,10 +351,12 @@ const ChatSession: Component = (props: {
                     }}
                     label='多选'
                     icon='iconCheck'
-                    styles={{
-                        'background-color': multiSelect() ? 'var(--b3-theme-primary)' : '',
-                        'color': multiSelect() ? 'var(--b3-theme-on-primary)' : ''
-                    }}
+                    styles={
+                        multiSelect() ? {
+                            'background-color': 'var(--b3-theme-primary)',
+                            'color': 'var(--b3-theme-on-primary)'
+                        } : {}
+                    }
                 />
                 <Item
                     onclick={() => {
@@ -629,6 +632,20 @@ const ChatSession: Component = (props: {
                             input.update(e.currentTarget.value);
                             adjustTextareaHeight();
                         }}
+                        onPaste={(e) => {
+                            const items = e.clipboardData?.items;
+                            if (!items) return;
+                            if (!visualModel().includes(model().model)) return;
+
+                            for (let i = 0; i < items.length; i++) {
+                                if (items[i].type.indexOf('image') !== -1) {
+                                    const blob = items[i].getAsFile();
+                                    if (blob) {
+                                        session.addAttachment(blob);
+                                    }
+                                }
+                            }
+                        }}
                         placeholder="输入消息..."
                         class={`${styles.input}`}
                         onKeyDown={onKeyDown}
@@ -643,9 +660,17 @@ const ChatSession: Component = (props: {
                     </button>
                 </div>
                 <div class={styles.attachmentArea} style={{
-                    display: "none"
+                    display: session.attachments()?.length > 0 ? "block" : "none",
                 }}>
-                    {/* This area is reserved for future attachment functionality */}
+                    <AttachmentList
+                        images={session.attachments()}
+                        showDelete={true}
+                        size="medium"
+                        onDelete={(index) => {
+                            const attachments = session.attachments();
+                            session.removeAttachment(attachments[index]);
+                        }}
+                    />
                 </div>
             </section>
         </div>

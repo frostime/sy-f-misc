@@ -3,13 +3,21 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2024-12-27 21:07:34
+ * @LastEditTime : 2024-12-31 13:05:09
  * @Description  : 
  */
+interface IMessageContent {
+    type: 'text' | 'image_url';
+    text?: string;
+    image_url?: {
+        url: string;
+    };
+}
+
 interface IMessage {
     role: 'user' | 'assistant' | 'system';
-    content: string;
-    images?: { type: 'Blob' | 'url'; content: string | Blob }[];
+    content: string | IMessageContent[];
+    images?: Blob[];  // 可以保留这个字段用于临时存储待处理的图片
 }
 
 interface IPromptTemplate {
