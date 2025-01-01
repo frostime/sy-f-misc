@@ -1,15 +1,12 @@
 import { type Component, For, onMount, JSX } from 'solid-js';
 import { type Project, type Tag } from '../api/types';
-import { startTimeEntry } from '../api/time_entries';
+import { startTimeEntry, updateTimeEntry } from '../api/time_entries';
 import { getProjects, getTags } from '../api/me';
 import { activeEntry, isLoading, stopEntry, syncWithServer } from '../state/active';
 
 import { me } from '../state';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 
-interface ClientProps {
-    onClose: () => void;
-}
 
 const buttonStyle = {
     padding: '8px 16px',
@@ -52,7 +49,7 @@ const actionContainerStyle = {
     gap: '8px'
 };
 
-export const TogglClient: Component<ClientProps> = (props) => {
+export const TogglClient: Component = () => {
     const description = createSignalRef('');
     const projects = createSignalRef<Project[]>([]);
     const tags = createSignalRef<Tag[]>([]);
@@ -120,16 +117,14 @@ export const TogglClient: Component<ClientProps> = (props) => {
             const currentUser = me();
             if (!currentUser) return;
 
-            const response = await startTimeEntry({
+            const response = await updateTimeEntry(currentEntry.id, {
                 description: description(),
                 project_id: selectedProject() || undefined,
-                tag_ids: selectedTags(),
-                workspace_id: currentUser.default_workspace_id
+                tag_ids: selectedTags()
             });
 
             if (response.ok) {
                 activeEntry(response.data);
-                props.onClose();
             }
         } catch (error) {
             console.error('Error in update:', error);
