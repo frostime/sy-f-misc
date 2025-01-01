@@ -33,7 +33,6 @@ const mergeConfig = (newConfig: Partial<IConfig>) => {
 //Auth token in base64 format
 const token64 = createMemo(() => btoa(config.token + ':api_token'));
 
-
 //******************** Toggl Status ********************
 
 const [me, setMe] = createSignal<User>(); //Toggl 当前用户
@@ -43,9 +42,7 @@ const isConnected = createMemo(() => me() !== undefined && me()?.api_token !== u
 interface IProject extends Project {
     bind_siyuan_doc?: DocumentId;
 }
-const [projects, setProjects] = createStore<Record<string, IProject>>({}); //Toggl 所有 Project
-
-// const [tags, setTags] = createStore<Record<string,Tag>>({}); //Toggl 所有 Tag
+const [projects, setProjects] = createStore<Record<string, IProject>>({});
 
 //******************** Data IO ********************
 
@@ -57,6 +54,7 @@ const save_ = async (plugin: Plugin) => {
     console.debug('Save toggl data:', data);
 }
 const save = debounce(save_, 2000);
+
 const load = async (plugin: Plugin) => {
     let data = await plugin.loadData(StoreName);
     data = data || {};
@@ -75,7 +73,7 @@ const load = async (plugin: Plugin) => {
     }
 }
 
-export { 
+export {
     config,
     setConfig,
     mergeConfig,
