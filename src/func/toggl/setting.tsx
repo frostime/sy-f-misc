@@ -23,8 +23,8 @@
 
 // import { Component, For, JSXElement, children } from "solid-js";
 import Form from "@/libs/components/Form";
-import { config, setConfig, save } from "./store";
-import * as store from './store';
+import { config, setConfig, save } from "./state";
+import * as store from './state';
 import { createSignal, onCleanup, Show } from "solid-js";
 // import type FMiscPlugin from "@/index";
 // import { User } from "./api/types";
