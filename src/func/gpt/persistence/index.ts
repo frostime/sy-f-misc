@@ -26,3 +26,4 @@ export const persistHistory = async (history: IChatSessionHistory) => {
 export * from "./sy-doc";
 export * from "./json-files";
 export * from "./local-storage";
+export * from "./import-platform";

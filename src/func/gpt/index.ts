@@ -202,6 +202,16 @@ export const load = (plugin: FMiscPlugin) => {
                 height: '600px'
             });
         }
+    }, {
+        label: '导入对话',
+        icon: 'iconGithub',
+        submenu: [{
+            label: 'Google AI Studio',
+            icon: 'iconGithub',
+            click: () => {
+                persist.importGoogleAIStudio();
+            }
+        }]
     }]);
 
     plugin.addCommand({

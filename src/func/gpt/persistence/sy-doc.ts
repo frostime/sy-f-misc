@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2024-12-31 18:01:12
+ * @LastEditTime : 2025-01-01 15:06:27
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -65,7 +65,7 @@ const checkBlockWithAttr = async (attr: string, value: string, cond: string = `B
 }
 
 
-async function ensureRootDocument(newTitle: string, notebookId?: NotebookId): Promise<Block> {
+export async function ensureRootDocument(newTitle: string, notebookId?: NotebookId): Promise<Block> {
     // 'custom-gpt-export-root', 'true', 
     const attr = ATTR_GPT_EXPORT_ROOT;
     const value = 'true';
