@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2025-01-01 22:22:24
+ * @FilePath     : /src/func/toggl/state/index.ts
+ * @LastEditTime : 2025-01-01 23:37:34
+ * @Description  : 
+ */
 import { debounce } from "@frostime/siyuan-plugin-kits";
 import { type Plugin } from "siyuan";
 import { createMemo, createSignal } from "solid-js";
@@ -16,6 +24,7 @@ interface IConfig {
     dnAutoFetch: boolean; //自动获取今天的 toggl 活动
     dnAutoFetchInterval: number; //自动获取今天的 toggl 活动的时间间隔 (分钟)
     topDevice: string; //最高优先级的设备的 ID
+    miniTimerType: 'none' | 'statusBar' | 'bubble';
 }
 
 const [config, setConfig] = createStore<IConfig>({
@@ -24,6 +33,7 @@ const [config, setConfig] = createStore<IConfig>({
     dnAutoFetch: false,
     dnAutoFetchInterval: 60,
     topDevice: "",
+    miniTimerType: 'statusBar'
 });
 
 const mergeConfig = (newConfig: Partial<IConfig>) => {

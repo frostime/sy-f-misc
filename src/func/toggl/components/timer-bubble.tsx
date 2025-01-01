@@ -5,7 +5,7 @@ interface StatusBarProps {
     onClick: () => void;
 }
 
-export const TogglStatusBar: Component<StatusBarProps> = (props) => {
+export const TimerBubble: Component<StatusBarProps> = (props) => {
     const [isCollapsed, setIsCollapsed] = createSignal(false);
     const [position, setPosition] = createSignal({ x: window.innerWidth - 200, y: window.innerHeight - 100 });
     let isDragging = false;
@@ -17,7 +17,7 @@ export const TogglStatusBar: Component<StatusBarProps> = (props) => {
         const rect = containerRef.getBoundingClientRect();
         const newX = Math.max(0, Math.min(position().x, window.innerWidth - rect.width));
         const newY = Math.max(0, Math.min(position().y, window.innerHeight - rect.height));
-        
+
         containerRef.style.left = `${newX}px`;
         containerRef.style.top = `${newY}px`;
         setPosition({ x: newX, y: newY });
@@ -154,4 +154,4 @@ export const TogglStatusBar: Component<StatusBarProps> = (props) => {
             </div>
         </div>
     );
-}; 
+};

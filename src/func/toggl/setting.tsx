@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2024-12-19 14:23:16
+ * @LastEditTime : 2025-01-01 23:49:15
  * @Description  : 
  */
 /*
@@ -30,6 +30,7 @@ import { createSignal, onCleanup, Show } from "solid-js";
 // import { User } from "./api/types";
 import { getMe } from "./api/me";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { updateMiniTimerUI } from "./components";
 
 const DisplayRecord = (props: { record: Record<string, any> }) => {
     return (
@@ -135,6 +136,26 @@ const TogglSetting = () => {
                     placeholder="Please enter notebook ID"
                     changed={(v) => {
                         setConfig('dailynoteBox', v);
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="Mini Timer"
+                description="在思源中显示当前正在运行的活动"
+            >
+                <Form.Input
+                    type="select"
+                    key="miniTimerType"
+                    value={config.miniTimerType}
+                    changed={(v) => {
+                        if (config.miniTimerType === v) return;
+                        setConfig('miniTimerType', v);
+                        updateMiniTimerUI();
+                    }}
+                    options={{
+                        'none': "不显示",
+                        'statusBar': "在状态栏显示",
+                        'bubble': "在气泡显示"
                     }}
                 />
             </Form.Wrap>
