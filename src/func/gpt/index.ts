@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-01-01 18:31:39
+ * @LastEditTime : 2025-01-01 18:55:56
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
