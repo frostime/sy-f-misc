@@ -1,11 +1,11 @@
 import { type Component, For, onMount, JSX } from 'solid-js';
 import { type Project, type Tag } from '../api/types';
-import { startTimeEntry, updateTimeEntry } from '../api/time_entries';
 import { getProjects, getTags } from '../api/me';
-import { activeEntry, isLoading, stopEntry, syncWithServer } from '../state/active';
+import { activeEntry, isLoading, stopEntry, syncEntry, startEntry, updateEntry } from '../state/active';
 
 import { me } from '../state';
 import { createSignalRef } from '@frostime/solid-signal-ref';
+import { showMessage } from 'siyuan';
 
 
 const buttonStyle = {
@@ -87,18 +87,19 @@ export const TogglClient: Component = () => {
         try {
             if (activeEntry()) {
                 await stopEntry();
+                description('');
+                selectedProject(null);
+                selectedTags([]);
+                showMessage(`停止 toggl 活动: ${activeEntry()?.description}`, 3000, 'info');
             } else {
-                // Start a new entry
-                const response = await startTimeEntry({
+                startEntry({
                     description: description(),
                     project_id: selectedProject() || undefined,
                     tag_ids: selectedTags(),
-                    workspace_id: currentUser.default_workspace_id
                 });
-                if (response.ok) {
-                    activeEntry(response.data);
-                }
+                showMessage(`开始 toggl 活动: ${description()}`, 3000, 'info');
             }
+
         } catch (error) {
             console.error('Error in start/stop:', error);
         } finally {
@@ -113,19 +114,13 @@ export const TogglClient: Component = () => {
 
         try {
             // Stop current entry and start a new one with updated values
-            await stopEntry();
-            const currentUser = me();
-            if (!currentUser) return;
-
-            const response = await updateTimeEntry(currentEntry.id, {
+            // await stopEntry();
+            updateEntry({
                 description: description(),
                 project_id: selectedProject() || undefined,
                 tag_ids: selectedTags()
             });
-
-            if (response.ok) {
-                activeEntry(response.data);
-            }
+            showMessage(`更新 toggl 活动: ${description()}`, 3000, 'info');
         } catch (error) {
             console.error('Error in update:', error);
         } finally {
@@ -221,7 +216,7 @@ export const TogglClient: Component = () => {
                 </button>
                 <div class="fn__flex-1"></div>
                 <button
-                    onClick={syncWithServer}
+                    onClick={() => syncEntry()}
                     disabled={isLoading()}
                     style={{
                         ...buttonStyle,

@@ -3,22 +3,23 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 19:26:15
  * @FilePath     : /src/func/toggl/state/active.ts
- * @LastEditTime : 2025-01-01 21:22:57
+ * @LastEditTime : 2025-01-01 22:15:43
  * @Description  : 
  */
 import { createEffect, onCleanup, on } from 'solid-js';
 import { type TimeEntry } from '../api/types';
-import { getCurrentTimeEntry, stopTimeEntry } from '../api/time_entries';
+import { getCurrentTimeEntry, startTimeEntry, stopTimeEntry, updateTimeEntry } from '../api/time_entries';
 
 import { createSignalRef } from '@frostime/solid-signal-ref';
+import { me } from '.';
 
 let elapsedTimer: number | null = null;
 let syncTimer: number | null = null;
-const activeEntry = createSignalRef<TimeEntry | null>(null);
-const elapsed = createSignalRef<number>(0);
-const isLoading = createSignalRef(false);
+export const activeEntry = createSignalRef<TimeEntry | null>(null);
+export const elapsed = createSignalRef<number>(0);
+export const isLoading = createSignalRef(false);
 
-const elapsedTime = () => {
+export const elapsedTime = () => {
     if (elapsed() < 0) return '00:00:00';
     const hours = Math.floor(elapsed() / 3600).toString().padStart(2, '0');
     const minutes = Math.floor((elapsed() % 3600) / 60).toString().padStart(2, '0');
@@ -40,7 +41,7 @@ const updateElapsedTime = () => {
     elapsed(diff);
 };
 
-const syncWithServer = async () => {
+export const syncEntry = async () => {
     const response = await getCurrentTimeEntry();
     if (response.ok) {
         activeEntry(response.data);
@@ -48,13 +49,29 @@ const syncWithServer = async () => {
     return response;
 };
 
-const stopEntry = async () => {
+export const startEntry = async (entry: {
+    description?: string;
+    project_id?: number | null;
+    tag_ids?: number[];
+}) => {
+    if (!me().default_workspace_id) return null;
+    const response = await startTimeEntry({
+        ...entry,
+        workspace_id: me().default_workspace_id
+    });
+    if (response.ok) {
+        activeEntry(response.data);
+    }
+    return response;
+};
+
+export const stopEntry = async () => {
     const entry = activeEntry();
     if (!entry) return null;
     isLoading(true);
     try {
         // First check server state
-        const currentState = await syncWithServer();
+        const currentState = await syncEntry();
         if (!currentState.ok || !currentState.data) {
             // Entry already stopped on server
             activeEntry(null);
@@ -72,10 +89,23 @@ const stopEntry = async () => {
     }
 };
 
+export const updateEntry = async (entry: {
+    description?: string;
+    project_id?: number | null;
+    tag_ids?: number[];
+}) => {
+    if (!activeEntry()) return null;
+    const response = await updateTimeEntry(activeEntry().id, entry);
+    if (response.ok) {
+        activeEntry(response.data);
+    }
+    return response;
+};
+
 const startTimers = () => {
     stopTimers();
     elapsedTimer = window.setInterval(updateElapsedTime, 1000);
-    syncTimer = window.setInterval(syncWithServer, 5 * 60 * 1000);
+    syncTimer = window.setInterval(syncEntry, 5 * 60 * 1000);
 };
 
 const stopTimers = () => {
@@ -103,12 +133,11 @@ createEffect(on(activeEntry.signal, (entry) => {
 // Cleanup on unmount
 onCleanup(stopTimers);
 
-export {
-    activeEntry,
-    elapsedTime,
-    isLoading,
-    stopTimers,
-    syncWithServer,
-    stopEntry,
-    updateElapsedTime
-}; 
+export const load = () => {
+    syncEntry();
+}
+
+export const unload = () => {
+    activeEntry(null);
+    stopTimers();
+}

@@ -3,12 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2025-01-01 19:23:07
+ * @LastEditTime : 2025-01-01 22:17:33
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 
 import * as store from './state';
+import * as active from './state/active';
 
 import * as togglAPI from './api';
 import { recordTodayEntriesToDN, toggleAutoFetch } from "./func/record-to-dn";
@@ -74,7 +75,7 @@ export const unload = (plugin: FMiscPlugin) => {
     if (statusBarDispose) {
         statusBarDispose();
     }
-    store.stopTimers();
+    active.unload();
 }
 
 export const declareToggleEnabled = {
