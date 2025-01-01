@@ -9,7 +9,7 @@
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
 
 import * as api from '../api';
-import * as store from '../store';
+import * as store from '../state';
 
 import { showMessage } from "siyuan";
 import { formatDate, formatSeconds, startOfToday } from "../utils/time";
@@ -17,7 +17,7 @@ import { checkDailynoteToday } from "../utils/dailynote";
 import { TimeEntry } from "../api/types";
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { createEffect } from "solid-js";
-import { config } from "../store";
+import { config } from "../state";
 
 
 const entriesToMd = (entries: TimeEntry[]) => {

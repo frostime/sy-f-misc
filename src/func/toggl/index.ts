@@ -8,7 +8,7 @@
  */
 import type FMiscPlugin from "@/index";
 
-import * as store from './store';
+import * as store from './state';
 
 import * as togglAPI from './api';
 import { recordTodayEntriesToDN, toggleAutoFetch } from "./func/record-to-dn";

@@ -8,7 +8,7 @@
  */
 import { formatDate } from "./time";
 import { sql, request } from "@/api";
-import * as store from '../store';
+import * as store from '../state';
 import { findPlugin } from "@frostime/siyuan-plugin-kits";
 
 

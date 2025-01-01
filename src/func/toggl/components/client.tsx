@@ -1,10 +1,10 @@
-import { createSignal, createEffect, type Component, For, onMount } from 'solid-js';
+import { type Component, For, onMount, JSX } from 'solid-js';
 import { type Project, type Tag } from '../api/types';
 import { startTimeEntry } from '../api/time_entries';
 import { getProjects, getTags } from '../api/me';
-import { activeEntry, isLoading, stopEntry, syncWithServer } from '../store/active';
+import { activeEntry, isLoading, stopEntry, syncWithServer } from '../state/active';
 
-import { me } from '../store';
+import { me } from '../state';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 
 interface ClientProps {
@@ -19,18 +19,15 @@ const buttonStyle = {
     cursor: 'pointer'
 };
 
-const containerStyle = {
-    padding: '16px',
-    'min-width': '300px',
-    'background-color': 'var(--b3-theme-background)'
+const sectionStyle: JSX.CSSProperties = {
+    'margin-bottom': '16px',
+    display: 'flex',
+    'flex-direction': 'column',
+    'gap': '4px'
 };
 
-const sectionStyle = {
-    'margin-bottom': '16px'
-};
-
-const inputStyle = {
-    width: '100%',
+const inputStyle: JSX.CSSProperties = {
+    // width: '100%',
     padding: '8px',
     'border-radius': '4px',
     border: '1px solid var(--b3-theme-surface-lighter)',
@@ -51,7 +48,7 @@ const tagLabelStyle = {
 
 const actionContainerStyle = {
     display: 'flex',
-    'justify-content': 'flex-end',
+    // 'justify-content': 'flex-end',
     gap: '8px'
 };
 
@@ -142,31 +139,12 @@ export const TogglClient: Component<ClientProps> = (props) => {
     };
 
     return (
-        <div style={containerStyle}>
-            <div style={sectionStyle}>
-                <button
-                    onClick={handleStartStop}
-                    disabled={isLoading() || !me()}
-                    style={{
-                        ...buttonStyle,
-                        'background-color': activeEntry() ? 'var(--b3-theme-error)' : 'var(--b3-theme-primary)',
-                        cursor: (isLoading() || !me()) ? 'not-allowed' : 'pointer',
-                        opacity: (isLoading() || !me()) ? 0.7 : 1
-                    }}
-                >
-                    {isLoading() ? 'Loading...' : (activeEntry() ? 'Stop' : 'Start')}
-                </button>
-                <button
-                    onClick={syncWithServer}
-                    style={{
-                        ...buttonStyle,
-                        'background-color': 'var(--b3-theme-primary)',
-                        cursor: 'pointer'
-                    }}
-                >
-                    同步状态
-                </button>
-            </div>
+        <div style={{
+            padding: '16px',
+            'width': '100%',
+            'background-color': 'var(--b3-theme-background)',
+            'overflow-x': 'hidden'
+        }}>
 
             <div style={sectionStyle}>
                 <input
@@ -235,16 +213,28 @@ export const TogglClient: Component<ClientProps> = (props) => {
 
             <div style={actionContainerStyle}>
                 <button
-                    onClick={props.onClose}
+                    onClick={handleStartStop}
+                    disabled={isLoading() || !me()}
+                    style={{
+                        ...buttonStyle,
+                        'background-color': activeEntry() ? 'var(--b3-theme-error)' : 'var(--b3-theme-primary)',
+                        cursor: (isLoading() || !me()) ? 'not-allowed' : 'pointer',
+                        opacity: (isLoading() || !me()) ? 0.7 : 1
+                    }}
+                >
+                    {isLoading() ? 'Loading...' : (activeEntry() ? 'Stop' : 'Start')}
+                </button>
+                <div class="fn__flex-1"></div>
+                <button
+                    onClick={syncWithServer}
                     disabled={isLoading()}
                     style={{
                         ...buttonStyle,
-                        'background-color': 'var(--b3-theme-surface-lighter)',
-                        cursor: isLoading() ? 'not-allowed' : 'pointer',
-                        opacity: isLoading() ? 0.7 : 1
+                        'background-color': 'var(--b3-theme-primary)',
+                        cursor: 'pointer'
                     }}
                 >
-                    Cancel
+                    Pull State
                 </button>
                 <button
                     onClick={handleUpdate}
@@ -256,7 +246,7 @@ export const TogglClient: Component<ClientProps> = (props) => {
                         opacity: (!activeEntry() || isLoading()) ? 0.7 : 1
                     }}
                 >
-                    {isLoading() ? 'Updating...' : 'Update'}
+                    {isLoading() ? 'Pushing...' : 'Push State'}
                 </button>
             </div>
         </div>

@@ -5,7 +5,7 @@ export const showTogglDialog = () => {
     solidDialog({
         title: 'Toggl Timer',
         loader: () => <TogglClient onClose={() => {}} />,
-        width: '400px',
-        height: '500px'
+        width: '700px',
+        height: '400px'
     });
 }; 

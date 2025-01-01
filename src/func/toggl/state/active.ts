@@ -2,8 +2,8 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-01-01 19:26:15
- * @FilePath     : /src/func/toggl/store/active.ts
- * @LastEditTime : 2025-01-01 21:11:12
+ * @FilePath     : /src/func/toggl/state/active.ts
+ * @LastEditTime : 2025-01-01 21:22:57
  * @Description  : 
  */
 import { createEffect, onCleanup, on } from 'solid-js';
@@ -12,9 +12,10 @@ import { getCurrentTimeEntry, stopTimeEntry } from '../api/time_entries';
 
 import { createSignalRef } from '@frostime/solid-signal-ref';
 
+let elapsedTimer: number | null = null;
+let syncTimer: number | null = null;
 const activeEntry = createSignalRef<TimeEntry | null>(null);
 const elapsed = createSignalRef<number>(0);
-// const elapsedTime = createSignalRef('00:00:00');
 const isLoading = createSignalRef(false);
 
 const elapsedTime = () => {
@@ -25,8 +26,7 @@ const elapsedTime = () => {
     return `${hours}:${minutes}:${seconds}`;
 }
 
-let elapsedTimer: number | null = null;
-let syncTimer: number | null = null;
+
 
 const updateElapsedTime = () => {
     const entry = activeEntry();
@@ -91,6 +91,7 @@ const stopTimers = () => {
 
 // Initialize timers when active entry changes
 createEffect(on(activeEntry.signal, (entry) => {
+    console.log('activeEntry::effect', entry);
     if (entry) {
         elapsed(0);
         startTimers();

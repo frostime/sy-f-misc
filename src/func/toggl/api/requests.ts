@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 11:21:28
  * @FilePath     : /src/func/toggl/api/requests.ts
- * @LastEditTime : 2024-12-19 14:17:15
+ * @LastEditTime : 2025-01-01 21:30:45
  * @Description  : 
  */
 // requests.ts
 
-import { token64 } from '../store';
+import { token64 } from '../state';
 
-type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 interface RequestOptions {
     method: RequestMethod;

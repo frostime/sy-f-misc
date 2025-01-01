@@ -1,5 +1,5 @@
 import { Show, type Component } from 'solid-js';
-import { activeEntry, elapsedTime } from '../store/active';
+import { activeEntry, elapsedTime } from '../state/active';
 
 interface StatusBarProps {
     onClick: () => void;
