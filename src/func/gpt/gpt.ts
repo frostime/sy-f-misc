@@ -58,6 +58,17 @@ export const complete = async (input: string | IMessage[], options?: {
         // controller.abort();
 
         if (!response.ok) {
+            try {
+                const data = await response.json();
+                if (data.error && !data.data) {
+                    return {
+                        usage: null,
+                        content: JSON.stringify(data.error)
+                    };
+                }
+            } catch {
+
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 

@@ -71,7 +71,8 @@ const PromptTemplateEditForm: Component<{
                         height: '250px',
                         width: '100%',
                         'font-size': '1.2em',
-                        'line-height': '1.3em'
+                        'line-height': '1.3em',
+                        'white-space': 'pre-wrap'
                     }}
                 />
             </Form.Wrap>
@@ -180,7 +181,7 @@ const PromptTemplateSetting = () => {
             confirm: (name) => {
                 if (name) {
                     promptTemplates.update(prev => [{
-                        name: '',
+                        name: name,
                         content: '',
                         type: 'system'
                     }, ...prev]);
