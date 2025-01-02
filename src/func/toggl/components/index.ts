@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 23:36:06
  * @FilePath     : /src/func/toggl/components/index.ts
- * @LastEditTime : 2025-01-02 01:29:35
+ * @LastEditTime : 2025-01-02 13:43:05
  * @Description  : 
  */
 // import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -40,7 +40,7 @@ export const updateMiniTimerUI = () => {
         ), statusBarElement);
 
         let dock = document.querySelector('#barDock')
-        dock.insertAdjacentElement('afterend', statusBarElement);
+        dock?.insertAdjacentElement('afterend', statusBarElement);
         disposeMiniTimer = () => {
             dispose?.();
             dispose = undefined;

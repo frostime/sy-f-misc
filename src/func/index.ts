@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2024-12-31 16:03:18
+ * @LastEditTime : 2025-01-02 12:34:37
  * @Description  : 
  */
 import { type JSX } from "solid-js";
@@ -25,6 +25,7 @@ import * as ws from './websocket';
 import * as pd from './post-doc';
 import * as wb from './webview';
 import * as tg from './toggl';
+import * as qd from './quick-draft';
 import * as mr from './migrate-refs';
 import * as css from './custom-css-file';
 import * as gpt from './gpt';
@@ -56,6 +57,7 @@ export const ModulesToEnable = [
     ss,
     it,
     tl,
+    qd,
     ct,
     tg,
     zt,

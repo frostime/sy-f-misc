@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2024-12-19 01:43:34
+ * @LastEditTime : 2025-01-02 12:43:16
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -13,6 +13,7 @@ import { formatSiYuanDate } from "@frostime/siyuan-plugin-kits";
 
 import { openTab, openWindow } from "siyuan";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
+import { openQuickDraft } from "../quick-draft";
 
 
 /**
@@ -150,6 +151,9 @@ export const load = async (plugin: FMiscPlugin) => {
 
     webSocketManager.registerMessageHandler('dn-quicklist', appendDnList)
     webSocketManager.registerMessageHandler('dn-h2', appendDnH2)
+    webSocketManager.registerMessageHandler('quick-draft', (title: string) => {
+        openQuickDraft(title);
+    })
 }
 
 export const unload = () => {
