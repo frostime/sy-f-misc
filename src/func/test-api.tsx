@@ -4,7 +4,7 @@ import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 
 import { request } from "@/api";
-import { Menu, openTab } from "siyuan";
+import { openTab } from "siyuan";
 
 let plugin: FMiscPlugin;
 

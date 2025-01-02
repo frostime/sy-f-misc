@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2025-01-02 20:44:54
+ * @LastEditTime : 2025-01-02 22:25:41
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -16,13 +16,24 @@ import { debounce } from '@frostime/siyuan-plugin-kits';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
 
-const Enable: ISettingItem[] = ModulesToEnable.filter(module => module.declareToggleEnabled !== undefined).map(module => ({
-    type: 'checkbox',
-    title: module.declareToggleEnabled.title,
-    description: module.declareToggleEnabled.description,
-    key: `Enable${module.name}`,
-    value: module.declareToggleEnabled.defaultEnabled ?? false
-}));
+const Enable: ISettingItem[] = ModulesToEnable.map(module => {
+    if (module.declareToggleEnabled === undefined) {
+        return {
+            type: 'checkbox',
+            title: module.name,
+            description: `无声明，默认直接启用 ${module.name}`,
+            key: `Enable${module.name}`,
+            value: true
+        }
+    }
+    return {
+        type: 'checkbox',
+        title: module.declareToggleEnabled.title,
+        description: module.declareToggleEnabled.description,
+        key: `Enable${module.name}`,
+        value: module.declareToggleEnabled.defaultEnabled ?? false
+    };
+});
 
 let CustomPanels: {
     key: string;
@@ -45,48 +56,6 @@ let CustomModuleConfigs: IFuncModule['declareModuleConfig'][] = [];
 });
 
 
-//侧边栏
-const Docky: ISettingItem[] = [
-    {
-        type: 'checkbox',
-        title: '缩放 Protyle',
-        description: '是否缩放侧边栏 Protyle',
-        key: 'DockyEnableZoom',
-        value: true
-    },
-    {
-        type: 'slider',
-        title: '缩放因子',
-        description: '对 Protyle 缩放的 zoom 因子',
-        key: 'DockyZoomFactor',
-        value: 0.75,
-        slider: {
-            min: 0.5,
-            max: 1,
-            step: 0.01,
-        }
-    },
-    {
-        type: 'button',
-        title: '选择图标',
-        description: '选择图标',
-        key: 'DockySelectIcon',
-        value: '',
-        button: {
-            label: '选择图标',
-            callback: selectIconDialog
-        }
-    },
-    {
-        type: 'textarea',
-        title: 'Protyle 配置',
-        description: '加入侧边栏的 Protyle, 用换行符分割<br/>e.g. id: xxx, name: xxx, position: xxx, icon?: xxx, hotkey?: xxx',
-        key: 'DockyProtyle',
-        direction: 'row',
-        value: ''
-    },
-];
-
 const Misc: ISettingItem[] = [
     {
         type: 'textinput',
@@ -102,14 +71,14 @@ const Misc: ISettingItem[] = [
         key: 'zoteroDir',
         value: ''
     },
-    {
-        type: 'textinput',
-        title: '代码编辑器',
-        description: '代码编辑器路径, {{filepath}} 会被替换为真实的文件路径',
-        key: 'codeEditor',
-        value: 'code {{filepath}}',
-        direction: 'row'
-    },
+    // {
+    //     type: 'textinput',
+    //     title: '代码编辑器',
+    //     description: '代码编辑器路径, {{filepath}} 会被替换为真实的文件路径',
+    //     key: 'codeEditor',
+    //     value: 'code {{filepath}}',
+    //     direction: 'row'
+    // },
     // {
     //     type: 'textinput',
     //     title: '思源派 Token',
@@ -142,7 +111,6 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     //1. 初始化 plugin settings 配置
     let configs = {}
     configs['Enable'] = Object.fromEntries(Enable.map(item => [item.key, item.value]));
-    configs['Docky'] = Object.fromEntries(Docky.map(item => [item.key, item.value]));
     configs['Misc'] = Object.fromEntries(Misc.map(item => [item.key, item.value]));
     //@ts-ignore
     plugin.data['configs'] = configs;
@@ -157,7 +125,6 @@ export const initSetting = async (plugin: FMiscPlugin) => {
             });
         }
         UpdateConfig(Enable, 'Enable');
-        UpdateConfig(Docky, 'Docky');
         UpdateConfig(Misc, 'Misc');
     }
 
@@ -234,7 +201,6 @@ export const initSetting = async (plugin: FMiscPlugin) => {
             height: "700px",
             loader: () => Settings({
                 GroupEnabled: Enable,
-                GroupDocky: Docky,
                 GroupMisc: Misc,
                 changed: onChanged,
                 customPanels: CustomPanels,

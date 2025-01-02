@@ -3,11 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-11-23 15:37:06
  * @FilePath     : /src/func/custom-css-file.ts
- * @LastEditTime : 2025-01-02 19:19:22
+ * @LastEditTime : 2025-01-02 22:05:24
  * @Description  : 
  */
 import { putFile } from "@/api";
 import type FMiscPlugin from "@/index";
+import { showMessage } from "siyuan";
 // import { showMessage } from "siyuan";
 
 let cp: any;
@@ -35,6 +36,26 @@ export const declareToggleEnabled = {
 };
 
 let cssWatchInterval: NodeJS.Timeout | null = null;
+
+let codeEditor = 'code';
+export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
+    key: 'custom-css-file',
+    init: (data: { codeEditor: string }) => {
+        data.codeEditor && (codeEditor = data.codeEditor);
+    },
+    items: [
+        {
+            key: 'codeEditor',
+            title: '编辑命令',
+            description: '编辑自定义 CSS 的命令, 默认为 code, 表示使用 vs code 打开',
+            type: 'textinput',
+            get: () => codeEditor,
+            set: (value: string) => {
+                codeEditor = value;
+            }
+        }
+    ]
+}
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
@@ -64,10 +85,13 @@ export const load = (plugin: FMiscPlugin) => {
                 label: '编辑',
                 icon: 'iconEdit',
                 click: () => {
-                    let editorCmd = plugin.getConfig('Misc', 'codeEditor')
-                    editorCmd = editorCmd.replace('{{filepath}}', cssPath);
+                    let editorCmd = codeEditor + ' ' + cssPath;
                     if (cp) {
-                        cp.exec(editorCmd);
+                        try {
+                            cp.exec(editorCmd);
+                        } catch (error) {
+                            showMessage(`打开编辑器失败: ${error.message}`, 3000, 'error');
+                        }
                     }
                 }
             },

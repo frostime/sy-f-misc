@@ -38,7 +38,6 @@ interface IChangeEvent {
 
 interface IArgs {
     GroupEnabled: ISettingItem[];
-    GroupDocky: ISettingItem[];
     GroupMisc: ISettingItem[];
     changed: (e: IChangeEvent) => void;
     customPanels?: {
@@ -53,7 +52,6 @@ interface IArgs {
 const App: Component<IArgs> = (props) => {
     let groups: { key: string, text: string }[] = [
         { key: 'Enable', text: '✅ 启用功能' },
-        { key: 'Docky', text: '⛩️ 侧边栏显示' },
         { key: 'Misc', text: '🔧 其他设置' },
         // { key: 'Toggl', text: '⏲️ Toggl' }
     ];
@@ -77,14 +75,6 @@ const App: Component<IArgs> = (props) => {
         <SettingPanel
             group={groups[0].key}
             settingItems={props.GroupEnabled}
-            onChanged={changed}
-        />
-    );
-
-    const Docky = () => (
-        <SettingPanel
-            group={groups[1].key}
-            settingItems={props.GroupDocky}
             onChanged={changed}
         />
     );
@@ -155,7 +145,6 @@ const App: Component<IArgs> = (props) => {
 
     let showGroups = {
         Enable,
-        Docky,
         Misc,
     }
 

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-01-02 20:46:54
+ * @LastEditTime : 2025-01-02 22:11:46
  * @Description  : 
  */
 // import { type JSX } from "solid-js";
@@ -33,7 +33,7 @@ import * as gp from './global-paste';
 
 // import * as bookmark from './bookmarks';
 
-export const ModulesToEnable = [
+export const ModulesToEnable: IFuncModule[] = [
     mw,
     dc,
     gpt,
@@ -56,7 +56,7 @@ export const ModulesToEnable = [
     ta
 ]
 
-export const ModulesAlwaysEnable = [];
+export const ModulesAlwaysEnable: IFuncModule[] = [];
 
 //`Enable${module.name}`: module
 const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enable${module.name}`, module]));

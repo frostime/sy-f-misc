@@ -1,7 +1,7 @@
 import { Protyle, Dialog, showMessage, openTab } from "siyuan";
 import type FMiscPlugin from "@/index";
 
-import { html2ele } from "@frostime/siyuan-plugin-kits";
+import { deepMerge, html2ele } from "@frostime/siyuan-plugin-kits";
 import { updateStyleDom, removeStyleDom } from "@frostime/siyuan-plugin-kits";
 // import * as api from '../api';
 
@@ -10,8 +10,8 @@ export const selectIconDialog = () => {
     const html = `
     <div class="icons" style="margin: 10px;">
         ${Array.from(symbols).map(symbol => {
-            return `<svg style="width: 20px; height: 20px; padding: 5px; cursor: pointer;"><use xlink:href="#${symbol.id}"></use></svg>`
-        }).join('\n')}
+        return `<svg style="width: 20px; height: 20px; padding: 5px; cursor: pointer;"><use xlink:href="#${symbol.id}"></use></svg>`
+    }).join('\n')}
     </div>
     `;
     const dialog = new Dialog({
@@ -146,16 +146,91 @@ const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
 
 export let name = "Docky";
 export let enabled = false;
+let configs = {
+    DockyEnableZoom: true,
+    DockyZoomFactor: 0.75,
+    DockySelectIcon: '',
+    DockyProtyle: '',
+}
+export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
+    key: 'Docky',
+    init: (data: { DockyEnableZoom: boolean, DockyZoomFactor: number, DockySelectIcon: string, DockyProtyle: string }) => {
+        configs = deepMerge(configs, data);
+    },
+    items: [
+        {
+            type: 'checkbox',
+            title: '缩放 Protyle',
+            description: '是否缩放侧边栏 Protyle',
+            key: 'DockyEnableZoom',
+            get: () => configs.DockyEnableZoom,
+            set: (value: boolean) => {
+                configs.DockyEnableZoom = value;
+                if (value === false) {
+                    document.documentElement.style.setProperty('--plugin-docky-zoom', 'unset');
+                } else {
+                    document.documentElement.style.setProperty('--plugin-docky-zoom', `${configs.DockyZoomFactor}`);
+                }
+
+            }
+        },
+        {
+            type: 'slider',
+            title: '缩放因子',
+            description: '对 Protyle 缩放的 zoom 因子',
+            key: 'DockyZoomFactor',
+            get: () => configs.DockyZoomFactor,
+            set: (value: number) => {
+                if (typeof value === 'string') value = parseFloat(value);
+                configs.DockyZoomFactor = value;
+                document.documentElement.style.setProperty('--plugin-docky-zoom', `${value}`);
+            },
+            slider: {
+                min: 0.5,
+                max: 1,
+                step: 0.01,
+            }
+        },
+        {
+            type: 'button',
+            title: '选择图标',
+            description: '选择图标',
+            key: 'DockySelectIcon',
+            get: () => configs.DockySelectIcon,
+            set: (value: string) => {
+                configs.DockySelectIcon = value;
+            },
+            button: {
+                label: '选择图标',
+                callback: selectIconDialog
+            }
+        },
+        {
+            type: 'textarea',
+            title: 'Protyle 配置',
+            description: `加入侧边栏的 Protyle, 用换行符分割<br/>e.g. id: xxx, name: xxx, position: xxx, icon?: xxx, hotkey?: xxx<br/>
+            position: LeftTop | LeftBottom | RightTop | RightBottom | BottomLeft | BottomRight
+            `,
+            key: 'DockyProtyle',
+            direction: 'row',
+            get: () => configs.DockyProtyle,
+            set: (value: string) => {
+                configs.DockyProtyle = value;
+            }
+        },
+    ]
+}
 
 export const declareToggleEnabled = {
-    title: '📋 侧边栏Protyle',
-    description: '启用侧边栏自定义 Protyle 功能',
+    title: '🗳️ Docky',
+    description: '启用 Docky 功能',
     defaultEnabled: true
 };
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
-    let protyles: string = plugin.getConfig('Docky', 'DockyProtyle');
+    // let protyles: string = plugin.getConfig('Docky', 'DockyProtyle');
+    let protyles: string = configs.DockyProtyle;
     let lines = protyles.split('\n');
     lines.forEach(line => {
         if (line.trim() === '') return;
@@ -167,8 +242,10 @@ export const load = (plugin: FMiscPlugin) => {
         }
     });
 
-    let enable = plugin.getConfig('Docky', 'DockyEnableZoom');
-    let factor = plugin.getConfig('Docky', 'DockyZoomFactor');
+    // let enable = plugin.getConfig('Docky', 'DockyEnableZoom');
+    // let factor = plugin.getConfig('Docky', 'DockyZoomFactor');
+    let enable = configs.DockyEnableZoom;
+    let factor = configs.DockyZoomFactor;
     if (enable === false) {
         document.documentElement.style.setProperty('--plugin-docky-zoom', 'unset');
     } else {
