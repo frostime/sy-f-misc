@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2024-12-27 16:33:29
+ * @LastEditTime : 2025-01-02 19:26:54
  * @Description  : 
  */
 import {
@@ -21,7 +21,7 @@ import "@/index.scss";
 
 // import { updateStyleLink } from "./libs/style";
 import { initSetting } from "./settings";
-import { onPaste } from "./global-paste";
+// import { onPaste } from "./global-paste";
 
 import { updateStyleDom, registerPlugin, thisPlugin, inputDialog } from "@frostime/siyuan-plugin-kits";
 
@@ -30,7 +30,7 @@ import { request, getFile, exportMdContent } from "./api";
 
 import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
 
-const electron = require('electron');
+const electron = window?.require('electron');
 
 
 const StorageNameConfigs = 'configs';
@@ -75,7 +75,7 @@ export default class FMiscPlugin extends Plugin {
         let svgs = Object.values(Svg);
         this.addIcons(svgs.join(''));
         await initSetting(this);
-        this.eventBus.on('paste', onPaste);
+        // this.eventBus.on('paste', onPaste);
         load(this);
 
         //Default functions
@@ -85,7 +85,7 @@ export default class FMiscPlugin extends Plugin {
     }
 
     async onunload() {
-        this.eventBus.off('paste', onPaste);
+        // this.eventBus.off('paste', onPaste);
         unload(this);
         // document.removeEventListener('mousedown', this.globalContextMenuHandler);
     }
@@ -259,7 +259,7 @@ export default class FMiscPlugin extends Plugin {
         const showMenu = () => {
             let menu = new Menu("f-misc-topbar");
             let menuItems: IMenu[] = [
-                {
+                electron ? {
                     label: '打开目录',
                     icon: 'iconFolder',
                     type: 'submenu',
@@ -269,7 +269,7 @@ export default class FMiscPlugin extends Plugin {
                             icon: 'iconFolder',
                             click: () => {
                                 const dataDir = window.siyuan.config.system.dataDir;
-                                electron.shell.openPath(dataDir);
+                                electron?.shell.openPath(dataDir);
                             }
                         },
                         {
@@ -277,7 +277,7 @@ export default class FMiscPlugin extends Plugin {
                             icon: 'iconFolder',
                             click: () => {
                                 const pluginDir = window.siyuan.config.system.dataDir + '/plugins';
-                                electron.shell.openPath(pluginDir);
+                                electron?.shell.openPath(pluginDir);
                             }
                         },
                         {
@@ -285,12 +285,13 @@ export default class FMiscPlugin extends Plugin {
                             icon: 'iconFolder',
                             click: () => {
                                 const pluginDir = window.siyuan.config.system.dataDir + '/storage/petal';
-                                electron.shell.openPath(pluginDir);
+                                electron?.shell.openPath(pluginDir);
                             }
                         }
                     ]
-                }
+                } : null,
             ];
+            menuItems = menuItems.filter(item => item !== null);
             for (let item of menuItems) {
                 menu.addItem(item);
             }
@@ -376,11 +377,11 @@ export default class FMiscPlugin extends Plugin {
 }
 
 export const Href = {
-    Style_Vertical_Tabbar: '/plugins/sy-f-misc/style/tab-bar-vertical.css',
+    // Style_Vertical_Tabbar: '/plugins/sy-f-misc/style/tab-bar-vertical.css',
     Style: {
-        Font_Color: '/plugins/sy-f-misc/style/font-and-color.css',
+        // Font_Color: '/plugins/sy-f-misc/style/font-and-color.css',
         Link_Icon: '/plugins/sy-f-misc/style/link-icon.css',
-        List_Mindmap: '/plugins/sy-f-misc/style/list-mindmap.css'
+        // List_Mindmap: '/plugins/sy-f-misc/style/list-mindmap.css'
     }
 };
 

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-01-02 12:34:37
+ * @LastEditTime : 2025-01-02 18:34:45
  * @Description  : 
  */
 import { type JSX } from "solid-js";
@@ -29,6 +29,7 @@ import * as qd from './quick-draft';
 import * as mr from './migrate-refs';
 import * as css from './custom-css-file';
 import * as gpt from './gpt';
+import * as gp from './global-paste';
 
 // import * as bookmark from './bookmarks';
 
@@ -53,6 +54,11 @@ interface IFuncModule {
 
 export const ModulesToEnable = [
     mw,
+    dc,
+    gpt,
+    css,
+    gp,
+    wb,
     docky,
     ss,
     it,
@@ -66,21 +72,15 @@ export const ModulesToEnable = [
     mr,
     ws,
     pd,
-    ta,
+    ta
 ]
 
-export const ModulesAlwaysEnable = [
-    dc,
-    wb,
-    css,
-    gpt
-]
+export const ModulesAlwaysEnable = [];
 
 //`Enable${module.name}`: module
 const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enable${module.name}`, module]));
 
 export const load = (plugin: FMiscPlugin) => {
-    // const Get = plugin.getConfig.bind(plugin);
     ModulesToEnable.forEach(module => {
         if (plugin.getConfig('Enable', `Enable${module.name}`)) {
             module.load(plugin);

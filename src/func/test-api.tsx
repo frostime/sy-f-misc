@@ -8,6 +8,15 @@ import { Menu, openTab } from "siyuan";
 
 let plugin: FMiscPlugin;
 
+export let name = "TestAPI";
+export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '🧪 测试 API',
+    description: '启用 API 测试功能',
+    defaultEnabled: false
+};
+
 const Panel = () => {
     const [endpoint, setEndpoint] = createSignal("");
     const [payload, setPayload] = createSignal("");
@@ -100,33 +109,25 @@ function openPanel() {
     });
 }
 
-const showMenu = (menu: Menu) => {
-    menu.addItem({
-        icon: 'iconBug',
-        label: '测试 API',
-        click: openPanel
-    })
-}
-
-export let name = "TestAPI";
-export let enabled = false;
-
-export const declareToggleEnabled = {
-    title: '🐞 TestAPI',
-    description: '测试 API 功能',
-    defaultEnabled: false
-};
 
 export const load = (plugin_: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
-    plugin_.eb.on('on-topbar-menu', showMenu);
+    // plugin_.eb.on('on-topbar-menu', showMenu);
+    plugin_.registerMenuTopMenu('test-api', [
+        {
+            icon: 'iconBug',
+            label: '测试 API',
+            click: openPanel
+        }
+    ]);
     plugin = plugin_;
 }
 
 export const unload = (plugin_: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
-    plugin_.eb.off('on-topbar-menu', showMenu);
+    // plugin_.eb.off('on-topbar-menu', showMenu);
+    plugin_.unRegisterMenuTopMenu('test-api');
     plugin = null;
 }

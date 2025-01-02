@@ -2,10 +2,20 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-05-30 12:57:35
- * @FilePath     : /src/global-paste.ts
- * @LastEditTime : 2024-05-30 21:15:04
+ * @FilePath     : /src/func/global-paste/index.ts
+ * @LastEditTime : 2025-01-02 18:10:43
  * @Description  : 处理思源全局的 paste 事件
  */
+import type FMiscPlugin from "@/index";
+
+export let name = "GlobalPaste";
+export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '📋 全局粘贴',
+    description: '启用全局粘贴处理功能',
+    defaultEnabled: true
+};
 
 const processors: {[key: string]: (detail: ISiyuanEventPaste) => boolean} = {
     bilibili: (detail: ISiyuanEventPaste) => {
@@ -53,3 +63,15 @@ export const onPaste = async (event: CustomEvent<ISiyuanEventPaste>) => {
         return;
     }
 }
+
+export const load = (plugin: FMiscPlugin) => {
+    if (enabled) return;
+    enabled = true;
+    plugin.eventBus.on('paste', onPaste);
+}
+
+export const unload = (plugin: FMiscPlugin) => {
+    if (!enabled) return;
+    enabled = false;
+    plugin.eventBus.off('paste', onPaste);
+} 

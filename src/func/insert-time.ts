@@ -92,12 +92,12 @@ const updateTime = (e) => {
     }
 }
 
-export let name = 'InsertTime';
+export let name = "InsertTime";
 export let enabled = false;
 
 export const declareToggleEnabled = {
-    title: '⌚ Insert time',
-    description: '启用插入时间功能',
+    title: '⌚ 插入时间',
+    description: '通过快捷指令插入时间',
     defaultEnabled: true
 };
 

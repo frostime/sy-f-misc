@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2024-12-19 01:21:44
+ * @LastEditTime : 2025-01-02 18:33:02
  * @Description  : 
  */
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
-import { addProcessor, delProcessor } from "@/global-paste";
+import { addProcessor, delProcessor } from "@/func/global-paste";
 
 import { ZoteroDBModal } from "./zoteroModal";
 

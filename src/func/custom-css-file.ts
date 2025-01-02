@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-11-23 15:37:06
  * @FilePath     : /src/func/custom-css-file.ts
- * @LastEditTime : 2024-12-27 16:55:13
+ * @LastEditTime : 2025-01-02 19:19:22
  * @Description  : 
  */
 import { putFile } from "@/api";
 import type FMiscPlugin from "@/index";
-import { showMessage } from "siyuan";
+// import { showMessage } from "siyuan";
 
 let cp: any;
 try {
@@ -27,6 +27,13 @@ const DEFAULT_STYLE = `
 
 export let name = "custom-css-file";
 export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '🎨 自定义 CSS',
+    description: '启用自定义 CSS 功能',
+    defaultEnabled: true
+};
+
 let cssWatchInterval: NodeJS.Timeout | null = null;
 
 export const load = (plugin: FMiscPlugin) => {
@@ -57,7 +64,11 @@ export const load = (plugin: FMiscPlugin) => {
                 label: '编辑',
                 icon: 'iconEdit',
                 click: () => {
-                    cp?.exec?.(`code ${cssPath}`)
+                    let editorCmd = plugin.getConfig('Misc', 'codeEditor')
+                    editorCmd = editorCmd.replace('{{filepath}}', cssPath);
+                    if (cp) {
+                        cp.exec(editorCmd);
+                    }
                 }
             },
             {

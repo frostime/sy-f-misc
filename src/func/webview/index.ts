@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-14 22:02:49
  * @FilePath     : /src/func/webview/index.ts
- * @LastEditTime : 2024-12-27 16:36:08
+ * @LastEditTime : 2025-01-02 19:28:14
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -17,6 +17,15 @@ import { CustomApps } from "./app";
 import { loadStorage } from "./storage";
 
 let plugin_: Plugin;
+
+export let name = "WebView";
+export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '🌐 网页视图',
+    description: '启用网页视图功能',
+    defaultEnabled: true
+};
 
 const createAppTemplate = (url: string): IWebApp => {
     return {
@@ -77,10 +86,11 @@ const openUrlTab = (e: CustomEvent<IMenuBaseDetail>) => {
     });
 }
 
-export let name = "WebView";
-export let enabled = false;
 export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
+    const electron = window?.require?.('electron');
+    if (!electron) return;
+
     enabled = true;
     plugin_ = plugin;
     plugin.eventBus.on('open-menu-link', openUrlTab);

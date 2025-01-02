@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-06-10 14:55:35
  * @FilePath     : /src/func/doc-context.tsx
- * @LastEditTime : 2024-12-19 14:44:43
+ * @LastEditTime : 2025-01-02 18:00:27
  * @Description  : 
  */
 import { createSignal, For, JSXElement, onMount, Show } from 'solid-js';
@@ -25,6 +25,14 @@ let I18n: any = {
     no: '无'
 }
 
+export let name = "DocContext";
+export let enabled = false;
+
+export const declareToggleEnabled = {
+    title: '📑 文档上下文',
+    description: '启用文档上下文功能',
+    defaultEnabled: true
+};
 
 async function getParentDocument(path: string) {
     let pathArr = path.split("/").filter((item) => item != "");
@@ -318,8 +326,6 @@ const Keymap = '⌥S';
 
 const KeymapConfig = window.siyuan.config.keymap;
 
-export let name = "DocContext";
-export let enabled = false;
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
