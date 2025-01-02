@@ -1,30 +1,16 @@
 /*
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
- * @Date         : 2024-10-10 20:33:25
- * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2025-01-01 23:49:15
- * @Description  : 
- */
-/*
- * Copyright (c) 2024 by frostime. All Rights Reserved.
- * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2024-10-09 15:56:46
+ * @LastEditTime : 2025-01-02 01:33:49
  * @Description  : 
  */
-// Copyright (c) 2023 by frostime All Rights Reserved.
-// Author       : frostime
-// Date         : 2023-07-01 19:23:50
-// FilePath     : /src/libs/setting-panel.tsx
-// LastEditTime : 2024-06-08 18:25:34
-// Description  :
 
 // import { Component, For, JSXElement, children } from "solid-js";
 import Form from "@/libs/components/Form";
-import { config, setConfig, save } from "./state";
-import * as store from './state';
+import { config, save, me as meRef } from "./state/config";
+// import * as store from './state';
 import { createSignal, onCleanup, Show } from "solid-js";
 // import type FMiscPlugin from "@/index";
 // import { User } from "./api/types";
@@ -50,17 +36,17 @@ const DisplayRecord = (props: { record: Record<string, any> }) => {
 }
 
 const useAboutMe = () => {
-    const [checkText, setCheckText] = createSignal(store.me() ? `✔️ 检查通过！用户: ${store.me().fullname}` : "请先检查用户信息");
+    const [checkText, setCheckText] = createSignal(meRef() ? `✔️ 检查通过！用户: ${meRef().fullname}` : "请先检查用户信息");
 
     const updateAboutMe = async () => {
         const me = await getMe();
         if (!me || !me.ok) {
             setCheckText(`无法获取用户信息: code = ${me.status}`);
-            store.setMe(null);
+            meRef(null);
             return;
         }
         setCheckText(`✔️ 检查通过！用户: ${me.data.fullname}`);
-        store.setMe(me.data);
+        meRef(me.data);
     }
 
     return {
@@ -85,7 +71,7 @@ const TogglSetting = () => {
     });
 
     const descDeviceID = (): string => {
-        if (config.topDevice === window.siyuan.config.system.id) {
+        if (config().topDevice === window.siyuan.config.system.id) {
             // return (<span style={{ color: 'var(--b3-theme-primary' }}>当前设备!将执行自动获取。</span>)
             return `<span style="color: var(--b3-theme-primary);">当前设备!将执行自动获取。</span>`;
         } else {
@@ -105,11 +91,11 @@ const TogglSetting = () => {
                     <Form.Input
                         type="textinput"
                         key="token"
-                        value={config.token}
+                        value={config().token}
                         placeholder="Please enter your Toggl API Token"
                         changed={(v) => {
-                            setConfig('token', v);
-                            store.setMe(null);
+                            config.update('token', v);
+                            meRef(null);
                             tobeCheck();
                         }}
                         style={{ flex: 1 }}
@@ -123,7 +109,7 @@ const TogglSetting = () => {
                 direction="row"
                 style={{ "max-height": "150px", "overflow": "auto" }}
             >
-                <DisplayRecord record={store.me()} />
+                <DisplayRecord record={meRef()} />
             </Form.Wrap>
             <Form.Wrap
                 title="笔记本"
@@ -132,10 +118,10 @@ const TogglSetting = () => {
                 <Form.Input
                     type="textinput"
                     key="box"
-                    value={config.dailynoteBox}
+                    value={config().dailynoteBox}
                     placeholder="Please enter notebook ID"
                     changed={(v) => {
-                        setConfig('dailynoteBox', v);
+                        config.update('dailynoteBox', v);
                     }}
                 />
             </Form.Wrap>
@@ -146,10 +132,10 @@ const TogglSetting = () => {
                 <Form.Input
                     type="select"
                     key="miniTimerType"
-                    value={config.miniTimerType}
+                    value={config().miniTimerType}
                     changed={(v) => {
-                        if (config.miniTimerType === v) return;
-                        setConfig('miniTimerType', v);
+                        if (config().miniTimerType === v) return;
+                        config.update('miniTimerType', v);
                         updateMiniTimerUI();
                     }}
                     options={{
@@ -166,9 +152,9 @@ const TogglSetting = () => {
                 <Form.Input
                     type="checkbox"
                     key="autoFetch"
-                    value={config.dnAutoFetch}
+                    value={config().dnAutoFetch}
                     changed={(v) => {
-                        setConfig('dnAutoFetch', v);
+                        config.update('dnAutoFetch', v);
                     }}
                 />
             </Form.Wrap>
@@ -179,9 +165,9 @@ const TogglSetting = () => {
                 <Form.Input
                     type="number"
                     key="autoFetchInterval"
-                    value={config.dnAutoFetchInterval}
+                    value={config().dnAutoFetchInterval}
                     changed={(v) => {
-                        setConfig('dnAutoFetchInterval', v);
+                        config.update('dnAutoFetchInterval', v);
                     }}
                 />
             </Form.Wrap>
@@ -191,18 +177,18 @@ const TogglSetting = () => {
                 direction="row"
                 action={
                     <button class="button b3-button" onClick={() => {
-                        setConfig('topDevice', window.siyuan.config.system.id);
+                        config.update('topDevice', window.siyuan.config.system.id);
                     }}>设置为当前设备</button>
                 }
             >
                 <Form.Input
                     type="textinput"
                     key=""
-                    value={config.topDevice}
+                    value={config().topDevice}
                     fn_size={false}
                     style={{ width: '100%' }}
                     changed={(v) => {
-                        setConfig('topDevice', v);
+                        config.update('topDevice', v);
                     }}
                 />
             </Form.Wrap>

@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 11:21:28
  * @FilePath     : /src/func/toggl/api/requests.ts
- * @LastEditTime : 2025-01-01 21:30:45
+ * @LastEditTime : 2025-01-02 10:18:07
  * @Description  : 
  */
 // requests.ts
 
-import { token64 } from '../state';
+import { token64 } from '../state/config';
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 

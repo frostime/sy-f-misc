@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 19:26:15
  * @FilePath     : /src/func/toggl/state/active.ts
- * @LastEditTime : 2025-01-01 22:15:43
+ * @LastEditTime : 2025-01-02 10:31:05
  * @Description  : 
  */
 import { createEffect, onCleanup, on } from 'solid-js';
@@ -11,7 +11,7 @@ import { type TimeEntry } from '../api/types';
 import { getCurrentTimeEntry, startTimeEntry, stopTimeEntry, updateTimeEntry } from '../api/time_entries';
 
 import { createSignalRef } from '@frostime/solid-signal-ref';
-import { me } from '.';
+import { fetchMe, me } from './config';
 
 let elapsedTimer: number | null = null;
 let syncTimer: number | null = null;
@@ -102,21 +102,31 @@ export const updateEntry = async (entry: {
     return response;
 };
 
-const startTimers = () => {
-    stopTimers();
-    elapsedTimer = window.setInterval(updateElapsedTime, 1000);
-    syncTimer = window.setInterval(syncEntry, 5 * 60 * 1000);
-};
-
-const stopTimers = () => {
+const clearElapsedTimer = () => {
     if (elapsedTimer) {
         clearInterval(elapsedTimer);
         elapsedTimer = null;
     }
+}
+const clearSyncTimer = () => {
     if (syncTimer) {
         clearInterval(syncTimer);
         syncTimer = null;
     }
+}
+
+const startElapsedTimer = () => {
+    clearElapsedTimer();
+    elapsedTimer = window.setInterval(updateElapsedTime, 1000);
+    // syncTimer = window.setInterval(syncEntry, 5 * 60 * 1000);
+};
+
+/**
+ * 每隔一段时间，从云端获取当前的 time entry 的状态
+ */
+const startSyncTimer = () => {
+    clearSyncTimer();
+    syncTimer = window.setInterval(syncEntry, 5 * 60 * 1000);
 };
 
 // Initialize timers when active entry changes
@@ -124,20 +134,27 @@ createEffect(on(activeEntry.signal, (entry) => {
     console.log('activeEntry::effect', entry);
     if (entry) {
         elapsed(0);
-        startTimers();
+        startElapsedTimer();
     } else {
-        stopTimers();
+        clearElapsedTimer();
     }
 }));
 
 // Cleanup on unmount
-onCleanup(stopTimers);
+onCleanup(clearElapsedTimer);
 
-export const load = () => {
+export const load = async () => {
+    let ok = await fetchMe();
+    if (!ok) {
+        console.warn('Toggl: can not fetch user');
+        return false;
+    }
     syncEntry();
+    startSyncTimer();
 }
 
 export const unload = () => {
     activeEntry(null);
-    stopTimers();
+    clearElapsedTimer();
+    clearSyncTimer();
 }

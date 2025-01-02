@@ -3,13 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2024-12-19 01:27:50
+ * @LastEditTime : 2025-01-02 01:25:25
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
 
 import * as api from '../api';
-import * as store from '../state';
 
 import { showMessage } from "siyuan";
 import { formatDate, formatSeconds, startOfToday } from "../utils/time";
@@ -17,7 +16,7 @@ import { checkDailynoteToday } from "../utils/dailynote";
 import { TimeEntry } from "../api/types";
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { createEffect } from "solid-js";
-import { config } from "../state";
+import { config } from "../state/config";
 
 
 const entriesToMd = (entries: TimeEntry[]) => {
@@ -45,7 +44,7 @@ export const recordTodayEntriesToDN = async () => {
 
     const updateRecordNote = async (markdown: string) => {
 
-        if (store.config.dailynoteBox === '') {
+        if (config().dailynoteBox === '') {
             showMessage('请填写笔记本 ID', 4000, 'error');
             return;
         }
@@ -95,40 +94,59 @@ export const recordTodayEntriesToDN = async () => {
     showMessage('已将 toggl 记录添加到 daily note 中', 4000, 'info');
 }
 
-
 let timer: ReturnType<typeof setInterval> | null = null;
-const clearTimer = () => {
+let endOfDayTimer: ReturnType<typeof setTimeout> | null = null;
+const clearTimers = () => {
     if (timer) {
         clearInterval(timer);
         timer = null;
     }
+    if (endOfDayTimer) {
+        clearTimeout(endOfDayTimer);
+        endOfDayTimer = null;
+    }
 }
-/**
- * 自动获取 toggl 记录到 daily note 中
- */
+
+const scheduleEndOfDayTask = () => {
+    const now = new Date();
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 0, 0); // 设置到当天的 23:59:00
+
+    const timeUntilEndOfDay = endOfDay.getTime() - now.getTime();
+
+    if (timeUntilEndOfDay > 0) {
+        endOfDayTimer = setTimeout(() => {
+            console.debug('在一天结束前一分钟执行 toggl 记录获取');
+            recordTodayEntriesToDN();
+        }, timeUntilEndOfDay);
+    }
+}
+
 export const toggleAutoFetch = (enable: boolean) => {
     console.log('ToggleAutoFetch', enable);
     if (enable === false) {
-        clearTimer();
+        clearTimers();
     } else {
-
-        if (config.topDevice !== window.siyuan.config.system.id) {
-            //为了避免多个设备同时执行自动获取造成文档冲突, 只在顶层设备上执行自动获取
+        //为了避免多个设备同时执行自动获取造成文档冲突, 只在特定设备上执行自动获取
+        if (config().topDevice !== window.siyuan.config.system.id) {
             console.log('非主设备, 不执行自动获取');
             return;
         }
 
         if (timer === null) {
-            const interval = store.config.dnAutoFetchInterval * 60 * 1000;
+            const interval = config().dnAutoFetchInterval * 60 * 1000;
             timer = setInterval(() => {
                 console.debug('自动获取 toggl 记录');
                 recordTodayEntriesToDN();
             }, interval);
-            console.info(`开始自动获取 toggl 记录, 间隔 ${store.config.dnAutoFetchInterval} 分钟`);
+            console.info(`开始自动获取 toggl 记录, 间隔 ${config().dnAutoFetchInterval} 分钟`);
+        }
+        if (endOfDayTimer === null) {
+            // 调度一天结束前一分钟的任务
+            scheduleEndOfDayTask();
         }
     }
 }
-
 createEffect(() => {
-    toggleAutoFetch(store.config.dnAutoFetch);
+    toggleAutoFetch(config().dnAutoFetch);
 });

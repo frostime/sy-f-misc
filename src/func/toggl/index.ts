@@ -3,11 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2025-01-01 23:51:51
+ * @LastEditTime : 2025-01-02 01:24:02
  * @Description  : 
  */
 import * as components from './components';
-import * as store from './state';
+// import * as store from './state';
+import * as config from './state/config';
 import * as active from './state/active';
 import { recordTodayEntriesToDN, toggleAutoFetch } from './func/record-to-dn';
 import type FMiscPlugin from '@/index';
@@ -21,7 +22,8 @@ export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
 
-    await store.load(plugin);
+    await config.load(plugin);
+    active.load()
     globalThis.toggl = null;
 
     plugin.registerMenuTopMenu('toggl', [{
@@ -32,8 +34,8 @@ export const load = async (plugin: FMiscPlugin) => {
         }
     }]);
 
-    if (store.config.token) {
-        toggleAutoFetch(store.config.dnAutoFetch);
+    if (config.config().token) {
+        toggleAutoFetch(config.config().dnAutoFetch);
     }
 
     plugin.addLayoutReadyCallback(() => {

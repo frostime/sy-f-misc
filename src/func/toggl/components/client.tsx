@@ -3,7 +3,7 @@ import { type Project, type Tag } from '../api/types';
 import { getProjects, getTags } from '../api/me';
 import { activeEntry, isLoading, stopEntry, syncEntry, startEntry, updateEntry } from '../state/active';
 
-import { me } from '../state';
+import { me } from '../state/config';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 import { showMessage } from 'siyuan';
 

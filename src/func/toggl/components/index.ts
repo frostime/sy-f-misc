@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 23:36:06
  * @FilePath     : /src/func/toggl/components/index.ts
- * @LastEditTime : 2025-01-01 23:59:20
+ * @LastEditTime : 2025-01-02 01:29:35
  * @Description  : 
  */
 // import { thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { config } from "../state";
+import { config as configRef } from "../state/config";
 import { TimerBubble } from "./timer-bubble";
 import { showTogglDialog } from "./dialog";
 import { render } from "solid-js/web";
@@ -19,6 +19,7 @@ const InMiniWindow = () => {
     return body.classList.contains('body--window');
 }
 
+const config = configRef.store;
 
 let disposeMiniTimer: () => void;
 export const updateMiniTimerUI = () => {

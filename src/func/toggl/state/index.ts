@@ -3,97 +3,15 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 22:22:24
  * @FilePath     : /src/func/toggl/state/index.ts
- * @LastEditTime : 2025-01-01 23:37:34
+ * @LastEditTime : 2025-01-02 01:31:33
  * @Description  : 
  */
-import { debounce } from "@frostime/siyuan-plugin-kits";
-import { type Plugin } from "siyuan";
-import { createMemo, createSignal } from "solid-js";
-import { createStore, unwrap } from 'solid-js/store'
-import { type Project, type User } from "../api/types";
-import { getMe } from "../api/me";
-
-import * as active from "./active";
-// export * from "./active";
-
-//******************** Config ********************
-
-interface IConfig {
-    token: string;
-    dailynoteBox: NotebookId;
-    dnAutoFetch: boolean; //自动获取今天的 toggl 活动
-    dnAutoFetchInterval: number; //自动获取今天的 toggl 活动的时间间隔 (分钟)
-    topDevice: string; //最高优先级的设备的 ID
-    miniTimerType: 'none' | 'statusBar' | 'bubble';
-}
-
-const [config, setConfig] = createStore<IConfig>({
-    token: "",
-    dailynoteBox: "",
-    dnAutoFetch: false,
-    dnAutoFetchInterval: 60,
-    topDevice: "",
-    miniTimerType: 'statusBar'
-});
-
-const mergeConfig = (newConfig: Partial<IConfig>) => {
-    setConfig(prevConfig => ({ ...prevConfig, ...newConfig }));
-}
-
-//Auth token in base64 format
-const token64 = createMemo(() => btoa(config.token + ':api_token'));
-
-//******************** Toggl Status ********************
-
-const [me, setMe] = createSignal<User>(); //Toggl 当前用户
-
-const isConnected = createMemo(() => me() !== undefined && me()?.api_token !== undefined);
-
-interface IProject extends Project {
-    bind_siyuan_doc?: DocumentId;
-}
-const [projects, setProjects] = createStore<Record<string, IProject>>({});
-
-//******************** Data IO ********************
-
-const StoreName = 'toggl.json';
-
-const save_ = async (plugin: Plugin) => {
-    let data = unwrap(config);
-    plugin.saveData(StoreName, data);
-    console.debug('Save toggl data:', data);
-}
-const save = debounce(save_, 2000);
-
-const load = async (plugin: Plugin) => {
-    let data = await plugin.loadData(StoreName);
-    data = data || {};
-    if (data) {
-        console.debug('Load toggl data:', data);
-        mergeConfig(data);
-        console.debug('Merge toggl data:', config);
-        getMe().then((data) => {
-            if (data.ok) {
-                setMe(data.data);
-            }
-            active.load();
-        }).catch((error) => {
-            console.error('Failed to get me:', error);
-        }); //初始化的时候，获取当前的用户
-    }
-}
+export * as config from "./config";
+export * as active from "./active";
 
 export {
-    config,
-    setConfig,
-    mergeConfig,
-    token64,
-    load,
-    save,
-    me,
-    setMe,
-    isConnected,
-    projects,
-    setProjects,
-};
-
+    me, isConnected, projects, config as configRef, save, load
+} from './config';
+export {
+    activeEntry, elapsedTime, syncEntry, startEntry, stopEntry, updateEntry
+} from './active';
