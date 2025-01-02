@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2025-01-02 22:25:41
+ * @LastEditTime : 2025-01-02 22:50:47
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -57,20 +57,20 @@ let CustomModuleConfigs: IFuncModule['declareModuleConfig'][] = [];
 
 
 const Misc: ISettingItem[] = [
-    {
-        type: 'textinput',
-        title: 'Zotero Password',
-        description: 'Zotero Debug-Bridge 的密码',
-        key: 'zoteroPassword',
-        value: 'CTT'
-    },
-    {
-        type: 'textinput',
-        title: 'Zotero 存储目录',
-        description: 'Zotero 的数据存储位置',
-        key: 'zoteroDir',
-        value: ''
-    },
+    // {
+    //     type: 'textinput',
+    //     title: 'Zotero Password',
+    //     description: 'Zotero Debug-Bridge 的密码',
+    //     key: 'zoteroPassword',
+    //     value: 'CTT'
+    // },
+    // {
+    //     type: 'textinput',
+    //     title: 'Zotero 存储目录',
+    //     description: 'Zotero 的数据存储位置',
+    //     key: 'zoteroDir',
+    //     value: ''
+    // },
     // {
     //     type: 'textinput',
     //     title: '代码编辑器',

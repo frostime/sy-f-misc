@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-01-02 19:26:54
+ * @LastEditTime : 2025-01-02 22:51:23
  * @Description  : 
  */
 import {
@@ -219,28 +219,28 @@ export default class FMiscPlugin extends Plugin {
         }
         this.data[StorageNameConfigs] = currentData;
         //读入 zoteroDir 进行覆盖
-        this.deviceStorage = await useLocalDeviceStorage(this);
-        let zoteroDir = this.deviceStorage.get('zoteroDir');
-        let codeEditor = this.deviceStorage.get('codeEditor');
-        if (zoteroDir) {
-            this.data[StorageNameConfigs].Misc.zoteroDir = zoteroDir;
-        }
-        if (codeEditor) {
-            this.data[StorageNameConfigs].Misc.codeEditor = codeEditor;
-        }
+        // this.deviceStorage = await useLocalDeviceStorage(this);
+        // let zoteroDir = this.deviceStorage.get('zoteroDir');
+        // let codeEditor = this.deviceStorage.get('codeEditor');
+        // if (zoteroDir) {
+        //     this.data[StorageNameConfigs].Misc.zoteroDir = zoteroDir;
+        // }
+        // if (codeEditor) {
+        //     this.data[StorageNameConfigs].Misc.codeEditor = codeEditor;
+        // }
     }
 
     async saveConfigs() {
         //本地的不同步保存的项目
-        await this.deviceStorage.set('zoteroDir', this.data[StorageNameConfigs].Misc.zoteroDir);
-        await this.deviceStorage.set('codeEditor', this.data[StorageNameConfigs].Misc.codeEditor);
+        // await this.deviceStorage.set('zoteroDir', this.data[StorageNameConfigs].Misc.zoteroDir);
+        // await this.deviceStorage.set('codeEditor', this.data[StorageNameConfigs].Misc.codeEditor);
 
         // 创建 this.data[StorageNameConfigs] 的副本，并去掉 zoteroDir
         let s = JSON.stringify(this.data[StorageNameConfigs]);
         console.debug('SaveConfigs', s);
         let dataToSave: any = JSON.parse(s);
-        dataToSave.Misc.zoteroDir = "/";
-        dataToSave.Misc.codeEditor = "";
+        // dataToSave.Misc.zoteroDir = "/";
+        // dataToSave.Misc.codeEditor = "";
         this.saveData(StorageNameConfigs + '.json', dataToSave);
     }
 

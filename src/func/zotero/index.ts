@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2025-01-02 18:33:02
+ * @LastEditTime : 2025-01-02 22:48:56
  * @Description  : 
  */
 import { Protyle, showMessage } from "siyuan";
@@ -11,6 +11,9 @@ import type FMiscPlugin from "@/index";
 import { addProcessor, delProcessor } from "@/func/global-paste";
 
 import { ZoteroDBModal } from "./zoteroModal";
+import { getZoteroDir } from "./config";
+
+export { declareModuleConfig } from "./config";
 
 const pasteProcessor = (detail: ISiyuanEventPaste) => {
     let textPlain = detail.textPlain;
@@ -92,6 +95,7 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
 export let name = 'Zotero';
 export let enabled = false;
 
+
 export const declareToggleEnabled = {
     title: '📚 Zotero',
     description: '启用 Zotero 相关功能',
@@ -135,8 +139,7 @@ export const load = (plugin: FMiscPlugin) => {
             let keys = Object.keys(data);
 
             if (keys.length === 1) {
-
-                let html = parseNoteHtml(data[keys[0]], plugin.getConfig('Misc', 'zoteroDir'));
+                let html = parseNoteHtml(data[keys[0]], getZoteroDir());
                 let lute = window.Lute.New();
                 let md = lute.HTML2Md(html);
                 // md = `我是 $\\alpha$ 河梁哦`

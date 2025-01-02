@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 18:46:22
  * @FilePath     : /src/func/zotero/zoteroModal.ts
- * @LastEditTime : 2024-07-04 18:02:22
+ * @LastEditTime : 2025-01-02 22:49:38
  * @Description  : 拷贝自思源 zotero 文件引用插件，做了一些修改
  * @Source       : https://github.com/WingDr/siyuan-plugin-citation
  */
@@ -16,6 +16,7 @@ import {
 
 import * as api from '@/api';
 import type FMiscPlugin from "@/index";
+import { getPassword } from "./config";
 
 
 // function processKey(key: string): [number, string] {
@@ -136,7 +137,8 @@ export class ZoteroDBModal {
 
     private async _callZoteroJS(filename: string, prefix: string) {
         // const password = this.plugin.data[STORAGE_NAME].dbPassword;
-        const password = this.plugin.getConfig("Misc", "zoteroPassword");
+        // const password = this.plugin.getConfig("Misc", "zoteroPassword");
+        const password = getPassword();
         const jsContent = await api.getFile(this.absZoteroJSPath + filename + ".js", "text");
 
         const raw = prefix + "\n" + jsContent;
