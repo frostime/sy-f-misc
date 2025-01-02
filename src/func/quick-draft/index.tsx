@@ -3,18 +3,18 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-01-02 16:04:00
+ * @LastEditTime : 2025-01-02 16:16:56
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
 import { getFrontend, openTab, openWindow, Protyle } from "siyuan";
 import {
-    app, createDalynote, formatSiYuanTimestamp, lsOpenedNotebooks, thisPlugin, translateHotkey
+    app, createDalynote, formatSiYuanTimestamp, inputDialog, lsOpenedNotebooks, thisPlugin, translateHotkey
 
 } from "@frostime/siyuan-plugin-kits";
 // import { createSignalRef } from "@frostime/solid-signal-ref";
 import { render } from "solid-js/web";
-import { createDocWithMd, getBlockByID, removeDocByID } from "@frostime/siyuan-plugin-kits/api";
+import { createDocWithMd, getBlockByID, removeDocByID, renameDocByID } from "@frostime/siyuan-plugin-kits/api";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import FMiscPlugin from "@/index";
 
@@ -49,6 +49,9 @@ function ProtyleComponent(props: {
         protyle = await initProtyle();
         if (!protyle) return;
         protyle.focus();
+
+        let block = await getBlockByID(props.blockId);
+
         // 监听 alt+y 快捷键来切换全屏
         document.addEventListener('keydown', handleKeyDown);
         toggleFullScreen(true);
@@ -74,6 +77,32 @@ function ProtyleComponent(props: {
                 autoDelete.update(checkbox.checked);
             });
             div.appendChild(checkbox);
+
+            div.appendChild(document.createElement('span'));
+            let documentTitle = document.createElement('span');
+            documentTitle.textContent = block.content;
+            documentTitle.className = 'b3-label__text';
+            div.appendChild(documentTitle);
+
+            documentTitle.onclick = () => {
+                inputDialog({
+                    title: '修改文档标题',
+                    defaultText: block.content,
+                    confirm: async (value: string) => {
+                        // 手动更改了标题，说明有价值，不自动删除
+                        autoDelete(false);
+                        checkbox.checked = false;
+                        await renameDocByID(props.blockId, value);
+                        block.content = value;
+                        let item = document.querySelector(`li[data-type="tab-header"][aria-label="${block.content}"] > span.item__text`);
+                        if (item) {
+                            // item.click();
+                            item.textContent = value;
+                        }
+                    }
+                });
+            }
+
             status.insertBefore(div, status.firstChild);
         }
     });
