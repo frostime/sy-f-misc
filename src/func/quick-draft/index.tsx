@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-01-02 16:16:56
+ * @LastEditTime : 2025-01-02 21:45:12
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
 import { getFrontend, openTab, openWindow, Protyle } from "siyuan";
 import {
-    app, createDalynote, formatSiYuanTimestamp, inputDialog, lsOpenedNotebooks, thisPlugin, translateHotkey
+    app, createDalynote, formatSiYuanTimestamp, inputDialog, lsOpenedNotebooks, matchIDFormat, thisPlugin, translateHotkey
 
 } from "@frostime/siyuan-plugin-kits";
 // import { createSignalRef } from "@frostime/solid-signal-ref";
@@ -141,15 +141,35 @@ function ProtyleComponent(props: {
 
 const NEW_CARD_WINDOW_TYPE = "new-card-window";
 let isWindow = getFrontend() === "desktop-window";
-const DEFAULT_BOX = '20220305173526-4yjl33h';
+let DEFAULT_BOX = '';
+
+export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
+    key: 'quick-draft',
+    init: (data: { box: string }) => {
+        data.box && (DEFAULT_BOX = data.box);
+    },
+    items: [
+        {
+            key: 'box',
+            title: 'Quick Draft 默认笔记本',
+            description: 'Quick Draft 存放 Quick Draft 的默认笔记本',
+            type: 'textinput',
+            get: () => DEFAULT_BOX,
+            set: (value: string) => {
+                DEFAULT_BOX = value;
+            }
+        }
+    ]
+}
 
 export const openQuickDraft = async (title?: string) => {
     if (isWindow) return;
 
     let notebooks = await lsOpenedNotebooks();
     let box = DEFAULT_BOX;
-    if (notebooks?.length > 0) {
+    if (!matchIDFormat(DEFAULT_BOX) && notebooks?.length > 0) {
         box = notebooks[0].id;
+        DEFAULT_BOX = box;
     }
     let dnId = await createDalynote(box);
     let doc = await getBlockByID(dnId);

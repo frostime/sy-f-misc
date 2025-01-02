@@ -1,7 +1,7 @@
 import { Component, For, JSX, createSignal, onCleanup } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
 
-import { FormWrap as SettingItemWrap } from '@/libs/components/Form';
+import Form, { FormWrap as SettingItemWrap } from '@/libs/components/Form';
 
 import { getAlive } from "@/func/websocket";
 // import TogglSetting from "@/func/toggl/setting";
@@ -46,6 +46,7 @@ interface IArgs {
         title: string;
         element: () => JSX.Element;
     }[];
+    customModuleConfigs?: IFuncModule['declareModuleConfig'][];
 }
 
 
@@ -94,14 +95,63 @@ const App: Component<IArgs> = (props) => {
             settingItems={props.GroupMisc}
             onChanged={changed}
         >
+            {/* 额外增加的两个，懒得再多加新的侧边栏了; 就一块放在这里面吧 */}
             <SettingItemWrap
                 title="Websocket 状态"
                 description="当前 Websocket 的运行状态"
             >
-                <WebSocketStatus/>
+                <WebSocketStatus />
             </SettingItemWrap>
+            {/* 虽然放在这里，但是存储的时候不走 Misc 配置 */}
+            <CustomModuleConfigs />
         </SettingPanel>
     );
+
+    const CustomModuleConfigs = () => (
+        <>
+            <For each={props.customModuleConfigs || []}>
+                {(config) => (
+                    <div style={{
+                        margin: '5px 24px',
+                        padding: '5px 0',
+                        "border-radius": 0,
+                        'border': '1px solid var(--b3-theme-primary)',
+                    }}>
+                        <h3 style={{
+                            padding: '5px 0',
+                            "text-align": 'center',
+                            color: 'var(--b3-theme-primary)',
+                            "border-radius": 0,
+                            'border-bottom': '1px dashed var(--b3-theme-primary)',
+                        }}>
+                            {config.key}
+                        </h3>
+                        <For each={config.items}>
+                            {(item) => (
+                                <Form.Wrap
+                                    title={item.title}
+                                    description={item.description}
+                                    direction={item?.direction}
+                                >
+                                    <Form.Input
+                                        type={item.type}
+                                        key={item.key}
+                                        value={item.get()}
+                                        placeholder={item?.placeholder}
+                                        options={item?.options}
+                                        slider={item?.slider}
+                                        button={item?.button}
+                                        changed={(v) => item.set(v)}
+                                        style={item?.direction === 'row' ? { width: '100%' } : null}
+                                    />
+                                </Form.Wrap>
+                            )}
+                        </For>
+                    </div>
+                )}
+            </For>
+        </>
+    )
 
     let showGroups = {
         Enable,
@@ -132,7 +182,7 @@ const App: Component<IArgs> = (props) => {
                     </For>
                 </ul>
                 <div class="config__tab-wrap">
-                    <Dynamic component={showGroups[focus()]}/>
+                    <Dynamic component={showGroups[focus()]} />
                 </div>
             </div>
         </>

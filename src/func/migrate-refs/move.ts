@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-11 21:04:03
  * @FilePath     : /src/func/migrate-refs/move.ts
- * @LastEditTime : 2024-12-19 01:37:29
+ * @LastEditTime : 2025-01-02 21:57:24
  * @Description  : 
  */
 
@@ -171,8 +171,8 @@ const moveToDailyNote = async (refBlock: Block, defBlock: Block) => {
     const date = new Date(`${createdTime.slice(0, 4)}-${createdTime.slice(4, 6)}-${createdTime.slice(6, 8)}`);
     let dnId = await searchDailynote(defBlock.box, date);
     if (dnId === null) {
-        const dnHPath = await getPastDNHPath(defBlock.box, date);
-        dnId = await createDiary(defBlock.box, dnHPath, date);
+        // const dnHPath = await getPastDNHPath(defBlock.box, date);
+        dnId = await createDiary(defBlock.box, date);
     }
 
     await moveBlockToDoc(refBlock, dnId);

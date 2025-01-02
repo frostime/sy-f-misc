@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2024-12-22 17:23:32
+ * @LastEditTime : 2025-01-02 20:44:54
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -15,101 +15,6 @@ import { solidDialog } from '@/libs/dialog';
 import { debounce } from '@frostime/siyuan-plugin-kits';
 
 // Enable Setting Item 的 key 必须遵守 `Enable${module.name}` 的格式
-/*
-const Enable: ISettingItem[] = [
-    {
-        type: 'checkbox',
-        title: '🖥️ 中键小窗',
-        description: '启用中键点击元素打开独立小窗功能',
-        key: 'EnableMiniWindow',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '📋 侧边栏Protyle',
-        description: '启用侧边栏自定义 Protyle 功能',
-        key: 'EnableDocky',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '🔍 简单搜索',
-        description: '通过简单的语法以方便搜索',
-        key: 'EnableSimpleSearch',
-        value: false
-    },
-    {
-        type: 'checkbox',
-        title: '⌚ Insert time',
-        description: '启用插入时间功能',
-        key: 'EnableInsertTime',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '🔗 Titled link',
-        description: '启用获取标题功能',
-        key: 'EnableTitledLink',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '🎨 更换主题',
-        description: '启用更换主题功能',
-        key: 'EnableChangeTheme',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '📚 Zotero',
-        description: '启用 Zotero 相关功能',
-        key: 'EnableZotero',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '📄 New file',
-        description: '启用新建文件功能',
-        key: 'EnableNewFile',
-        value: true
-    },
-    {
-        type: 'checkbox',
-        title: '💭 转移引用',
-        description: '启用转移引用功能',
-        key: 'EnableTransferRef',
-        value: false
-    },
-    {
-        type: 'checkbox',
-        title: '💭 迁移引用',
-        description: '将引用迁移到同一个笔记本中',
-        key: 'EnableMigrateRefs',
-        value: false
-    },
-    {
-        type: 'checkbox',
-        title: '🩺 Websocket 监听',
-        description: '启用插件 WS 事件监听',
-        key: 'EnableWebSocket',
-        value: false
-    },
-    {
-        type: 'checkbox',
-        title: '🌐 测试 API',
-        description: '启用测试 API 功能',
-        key: 'EnableTestAPI',
-        value: false
-    },
-    {
-        type: 'checkbox',
-        title: '📤 推送文档发布远端',
-        description: '启用推送文档发布远端功能',
-        key: 'EnablePostDoc',
-        value: false
-    }
-];
-*/
 
 const Enable: ISettingItem[] = ModulesToEnable.filter(module => module.declareToggleEnabled !== undefined).map(module => ({
     type: 'checkbox',
@@ -129,6 +34,13 @@ let CustomPanels: {
     if (module?.declareSettingPanel) {
         //@ts-ignore
         CustomPanels.push(...module.declareSettingPanel);
+    }
+});
+
+let CustomModuleConfigs: IFuncModule['declareModuleConfig'][] = [];
+[...ModulesAlwaysEnable, ...ModulesToEnable].forEach(module => {
+    if (module?.declareModuleConfig) {
+        CustomModuleConfigs.push(module.declareModuleConfig);
     }
 });
 
@@ -267,6 +179,54 @@ export const initSetting = async (plugin: FMiscPlugin) => {
         settingChangedDebounced(plugin, group, key, value);
     }
 
+    // ====== Module Configs ======
+    // 由于历史原因，之前把各个模块的配置存储管理全部耦合在 plugin 里面了
+    // customModuleConfigs 是新的做法, plugin 只管 load/save，各个模块的配置自行负责
+    const storageName = 'customModuleConfigs.json';
+    // 导入并初始化配置
+    let storage = await plugin.loadData(storageName);
+    storage = storage || {};
+    if (storage) {
+        CustomModuleConfigs.forEach(config => {
+            if (!storage[config.key]) return;
+            config.init(storage[config.key]);
+        });
+    }
+
+    const saveModuleConfig = async () => {
+        try {
+            let configs = Object.fromEntries(CustomModuleConfigs.map(config => [
+                config.key,
+                Object.fromEntries(config.items.map(item => [item.key, item.get()]))
+            ]));
+            await plugin.saveData(storageName, configs);
+            console.debug('Module configs saved:', configs);
+        } catch (e) {
+            console.error('Failed to save module configs:', e);
+        }
+    }
+    let saveModuleConfigDebounced = debounce(saveModuleConfig, 1000 * 5);
+    // inject set function, to get the change event
+    const onModuleConfigChanged = (moduleKey: string, key: string, value: any) => {
+        if (!storage[moduleKey]) storage[moduleKey] = {};
+        storage[moduleKey][key] = value;
+        saveModuleConfigDebounced();
+    }
+    /**
+     * Inject set function, to get the change event
+     */
+    CustomModuleConfigs.forEach(config => {
+        config.items.forEach(item => {
+            let initialSetCb = item.set.bind(item);
+            item.set = (value: any) => {
+                initialSetCb(value);
+                onModuleConfigChanged(config.key, item.key, value);
+            }
+        });
+    });
+
+    // ====== Open Setting ======
+
     plugin.openSetting = () => {
         solidDialog({
             title: "F-Misc 设置",
@@ -277,7 +237,8 @@ export const initSetting = async (plugin: FMiscPlugin) => {
                 GroupDocky: Docky,
                 GroupMisc: Misc,
                 changed: onChanged,
-                customPanels: CustomPanels
+                customPanels: CustomPanels,
+                customModuleConfigs: CustomModuleConfigs
             })
         });
         // const container = dialog.element.querySelector('.b3-dialog__container') as HTMLElement;

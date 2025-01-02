@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-01-02 18:34:45
+ * @LastEditTime : 2025-01-02 20:46:54
  * @Description  : 
  */
-import { type JSX } from "solid-js";
+// import { type JSX } from "solid-js";
 
 import type FMiscPlugin from "@/index";
 import * as nf from './new-file';
@@ -32,25 +32,6 @@ import * as gpt from './gpt';
 import * as gp from './global-paste';
 
 // import * as bookmark from './bookmarks';
-
-interface IFuncModule {
-    name: string;
-    enabled: boolean;
-    load: (plugin: FMiscPlugin) => void;
-    unload: (plugin?: FMiscPlugin) => void;
-    // 如果声明了, 在会在设置面板中显示启用的按钮
-    declareToggleEnabled?: {
-        title: string;
-        description: string;
-        defaultEnabled?: boolean;
-    },
-    // 放入 Setting 面板中的界面
-    declareSettingPanel?: {
-        key: string;
-        title: string;
-        element: () => JSX.Element;
-    }[];
-}
 
 export const ModulesToEnable = [
     mw,
