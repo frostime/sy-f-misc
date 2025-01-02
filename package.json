@@ -32,7 +32,7 @@
     "vite-plugin-zip-pack": "^1.2.2"
   },
   "dependencies": {
-    "@frostime/siyuan-plugin-kits": "^1.4.2",
+    "@frostime/siyuan-plugin-kits": "^1.4.3",
     "@frostime/solid-signal-ref": "^2.1.0"
   }
 }

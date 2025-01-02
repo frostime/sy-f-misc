@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2025-01-02 12:43:16
+ * @LastEditTime : 2025-01-02 15:26:18
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 import WebSocketManager from "./ws-manager";
 import { appendBlock, request } from "@/api";
-import { formatSiYuanDate } from "@frostime/siyuan-plugin-kits";
+import { searchAttr, formatSiYuanDate } from "@frostime/siyuan-plugin-kits";
 
 import { openTab, openWindow } from "siyuan";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
@@ -50,7 +50,7 @@ const appendDnList = async (text: string) => {
     let day = today.getDate().toString().padStart(2, '0');
     let v = `${year}${month}${day}`; // 20240710
 
-    let blocks: Block[] = await globalThis.Query.attr(name, v);
+    let blocks = await searchAttr(name, v);
     if (blocks.length !== 1) return;
     let id = blocks[0].id;
 
@@ -87,7 +87,7 @@ const appendDnH2 = async (title: string) => {
     let date = formatSiYuanDate(new Date());
     const attr = `custom-dailynote-${date}`;
     const boxLife = '20220305173526-4yjl33h';
-    let docs: Block[] = await globalThis.Query.attr(attr, date);
+    let docs = await searchAttr(attr, date);
     docs = docs.filter(b => b.box === boxLife);
     if (docs.length !== 1) return;
 
@@ -99,13 +99,13 @@ const appendDnH2 = async (title: string) => {
 
     let width = 800;
     let height = 500;
-    let x = (window.screen.width - width) / 2;
-    let y = (window.screen.height - height) / 2 - 100;
+    // let x = (window.screen.width - width) / 2;
+    // let y = (window.screen.height - height) / 2 - 100;
     openWindow({
-        position: {
-            x: x,
-            y: y
-        },
+        // position: {
+        //     x: x,
+        //     y: y
+        // },
         height: height,
         width: width,
         doc: {

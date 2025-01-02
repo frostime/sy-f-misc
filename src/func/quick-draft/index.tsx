@@ -3,56 +3,89 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-01-02 14:05:04
+ * @LastEditTime : 2025-01-02 16:04:00
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
 import { getFrontend, openTab, openWindow, Protyle } from "siyuan";
 import {
-    app, confirmDialog, createDalynote, formatSiYuanTimestamp, lsOpenedNotebooks, thisPlugin, translateHotkey
+    app, createDalynote, formatSiYuanTimestamp, lsOpenedNotebooks, thisPlugin, translateHotkey
 
 } from "@frostime/siyuan-plugin-kits";
 // import { createSignalRef } from "@frostime/solid-signal-ref";
 import { render } from "solid-js/web";
-import { createDocWithMd, deleteBlock, getBlockByID } from "@frostime/siyuan-plugin-kits/api";
+import { createDocWithMd, getBlockByID, removeDocByID } from "@frostime/siyuan-plugin-kits/api";
+import { createSignalRef } from "@frostime/solid-signal-ref";
+import FMiscPlugin from "@/index";
 
 // const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// const blockToOpen = createSignalRef<string>(null);
+const InMiniWindow = () => {
+    const body: HTMLElement = document.querySelector('body');
+    return body.classList.contains('body--window');
+}
 
-function ProtyleComponent(props: { blockId: string }) {
+function ProtyleComponent(props: { 
+    blockId: string, autoDelete: boolean
+}) {
     let divProtyle: HTMLDivElement | undefined;
     let protyle: Protyle | undefined;
+
+    // const [delOnClose, setDelOnClose] = props.autoDelete.raw;
+    const autoDelete = createSignalRef(props.autoDelete);
+
+    const toggleFullScreen = (flag?: boolean) => {
+        if (!divProtyle) return;
+        divProtyle.classList.toggle('fullscreen', flag);
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'y' && e.altKey) {
+            toggleFullScreen();
+        }
+    }
 
     onMount(async () => {
         protyle = await initProtyle();
         if (!protyle) return;
-
-        // let block = await getBlockByID(props.blockId);
-
         protyle.focus();
+        // 监听 alt+y 快捷键来切换全屏
+        document.addEventListener('keydown', handleKeyDown);
+        toggleFullScreen(true);
+        // 在 id="status" 元素中添加一个 checkbox，决定是否在关闭的时候删除文档
+        const status = document.getElementById('status');
+        if (status) {
+            let div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            div.style.gap = '2px';
 
-        // // 给当前的 window 添加关闭前的监听回调
-        // window.addEventListener('beforeunload', async () => {
-        //     return new Promise(resolve => {
-        //         confirmDialog({
-        //             title: '删除草稿?',
-        //             content: '是否删除草稿?',
-        //             confirm: async () => {
-        //                 await deleteBlock(props.blockId);
-        //                 resolve(true);
-        //             },
-        //             cancel: () => {
-        //                 resolve(false);
-        //             }
-        //         });
-        //     });
-        // });
+            const span = document.createElement('span');
+            span.className = 'b3-label__text';
+            span.textContent = '自动删除草稿';
+            div.appendChild(span);
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = 'delOnClose';
+            checkbox.className = 'b3-switch';
+            checkbox.checked = autoDelete();
+            checkbox.addEventListener('change', () => {
+                autoDelete.update(checkbox.checked);
+            });
+            div.appendChild(checkbox);
+            status.insertBefore(div, status.firstChild);
+        }
     });
 
     onCleanup(async () => {
-        protyle?.destroy();
+        console.log('onCleanup', autoDelete());
         divProtyle = null;
+        document.removeEventListener('keydown', handleKeyDown);
+        protyle?.destroy();
+        if (InMiniWindow() && autoDelete()) {
+            await removeDocByID(props.blockId);
+        }
     });
 
     async function initProtyle() {
@@ -63,16 +96,17 @@ function ProtyleComponent(props: { blockId: string }) {
             blockId: blockId,
             render: {
                 background: false,
-                breadcrumb: false,
-                breadcrumbDocName: false,
+                breadcrumb: true,
+                breadcrumbDocName: true,
+                title: false,
                 scroll: true,
                 gutter: true
             }
         });
     }
 
-    return <div class="container" style="height: 100%;">
-        <div style="height: 100%;" ref={divProtyle} />
+    return <div class="container" style="height: 100%; display: flex; flex-direction: column;">
+        <div style="flex: 1;" ref={divProtyle} />
     </div>;
 }
 
@@ -91,15 +125,16 @@ export const openQuickDraft = async (title?: string) => {
     let dnId = await createDalynote(box);
     let doc = await getBlockByID(dnId);
 
-    title = title || formatSiYuanTimestamp();
-    let newDocPath = doc.hpath + `/${title}`;
+    let docTitle = title || formatSiYuanTimestamp();
+    let newDocPath = doc.hpath + `/${docTitle}`;
     let newDocId = await createDocWithMd(doc.box, newDocPath, '\n');
     let plugin = thisPlugin();
     const tabOption = {
         icon: "iconCardBox",
-        title: "新建卡片",
+        title: docTitle,
         data: {
-            blockId: newDocId
+            blockId: newDocId,
+            autoDelete: title ? false : true
         },
         id: plugin.name + NEW_CARD_WINDOW_TYPE
     };
@@ -111,8 +146,8 @@ export const openQuickDraft = async (title?: string) => {
     // const screenWidth = window.screen.availWidth;
     // const screenHeight = window.screen.availHeight;
     openWindow({
-        height: 500,
-        width: 600,
+        height: 400,
+        width: 750,
         tab: await tab
     });
 }
@@ -120,20 +155,24 @@ export const openQuickDraft = async (title?: string) => {
 export let name = "QuickNote";
 export let enabled = false;
 let disposer: () => void;
-export const load = () => {
+export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
 
-    let plugin = thisPlugin();
+    // let plugin = thisPlugin();
 
     plugin.addTab({
         type: NEW_CARD_WINDOW_TYPE,
         async init() {
             if (!isWindow) return
             let blockId = this.data.blockId;
-            disposer = render(() => <ProtyleComponent blockId={blockId} />, this.element);
+            disposer = render(
+                () => <ProtyleComponent blockId={blockId} autoDelete={this.data.autoDelete} />,
+                this.element
+            );
         },
-        async beforeDestroy() {
+        async destroy() {
+            console.log('关闭 QuickDraft 文档');
             disposer?.();
             disposer = () => { };
         }
@@ -147,7 +186,17 @@ export const load = () => {
         globalCallback: () => {
             openQuickDraft();
         }
-    })
+    });
+
+    (plugin).registerMenuTopMenu('QuickDraft', [
+        {
+            icon: 'iconEdit',
+            label: 'Quick Draft',
+            click: () => {
+                openQuickDraft();
+            }
+        }
+    ]);
 
 }
 
