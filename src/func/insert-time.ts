@@ -98,7 +98,7 @@ export let enabled = false;
 export const declareToggleEnabled = {
     title: '⌚ 插入时间',
     description: '通过快捷指令插入时间',
-    defaultEnabled: true
+    defaultEnabled: false
 };
 
 export const load = (plugin: FMiscPlugin) => {

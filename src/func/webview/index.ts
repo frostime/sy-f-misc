@@ -24,7 +24,7 @@ export let enabled = false;
 export const declareToggleEnabled = {
     title: '🌐 网页视图',
     description: '启用网页视图功能',
-    defaultEnabled: true
+    defaultEnabled: false
 };
 
 const createAppTemplate = (url: string): IWebApp => {

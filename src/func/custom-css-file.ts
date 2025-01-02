@@ -32,7 +32,7 @@ export let enabled = false;
 export const declareToggleEnabled = {
     title: '🎨 自定义 CSS',
     description: '启用自定义 CSS 功能',
-    defaultEnabled: true
+    defaultEnabled: false
 };
 
 let cssWatchInterval: NodeJS.Timeout | null = null;

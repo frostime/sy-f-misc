@@ -56,7 +56,7 @@ export const unload = (plugin: FMiscPlugin) => {
 export const declareToggleEnabled = {
     title: '⏰ Toggl',
     description: 'Toggl 时间跟踪',
-    defaultEnabled: true
+    defaultEnabled: false
 };
 
 

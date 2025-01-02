@@ -261,6 +261,6 @@ export const unload = () => {
 export const declareToggleEnabled = {
     title: '💡 QuickDraft',
     description: '快速创建笔记草稿',
-    defaultEnabled: true
+    defaultEnabled: false
 };
 

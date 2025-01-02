@@ -21,23 +21,15 @@
 >
 > Please carefully read the above instructions before using the plugin, and evaluate whether it meets your needs before deciding to use it.
 
-> 🤔 为什么要上架这个插件？
->
+
 > 此前，本人已经开发了很多插件并上架到了集市。这些插件大多是根据我自己的需求，在这个自用插件中开发，在后续的使用过程中觉得还不错，就拆分成独立的插件上架给大家使用。集市中至少有六七个插件是拆分自本插件，包括书签+、QueryView 等较为复杂的插件。
 >
-> 然而拆分插件的工作量很大，而且需要同步维护，还要考虑文档和国际化等问题。考虑到个人的时间和精力，本人可能不太有动力再重复这样的工作流程了。
+> 然而拆分插件的工作量很大，而且需要同步维护，还要考虑文档和国际化等问题。考虑到个人的时间和精力，本人可能不太有动力再重复这样的工作流程了。因此，也欢迎有能力的开发者帮助我拆分和迁移功能。如果开发者对本插件中的特定子功能感兴趣，欢迎在遵守 **GPL-v3 开源协议**的前提下，自行进行功能迁移和独立开发。
 >
-> 我发布这个插件，一方面是为了方便普通用户直接使用，另一方面，也欢迎有能力的开发者帮助我拆分和迁移功能。如果开发者对本插件中的特定子功能感兴趣，欢迎在遵守 **GPL-v3 开源协议**的前提下，自行进行功能迁移和独立开发。
->
-> 🤔 Why release this plugin?
 >
 > In the past, I have developed many plugins and published them on the Marketplace. These plugins were mostly developed based on my own needs within this personal plugin. If they felt good to use, I later split them into independent plugins for public use. At least six or seven plugins currently on the Marketplace are derived from this plugin, including some complex ones like Bookmark+ and QueryView.
 >
-> However, splitting up plugins takes a lot of effort, and requires synchronized maintenance, as well as considering documentation and internationalization. Given my limited time and energy, I am unlikely to have the motivation to repeat this process in the future.
->
-> I am releasing this plugin for two reasons: first, to make it easier for average users to use directly; and second, to welcome capable developers to help me split and migrate features.
->
-> If any developer is interested in specific sub-functions within this plugin, you are welcome to migrate and develop them independently, provided that you adhere to the **GPL-v3 open-source license**.
+> However, splitting up plugins takes a lot of effort, and requires synchronized maintenance, as well as considering documentation and internationalization. Given my limited time and energy, I am unlikely to have the motivation to repeat this process in the future. If any developer is interested in specific sub-functions within this plugin, you are welcome to migrate and develop them independently, provided that you adhere to the **GPL-v3 open-source license**.
 
 ---
 

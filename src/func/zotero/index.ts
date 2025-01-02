@@ -99,7 +99,7 @@ export let enabled = false;
 export const declareToggleEnabled = {
     title: '📚 Zotero',
     description: '启用 Zotero 相关功能',
-    defaultEnabled: true
+    defaultEnabled: false
 };
 
 export const load = (plugin: FMiscPlugin) => {

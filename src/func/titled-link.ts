@@ -47,7 +47,7 @@ export let enabled = false;
 export const declareToggleEnabled = {
     title: '🔗 Titled link',
     description: '启用获取标题功能',
-    defaultEnabled: true
+    defaultEnabled: false
 };
 
 export const load = (plugin: FMiscPlugin) => {

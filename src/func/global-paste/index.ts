@@ -14,7 +14,7 @@ export let enabled = false;
 export const declareToggleEnabled = {
     title: '📋 全局粘贴',
     description: '启用全局粘贴处理功能',
-    defaultEnabled: true
+    defaultEnabled: false
 };
 
 const processors: {[key: string]: (detail: ISiyuanEventPaste) => boolean} = {
