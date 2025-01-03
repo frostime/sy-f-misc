@@ -233,7 +233,7 @@ $chat-very-narrow-container: 360px;
 }
 
 .toolbarButton {
-    padding: 2px !important;
+    padding: 3px !important;
     opacity: 0.6;
 
     &:hover {
@@ -243,6 +243,7 @@ $chat-very-narrow-container: 360px;
     svg {
         width: 14px;
         height: 14px;
+        margin: 0px;
     }
 }
 

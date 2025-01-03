@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2024-12-31 15:03:47
+ * @LastEditTime : 2025-01-03 19:03:20
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -131,7 +131,7 @@ const ChatSession: Component = (props: {
         e.stopImmediatePropagation();
         e.preventDefault();
         const userPrompts = promptTemplates().filter(item => item.type === 'user');
-        if (userPrompts.length === 0) return;
+        // if (userPrompts.length === 0) return;
 
         let menu = new Menu();
         userPrompts.forEach((prompt) => {
@@ -147,9 +147,32 @@ const ChatSession: Component = (props: {
                 }
             });
         });
+        menu.addItem({
+            icon: 'iconAdd',
+            label: '添加当前内容',
+            click: () => {
+                let content = input.value.trim();
+                if (!content) return;
+                inputDialog({
+                    title: '添加模板',
+                    defaultText: '新模板',
+                    confirm: (text) => {
+                        promptTemplates.update((oldList: IPromptTemplate[]) => {
+                            return [...oldList, {
+                                type: 'user',
+                                name: text,
+                                content: content
+                            }];
+                        });
+                    }
+                })
+            }
+        });
+        const targetElement = e.target as HTMLElement;
+        const rect = targetElement.getBoundingClientRect();
         menu.open({
-            x: e.clientX,
-            y: e.clientY,
+            x: rect.left,
+            y: rect.top,
             isLeft: false
         });
     }

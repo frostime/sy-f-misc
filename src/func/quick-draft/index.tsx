@@ -7,7 +7,7 @@
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
-import { getFrontend, openTab, openWindow, Protyle } from "siyuan";
+import { getFrontend, openTab, openWindow, Protyle, showMessage } from "siyuan";
 import {
     app, createDalynote, formatSiYuanTimestamp, inputDialog, lsOpenedNotebooks, matchIDFormat, thisPlugin, translateHotkey
 
@@ -104,6 +104,12 @@ function ProtyleComponent(props: {
             }
 
             status.insertBefore(div, status.firstChild);
+        }
+
+        if (props.autoDelete) {
+            setTimeout(() => {
+                showMessage('临时草稿，关闭后自动删除!', 2500);
+            }, 300);
         }
     });
 
