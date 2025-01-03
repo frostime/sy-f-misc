@@ -1,9 +1,10 @@
-import { Show, For, createEffect } from 'solid-js';
+import { Show, For } from 'solid-js';
 import { getTimeEntries } from '../api/time_entries';
 import { type TimeEntry } from '../api/types';
-import { me, projects, tags } from '../state/config';
+import { me, projectNames, projects, tags } from '../state/config';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 import styles from './time-entry-history.module.scss';
+import { toRfc3339 } from '../utils/time';
 
 interface TimeEntriesStats {
     totalDuration: number;
@@ -32,6 +33,7 @@ const formatDate = (date: Date) => {
         return '昨天';
     } else {
         return date.toLocaleDateString('zh-CN', {
+            year: 'numeric',
             month: 'long',
             day: 'numeric',
             weekday: 'long'
@@ -41,13 +43,12 @@ const formatDate = (date: Date) => {
 
 const TimeEntryHistory = () => {
     const entries = createSignalRef<TimeEntry[]>([]);
-    const selectedYear = createSignalRef<number>(new Date().getFullYear());
-    const selectedMonth = createSignalRef<number>(new Date().getMonth() + 1);
+    // const selectedYear = createSignalRef<number>(new Date().getFullYear());
+    // const selectedMonth = createSignalRef<number>(new Date().getMonth() + 1);
     const loading = createSignalRef(false);
 
     const getProjectName = (projectId: number) => {
-        const project = projects().find(p => p.id === projectId);
-        return project ? project.name : `Project #${projectId}`;
+        return projectNames()[projectId] ?? `Project #${projectId}`;
     };
 
     const getTagNames = (tagIds: number[]) => {
@@ -60,11 +61,13 @@ const TimeEntryHistory = () => {
     const fetchEntries = async () => {
         loading(true);
         try {
-            const startDate = new Date(selectedYear(), selectedMonth() - 1, 1);
-            const endDate = new Date(selectedYear(), selectedMonth(), 0);
+            // const startDate = new Date(selectedYear(), selectedMonth() - 1, 1);
+            // const endDate = new Date(selectedYear(), selectedMonth(), 0);
+            // toggl 这个 API 默认最多只获取最近的 1K 条，所以暂时先没有做分页的毕业了
             const response = await getTimeEntries({
-                start_date: startDate.toISOString(),
-                end_date: endDate.toISOString()
+                // start_date: startDate.toISOString(),
+                // end_date: endDate.toISOString()
+                before: toRfc3339(new Date())
             });
             if (response.ok) {
                 entries(response.data);
@@ -85,21 +88,23 @@ const TimeEntryHistory = () => {
         }, { totalDuration: 0, totalEntries: 0 });
     };
 
-    const changeMonth = (delta: number) => {
-        let newMonth = selectedMonth() + delta;
-        let newYear = selectedYear();
+    // const changeMonth = (delta: number) => {
+    //     let newMonth = selectedMonth() + delta;
+    //     let newYear = selectedYear();
 
-        if (newMonth > 12) {
-            newMonth = 1;
-            newYear++;
-        } else if (newMonth < 1) {
-            newMonth = 12;
-            newYear--;
-        }
+    //     if (newMonth > 12) {
+    //         newMonth = 1;
+    //         newYear++;
+    //     } else if (newMonth < 1) {
+    //         newMonth = 12;
+    //         newYear--;
+    //     }
 
-        selectedMonth(newMonth);
-        selectedYear(newYear);
-    };
+    //     selectedMonth(newMonth);
+    //     selectedYear(newYear);
+    // };
+
+    const ealiestDate = createSignalRef("");
 
     const groupEntriesByDate = (entries: TimeEntry[]): GroupedEntry[] => {
         const groups: { [key: string]: TimeEntry[] } = {};
@@ -108,6 +113,10 @@ const TimeEntryHistory = () => {
         const sortedEntries = [...entries].sort((a, b) =>
             new Date(b.start).getTime() - new Date(a.start).getTime()
         );
+
+        if (sortedEntries.length > 0) {
+            ealiestDate(sortedEntries[sortedEntries.length - 1].start);
+        }
 
         sortedEntries.forEach(entry => {
             const date = new Date(entry.start).toDateString();
@@ -128,17 +137,17 @@ const TimeEntryHistory = () => {
         fetchEntries();
     }
 
-    // Refetch when year or month changes
-    createEffect(() => {
-        selectedYear();
-        selectedMonth();
-        fetchEntries();
-    });
+    // // Refetch when year or month changes
+    // createEffect(() => {
+    //     selectedYear();
+    //     selectedMonth();
+    //     fetchEntries();
+    // });
 
     return (
         <div class={styles.container}>
             {/* Navigation Controls */}
-            <div class={styles.navigation}>
+            {/*<div class={styles.navigation}>
                 <div class={styles.navGroup}>
                     <button
                         class={styles.navButton}
@@ -169,7 +178,7 @@ const TimeEntryHistory = () => {
                         ▶
                     </button>
                 </div>
-            </div>
+            </div>*/}
 
             {/* Content Area */}
             <div class={styles.content}>
@@ -185,6 +194,21 @@ const TimeEntryHistory = () => {
                                 <div class={styles.statsLabel}>Total Entries</div>
                                 <div class={styles.statsValue}>{calculateStats().totalEntries}</div>
                             </div>
+                        </div>
+                        <div style={{
+                            "border-top": "1px solid var(--b3-border-color)",
+                            "margin-top": "10px",
+                            "padding-top": "10px",
+                            display: "flex",
+                            'justify-content': 'space-between',
+                            'align-items': 'center'
+                        }}>
+                            <span>
+                                {ealiestDate()?.split('T')[0]} ~ {formatDate(new Date())}
+                            </span>
+                            <a href={`https://track.toggl.com/reports/detailed/${me().default_workspace_id}/period/thisYear`} target="_blank">
+                                前往 Toggl 查看完整记录
+                            </a>
                         </div>
                     </div>
 
@@ -236,6 +260,11 @@ const TimeEntryHistory = () => {
                                 </div>
                             )}
                         </For>
+                        <div class={styles.dateSeparator}>
+                            <span class={styles.dateLabel}>
+                                完整记录，请登录 <a href="https://track.toggl.com/timer" target="_blank">Toggl</a> 查看
+                            </span>
+                        </div>
                     </div>
                 </Show>
             </div>

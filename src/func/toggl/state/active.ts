@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 19:26:15
  * @FilePath     : /src/func/toggl/state/active.ts
- * @LastEditTime : 2025-01-02 10:31:05
+ * @LastEditTime : 2025-01-04 01:29:21
  * @Description  : 
  */
 import { createEffect, onCleanup, on } from 'solid-js';
@@ -11,7 +11,7 @@ import { type TimeEntry } from '../api/types';
 import { getCurrentTimeEntry, startTimeEntry, stopTimeEntry, updateTimeEntry } from '../api/time_entries';
 
 import { createSignalRef } from '@frostime/solid-signal-ref';
-import { fetchMe, me } from './config';
+import { me } from './config';
 
 let elapsedTimer: number | null = null;
 let syncTimer: number | null = null;
@@ -144,11 +144,7 @@ createEffect(on(activeEntry.signal, (entry) => {
 onCleanup(clearElapsedTimer);
 
 export const load = async () => {
-    let ok = await fetchMe();
-    if (!ok) {
-        console.warn('Toggl: can not fetch user');
-        return false;
-    }
+    if (!me()) return false;
     syncEntry();
     startSyncTimer();
 }

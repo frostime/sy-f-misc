@@ -37,11 +37,11 @@ export const load = async (plugin: FMiscPlugin) => {
             }
         },
         {
-            label: 'Toggl 历史纪录',
+            label: '近期 Toggl 记录',
             icon: 'iconClock',
             click: () => {
                 solidDialog({
-                    title: 'Toggl 历史纪录',
+                    title: 'Toggl 近期记录',
                     loader: TimeEntryHistory,
                     width: '800px',
                     height: '600px',

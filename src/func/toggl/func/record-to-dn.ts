@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2025-01-02 01:25:25
+ * @LastEditTime : 2025-01-04 01:31:01
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
@@ -16,7 +16,7 @@ import { checkDailynoteToday } from "../utils/dailynote";
 import { TimeEntry } from "../api/types";
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { createEffect } from "solid-js";
-import { config } from "../state/config";
+import { config, projectNames } from "../state/config";
 
 
 const entriesToMd = (entries: TimeEntry[]) => {
@@ -29,7 +29,10 @@ const entriesToMd = (entries: TimeEntry[]) => {
         let item = `- **${entry.description}**`;
         item += `\n    - **时间段**: ${start} ~ ${stop}`
         item += `\n    - **持续时间**: ${duration}`
-        if (entry.project_id) item += `\n    - **项目**: ${entry.project_id}`
+        if (entry.project_id) {
+            let name = projectNames()[entry.project_id] ?? `${entry.project_id}`;
+            item += `\n    - **项目**: ${name}`;
+        }
         if (entry.tags && entry.tags.length > 0) item += `\n    - **标签**: #${entry.tags.join(', #')}`
         return item;
     });

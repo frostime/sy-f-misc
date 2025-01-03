@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 22:22:24
  * @FilePath     : /src/func/toggl/state/config.ts
- * @LastEditTime : 2025-01-03 22:00:41
+ * @LastEditTime : 2025-01-04 01:27:16
  * @Description  : 
  */
 import { debounce } from "@frostime/siyuan-plugin-kits";
 import { type Plugin } from "siyuan";
 import { createMemo } from "solid-js";
 import { type Project, type User, type Tag } from "../api/types";
-import { getMe } from "../api/me";
+import { getMe, getProjects, getTags } from "../api/me";
 
 import { createSignalRef, createStoreRef } from "@frostime/solid-signal-ref";
 // export * from "./active";
@@ -52,6 +52,8 @@ export const isConnected = createMemo(() => me() !== undefined && me()?.api_toke
 export const projects = createSignalRef<Project[]>([]);
 export const tags = createSignalRef<Tag[]>([]);
 
+export const projectNames = createMemo(() => Object.fromEntries(projects().map(p => [p.id, p.name])));
+
 export const fetchMe = async () => {
     try {
         let dataMe = await getMe();
@@ -62,6 +64,21 @@ export const fetchMe = async () => {
     } catch (error) {
         console.error('Failed to get me:', error);
         return false;
+    }
+}
+
+export const fetchProjectsTags = async () => {
+    const [projectsRes, tagsRes] = await Promise.all([
+        getProjects(),
+        getTags()
+    ]);
+
+    if (projectsRes.ok) {
+        projects(projectsRes.data);
+    }
+
+    if (tagsRes.ok) {
+        tags(tagsRes.data);
     }
 }
 
@@ -84,4 +101,11 @@ export const load = async (plugin: Plugin) => {
         mergeConfig(data);
         console.debug('Merge toggl data:', config);
     }
+    let ok = await fetchMe();
+    if (!ok) {
+        console.warn('Toggl: can not fetch user');
+        return false;
+    }
+    await fetchProjectsTags();
+    return true;
 }
