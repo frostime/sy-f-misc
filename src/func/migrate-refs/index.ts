@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-14 22:13:04
  * @FilePath     : /src/func/migrate-refs/index.ts
- * @LastEditTime : 2024-12-19 14:37:58
+ * @LastEditTime : 2025-01-03 12:48:57
  * @Description  : 
  */
 import { subMenu, type IGetDocInfo, type IProtyle } from "siyuan";
@@ -11,6 +11,8 @@ import type FMiscPlugin from "@/index";
 import { getBlockByID, sql } from "@/api";
 import { solidDialog } from "@/libs/dialog";
 import RefsTable from "./refs-tables";
+
+import { fb2p } from "./search";
 
 const searchRefs = async (id: BlockId) => {
     const fmt = `
@@ -35,10 +37,10 @@ const clickDocIcon = async (event: CustomEvent<{
         label: '迁移反链',
         click: async () => {
             let defBlock = await getBlockByID(rootID);
-            const queryRefBlocks = async (fb2p?: boolean) => {
+            const queryRefBlocks = async (doFb2p?: boolean) => {
                 let blocks = await searchRefs(rootID);
-                if (fb2p) {
-                    blocks = await globalThis.Query.fb2p(blocks); //依赖于 data-query 中的功能
+                if (doFb2p) {
+                    blocks = await fb2p(blocks); //依赖于 data-query 中的功能
                 }
                 return blocks;
             }

@@ -11,6 +11,7 @@ import { createSignalRef } from "@frostime/solid-signal-ref";
 import { doMove } from "./move";
 import { getBlockByID } from "@/api";
 import { showMessage } from "siyuan";
+import { fb2p } from "./search";
 
 
 const A = (props: { id: string, children: any }) => (
@@ -98,7 +99,7 @@ const RefsTable: Component<{
     const updateRefBlocks = async () => {
         props.queryRefBlocks().then(async (blocks) => {
             if (ifFb2p()) {
-                blocks = await globalThis.Query.fb2p(blocks);
+                blocks = await fb2p(blocks);
             }
             refBlocks(blocks);
         });
