@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2025-01-02 01:24:02
+ * @LastEditTime : 2025-01-03 22:06:53
  * @Description  : 
  */
 import * as components from './components';
@@ -13,6 +13,8 @@ import * as active from './state/active';
 import { recordTodayEntriesToDN, toggleAutoFetch } from './func/record-to-dn';
 import type FMiscPlugin from '@/index';
 import TogglSetting from './setting';
+import { solidDialog } from '@/libs/dialog';
+import TimeEntryHistory from './components/time-entry-history';
 
 export let name = 'Toggl';
 export let enabled = false;
@@ -26,13 +28,27 @@ export const load = async (plugin: FMiscPlugin) => {
     active.load()
     globalThis.toggl = null;
 
-    plugin.registerMenuTopMenu('toggl', [{
-        label: '今日 Toggl',
-        icon: 'iconClock',
-        click: () => {
-            recordTodayEntriesToDN();
+    plugin.registerMenuTopMenu('toggl', [
+        {
+            label: '今日 Toggl',
+            icon: 'iconClock',
+            click: () => {
+                recordTodayEntriesToDN();
+            }
+        },
+        {
+            label: 'Toggl 历史纪录',
+            icon: 'iconClock',
+            click: () => {
+                solidDialog({
+                    title: 'Toggl 历史纪录',
+                    loader: TimeEntryHistory,
+                    width: '800px',
+                    height: '600px',
+                })
+            }
         }
-    }]);
+    ]);
 
     if (config.config().token) {
         toggleAutoFetch(config.config().dnAutoFetch);

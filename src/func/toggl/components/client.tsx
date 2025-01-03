@@ -1,9 +1,9 @@
 import { type Component, For, onMount, JSX } from 'solid-js';
-import { type Project, type Tag } from '../api/types';
+// import { type Project, type Tag } from '../api/types';
 import { getProjects, getTags } from '../api/me';
 import { activeEntry, isLoading, stopEntry, syncEntry, startEntry, updateEntry } from '../state/active';
 
-import { me } from '../state/config';
+import { me, tags, projects } from '../state/config';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 import { showMessage } from 'siyuan';
 
@@ -51,8 +51,7 @@ const actionContainerStyle = {
 
 export const TogglClient: Component = () => {
     const description = createSignalRef('');
-    const projects = createSignalRef<Project[]>([]);
-    const tags = createSignalRef<Tag[]>([]);
+
     const selectedProject = createSignalRef<number | null>(null);
     const selectedTags = createSignalRef<number[]>([]);
 
