@@ -31,6 +31,8 @@ import * as css from './custom-css-file';
 import * as gpt from './gpt';
 import * as gp from './global-paste';
 
+import * as md from './markdown';
+
 // import * as bookmark from './bookmarks';
 
 export const ModulesToEnable: IFuncModule[] = [
@@ -53,7 +55,8 @@ export const ModulesToEnable: IFuncModule[] = [
     mr,
     ws,
     pd,
-    ta
+    ta,
+    md
 ]
 
 export const ModulesAlwaysEnable: IFuncModule[] = [];

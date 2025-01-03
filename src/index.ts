@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-01-02 22:51:23
+ * @LastEditTime : 2025-01-03 17:58:36
  * @Description  : 
  */
 import {
@@ -23,10 +23,10 @@ import "@/index.scss";
 import { initSetting } from "./settings";
 // import { onPaste } from "./global-paste";
 
-import { updateStyleDom, registerPlugin, thisPlugin, inputDialog } from "@frostime/siyuan-plugin-kits";
+import { updateStyleDom, registerPlugin } from "@frostime/siyuan-plugin-kits";
 
 // import type {} from "solid-styled-jsx";
-import { request, getFile, exportMdContent } from "./api";
+import { getFile } from "./api";
 
 import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
 
@@ -132,51 +132,32 @@ export default class FMiscPlugin extends Plugin {
 
         });
 
-        this.addProtyleSlash({
-            filter: ['toc', 'outline'],
-            html: '插入文档大纲',
-            id: 'toc',
-            callback: (protyle: Protyle) => {
-                request('/api/outline/getDocOutline', {
-                    id: protyle.protyle.block.rootID
-                }).then((ans) => {
-                    console.log('toc');
-                    const iterate = (data: any) => {
-                        let toc: string[] = [];
-                        for (let item of data) {
-                            toc.push(`${'  '.repeat(item.depth)} * [${item.name || item.content}](siyuan://blocks/${item.id})`);
-                            if (item.count > 0) {
-                                let subtocs = iterate(item.blocks ?? item.children);
-                                toc = toc.concat(subtocs);
-                            }
-                        }
-                        return toc;
-                    }
-                    let tocs = iterate(ans);
-                    let md = tocs.join('\n');
-                    protyle.insert(md, true);
-                });
-            }
-        });
-
-        const plugin = thisPlugin();
-        plugin.registerOnClickDocIcon((detail) => {
-            const { root_id } = detail;
-            detail.menu.addItem({
-                label: '查看 Markdown',
-                icon: 'iconMarkdown',
-                click: async () => {
-                    let md = await exportMdContent(root_id);
-                    inputDialog({
-                        title: md.hPath,
-                        type: 'textarea',
-                        defaultText: md.content,
-                        width: '1200px',
-                        height: '700px',
-                    });
-                }
-            });
-        })
+        // this.addProtyleSlash({
+        //     filter: ['toc', 'outline'],
+        //     html: '插入文档大纲',
+        //     id: 'toc',
+        //     callback: (protyle: Protyle) => {
+        //         request('/api/outline/getDocOutline', {
+        //             id: protyle.protyle.block.rootID
+        //         }).then((ans) => {
+        //             console.log('toc');
+        //             const iterate = (data: any) => {
+        //                 let toc: string[] = [];
+        //                 for (let item of data) {
+        //                     toc.push(`${'  '.repeat(item.depth)} * [${item.name || item.content}](siyuan://blocks/${item.id})`);
+        //                     if (item.count > 0) {
+        //                         let subtocs = iterate(item.blocks ?? item.children);
+        //                         toc = toc.concat(subtocs);
+        //                     }
+        //                 }
+        //                 return toc;
+        //             }
+        //             let tocs = iterate(ans);
+        //             let md = tocs.join('\n');
+        //             protyle.insert(md, true);
+        //         });
+        //     }
+        // });
     }
 
     /**
@@ -344,7 +325,7 @@ export default class FMiscPlugin extends Plugin {
         //     title: 'f-misc',
         //     position: 'right',
         //     beforeShow(menu, event) {
-                
+
         //     },
         //     menus: () => {
         //         return [];

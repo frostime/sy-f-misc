@@ -7,6 +7,7 @@ import { createSimpleContext } from '@/libs/simple-context';
 import { ChatSetting } from '../setting';
 import { UIConfig, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '../gpt';
+import { adaptIMessageContent } from '../utils';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -183,8 +184,9 @@ export const useSession = (props: {
         let averageLimit = Math.floor(sizeLimit / histories.length);
 
         let inputContent = histories.map(item => {
-            let clippedContent = (item.content as string).substring(0, averageLimit);
-            if (clippedContent.length < (item.content as string).length) {
+            let { text } = adaptIMessageContent(item.content);
+            let clippedContent = text.substring(0, averageLimit);
+            if (clippedContent.length < text.length) {
                 clippedContent += '...(clipped as too long)'
             }
             return `<${item.role}>:\n${clippedContent}`;
