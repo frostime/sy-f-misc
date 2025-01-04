@@ -1,4 +1,6 @@
 import { deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { ZoteroDBModal } from "./zoteroModal";
+import { showMessage } from "siyuan";
 
 let configs = {
     zoteroPassword: 'CTT',
@@ -17,6 +19,7 @@ export const getPassword = () => {
 
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'Zotero',
+    title: 'Zotero 7',
     init: async (data: { zoteroPassword: string, zoteroDir: string }) => {
         configs.zoteroPassword = data.zoteroPassword ?? configs.zoteroPassword;
         let plugin = thisPlugin();
@@ -47,6 +50,28 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
                 zoteroDir[device.id] = value;
                 const plugin = thisPlugin();
                 plugin.saveData('zoteroDir.config.json', zoteroDir);
+            }
+        },
+        {
+            type: 'button',
+            title: '检查 Zotero 连接',
+            description: '',
+            key: 'checkZoteroConnection',
+            get: () => '',
+            set: () => {
+            },
+            button: {
+                label: '检查连接',
+                callback: () => {
+                    let zotero = new ZoteroDBModal();
+                    zotero.checkZoteroRunning().then(res => {
+                        if (res) {
+                            showMessage("Zotero 连接成功", 3000);
+                        } else {
+                            showMessage("无法连接到 Zotero", 3000, 'error');
+                        }
+                    });
+                }
             }
         }
     ]

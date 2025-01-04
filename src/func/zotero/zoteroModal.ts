@@ -10,6 +10,7 @@
 // import Fuse from "fuse.js";
 
 import {
+    Plugin,
     Protyle,
     showMessage
 } from "siyuan";
@@ -17,6 +18,7 @@ import {
 import * as api from '@/api';
 import type FMiscPlugin from "@/index";
 import { getPassword } from "./config";
+import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 
 // function processKey(key: string): [number, string] {
@@ -43,7 +45,7 @@ interface ISelectedItem {
 
 export class ZoteroDBModal {
     private absZoteroJSPath: string;
-    public plugin: FMiscPlugin;
+    public plugin: Plugin;
     public protyle: Protyle;
 
     logger = {
@@ -51,8 +53,9 @@ export class ZoteroDBModal {
         error: (msg: string, data?: any) => console.error(msg, data)
     };
 
-    constructor(plugin: FMiscPlugin) {
-        this.plugin = plugin;
+    constructor() {
+        // this.plugin = plugin;
+        let plugin = thisPlugin();
         this.absZoteroJSPath = `/data/plugins/${plugin.name}/zotero/`;
     }
 
@@ -86,7 +89,7 @@ export class ZoteroDBModal {
         return await this._callZoteroJS("getSelectedItems", "");
     }
 
-    private async checkZoteroRunning(): Promise<boolean> {
+    public async checkZoteroRunning(): Promise<boolean> {
         let data = (await this._callZoteroJS("checkRunning", ""));
         return data?.ready;
     }

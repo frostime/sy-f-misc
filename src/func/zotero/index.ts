@@ -1,4 +1,12 @@
 /*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-12-19 15:18:55
+ * @FilePath     : /src/func/zotero/index.ts
+ * @LastEditTime : 2025-01-04 21:49:55
+ * @Description  : 
+ */
+/*
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
@@ -108,7 +116,7 @@ export const load = (plugin: FMiscPlugin) => {
     addProcessor(name, pasteProcessor);
     enabled = true;
 
-    zotero = new ZoteroDBModal(plugin);
+    zotero = new ZoteroDBModal();
     plugin.addProtyleSlash({
         id: "zotero-cite-selected",
         filter: ["cite"],

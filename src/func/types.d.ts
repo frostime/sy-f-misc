@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 21:39:30
  * @FilePath     : /src/func/types.d.ts
- * @LastEditTime : 2025-01-04 19:21:26
+ * @LastEditTime : 2025-01-04 21:53:06
  * @Description  : 
  */
 interface IConfigItem<T> extends Omit<ISettingItem, 'value'> {
@@ -31,6 +31,7 @@ interface IFuncModule {
     //如果模块的配置比较简单，可以用这个
     declareModuleConfig?: {
         key: string;
+        title?: string;
         items: IConfigItem<any>[];
         init: (itemValues?: Record<string, any>) => void;
         customPanel?: () => JSX.Element;

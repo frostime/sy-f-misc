@@ -84,7 +84,7 @@ const App: Component<IArgs> = (props) => {
                             "border-radius": 0,
                             'border-bottom': '1px dashed var(--b3-theme-primary)',
                         }}>
-                            {config.key}
+                            {config.title || config.key}
                         </h3>
                         <For each={config.items ?? []}>
                             {(item) => (

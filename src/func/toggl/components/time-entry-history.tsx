@@ -206,7 +206,7 @@ const TimeEntryHistory = () => {
                             <span>
                                 {ealiestDate()?.split('T')[0]} ~ {formatDate(new Date())}
                             </span>
-                            <a href={`https://track.toggl.com/reports/detailed/${me().default_workspace_id}/period/thisYear`} target="_blank">
+                            <a href={`https://track.toggl.com/reports/summary`} target="_blank">
                                 前往 Toggl 查看完整记录
                             </a>
                         </div>

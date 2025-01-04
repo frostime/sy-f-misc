@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-01-02 22:11:46
+ * @LastEditTime : 2025-01-04 21:55:30
  * @Description  : 
  */
 // import { type JSX } from "solid-js";
@@ -17,7 +17,7 @@ import * as ct from './change-theme';
 import * as mw from './mini-window';
 import * as docky from './docky';
 import * as tr from './transfer-ref';
-import * as ss from './simple-search';
+// import * as ss from './simple-search';
 // import * as dq from './data-query';
 import * as dc from './doc-context';
 import * as ta from './test-api';
@@ -43,7 +43,7 @@ export const ModulesToEnable: IFuncModule[] = [
     gp,
     wb,
     docky,
-    ss,
+    // ss,
     it,
     tl,
     qd,
