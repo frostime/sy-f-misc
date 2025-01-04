@@ -15,7 +15,7 @@
     "vite:build-no-minify": "cross-env NODE_ENV=production NO_MINIFY=true vite build",
     "make-link": "npx make-link-win",
     "update-version": "npx update-version",
-    "make-install": "pnpm run vite:build-no-minify && npx make-install"
+    "make-install": "pnpm run vite:build && npx make-install"
   },
   "devDependencies": {
     "@types/node": "^20.3.0",
@@ -24,7 +24,7 @@
     "glob": "^10.4.1",
     "minimist": "^1.2.8",
     "rollup-plugin-livereload": "^2.0.5",
-    "sass": "^1.83.0",
+    "sass": "^1.83.1",
     "siyuan": "1.0.7",
     "solid-js": "^1.9.3",
     "ts-node": "^10.9.2",

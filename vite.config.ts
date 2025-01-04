@@ -26,13 +26,13 @@ export default defineConfig({
         }
     },
 
-    css: {
-        preprocessorOptions: {
-            scss: {
-                implementation: sass
-            }
-        }
-    },
+    // css: {
+    //     preprocessorOptions: {
+    //         scss: {
+    //             implementation: sass
+    //         }
+    //     }
+    // },
 
     plugins: [
 
