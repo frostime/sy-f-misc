@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2025-01-02 01:33:49
+ * @LastEditTime : 2025-01-04 01:34:21
  * @Description  : 
  */
 
@@ -172,7 +172,7 @@ const TogglSetting = () => {
                 />
             </Form.Wrap>
             <Form.Wrap
-                title="优先在该设备上运行"
+                title="仅在该设备上进行自动运行以避免多设备冲突"
                 description={descDeviceID()}
                 direction="row"
                 action={

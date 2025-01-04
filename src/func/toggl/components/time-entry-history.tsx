@@ -1,7 +1,7 @@
 import { Show, For } from 'solid-js';
 import { getTimeEntries } from '../api/time_entries';
 import { type TimeEntry } from '../api/types';
-import { me, projectNames, projects, tags } from '../state/config';
+import { me, projectNames, tags } from '../state/config';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 import styles from './time-entry-history.module.scss';
 import { toRfc3339 } from '../utils/time';
