@@ -1,32 +1,10 @@
-import { Component, For, JSX, createSignal, onCleanup } from "solid-js";
+import { Component, For, JSX, Show, createSignal, onCleanup } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
 
 import Form, { FormWrap as SettingItemWrap } from '@/libs/components/Form';
 
-import { getAlive } from "@/func/websocket";
 // import TogglSetting from "@/func/toggl/setting";
 import { Dynamic } from "solid-js/web";
-
-let timer = null;
-
-const WebSocketStatus: Component = () => {
-    let [alive, setAlive] = createSignal(false);
-    if (timer) clearInterval(timer);
-    setAlive(getAlive());
-    timer = setInterval(() => {
-        setAlive(getAlive());
-        console.debug('Websocket Alive:', alive?.());
-    }, 1000 * 5);
-
-    onCleanup(() => {
-        console.log("WebSokect Status Clearup");
-        clearInterval(timer);
-        timer = null;
-    });
-    return <span class="b3-label">
-        {alive() ? "🟢" : "🔴"}
-    </span>
-}
 
 
 /********** Events **********/
@@ -85,14 +63,6 @@ const App: Component<IArgs> = (props) => {
             settingItems={props.GroupMisc}
             onChanged={changed}
         >
-            {/* 额外增加的两个，懒得再多加新的侧边栏了; 就一块放在这里面吧 */}
-            <SettingItemWrap
-                title="Websocket 状态"
-                description="当前 Websocket 的运行状态"
-            >
-                <WebSocketStatus />
-            </SettingItemWrap>
-            {/* 虽然放在这里，但是存储的时候不走 Misc 配置 */}
             <CustomModuleConfigs />
         </SettingPanel>
     );
@@ -116,7 +86,7 @@ const App: Component<IArgs> = (props) => {
                         }}>
                             {config.key}
                         </h3>
-                        <For each={config.items}>
+                        <For each={config.items ?? []}>
                             {(item) => (
                                 <Form.Wrap
                                     title={item.title}
@@ -137,6 +107,9 @@ const App: Component<IArgs> = (props) => {
                                 </Form.Wrap>
                             )}
                         </For>
+                        <Show when={config.customPanel}>
+                            {config.customPanel()}
+                        </Show>
                     </div>
                 )}
             </For>

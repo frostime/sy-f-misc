@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2025-01-02 21:39:30
+ * @FilePath     : /src/func/types.d.ts
+ * @LastEditTime : 2025-01-04 19:21:26
+ * @Description  : 
+ */
 interface IConfigItem<T> extends Omit<ISettingItem, 'value'> {
     get: () => T;
     set: (value: T) => void;
@@ -25,5 +33,6 @@ interface IFuncModule {
         key: string;
         items: IConfigItem<any>[];
         init: (itemValues?: Record<string, any>) => void;
+        customPanel?: () => JSX.Element;
     };
 }

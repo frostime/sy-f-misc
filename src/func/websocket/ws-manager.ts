@@ -20,6 +20,7 @@ interface IWsConfig {
 
 
 export default class WebSocketManager {
+    private static instance: WebSocketManager | null = null;
     private ws: WebSocket | null = null;
     private url: string = '';
 
@@ -33,7 +34,7 @@ export default class WebSocketManager {
 
     public plugin: Plugin
 
-    constructor(plugin: Plugin, config?: Partial<IWsConfig>) {
+    private constructor(plugin: Plugin, config?: Partial<IWsConfig>) {
         this.plugin = plugin;
         this.config = {
             reconnectInterval: 5000,
@@ -42,6 +43,24 @@ export default class WebSocketManager {
         };
         this.validateConfig();
         this.initWebSocketUrl();
+    }
+
+    public static create(plugin: Plugin, config?: Partial<IWsConfig>): WebSocketManager {
+        if (!WebSocketManager.instance) {
+            WebSocketManager.instance = new WebSocketManager(plugin, config);
+        }
+        return WebSocketManager.instance;
+    }
+
+    public static getInstance(): WebSocketManager | null {
+        return WebSocketManager.instance;
+    }
+
+    public static destroyInstance(): void {
+        if (WebSocketManager.instance) {
+            WebSocketManager.instance.unload();
+            WebSocketManager.instance = null;
+        }
     }
 
     private validateConfig() {
