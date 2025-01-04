@@ -1,20 +1,18 @@
 :root {
-    --chat-bg-color: var(--b3-theme-surface);
+    --chat-bg-color: var(--b3-theme-background);
 
-    --chat-user-bg: var(--b3-theme-background-light);
-    --chat-assistant-bg: var(--b3-theme-background-light);
+    --chat-user-bg: var(--b3-theme-surface-light);
+    --chat-assistant-bg: var(--b3-theme-surface-light);
 
     --chat-input-bg: var(--b3-theme-background);
 
-    --chat-text-color: var(--b3-theme-on-surface);
+    --chat-text-color: var(--b3-theme-on-background);
     --chat-border-color: var(--b3-theme-border);
 
     --chat-input-font-size: 20px;
     --chat-message-font-size: 19px;
 
     --chat-max-width: 1250px;
-    // --chat-narrow-container: 480px;
-    // --chat-very-narrow-container: 320px;
 }
 
 $chat-narrow-container: 540px;
@@ -210,6 +208,19 @@ $chat-very-narrow-container: 360px;
             opacity: 1;
         }
     }
+}
+
+/**
+ * 对话工具栏的标签、按钮
+ */
+.toolbarLabel {
+    box-shadow: 0 0 3px 1px var(--b3-theme-primary-lighter);
+    max-width: 15em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
 }
 
 .sendButton {

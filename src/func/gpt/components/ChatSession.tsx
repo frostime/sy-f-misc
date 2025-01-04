@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-03 19:03:20
+ * @LastEditTime : 2025-01-04 18:22:30
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -168,7 +168,7 @@ const ChatSession: Component = (props: {
                 })
             }
         });
-        const targetElement = e.target as HTMLElement;
+        const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
         const rect = targetElement.getBoundingClientRect();
         menu.open({
             x: rect.left,
@@ -204,7 +204,7 @@ const ChatSession: Component = (props: {
         let btn = contaner.closest('button.b3-menu__item') as HTMLButtonElement;
         btn.style.background = 'var(--b3-menu-background) !important';
 
-        let targetElement = e.target as HTMLElement;
+        let targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
         let rect = targetElement.getBoundingClientRect();
         menu.open({
             x: rect.left,
@@ -247,17 +247,11 @@ const ChatSession: Component = (props: {
                 }
                 props.onclick?.(e);
             }}
-            class="b3-label__text b3-button b3-button--outline ariaLabel"
+            class={`b3-label__text b3-button b3-button--outline ariaLabel ${styles.toolbarLabel}`}
             data-role={props.role}
             aria-label={props.label}
             style={{
-                'box-shadow': '0 0 3px 1px var(--b3-theme-primary-lighter)',
-                'max-width': props.maxWidth || '15em',
-                'overflow': 'hidden',
-                'text-overflow': 'ellipsis',
-                'white-space': 'nowrap',
-                display: 'flex',
-                "align-items": "center",
+                'max-width': props.maxWidth,
                 ...props.styles
             }}>
             {props.children}
@@ -638,9 +632,11 @@ const ChatSession: Component = (props: {
                                     }
                                 });
                             });
+                            const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
+                            let rect = targetElement.getBoundingClientRect();
                             menu.open({
-                                x: e.clientX,
-                                y: e.clientY
+                                x: rect.left,
+                                y: rect.top
                             });
                         }}
                     >
