@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "5.3.4",
+  "version": "5.3.5",
   "type": "module",
   "description": "Frostime 自动工具代码",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -8,15 +8,18 @@
   "author": "frostime",
   "license": "GPL-3.0-only",
   "scripts": {
-    "make-link": "node --no-warnings ./scripts/make_dev_link.js",
-    "make-link-win": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/elevate.ps1 -scriptPath ./scripts/make_dev_link.js",
-    "make-install": "vite build && node  --no-warnings ./scripts/make_install.js",
-    "dev": "vite build --watch",
-    "build": "vite build",
-    "update-version": "node ./scripts/update_version.js"
+    "dev": "npm run export-types && npm run vite:dev",
+    "build": "npm run vite:build",
+    "vite:dev": "cross-env NODE_ENV=development VITE_SOURCEMAP=inline vite build --watch",
+    "vite:build": "cross-env NODE_ENV=production vite build",
+    "vite:build-no-minify": "cross-env NODE_ENV=production NO_MINIFY=true vite build",
+    "make-link": "npx make-link-win",
+    "update-version": "npx update-version",
+    "make-install": "pnpm run vite:build-no-minify && npx make-install"
   },
   "devDependencies": {
     "@types/node": "^20.3.0",
+    "cross-env": "^7.0.3",
     "fast-glob": "^3.3.2",
     "glob": "^10.4.1",
     "minimist": "^1.2.8",

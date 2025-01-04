@@ -8,13 +8,16 @@ import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
 import sass from 'sass'; // Use import instead of require
 
-const args = minimist(process.argv.slice(2))
-const isWatch = args.watch || args.w || false
-const devDistDir = "./dev"
-const distDir = isWatch ? devDistDir : "./dist"
+const env = process.env;
+const isSrcmap = env.VITE_SOURCEMAP === 'inline';
+const isDev = env.NODE_ENV === 'development';
+const minify = env.NO_MINIFY ? false : true;
 
-console.log("isWatch=>", isWatch)
-console.log("distDir=>", distDir)
+const outputDir = isDev ? "dev" : "dist";
+
+console.log("isDev=>", isDev);
+console.log("isSrcmap=>", isSrcmap);
+console.log("outputDir=>", outputDir);
 
 export default defineConfig({
     resolve: {
@@ -62,18 +65,15 @@ export default defineConfig({
     ],
 
     define: {
-        "process.env.DEV_MODE": `"${isWatch}"`,
-        "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV)
+        "process.env.DEV_MODE": JSON.stringify(isDev),
+        "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV)
     },
 
     build: {
-        outDir: distDir,
+        outDir: outputDir,
         emptyOutDir: false,
-        sourcemap: isWatch ? 'inline' : false,
-        // minify: true,
-        // sourcemap: false,
-        // minify: !isWatch,
-        minify: false,
+        minify: minify ?? true,
+        sourcemap: isSrcmap ? 'inline' : false,
 
         lib: {
             entry: resolve(__dirname, "src/index.ts"),
@@ -83,8 +83,8 @@ export default defineConfig({
         rollupOptions: {
             plugins: [
                 ...(
-                    isWatch ? [
-                        livereload(devDistDir),
+                    isDev ? [
+                        livereload(outputDir),
                         {
                             name: 'watch-external',
                             async buildStart() {

@@ -1,7 +1,7 @@
 import * as SiYuan from "siyuan";
 
 
-import { appendBlock } from "@/api";
+import { appendBlock, request } from "@/api";
 import { searchAttr, formatSiYuanDate, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { openTab, openWindow } from "siyuan";
@@ -112,12 +112,24 @@ const appendDnH2 = async (title: string) => {
 
 const DEFAULT_CODE = `
 const defaultModule = {
-    'example': (body, plugin, siyuan) => {
-        console.log(body, plugin, siyuan);
+    /**
+     * @param {string} body - The message body
+     * @param {Object} context - The context object
+     * @param {import('siyuan').Plugin} context.plugin - Plugin instance
+     * @param {typeof import('siyuan')} context.siyuan - SiYuan API instance
+     */
+    'example': (body, context) => {
+        console.log(body, context);
     }
 };
 export default defaultModule;
 `.trimStart();
+
+type FHandler = (body: string, context?: {
+    plugin: SiYuan.Plugin,
+    siyuan: typeof SiYuan,
+    request: typeof request,
+}) => void;
 
 export const moduleJsName = 'custom.ws-handlers.js';
 const parseCustomHandlerModule = async () => {
@@ -127,10 +139,14 @@ const parseCustomHandlerModule = async () => {
         createJavascriptFile(DEFAULT_CODE, moduleJsName);
         return;
     }
-    const modules: Record<string, (body: string, plugin: SiYuan.Plugin, siyuan: typeof SiYuan) => void> = module.default;
+    const modules: Record<string, FHandler> = module.default;
     Object.entries(modules).forEach(([key, handler]) => {
         modules[key] = (body: any) => {
-            handler(body, plugin, SiYuan);
+            handler(body, {
+                plugin,
+                siyuan: SiYuan,
+                request: request
+            });
         }
     });
     console.log(modules);
