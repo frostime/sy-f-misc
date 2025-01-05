@@ -29,7 +29,7 @@ export {
 export const useSession = (props: {
     model: Accessor<IGPTModel>;
     config: IStoreRef<IChatSessionConfig>;
-    scrollToBottom: () => void;
+    scrollToBottom: (force?: boolean) => void;
 }) => {
     let sessionId = window.Lute.NewNodeID();
 
@@ -371,7 +371,7 @@ ${inputContent}
                 streamInterval: 2,
                 streamMsg(msg) {
                     messages.update(lastIdx, 'message', 'content', msg);
-                    props.scrollToBottom();
+                    props.scrollToBottom(false);  // 不强制滚动，尊重用户的滚动位置
                 },
                 abortControler: controller,
                 option: option,

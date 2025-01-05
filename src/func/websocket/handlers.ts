@@ -6,9 +6,11 @@ import { searchAttr, formatSiYuanDate, thisPlugin } from "@frostime/siyuan-plugi
 
 import { openTab, openWindow } from "siyuan";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
-import { openQuickDraft } from "../quick-draft";
 import { importJavascriptFile } from "@frostime/siyuan-plugin-kits";
 import { createJavascriptFile } from "@frostime/siyuan-plugin-kits";
+
+import { openQuickDraft } from "../quick-draft";
+import { startEntry } from "../toggl/state";
 
 /**
  * 把 text 添加到我的 dailynote 快记当中
@@ -154,12 +156,20 @@ const parseCustomHandlerModule = async () => {
 }
 
 
+export let currentHandlers: Record<string, FHandler> = {};
 export const Handlers = async () => {
     const modules = await parseCustomHandlerModule();
-    return {
+    currentHandlers = {
         'dn-quicklist': appendDnList,
         'dn-h2': appendDnH2,
         'quick-draft': openQuickDraft,
+        'start-toggl': (text: string) => {
+            startEntry({
+                description: text,
+                force: true
+            });
+        },
         ...modules
     };
+    return currentHandlers;
 }

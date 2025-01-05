@@ -2,7 +2,7 @@ import { Component, createSignal, onCleanup } from "solid-js";
 import { getAlive } from ".";
 import FormWrap from "@/libs/components/Form/form-wrap";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { moduleJsName } from "./handlers";
+import { currentHandlers, moduleJsName } from "./handlers";
 
 let timer = null;
 
@@ -31,6 +31,16 @@ const example = `{
 }`.trim();
 export const Configs = () => {
     const plugin = thisPlugin();
+    const current = () => {
+        // let names = Object.keys(currentHandlers);
+        let names = [];
+        Object.entries(currentHandlers).forEach(([key, handler]) => {
+            if (handler) {
+                names.push(key);
+            }
+        });
+        return names.join(', ');
+    }
     return (
         <>
             <FormWrap
@@ -44,9 +54,12 @@ export const Configs = () => {
                 description={`编辑 /data/storage/petal/${plugin.name}/${moduleJsName} 文件，并向 /api/broadcast/postMessage 发送内核消息, 格式如下:`}
                 direction="row"
             >
-                <pre>
+                <pre style={{margin: '0px'}}>
                     <code style={{ 'font-family': 'var(--b3-font-family-code)' }}>{example}</code>
                 </pre>
+                <div class="b3-label__text" style={{
+                    display: 'inline-block'
+                }} innerText={'Handlers: ' + current()} />
             </FormWrap>
         </>
     )

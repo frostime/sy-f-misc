@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 19:26:15
  * @FilePath     : /src/func/toggl/state/active.ts
- * @LastEditTime : 2025-01-04 01:29:21
+ * @LastEditTime : 2025-01-05 18:21:23
  * @Description  : 
  */
 import { createEffect, onCleanup, on } from 'solid-js';
@@ -12,6 +12,7 @@ import { getCurrentTimeEntry, startTimeEntry, stopTimeEntry, updateTimeEntry } f
 
 import { createSignalRef } from '@frostime/solid-signal-ref';
 import { me } from './config';
+import { showMessage } from 'siyuan';
 
 let elapsedTimer: number | null = null;
 let syncTimer: number | null = null;
@@ -53,8 +54,19 @@ export const startEntry = async (entry: {
     description?: string;
     project_id?: number | null;
     tag_ids?: number[];
+    force?: boolean;
 }) => {
     if (!me().default_workspace_id) return null;
+
+    if (activeEntry()) {
+        if (entry.force) {
+            await stopEntry();
+        } else {
+            showMessage(`${activeEntry().description} is already running`);
+            return null;
+        }
+    }
+
     const response = await startTimeEntry({
         ...entry,
         workspace_id: me().default_workspace_id

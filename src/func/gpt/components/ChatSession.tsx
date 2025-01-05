@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-04 18:22:30
+ * @LastEditTime : 2025-01-04 22:31:39
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -17,7 +17,7 @@ import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels,
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu } from 'siyuan';
-import { inputDialog, simpleDialog } from '@frostime/siyuan-plugin-kits';
+import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
@@ -43,10 +43,24 @@ const ChatSession: Component = (props: {
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
+    let userHasScrolled = false;  //用于控制在发送新消息的时候的滚动行为; 允许用户的手动滚动行为覆盖默认的自动滚动
 
-    const scrollToBottom = () => {
-        if (messageListRef) {
+    const scrollToBottom = (force: boolean = false) => {
+        if (messageListRef && (!userHasScrolled || force)) {
             messageListRef.scrollTop = messageListRef.scrollHeight;
+        }
+    };
+
+    const handleScroll = () => {
+        if (!messageListRef) return;
+        const { scrollTop, scrollHeight, clientHeight } = messageListRef;
+        // 如果用户向上滚动超过20px，标记为已手动滚动
+        if (scrollHeight - (scrollTop + clientHeight) > 30) {
+            userHasScrolled = true;
+        }
+        // 如果滚动到底部，重置手动滚动标记
+        if (scrollHeight - (scrollTop + clientHeight) < 2) {
+            userHasScrolled = false;
         }
     };
 
@@ -220,8 +234,9 @@ const ChatSession: Component = (props: {
 
         input.update('');
         adjustTextareaHeight();
+        userHasScrolled = false; // 重置滚动状态
         await session.sendMessage(userMessage);
-        scrollToBottom();
+        scrollToBottom(true); // 发送新消息时强制滚动到底部
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -517,7 +532,11 @@ const ChatSession: Component = (props: {
             <Topbar />
             <BatchOperationBar />
 
-            <div class={styles.messageList} ref={messageListRef}>
+            <div 
+                class={styles.messageList} 
+                ref={messageListRef}
+                onScroll={handleScroll}
+            >
                 <For each={session.messages()}>
                     {(item: IChatSessionMsgItem, index: Accessor<number>) => (
                         <Switch fallback={<></>}>
