@@ -65,7 +65,7 @@ export const getAlive = () => {
 
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'WebSocket',
-    init: () => { },
+    load: () => { },
     items: [],
     customPanel: () => {
         return Configs();

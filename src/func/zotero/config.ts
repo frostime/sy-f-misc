@@ -20,7 +20,7 @@ export const getPassword = () => {
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'Zotero',
     title: 'Zotero 7',
-    init: async (data: { zoteroPassword: string, zoteroDir: string }) => {
+    load: async (data: { zoteroPassword: string, zoteroDir: string }) => {
         configs.zoteroPassword = data.zoteroPassword ?? configs.zoteroPassword;
         let plugin = thisPlugin();
         let configDir = await plugin.loadData('zoteroDir.config.json');

@@ -3,11 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2025-01-02 22:50:47
+ * @LastEditTime : 2025-01-05 21:08:58
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
-import { selectIconDialog } from '@/func/docky';
 import { toggleEnable, ModulesAlwaysEnable, ModulesToEnable } from '@/func';
 
 import Settings from "@/settings/settings";
@@ -156,16 +155,22 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     if (storage) {
         CustomModuleConfigs.forEach(config => {
             if (!storage[config.key]) return;
-            config.init(storage[config.key]);
+            config.load(storage[config.key]);
         });
     }
 
     const saveModuleConfig = async () => {
         try {
-            let configs = Object.fromEntries(CustomModuleConfigs.map(config => [
-                config.key,
-                Object.fromEntries(config.items.map(item => [item.key, item.get()]))
-            ]));
+            let configs = Object.fromEntries(CustomModuleConfigs.map(config => {
+                if (config.dump) {
+                    return [config.key, config.dump()];
+                } else {
+                    return [
+                        config.key,
+                        Object.fromEntries(config.items.map(item => [item.key, item.get()]))
+                    ]
+                }
+            }));
             await plugin.saveData(storageName, configs);
             console.debug('Module configs saved:', configs);
         } catch (e) {

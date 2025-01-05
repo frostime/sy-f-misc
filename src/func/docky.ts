@@ -154,7 +154,7 @@ let configs = {
 }
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'Docky',
-    init: (data: { DockyEnableZoom: boolean, DockyZoomFactor: number, DockySelectIcon: string, DockyProtyle: string }) => {
+    load: (data: { DockyEnableZoom: boolean, DockyZoomFactor: number, DockySelectIcon: string, DockyProtyle: string }) => {
         configs = deepMerge(configs, data);
     },
     items: [

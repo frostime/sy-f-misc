@@ -151,7 +151,7 @@ let DEFAULT_BOX = '';
 
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'quick-draft',
-    init: (data: { box: string }) => {
+    load: (data: { box: string }) => {
         data.box && (DEFAULT_BOX = data.box);
     },
     items: [
