@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2025-01-03 22:06:53
+ * @LastEditTime : 2025-01-05 21:32:00
  * @Description  : 
  */
 import * as components from './components';
@@ -54,9 +54,11 @@ export const load = async (plugin: FMiscPlugin) => {
         toggleAutoFetch(config.config().dnAutoFetch);
     }
 
-    plugin.addLayoutReadyCallback(() => {
+    setTimeout(() => {
         components.load();
-    })
+    }, 1000);
+    // plugin.addLayoutReadyCallback(() => {
+    // })
 };
 
 export const unload = (plugin: FMiscPlugin) => {

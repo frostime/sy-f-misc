@@ -40,7 +40,15 @@ export const updateMiniTimerUI = () => {
         ), statusBarElement);
 
         let dock = document.querySelector('#barDock')
-        dock?.insertAdjacentElement('afterend', statusBarElement);
+        if (dock) {
+            dock?.insertAdjacentElement('afterend', statusBarElement);
+        } else {
+            let statusBar = document.querySelector('#status');
+            if (statusBar) {
+                // 第一个子元素
+                statusBar.insertBefore(statusBarElement, statusBar.firstChild);
+            }
+        }
         disposeMiniTimer = () => {
             dispose?.();
             dispose = undefined;

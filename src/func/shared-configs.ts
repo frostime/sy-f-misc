@@ -16,7 +16,7 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     load: (itemValues: IDefaultConfigs & {
         codeEditor: Record<string, string>
     }) => {
-        codeEditor.set(itemValues.codeEditor);
+        codeEditor.init(itemValues.codeEditor);
     },
     dump: () => {
         return {
