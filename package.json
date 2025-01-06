@@ -15,9 +15,11 @@
     "vite:build-no-minify": "cross-env NODE_ENV=production NO_MINIFY=true vite build",
     "make-link": "npx make-link-win",
     "update-version": "npx update-version",
-    "make-install": "pnpm run vite:build && npx make-install"
+    "make-install": "pnpm run vite:build && npx make-install",
+    "make-install-no-minify": "pnpm run vite:build-no-minify && npx make-install"
   },
   "devDependencies": {
+    "@frostime/siyuan-plugin-kits": "link:H:/SrcCode/SiYuanDevelopment/siyuan-plugin-kits",
     "@types/node": "^20.3.0",
     "cross-env": "^7.0.3",
     "fast-glob": "^3.3.2",
@@ -35,7 +37,6 @@
     "vite-plugin-zip-pack": "^1.2.2"
   },
   "dependencies": {
-    "@frostime/siyuan-plugin-kits": "^1.4.6",
     "@frostime/solid-signal-ref": "^2.1.0"
   }
 }

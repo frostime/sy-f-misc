@@ -84,7 +84,7 @@ export const Configs = () => {
                             }
                             const dataDir = window.siyuan.config.system.dataDir;
                             const jsPath = `${dataDir}/storage/petal/${plugin.name}/${moduleJsName}`;
-                            let editorCmd = sharedConfigs.codeEditor() + ' ' + jsPath;
+                            let editorCmd = sharedConfigs('codeEditor') + ' ' + jsPath;
                             try {
                                 cp.exec(editorCmd);
                             } catch (error) {

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-11-23 15:37:06
  * @FilePath     : /src/func/custom-css-file.ts
- * @LastEditTime : 2025-01-02 22:05:24
+ * @LastEditTime : 2025-01-06 21:03:46
  * @Description  : 
  */
 import { putFile } from "@/api";
@@ -86,7 +86,7 @@ export const load = (plugin: FMiscPlugin) => {
                 label: '编辑',
                 icon: 'iconEdit',
                 click: () => {
-                    let editorCmd = sharedConfigs.codeEditor() + ' ' + cssPath;
+                    let editorCmd = sharedConfigs('codeEditor') + ' ' + cssPath;
                     if (cp) {
                         try {
                             cp.exec(editorCmd);

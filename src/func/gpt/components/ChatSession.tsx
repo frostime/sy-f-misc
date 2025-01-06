@@ -234,6 +234,7 @@ const ChatSession: Component = (props: {
 
         input.update('');
         adjustTextareaHeight();
+        scrollToBottom(true);
         userHasScrolled = false; // 重置滚动状态
         await session.sendMessage(userMessage);
         scrollToBottom(true); // 发送新消息时强制滚动到底部

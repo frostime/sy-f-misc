@@ -37,6 +37,13 @@
 			"problemMatcher": [],
 			"label": "npm: update-version",
 			"detail": "node ./scripts/update_version.js"
+		},
+		{
+			"type": "npm",
+			"script": "make-install-no-minify",
+			"problemMatcher": [],
+			"label": "npm: make-install-no-minify",
+			"detail": "pnpm run vite:build-no-minify && npx make-install"
 		}
 	]
 }
