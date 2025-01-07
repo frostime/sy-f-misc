@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2025-01-05 21:08:58
+ * @LastEditTime : 2025-01-06 22:04:27
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -148,7 +148,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     // ====== Module Configs ======
     // 由于历史原因，之前把各个模块的配置存储管理全部耦合在 plugin 里面了
     // customModuleConfigs 是新的做法, plugin 只管 load/save，各个模块的配置自行负责
-    const storageName = 'customModuleConfigs.json';
+    const storageName = 'custom-module.config.json';
     // 导入并初始化配置
     let storage = await plugin.loadData(storageName);
     storage = storage || {};
