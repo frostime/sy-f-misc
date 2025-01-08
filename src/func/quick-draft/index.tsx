@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-01-02 21:45:12
+ * @LastEditTime : 2025-01-08 13:49:06
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
@@ -148,11 +148,13 @@ function ProtyleComponent(props: {
 const NEW_CARD_WINDOW_TYPE = "new-card-window";
 let isWindow = getFrontend() === "desktop-window";
 let DEFAULT_BOX = '';
+let DEFAULT_AUTO_DELETE = true;
 
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'quick-draft',
-    load: (data: { box: string }) => {
+    load: (data: { box: string, autoDelete: boolean }) => {
         data.box && (DEFAULT_BOX = data.box);
+        data.autoDelete && (DEFAULT_AUTO_DELETE = data.autoDelete);
     },
     items: [
         {
@@ -163,6 +165,16 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             get: () => DEFAULT_BOX,
             set: (value: string) => {
                 DEFAULT_BOX = value;
+            }
+        },
+        {
+            key: 'autoDelete',
+            title: '自动删除草稿',
+            description: 'Draft 关闭后自动删除草稿',
+            type: 'checkbox',
+            get: () => DEFAULT_AUTO_DELETE,
+            set: (value: boolean) => {
+                DEFAULT_AUTO_DELETE = value;
             }
         }
     ]
@@ -189,7 +201,7 @@ export const openQuickDraft = async (title?: string) => {
         title: docTitle,
         data: {
             blockId: newDocId,
-            autoDelete: title ? false : true
+            autoDelete: title ? false : DEFAULT_AUTO_DELETE
         },
         id: plugin.name + NEW_CARD_WINDOW_TYPE
     };

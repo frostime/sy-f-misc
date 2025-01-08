@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "5.3.7",
+  "version": "5.3.8",
   "type": "module",
   "description": "Frostime 自动工具代码",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -19,7 +19,6 @@
     "make-install-no-minify": "pnpm run vite:build-no-minify && npx make-install"
   },
   "devDependencies": {
-    "@frostime/siyuan-plugin-kits": "link:H:/SrcCode/SiYuanDevelopment/siyuan-plugin-kits",
     "@types/node": "^20.3.0",
     "cross-env": "^7.0.3",
     "fast-glob": "^3.3.2",
@@ -37,6 +36,7 @@
     "vite-plugin-zip-pack": "^1.2.2"
   },
   "dependencies": {
+    "@frostime/siyuan-plugin-kits": "^1.5.0",
     "@frostime/solid-signal-ref": "^2.1.0"
   }
 }
