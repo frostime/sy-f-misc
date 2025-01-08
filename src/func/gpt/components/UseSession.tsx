@@ -343,7 +343,6 @@ ${inputContent}
 
         await appendUserMsg(userMessage, attachments());
         loading.update(true);
-        props.scrollToBottom();
 
         try {
             controller = new AbortController();
@@ -362,6 +361,8 @@ ${inputContent}
                 loading: true
             };
             messages.update(prev => [...prev, assistantMsg]);
+
+            props.scrollToBottom();
 
             const lastIdx = messages().length - 1;
             const { content, usage } = await gpt.complete(msgToSend, {

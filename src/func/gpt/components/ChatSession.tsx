@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-04 22:31:39
+ * @LastEditTime : 2025-01-08 16:03:34
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -55,7 +55,7 @@ const ChatSession: Component = (props: {
         if (!messageListRef) return;
         const { scrollTop, scrollHeight, clientHeight } = messageListRef;
         // 如果用户向上滚动超过20px，标记为已手动滚动
-        if (scrollHeight - (scrollTop + clientHeight) > 30) {
+        if (scrollHeight - (scrollTop + clientHeight) > 50) {
             userHasScrolled = true;
         }
         // 如果滚动到底部，重置手动滚动标记
