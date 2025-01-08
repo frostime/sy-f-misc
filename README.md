@@ -72,21 +72,7 @@ However, splitting up plugins takes a lot of effort, and requires synchronized m
   * 会全局注册 Alt + Shift + G 快捷键
 * Webview 网页视图: 在新窗口中打开 Webview，模仿自其他插件
 * 全局 Paste 处理：自定义粘贴事件，例如在粘贴 URL 文本时自动转换为链接等
-* WebSocket：这个是纯个人使用的工具；主要和 quicker 配合使用
+* WebSocket：纯个人使用的工具；允许外部通过 broadcast API 发送命令让插件执行；主要和 quicker 配合使用
 
 其他还有一些不那么重要的功能，不再一一赘述。
 
-## 开发者说明
-
-> 和插件的使用无关，是本人在插件开发的时候积累的一些小玩具，可能对插件开发有些帮助
-
-1. 本插件主要使用 solidjs 框架开发，这是一个比 react 更加优雅的响应式框架，轻量级且高性能
-
-    你可以使用这个模板来创建一个基于 solidjs 的插件 [https://github.com/frostime/plugin-sample-vite-solidjs](https://github.com/frostime/plugin-sample-vite-solidjs)
-
-    或者使用这个 cli 工具快速创建 [https://www.npmjs.com/package/siyuan-plugin-cli](https://www.npmjs.com/package/siyuan-plugin-cli)
-2. 插件的很多公有的工具性的代码，被我抽离到一个独立的工具包中，一定程度上可以减轻插件开发的复杂度
-
-    [https://www.npmjs.com/package/@frostime/siyuan-plugin-kits](https://www.npmjs.com/package/@frostime/siyuan-plugin-kits)
-
-‍
