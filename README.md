@@ -1,23 +1,23 @@
 
 ## Preliminary
 
-1. **介绍说明：** 本插件集成了多种个人常用的功能，少部分功能迁移自其他插件。本人此前发布的一些不少插件就拆分自本插件的子功能模块（例如 Bookmark+, QueryView, 文档上下文等）
-2. **免责声明：** 本插件为个人自用，不保证任何意义上的稳定性
+1. **介绍说明：**  本插件集成了多种个人常用的功能，少部分功能迁移自其他插件。本人此前发布的一些不少插件就拆分自本插件的子功能模块（例如 Bookmark+, QueryView, 文档上下文等）
+2. **免责声明：**  本插件为个人自用，不保证任何意义上的稳定性
 
-    1. **无国际化：** 本插件仅为个人使用，暂不考虑多语言支持
-    2. **可能存在硬编码：** 插件内部可能存在一些硬编码的变量，例如个人笔记本 ID 等
-    3. **平台适配差：** 本插件主要为思源本地 Electron 应用设计，未针对其他系统、服务器模式或移动端进行特别适配，可能存在兼容性问题
+    1. **无国际化：**  本插件仅为个人使用，暂不考虑多语言支持
+    2. **可能存在硬编码：**  插件内部可能存在一些硬编码的变量，例如个人笔记本 ID 等
+    3. **平台适配差：**  本插件主要为思源本地 Electron 应用设计，未针对其他系统、服务器模式或移动端进行特别适配，可能存在兼容性问题
     4. **缺少使用文档**：本人没有精力也没有动力去写详细的使用说明文档
 
 请用户在使用前仔细阅读以上说明，并根据自身需求进行评估决定是否使用。
 
 1. **Introduction**: This plugin integrates several personally used functions, with a small portion of features migrated from other plugins. Some of my previously released plugins were actually extracted from sub-modules of this plugin (such as Bookmark+, QueryView, Document Context, etc.).
-2. **Disclaimer:**   This plugin is for personal use and does not guarantee stability in any sense.
+2. **Disclaimer:**    This plugin is for personal use and does not guarantee stability in any sense.
 
-    1. **No Internationalization:**   This plugin is intended for personal use only, and multilingual support is not currently considered.
-    2. **Potential Hardcoding:**   The plugin's internal code may contain hardcoded variables, such as personal notebook IDs.
-    3. **Weak Platform Support:**   This plugin is primarily designed for the local Electron application of SiYuan, and it has not been specifically adapted for other systems, server modes, or mobile devices. Compatibility issues may arise.
-    4. **Lack of user documentation:**  I don't have the effort and initiative to write detailed user manuals.
+    1. **No Internationalization:**    This plugin is intended for personal use only, and multilingual support is not currently considered.
+    2. **Potential Hardcoding:**    The plugin's internal code may contain hardcoded variables, such as personal notebook IDs.
+    3. **Weak Platform Support:**    This plugin is primarily designed for the local Electron application of SiYuan, and it has not been specifically adapted for other systems, server modes, or mobile devices. Compatibility issues may arise.
+    4. **Lack of user documentation:**   I don't have the effort and initiative to write detailed user manuals.
 
 Please carefully read the above instructions before using the plugin, and evaluate whether it meets your needs before deciding to use it.
 
@@ -39,10 +39,12 @@ However, splitting up plugins takes a lot of effort, and requires synchronized m
   * Provider、Model、Prompt 管理
   * 支持快速将选中文字添加到对话中
   * 将对话内容保存到思源笔记中
+  * Ctrl + Shift + L 打开对话
 * Toggl
 
   * 一个简易的 Toggl 客户端
   * 定期将 Toggl 的 Time Entries 插入到 Daily Note 中
+  * 需要绑定 Toggl 账号的 API Token 使用
 * 侧边栏显示块
 
   * 迁移自侧边显示插件，调整了使用方式
@@ -54,6 +56,7 @@ However, splitting up plugins takes a lot of effort, and requires synchronized m
 
   * 引用选中的 Zotero 论文条目
   * 将选定论文的笔记导入到思源中
+  * 注意需要使用 zotero debug bridge 绑定 zotero
 * 自定义 CSS 文件
 
   * 在 public 目录下创建一个 custom.css
@@ -67,6 +70,9 @@ However, splitting up plugins takes a lot of effort, and requires synchronized m
 * ~~Bookmark+（拆分上架并从本插件中删除）~~
 * ~~QueryView（拆分上架并从本插件中删除）~~
 * 新建空白附件: 在思源中快速创建空白的 Markdown（.md）、文本文件（.txt）、Word 文档（.docx）等
+
+  * 使用 `/ni`​ 创建文档
+  * word, ppt, excel 空白文件需要自行在 `data\public\blank-files`​ 下面放空白模板文件
 * Quick Draft: 模仿快速卡片写作插件，快速创建独立的编辑窗口（主要当草稿用）
 
   * 会全局注册 Alt + Shift + G 快捷键
@@ -76,3 +82,4 @@ However, splitting up plugins takes a lot of effort, and requires synchronized m
 
 其他还有一些不那么重要的功能，不再一一赘述。
 
+‍

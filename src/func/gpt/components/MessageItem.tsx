@@ -363,7 +363,7 @@ const MessageItem: Component<{
                         [styles.hidden]: props.messageItem.hidden
                     }}
                     style={{
-                        'white-space': props.markdown ? '' : 'pre',
+                        'white-space': props.markdown ? '' : 'pre-wrap',
                     }}
                     innerHTML={messageAsHTML()}
                     ref={msgRef}
