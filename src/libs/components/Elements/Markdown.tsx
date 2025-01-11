@@ -8,7 +8,10 @@
  */
 
 
-const Typography = (props: { markdown: string, fontSize?: string; }) => {
+const Markdown = (props: {
+    markdown: string;
+    fontSize?: string;
+}) => {
     const lute = window.Lute!.New();
     let content = lute.Md2HTML(props.markdown);
     let font = props.fontSize ? `${props.fontSize} !important;` : 'initial';
@@ -21,4 +24,4 @@ const Typography = (props: { markdown: string, fontSize?: string; }) => {
     );
 }
 
-export default Typography;
+export default Markdown;
