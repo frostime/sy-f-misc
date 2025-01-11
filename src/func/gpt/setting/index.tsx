@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2024-12-31 15:35:46
+ * @LastEditTime : 2025-01-11 20:42:43
  * @Description  : 
  */
 import { debounce, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -55,8 +55,8 @@ const GlobalSetting = () => {
                     spellcheck={false}
                 />
             </Form.Wrap>
-            <ProviderSetting />
             <PromptTemplateSetting />
+            <ProviderSetting />
         </div>
     );
 }

@@ -7,6 +7,7 @@ import { createSimpleContext } from "@/libs/simple-context";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { solidDialog } from "@/libs/dialog";
 import { SvgSymbol } from "../components/Elements";
+import { createSignalRef } from "@frostime/solid-signal-ref";
 
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<{
@@ -29,10 +30,12 @@ const ProviderEditForm: Component<{
 
     let initModels = provider().models.join('\n');
 
+    const hidekey = createSignalRef(true);
+
     return (
         <div style={{
-            "border": "2px dashed var(--b3-theme-secondary)",
-            "border-radius": "4px",
+            // "border": "2px dashed var(--b3-theme-secondary)",
+            // "border-radius": "4px",
             "margin": "16px",
             "position": "relative",
             flex: 1,
@@ -54,15 +57,16 @@ const ProviderEditForm: Component<{
             </Form.Wrap>
 
             <Form.Wrap
-                title="API URL"
-                description="完整的 API 接口地址"
+                title="Completion API URL"
+                description="完整的 API 接口地址, 包含可能的 /chat/completions 后缀"
+                direction="row"
             >
                 <Form.Input
                     type="textinput"
                     value={provider().url}
                     changed={(v) => updateProvider(index(), 'url', v)}
                     style={{
-                        width: '400px'
+                        width: '100%'
                     }}
                 />
             </Form.Wrap>
@@ -70,14 +74,23 @@ const ProviderEditForm: Component<{
             <Form.Wrap
                 title="API Key"
                 description="API 密钥"
+                direction="row"
+                action={
+                    <>
+                        {/* Toggl Show API Key */}
+                        <button class="b3-button b3-button--text" onclick={() => hidekey.update(!hidekey())}>
+                            <SvgSymbol size="15px">iconEye</SvgSymbol>
+                        </button>
+                    </>
+                }
             >
                 <Form.Input
                     type="textinput"
                     value={provider().apiKey}
                     changed={(v) => updateProvider(index(), 'apiKey', v)}
-                    password={true}
+                    password={hidekey()}
                     style={{
-                        width: '400px'
+                        width: '100%'
                     }}
                 />
             </Form.Wrap>
@@ -119,7 +132,7 @@ const ProviderListItem = (props: {
                 </SimpleProvider>
             ),
             width: '750px',
-            height: '600px'
+            height: '640px'
         })
     }
 

@@ -24,8 +24,8 @@ const PromptTemplateEditForm: Component<{
 
     return (
         <div style={{
-            "border": "2px dashed var(--b3-theme-secondary)",
-            "border-radius": "4px",
+            // "border": "2px dashed var(--b3-theme-secondary)",
+            // "border-radius": "4px",
             "margin": "16px",
             "position": "relative",
             flex: 1,
