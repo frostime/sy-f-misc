@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-11-23 15:37:06
  * @FilePath     : /src/func/custom-css-file.ts
- * @LastEditTime : 2025-01-06 21:03:46
+ * @LastEditTime : 2025-01-11 22:57:18
  * @Description  : 
  */
 import { putFile } from "@/api";
@@ -58,6 +58,27 @@ let cssWatchInterval: NodeJS.Timeout | null = null;
 //     ]
 // }
 
+const attachCSSLink = (endpoint: string, id?: string) => {
+    if (id) {
+        const link = document.querySelector(`link#${id}`);
+        if (link) {
+            link.remove();
+        }
+    }
+    // const res = await fetch(endpoint);
+    // if (!res.ok) {
+    //     return false;
+    // }
+    let link = document.createElement('link');
+    link.href = `${endpoint}?t=${Date.now()}`;
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    id && (link.id = id);
+    document.head.appendChild(link);
+    // return true;
+    return link;
+}
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
@@ -69,13 +90,7 @@ export const load = (plugin: FMiscPlugin) => {
             const file = new File([DEFAULT_STYLE], fname, { type: 'text/css' });
             putFile(`/data/public/${fname}`, false, file);
         }
-        // 添加一个 style 链接
-        link = document.createElement('link');
-        link.href = `/public/${fname}?t=${Date.now()}`;
-        link.rel = 'stylesheet';
-        link.type = 'text/css';
-        link.id = 'custom-css-file';
-        document.head.appendChild(link);
+        link = attachCSSLink(`/public/${fname}`, 'custom-css-file');
     });
 
     plugin.registerMenuTopMenu('custom-css-file', [{

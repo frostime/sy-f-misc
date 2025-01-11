@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-01-04 21:29:08
+ * @LastEditTime : 2025-01-11 22:48:52
  * @Description  : 
  */
 import {
@@ -41,7 +41,7 @@ export default class FMiscPlugin extends Plugin {
 
     // private globalContextMenuHandler: (event: MouseEvent) => void;
 
-    private callbacksOnLayoutReady: ((p: FMiscPlugin) => void)[];
+    private callbacksOnLayoutReady: ((p: FMiscPlugin) => void)[] = [];
 
     declare data: {
         configs: {
@@ -65,21 +65,17 @@ export default class FMiscPlugin extends Plugin {
     deviceStorage: Awaited<ReturnType<typeof useLocalDeviceStorage>>;
 
     async onload() {
-        registerPlugin(this);
-
-        this.callbacksOnLayoutReady = [];
-
         const frontEnd = getFrontend();
-        // this.eb = new EventBusSync();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
-        let svgs = Object.values(Svg);
-        this.addIcons(svgs.join(''));
-        await initSetting(this);
-        // this.eventBus.on('paste', onPaste);
-        load(this);
+        registerPlugin(this);
 
         //Default functions
         this.initDefaultFunctions();
+
+        let svgs = Object.values(Svg);
+        this.addIcons(svgs.join(''));
+        await initSetting(this);
+        load(this);
         // this.globalContextMenuHandler = this.globalContextMenu.bind(this);
         // document.addEventListener('mousedown', this.globalContextMenuHandler);
     }
@@ -102,11 +98,14 @@ export default class FMiscPlugin extends Plugin {
     private initDefaultFunctions() {
         this.initTopBar();
 
-        Object.entries(Href.Style).forEach(([key, value]) => {
-            getFile('/data' + value, 'text').then((content: string) => {
-                updateStyleDom(`snippet-fmisc__${key}`, content);
+        if (window.siyuan.user?.userId === "1646569891270") {
+            Object.entries(Href.Style).forEach(([key, value]) => {
+                getFile('/data' + value, 'text').then((content: string) => {
+                    updateStyleDom(`snippet-fmisc__${key}`, content);
+                });
             });
-        });
+        }
+
 
         this.eventBus.on('open-menu-image', ({ detail }) => {
             // console.debug('open-menu-image', detail);
