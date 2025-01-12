@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 19:26:15
  * @FilePath     : /src/func/toggl/state/active.ts
- * @LastEditTime : 2025-01-05 18:21:23
+ * @LastEditTime : 2025-01-12 11:27:47
  * @Description  : 
  */
 import { createEffect, onCleanup, on } from 'solid-js';
@@ -142,6 +142,7 @@ const startSyncTimer = () => {
 };
 
 // Initialize timers when active entry changes
+//WARN computations created outside a `createRoot` or `render` will never be disposed
 createEffect(on(activeEntry.signal, (entry) => {
     console.log('activeEntry::effect', entry);
     if (entry) {
@@ -153,6 +154,7 @@ createEffect(on(activeEntry.signal, (entry) => {
 }));
 
 // Cleanup on unmount
+//BUG cleanups created outside a `createRoot` or `render` will never be run
 onCleanup(clearElapsedTimer);
 
 export const load = async () => {

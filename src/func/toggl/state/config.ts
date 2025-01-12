@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 22:22:24
  * @FilePath     : /src/func/toggl/state/config.ts
- * @LastEditTime : 2025-01-04 01:27:16
+ * @LastEditTime : 2025-01-12 11:28:37
  * @Description  : 
  */
 import { debounce } from "@frostime/siyuan-plugin-kits";
@@ -40,18 +40,21 @@ const mergeConfig = (newConfig: Partial<IConfig>) => {
 }
 
 //Auth token in base64 format
+//WARN computations created outside a `createRoot` or `render` will never be disposed
 export const token64 = createMemo(() => btoa(config().token + ':api_token'));
 
 //******************** Toggl Status ********************
 
 export const me = createSignalRef<User>(null); //Toggl 当前用户
 
+//WARN computations created outside a `createRoot` or `render` will never be disposed
 export const isConnected = createMemo(() => me() !== undefined && me()?.api_token !== undefined);
 
 
 export const projects = createSignalRef<Project[]>([]);
 export const tags = createSignalRef<Tag[]>([]);
 
+//WARN computations created outside a `createRoot` or `render` will never be disposed
 export const projectNames = createMemo(() => Object.fromEntries(projects().map(p => [p.id, p.name])));
 
 export const fetchMe = async () => {

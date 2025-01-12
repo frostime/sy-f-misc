@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-01-11 22:48:52
+ * @LastEditTime : 2025-01-12 11:45:37
  * @Description  : 
  */
 import {
@@ -64,6 +64,10 @@ export default class FMiscPlugin extends Plugin {
 
     deviceStorage: Awaited<ReturnType<typeof useLocalDeviceStorage>>;
 
+    get petalRoute() {
+        return '/data/storage/petal/' + this.name;
+    }
+
     async onload() {
         const frontEnd = getFrontend();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
@@ -98,15 +102,6 @@ export default class FMiscPlugin extends Plugin {
     private initDefaultFunctions() {
         this.initTopBar();
 
-        if (window.siyuan.user?.userId === "1646569891270") {
-            Object.entries(Href.Style).forEach(([key, value]) => {
-                getFile('/data' + value, 'text').then((content: string) => {
-                    updateStyleDom(`snippet-fmisc__${key}`, content);
-                });
-            });
-        }
-
-
         this.eventBus.on('open-menu-image', ({ detail }) => {
             // console.debug('open-menu-image', detail);
             const element: HTMLSpanElement = detail.element;
@@ -130,33 +125,6 @@ export default class FMiscPlugin extends Plugin {
             });
 
         });
-
-        // this.addProtyleSlash({
-        //     filter: ['toc', 'outline'],
-        //     html: '插入文档大纲',
-        //     id: 'toc',
-        //     callback: (protyle: Protyle) => {
-        //         request('/api/outline/getDocOutline', {
-        //             id: protyle.protyle.block.rootID
-        //         }).then((ans) => {
-        //             console.log('toc');
-        //             const iterate = (data: any) => {
-        //                 let toc: string[] = [];
-        //                 for (let item of data) {
-        //                     toc.push(`${'  '.repeat(item.depth)} * [${item.name || item.content}](siyuan://blocks/${item.id})`);
-        //                     if (item.count > 0) {
-        //                         let subtocs = iterate(item.blocks ?? item.children);
-        //                         toc = toc.concat(subtocs);
-        //                     }
-        //                 }
-        //                 return toc;
-        //             }
-        //             let tocs = iterate(ans);
-        //             let md = tocs.join('\n');
-        //             protyle.insert(md, true);
-        //         });
-        //     }
-        // });
     }
 
     /**
@@ -355,15 +323,6 @@ export default class FMiscPlugin extends Plugin {
     }
 
 }
-
-const Href = {
-    // Style_Vertical_Tabbar: '/plugins/sy-f-misc/style/tab-bar-vertical.css',
-    Style: {
-        // Font_Color: '/plugins/sy-f-misc/style/font-and-color.css',
-        Link_Icon: '/plugins/sy-f-misc/style/link-icon.css',
-        // List_Mindmap: '/plugins/sy-f-misc/style/list-mindmap.css'
-    }
-};
 
 const Svg = {
     Toolbox: `<symbol id="iconToolbox" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4317"><path d="M96.512 425.564c16.53-61.654 132.308-148.058 155.432-141.872 23.092 6.188 80.186 138.904 63.654 200.588-16.53 61.656-78.966 98.5-139.464 82.28s-96.122-79.34-79.622-140.996z" fill="#E6E9ED" p-id="4318"></path><path d="M163.884 633.778a21.24 21.24 0 0 1-5.532-0.75c-11.374-3.032-18.154-14.75-15.092-26.122l46.56-173.842c3.062-11.374 14.75-18.124 26.124-15.092 11.406 3.062 18.156 14.75 15.124 26.124l-46.592 173.838c-2.53 9.53-11.154 15.844-20.592 15.844z" fill="#CCD1D9" p-id="4319"></path><path d="M678.808 608.906l-122.308 37.684-96.28-312.49 122.34-37.688z" fill="#ED5564" p-id="4320"></path><path d="M684.496 265.006l-326.21 100.498 3.092-134.902 285.43-87.904z" fill="#434A54" p-id="4321"></path><path d="M794.24 640.622l-162.056-72.652 28.906-64.468 70.03-26.656 65.372 29.312 26.656 70-28.908 64.464z m-105.65-94.122l84.184 37.75 4.218-9.438-14.094-36.968-33.124-14.844-36.966 14.062-4.218 9.438z" p-id="4322"></path><path d="M933.58 244.758c6.782 3.062 9.844 11.062 6.782 17.842l-118.214 263.65c-3.032 6.782-11.032 9.844-17.844 6.782l-98.462-44.156c-6.812-3.062-9.844-11.032-6.812-17.844l118.212-263.65c3.062-6.782 11.032-9.812 17.844-6.782l98.494 44.158z" fill="#A0D468" p-id="4323"></path><path d="M765.742 508.5c-2.938 0-5.876-0.624-8.718-1.874-10.748-4.812-15.56-17.438-10.748-28.188l84.496-188.464c4.844-10.75 17.468-15.562 28.218-10.75 10.75 4.812 15.532 17.436 10.718 28.186l-84.5 188.464a21.33 21.33 0 0 1-19.466 12.626z" fill="#8CC153" p-id="4324"></path><path d="M85.324 469.344h853.318v426.644H85.324zM106.666 213.352H917.3v42.656H106.666z" fill="#F6BB42" p-id="4325"></path><path d="M256.006 639.996H128.01c-11.812 0-21.344-9.532-21.344-21.312 0-11.778 9.532-21.34 21.344-21.34h127.996c11.75 0 21.312 9.562 21.312 21.34 0 11.78-9.562 21.312-21.312 21.312zM895.988 597.344h-85.342c-11.782 0-21.344-9.532-21.344-21.344 0-11.782 9.562-21.312 21.344-21.312h85.342A21.3 21.3 0 0 1 917.3 576c0 11.812-9.53 21.344-21.312 21.344zM170.666 810.68H128.01c-11.812 0-21.344-9.562-21.344-21.344s9.532-21.344 21.344-21.344h42.654c11.782 0 21.342 9.562 21.342 21.344s-9.56 21.344-21.34 21.344zM895.988 789.336h-149.338c-54.374 0-81.686 29.282-95.03 53.812-13.532 24.934-15 49.214-15.124 51.902v0.938h42.718c0.406-4.062 2.376-19.156 10.5-33.562 11.594-20.464 30.218-30.434 56.936-30.434h149.338c11.782 0 21.312-9.532 21.312-21.312s-9.53-21.344-21.312-21.344z" fill="#DBA037" p-id="4326"></path><path d="M0.014 128.01h127.998v767.978H0.014zM895.988 128.01h127.998v767.978h-127.998z" fill="#FFCE54" p-id="4327"></path></symbol>`,

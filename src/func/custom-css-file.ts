@@ -3,13 +3,15 @@
  * @Author       : frostime
  * @Date         : 2024-11-23 15:37:06
  * @FilePath     : /src/func/custom-css-file.ts
- * @LastEditTime : 2025-01-11 22:57:18
+ * @LastEditTime : 2025-01-12 11:51:16
  * @Description  : 
  */
-import { putFile } from "@/api";
+// import { putFile, readDir } from "@/api"
+import { putFile, readDir } from "@frostime/siyuan-plugin-kits/api";
 import type FMiscPlugin from "@/index";
 import { showMessage } from "siyuan";
 import { sharedConfigs } from "./shared-configs";
+import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 // import { showMessage } from "siyuan";
 
 let cp: any;
@@ -38,25 +40,6 @@ export const declareToggleEnabled = {
 
 let cssWatchInterval: NodeJS.Timeout | null = null;
 
-// let codeEditor = 'code';
-// export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
-//     key: 'custom-css-file',
-//     load: (data: { codeEditor: string }) => {
-//         data.codeEditor && (codeEditor = data.codeEditor);
-//     },
-//     items: [
-//         {
-//             key: 'codeEditor',
-//             title: '编辑命令',
-//             description: '编辑自定义 CSS 的命令, 默认为 code, 表示使用 vs code 打开',
-//             type: 'textinput',
-//             get: () => codeEditor,
-//             set: (value: string) => {
-//                 codeEditor = value;
-//             }
-//         }
-//     ]
-// }
 
 const attachCSSLink = (endpoint: string, id?: string) => {
     if (id) {
@@ -78,6 +61,8 @@ const attachCSSLink = (endpoint: string, id?: string) => {
     // return true;
     return link;
 }
+
+const STYLE_FILE_ID = ['custom-css-file'];
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
@@ -123,6 +108,17 @@ export const load = (plugin: FMiscPlugin) => {
             }
         ]
     }]);
+
+    readDir('/data/public/styles/').then(res => {
+        if (res === null) return;
+        const files = res.filter(item => item.isDir === false && item.name.endsWith('.css'));
+        console.log('Petal Styles:');
+        console.log(files);
+        files.forEach(file => {
+            const id = `fmisc-custom-css__${file.name}`;
+            attachCSSLink(`/public/styles/${file.name}`, id);
+        });
+    });
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -137,8 +133,31 @@ export const unload = (plugin: FMiscPlugin) => {
 
     plugin.unRegisterMenuTopMenu('custom-css-file');
     // 删除 style 链接
-    const link = document.getElementById('custom-css-file');
-    if (link) {
-        link.remove();
-    }
+    STYLE_FILE_ID.forEach(id => {
+        const link = document.getElementById(id);
+        if (link) {
+            link.remove();
+        }
+    });
 }
+
+
+export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
+    key: name,
+    title: 'CSS Files',
+    load: () => {},
+    items: [
+        {
+            type: 'hint',
+            title: '说明',
+            description: `<ul>
+                <li>默认样式文件位于 /data/public/custom.css，可通过顶栏快速编辑，并随时更新</li>
+                <li>可以将一些其他的自定义 CSS 文件放入 /data/public/styles/ 目录，插件会在启动时自动加载样式</li>
+            </ul>`,
+            key: 'hint',
+            get: () => '',
+            set: () => { }
+        }
+    ]
+}
+

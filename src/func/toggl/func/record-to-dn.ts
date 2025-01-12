@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2025-01-04 01:31:01
+ * @LastEditTime : 2025-01-12 11:25:46
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
@@ -150,6 +150,8 @@ export const toggleAutoFetch = (enable: boolean) => {
         }
     }
 }
+
+//WARN computations created outside a `createRoot` or `render` will never be disposed
 createEffect(() => {
     toggleAutoFetch(config().dnAutoFetch);
 });

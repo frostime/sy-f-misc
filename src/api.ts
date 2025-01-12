@@ -423,7 +423,7 @@ export async function removeFile(path: string) {
 
 
 
-export async function readDir(path: string): Promise<IResReadDir> {
+export async function readDir(path: string): Promise<IResReadDir[]> {
     let data = {
         path: path
     }
