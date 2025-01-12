@@ -1,20 +1,12 @@
 /*
- * Copyright (c) 2025 by frostime. All Rights Reserved.
- * @Author       : frostime
- * @Date         : 2024-12-19 15:18:55
- * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2025-01-04 21:49:55
- * @Description  : 
- */
-/*
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2025-01-02 22:48:56
+ * @LastEditTime : 2025-01-12 12:28:20
  * @Description  : 
  */
-import { Protyle, showMessage } from "siyuan";
+import { Menu, Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { addProcessor, delProcessor } from "@/func/global-paste";
 
@@ -119,7 +111,7 @@ export const load = (plugin: FMiscPlugin) => {
     zotero = new ZoteroDBModal();
     plugin.addProtyleSlash({
         id: "zotero-cite-selected",
-        filter: ["cite"],
+        filter: ["cite", "zotero"],
         html: '引用 Zotero 选中项',
         callback: async (protyle: Protyle) => {
             const data = await zotero.getSelectedItems();
@@ -136,26 +128,52 @@ export const load = (plugin: FMiscPlugin) => {
             }
         }
     });
+
     plugin.addProtyleSlash({
         id: "zotero-seleted-note",
-        filter: ["cite"],
+        filter: ["cite", "zotero"],
         html: '导入 Zotero 选中项笔记',
         callback: async (protyle: Protyle) => {
-            console.log(protyle);
+            // console.log(protyle);
             const data: Object = await zotero.getItemNote();
             if (!data) return;
             let keys = Object.keys(data);
 
-            if (keys.length === 1) {
-                let html = parseNoteHtml(data[keys[0]], getZoteroDir());
+            const parseNote = (inputHTML: string) => {
+                let html = parseNoteHtml(inputHTML, getZoteroDir());
                 let lute = window.Lute.New();
                 let md = lute.HTML2Md(html);
-                // md = `我是 $\\alpha$ 河梁哦`
                 md = md.replaceAll(SPECIAL_CHAR_DOLLAR, '$');
                 md = md.replace(/\\+/g, '\\');
-                md = md.replace(/\\([_^])/g, '$1');;
-                // console.log(md);
+                return md;
+            }
+
+            if (keys.length === 1) {
+                let md = parseNote(data[keys[0]]);
                 protyle.insert(md, true);
+            } else if (keys.length > 1) {
+                const selection = document.getSelection();
+                // 获取第一个范围（通常只有一个范围）
+                const range = selection.getRangeAt(0);
+
+                // 获取范围的边界矩形
+                const rect = range.getBoundingClientRect();
+
+                let menu = new Menu();
+                const maxLength = 30;
+                keys.forEach((key, index) => {
+                    menu.addItem({
+                        label: key.length > maxLength ? key.slice(0, maxLength) + '...' : key,
+                        click: () => {
+                            let md = parseNote(data[keys[index]]);
+                            protyle.insert(md, true);
+                        }
+                    });
+                });
+                menu.open({
+                    x: rect.x,
+                    y: rect.y
+                });
             }
         }
     });
@@ -165,6 +183,8 @@ export const unload = (plugin: FMiscPlugin) => {
     if (!enabled) return;
     // plugin.eventBus.off("paste", onPaste);
     delProcessor(name);
+    plugin.delProtyleSlash("zotero-cite-selected");
+    plugin.delProtyleSlash("zotero-seleted-note");
     enabled = false;
 
     zotero = null;
