@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 19:26:15
  * @FilePath     : /src/func/toggl/state/active.ts
- * @LastEditTime : 2025-01-12 11:27:47
+ * @LastEditTime : 2025-01-14 20:25:20
  * @Description  : 
  */
 import { createEffect, onCleanup, on } from 'solid-js';
@@ -114,7 +114,7 @@ export const updateEntry = async (entry: {
     return response;
 };
 
-const clearElapsedTimer = () => {
+export const clearElapsedTimer = () => {
     if (elapsedTimer) {
         clearInterval(elapsedTimer);
         elapsedTimer = null;
@@ -127,7 +127,7 @@ const clearSyncTimer = () => {
     }
 }
 
-const startElapsedTimer = () => {
+export const startElapsedTimer = () => {
     clearElapsedTimer();
     elapsedTimer = window.setInterval(updateElapsedTime, 1000);
     // syncTimer = window.setInterval(syncEntry, 5 * 60 * 1000);
@@ -142,20 +142,21 @@ const startSyncTimer = () => {
 };
 
 // Initialize timers when active entry changes
-//WARN computations created outside a `createRoot` or `render` will never be disposed
-createEffect(on(activeEntry.signal, (entry) => {
-    console.log('activeEntry::effect', entry);
-    if (entry) {
-        elapsed(0);
-        startElapsedTimer();
-    } else {
-        clearElapsedTimer();
-    }
-}));
+//BUG computations created outside a `createRoot` or `render` will never be disposed
+
+// createEffect(on(activeEntry.signal, (entry) => {
+//     console.log('activeEntry::effect', entry);
+//     if (entry) {
+//         elapsed(0);
+//         startElapsedTimer();
+//     } else {
+//         clearElapsedTimer();
+//     }
+// }));
 
 // Cleanup on unmount
 //BUG cleanups created outside a `createRoot` or `render` will never be run
-onCleanup(clearElapsedTimer);
+// onCleanup(clearElapsedTimer);
 
 export const load = async () => {
     if (!me()) return false;

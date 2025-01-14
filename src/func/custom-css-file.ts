@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-11-23 15:37:06
  * @FilePath     : /src/func/custom-css-file.ts
- * @LastEditTime : 2025-01-12 11:51:16
+ * @LastEditTime : 2025-01-12 20:39:27
  * @Description  : 
  */
 // import { putFile, readDir } from "@/api"
@@ -11,7 +11,7 @@ import { putFile, readDir } from "@frostime/siyuan-plugin-kits/api";
 import type FMiscPlugin from "@/index";
 import { showMessage } from "siyuan";
 import { sharedConfigs } from "./shared-configs";
-import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { updateStyleDom } from "@frostime/siyuan-plugin-kits";
 // import { showMessage } from "siyuan";
 
 let cp: any;
@@ -62,23 +62,29 @@ const attachCSSLink = (endpoint: string, id?: string) => {
     return link;
 }
 
-const STYLE_FILE_ID = ['custom-css-file'];
+const STYLE_FILE_ID = [];
+
+const CUSTOM_CSS_SNIPPET_ID = 'snippetCSS__fmisc__custom-css-snippet';
+const updateCustomCSSFile = async (create: boolean) => {
+    const res = await fetch(`/public/${fname}`);
+    if (!res.ok) {
+        if (create) {
+            const file = new File([DEFAULT_STYLE], fname, { type: 'text/css' });
+            putFile(`/data/public/${fname}`, false, file);
+        }
+    } else {
+        let css = await res.text();
+        updateStyleDom(CUSTOM_CSS_SNIPPET_ID, css);
+    }
+}
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
 
-    let link: HTMLLinkElement | null = null;
+    updateCustomCSSFile(true);
 
-    fetch(`/public/${fname}`).then(res => {
-        if (!res.ok) {
-            const file = new File([DEFAULT_STYLE], fname, { type: 'text/css' });
-            putFile(`/data/public/${fname}`, false, file);
-        }
-        link = attachCSSLink(`/public/${fname}`, 'custom-css-file');
-    });
-
-    plugin.registerMenuTopMenu('custom-css-file', [{
+    plugin.registerMenuTopMenu(name, [{
         label: '自定义 CSS',
         icon: 'iconSparkles',
         submenu: [
@@ -100,10 +106,7 @@ export const load = (plugin: FMiscPlugin) => {
                 label: '刷新',
                 icon: 'iconRefresh',
                 click: () => {
-                    if (link) {
-                        const timestamp = Date.now();
-                        link.href = `/public/${fname}?t=${timestamp}`;
-                    }
+                    updateCustomCSSFile(false);
                 }
             }
         ]
@@ -131,7 +134,7 @@ export const unload = (plugin: FMiscPlugin) => {
         cssWatchInterval = null;
     }
 
-    plugin.unRegisterMenuTopMenu('custom-css-file');
+    plugin.unRegisterMenuTopMenu(name);
     // 删除 style 链接
     STYLE_FILE_ID.forEach(id => {
         const link = document.getElementById(id);
@@ -145,7 +148,7 @@ export const unload = (plugin: FMiscPlugin) => {
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: name,
     title: 'CSS Files',
-    load: () => {},
+    load: () => { },
     items: [
         {
             type: 'hint',

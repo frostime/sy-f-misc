@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2025-01-05 21:32:00
+ * @LastEditTime : 2025-01-14 20:34:36
  * @Description  : 
  */
 import * as components from './components';
@@ -15,9 +15,44 @@ import type FMiscPlugin from '@/index';
 import TogglSetting from './setting';
 import { solidDialog } from '@/libs/dialog';
 import TimeEntryHistory from './components/time-entry-history';
+import { createEffect, createRoot, on } from 'solid-js';
 
 export let name = 'Toggl';
 export let enabled = false;
+
+
+const useSolidRoot = () => {
+    let disposer = () => { };
+
+    return {
+        use: () => {
+            disposer = createRoot(dispose => {
+                //AUTO fetch, 根据 config 的情况
+                createEffect(() => {
+                    console.log('Effect: toggleAutoFetch');
+                    toggleAutoFetch(config.config().dnAutoFetch);
+                });
+                createEffect(on(active.activeEntry.signal, (entry) => {
+                    console.log('Effect: activeEntry', entry);
+                    if (entry) {
+                        active.elapsed(0);
+                        active.startElapsedTimer();
+                    } else {
+                        active.clearElapsedTimer();
+                    }
+                }));
+                return dispose;
+            });
+        },
+        dispose: () => {
+            disposer();
+            disposer = () => { };
+        }
+    }
+}
+
+
+const reactivityRoot = useSolidRoot();
 
 
 export const load = async (plugin: FMiscPlugin) => {
@@ -59,6 +94,8 @@ export const load = async (plugin: FMiscPlugin) => {
     }, 1000);
     // plugin.addLayoutReadyCallback(() => {
     // })
+
+    reactivityRoot.use();
 };
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -69,6 +106,7 @@ export const unload = (plugin: FMiscPlugin) => {
     toggleAutoFetch(false);
     components.unload();
     active.unload();
+    reactivityRoot.dispose();
 }
 
 export const declareToggleEnabled = {

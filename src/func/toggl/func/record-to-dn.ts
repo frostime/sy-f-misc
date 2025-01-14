@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2025-01-12 11:25:46
+ * @LastEditTime : 2025-01-14 20:28:45
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
@@ -15,7 +15,7 @@ import { formatDate, formatSeconds, startOfToday } from "../utils/time";
 import { checkDailynoteToday } from "../utils/dailynote";
 import { TimeEntry } from "../api/types";
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
-import { createEffect } from "solid-js";
+import { createEffect, createRoot } from "solid-js";
 import { config, projectNames } from "../state/config";
 
 
@@ -152,6 +152,15 @@ export const toggleAutoFetch = (enable: boolean) => {
 }
 
 //WARN computations created outside a `createRoot` or `render` will never be disposed
-createEffect(() => {
-    toggleAutoFetch(config().dnAutoFetch);
-});
+// createEffect(() => {
+//     toggleAutoFetch(config().dnAutoFetch);
+// });
+// const dispose = createRoot(dispose => {
+//     createEffect(() => {
+//         toggleAutoFetch(config().dnAutoFetch);
+//     });
+//     return dispose;  // 返回清理函数，以便在插件卸载时使用
+// });
+
+// 在插件卸载时：
+// dispose();

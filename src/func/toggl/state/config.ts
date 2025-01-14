@@ -8,7 +8,6 @@
  */
 import { debounce } from "@frostime/siyuan-plugin-kits";
 import { type Plugin } from "siyuan";
-import { createMemo } from "solid-js";
 import { type Project, type User, type Tag } from "../api/types";
 import { getMe, getProjects, getTags } from "../api/me";
 
@@ -41,21 +40,21 @@ const mergeConfig = (newConfig: Partial<IConfig>) => {
 
 //Auth token in base64 format
 //WARN computations created outside a `createRoot` or `render` will never be disposed
-export const token64 = createMemo(() => btoa(config().token + ':api_token'));
+export const token64 = () => btoa(config().token + ':api_token');
 
 //******************** Toggl Status ********************
 
 export const me = createSignalRef<User>(null); //Toggl 当前用户
 
 //WARN computations created outside a `createRoot` or `render` will never be disposed
-export const isConnected = createMemo(() => me() !== undefined && me()?.api_token !== undefined);
+export const isConnected = () => me() !== undefined && me()?.api_token !== undefined;
 
 
 export const projects = createSignalRef<Project[]>([]);
 export const tags = createSignalRef<Tag[]>([]);
 
 //WARN computations created outside a `createRoot` or `render` will never be disposed
-export const projectNames = createMemo(() => Object.fromEntries(projects().map(p => [p.id, p.name])));
+export const projectNames = () => Object.fromEntries(projects().map(p => [p.id, p.name]));
 
 export const fetchMe = async () => {
     try {
