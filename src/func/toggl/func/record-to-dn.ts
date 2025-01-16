@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2025-01-14 20:28:45
+ * @LastEditTime : 2025-01-15 18:13:03
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
@@ -15,28 +15,26 @@ import { formatDate, formatSeconds, startOfToday } from "../utils/time";
 import { checkDailynoteToday } from "../utils/dailynote";
 import { TimeEntry } from "../api/types";
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
-import { createEffect, createRoot } from "solid-js";
 import { config, projectNames } from "../state/config";
 
 
 const entriesToMd = (entries: TimeEntry[]) => {
-    let items = entries.map(entry => {
+    const replaceChar = (str: string) => str.replace(/\n/g, ' ').replace(/\|/g, '-');
+
+    let tableRows = entries.map(entry => {
         let start = formatDateTime('yyyy-MM-dd HH:mm:ss', new Date(entry.start));
         let stop = entry.stop ? formatDateTime('yyyy-MM-dd HH:mm:ss', new Date(entry.stop)) : '--:--:--';
-
         let duration = entry.stop ? formatSeconds(entry.duration) : '进行中';
+        let project = entry.project_id ? (projectNames()[entry.project_id] ?? `${entry.project_id}`) : '';
+        let tags = entry.tags && entry.tags.length > 0 ? `#${entry.tags.join(', #')}` : '';
 
-        let item = `- **${entry.description}**`;
-        item += `\n    - **时间段**: ${start} ~ ${stop}`
-        item += `\n    - **持续时间**: ${duration}`
-        if (entry.project_id) {
-            let name = projectNames()[entry.project_id] ?? `${entry.project_id}`;
-            item += `\n    - **项目**: ${name}`;
-        }
-        if (entry.tags && entry.tags.length > 0) item += `\n    - **标签**: #${entry.tags.join(', #')}`
-        return item;
+        return `| ${replaceChar(entry.description)} | ${start} | ${stop} | ${duration} | ${replaceChar(project)} | ${replaceChar(tags)} |`;
     });
-    return items.join('\n');
+    tableRows.reverse();
+
+    return `| 描述 | 开始 | 结束 | 持续 | 项目 | 标签 |
+|---|---|---|---|---|---|
+${tableRows.join('\n')}`;
 }
 
 

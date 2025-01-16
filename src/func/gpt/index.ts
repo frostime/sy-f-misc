@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-01-01 18:55:56
+ * @LastEditTime : 2025-01-16 20:30:29
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -175,6 +175,21 @@ export const useSyDocClickEvent = () => {
 
 const clickEvent = useSyDocClickEvent();
 
+const openUrl = async (e: CustomEvent<{ url: string }>) => {
+    // const prefix = "siyuan://plugins/<plugin-name>/chat-session-history?historyId=xxx";
+    const urlObj = new URL(e.detail.url);
+    const method = urlObj.pathname.split('/').pop();
+    if (method === 'chat-session-history') {
+        const historyId = urlObj.searchParams.get('historyId');
+        const history = await persist.getFromJson(historyId);
+        if (!history) {
+            showMessage(`未找到 GPT 记录 ${historyId}`, 4000, 'error');
+            return;
+        }
+        openChatTab(false, history);
+    }
+}
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
@@ -224,10 +239,13 @@ export const load = (plugin: FMiscPlugin) => {
     });
     setting.load(plugin);
     clickEvent.register();
+
+    plugin.eventBus.on('open-siyuan-url-plugin', openUrl);
 }
 
-export const unload = () => {
+export const unload = (plugin: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
     clickEvent.dispose();
+    plugin.eventBus.off('open-siyuan-url-plugin', openUrl);
 }

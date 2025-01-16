@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-08 16:03:34
+ * @LastEditTime : 2025-01-16 20:39:38
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -16,8 +16,8 @@ import styles from './ChatSession.module.scss';
 import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
-import { Menu } from 'siyuan';
-import { inputDialog } from '@frostime/siyuan-plugin-kits';
+import { Menu, showMessage } from 'siyuan';
+import { inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
@@ -413,12 +413,28 @@ const ChatSession: Component = (props: {
                 >
                     {session.title()}
                 </div>
-                {/* 为了左右对称 */}
-                <Item placeholder={true} />
                 <Item
                     onclick={openHistoryList}
                     label='历史记录'
                     icon='iconHistory'
+                />
+                <Item
+                    label="复制链接"
+                    icon="iconLink"
+                    onclick={() => {
+                        persist.persistHistory(session.sessionHistory(), { onlyJson: true, verbose: false });
+                        const plugin = thisPlugin();
+                        const prefix = `siyuan://plugins/${plugin.name}/chat-session-history`;
+                        let urlObj = new URLSearchParams();
+                        urlObj.set("historyId", session.sessionHistory().id);
+                        urlObj.set("historyTitle", session.title());
+                        let url = `${prefix}?${urlObj.toString()}`;
+                        let markdown = `[${session.title()}](${url})`;
+                        navigator.clipboard.writeText(markdown).then(() => {
+                            showMessage("Copy links to clipboard!");
+                            console.debug("Copy links to clipboard!", markdown);
+                        });
+                    }}
                 />
                 <Item
                     onclick={newChatSession}
@@ -533,8 +549,8 @@ const ChatSession: Component = (props: {
             <Topbar />
             <BatchOperationBar />
 
-            <div 
-                class={styles.messageList} 
+            <div
+                class={styles.messageList}
                 ref={messageListRef}
                 onScroll={handleScroll}
             >
