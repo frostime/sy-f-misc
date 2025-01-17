@@ -38,6 +38,16 @@ $chat-very-narrow-container: 360px;
     align-self: center;
 
     overflow-x: hidden;
+
+    &.readingMode {
+        .inputContainer {
+            display: none;
+        }
+
+        .messageList {
+            padding-bottom: 5px;
+        }
+    }
 }
 
 
@@ -66,6 +76,8 @@ $chat-very-narrow-container: 360px;
         white-space: nowrap; // 防止文本换行
         overflow: hidden; // 隐藏超出部分
         text-overflow: ellipsis; // 使用 ... 表示被截断的文本
+        padding-left: 5px;
+        padding-right: 5px;
     }
 }
 
@@ -73,7 +85,7 @@ $chat-very-narrow-container: 360px;
     flex: 1;
     overflow-y: auto;
     padding: 10px;
-    margin-bottom: 20px;
+    // margin-bottom: 20px;
 }
 
 .inputContainer {

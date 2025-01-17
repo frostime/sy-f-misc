@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-16 20:39:38
+ * @LastEditTime : 2025-01-17 13:56:29
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -40,6 +40,7 @@ const ChatSession: Component = (props: {
     const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
     const multiSelect = useSignalRef(false);
     const selectedMessages = useSignalRef<Set<string>>(new Set());
+    const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -376,6 +377,24 @@ const ChatSession: Component = (props: {
                     icon='iconUpload'
                 />
                 <Item
+                    label="复制链接"
+                    icon="iconLink"
+                    onclick={() => {
+                        persist.persistHistory(session.sessionHistory(), { onlyJson: true, verbose: false });
+                        const plugin = thisPlugin();
+                        const prefix = `siyuan://plugins/${plugin.name}/chat-session-history`;
+                        let urlObj = new URLSearchParams();
+                        urlObj.set("historyId", session.sessionHistory().id);
+                        urlObj.set("historyTitle", session.title());
+                        let url = `${prefix}?${urlObj.toString()}`;
+                        let markdown = `[${session.title()}](${url})`;
+                        navigator.clipboard.writeText(markdown).then(() => {
+                            showMessage("Copy links to clipboard!");
+                            console.debug("Copy links to clipboard!", markdown);
+                        });
+                    }}
+                />
+                <Item
                     onclick={() => {
                         multiSelect.update(!multiSelect());
                         if (!multiSelect()) {
@@ -413,28 +432,22 @@ const ChatSession: Component = (props: {
                 >
                     {session.title()}
                 </div>
+                <Item placeholder={true}/>
                 <Item
                     onclick={openHistoryList}
                     label='历史记录'
                     icon='iconHistory'
                 />
                 <Item
-                    label="复制链接"
-                    icon="iconLink"
-                    onclick={() => {
-                        persist.persistHistory(session.sessionHistory(), { onlyJson: true, verbose: false });
-                        const plugin = thisPlugin();
-                        const prefix = `siyuan://plugins/${plugin.name}/chat-session-history`;
-                        let urlObj = new URLSearchParams();
-                        urlObj.set("historyId", session.sessionHistory().id);
-                        urlObj.set("historyTitle", session.title());
-                        let url = `${prefix}?${urlObj.toString()}`;
-                        let markdown = `[${session.title()}](${url})`;
-                        navigator.clipboard.writeText(markdown).then(() => {
-                            showMessage("Copy links to clipboard!");
-                            console.debug("Copy links to clipboard!", markdown);
-                        });
-                    }}
+                    onclick={() => isReadingMode.update(!isReadingMode())}
+                    label={isReadingMode() ? '退出阅读' : '阅读模式'}
+                    icon={'iconEye'}
+                    styles={
+                        isReadingMode() ? {
+                            'background-color': 'var(--b3-theme-primary)',
+                            'color': 'var(--b3-theme-on-primary)'
+                        } : {}
+                    }
                 />
                 <Item
                     onclick={newChatSession}
@@ -544,7 +557,7 @@ const ChatSession: Component = (props: {
     };
 
     const ChatContainer = () => (
-        <div class={styles.chatContainer} style={styleVars()}>
+        <div class={`${styles.chatContainer} ${isReadingMode() ? styles.readingMode : ''}`} style={styleVars()}>
             {/* 添加顶部工具栏 */}
             <Topbar />
             <BatchOperationBar />

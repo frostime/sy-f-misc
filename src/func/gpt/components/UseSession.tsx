@@ -338,7 +338,7 @@ ${inputContent}
         const hasContext = userMessage.includes('</Context>');
         let sysPrompt = systemPrompt().trim() || '';
         if (hasContext) {
-            sysPrompt += 'Note: <Context>...</Context> 是附带的上下文信息，只关注其内容，不要将 <Context> 标签作为正文的一部分';
+            sysPrompt += '\nNote: <Context>...</Context> 是附带的上下文信息，只关注其内容，不要将 <Context> 标签作为正文的一部分';
         }
 
         await appendUserMsg(userMessage, attachments());
@@ -410,7 +410,7 @@ ${inputContent}
             // Clear attachments after sending
             attachments.update([]);
 
-            props.scrollToBottom();
+            props.scrollToBottom(false);
 
             if (!hasStarted) {
                 hasStarted = true;
