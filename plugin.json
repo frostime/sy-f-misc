@@ -2,7 +2,7 @@
   "name": "sy-f-misc",
   "author": "frostime",
   "url": "https://github.com/frostime/sy-f-misc",
-  "version": "5.3.12",
+  "version": "5.3.13",
   "minAppVersion": "3.1.8",
   "backends": [
     "all"
@@ -23,12 +23,15 @@
   },
   "funding": {
     "custom": [
-      "https://afdian.net/a/frostime"
+      "https://afdian.com/a/frostime"
     ]
   },
   "keywords": [
     "frostime",
     "toolbox",
-    "misc"
+    "misc",
+    "gpt",
+    "chat",
+    "toggl"
   ]
 }
