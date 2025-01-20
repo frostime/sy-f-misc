@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-01-20 22:51:25
+ * @LastEditTime : 2025-01-20 22:57:08
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
@@ -66,6 +66,9 @@ function ProtyleComponent(props: {
             const span = document.createElement('span');
             span.className = 'b3-label__text';
             span.textContent = '自动删除';
+            span.style.overflow = 'hidden';
+            span.style.textOverflow = 'ellipsis';
+            span.style.whiteSpace = 'nowrap';
             div.appendChild(span);
 
             const checkbox = document.createElement('input');
@@ -82,6 +85,9 @@ function ProtyleComponent(props: {
             let documentTitle = document.createElement('span');
             documentTitle.textContent = block.content;
             documentTitle.className = 'b3-label__text';
+            documentTitle.style.overflow = 'hidden';
+            documentTitle.style.textOverflow = 'ellipsis';
+            documentTitle.style.whiteSpace = 'nowrap';
             div.appendChild(documentTitle);
 
             documentTitle.onclick = () => {
@@ -224,8 +230,8 @@ export const openQuickDraft = async (title?: string) => {
     // const screenWidth = window.screen.availWidth;
     // const screenHeight = window.screen.availHeight;
     openWindow({
-        height: 400,
-        width: 750,
+        height: 420,
+        width: 800,
         tab: await tab
     });
 }
