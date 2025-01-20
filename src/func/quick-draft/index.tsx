@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-01-08 13:49:06
+ * @LastEditTime : 2025-01-19 15:29:21
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
 import { getFrontend, openTab, openWindow, Protyle, showMessage } from "siyuan";
 import {
-    app, createDalynote, formatSiYuanTimestamp, inputDialog, lsOpenedNotebooks, matchIDFormat, thisPlugin, translateHotkey
+    app, createDailynote, debounce, formatSiYuanTimestamp, inputDialog, lsOpenedNotebooks, matchIDFormat, thisPlugin, translateHotkey
 
 } from "@frostime/siyuan-plugin-kits";
 // import { createSignalRef } from "@frostime/solid-signal-ref";
@@ -18,7 +18,7 @@ import { createDocWithMd, getBlockByID, removeDocByID, renameDocByID } from "@fr
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import FMiscPlugin from "@/index";
 
-// const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const InMiniWindow = () => {
     const body: HTMLElement = document.querySelector('body');
@@ -189,8 +189,19 @@ export const openQuickDraft = async (title?: string) => {
         box = notebooks[0].id;
         DEFAULT_BOX = box;
     }
-    let dnId = await createDalynote(box);
+    let dnId = await createDailynote(box);
     let doc = await getBlockByID(dnId);
+    let retry = 1;
+    while (!doc) {
+        console.debug(`Retry: ${retry}`);
+        await sleep(500);
+        doc = await getBlockByID(dnId);
+        if (retry > 5) {
+            showMessage('创建笔记草稿失败，请稍后再试', 2500);
+            return;
+        }
+        retry++;
+    }
 
     let docTitle = title || formatSiYuanTimestamp();
     let newDocPath = doc.hpath + `/${docTitle}`;
@@ -219,6 +230,8 @@ export const openQuickDraft = async (title?: string) => {
     });
 }
 
+const openQuickDraftDebounced = debounce(openQuickDraft, 1000);
+
 export let name = "QuickNote";
 export let enabled = false;
 let disposer: () => void;
@@ -239,7 +252,7 @@ export const load = (plugin: FMiscPlugin) => {
             );
         },
         async destroy() {
-            console.log('关闭 QuickDraft 文档');
+            // console.log('关闭 QuickDraft 文档');
             disposer?.();
             disposer = () => { };
         }
@@ -251,7 +264,7 @@ export const load = (plugin: FMiscPlugin) => {
         langText: "打开新窗口以新建笔记草稿",
         hotkey: translateHotkey("Shift+Alt+G"),
         globalCallback: () => {
-            openQuickDraft();
+            openQuickDraftDebounced();
         }
     });
 
@@ -260,7 +273,7 @@ export const load = (plugin: FMiscPlugin) => {
             icon: 'iconEdit',
             label: 'Quick Draft',
             click: () => {
-                openQuickDraft();
+                openQuickDraftDebounced();
             }
         }
     ]);

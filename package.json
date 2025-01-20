@@ -26,7 +26,7 @@
     "minimist": "^1.2.8",
     "rollup-plugin-livereload": "^2.0.5",
     "sass": "^1.83.1",
-    "siyuan": "1.0.7",
+    "siyuan": "latest",
     "solid-js": "^1.9.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2",
@@ -36,7 +36,7 @@
     "vite-plugin-zip-pack": "^1.2.2"
   },
   "dependencies": {
-    "@frostime/siyuan-plugin-kits": "^1.5.0",
+    "@frostime/siyuan-plugin-kits": "1.5.3-beta0",
     "@frostime/solid-signal-ref": "^2.1.0"
   }
 }

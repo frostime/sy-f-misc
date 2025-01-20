@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2025-01-12 12:28:20
+ * @LastEditTime : 2025-01-17 15:57:17
  * @Description  : 
  */
 import { Menu, Protyle, showMessage } from "siyuan";
@@ -43,6 +43,8 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
     div.innerHTML = html;
     let ele = div.firstElementChild as HTMLElement;
     console.log(ele)
+
+    if (!ele) return html;
 
     ele.querySelectorAll('span.citation')?.forEach((span: HTMLSpanElement) => {
         let anchor: HTMLAnchorElement = document.createElement('a');
