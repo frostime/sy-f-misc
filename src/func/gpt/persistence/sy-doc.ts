@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-01-01 15:06:27
+ * @LastEditTime : 2025-01-20 17:55:04
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -29,16 +29,25 @@ const item2markdown = (item: IChatSessionMsgItem) => {
     if (item.message.role === 'assistant') {
         author = `${item.message.role} [${item.author}]`;
     }
-    let { text } = adaptIMessageContent(item.message.content);
+    let { text, images } = adaptIMessageContent(item.message.content);
     if (defaultConfig().convertMathSyntax) {
         text = convertMathFormulas(text);
     }
+
+    const imagesDivs = () => {
+        if (!images || images.length === 0) return '';
+        let imgs = images.map(b64code => `<img style="max-width: 100%; display: inline-block;" src="${b64code}" />`);
+        return `<div style="display: flex; flex-direction: column; gap: 10px;">\n${imgs.join('\n')}\n</div>`;
+    }
+
     return `
 ---
 
 > ${item.timestamp ? formatDateTime(null, new Date(item.timestamp)) : '--:--:--'} ${author}
 
 ${text}
+
+${imagesDivs()}
 
 `.trim();
 }

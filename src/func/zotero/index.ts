@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2025-01-17 15:57:17
+ * @LastEditTime : 2025-01-20 22:44:21
  * @Description  : 
  */
 import { Menu, Protyle, showMessage } from "siyuan";
@@ -52,7 +52,10 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
         let data = decodeURIComponent(span.dataset.citation);
         const citationObject = JSON.parse(data);
         let href: string = citationObject['citationItems'][0]['uris'][0];
-        anchor.href = href.replace(/https?:\/\/zotero\.org\/users\/\d+/, 'zotero://select/library')
+        // First try to match local pattern, then fall back to original pattern
+        href = href.replace(/https?:\/\/zotero\.org\/users\/local\/[^/]+\/items\/([^?]+)/, 'zotero://select/library/items/$1');
+        href = href.replace(/https?:\/\/zotero\.org\/users\/\d+/, 'zotero://select/library');
+        anchor.href = href;
         if (span.parentNode) {
             span.parentNode.replaceChild(anchor, span);
         }
@@ -73,7 +76,10 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
         let data = decodeURIComponent(span.dataset.annotation);
         const citationObject = JSON.parse(data);
         let href: string = citationObject[`attachmentURI`] + `?page=${citationObject['pageLabel']}&annotation=${citationObject['annotationKey']}`
-        anchor.href = href.replace(/https?:\/\/zotero\.org\/users\/\d+/, 'zotero://open-pdf/library')
+        // First try to match local pattern, then fall back to original pattern
+        href = href.replace(/https?:\/\/zotero\.org\/users\/local\/[^/]+\/items\/([^?]+)(.*)/, 'zotero://open-pdf/library/items/$1$2');
+        href = href.replace(/https?:\/\/zotero\.org\/users\/\d+/, 'zotero://open-pdf/library');
+        anchor.href = href;
         if (span.parentNode) {
             span.parentNode.replaceChild(anchor, span);
         }

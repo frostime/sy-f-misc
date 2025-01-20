@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-01-19 15:29:21
+ * @LastEditTime : 2025-01-20 22:51:25
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
@@ -65,7 +65,7 @@ function ProtyleComponent(props: {
 
             const span = document.createElement('span');
             span.className = 'b3-label__text';
-            span.textContent = '自动删除草稿';
+            span.textContent = '自动删除';
             div.appendChild(span);
 
             const checkbox = document.createElement('input');
