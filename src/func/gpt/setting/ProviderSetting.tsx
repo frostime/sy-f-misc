@@ -148,7 +148,7 @@ const ProviderListItem = (props: {
                 gap: '7px',
                 'align-items': 'center',
                 padding: '10px 16px',
-                margin: '8px 22px',
+                margin: '4px 22px',
                 border: '1px solid var(--b3-border-color)',
                 'border-radius': '4px',
                 'box-shadow': '0 2px 4px var(--b3-theme-surface-light)'
@@ -241,25 +241,57 @@ const ProviderSetting = () => {
 
     const { handleDragStart, handleDragOver, handleDrop } = useDndReorder();
 
+    const storage = sessionStorage.getItem('ProviderSetting.isListOpen');
+    const isListOpen = createSignalRef(storage ? JSON.parse(storage) : true);
+    const toggleList = () => {
+        isListOpen.value = !isListOpen.value;
+        sessionStorage.setItem('ProviderSetting.isListOpen', JSON.stringify(isListOpen.value));
+    };
+
     return (
         <SimpleProvider state={{ updateProvider, removeProvider }}>
             <div>
                 <Heading>
-                    Provider 配置
-                    <button
-                        class="b3-button b3-button--text"
-                        style={{
-                            position: "absolute",
-                            top: "0px",
-                            right: "0px",
-                        }}
-                        onClick={addProvider}
-                    >
-                        <SvgSymbol size="20px">iconAdd</SvgSymbol>
-                    </button>
+                    <div style={{
+                        display: 'flex',
+                        gap: '5px',
+                        "align-items": "center",
+                    }}>
+                        <div class="fn__flex-1">
+                            Provider 配置
+                        </div>
+
+                        <div style={{
+                            "display": "flex",
+                            "align-items": "center",
+                            gap: '5px',
+                        }}>
+                            <button class="b3-button b3-button--text" onclick={toggleList}>
+                                <SvgSymbol size="15px" style={{
+                                    'transform': isListOpen() ? 'rotate(0deg)' : 'rotate(90deg)',
+                                    'transition': 'transform 0.3s ease-in-out'
+                                }}>
+                                    iconDown
+                                </SvgSymbol>
+                            </button>
+                            <button
+                                class="b3-button b3-button--text"
+                                onClick={addProvider}
+                            >
+                                <SvgSymbol size="20px">iconAdd</SvgSymbol>
+                            </button>
+                        </div>
+                    </div>
                 </Heading>
 
-                <div class="fn__flex-1">
+                <div class="fn__flex-1" style={{
+                    'overflow': 'auto',
+                    'transition': 'max-height 0.2s ease-in-out',
+                    'max-height': isListOpen() ? '1000px' : '0', // 初始高度设置为 0，展开时设置为足够大的值
+                    display: 'flex',
+                    'flex-direction': 'column',
+                    gap: '3px'
+                }}>
                     <For each={providers()}>
                         {(provider, index) => (
                             <div onDragOver={(e) => handleDragOver(e, index())} onDrop={handleDrop}>
