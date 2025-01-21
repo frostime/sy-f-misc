@@ -1,5 +1,6 @@
 import { Component, createMemo, For, onMount, Show } from 'solid-js';
 import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { confirm, Menu } from "siyuan";
 
 import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
@@ -337,6 +338,94 @@ const MessageItem: Component<{
         );
     }
 
+    const onContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const menu = new Menu("message-item-menu");
+        // Add action buttons
+        menu.addItem({
+            icon: 'iconEdit',
+            label: '编辑',
+            click: editMessage
+        });
+        menu.addItem({
+            icon: 'iconCopy',
+            label: '复制',
+            click: copyMessage
+        });
+        menu.addItem({
+            icon: 'iconLine',
+            label: '下方添加分隔',
+            click: () => props.toggleSeperator?.()
+        });
+        menu.addItem({
+            icon: props.messageItem.hidden ? 'iconEyeoff' : 'iconEye',
+            label: props.messageItem.hidden ? '在上下文中显示' : '在上下文中隐藏',
+            click: () => props.toggleHidden?.()
+        });
+        menu.addItem({
+            icon: 'iconTrashcan',
+            label: '删除',
+            click: () => {
+                confirm('确认?', '是否删除此消息', () => {
+                    deleteMessage();
+                });
+            }
+        });
+        menu.addItem({
+            icon: 'iconRefresh',
+            label: '重新运行',
+            click: () => {
+                confirm('确认?', '是否重新运行此消息', () => {
+                    rerunMessage();
+                });
+            }
+        });
+
+        menu.addSeparator();
+        const submenus = [];
+
+        submenus.push({
+            label: `作者: ${props.messageItem.author}`,
+            type: 'readonly'
+        });
+        submenus.push({
+            label: `消息长度: ${msgLength()}`,
+            type: 'readonly'
+        });
+        if (props.messageItem.attachedItems) {
+            submenus.push({
+                label: `上下文条目: ${props.messageItem.attachedItems}`,
+                type: 'readonly'
+            });
+        }
+        if (props.messageItem.attachedChars) {
+            submenus.push({
+                label: `上下文字数: ${props.messageItem.attachedChars}`,
+                type: 'readonly'
+            });
+        }
+        if (props.messageItem.token) {
+            submenus.push({
+                label: `Token: ${props.messageItem.token}`,
+                type: 'readonly'
+            });
+        }
+
+        menu.addItem({
+            icon: 'iconInfo',
+            type: 'submenu',
+            label: '相关信息',
+            submenu: submenus
+        });
+
+        menu.open({
+            x: e.clientX,
+            y: e.clientY
+        });
+    }
+
     return (
         <div class={styles.messageItem} data-role={props.messageItem.message.role}>
             <Show when={props.multiSelect}>
@@ -356,6 +445,7 @@ const MessageItem: Component<{
             )}
             <div class={styles.messageContainer}>
                 <div
+                    oncontextmenu={onContextMenu}
                     classList={{
                         [styles.message]: true,
                         [styles[props.messageItem.message.role]]: true,

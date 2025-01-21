@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-01-21 18:05:09
+ * @LastEditTime : 2025-01-21 19:30:31
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -70,7 +70,10 @@ const attachSelectedText = async () => {
     let blocksMap = new Map(blocks.map(block => [block.id, block]));
     let sortedBlocks = blocksIds.map(id => blocksMap.get(id));
     let blockMarkdown = sortedBlocks.map((block) => block.markdown);
-    return `\n\n${globalMiscConfigs().userSelectedContextFormat.replace('{{content}}', blockMarkdown.join('\n\n').trim())}`;
+    const content = blockMarkdown.join('\n\n').trim();
+    const template = globalMiscConfigs().userSelectedContextFormat;
+    const context = template.replace('{{content}}', content.replace(/\$/g, '$$$$'));
+    return `\n\n${context}`;
 }
 
 let activeTabId = null;

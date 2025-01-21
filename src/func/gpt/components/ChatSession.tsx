@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-17 13:56:29
+ * @LastEditTime : 2025-01-21 19:17:31
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -116,14 +116,14 @@ const ChatSession: Component = (props: {
         input.value += text;
         //刚刚创建的时候，可能还没有 textarea 元素
         if (!textareaRef) return;
-        //获取当前 selection 位置
-        const selectionStart = textareaRef.selectionStart;
         //需要等待 textarea 调整高度后再设置值
         setTimeout(() => {
             adjustTextareaHeight();
             textareaRef?.focus();
+            //设置 textarea 滚动到顶部
+            textareaRef.scrollTop = 0;
             //重新设置当前光标位置
-            textareaRef.setSelectionRange(selectionStart, selectionStart);
+            textareaRef.setSelectionRange(textareaRef.selectionStart, textareaRef.selectionStart);
         }, 0);
     }));
 
