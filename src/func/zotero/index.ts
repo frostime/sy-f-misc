@@ -185,6 +185,15 @@ export const load = (plugin: FMiscPlugin) => {
             }
         }
     });
+
+    globalThis.ZoteroSDK = {
+        checkConnection: async () => {
+            return await zotero.checkZoteroRunning();
+        },
+        executeJSCode: async (code: string) => {
+            return await zotero.executeZoteroJS(code);
+        }
+    }
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -196,4 +205,5 @@ export const unload = (plugin: FMiscPlugin) => {
     enabled = false;
 
     zotero = null;
+    delete globalThis.ZoteroSDK;
 }

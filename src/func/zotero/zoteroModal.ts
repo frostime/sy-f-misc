@@ -3,20 +3,20 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 18:46:22
  * @FilePath     : /src/func/zotero/zoteroModal.ts
- * @LastEditTime : 2025-01-02 22:49:38
+ * @LastEditTime : 2025-01-21 14:18:26
  * @Description  : 拷贝自思源 zotero 文件引用插件，做了一些修改
  * @Source       : https://github.com/WingDr/siyuan-plugin-citation
  */
 // import Fuse from "fuse.js";
 
 import {
-    Plugin,
-    Protyle,
+    // Plugin,
+    // Protyle,
     showMessage
 } from "siyuan";
 
 import * as api from '@/api';
-import type FMiscPlugin from "@/index";
+// import type FMiscPlugin from "@/index";
 import { getPassword } from "./config";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 
@@ -25,7 +25,7 @@ import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 //     if (!key) return [1, key];
 //     const group = key.split("_");
 //     if (group.length <= 1 || isNaN(+group[0])) {
-//         // 整个长度小于等于1（不含“_”或者为空）或者第一个字符不是数字的，都视为非新生成的
+//         // 整个长度小于等于1（不含"_"或者为空）或者第一个字符不是数字的，都视为非新生成的
 //         return [1, key];
 //     } else {
 //         return [eval(group[0]), group.slice(1).join("_")];
@@ -45,11 +45,11 @@ interface ISelectedItem {
 
 export class ZoteroDBModal {
     private absZoteroJSPath: string;
-    public plugin: Plugin;
-    public protyle: Protyle;
+    // public plugin: Plugin;
+    // public protyle: Protyle;
 
     logger = {
-        info: (msg: string, data?: any) => console.log(msg, data),
+        info: (msg: string, data ?: any) => console.log(msg, data),
         error: (msg: string, data?: any) => console.error(msg, data)
     };
 
@@ -138,13 +138,13 @@ export class ZoteroDBModal {
     }
     */
 
-    private async _callZoteroJS(filename: string, prefix: string) {
-        // const password = this.plugin.data[STORAGE_NAME].dbPassword;
-        // const password = this.plugin.getConfig("Misc", "zoteroPassword");
+    /**
+     * Execute JavaScript code in Zotero
+     * @param code JavaScript code to execute
+     * @returns Response from Zotero
+     */
+    public async executeZoteroJS(code: string) {
         const password = getPassword();
-        const jsContent = await api.getFile(this.absZoteroJSPath + filename + ".js", "text");
-
-        const raw = prefix + "\n" + jsContent;
         const requestOptions = {
             method: "POST",
             headers: {
@@ -152,7 +152,7 @@ export class ZoteroDBModal {
                 'Content-Type': 'application/javascript',
                 'Zotero-Allowed-Request': 'true'
             },
-            body: raw
+            body: code
         };
 
         try {
@@ -168,6 +168,13 @@ export class ZoteroDBModal {
         } catch (e) {
             console.warn('远程链接 Zotero 失败');
             console.warn(e);
+            return null;
         }
+    }
+
+    private async _callZoteroJS(filename: string, prefix: string) {
+        const jsContent = await api.getFile(this.absZoteroJSPath + filename + ".js", "text");
+        const code = prefix + "\n" + jsContent;
+        return await this.executeZoteroJS(code);
     }
 }
