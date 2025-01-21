@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2024-12-27 17:01:04
+ * @LastEditTime : 2025-01-21 18:13:12
  * @Description  : 
  */
 
@@ -195,7 +195,7 @@ const ChatSessionSetting = (props: {
                     }}
                 />
             </Form.Wrap>
-            <Heading>用户界面配置</Heading>
+            <Heading>用户对话配置</Heading>
             <Form.Wrap
                 title="输入框字体"
                 description="用户输入框的字体大小, 单位 px"

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-01-16 21:50:31
+ * @LastEditTime : 2025-01-21 18:05:09
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -22,6 +22,7 @@ import * as persist from './persistence';
 import { showMessage } from "siyuan";
 import { solidDialog } from "@/libs/dialog";
 import HistoryList from "./components/HistoryList";
+import { globalMiscConfigs } from "./setting/store";
 
 export let name = "GPT";
 export let enabled = false;
@@ -58,7 +59,7 @@ const attachSelectedText = async () => {
             return '';
         }
 
-        return `\n\n<Context>\n${selectedText}\n</Context>`;
+        return `\n\n${globalMiscConfigs().userSelectedContextFormat.replace('{{content}}', selectedText)}`;
     }
 
     let blocksIds = [];
@@ -69,7 +70,7 @@ const attachSelectedText = async () => {
     let blocksMap = new Map(blocks.map(block => [block.id, block]));
     let sortedBlocks = blocksIds.map(id => blocksMap.get(id));
     let blockMarkdown = sortedBlocks.map((block) => block.markdown);
-    return `\n\n<Context>\n${blockMarkdown.join('\n\n').trim()}\n\n</Context>`
+    return `\n\n${globalMiscConfigs().userSelectedContextFormat.replace('{{content}}', blockMarkdown.join('\n\n').trim())}`;
 }
 
 let activeTabId = null;

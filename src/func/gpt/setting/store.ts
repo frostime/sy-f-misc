@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2024-12-31 15:39:29
+ * @LastEditTime : 2025-01-21 18:32:39
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -38,6 +38,11 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
 });
 
 
+export const globalMiscConfigs = useStoreRef({
+    userSelectedContextFormat: '<Context>\n{{content}}\n</Context>',
+});
+
+
 export const providers = useStoreRef<IGPTProvider[]>([]);
 
 
@@ -58,6 +63,7 @@ const asStorage = () => {
         defaultModel: defaultModelId.unwrap(),
         visualModel: visualModel.unwrap(),
         config: { ...defaultConfig.unwrap() },
+        globalMiscConfigs: { ...globalMiscConfigs.unwrap() },
         providers: [...providers.unwrap()],
         ui: { ...UIConfig.unwrap() },
         promptTemplates: [...promptTemplates.unwrap()]
@@ -142,6 +148,7 @@ export const load = async (plugin?: Plugin) => {
         current.defaultModel && defaultModelId(current.defaultModel);
         current.visualModel && visualModel(current.visualModel);
         current.config && defaultConfig(current.config);
+        current.globalMiscConfigs && globalMiscConfigs(current.globalMiscConfigs);
         current.providers && providers(current.providers);
         current.ui && UIConfig(current.ui)
         current.promptTemplates && promptTemplates(current.promptTemplates)

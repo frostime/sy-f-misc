@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-01-11 20:42:43
+ * @LastEditTime : 2025-01-21 18:14:55
  * @Description  : 
  */
 import { debounce, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -15,6 +15,7 @@ import ChatSetting from "./ChatSetting";
 import ProviderSetting from "./ProviderSetting";
 import { onCleanup } from "solid-js";
 import PromptTemplateSetting from "./PromptTemplateSetting";
+import { globalMiscConfigs } from "./store";
 
 
 /**
@@ -53,6 +54,24 @@ const GlobalSetting = () => {
                         'line-height': '1.1em'
                     }}
                     spellcheck={false}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="选中内容格式"
+                description="用户选中内容时，插入到对话中的格式。使用 {{content}} 作为占位符表示选中的内容"
+                direction="row"
+            >
+                <Form.Input
+                    type="textarea"
+                    value={globalMiscConfigs().userSelectedContextFormat}
+                    changed={(v) => {
+                        globalMiscConfigs.update('userSelectedContextFormat', v);
+                    }}
+                    style={{
+                        'font-size': '1.2em',
+                        'line-height': '1.1em',
+                        height: '6em'
+                    }}
                 />
             </Form.Wrap>
             <PromptTemplateSetting />
