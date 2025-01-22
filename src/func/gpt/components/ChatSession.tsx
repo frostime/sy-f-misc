@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-21 19:17:31
+ * @LastEditTime : 2025-01-22 16:13:02
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -91,11 +91,11 @@ const ChatSession: Component = (props: {
         session.applyHistory(props.history);
     }
 
-    createEffect(() => {
+    createEffect(on(session.title, () => {
         if (props.updateTitleCallback) {
             props.updateTitleCallback(session.title());
         }
-    });
+    }));
 
     const newChatSession = (history?: Partial<IChatSessionHistory>) => {
         if (session.messages().length > 0) {

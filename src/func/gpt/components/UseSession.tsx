@@ -364,6 +364,9 @@ ${inputContent}
 
             props.scrollToBottom();
 
+            // Clear attachments after sending
+            attachments.update([]);
+
             const lastIdx = messages().length - 1;
             const { content, usage } = await gpt.complete(msgToSend, {
                 model: model,
@@ -406,9 +409,6 @@ ${inputContent}
                     messages.update(lastIdx - 1, 'token', usage?.prompt_tokens);
                 });
             }
-
-            // Clear attachments after sending
-            attachments.update([]);
 
             props.scrollToBottom(false);
 
