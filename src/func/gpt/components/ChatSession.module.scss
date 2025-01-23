@@ -235,17 +235,14 @@ $chat-very-narrow-container: 360px;
     align-items: center;
 }
 
-.sendButton {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    width: 35px;
-    height: 35px;
+.primaryButton {
+    width: 30px;
+    height: 30px;
     padding: 5px;
-    border-radius: 8px;
+    border-radius: 6px;
+    border-width: 0px;
     font-family: var(--b3-font-family-protyle), inherit;
     font-size: var(--chat-input-font-size);
-    background: var(--b3-theme-primary);
     opacity: 0.9;
 
     &:disabled {
@@ -295,5 +292,17 @@ $chat-very-narrow-container: 360px;
         align-items: center;
         gap: 0.3em;
         padding: 4px 8px;
+    }
+}
+
+
+.protyle-container {
+    :global(.protyle-wysiwyg) {
+        font-size: var(--input-font-size) !important;
+        padding: 16px 24px !important;
+
+        // [data-node-id] {
+        //     line-height: 1.6;
+        // }
     }
 }

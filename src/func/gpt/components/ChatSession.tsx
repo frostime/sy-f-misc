@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-22 16:13:02
+ * @LastEditTime : 2025-01-23 14:32:31
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -16,8 +16,8 @@ import styles from './ChatSession.module.scss';
 import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
-import { Menu, showMessage } from 'siyuan';
-import { inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits';
+import { Menu, Protyle, showMessage } from 'siyuan';
+import { getMarkdown, inputDialog, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
 import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
@@ -25,6 +25,155 @@ import { SvgSymbol } from './Elements';
 
 import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
+
+import * as syDoc from '../persistence/sy-doc';
+
+
+const useSiYuanEditor = (props: {
+    id: string;
+    input: ISignalRef<string>;
+    fontSize?: string;
+    title?: () => string;
+    useTextarea: () => HTMLTextAreaElement;
+    submit: () => void;
+}) => {
+    let document: Awaited<ReturnType<typeof useDocumentWithAttr>> = null;
+    const prepareDocument = async () => {
+        if (document) return;
+        const root = await syDoc.ensureRootDocument('GPT 导出文档');
+        let configs = {};
+        if (root) {
+            configs = {
+                notebook: root.box,
+                dir: root.hpath,
+            }
+        }
+        document = await useDocumentWithAttr({
+            name: 'custom-gpt-input-dialog',
+            value: props.id,
+            createOptions: {
+                content: props.input(),
+                title: props.title ? props.title() : `gpt-input-${props.id}`,
+                ...configs
+            }
+        });
+        // document.setAttrs({
+        //     'custom-hidden': 'true'
+        // });
+    }
+
+    const getText = async () => {
+        const content = await getMarkdown(document.id);
+        let lines = content.trim().split('\n');
+        if (lines.length === 0) return '';
+        if (lines[0].startsWith('# ')) {
+            lines.shift();
+        }
+        return lines.join('\n');
+    }
+
+    const InputDialog = (p: { close: () => void }) => {
+        let ref: HTMLDivElement = null;
+        onMount(() => {
+            new Protyle(
+                thisPlugin().app,
+                ref,
+                {
+                    rootId: document.id,
+                    blockId: document.id,
+                    render: {
+                        background: false,
+                        title: false,
+                        breadcrumb: false,
+                    }
+                }
+            );
+
+            if (props.fontSize) {
+                const wysiwygElement: HTMLElement = ref.querySelector('.protyle-wysiwyg');
+                setTimeout(() => {
+                    wysiwygElement.style.fontSize = `var(--input-font-size) !important;`;
+                }, 250);
+            }
+        });
+        onCleanup(() => {
+            document.setContent('');
+        });
+        return (
+            <div style={{
+                display: 'flex',
+                "flex-direction": 'column',
+                flex: 1,
+                background: 'var(--b3-theme-background)'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    "justify-content": 'space-between',
+                    margin: '10px 12px',
+                    gap: '10px',
+                    position: 'sticky',
+                    top: 0,
+                    background: 'var(--b3-theme-background)',
+                    'z-index': 1
+                }}>
+                    <div style={{
+                        flex: 1,
+                    }} />
+                    <button class="b3-button b3-button--outline" onclick={async () => {
+                        const content = await getText();
+                        // const textarea = props.useTextarea();
+                        // textarea.value = content;
+                        props.input(content);
+                    }}>
+                        填充
+                    </button>
+                    <button class="b3-button" onclick={async () => {
+                        const content = await getText();
+                        props.input(content);
+                        // const textarea = props.useTextarea();
+                        // textarea.value = content;
+                        if (props.title) {
+                            document.setTitle(props.title());
+                        }
+                        document.setContent('');
+                        props.submit();
+                        p.close();
+                    }}>
+                        Submit
+                    </button>
+                </div>
+                <div class={styles['protyle-container']} ref={ref} style={{
+                    flex: 1,
+                    '--input-font-size': props.fontSize
+                }} />
+            </div>
+        )
+    }
+
+    const showDialog = async () => {
+        if (!document) {
+            await prepareDocument();
+        }
+        const { close } = solidDialog({
+            title: '高级编辑',
+            loader: () => (
+                <InputDialog close={() => close()} />
+            ),
+            width: '600px',
+            maxWidth: '80%',
+            maxHeight: '80%',
+        });
+    }
+
+    return {
+        showDialog,
+        cleanUp: async () => {
+            if (!document) return;
+            await document.delete();
+            document = null;
+        }
+    }
+}
 
 
 const ChatSession: Component = (props: {
@@ -51,6 +200,20 @@ const ChatSession: Component = (props: {
             messageListRef.scrollTop = messageListRef.scrollHeight;
         }
     };
+
+    const input = useSignalRef<string>('');
+    const session = useSession({ model, config, scrollToBottom });
+
+    const siyuanEditor = useSiYuanEditor({
+        id: session.sessionId,
+        input,
+        fontSize: `${UIConfig().inputFontsize}px`,
+        title: () => session.title(),
+        useTextarea: () => textareaRef,
+        submit: () => {
+            handleSubmit(new Event('submit'));
+        }
+    });
 
     const handleScroll = () => {
         if (!messageListRef) return;
@@ -79,9 +242,6 @@ const ChatSession: Component = (props: {
             textareaRef.style.height = textareaRefMaxHeight + 'px';
         }
     };
-
-    const input = useSignalRef<string>('');
-    const session = useSession({ model, config, scrollToBottom });
 
     if (props.systemPrompt) {
         session.systemPrompt(props.systemPrompt);
@@ -137,6 +297,7 @@ const ChatSession: Component = (props: {
     });
 
     onCleanup(() => {
+        siyuanEditor.cleanUp();
         if (session.messages().length > 0) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
@@ -432,7 +593,7 @@ const ChatSession: Component = (props: {
                 >
                     {session.title()}
                 </div>
-                <Item placeholder={true}/>
+                <Item placeholder={true} />
                 <Item
                     onclick={openHistoryList}
                     label='历史记录'
@@ -718,14 +879,40 @@ const ChatSession: Component = (props: {
                         class={`${styles.input}`}
                         onKeyDown={onKeyDown}
                     />
-                    <button
-                        type="submit"
-                        class={`${styles.sendButton} b3-button`}
-                        disabled={session.loading()}
-                        onclick={handleSubmit}
-                    >
-                        <SvgSymbol>iconSparkles</SvgSymbol>
-                    </button>
+                    <div style={{
+                        position: 'absolute',
+                        right: '8px',
+                        bottom: '8px',
+                        display: 'flex',
+                        padding: '0px',
+                        margin: '0px',
+                        "align-items": 'center',
+                        gap: '7px'
+                    }}>
+                        <button
+                            type="submit"
+                            class={`${styles.primaryButton} b3-button b3-button--text ariaLabel`}
+                            aria-label="高级编辑"
+                            disabled={session.loading()}
+                            onclick={() => {
+                                siyuanEditor.showDialog();
+                            }}
+                        >
+                            <SvgSymbol>iconEdit</SvgSymbol>
+                        </button>
+                        <button
+                            type="submit"
+                            class={`${styles.primaryButton} b3-button ariaLabel`}
+                            classList={{
+                                'b3-button--text': session.loading(),
+                            }}
+                            aria-label="发送消息"
+                            disabled={session.loading()}
+                            onclick={handleSubmit}
+                        >
+                            <SvgSymbol>iconSendGpt</SvgSymbol>
+                        </button>
+                    </div>
                 </div>
                 <div class={styles.attachmentArea} style={{
                     display: session.attachments()?.length > 0 ? "block" : "none",

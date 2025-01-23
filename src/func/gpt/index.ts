@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-01-21 19:30:31
+ * @LastEditTime : 2025-01-22 21:19:40
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -194,6 +194,13 @@ const openUrl = async (e: CustomEvent<{ url: string }>) => {
     }
 }
 
+
+const addSVG = (plugin: FMiscPlugin) => {
+    if (document.querySelector('symbol#iconSendGpt')) return;
+    const symbol = `<symbol id="iconSendGpt" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" data-slot="icon" class="size-5"><path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z"></path></symbol>`;
+    plugin.addIcons(symbol);
+}
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
@@ -245,6 +252,8 @@ export const load = (plugin: FMiscPlugin) => {
     clickEvent.register();
 
     plugin.eventBus.on('open-siyuan-url-plugin', openUrl);
+
+    addSVG(plugin);
 }
 
 export const unload = (plugin: FMiscPlugin) => {

@@ -14,6 +14,7 @@ import { render } from "solid-js/web";
 export const solidDialog = (args: {
     title: string, loader: () => JSXElement,
     width?: string, height?: string,
+    maxWidth?: string,
     maxHeight?: string,
     callback?: () => void;
 }) => {

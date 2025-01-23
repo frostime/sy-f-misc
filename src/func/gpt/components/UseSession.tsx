@@ -499,6 +499,7 @@ ${inputContent}
     }
 
     return {
+        sessionId,
         systemPrompt,
         messages,
         loading,
