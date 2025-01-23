@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-01-22 21:19:40
+ * @LastEditTime : 2025-01-23 17:22:12
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -69,7 +69,7 @@ const attachSelectedText = async () => {
     let blocks: Block[] = await id2block(...blocksIds);
     let blocksMap = new Map(blocks.map(block => [block.id, block]));
     let sortedBlocks = blocksIds.map(id => blocksMap.get(id));
-    let blockMarkdown = sortedBlocks.map((block) => block.markdown);
+    let blockMarkdown = sortedBlocks.map((block) => block?.markdown || '');
     const content = blockMarkdown.join('\n\n').trim();
     const template = globalMiscConfigs().userSelectedContextFormat;
     const context = template.replace('{{content}}', content.replace(/\$/g, '$$$$'));
@@ -108,7 +108,10 @@ const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory)
                 history: history,
                 updateTitleCallback: (title: string) => {
                     if (!title) return;
-                    if (title.length > 25) return;
+                    if (title.length > 30) {
+                        title = title.slice(0, 30);
+                        title += '...';
+                    }
                     const plugin = thisPlugin();
                     const tabs = plugin.getOpenedTab();
                     let tab = tabs[tabId];

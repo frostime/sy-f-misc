@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2025-01-21 18:13:12
+ * @LastEditTime : 2025-01-23 15:43:42
  * @Description  : 
  */
 
@@ -56,7 +56,7 @@ const ChatSessionSetting = (props: {
             </Form.Wrap>
             <Form.Wrap
                 title="自动生成标题时使用的模型 ID"
-                description="如果不填写，就使用当前对话的模型"
+                description="格式为 <code>Modelname@ProviderName</code>，比如 deepseek-chat@Deepseek<br/>如果不填写，就使用当前对话的模型; 或者填写 siyuan 代表使用思源内置的 AI 配置"
             >
                 <Form.Input
                     type="textinput"

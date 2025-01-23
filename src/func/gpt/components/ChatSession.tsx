@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-23 14:32:31
+ * @LastEditTime : 2025-01-23 17:09:49
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -97,7 +97,8 @@ const useSiYuanEditor = (props: {
             }
         });
         onCleanup(() => {
-            document.setContent('');
+            if (!document) return;
+            document?.setContent('');
         });
         return (
             <div style={{

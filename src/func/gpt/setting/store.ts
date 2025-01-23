@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-01-21 18:32:39
+ * @LastEditTime : 2025-01-23 17:24:44
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -39,7 +39,10 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
 
 
 export const globalMiscConfigs = useStoreRef({
-    userSelectedContextFormat: '<Context>\n{{content}}\n</Context>',
+    userSelectedContextFormat: `**以下是用户附带的内容**:
+------
+{{content}}
+`.trim(),
 });
 
 
