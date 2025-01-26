@@ -14,7 +14,7 @@ interface IFormWrap {
     description: string;
     direction?: 'row' | 'column';
     children?: JSX.Element;
-    style?: Record<string, string | number>;
+    style?: JSX.CSSProperties;
     action?: JSX.Element;
 }
 

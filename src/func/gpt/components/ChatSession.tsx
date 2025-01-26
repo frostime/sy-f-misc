@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-26 12:46:38
+ * @LastEditTime : 2025-01-26 15:59:38
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -814,22 +814,55 @@ const ChatSession: Component = (props: {
                     </ToolbarLabel>
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
-                        const { dialog } = inputDialog({
-                            title: '系统提示',
-                            defaultText: session.systemPrompt(),
-                            type: 'textarea',
-                            confirm: (text) => {
-                                session.systemPrompt(text);
-                            },
-                            width: '600px',
-                            height: '400px'
-                        });
-                        const textarea = dialog.element.querySelector('textarea');
-                        if (textarea) {
-                            textarea.style.fontSize = `${UIConfig().inputFontsize}px`;
-                            textarea.style.lineHeight = '1.35';
-                            textarea.focus();
+                        const availableSystemPrompts = (): Record<string, string> => {
+                            const systemPrompts = promptTemplates().filter(item => item.type === 'system');
+                            return systemPrompts.reduce((acc, cur) => {
+                                acc[cur.content] = cur.name;
+                                return acc;
+                            }, { '': 'No Prompt' });
                         }
+                        solidDialog({
+                            title: '系统提示',
+                            loader: () => (
+                                <Form.Wrap
+                                    title="System Prompt"
+                                    description="附带的系统级提示消息"
+                                    direction="row"
+                                    action={
+                                        <Form.Input
+                                            type="select"
+                                            value={session.systemPrompt()}
+                                            changed={(v) => {
+                                                v = v.trim();
+                                                if (v) {
+                                                    session.systemPrompt(v);
+                                                }
+                                            }}
+                                            options={availableSystemPrompts()}
+                                        />
+                                    }
+                                    style={{
+                                        flex: 1
+                                    }}
+                                >
+                                    <Form.Input
+                                        type="textarea"
+                                        value={session.systemPrompt()}
+                                        changed={(v) => {
+                                            session.systemPrompt(v);
+                                        }}
+                                        style={{
+                                            "font-size": Math.min(UIConfig().inputFontsize, 17) + "px",
+                                            "line-height": "1.25",
+                                            'white-space': 'pre-line',
+                                            height: '320px'
+                                        }}
+                                    />
+                                </Form.Wrap>
+                            ),
+                            width: '680px',
+                            height: '480px'
+                        });
                     }} label='系统提示' data-role="system-prompt" >
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
                     </ToolbarLabel>
