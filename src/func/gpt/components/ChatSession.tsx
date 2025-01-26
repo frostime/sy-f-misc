@@ -172,7 +172,7 @@ const useSiYuanEditor = (props: {
             loader: () => (
                 <InputDialog close={() => close()} />
             ),
-            width: '600px',
+            width: '720px',
             maxWidth: '80%',
             maxHeight: '80%',
         });
