@@ -73,65 +73,75 @@ export const complete = async (input: string | IMessage[], options?: {
         }
 
         if (options?.stream) {
-            const reader = response.body?.getReader();
-            if (!reader) {
-                throw new Error('Failed to get response reader');
+            // --- 替换位置开始 ---
+            if (!response.body) {
+                throw new Error('Response body is null');
             }
 
-            options.streamInterval = options.streamInterval ?? 1;
-
-            const decoder = new TextDecoder();
-            let fullText = '';
             let usage: Record<string, any> | null = null;
-            try {
-                let chunkIndex = 0;
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
 
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n').filter(line => line.trim() !== '');
-
+            const transformStream = new TransformStream({
+                transform: (chunk, controller) => {
+                    const lines = chunk.split('\n').filter((line: string) => line.trim() !== '');
                     for (const line of lines) {
                         if (line.includes('[DONE]')) {
-                            continue;
+                            return;
                         }
                         if (!line.startsWith('data: ')) continue;
-
                         try {
                             let responseData = JSON.parse(line.slice(6));
                             if (responseData.error && !responseData.choices) {
-                                fullText += JSON.stringify(responseData.error);
+                                // fullText += JSON.stringify(responseData.error);
+                                const errorMessage = JSON.stringify(responseData.error);
+                                controller.enqueue(`**[Error]** \`\`\`json\n${errorMessage}\`\`\``);
                                 continue;
                             }
-
                             usage = responseData.usage ?? usage;
                             if (!responseData.choices[0].delta?.content) continue;
                             const content = responseData.choices[0].delta.content;
-                            fullText += content;
+                            controller.enqueue(content);
                         } catch (e) {
                             console.warn('Failed to parse stream data:', e);
                         }
                     }
-                    if (chunkIndex % options.streamInterval === 0) {
-                        options.streamMsg?.(fullText);
+                }
+            });
+
+            const stream = response.body
+                .pipeThrough(new TextDecoderStream())
+                .pipeThrough(transformStream);
+
+            const reader = stream.getReader();
+            let fullText = '';
+            let readResult: ReadableStreamReadResult<string>;
+            const checkAbort = options?.abortControler?.signal ? () => options.abortControler.signal.aborted : () => false;
+            while (true) {
+                try {
+                    readResult = await reader.read();
+                    if (readResult.done) break;
+
+                    if (checkAbort()) {
+                        try {
+                            await reader.cancel();
+                        } catch (error) {
+                            if (error.name !== 'AbortError') {
+                                console.error('Error during reader.cancel():', error);
+                            }
+                        }
+                        fullText += `\n **[Error]** Request aborted`;
+                        break;
                     }
-                    chunkIndex++;
+                    fullText += readResult.value;
+                    options.streamMsg?.(fullText);
+                } catch (error) {
+                    fullText += `\n **[Error]** ${error}\n`;
+                    break;
                 }
-            } catch (error) {
-                console.error('Stream reading error:', error);
-                return {
-                    content: fullText + '\n' + `[Error] Failed to request openai api, ${error}`,
-                    usage: null
-                }
-            } finally {
-                reader.releaseLock();
             }
-            /**
-             * Stream 模式下不一定有 usage，大概率是空（可能部分其他厂商会有这个字段）
-             */
+
             return { content: fullText, usage: usage };
         } else {
+            // 非流式处理部分保持不变
             const data = await response.json();
             if (data.error && !data.data) {
                 return {
