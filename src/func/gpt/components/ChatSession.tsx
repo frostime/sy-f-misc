@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-23 20:21:03
+ * @LastEditTime : 2025-01-26 12:46:38
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -61,15 +61,27 @@ const useSiYuanEditor = (props: {
         //     'custom-hidden': 'true'
         // });
     }
-
     const getText = async () => {
         const content = await getMarkdown(document.id);
         let lines = content.trim().split('\n');
         if (lines.length === 0) return '';
+
+        // 去除 YAML frontmatter
+        if (lines[0] === '---') {
+            const endIndex = lines.slice(1).indexOf('---') + 1;
+            if (endIndex > 0) {
+                lines = lines.slice(endIndex + 1);
+            }
+        }
+
+        lines = lines.join('\n').trim().split('\n');
+
+        // 去除开头的标题
         if (lines[0].startsWith('# ')) {
             lines.shift();
         }
-        return lines.join('\n');
+
+        return lines.join('\n').trim();
     }
 
     const InputDialog = (p: { close: () => void }) => {
