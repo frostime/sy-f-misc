@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-27 15:26:56
+ * @LastEditTime : 2025-01-27 17:39:29
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -316,6 +316,35 @@ const ChatSession: Component = (props: {
         }
     });
 
+
+    const addContext = (e: MouseEvent) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+
+        let menu = new Menu();
+        contextProviders.forEach((provider) => {
+            menu.addItem({
+                icon: null, // 你可以为每个 provider 添加图标
+                label: provider.displayTitle,
+                click: async () => {
+                    const context = await executeContextProvider(provider);
+                    if (context.contextItems.length === 0) return;
+                    // 将上下文添加到 UseSession 中
+                    session.setContext(context);
+                }
+            });
+        });
+
+        const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
+        const rect = targetElement.getBoundingClientRect();
+        menu.open({
+            x: rect.left,
+            y: rect.top,
+            isLeft: false
+        });
+        return menu;
+    };
+
     const useUserPrompt = (e: MouseEvent) => {
         e.stopImmediatePropagation();
         e.preventDefault();
@@ -420,6 +449,7 @@ const ChatSession: Component = (props: {
             e.preventDefault();
             e.stopImmediatePropagation();
             handleSubmit(e);
+            return;
         }
     }
 
@@ -484,33 +514,6 @@ const ChatSession: Component = (props: {
             height: '600px'
         });
     }
-
-    const addContext = (e: MouseEvent) => {
-        e.stopImmediatePropagation();
-        e.preventDefault();
-
-        let menu = new Menu();
-        contextProviders.forEach((provider) => {
-            menu.addItem({
-                icon: null, // 你可以为每个 provider 添加图标
-                label: provider.displayTitle,
-                click: async () => {
-                    const context = await executeContextProvider(provider);
-                    if (context.contextItems.length === 0) return;
-                    // 将上下文添加到 UseSession 中
-                    session.setContext(context);
-                }
-            });
-        });
-
-        const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
-        const rect = targetElement.getBoundingClientRect();
-        menu.open({
-            x: rect.left,
-            y: rect.bottom,
-            isLeft: false
-        });
-    };
 
     const styleVars = () => {
         return {
@@ -840,7 +843,7 @@ const ChatSession: Component = (props: {
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>
                     </ToolbarLabel>
                     <ToolbarLabel onclick={addContext} label='Use Context' >
-                        <SvgSymbol size="15px">iconSiYuan</SvgSymbol>
+                        <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
                     </ToolbarLabel>
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {

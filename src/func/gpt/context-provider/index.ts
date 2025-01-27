@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-01-27 15:56:51
+ * @LastEditTime : 2025-01-27 17:45:22
  * @Description  : 
  */
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -28,15 +28,17 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
         contextItems = await provider.getContextItems(option);
     } else if (provider.type === 'query') {
         const query = await new Promise<string>((resolve, reject) => {
-            //BUG 存在 Promise pending 的问题
             inputDialog({
                 title: provider.description,
                 type: 'textarea',
                 confirm: (text) => {
                     resolve(text);
                 },
-                width: '360px',
-                height: '160px',
+                destroyCallback: () => {
+                    resolve(null);
+                },
+                width: '540px',
+                height: '320px',
             });
         });
         if (!query) return;
@@ -95,4 +97,5 @@ function context2prompt(context: IProvidedContext): string {
     prompt += `${sep} End of Context: ${context.displayTitle} ${sep}`;
     return prompt;
 }
+
 export { contextProviders, executeContextProvider, assembleContext2Prompt };
