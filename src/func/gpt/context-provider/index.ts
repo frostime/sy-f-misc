@@ -3,28 +3,34 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-01-27 17:45:22
+ * @LastEditTime : 2025-01-27 19:27:00
  * @Description  : 
  */
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
-import ActiveDocProvider from './ActiveDocProvider';
+import { FocusDocProvider, OpenedDocProvider } from './ActiveDocProvider';
 import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
 
+import showSelectContextDialog from './SelectItems';
+
 const contextProviders: CustomContextProvider[] = [
-    ActiveDocProvider,
     SelectedTextProvider,
+    FocusDocProvider,
+    OpenedDocProvider,
     SQLSearchProvicer,
 ];
 
 const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {
-    const option: Parameters<CustomContextProvider['getContextItems']>[0] = {};
+    const option: Parameters<CustomContextProvider['getContextItems']>[0] = {
+        query: '',
+        selected: []
+    };
     let id = window.Lute.NewNodeID();
-    if (provider.name == 'ActiveDoc') {
+    if (provider.name == FocusDocProvider.name) {
         id = provider.name;
     }
     let contextItems = [];
-    if (!provider.type || provider.type === 'normal') {
+    if (provider.type === undefined || provider.type === 'normal') {
         contextItems = await provider.getContextItems(option);
     } else if (provider.type === 'query') {
         const query = await new Promise<string>((resolve, reject) => {
@@ -44,6 +50,25 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
         if (!query) return;
         option['query'] = query;
         contextItems = await provider.getContextItems(option);
+    } else if (provider.type === 'submenu' && provider.loadSubmenuItems) {
+        const candidates = await provider.loadSubmenuItems({});
+        const selectedItems = await new Promise<ContextSubmenuItem[]>((resolve) => {
+            showSelectContextDialog(candidates, {
+                confirm: (selected) => {
+                    resolve(selected);
+                },
+                destroyCallback: () => {
+                    resolve(null);
+                }
+            });
+        });
+
+        if (!selectedItems || selectedItems.length === 0) return;
+
+        option['selected'] = selectedItems;
+        contextItems = await provider.getContextItems(option);
+    } else {
+        return;
     }
 
     let context = ({
@@ -55,7 +80,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
     });
 
     switch (provider.name) {
-        case 'SQL':
+        case SQLSearchProvicer.name:
             context.description = `SQL 查询结果: ${option['query']?.replaceAll('\n', ' ')}`;
             break;
         default:

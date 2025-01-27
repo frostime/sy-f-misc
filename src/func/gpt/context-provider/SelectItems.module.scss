@@ -1,0 +1,38 @@
+.item {
+    cursor: pointer;
+    background-color: transparent;
+    padding: 8px 12px;
+    border: 1px solid var(--b3-border-color);
+    border-radius: 4px;
+
+    &:hover {
+        background-color: var(--b3-theme-hover);
+    }
+
+    &.selected {
+        background-color: var(--b3-theme-primary-lighter);
+    }
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    flex: 1;
+}
+
+.title {
+    font-weight: bold;
+}
+
+.description {
+    font-size: 0.9em;
+    color: var(--b3-theme-on-surface);
+}
+
+.footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}

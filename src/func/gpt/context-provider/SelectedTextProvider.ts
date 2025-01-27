@@ -3,13 +3,14 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:25:34
  * @FilePath     : /src/func/gpt/context-provider/SelectedTextProvider.ts
- * @LastEditTime : 2025-01-27 15:31:06
+ * @LastEditTime : 2025-01-27 19:51:17
 * @Description  : 
 */
 
 import { id2block } from "@frostime/siyuan-plugin-kits";
 const SelectedTextProvider: CustomContextProvider = {
     name: "SelectedText",
+    icon: 'iconSelectText',
     displayTitle: "选中内容",
     description: "用户在思源编辑器中选中的块或者文本等",
     getContextItems: async (options?: any): Promise<ContextItem[]> => {

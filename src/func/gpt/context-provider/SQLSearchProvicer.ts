@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:25:34
  * @FilePath     : /src/func/gpt/context-provider/SQLSearchProvicer.ts
- * @LastEditTime : 2025-01-27 15:48:59
+ * @LastEditTime : 2025-01-27 19:50:20
 */
 
 import { BlockTypeName } from "@frostime/siyuan-plugin-kits";
@@ -12,6 +12,7 @@ import { sql } from "@frostime/siyuan-plugin-kits/api";
 const SQLSearchProvicer: CustomContextProvider = {
     type: "query",
     name: "SQL",
+    icon: 'iconSQL',
     displayTitle: "SQL 查询",
     description: "使用 SQL 查询思源的笔记内容",
     getContextItems: async (options: {

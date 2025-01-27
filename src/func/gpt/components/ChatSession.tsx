@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-27 18:30:07
+ * @LastEditTime : 2025-01-27 19:45:45
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -325,7 +325,7 @@ const ChatSession: Component = (props: {
         let menu = new Menu();
         contextProviders.forEach((provider) => {
             menu.addItem({
-                icon: null, // 你可以为每个 provider 添加图标
+                icon: provider?.icon, // 你可以为每个 provider 添加图标
                 label: provider.displayTitle,
                 click: async () => {
                     const context = await executeContextProvider(provider);
