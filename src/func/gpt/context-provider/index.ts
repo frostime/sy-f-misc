@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-01-27 21:30:14
+ * @LastEditTime : 2025-01-27 21:40:55
  * @Description  : 
  */
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -12,11 +12,13 @@ import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
 
 import showSelectContextDialog from './SelectItems';
+import TodayDailyNoteProvicer from './DailyNoteProvider';
 
 const contextProviders: CustomContextProvider[] = [
     SelectedTextProvider,
     FocusDocProvider,
     OpenedDocProvider,
+    TodayDailyNoteProvicer,
     SQLSearchProvicer,
 ];
 

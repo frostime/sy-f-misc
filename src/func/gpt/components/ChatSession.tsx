@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-27 21:08:39
+ * @LastEditTime : 2025-01-27 22:11:51
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -451,6 +451,68 @@ const ChatSession: Component = (props: {
     };
 
     let menu: Menu;
+
+    /**
+     * 在通过 @ 触发了 ContextMenu 弹出时临时监听键盘事件
+     * @returns 
+     */
+    const useTempKeyPressListener = () => {
+        const listener = (e: KeyboardEvent) => {
+            //至少不是 up 或者 down 按钮（上下选择），就直接退出
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') {
+                // e.preventDefault();
+                // e.stopImmediatePropagation();
+                menu?.close();
+                menu = undefined;
+                textareaRef.focus();
+                release();
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                const btn = menu.element.querySelector('.b3-menu__item--current') as HTMLElement;
+                if (btn) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    btn?.click();
+                    //检查 textareaRef 最后是不是为 @ 符号
+                    //如果是就删掉 @ 符号
+                    const value = textareaRef?.value;
+                    if (value?.endsWith('@')) {
+                        textareaRef.value = value.slice(0, -1);
+                        input.update(textareaRef.value);
+                    }
+                }
+                menu?.close();
+                menu = undefined;
+                textareaRef.focus();
+                release();
+                return;
+            }
+        }
+
+        let isListening = false;
+
+        const listen = () => {
+            if (isListening) return;
+            isListening = true;
+            // 捕获阶段
+            document.addEventListener('keydown', listener);
+        }
+        const release = () => {
+            if (!isListening) return;
+            isListening = false;
+            // 取消阶段
+            document.removeEventListener('keydown', listener);
+        }
+        return {
+            listen,
+            release,
+        }
+    }
+
+    const tempListener = useTempKeyPressListener();
+
     const onKeyDown = (e: KeyboardEvent) => {
 
         if (e.key === '@') {
@@ -459,6 +521,12 @@ const ChatSession: Component = (props: {
             if (text.length === textareaRef.selectionStart) {
                 const event = new MouseEvent('context-provider-open');
                 menu = addContext(event);
+                setTimeout(() => {
+                    //@ts-ignore
+                    menu.element.querySelector('.b3-menu__item')?.focus();
+                    tempListener.listen();
+                }, 0);
+                return;
             }
         } else if (menu !== undefined) {
             menu.close();
