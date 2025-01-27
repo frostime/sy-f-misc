@@ -57,4 +57,26 @@
     &:hover button {
         opacity: 1;
     }
-} 
+}
+
+.contextItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--b3-border-color);
+    border-radius: 4px;
+    background-color: var(--b3-theme-background);
+    color: var(--b3-theme-on-background);
+    cursor: default;
+}
+
+.contextTitle {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.contextDescription {
+    font-size: 12px;
+    text-align: center;
+}

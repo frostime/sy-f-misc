@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-22 10:26:12
  * @FilePath     : /src/func/gpt/utils.ts
- * @LastEditTime : 2024-12-31 13:26:40
+ * @LastEditTime : 2025-01-27 18:05:40
  * @Description  : 
  */
 
@@ -18,7 +18,7 @@ export const adaptIMessageContent = (content: IMessage['content']) => {
     }
 
     return {
-        'text': content.filter((item) => item.type === 'text').map((item) => item.text).join('\n\n'),
+        'text': content.filter((item) => item.type === 'text').map((item) => item.text).join('\n'),
         'images': content.filter((item) => item.type === 'image_url').map((item) => item.image_url?.url)
     }
 }

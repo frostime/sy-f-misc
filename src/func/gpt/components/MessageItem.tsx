@@ -229,6 +229,11 @@ const MessageItem: Component<{
 
     const textContent = createMemo(() => {
         let { text } = adaptIMessageContent(props.messageItem.message.content);
+        if (props.messageItem.userPromptSlice) {
+            //隐藏 context prompt
+            text = text.slice(props.messageItem.userPromptSlice[0], props.messageItem.userPromptSlice[1]);
+        }
+
         if (defaultConfig().convertMathSyntax) {
             text = convertMathFormulas(text);
         }
@@ -271,7 +276,8 @@ const MessageItem: Component<{
     });
 
     const msgLength = createMemo(() => {
-        return textContent().length;
+        let { text } = adaptIMessageContent(props.messageItem.message.content);
+        return text.length;
     });
 
     // #iconAccount
@@ -384,6 +390,21 @@ const MessageItem: Component<{
         });
 
         menu.addSeparator();
+        menu.addItem({
+            icon: 'iconPreview',
+            label: '查看原始 Prompt',
+            click: () => {
+                const { text } = adaptIMessageContent(props.messageItem.message.content);
+                inputDialog({
+                    title: '原始 Prompt',
+                    defaultText: text,
+                    type: 'textarea',
+                    width: '700px',
+                    height: '500px'
+                });
+            }
+        })
+
         const submenus = [];
 
         submenus.push({
@@ -458,9 +479,10 @@ const MessageItem: Component<{
                     innerHTML={messageAsHTML()}
                     ref={msgRef}
                 />
-                <Show when={imageUrls().length > 0}>
+                <Show when={imageUrls().length > 0 || props.messageItem.context?.length > 0}>
                     <AttachmentList
                         images={imageUrls()}
+                        contexts={props.messageItem.context}
                         size="small"
                     />
                 </Show>

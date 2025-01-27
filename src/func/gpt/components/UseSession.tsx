@@ -8,6 +8,7 @@ import { ChatSetting } from '../setting';
 import { UIConfig, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '../gpt';
 import { adaptIMessageContent } from '../utils';
+import { assembleContext2Prompt } from '../context-provider';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -36,6 +37,7 @@ export const useSession = (props: {
     const systemPrompt = useSignalRef<string>('');
     // 当前的 attachments
     const attachments = useSignalRef<Blob[]>([]);
+    const contexts = useStoreRef<IProvidedContext[]>([]);
 
     let timestamp = new Date().getTime();
     const title = useSignalRef<string>('新的对话');
@@ -49,8 +51,20 @@ export const useSession = (props: {
         return window.Lute.NewNodeID();
     }
 
-    const appendUserMsg = async (msg: string, images?: Blob[]) => {
+    const appendUserMsg = async (msg: string, images?: Blob[], contexts?: IProvidedContext[]) => {
         let content: IMessageContent[];
+
+        let optionalFields: Partial<IChatSessionMsgItem> = {};
+        if (contexts && contexts?.length > 0) {
+            let prompts = assembleContext2Prompt(contexts);
+            if (prompts) {
+                // 将 user prompt 字符串的起止位置记录下来，以便于在 MessageItem 中隐藏 context prompt
+                optionalFields['userPromptSlice'] = [0, msg.length];
+                optionalFields['context'] = contexts;
+                msg += `\n\n${prompts}`;
+            }
+        }
+
         if (images && images?.length > 0) {
 
             content = [{
@@ -87,7 +101,22 @@ export const useSession = (props: {
                 role: 'user',
                 content: content ?? msg
             },
+            ...optionalFields
         }]);
+    }
+
+    const setContext = (context: IProvidedContext) => {
+        const currentIds = contexts().map(c => c.id);
+        if (currentIds.includes(context.id)) {
+            const index = currentIds.indexOf(context.id);
+            contexts.update(index, context);
+        } else {
+            contexts.update(prev => [...prev, context]);
+        }
+    }
+
+    const delContext = (id: IProvidedContext['id']) => {
+        contexts.update(prev => prev.filter(c => c.id !== id));
     }
 
 
@@ -333,7 +362,7 @@ ${inputContent}
     }
 
     const sendMessage = async (userMessage: string) => {
-        if (!userMessage.trim() && attachments().length === 0) return;
+        if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
 
         // const hasContext = userMessage.includes('</Context>');
         let sysPrompt = systemPrompt().trim() || '';
@@ -341,7 +370,7 @@ ${inputContent}
         //     sysPrompt += '\nNote: <Context>...</Context> 是附带的上下文信息，只关注其内容，不要将 <Context> 标签作为正文的一部分';
         // }
 
-        await appendUserMsg(userMessage, attachments());
+        await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
         loading.update(true);
 
         try {
@@ -366,6 +395,7 @@ ${inputContent}
 
             // Clear attachments after sending
             attachments.update([]);
+            contexts.update([]);
 
             const lastIdx = messages().length - 1;
             const { content, usage } = await gpt.complete(msgToSend, {
@@ -505,8 +535,11 @@ ${inputContent}
         loading,
         title,
         attachments,
+        contexts,
         addAttachment,
         removeAttachment,
+        setContext,
+        delContext,
         autoGenerateTitle,
         reRunMessage,
         sendMessage,

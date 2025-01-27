@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-26 15:59:38
+ * @LastEditTime : 2025-01-27 22:11:51
  * @Description  : 
  */
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
 import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -27,7 +27,8 @@ import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
 
 import * as syDoc from '../persistence/sy-doc';
-
+import { contextProviders, executeContextProvider } from '../context-provider';
+import { adaptIMessageContent } from '../utils';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -316,6 +317,40 @@ const ChatSession: Component = (props: {
         }
     });
 
+    let AddContextButton: HTMLDivElement;
+
+    const addContext = (e: MouseEvent) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+
+        let menu = new Menu();
+        contextProviders.forEach((provider) => {
+            menu.addItem({
+                icon: provider?.icon, // 你可以为每个 provider 添加图标
+                label: provider.displayTitle,
+                click: async () => {
+                    const context = await executeContextProvider(provider);
+                    if (context.contextItems.length === 0) return;
+                    // 将上下文添加到 UseSession 中
+                    session.setContext(context);
+                }
+            });
+        });
+
+        // const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
+        // const rect = targetElement.getBoundingClientRect();
+
+        const targetElement = AddContextButton;
+        const rect = targetElement.firstElementChild.getBoundingClientRect();
+
+        menu.open({
+            x: rect.left,
+            y: rect.top,
+            isLeft: false
+        });
+        return menu;
+    };
+
     const useUserPrompt = (e: MouseEvent) => {
         e.stopImmediatePropagation();
         e.preventDefault();
@@ -415,11 +450,94 @@ const ChatSession: Component = (props: {
         scrollToBottom(true); // 发送新消息时强制滚动到底部
     };
 
+    let menu: Menu;
+
+    /**
+     * 在通过 @ 触发了 ContextMenu 弹出时临时监听键盘事件
+     * @returns 
+     */
+    const useTempKeyPressListener = () => {
+        const listener = (e: KeyboardEvent) => {
+            //至少不是 up 或者 down 按钮（上下选择），就直接退出
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') {
+                // e.preventDefault();
+                // e.stopImmediatePropagation();
+                menu?.close();
+                menu = undefined;
+                textareaRef.focus();
+                release();
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                const btn = menu.element.querySelector('.b3-menu__item--current') as HTMLElement;
+                if (btn) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    btn?.click();
+                    //检查 textareaRef 最后是不是为 @ 符号
+                    //如果是就删掉 @ 符号
+                    const value = textareaRef?.value;
+                    if (value?.endsWith('@')) {
+                        textareaRef.value = value.slice(0, -1);
+                        input.update(textareaRef.value);
+                    }
+                }
+                menu?.close();
+                menu = undefined;
+                textareaRef.focus();
+                release();
+                return;
+            }
+        }
+
+        let isListening = false;
+
+        const listen = () => {
+            if (isListening) return;
+            isListening = true;
+            // 捕获阶段
+            document.addEventListener('keydown', listener);
+        }
+        const release = () => {
+            if (!isListening) return;
+            isListening = false;
+            // 取消阶段
+            document.removeEventListener('keydown', listener);
+        }
+        return {
+            listen,
+            release,
+        }
+    }
+
+    const tempListener = useTempKeyPressListener();
+
     const onKeyDown = (e: KeyboardEvent) => {
+
+        if (e.key === '@') {
+            const text = textareaRef.value;
+            // 检查当前的光标是否在最后的位置
+            if (text.length === textareaRef.selectionStart) {
+                const event = new MouseEvent('context-provider-open');
+                menu = addContext(event);
+                setTimeout(() => {
+                    //@ts-ignore
+                    menu.element.querySelector('.b3-menu__item')?.focus();
+                    tempListener.listen();
+                }, 0);
+                return;
+            }
+        } else if (menu !== undefined) {
+            menu.close();
+            menu = undefined;
+        }
+
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             e.stopImmediatePropagation();
             handleSubmit(e);
+            return;
         }
     }
 
@@ -754,8 +872,37 @@ const ChatSession: Component = (props: {
                                     markdown={item.loading !== true} // 流式输出时禁用 markdown
                                     updateIt={(message) => {
                                         if (session.loading()) return;
-                                        session.messages.update(index(), 'message', 'content', message);
-                                        // session.messages.update(index(), 'msgChars', message.length);
+                                        const content = session.messages()[index()].message.content;
+                                        let { text } = adaptIMessageContent(content);
+                                        let userText = text;
+                                        let contextText = '';
+                                        if (session.messages()[index()].userPromptSlice) {
+                                            const [beg, end] = session.messages()[index()].userPromptSlice;
+                                            userText = text.slice(beg, end);
+                                            contextText = text.slice(end);
+                                        }
+                                        const newText = message + contextText;
+                                        if (Array.isArray(content)) {
+                                            // 找到 item.type === 'text'
+                                            const idx = content.findIndex(item => item.type === 'text');
+                                            if (idx !== -1) {
+                                                content[idx].text = newText;
+                                                batch(() => {
+                                                    session.messages.update(index(), 'message', 'content', content);
+                                                    if (contextText && contextText.length > 0) {
+                                                        session.messages.update(index(), 'userPromptSlice', [0, message.length]);
+                                                    }
+                                                });
+                                            }
+                                        } else if (typeof content === 'string') {
+                                            //is string
+                                            batch(() => {
+                                                session.messages.update(index(), 'message', 'content', newText);
+                                                if (contextText && contextText.length > 0) {
+                                                    session.messages.update(index(), 'userPromptSlice', [0, message.length]);
+                                                }
+                                            });
+                                        }
                                     }}
                                     deleteIt={() => {
                                         if (session.loading()) return;
@@ -812,6 +959,11 @@ const ChatSession: Component = (props: {
                     <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>
                     </ToolbarLabel>
+                    <div style={{ display: 'contents' }} ref={AddContextButton}>
+                        <ToolbarLabel onclick={addContext} label='Use Context'>
+                            <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
+                        </ToolbarLabel>
+                    </div>
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
                         const availableSystemPrompts = (): Record<string, string> => {
@@ -961,15 +1113,21 @@ const ChatSession: Component = (props: {
                     </div>
                 </div>
                 <div class={styles.attachmentArea} style={{
-                    display: session.attachments()?.length > 0 ? "block" : "none",
+                    display: session.attachments()?.length > 0 || session.contexts()?.length > 0 ? "block" : "none",
                 }}>
                     <AttachmentList
                         images={session.attachments()}
+                        contexts={session.contexts()}
                         showDelete={true}
                         size="medium"
-                        onDelete={(index) => {
-                            const attachments = session.attachments();
-                            session.removeAttachment(attachments[index]);
+                        onDelete={(key: string | number, type: 'image' | 'context') => {
+                            if (type === 'image') {
+                                const attachments = session.attachments();
+                                session.removeAttachment(attachments[key]);
+                            } else {
+                                // const contexts = session.contexts();
+                                session.delContext(key as IProvidedContext['id']);
+                            }
                         }}
                     />
                 </div>

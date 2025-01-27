@@ -1,12 +1,14 @@
-import { Component, For, createMemo } from 'solid-js';
+import { Component, For, createMemo, Show } from 'solid-js';
 import { simpleDialog } from '@frostime/siyuan-plugin-kits';
 import styles from './AttachmentList.module.scss';
+import { solidDialog } from '@/libs/dialog';
 
 type ImageSource = Blob | string;
 
 interface Props {
     images?: ImageSource[];
-    onDelete?: (index: number) => void;
+    contexts?: IProvidedContext[];
+    onDelete?: (key: number | string, type: 'image' | 'context') => void;
     showDelete?: boolean;
     size?: 'small' | 'medium' | 'large';
 }
@@ -34,7 +36,37 @@ const AttachmentList: Component<Props> = (props) => {
         simpleDialog({
             title: '图片预览',
             ele: img,
-            width: '800px'
+            width: '800px',
+            maxHeight: '80%',
+        });
+    };
+
+    const showContextContent = (context: IProvidedContext) => {
+        solidDialog({
+            title: context.displayTitle,
+            loader: () => (
+                <div
+                    class="b3-typography"
+                    style="flex: 1; padding: 10px 16px; font-size: 16px !important;"
+                >
+                    <h2 >{context.name} | {context.displayTitle}</h2>
+                    <p >{context.description}</p>
+                    <hr />
+                    <ul >
+                        {context.contextItems.map((item) => (
+                            <li >
+                                <strong >{item.name}</strong>
+                                <p >{item.description}</p>
+                                <pre style={{
+                                    "white-space": "pre-line",
+                                }}>{item.content}</pre>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ),
+            width: '1000px',
+            maxHeight: '80%',
         });
     };
 
@@ -59,7 +91,36 @@ const AttachmentList: Component<Props> = (props) => {
                         {props.showDelete && (
                             <button
                                 class="b3-button b3-button--text"
-                                onclick={() => props.onDelete?.(index())}
+                                onclick={() => props.onDelete?.(index(), 'image')}
+                            >
+                                <svg><use href="#iconTrashcan" /></svg>
+                            </button>
+                        )}
+                    </div>
+                )}
+            </For>
+            <For each={props.contexts}>
+                {(context, index) => (
+                    <div
+                        class={`${styles.attachmentItem} ${sizeClass()} ${styles.contextItem}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            showContextContent(context);
+                        }}
+                    >
+                        <div class={styles.contextTitle}>
+                            {context.displayTitle}
+                        </div>
+                        <div class={styles.contextDescription}>
+                            {context.contextItems.map(item => item.name).join('\n')}
+                        </div>
+                        {props.showDelete && (
+                            <button
+                                class="b3-button b3-button--text"
+                                onclick={(e) => {
+                                    e.stopPropagation();
+                                    props.onDelete?.(context.id, 'context');
+                                }}
                             >
                                 <svg><use href="#iconTrashcan" /></svg>
                             </button>
@@ -71,4 +132,4 @@ const AttachmentList: Component<Props> = (props) => {
     );
 };
 
-export default AttachmentList; 
+export default AttachmentList;
