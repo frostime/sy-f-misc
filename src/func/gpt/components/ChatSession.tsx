@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-26 15:59:38
+ * @LastEditTime : 2025-01-27 15:26:56
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -27,7 +27,7 @@ import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
 
 import * as syDoc from '../persistence/sy-doc';
-
+import { contextProviders, executeContextProvider } from '../context-provider';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -485,6 +485,33 @@ const ChatSession: Component = (props: {
         });
     }
 
+    const addContext = (e: MouseEvent) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+
+        let menu = new Menu();
+        contextProviders.forEach((provider) => {
+            menu.addItem({
+                icon: null, // 你可以为每个 provider 添加图标
+                label: provider.displayTitle,
+                click: async () => {
+                    const context = await executeContextProvider(provider);
+                    if (context.contextItems.length === 0) return;
+                    // 将上下文添加到 UseSession 中
+                    session.setContext(context);
+                }
+            });
+        });
+
+        const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
+        const rect = targetElement.getBoundingClientRect();
+        menu.open({
+            x: rect.left,
+            y: rect.bottom,
+            isLeft: false
+        });
+    };
+
     const styleVars = () => {
         return {
             '--chat-input-font-size': `${UIConfig().inputFontsize}px`,
@@ -812,6 +839,9 @@ const ChatSession: Component = (props: {
                     <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>
                     </ToolbarLabel>
+                    <ToolbarLabel onclick={addContext} label='Use Context' >
+                        <SvgSymbol size="15px">iconSiYuan</SvgSymbol>
+                    </ToolbarLabel>
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
                         const availableSystemPrompts = (): Record<string, string> => {
@@ -961,15 +991,21 @@ const ChatSession: Component = (props: {
                     </div>
                 </div>
                 <div class={styles.attachmentArea} style={{
-                    display: session.attachments()?.length > 0 ? "block" : "none",
+                    display: session.attachments()?.length > 0 || session.contexts()?.length > 0 ? "block" : "none",
                 }}>
                     <AttachmentList
                         images={session.attachments()}
+                        contexts={session.contexts()}
                         showDelete={true}
                         size="medium"
-                        onDelete={(index) => {
-                            const attachments = session.attachments();
-                            session.removeAttachment(attachments[index]);
+                        onDelete={(key: string | number, type: 'image' | 'context') => {
+                            if (type === 'image') {
+                                const attachments = session.attachments();
+                                session.removeAttachment(attachments[key]);
+                            } else {
+                                // const contexts = session.contexts();
+                                session.delContext(key as IProvidedContext['id']);
+                            }
                         }}
                     />
                 </div>

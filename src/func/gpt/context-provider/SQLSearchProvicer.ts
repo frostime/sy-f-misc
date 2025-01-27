@@ -3,9 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:25:34
  * @FilePath     : /src/func/gpt/context-provider/SQLSearchProvicer.ts
- * @LastEditTime : 2025-01-26 22:19:53
+ * @LastEditTime : 2025-01-27 15:48:59
 */
 
+import { BlockTypeName } from "@frostime/siyuan-plugin-kits";
 import { sql } from "@frostime/siyuan-plugin-kits/api";
 
 const SQLSearchProvicer: CustomContextProvider = {
@@ -25,8 +26,8 @@ const SQLSearchProvicer: CustomContextProvider = {
         }
         return blocks.map((block, index) => ({
             name: `搜索结果 ${index + 1}`,
-            description: `搜索结果来自文档 ${block.hpath}; 块 ID: ${block.id}`,
-            content: block.markdown,
+            description: `来自文档 ${block.hpath}; ${BlockTypeName[block.type]}: ${block.id}`,
+            content: block.markdown || block.content,
         }));
     },
 };

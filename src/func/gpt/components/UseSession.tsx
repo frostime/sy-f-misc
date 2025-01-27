@@ -36,6 +36,7 @@ export const useSession = (props: {
     const systemPrompt = useSignalRef<string>('');
     // 当前的 attachments
     const attachments = useSignalRef<Blob[]>([]);
+    const contexts = useStoreRef<IProvidedContext[]>([]);
 
     let timestamp = new Date().getTime();
     const title = useSignalRef<string>('新的对话');
@@ -88,6 +89,20 @@ export const useSession = (props: {
                 content: content ?? msg
             },
         }]);
+    }
+
+    const setContext = (context: IProvidedContext) => {
+        const currentIds = contexts().map(c => c.id);
+        if (currentIds.includes(context.id)) {
+            const index = currentIds.indexOf(context.id);
+            contexts.update(index, context);
+        } else {
+            contexts.update(prev => [...prev, context]);
+        }
+    }
+
+    const delContext = (id: IProvidedContext['id']) => {
+        contexts.update(prev => prev.filter(c => c.id !== id));
     }
 
 
@@ -505,8 +520,11 @@ ${inputContent}
         loading,
         title,
         attachments,
+        contexts,
         addAttachment,
         removeAttachment,
+        setContext,
+        delContext,
         autoGenerateTitle,
         reRunMessage,
         sendMessage,

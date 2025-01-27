@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:25:34
  * @FilePath     : /src/func/gpt/context-provider/SelectedTextProvider.ts
- * @LastEditTime : 2025-01-26 21:46:12
+ * @LastEditTime : 2025-01-27 15:31:06
 * @Description  : 
 */
 
@@ -19,8 +19,8 @@ const SelectedTextProvider: CustomContextProvider = {
         }
         return [
             {
-                name: "Selected Text",
-                description: "用户选中的内容",
+                name: selectedText.length > 15 ? selectedText.substring(0, 15) + '...' : selectedText,
+                description: '',
                 content: selectedText,
             },
         ];

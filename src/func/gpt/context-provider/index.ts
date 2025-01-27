@@ -3,9 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-01-26 22:30:11
+ * @LastEditTime : 2025-01-27 15:56:51
  * @Description  : 
  */
+import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import ActiveDocProvider from './ActiveDocProvider';
 import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
@@ -16,14 +17,49 @@ const contextProviders: CustomContextProvider[] = [
     SQLSearchProvicer,
 ];
 
-const executeContextProvider = async (provider: CustomContextProvider, option?: Parameters<CustomContextProvider['getContextItems']>[0]) => {
-    let contextItems = await provider.getContextItems(option);
+const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {
+    const option: Parameters<CustomContextProvider['getContextItems']>[0] = {};
+    let id = window.Lute.NewNodeID();
+    if (provider.name == 'ActiveDoc') {
+        id = provider.name;
+    }
+    let contextItems = [];
+    if (!provider.type || provider.type === 'normal') {
+        contextItems = await provider.getContextItems(option);
+    } else if (provider.type === 'query') {
+        const query = await new Promise<string>((resolve, reject) => {
+            //BUG 存在 Promise pending 的问题
+            inputDialog({
+                title: provider.description,
+                type: 'textarea',
+                confirm: (text) => {
+                    resolve(text);
+                },
+                width: '360px',
+                height: '160px',
+            });
+        });
+        if (!query) return;
+        option['query'] = query;
+        contextItems = await provider.getContextItems(option);
+    }
+
     let context = ({
+        id: id,
         name: provider.name,
         displayTitle: provider.displayTitle,
         description: provider.description,
         contextItems: contextItems,
     });
+
+    switch (provider.name) {
+        case 'SQL':
+            context.description = `SQL 查询结果: ${option['query']?.replaceAll('\n', ' ')}`;
+            break;
+        default:
+            break;
+    }
+
     return context;
 }
 

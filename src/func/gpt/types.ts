@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2024-12-31 13:05:09
+ * @LastEditTime : 2025-01-27 14:19:41
  * @Description  : 
  */
 interface IMessageContent {
@@ -17,7 +17,7 @@ interface IMessageContent {
 interface IMessage {
     role: 'user' | 'assistant' | 'system';
     content: string | IMessageContent[];
-    images?: Blob[];  // 可以保留这个字段用于临时存储待处理的图片
+    context?: IProvidedContext[];
 }
 
 interface IPromptTemplate {

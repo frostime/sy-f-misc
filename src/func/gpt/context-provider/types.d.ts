@@ -29,6 +29,7 @@ interface CustomContextProvider {
 
 
 interface IProvidedContext {
+    id: string;
     name: string;
     displayTitle: string;
     description: string;
