@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-27 17:39:29
+ * @LastEditTime : 2025-01-27 18:30:07
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
@@ -28,6 +28,7 @@ import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
 import * as syDoc from '../persistence/sy-doc';
 import { contextProviders, executeContextProvider } from '../context-provider';
+import { adaptIMessageContent } from '../utils';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -784,8 +785,27 @@ const ChatSession: Component = (props: {
                                     markdown={item.loading !== true} // 流式输出时禁用 markdown
                                     updateIt={(message) => {
                                         if (session.loading()) return;
-                                        session.messages.update(index(), 'message', 'content', message);
-                                        // session.messages.update(index(), 'msgChars', message.length);
+                                        const content = session.messages()[index()].message.content;
+                                        let { text } = adaptIMessageContent(content);
+                                        let userText = text;
+                                        let contextText = '';
+                                        if (session.messages()[index()].userPromptSlice) {
+                                            const [beg, end] = session.messages()[index()].userPromptSlice;
+                                            userText = text.slice(beg, end);
+                                            contextText = text.slice(end);
+                                        }
+                                        const newText = message + contextText;
+                                        if (Array.isArray(content)) {
+                                            // 找到 item.type === 'text'
+                                            const idx = content.findIndex(item => item.type === 'text');
+                                            if (idx !== -1) {
+                                                content[idx].text = newText;
+                                                session.messages.update(index(), 'message', 'content', content);
+                                            }
+                                        } else if (typeof content === 'string') {
+                                            //is string
+                                            session.messages.update(index(), 'message', 'content', newText);
+                                        }
                                     }}
                                     deleteIt={() => {
                                         if (session.loading()) return;
