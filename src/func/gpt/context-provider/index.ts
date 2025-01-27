@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-01-27 19:27:00
+ * @LastEditTime : 2025-01-27 21:30:14
  * @Description  : 
  */
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -109,11 +109,11 @@ function context2prompt(context: IProvidedContext): string {
 
     if (context.contextItems.length === 1) {
         let item = context.contextItems[0];
-        prompt += `[${item.name}]` + item.description + '| Content as follows:\n';
+        prompt += `[${item.name.replaceAll('\n', ' ')}]` + item.description + '| Content as follows:\n';
         prompt += item.content + '\n';
     } else {
         context.contextItems.forEach((item) => {
-            prompt += `---------- Item ${item.name} ----------\n`;
+            prompt += `---------- Item ${item.name.replaceAll('\n', ' ')} ----------\n`;
             prompt += `${item.description} | Content as follows:\n`;
             prompt += `${item.content}\n\n`;
         });

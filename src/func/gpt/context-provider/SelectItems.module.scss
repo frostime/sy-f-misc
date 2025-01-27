@@ -2,15 +2,20 @@
     cursor: pointer;
     background-color: transparent;
     padding: 8px 12px;
-    border: 1px solid var(--b3-border-color);
+    border: 2px solid var(--b3-theme-on-surface-light);
     border-radius: 4px;
+    box-sizing: border-box;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
     &:hover {
-        background-color: var(--b3-theme-hover);
+        border-color: var(--b3-theme-primary-lightest);
     }
 
     &.selected {
-        background-color: var(--b3-theme-primary-lighter);
+        border-color: var(--b3-theme-primary);
     }
 }
 

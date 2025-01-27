@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-27 19:45:45
+ * @LastEditTime : 2025-01-27 21:08:39
  * @Description  : 
  */
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
 import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -317,6 +317,7 @@ const ChatSession: Component = (props: {
         }
     });
 
+    let AddContextButton: HTMLDivElement;
 
     const addContext = (e: MouseEvent) => {
         e.stopImmediatePropagation();
@@ -336,8 +337,12 @@ const ChatSession: Component = (props: {
             });
         });
 
-        const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
-        const rect = targetElement.getBoundingClientRect();
+        // const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
+        // const rect = targetElement.getBoundingClientRect();
+
+        const targetElement = AddContextButton;
+        const rect = targetElement.firstElementChild.getBoundingClientRect();
+
         menu.open({
             x: rect.left,
             y: rect.top,
@@ -445,7 +450,21 @@ const ChatSession: Component = (props: {
         scrollToBottom(true); // 发送新消息时强制滚动到底部
     };
 
+    let menu: Menu;
     const onKeyDown = (e: KeyboardEvent) => {
+
+        if (e.key === '@') {
+            const text = textareaRef.value;
+            // 检查当前的光标是否在最后的位置
+            if (text.length === textareaRef.selectionStart) {
+                const event = new MouseEvent('context-provider-open');
+                menu = addContext(event);
+            }
+        } else if (menu !== undefined) {
+            menu.close();
+            menu = undefined;
+        }
+
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             e.stopImmediatePropagation();
@@ -800,11 +819,21 @@ const ChatSession: Component = (props: {
                                             const idx = content.findIndex(item => item.type === 'text');
                                             if (idx !== -1) {
                                                 content[idx].text = newText;
-                                                session.messages.update(index(), 'message', 'content', content);
+                                                batch(() => {
+                                                    session.messages.update(index(), 'message', 'content', content);
+                                                    if (contextText && contextText.length > 0) {
+                                                        session.messages.update(index(), 'userPromptSlice', [0, message.length]);
+                                                    }
+                                                });
                                             }
                                         } else if (typeof content === 'string') {
                                             //is string
-                                            session.messages.update(index(), 'message', 'content', newText);
+                                            batch(() => {
+                                                session.messages.update(index(), 'message', 'content', newText);
+                                                if (contextText && contextText.length > 0) {
+                                                    session.messages.update(index(), 'userPromptSlice', [0, message.length]);
+                                                }
+                                            });
                                         }
                                     }}
                                     deleteIt={() => {
@@ -862,9 +891,11 @@ const ChatSession: Component = (props: {
                     <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>
                     </ToolbarLabel>
-                    <ToolbarLabel onclick={addContext} label='Use Context' >
-                        <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
-                    </ToolbarLabel>
+                    <div style={{ display: 'contents' }} ref={AddContextButton}>
+                        <ToolbarLabel onclick={addContext} label='Use Context'>
+                            <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
+                        </ToolbarLabel>
+                    </div>
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
                         const availableSystemPrompts = (): Record<string, string> => {

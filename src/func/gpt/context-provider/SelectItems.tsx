@@ -21,7 +21,7 @@ interface SelectItemsProps {
 
 const SelectItems: Component<SelectItemsProps> = (props) => {
     const multiChoice = () => props.options?.multiChoice ?? true;
-    const [selectedItems, setSelectedItems] = createSignal<ContextSubmenuItem[]>([]);
+    const [selectedItems, setSelectedItems] = createSignal<ContextSubmenuItem[]>(props.candidates);
 
     const toggleItem = (item: ContextSubmenuItem) => {
         if (multiChoice()) {
@@ -47,6 +47,16 @@ const SelectItems: Component<SelectItemsProps> = (props) => {
 
     return (
         <div class={styles.container}>
+            <div class={styles.footer}>
+                {multiChoice() && (
+                    <button class="b3-button b3-button--outline" onClick={() => {
+                        props.candidates.forEach(item => {
+                            toggleItem(item);
+                        });
+                    }}>Toggl</button>
+                )}
+                <button class="b3-button" onClick={handleConfirm}>确认</button>
+            </div>
             <For each={props.candidates}>
                 {(item) => (
                     <div
@@ -58,9 +68,6 @@ const SelectItems: Component<SelectItemsProps> = (props) => {
                     </div>
                 )}
             </For>
-            <div class={styles.footer}>
-                <button class="b3-button" onClick={handleConfirm}>确认</button>
-            </div>
         </div>
     );
 };
@@ -82,7 +89,7 @@ const showSelectContextDialog = async (candidates: ContextSubmenuItem[], options
             options.destroyCallback();
         },
         width: '720px',
-        height: '600px'
+        height: '400px'
     });
 };
 
