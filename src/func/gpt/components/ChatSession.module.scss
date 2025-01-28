@@ -109,7 +109,7 @@ $chat-very-narrow-container: 360px;
         background-color: var(--chat-bg-color);
         border-bottom: 1px solid var(--chat-border-color);
 
-        >:global(.b3-button) {
+        & :global(.b3-button) {
             height: 27px;
 
             >svg {

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-27 22:11:51
+ * @LastEditTime : 2025-01-28 21:53:47
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -521,6 +521,7 @@ const ChatSession: Component = (props: {
             if (text.length === textareaRef.selectionStart) {
                 const event = new MouseEvent('context-provider-open');
                 menu = addContext(event);
+                menu.element.querySelector('.b3-menu__item')?.classList.add('b3-menu__item--current');
                 setTimeout(() => {
                     //@ts-ignore
                     menu.element.querySelector('.b3-menu__item')?.focus();
