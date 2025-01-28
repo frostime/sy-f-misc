@@ -647,7 +647,7 @@ ${inputContent}
                 return applyMsgItemVersion(copied, version);
             });
         },
-        delMsgItemVersion: (itemId: string, version: string) => {
+        delMsgItemVersion: (itemId: string, version: string, autoSwitch = true) => {
             const index = messages().findIndex(item => item.id === itemId);
             if (index === -1) return;
             const msgItem = messages()[index];
@@ -661,7 +661,7 @@ ${inputContent}
                 if (versionLists.length <= 1) {
                     showMessage('当前版本不能删除');
                     return;
-                } else {
+                } else if (autoSwitch) {
                     const idx = versionLists.indexOf(version);
                     const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
                     switchFun = () => hooks.switchMsgItemVersion(itemId, versionLists[newIdx]);
