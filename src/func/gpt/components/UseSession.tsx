@@ -9,6 +9,8 @@ import { UIConfig, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '../gpt';
 import { adaptIMessageContent } from '../utils';
 import { assembleContext2Prompt } from '../context-provider';
+import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
+import { preview } from 'vite';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -280,13 +282,13 @@ ${inputContent}
 
             // 准备或更新目标消息; 如果下一条消息是普通的 assistant 消息，则更新它
             if (messages()[nextIndex]?.message?.role === 'assistant' && !messages()[nextIndex].hidden) {
-                messages.update(nextIndex, prev => {
-                    const vid = new Date().getTime().toString();
-                    // 保留最新的当前版本消息（用户可能会外部编辑更改）
-                    prev['versions'][vid] = prev.message.content;
-                    // loading 状态
-                    prev['loading'] = true;
-                    return prev;
+                messages.update(prev => {
+                    const updated = [...prev];
+                    const item = structuredClone(updated[nextIndex]);
+                    item['loading'] = true;
+                    stageMsgItemVersion(item);
+                    updated[nextIndex] = item;
+                    return updated;
                 });
             } else {
                 // 插入新的 assistant 消息
@@ -324,18 +326,14 @@ ${inputContent}
             });
 
             // 更新最终内容
-            messages.update(prev => {
-                const updated = [...prev];
-                const msgItem = updated[nextIndex];
+            const vid = new Date().getTime().toString();
+            messages.update(nextIndex, (msgItem: IChatSessionMsgItem) => {
                 const newMessageContent: IMessage = {
                     role: 'assistant',
                     content: content
                 };
-                const vid = new Date().getTime().toString();
                 // 记录最新版本的消息
-                msgItem['versions'][vid] = newMessageContent.content;
-                msgItem['currentVersion'] = vid;
-                updated[nextIndex] = {
+                msgItem = {
                     ...msgItem,
                     loading: false,
                     message: newMessageContent,
@@ -344,9 +342,38 @@ ${inputContent}
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
                 };
-                delete updated[nextIndex]['loading'];  //不需要这个了
-                return updated;
+                if (usage && usage.completion_tokens) {
+                    msgItem['token'] = usage.completion_tokens;
+                }
+                // delete msgItem['loading'];
+                msgItem = stageMsgItemVersion(msgItem, vid);
+                return msgItem;
             });
+            // messages.update(prev => {
+            //     const updated = [...prev];
+            //     let msgItem = updated[nextIndex];
+            //     const newMessageContent: IMessage = {
+            //         role: 'assistant',
+            //         content: content
+            //     };
+            //     // 记录最新版本的消息
+            //     msgItem = {
+            //         ...msgItem,
+            //         loading: false,
+            //         message: newMessageContent,
+            //         author: model.model,
+            //         timestamp: new Date().getTime(),
+            //         attachedItems: msgToSend.length,
+            //         attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
+            //     };
+            //     if (usage && usage.completion_tokens) {
+            //         msgItem['token'] = usage.completion_tokens;
+            //     }
+            //     delete msgItem['loading'];  //不需要这个了
+            //     msgItem = stageMsgItemVersion(msgItem, vid);
+            //     updated[nextIndex] = msgItem;
+            //     return updated;
+            // });
 
             if (usage) {
                 batch(() => {
@@ -539,7 +566,7 @@ ${inputContent}
         return [...attachedMessages, targetMessage].map(item => item.message!);
     }
 
-    return {
+    const hooks = {
         sessionId,
         systemPrompt,
         messages,
@@ -615,27 +642,43 @@ ${inputContent}
             if (Object.keys(msgItem.versions).length <= 1) return;
             const msgContent = msgItem.versions[version];
             if (!msgContent) return;
-            messages.update(index, 'currentVersion', version);
-            messages.update(index, 'message', 'content', msgContent);
+            messages.update(index, (prev: IChatSessionMsgItem) => {
+                const copied = structuredClone(prev);
+                return applyMsgItemVersion(copied, version);
+            });
         },
         delMsgItemVersion: (itemId: string, version: string) => {
             const index = messages().findIndex(item => item.id === itemId);
             if (index === -1) return;
             const msgItem = messages()[index];
-            if (msgItem.currentVersion === version) {
-                showMessage('当前版本不能删除');
-                return;
-            }
+            let switchFun = () => {};
             if (!msgItem.versions || msgItem.versions[version] === undefined) {
                 showMessage('此版本不存在');
                 return;
             }
-            messages.update(index, 'versions', (prev) => {
-                delete prev[version];
-                return prev;
+            if (msgItem.currentVersion === version) {
+                const versionLists = Object.keys(msgItem.versions);
+                if (versionLists.length <= 1) {
+                    showMessage('当前版本不能删除');
+                    return;
+                } else {
+                    const idx = versionLists.indexOf(version);
+                    const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
+                    switchFun = () => hooks.switchMsgItemVersion(itemId, versionLists[newIdx]);
+                }
+            }
+            batch(() => {
+                switchFun();
+                messages.update(index, (item: IChatSessionMsgItem) => {
+                    if (item.versions?.[version] !== undefined) {
+                        delete item.versions[version];
+                    }
+                    return item;
+                });
             })
         }
     }
+    return hooks;
 }
 
 

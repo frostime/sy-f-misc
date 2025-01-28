@@ -1,4 +1,4 @@
-import { Component, createMemo, For, onMount, Show } from 'solid-js';
+import { Component, createEffect, createMemo, For, on, onMount, Show } from 'solid-js';
 import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { confirm, Menu } from "siyuan";
 
@@ -284,6 +284,44 @@ const MessageItem: Component<{
         return text.length;
     });
 
+    createEffect(on(textContent, () => {
+        renderCode();
+        renderMath();
+    }));
+
+    const VersionHooks = {
+        hasMultiVersion: () => {
+            return Object.keys(props.messageItem.versions).length > 1;
+        },
+        versionKeys: () => {
+            return Object.keys(props.messageItem.versions).map((v, index) => `v${index + 1}`);
+        },
+        currentVersion: () => {
+            let index = 1;
+            if (props.messageItem.versions[props.messageItem.currentVersion]) {
+                index = Object.keys(props.messageItem.versions).indexOf(props.messageItem.currentVersion) + 1;
+            }
+            return `v${index}`;
+        },
+        switchVersionMenu: () => {
+            return Object.keys(props.messageItem.versions).map((version, index) => {
+                return {
+                    icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
+                    label: `v${index + 1}`,
+                    click: (_, event: MouseEvent) => {
+                        const target = event.target as HTMLElement;
+                        if (target.closest('.b3-menu__action')) {
+                            session.delMsgItemVersion(props.messageItem.id, version);
+                        } else {
+                            session.switchMsgItemVersion(props.messageItem.id, version);
+                        }
+                    },
+                    action: `iconClose`
+                }
+            });
+        }
+    }
+
     // #iconAccount
     const IconUser = () => (
         <svg>
@@ -324,10 +362,6 @@ const MessageItem: Component<{
 
     const deleteMessage = () => {
         props.deleteIt?.();
-    }
-
-    const rerunMessage = () => {
-        props.rerunIt?.();
     }
 
     const ToolbarButton = (props: {
@@ -388,7 +422,7 @@ const MessageItem: Component<{
             label: '重新运行',
             click: () => {
                 confirm('确认?', '是否重新运行此消息', () => {
-                    rerunMessage();
+                    props.rerunIt?.();
                 });
             }
         });
@@ -397,21 +431,7 @@ const MessageItem: Component<{
                 icon: 'iconHistory',
                 label: '切换消息版本',
                 type: 'submenu',
-                submenu: Object.keys(props.messageItem.versions).map((version, index) => {
-                    return {
-                        icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
-                        label: `v${index + 1}`,
-                        click: (element: HTMLElement, event: MouseEvent) => {
-                            const target = event.target as HTMLElement;
-                            if (target.closest('.b3-menu__action')) {
-                                session.delMsgItemVersion(props.messageItem.id, version);
-                            } else {
-                                session.switchMsgItemVersion(props.messageItem.id, version);
-                            }
-                        },
-                        action: `iconClose`
-                    }
-                })
+                submenu: VersionHooks.switchVersionMenu()
             });
         }
 
@@ -563,7 +583,7 @@ const MessageItem: Component<{
                     <ToolbarButton icon="iconRefresh" title="重新运行" onclick={(e: MouseEvent) => {
                         // Ctrl + 点击
                         if (e.ctrlKey) {
-                            rerunMessage();
+                            props.rerunIt?.();
                         } else {
                             showMessage('如果想要重新运行，请按 Ctrl + 点击');
                         }
