@@ -92,15 +92,18 @@ export const useSession = (props: {
                 });
             }));
         }
+        const timestamp = new Date().getTime();
         messages.update(prev => [...prev, {
             type: 'message',
             id: newID(),
-            timestamp: new Date().getTime(),
+            timestamp: timestamp,
             author: 'user',
             message: {
                 role: 'user',
                 content: content ?? msg
             },
+            currentVersion: timestamp.toString(),
+            versions: {},
             ...optionalFields
         }]);
     }
@@ -277,28 +280,31 @@ ${inputContent}
 
             // 准备或更新目标消息; 如果下一条消息是普通的 assistant 消息，则更新它
             if (messages()[nextIndex]?.message?.role === 'assistant' && !messages()[nextIndex].hidden) {
-                messages.update(prev => {
-                    const updated = [...prev];
-                    updated[nextIndex] = {
-                        ...updated[nextIndex],
-                        loading: true
-                    };
-                    return updated;
+                messages.update(nextIndex, prev => {
+                    const vid = new Date().getTime().toString();
+                    // 保留最新的当前版本消息（用户可能会外部编辑更改）
+                    prev['versions'][vid] = prev.message.content;
+                    // loading 状态
+                    prev['loading'] = true;
+                    return prev;
                 });
             } else {
                 // 插入新的 assistant 消息
+                const timestamp = new Date().getTime();
                 messages.update(prev => {
                     const updated = [...prev];
                     updated.splice(nextIndex, 0, {
                         type: 'message',
                         id: newID(),
-                        timestamp: new Date().getTime(),
+                        timestamp: timestamp,
                         author: model.model,
                         loading: true,
                         message: {
                             role: 'assistant',
                             content: ''
-                        }
+                        },
+                        currentVersion: timestamp.toString(),
+                        versions: {}
                     });
                     return updated;
                 });
@@ -320,16 +326,21 @@ ${inputContent}
             // 更新最终内容
             messages.update(prev => {
                 const updated = [...prev];
+                const msgItem = updated[nextIndex];
+                const newMessageContent: IMessage = {
+                    role: 'assistant',
+                    content: content
+                };
+                const vid = new Date().getTime().toString();
+                // 记录最新版本的消息
+                msgItem['versions'][vid] = newMessageContent.content;
+                msgItem['currentVersion'] = vid;
                 updated[nextIndex] = {
-                    ...updated[nextIndex],
+                    ...msgItem,
                     loading: false,
-                    message: {
-                        role: 'assistant',
-                        content: content
-                    },
+                    message: newMessageContent,
                     author: model.model,
                     timestamp: new Date().getTime(),
-                    // msgChars: content.length,
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
                 };
@@ -364,11 +375,7 @@ ${inputContent}
     const sendMessage = async (userMessage: string) => {
         if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
 
-        // const hasContext = userMessage.includes('</Context>');
         let sysPrompt = systemPrompt().trim() || '';
-        // if (hasContext) {
-        //     sysPrompt += '\nNote: <Context>...</Context> 是附带的上下文信息，只关注其内容，不要将 <Context> 标签作为正文的一部分';
-        // }
 
         await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
         loading.update(true);
@@ -387,7 +394,8 @@ ${inputContent}
                 message: { role: 'assistant', content: '' },
                 author: model.model,
                 timestamp: new Date().getTime(),
-                loading: true
+                loading: true,
+                versions: {}
             };
             messages.update(prev => [...prev, assistantMsg]);
 
@@ -411,6 +419,7 @@ ${inputContent}
                 option: option,
             });
 
+            const vid = new Date().getTime().toString();
             // 更新最终内容
             messages.update(prev => {
                 const lastIdx = prev.length - 1;
@@ -426,6 +435,8 @@ ${inputContent}
                     timestamp: new Date().getTime(),
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0),
+                    currentVersion: vid,
+                    versions: {}  // 新消息只有一个版本，就暂时不需要存放多 versions, 空着就行
                 };
                 delete updated[lastIdx]['loading'];
                 return updated;
@@ -594,6 +605,35 @@ ${inputContent}
             messages.update([]);
             loading.update(false);
             hasStarted = false;
+        },
+        switchMsgItemVersion: (itemId: string, version: string) => {
+            const index = messages().findIndex(item => item.id === itemId);
+            if (index === -1) return;
+            const msgItem = messages()[index];
+            if (msgItem.currentVersion === version) return;
+            if (!msgItem.versions) return;
+            if (Object.keys(msgItem.versions).length <= 1) return;
+            const msgContent = msgItem.versions[version];
+            if (!msgContent) return;
+            messages.update(index, 'currentVersion', version);
+            messages.update(index, 'message', 'content', msgContent);
+        },
+        delMsgItemVersion: (itemId: string, version: string) => {
+            const index = messages().findIndex(item => item.id === itemId);
+            if (index === -1) return;
+            const msgItem = messages()[index];
+            if (msgItem.currentVersion === version) {
+                showMessage('当前版本不能删除');
+                return;
+            }
+            if (!msgItem.versions || msgItem.versions[version] === undefined) {
+                showMessage('此版本不存在');
+                return;
+            }
+            messages.update(index, 'versions', (prev) => {
+                delete prev[version];
+                return prev;
+            })
         }
     }
 }

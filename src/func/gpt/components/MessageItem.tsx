@@ -7,6 +7,7 @@ import AttachmentList from './AttachmentList';
 import { adaptIMessageContent, addScript, addStyle, convertMathFormulas } from '../utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig } from '../setting/store';
+import { useSimpleContext } from './UseSession';
 
 
 const useCodeToolbar = (language: string, code: string) => {
@@ -177,6 +178,7 @@ const MessageItem: Component<{
     updateIt?: (message: string) => void,
     deleteIt?: () => void,
     rerunIt?: () => void,
+    switchVersion?: (version: string) => void,
     multiSelect?: boolean,
     selected?: boolean,
     onSelect?: (id: string, selected: boolean) => void,
@@ -187,6 +189,8 @@ const MessageItem: Component<{
     let lute = getLute();
 
     let msgRef: HTMLDivElement;
+
+    const { session } = useSimpleContext();
 
     const renderCode = async () => {
         const codeBlocks = msgRef.querySelectorAll('pre>code');
@@ -388,6 +392,28 @@ const MessageItem: Component<{
                 });
             }
         });
+        if (Object.keys(props.messageItem.versions).length > 1) {
+            menu.addItem({
+                icon: 'iconHistory',
+                label: '切换消息版本',
+                type: 'submenu',
+                submenu: Object.keys(props.messageItem.versions).map((version, index) => {
+                    return {
+                        icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
+                        label: `v${index + 1}`,
+                        click: (element: HTMLElement, event: MouseEvent) => {
+                            const target = event.target as HTMLElement;
+                            if (target.closest('.b3-menu__action')) {
+                                session.delMsgItemVersion(props.messageItem.id, version);
+                            } else {
+                                session.switchMsgItemVersion(props.messageItem.id, version);
+                            }
+                        },
+                        action: `iconClose`
+                    }
+                })
+            });
+        }
 
         menu.addSeparator();
         menu.addItem({
