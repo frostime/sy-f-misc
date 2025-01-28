@@ -10,24 +10,7 @@
     4. **缺少使用文档**：本人没有精力也没有动力去写详细的使用说明文档
 
 请用户在使用前仔细阅读以上说明，并根据自身需求进行评估决定是否使用。
-
-1. **Introduction**: This plugin integrates several personally used functions, with a small portion of features migrated from other plugins. Some of my previously released plugins were actually extracted from sub-modules of this plugin (such as Bookmark+, QueryView, Document Context, etc.).
-2. **Disclaimer:**    This plugin is for personal use and does not guarantee stability in any sense.
-
-    1. **No Internationalization:**    This plugin is intended for personal use only, and multilingual support is not currently considered.
-    2. **Potential Hardcoding:**    The plugin's internal code may contain hardcoded variables, such as personal notebook IDs.
-    3. **Weak Platform Support:**    This plugin is primarily designed for the local Electron application of SiYuan, and it has not been specifically adapted for other systems, server modes, or mobile devices. Compatibility issues may arise.
-    4. **Lack of user documentation:**   I don't have the effort and initiative to write detailed user manuals.
-
-Please carefully read the above instructions before using the plugin, and evaluate whether it meets your needs before deciding to use it.
-
-此前，本人已经开发了很多插件并上架到了集市。这些插件大多是根据我自己的需求，在这个自用插件中开发，在后续的使用过程中觉得还不错，就拆分成独立的插件上架给大家使用。集市中至少有六七个插件是拆分自本插件，包括书签+、QueryView 等较为复杂的插件。
-
-然而拆分插件的工作量很大，而且需要同步维护，还要考虑文档和国际化等问题。考虑到个人的时间和精力，本人可能不太有动力再重复这样的工作流程了。因此，也欢迎有能力的开发者帮助我拆分和迁移功能。如果开发者对本插件中的特定子功能感兴趣，欢迎在遵守 **GPL-v3 开源协议**的前提下，自行进行功能迁移和独立开发。
-
-In the past, I have developed many plugins and published them on the Marketplace. These plugins were mostly developed based on my own needs within this personal plugin. If they felt good to use, I later split them into independent plugins for public use. At least six or seven plugins currently on the Marketplace are derived from this plugin, including some complex ones like Bookmark+ and QueryView.
-
-However, splitting up plugins takes a lot of effort, and requires synchronized maintenance, as well as considering documentation and internationalization. Given my limited time and energy, I am unlikely to have the motivation to repeat this process in the future. If any developer is interested in specific sub-functions within this plugin, you are welcome to migrate and develop them independently, provided that you adhere to the **GPL-v3 open-source license**.
+若开发者对本插件中的特定子功能感兴趣，请在尊重 **GPL-v3 开源协议**的前提下进行开发。
 
 ---
 
@@ -36,10 +19,13 @@ However, splitting up plugins takes a lot of effort, and requires synchronized m
 * GPT 对话
 
   * 在思源内创建独立的对话界面
-  * Provider、Model、Prompt 管理
+  * LLM 模型 (Chat API)、Prompt 管理
   * 支持快速将选中文字添加到对话中
-  * 将对话内容保存到思源笔记中
   * Ctrl + Shift + L 打开对话
+  * 对话记录保存、管理、多端同步
+  * 和思源笔记结合
+    * 笔记 Context Provder; 将笔记相关内容加入对话中
+    * 将对话内容保存到思源笔记中
 * Toggl
 
   * 一个简易的 Toggl 客户端
@@ -75,7 +61,8 @@ However, splitting up plugins takes a lot of effort, and requires synchronized m
   * word, ppt, excel 空白文件需要自行在 `data\public\blank-files`​ 下面放空白模板文件
 * Quick Draft: 模仿快速卡片写作插件，快速创建独立的编辑窗口（主要当草稿用）
 
-  * 会全局注册 Alt + Shift + G 快捷键
+  * 全局注册 Alt + Shift + G 快捷键
+  * 默认以卡片样式显示，Alt + Y 可以返回到普通的编辑器样式
 * Webview 网页视图: 在新窗口中打开 Webview，模仿自其他插件
 * 全局 Paste 处理：自定义粘贴事件，例如在粘贴 URL 文本时自动转换为链接等
 * WebSocket：纯个人使用的工具；允许外部通过 broadcast API 发送命令让插件执行；主要和 quicker 配合使用
