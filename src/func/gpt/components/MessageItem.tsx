@@ -177,7 +177,6 @@ const renderMathBlock = (element: HTMLElement) => {
 
 
 
-// h:\SrcCode\SiYuanDevelopment\sy-f-misc\src\func\gpt\components\MessageItem.tsx
 const MessageVersionView: Component<{
     session: ReturnType<typeof useSession>;
     messageItemId: string;
@@ -454,9 +453,10 @@ const MessageItem: Component<{
 
     const VersionHooks = {
         hasMultiVersion: () => {
-            return Object.keys(props.messageItem.versions).length > 1;
+            return props.messageItem.versions && Object.keys(props.messageItem.versions).length > 1;
         },
         versionKeys: () => {
+            if (!VersionHooks.hasMultiVersion()) return [];
             return Object.keys(props.messageItem.versions).map((v, index) => `v${index + 1}`);
         },
         currentVersion: () => {
@@ -467,6 +467,7 @@ const MessageItem: Component<{
             return `v${index}`;
         },
         switchVersionMenu: () => {
+            if (!VersionHooks.hasMultiVersion()) return [];
             return Object.keys(props.messageItem.versions).map((version, index) => {
                 return {
                     icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
@@ -484,14 +485,18 @@ const MessageItem: Component<{
             });
         },
         switchVersionDialog: () => {
+            if (!VersionHooks.hasMultiVersion()) {
+                showMessage('当前消息没有多版本');
+                return;
+            }
             const { dialog } = solidDialog({
                 title: '多选版本',
                 loader: () => (
                     <MessageVersionView
                         session={session}
                         messageItemId={props.messageItem.id}
-                        versions={props.messageItem.versions}
-                        currentVersion={props.messageItem.currentVersion}
+                        versions={props.messageItem.versions ?? {}}
+                        currentVersion={props.messageItem.currentVersion ?? ''}
                         onClose={() => {
                             dialog.destroy();
                         }}
@@ -609,7 +614,7 @@ const MessageItem: Component<{
                 });
             }
         });
-        if (Object.keys(props.messageItem.versions).length > 1) {
+        if (VersionHooks.hasMultiVersion()) {
             menu.addItem({
                 icon: 'iconHistory',
                 label: '消息多版本',
@@ -704,7 +709,7 @@ const MessageItem: Component<{
         };
 
         return (
-            <Show when={Object.keys(props.messageItem.versions).length >= 1}>
+            <Show when={VersionHooks.hasMultiVersion()}>
                 <div
                     class={styles.versionIndicator}
                     onClick={showVersionMenu}

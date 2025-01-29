@@ -4,6 +4,8 @@ $chat-narrow-container: 540px;
 $chat-very-narrow-container: 360px;
 
 .messageItem {
+    --chat-hidden-message-max-height: 7.5em;
+
     display: flex;
     padding: 1em;
     gap: 1em;
@@ -169,6 +171,8 @@ $chat-very-narrow-container: 360px;
 
             &.hidden {
                 opacity: 0.5;
+                max-height: var(--chat-hidden-message-max-height);
+                font-size: calc(var(--chat-message-font-size) * 0.85) !important;
             }
 
             :global(pre) {
