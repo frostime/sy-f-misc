@@ -704,7 +704,7 @@ const MessageItem: Component<{
         };
 
         return (
-            <Show when={Object.keys(props.messageItem.versions).length > 1}>
+            <Show when={Object.keys(props.messageItem.versions).length >= 1}>
                 <div
                     class={styles.versionIndicator}
                     onClick={showVersionMenu}
