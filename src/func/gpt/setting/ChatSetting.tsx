@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2025-01-23 15:43:42
+ * @LastEditTime : 2025-01-29 23:58:22
  * @Description  : 
  */
 
@@ -161,7 +161,7 @@ const ChatSessionSetting = (props: {
             </Form.Wrap>
             <Form.Wrap
                 title="存在惩罚 (Presence Penalty)"
-                description="控制生成文本中新词的惩罚力度。值越高（最大为2），生成的文本中引入新词的频率越低；值越低（最小为-2），鼓励使用更多新词。"
+                description="控制生成文本中是否使用已出现过的词的惩罚力度。值越高（最大为2），模型越倾向于避免使用已出现过的词，从而鼓励生成更多新词；值越低（最小为-2），则允许模型更多地重复使用已出现过的词，降低生成新词的倾向。"
             >
                 <Form.Input
                     type="number"
@@ -179,7 +179,7 @@ const ChatSessionSetting = (props: {
             </Form.Wrap>
             <Form.Wrap
                 title="频率惩罚 (Frequency Penalty)"
-                description="控制生成文本中重复词的惩罚力度。值越高（最大为2），生成的文本中重复词的出现频率越低；值越低（最小为-2），允许更多重复词的出现。"
+                description="控制生成文本中频繁出现的词的惩罚力度。值越高（最大为2），模型越倾向于减少重复词的出现频率，使文本更加均衡；值越低（最小为-2），则允许模型更多地使用重复词，可能导致文本出现重复的短语或句子。"
             >
                 <Form.Input
                     type="number"
