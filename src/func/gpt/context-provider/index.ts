@@ -13,6 +13,7 @@ import SQLSearchProvicer from './SQLSearchProvicer';
 
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
+import { showMessage } from 'siyuan';
 
 const contextProviders: CustomContextProvider[] = [
     SelectedTextProvider,
@@ -70,6 +71,11 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
         option['selected'] = selectedItems;
         contextItems = await provider.getContextItems(option);
     } else {
+        return;
+    }
+
+    if (!contextItems || contextItems.length === 0) {
+        showMessage(`没有获取到 ${provider.name} 相关的数据`, 3000);
         return;
     }
 

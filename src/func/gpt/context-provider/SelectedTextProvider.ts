@@ -3,24 +3,11 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:25:34
  * @FilePath     : /src/func/gpt/context-provider/SelectedTextProvider.ts
- * @LastEditTime : 2025-01-27 21:26:38
+ * @LastEditTime : 2025-01-29 22:41:20
 * @Description  : 
 */
 
-import { id2block } from "@frostime/siyuan-plugin-kits";
-
-const id2md = async (blocksIds: BlockId[]) => {
-    // let blocksIds = [];
-    // nodes.forEach((node: HTMLElement) => {
-    //     blocksIds.push(node.dataset.nodeId);
-    // });
-    let blocks = await id2block(blocksIds);
-    let blocksMap = new Map(blocks.map(block => [block.id, block]));
-    let sortedBlocks = blocksIds.map(id => blocksMap.get(id));
-    let blockMarkdown = sortedBlocks.map((block) => block?.markdown || '');
-    const markdown = blockMarkdown.join('\n\n').trim();
-    return markdown;
-}
+import { getLute } from "@frostime/siyuan-plugin-kits";
 
 const SelectedTextProvider: CustomContextProvider = {
     name: "SelectedText",
@@ -29,6 +16,9 @@ const SelectedTextProvider: CustomContextProvider = {
     description: "用户在思源编辑器中选中的块或者文本等",
     getContextItems: async (options?: any): Promise<ContextItem[]> => {
         let nodes = document.querySelectorAll('.protyle-wysiwyg--select');
+        if (nodes.length === 0) {
+            return [];
+        }
         // 获取所有选中的块的父级 .protyle-content 元素
         const contentMap = new Map<HTMLElement, HTMLElement[]>();
         nodes.forEach((node: HTMLElement) => {
@@ -43,28 +33,31 @@ const SelectedTextProvider: CustomContextProvider = {
 
         // 对每个 .protyle-content 下的节点进行排序并获取 markdown
         const contextItems: ContextItem[] = [];
+        const lute = getLute();
         for (const [protyle, nodes] of contentMap) {
+            if (nodes.length === 0) {
+                continue;
+            }
             // 根据 data-node-index 排序
             nodes.sort((a, b) => {
                 const indexA = parseInt(a.getAttribute('data-node-index') || '0', 10);
                 const indexB = parseInt(b.getAttribute('data-node-index') || '0', 10);
                 return indexA - indexB;
             });
-            let blocksIds: BlockId[] = [];
+            let markdowns = [];
             nodes.forEach((node: HTMLElement) => {
-                blocksIds.push(node.dataset.nodeId as BlockId);
+                let markdown = lute.BlockDOM2StdMd(node.outerHTML);
+                markdowns.push(markdown);
             });
-            if (blocksIds.length > 0) {
-                const markdown = await id2md(blocksIds);
-                const title = protyle.querySelector('.protyle-title__input');
-                const displayTitle = title.textContent;
-                contextItems.push({
-                    name: markdown.length > 15 ? markdown.substring(0, 15) + '...' : markdown,
-                    description: `用户在文档 ${displayTitle} 中选中的文本`,
-                    content: markdown,
-                });
-            }
+            let markdown = markdowns.join('\n').trim();
 
+            const title = protyle.querySelector('.protyle-title__input');
+            const displayTitle = title.textContent;
+            contextItems.push({
+                    name: markdown.length > 15 ? markdown.substring(0, 15) + '...' : markdown,
+                    description: `用户在文档 [${displayTitle}] 中选中的内容块`,
+                    content: markdown,
+            });
         }
         return contextItems;
     },

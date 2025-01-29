@@ -44,27 +44,49 @@ const AttachmentList: Component<Props> = (props) => {
     const showContextContent = (context: IProvidedContext) => {
         solidDialog({
             title: context.displayTitle,
-            loader: () => (
-                <div
-                    class="b3-typography"
-                    style="flex: 1; padding: 10px 16px; font-size: 16px !important;"
-                >
-                    <h2 >{context.name} | {context.displayTitle}</h2>
-                    <p >{context.description}</p>
-                    <hr />
-                    <ul >
-                        {context.contextItems.map((item) => (
-                            <li >
-                                <strong >{item.name}</strong>
-                                <p >{item.description}</p>
-                                <pre style={{
-                                    "white-space": "pre-line",
-                                }}>{item.content}</pre>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ),
+            loader: () => {
+                let typo: HTMLDivElement;
+                const expandAll = () => {
+                    const details = typo.querySelectorAll('details');
+                    details.forEach(detail => detail.setAttribute('open', ''));
+                };
+
+                const collapseAll = () => {
+                    const details = typo.querySelectorAll('details');
+                    details.forEach(detail => detail.removeAttribute('open'));
+                };
+
+                return (
+                    <div
+                        class="b3-typography"
+                        style="flex: 1; padding: 10px 16px; font-size: 16px !important;"
+                        ref={typo}
+                    >
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2>{context.name} | {context.displayTitle}</h2>
+                            <div>
+                                <button class="b3-button" onClick={expandAll}>展开全部</button>
+                                <button class="b3-button" style="margin-left: 8px;" onClick={collapseAll}>折叠全部</button>
+                            </div>
+                        </div>
+                        <p>{context.description}</p>
+                        <hr />
+                        <ul>
+                            {context.contextItems.map((item) => (
+                                <details>
+                                    <summary>
+                                        <strong>{item.name}</strong>
+                                    </summary>
+                                    <p>{item.description}</p>
+                                    <pre style={{
+                                        "white-space": "pre-wrap",
+                                    }}>{item.content}</pre>
+                                </details>
+                            ))}
+                        </ul>
+                    </div>
+                );
+            },
             width: '1000px',
             maxHeight: '80%',
         });
