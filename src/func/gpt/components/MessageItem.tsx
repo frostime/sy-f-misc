@@ -304,7 +304,7 @@ const MessageVersionView: Component<{
                             previewVersion(item.version);
                         }}
                     >
-                        {previewMarkdown()}
+                        {versionContent(item.version)}
                     </div>
                 </div>
             ))}
@@ -683,14 +683,8 @@ const MessageItem: Component<{
             const menu = new Menu("version-menu");
 
             // Add version switch items
-            Object.keys(props.messageItem.versions).forEach((version, index) => {
-                menu.addItem({
-                    icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
-                    label: `v${index + 1}`,
-                    click: () => {
-                        session.switchMsgItemVersion(props.messageItem.id, version);
-                    }
-                });
+            VersionHooks.switchVersionMenu().forEach((item) => {
+                menu.addItem(item);
             });
 
             // Add view all versions option

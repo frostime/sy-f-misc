@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-27 22:11:51
+ * @LastEditTime : 2025-01-29 11:11:08
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -29,6 +29,7 @@ import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 import * as syDoc from '../persistence/sy-doc';
 import { contextProviders, executeContextProvider } from '../context-provider';
 import { adaptIMessageContent } from '../utils';
+import { isMsgItemWithMultiVersion } from '../data-utils';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -902,6 +903,9 @@ const ChatSession: Component = (props: {
                                                     session.messages.update(index(), 'userPromptSlice', [0, message.length]);
                                                 }
                                             });
+                                        }
+                                        if (isMsgItemWithMultiVersion(item)) {
+                                            session.messages.update(index(), 'versions', item.currentVersion, 'content', newText);
                                         }
                                     }}
                                     deleteIt={() => {
