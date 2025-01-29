@@ -675,6 +675,54 @@ const MessageItem: Component<{
         });
     }
 
+    const VersionIndicator = () => {
+        const showVersionMenu = (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const menu = new Menu("version-menu");
+
+            // Add version switch items
+            Object.keys(props.messageItem.versions).forEach((version, index) => {
+                menu.addItem({
+                    icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
+                    label: `v${index + 1}`,
+                    click: () => {
+                        session.switchMsgItemVersion(props.messageItem.id, version);
+                    }
+                });
+            });
+
+            // Add view all versions option
+            menu.addSeparator();
+            menu.addItem({
+                icon: 'iconList',
+                label: '查看所有版本',
+                click: VersionHooks.switchVersionDialog
+            });
+
+            const target = e.target as HTMLElement;
+            const rect = target.getBoundingClientRect();
+            menu.open({
+                x: rect.left,
+                y: rect.bottom
+            });
+        };
+
+        return (
+            <Show when={Object.keys(props.messageItem.versions).length > 1}>
+                <div
+                    class={styles.versionIndicator}
+                    onClick={showVersionMenu}
+                    title="消息版本"
+                >
+                    <svg><use href="#iconHistory" /></svg>
+                    {VersionHooks.currentVersion()}
+                </div>
+            </Show>
+        );
+    };
+
     return (
         <div class={styles.messageItem} data-role={props.messageItem.message.role}>
             <Show when={props.multiSelect}>
@@ -687,6 +735,7 @@ const MessageItem: Component<{
                     </svg>
                 </div>
             </Show>
+            <VersionIndicator />
             {props.messageItem.message.role === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (
