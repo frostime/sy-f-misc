@@ -231,33 +231,16 @@ const PromptTemplateSetting = () => {
                             预设提示词配置
                         </div>
 
-                        <div style={{
-                            "display": "flex",
-                            "align-items": "center",
-                            gap: '5px',
-                        }}>
-                            <button class="b3-button b3-button--text" onclick={toggleList}>
-                                <SvgSymbol size="15px" style={{
-                                    'transform': isListOpen() ? 'rotate(0deg)' : 'rotate(90deg)',
-                                    'transition': 'transform 0.3s ease-in-out'
-                                }}>
-                                    iconDown
-                                </SvgSymbol>
-                            </button>
-                            <button
-                                class="b3-button b3-button--text"
-                                onClick={addTemplate}
-                            >
-                                <SvgSymbol size="20px">iconAdd</SvgSymbol>
-                            </button>
-                        </div>
+                        <button
+                            class="b3-button b3-button--text"
+                            onClick={addTemplate}
+                        >
+                            <SvgSymbol size="20px">iconAdd</SvgSymbol>
+                        </button>
                     </div>
                 </Heading>
 
                 <div class="fn__flex-1" style={{
-                    'overflow': 'auto',
-                    'transition': 'max-height 0.2s ease-in-out',
-                    'max-height': isListOpen() ? '1000px' : '0', // 初始高度设置为 0，展开时设置为足够大的值
                     display: 'flex',
                     'flex-direction': 'column',
                     gap: '3px'

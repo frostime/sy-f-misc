@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-01-29 23:37:45
+ * @LastEditTime : 2025-01-29 23:49:25
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -69,13 +69,17 @@ const GlobalSetting = () => {
     return (
         <div class={'config__tab-container'} 
             data-name="gpt" 
-            style={{ width: '100%', 'overflow-y': 'hidden' }}
+            style={{ 
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                'flex-direction': 'column'
+            }}
         >
             <div style={{
                 display: 'flex',
                 width: '100%',
                 "border-bottom": "1px solid var(--b3-border-color)",
-                "margin-bottom": "16px",
                 "background-color": "var(--b3-theme-background)",
                 position: "sticky",
                 top: 0,
@@ -111,9 +115,9 @@ const GlobalSetting = () => {
             </div>
 
             <div style={{
-                padding: '0 16px',
-                height: 'calc(100vh - 150px)',
-                overflow: 'auto'
+                padding: '16px',
+                flex: 1,
+                'overflow-y': 'auto'
             }}>
                 <Switch fallback={<div>404: Tab not found</div>}>
                     <Match when={activeTab() === 'chat'}>
