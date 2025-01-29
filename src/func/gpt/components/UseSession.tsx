@@ -10,7 +10,6 @@ import * as gpt from '../gpt';
 import { adaptIMessageContent } from '../utils';
 import { assembleContext2Prompt } from '../context-provider';
 import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
-import { preview } from 'vite';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;

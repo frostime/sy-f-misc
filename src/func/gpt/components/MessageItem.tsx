@@ -1,4 +1,4 @@
-import { Component, createEffect, createMemo, createSignal, For, on, onMount, Show } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, on, onMount, Show } from 'solid-js';
 import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { confirm, Menu } from "siyuan";
 
@@ -458,7 +458,7 @@ const MessageItem: Component<{
         },
         versionKeys: () => {
             if (!VersionHooks.hasMultiVersion()) return [];
-            return Object.keys(props.messageItem.versions).map((v, index) => `v${index + 1}`);
+            return Object.keys(props.messageItem.versions).map((_, index) => `v${index + 1}`);
         },
         currentVersion: () => {
             let index = 1;
@@ -591,6 +591,32 @@ const MessageItem: Component<{
             icon: 'iconLine',
             label: '下方添加分隔',
             click: () => props.toggleSeperator?.()
+        });
+        menu.addItem({
+            icon: 'iconAdd',
+            label: '下方添加空白消息',
+            click: () => {
+                const timestamp = new Date().getTime();
+                const newMessage: IChatSessionMsgItem = {
+                    type: 'message',
+                    id: window.Lute.NewNodeID(),
+                    timestamp: timestamp,
+                    author: 'user',
+                    message: {
+                        role: 'user',
+                        content: ''
+                    },
+                    currentVersion: timestamp.toString(),
+                    versions: {}
+                };
+                session.messages.update((oldList: IChatSessionMsgItem[]) => {
+                    const index = oldList.findIndex(item => item.id === props.messageItem.id);
+                    if (index === -1) return oldList;
+                    const newList = [...oldList];
+                    newList.splice(index + 1, 0, newMessage);
+                    return newList;
+                });
+            }
         });
         menu.addItem({
             icon: props.messageItem.hidden ? 'iconEyeoff' : 'iconEye',

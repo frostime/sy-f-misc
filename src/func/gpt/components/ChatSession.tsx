@@ -12,7 +12,6 @@ import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-re
 import MessageItem from './MessageItem';
 import AttachmentList from './AttachmentList';
 import styles from './ChatSession.module.scss';
-import messageStyles from './MessageItem.module.scss';
 
 import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
