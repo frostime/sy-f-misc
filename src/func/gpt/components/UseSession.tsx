@@ -34,7 +34,7 @@ export const useSession = (props: {
     config: IStoreRef<IChatSessionConfig>;
     scrollToBottom: (force?: boolean) => void;
 }) => {
-    let sessionId = window.Lute.NewNodeID();
+    let sessionId = useSignalRef<string>(window.Lute.NewNodeID());
 
     const systemPrompt = useSignalRef<string>('');
     // 当前的 attachments
@@ -610,7 +610,7 @@ ${inputContent}
         },
         sessionHistory: (): IChatSessionHistory => {
             return {
-                id: sessionId,
+                id: sessionId(),
                 timestamp,
                 title: title(),
                 items: messages.unwrap(),
@@ -618,14 +618,14 @@ ${inputContent}
             }
         },
         applyHistory: (history: Partial<IChatSessionHistory>) => {
-            history.id && (sessionId = history.id);
+            history.id && (sessionId.value = history.id);
             history.title && (title.update(history.title));
             history.timestamp && (timestamp = history.timestamp);
             history.items && (messages.update(history.items));
             history.sysPrompt && (systemPrompt.update(history.sysPrompt));
         },
         newSession: () => {
-            sessionId = window.Lute.NewNodeID();
+            sessionId.value = window.Lute.NewNodeID();
             systemPrompt.update('');
             timestamp = new Date().getTime();
             title.update('新的对话');

@@ -340,12 +340,13 @@ const MessageItem: Component<{
     updateIt?: (message: string) => void,
     deleteIt?: () => void,
     rerunIt?: () => void,
-    switchVersion?: (version: string) => void,
     multiSelect?: boolean,
     selected?: boolean,
     onSelect?: (id: string, selected: boolean) => void,
     toggleSeperator?: () => void,
-    toggleHidden?: () => void
+    toggleHidden?: () => void,
+    index?: number,
+    totalCount?: number
 }> = (props) => {
 
     let lute = getLute();
@@ -723,7 +724,29 @@ const MessageItem: Component<{
     };
 
     return (
-        <div class={styles.messageItem} data-role={props.messageItem.message.role}>
+        <div class={styles.messageItem} data-role={props.messageItem.message.role}
+            tabindex={props.index ?? -1}
+            onKeyDown={(e: KeyboardEvent & { currentTarget: HTMLElement }) => {
+                if (!(e.ctrlKey || e.metaKey)) return;
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    if (props.index === undefined || props.totalCount === undefined) return;
+
+                    const direction = e.key === 'ArrowUp' ? -1 : 1;
+                    const targetIndex = props.index + direction;
+
+                    if (targetIndex >= 0 && targetIndex < props.totalCount) {
+                        const targetElement = document.querySelector(`[data-session-id="${session.sessionId()}"] .${styles.messageItem}[tabindex="${targetIndex}"]`) as HTMLElement;
+                        if (targetElement) {
+                            targetElement.focus();
+                            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }
+                }
+            }}
+        >
             <Show when={props.multiSelect}>
                 <div class={styles.checkbox} onclick={(e) => {
                     e.stopPropagation();

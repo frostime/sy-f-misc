@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-29 11:11:08
+ * @LastEditTime : 2025-01-29 20:05:24
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -12,6 +12,7 @@ import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-re
 import MessageItem from './MessageItem';
 import AttachmentList from './AttachmentList';
 import styles from './ChatSession.module.scss';
+import messageStyles from './MessageItem.module.scss';
 
 import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
@@ -50,11 +51,12 @@ const useSiYuanEditor = (props: {
                 dir: root.hpath,
             }
         }
+        const textarea = props.useTextarea();
         document = await useDocumentWithAttr({
             name: 'custom-gpt-input-dialog',
             value: props.id,
             createOptions: {
-                content: props.input(),
+                content: textarea?.value ?? props.input(),
                 title: props.title ? props.title() : `gpt-input-${props.id}`,
                 ...configs
             }
@@ -220,7 +222,7 @@ const ChatSession: Component = (props: {
     const session = useSession({ model, config, scrollToBottom });
 
     const siyuanEditor = useSiYuanEditor({
-        id: session.sessionId,
+        id: session.sessionId(),
         input,
         fontSize: `${UIConfig().inputFontsize}px`,
         title: () => session.title(),
@@ -938,6 +940,8 @@ const ChatSession: Component = (props: {
                                         if (session.loading()) return;
                                         session.toggleHidden(index());
                                     }}
+                                    index={index()}
+                                    totalCount={session.messages().length}
                                 />
                             </Match>
                             <Match when={item.type === 'seperator'}>
@@ -1141,13 +1145,15 @@ const ChatSession: Component = (props: {
     );
 
     return (
-        <div style={{
-            "display": "flex",
-            // "flex-direction": "column",  //加了之后可能会在 tab 变窄的时候导致溢出..
-            "justify-content": "center",
-            "width": "100%",
-            "height": "100%"
-        }}>
+        <div
+            data-session-id={session.sessionId()}
+            style={{
+                "display": "flex",
+                // "flex-direction": "column",  //加了之后可能会在 tab 变窄的时候导致溢出..
+                "justify-content": "center",
+                "width": "100%",
+                "height": "100%"
+            }}>
             <SimpleProvider state={{
                 model,
                 config,
