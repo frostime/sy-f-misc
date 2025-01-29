@@ -9,6 +9,8 @@ import { UIConfig, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '../gpt';
 import { adaptIMessageContent } from '../utils';
 import { assembleContext2Prompt } from '../context-provider';
+import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
+import { preview } from 'vite';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -92,15 +94,18 @@ export const useSession = (props: {
                 });
             }));
         }
+        const timestamp = new Date().getTime();
         messages.update(prev => [...prev, {
             type: 'message',
             id: newID(),
-            timestamp: new Date().getTime(),
+            timestamp: timestamp,
             author: 'user',
             message: {
                 role: 'user',
                 content: content ?? msg
             },
+            currentVersion: timestamp.toString(),
+            versions: {},
             ...optionalFields
         }]);
     }
@@ -279,26 +284,29 @@ ${inputContent}
             if (messages()[nextIndex]?.message?.role === 'assistant' && !messages()[nextIndex].hidden) {
                 messages.update(prev => {
                     const updated = [...prev];
-                    updated[nextIndex] = {
-                        ...updated[nextIndex],
-                        loading: true
-                    };
+                    const item = structuredClone(updated[nextIndex]);
+                    item['loading'] = true;
+                    stageMsgItemVersion(item);
+                    updated[nextIndex] = item;
                     return updated;
                 });
             } else {
                 // 插入新的 assistant 消息
+                const timestamp = new Date().getTime();
                 messages.update(prev => {
                     const updated = [...prev];
                     updated.splice(nextIndex, 0, {
                         type: 'message',
                         id: newID(),
-                        timestamp: new Date().getTime(),
+                        timestamp: timestamp,
                         author: model.model,
                         loading: true,
                         message: {
                             role: 'assistant',
                             content: ''
-                        }
+                        },
+                        currentVersion: timestamp.toString(),
+                        versions: {}
                     });
                     return updated;
                 });
@@ -318,24 +326,54 @@ ${inputContent}
             });
 
             // 更新最终内容
-            messages.update(prev => {
-                const updated = [...prev];
-                updated[nextIndex] = {
-                    ...updated[nextIndex],
+            const vid = new Date().getTime().toString();
+            messages.update(nextIndex, (msgItem: IChatSessionMsgItem) => {
+                const newMessageContent: IMessage = {
+                    role: 'assistant',
+                    content: content
+                };
+                // 记录最新版本的消息
+                msgItem = {
+                    ...msgItem,
                     loading: false,
-                    message: {
-                        role: 'assistant',
-                        content: content
-                    },
+                    message: newMessageContent,
                     author: model.model,
                     timestamp: new Date().getTime(),
-                    // msgChars: content.length,
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
                 };
-                delete updated[nextIndex]['loading'];  //不需要这个了
-                return updated;
+                if (usage && usage.completion_tokens) {
+                    msgItem['token'] = usage.completion_tokens;
+                }
+                // delete msgItem['loading'];
+                msgItem = stageMsgItemVersion(msgItem, vid);
+                return msgItem;
             });
+            // messages.update(prev => {
+            //     const updated = [...prev];
+            //     let msgItem = updated[nextIndex];
+            //     const newMessageContent: IMessage = {
+            //         role: 'assistant',
+            //         content: content
+            //     };
+            //     // 记录最新版本的消息
+            //     msgItem = {
+            //         ...msgItem,
+            //         loading: false,
+            //         message: newMessageContent,
+            //         author: model.model,
+            //         timestamp: new Date().getTime(),
+            //         attachedItems: msgToSend.length,
+            //         attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
+            //     };
+            //     if (usage && usage.completion_tokens) {
+            //         msgItem['token'] = usage.completion_tokens;
+            //     }
+            //     delete msgItem['loading'];  //不需要这个了
+            //     msgItem = stageMsgItemVersion(msgItem, vid);
+            //     updated[nextIndex] = msgItem;
+            //     return updated;
+            // });
 
             if (usage) {
                 batch(() => {
@@ -364,11 +402,7 @@ ${inputContent}
     const sendMessage = async (userMessage: string) => {
         if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
 
-        // const hasContext = userMessage.includes('</Context>');
         let sysPrompt = systemPrompt().trim() || '';
-        // if (hasContext) {
-        //     sysPrompt += '\nNote: <Context>...</Context> 是附带的上下文信息，只关注其内容，不要将 <Context> 标签作为正文的一部分';
-        // }
 
         await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
         loading.update(true);
@@ -387,7 +421,8 @@ ${inputContent}
                 message: { role: 'assistant', content: '' },
                 author: model.model,
                 timestamp: new Date().getTime(),
-                loading: true
+                loading: true,
+                versions: {}
             };
             messages.update(prev => [...prev, assistantMsg]);
 
@@ -411,6 +446,7 @@ ${inputContent}
                 option: option,
             });
 
+            const vid = new Date().getTime().toString();
             // 更新最终内容
             messages.update(prev => {
                 const lastIdx = prev.length - 1;
@@ -426,6 +462,8 @@ ${inputContent}
                     timestamp: new Date().getTime(),
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0),
+                    currentVersion: vid,
+                    versions: {}  // 新消息只有一个版本，就暂时不需要存放多 versions, 空着就行
                 };
                 delete updated[lastIdx]['loading'];
                 return updated;
@@ -528,7 +566,7 @@ ${inputContent}
         return [...attachedMessages, targetMessage].map(item => item.message!);
     }
 
-    return {
+    const hooks = {
         sessionId,
         systemPrompt,
         messages,
@@ -594,8 +632,53 @@ ${inputContent}
             messages.update([]);
             loading.update(false);
             hasStarted = false;
+        },
+        switchMsgItemVersion: (itemId: string, version: string) => {
+            const index = messages().findIndex(item => item.id === itemId);
+            if (index === -1) return;
+            const msgItem = messages()[index];
+            if (msgItem.currentVersion === version) return;
+            if (!msgItem.versions) return;
+            if (Object.keys(msgItem.versions).length <= 1) return;
+            const msgContent = msgItem.versions[version];
+            if (!msgContent) return;
+            messages.update(index, (prev: IChatSessionMsgItem) => {
+                const copied = structuredClone(prev);
+                return applyMsgItemVersion(copied, version);
+            });
+        },
+        delMsgItemVersion: (itemId: string, version: string, autoSwitch = true) => {
+            const index = messages().findIndex(item => item.id === itemId);
+            if (index === -1) return;
+            const msgItem = messages()[index];
+            let switchFun = () => {};
+            if (!msgItem.versions || msgItem.versions[version] === undefined) {
+                showMessage('此版本不存在');
+                return;
+            }
+            if (msgItem.currentVersion === version) {
+                const versionLists = Object.keys(msgItem.versions);
+                if (versionLists.length <= 1) {
+                    showMessage('当前版本不能删除');
+                    return;
+                } else if (autoSwitch) {
+                    const idx = versionLists.indexOf(version);
+                    const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
+                    switchFun = () => hooks.switchMsgItemVersion(itemId, versionLists[newIdx]);
+                }
+            }
+            batch(() => {
+                switchFun();
+                messages.update(index, (item: IChatSessionMsgItem) => {
+                    if (item.versions?.[version] !== undefined) {
+                        delete item.versions[version];
+                    }
+                    return item;
+                });
+            })
         }
     }
+    return hooks;
 }
 
 

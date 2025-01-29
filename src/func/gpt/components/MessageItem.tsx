@@ -1,4 +1,4 @@
-import { Component, createMemo, For, onMount, Show } from 'solid-js';
+import { Component, createEffect, createMemo, createSignal, For, on, onMount, Show } from 'solid-js';
 import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { confirm, Menu } from "siyuan";
 
@@ -7,6 +7,10 @@ import AttachmentList from './AttachmentList';
 import { adaptIMessageContent, addScript, addStyle, convertMathFormulas } from '../utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig } from '../setting/store';
+import { type useSession, useSimpleContext } from './UseSession';
+import { solidDialog } from '@/libs/dialog';
+import Markdown from '@/libs/components/Elements/Markdown';
+import { createSignalRef } from '@frostime/solid-signal-ref';
 
 
 const useCodeToolbar = (language: string, code: string) => {
@@ -171,12 +175,173 @@ const renderMathBlock = (element: HTMLElement) => {
     }
 }
 
+
+
+// h:\SrcCode\SiYuanDevelopment\sy-f-misc\src\func\gpt\components\MessageItem.tsx
+const MessageVersionView: Component<{
+    session: ReturnType<typeof useSession>;
+    messageItemId: string;
+    versions: Record<string, any>;
+    currentVersion: string;
+    onClose: () => void;
+}> = (props) => {
+
+    interface VersionItem {
+        version: string;
+        selected: boolean;
+        ref: IChatSessionMsgItem['versions'][string]
+    }
+
+    const msgItem = createMemo(() => {
+        const idx = props.session.messages().findIndex((item) => item.id === props.messageItemId);
+        if (idx === -1) return null;
+        return props.session.messages()[idx];
+    });
+
+    const versionContent = (version: string) => {
+        let item = msgItem();
+        if (!item) return null;
+        const content = item.versions[version];
+        if (!content) return null;
+        const { text } = adaptIMessageContent(content.content);
+        return text;
+    }
+
+    const [versionItems, setVersionItems] = createSignal<VersionItem[]>(
+        Object.keys(props.versions).map((version) => ({
+            version,
+            selected: false,
+            ref: props.versions[version]
+        }))
+    );
+
+    const previewVersion = createSignalRef<string>(props.currentVersion);
+    const previewMarkdown = createMemo(() => (versionContent(previewVersion())));
+
+    const toggleSelect = (version: string) => {
+        setVersionItems((prev) =>
+            prev.map((item) =>
+                item.version === version ? { ...item, selected: !item.selected } : item
+            )
+        );
+    };
+
+    const deleteSelectedVersions = () => {
+        const selectedVersions = versionItems()
+            .filter((item) => item.selected)
+            .map((item) => item.version);
+
+        selectedVersions.forEach((version) => {
+            props.session.delMsgItemVersion(props.messageItemId, version);
+        });
+
+        // 更新版本列表
+        setVersionItems((prev) => prev.filter((item) => !item.selected));
+    };
+
+    const ListItems = () => (
+        <div class={styles.historyList} style={{
+            width: 'auto',
+            "overflow-y": 'auto'
+        }}>
+            {versionItems().map((item) => (
+                <div
+                    class={styles.historyItem} style={{
+                        border: '2px solid transparent',
+                        'border-color': previewVersion() === item.version ? 'var(--b3-theme-primary)' : 'transparent'
+                    }}
+                >
+                    <div class={styles.historyTitleLine}>
+                        <div class={styles.historyTitle} style={{
+                            display: 'flex',
+                            "justify-content": 'space-between'
+                        }}>
+                            <span>{`v${Object.keys(props.versions).indexOf(item.version) + 1}`}@{item.version}</span>
+                            {item.ref.author}
+                        </div>
+
+                        <div style={{ display: 'flex', "align-items": 'center', gap: '5px' }}>
+                            <input
+                                class="b3-switch"
+                                type="checkbox"
+                                checked={item.selected}
+                                onchange={[toggleSelect, item.version]}
+                                disabled={item.version === props.currentVersion}
+                            />
+                            <button
+                                class="b3-button b3-button--text"
+                                onClick={() => {
+                                    props.session.delMsgItemVersion(props.messageItemId, item.version, false);
+                                    setVersionItems((prev) => {
+                                        prev = prev.filter((i) => i.version !== item.version);
+                                        return prev;
+                                    });
+                                }}
+                                disabled={item.version === props.currentVersion}
+                            >
+                                <svg><use href="#iconTrashcan"></use></svg>
+                            </button>
+                            <button
+                                class="b3-button b3-button--text"
+                                onclick={() => {
+                                    props.session.switchMsgItemVersion(props.messageItemId, item.version);
+                                    props.onClose();
+                                }}
+                                disabled={item.version === props.currentVersion}
+                            >
+                                <svg><use href="#iconSelect"></use></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div
+                        class={styles.historyContent} style={{
+                            'font-size': '15px',
+                            'line-height': '20px',
+                            'white-space': 'normal'
+                        }} onClick={(e) => {
+                            e.stopPropagation();
+                            // previewMarkdown(versionContent(item.version));
+                            previewVersion(item.version);
+                        }}
+                    >
+                        {versionContent(item.version)}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+
+    return (
+        <div class="fn__flex-column fn__flex-1" style="gap: 8px">
+            <div class="fn__flex" style="justify-content: flex-end">
+                <button class="b3-button b3-button--text" onClick={deleteSelectedVersions} disabled={!versionItems().some((item) => item.selected)}>
+                    Delete
+                </button>
+            </div>
+            <div style={{
+                display: 'flex',
+                gap: '10px',
+                "overflow-y": 'hidden'
+            }}>
+                <ListItems />
+                <div style={{
+                    flex: 1,
+                    'overflow-y': 'auto'
+                }}>
+                    <Markdown markdown={previewMarkdown()} fontSize='16px' />
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const MessageItem: Component<{
     messageItem: IChatSessionMsgItem,
     markdown?: boolean,
     updateIt?: (message: string) => void,
     deleteIt?: () => void,
     rerunIt?: () => void,
+    switchVersion?: (version: string) => void,
     multiSelect?: boolean,
     selected?: boolean,
     onSelect?: (id: string, selected: boolean) => void,
@@ -187,6 +352,8 @@ const MessageItem: Component<{
     let lute = getLute();
 
     let msgRef: HTMLDivElement;
+
+    const { session } = useSimpleContext();
 
     const renderCode = async () => {
         const codeBlocks = msgRef.querySelectorAll('pre>code');
@@ -280,6 +447,64 @@ const MessageItem: Component<{
         return text.length;
     });
 
+    createEffect(on(textContent, () => {
+        renderCode();
+        renderMath();
+    }));
+
+    const VersionHooks = {
+        hasMultiVersion: () => {
+            return Object.keys(props.messageItem.versions).length > 1;
+        },
+        versionKeys: () => {
+            return Object.keys(props.messageItem.versions).map((v, index) => `v${index + 1}`);
+        },
+        currentVersion: () => {
+            let index = 1;
+            if (props.messageItem.versions[props.messageItem.currentVersion]) {
+                index = Object.keys(props.messageItem.versions).indexOf(props.messageItem.currentVersion) + 1;
+            }
+            return `v${index}`;
+        },
+        switchVersionMenu: () => {
+            return Object.keys(props.messageItem.versions).map((version, index) => {
+                return {
+                    icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
+                    label: `v${index + 1}`,
+                    click: (_, event: MouseEvent) => {
+                        const target = event.target as HTMLElement;
+                        if (target.closest('.b3-menu__action')) {
+                            session.delMsgItemVersion(props.messageItem.id, version);
+                        } else {
+                            session.switchMsgItemVersion(props.messageItem.id, version);
+                        }
+                    },
+                    action: `iconClose`
+                }
+            });
+        },
+        switchVersionDialog: () => {
+            const { dialog } = solidDialog({
+                title: '多选版本',
+                loader: () => (
+                    <MessageVersionView
+                        session={session}
+                        messageItemId={props.messageItem.id}
+                        versions={props.messageItem.versions}
+                        currentVersion={props.messageItem.currentVersion}
+                        onClose={() => {
+                            dialog.destroy();
+                        }}
+                    />
+                ),
+                width: '1200px',
+                height: '720px',
+                maxHeight: '85%',
+                maxWidth: '90%'
+            });
+        }
+    }
+
     // #iconAccount
     const IconUser = () => (
         <svg>
@@ -320,10 +545,6 @@ const MessageItem: Component<{
 
     const deleteMessage = () => {
         props.deleteIt?.();
-    }
-
-    const rerunMessage = () => {
-        props.rerunIt?.();
     }
 
     const ToolbarButton = (props: {
@@ -384,10 +605,17 @@ const MessageItem: Component<{
             label: '重新运行',
             click: () => {
                 confirm('确认?', '是否重新运行此消息', () => {
-                    rerunMessage();
+                    props.rerunIt?.();
                 });
             }
         });
+        if (Object.keys(props.messageItem.versions).length > 1) {
+            menu.addItem({
+                icon: 'iconHistory',
+                label: '消息多版本',
+                click: VersionHooks.switchVersionDialog
+            });
+        }
 
         menu.addSeparator();
         menu.addItem({
@@ -447,6 +675,48 @@ const MessageItem: Component<{
         });
     }
 
+    const VersionIndicator = () => {
+        const showVersionMenu = (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const menu = new Menu("version-menu");
+
+            // Add version switch items
+            VersionHooks.switchVersionMenu().forEach((item) => {
+                menu.addItem(item);
+            });
+
+            // Add view all versions option
+            menu.addSeparator();
+            menu.addItem({
+                icon: 'iconList',
+                label: '查看所有版本',
+                click: VersionHooks.switchVersionDialog
+            });
+
+            const target = e.target as HTMLElement;
+            const rect = target.getBoundingClientRect();
+            menu.open({
+                x: rect.left,
+                y: rect.bottom
+            });
+        };
+
+        return (
+            <Show when={Object.keys(props.messageItem.versions).length >= 1}>
+                <div
+                    class={styles.versionIndicator}
+                    onClick={showVersionMenu}
+                    title="消息版本"
+                >
+                    <svg><use href="#iconHistory" /></svg>
+                    {VersionHooks.currentVersion()}
+                </div>
+            </Show>
+        );
+    };
+
     return (
         <div class={styles.messageItem} data-role={props.messageItem.message.role}>
             <Show when={props.multiSelect}>
@@ -459,6 +729,7 @@ const MessageItem: Component<{
                     </svg>
                 </div>
             </Show>
+            <VersionIndicator />
             {props.messageItem.message.role === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (
@@ -537,7 +808,7 @@ const MessageItem: Component<{
                     <ToolbarButton icon="iconRefresh" title="重新运行" onclick={(e: MouseEvent) => {
                         // Ctrl + 点击
                         if (e.ctrlKey) {
-                            rerunMessage();
+                            props.rerunIt?.();
                         } else {
                             showMessage('如果想要重新运行，请按 Ctrl + 点击');
                         }

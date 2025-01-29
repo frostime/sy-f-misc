@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-01-27 17:59:54
+ * @LastEditTime : 2025-01-28 15:58:32
  * @Description  : 
  */
 interface IMessageContent {
@@ -14,10 +14,11 @@ interface IMessageContent {
     };
 }
 
+type TMessageContent = IMessageContent[] | string;
+
 interface IMessage {
     role: 'user' | 'assistant' | 'system';
-    content: string | IMessageContent[];
-    context?: IProvidedContext[];
+    content: TMessageContent;
 }
 
 interface IPromptTemplate {
@@ -109,7 +110,14 @@ interface IChatSessionMsgItem {
     */
     type: 'message' | 'seperator';
     id: string;
-    message?: IMessage;
+    message?: IMessage;  // 如果多版本 versions 存在, 则 message === versions[currentVersion]
+    currentVersion?: string; // 当前 version
+    versions?: Record<string, {
+        content: TMessageContent;
+        author?: string;
+        timestamp?: number;
+        token?: number;
+    }>; //多版本 message 情况下有用
     context?: IProvidedContext[];
     // 为了在 MessageItem 当中隐藏 context prompt，在这里记录 prompt 字符串的起止位置
     // 通过 slice 可以 获取 user prompt, 而去掉 context prompt 部分
