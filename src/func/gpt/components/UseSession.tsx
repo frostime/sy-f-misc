@@ -1,5 +1,5 @@
 import { showMessage } from 'siyuan';
-import { Accessor, batch } from 'solid-js';
+import { Accessor, batch, createMemo } from 'solid-js';
 import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
@@ -45,6 +45,14 @@ export const useSession = (props: {
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
     const loading = useSignalRef<boolean>(false);
     // const streamingReply = useSignalRef<string>('');
+
+    const msgId2Index = createMemo(() => {
+        let map = new Map<string, number>();
+        messages().forEach((item, index) => {
+            map.set(item.id, index);
+        });
+        return map;
+    });
 
     let hasStarted = false;
 
@@ -573,6 +581,7 @@ ${inputContent}
         title,
         attachments,
         contexts,
+        msgId2Index,
         addAttachment,
         removeAttachment,
         setContext,

@@ -767,7 +767,7 @@ const MessageItem: Component<{
                         const targetElement = document.querySelector(`[data-session-id="${session.sessionId()}"] .${styles.messageItem}[tabindex="${targetIndex}"]`) as HTMLElement;
                         if (targetElement) {
                             targetElement.focus();
-                            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
                         }
                     }
                 }
@@ -812,6 +812,10 @@ const MessageItem: Component<{
                     />
                 </Show>
                 <div class={styles.toolbar}>
+                    {/* <span data-label="index">
+                        {props.index}
+                    </span>
+                    <span>|</span> */}
                     <span data-label="timestamp">
                         {formatDateTime(null, new Date(props.messageItem.timestamp))}
                     </span>

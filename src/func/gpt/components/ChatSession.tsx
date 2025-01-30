@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-29 20:05:24
+ * @LastEditTime : 2025-01-30 11:52:18
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -801,6 +801,13 @@ const ChatSession: Component = (props: {
                     }}
                 />
                 <Button
+                    icon="iconCheck"
+                    label="取消全选"
+                    onclick={() => {
+                        selectedMessages.update(new Set<string>());
+                    }}
+                />
+                <Button
                     icon="iconUndo"
                     label="反选"
                     onclick={() => {
@@ -839,6 +846,20 @@ const ChatSession: Component = (props: {
                             msgs.filter(m => !selectedMessages().has(m.id))
                         );
                         selectedMessages.update(new Set<string>());
+                    }}
+                />
+                {/* 设置隐藏 */}
+                <Button
+                    icon="iconEye"
+                    label="隐藏选中消息"
+                    onclick={() => {
+                        // session.toggleHidden
+                        const indices = Array.from(selectedMessages()).map(id => session.msgId2Index().get(id)).filter(index => index !== undefined);
+                        batch(() => {
+                            indices.forEach(index => {
+                                session.toggleHidden(index);
+                            });
+                        });
                     }}
                 />
             </div>

@@ -11,12 +11,12 @@
     "all"
   ],
   "displayName": {
-    "en_US": "F-Misc",
-    "zh_CN": "F-Misc"
+    "en_US": "F's Toolbox",
+    "zh_CN": "F's 工具箱"
   },
   "description": {
-    "en_US": "Frostime's personal tools.",
-    "zh_CN": "Frostime 个人插件合集"
+    "en_US": "Personal tools. GPT Chat (API Key) | Toggl | Reference | Md Process | Zotero...",
+    "zh_CN": "个人插件合集. GPT 对话 (API Key) | Toggl | 引用管理 | Md 处理 | Zotero..."
   },
   "readme": {
     "default": "README.md"
