@@ -104,14 +104,13 @@ $chat-very-narrow-container: 360px;
     bottom: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     background: var(--chat-bg-color);
     padding: 0;
-    border-top: 1px solid var(--chat-border-color);
 
     .toolbar {
         width: 100%;
-        padding: 8px 0;
+        padding: 4px 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -187,7 +186,6 @@ $chat-very-narrow-container: 360px;
         gap: 8px;
         align-items: center;
         padding: 0 8px;
-        margin-bottom: 8px;
         border-top: 1px solid var(--b3-border-color);
         background: var(--b3-theme-background);
     }
