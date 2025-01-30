@@ -356,31 +356,11 @@ ${inputContent}
                 msgItem = stageMsgItemVersion(msgItem, vid);
                 return msgItem;
             });
-            // messages.update(prev => {
-            //     const updated = [...prev];
-            //     let msgItem = updated[nextIndex];
-            //     const newMessageContent: IMessage = {
-            //         role: 'assistant',
-            //         content: content
-            //     };
-            //     // 记录最新版本的消息
-            //     msgItem = {
-            //         ...msgItem,
-            //         loading: false,
-            //         message: newMessageContent,
-            //         author: model.model,
-            //         timestamp: new Date().getTime(),
-            //         attachedItems: msgToSend.length,
-            //         attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
-            //     };
-            //     if (usage && usage.completion_tokens) {
-            //         msgItem['token'] = usage.completion_tokens;
-            //     }
-            //     delete msgItem['loading'];  //不需要这个了
-            //     msgItem = stageMsgItemVersion(msgItem, vid);
-            //     updated[nextIndex] = msgItem;
-            //     return updated;
-            // });
+
+            messages.update(nextIndex, (item: IChatSessionMsgItem) => {
+                let newItem = structuredClone(item);
+                return stageMsgItemVersion(newItem);
+            });
 
             if (usage) {
                 batch(() => {
