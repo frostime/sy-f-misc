@@ -27,11 +27,11 @@ const useCodeToolbar = (language: string, code: string) => {
 
     let html = `
     <div class="${styles['code-toolbar']}">
+        ${language.toLocaleLowerCase() === 'html' ? RUN_BUTTON : ''}
         <div class="fn__flex-1"></div>
         <span class="b3-label__text" style="font-family: var(--b3-font-family-code); margin: 0px;">
             ${language}
         </span>
-        ${language.toLocaleLowerCase() === 'html' ? RUN_BUTTON : ''}
         <button
             class="${styles.toolbarButton} b3-button b3-button--text"
             data-role="copy"

@@ -7,7 +7,7 @@
     --chat-input-bg: var(--b3-theme-background);
 
     --chat-text-color: var(--b3-theme-on-background);
-    --chat-border-color: var(--b3-theme-border);
+    --chat-border-color: var(--b3-border-color);
 
     --chat-input-font-size: 20px;
     --chat-message-font-size: 19px;
@@ -118,7 +118,6 @@ $chat-very-narrow-container: 360px;
         flex-wrap: wrap;
         gap: 10px;
         background-color: var(--chat-bg-color);
-        border-bottom: 1px solid var(--chat-border-color);
 
         & :global(.b3-button) {
             height: 27px;
