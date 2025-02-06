@@ -6,7 +6,7 @@ import { useSignalRef } from "@frostime/solid-signal-ref";
 import * as persist from '../persistence';
 
 import { removeDoc } from "@/api";
-import { adaptIMessageContent } from "../utils";
+import { adaptIMessageContent } from "../data-utils";
 
 
 const HistoryList = (props: {

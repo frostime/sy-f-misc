@@ -28,7 +28,7 @@ import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
 import * as syDoc from '../persistence/sy-doc';
 import { contextProviders, executeContextProvider } from '../context-provider';
-import { adaptIMessageContent } from '../utils';
+import { adaptIMessageContent } from '../data-utils';
 import { isMsgItemWithMultiVersion } from '../data-utils';
 
 const useSiYuanEditor = (props: {

@@ -3,12 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-01-20 17:55:04
+ * @LastEditTime : 2025-02-06 13:17:44
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
-import { adaptIMessageContent, convertMathFormulas, id2block } from "../utils";
+import { convertMathFormulas, id2block } from "../utils";
+import { adaptIMessageContent } from '../data-utils';
+
 import { showMessage } from "siyuan";
 import { defaultConfig } from "../setting";
 

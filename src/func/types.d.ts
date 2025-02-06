@@ -14,6 +14,8 @@ interface IConfigItem<T> extends Omit<ISettingItem, 'value'> {
 interface IFuncModule {
     name: string;
     enabled: boolean;
+    allowToUse?: () => boolean;
+
     load: (plugin: FMiscPlugin) => void;
     unload: (plugin?: FMiscPlugin) => void;
     // 如果声明了, 在会在设置面板中显示启用的按钮

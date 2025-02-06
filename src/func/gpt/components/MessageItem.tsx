@@ -1,10 +1,11 @@
-import { Component, createEffect, createMemo, createSignal, on, onMount, Show } from 'solid-js';
-import { debounce, formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { Component, createEffect, createMemo, createSignal, on, Show } from 'solid-js';
+import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { confirm, Menu } from "siyuan";
 
 import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
-import { adaptIMessageContent, addScript, addStyle, convertMathFormulas } from '../utils';
+import { addScript, addStyle, convertMathFormulas } from '../utils';
+import { adaptIMessageContent } from '../data-utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig } from '../setting/store';
 import { type useSession, useSimpleContext } from './UseSession';

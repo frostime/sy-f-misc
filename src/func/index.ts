@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-01-05 21:15:03
+ * @LastEditTime : 2025-02-06 13:04:59
  * @Description  : 
  */
 // import { type JSX } from "solid-js";
@@ -37,13 +37,14 @@ import * as sc from './shared-configs';
 
 // import * as bookmark from './bookmarks';
 
-export const ModulesToEnable: IFuncModule[] = [
+let _ModulesToEnable: IFuncModule[] = [
     mw,
     dc,
     gpt,
     css,
     gp,
     wb,
+
     docky,
     // ss,
     it,
@@ -59,12 +60,18 @@ export const ModulesToEnable: IFuncModule[] = [
     pd,
     ta,
     md
-]
+];
 
-export const ModulesAlwaysEnable: IFuncModule[] = [sc];
+let _ModulesAlwaysEnable: IFuncModule[] = [sc];
+
+export const ModulesToEnable = _ModulesToEnable.filter(module => module.allowToUse ? module.allowToUse() : true);
+export const ModulesAlwaysEnable = _ModulesAlwaysEnable.filter(module => module.allowToUse ? module.allowToUse() : true);
+
 
 //`Enable${module.name}`: module
+
 const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enable${module.name}`, module]));
+
 
 export const load = (plugin: FMiscPlugin) => {
     ModulesToEnable.forEach(module => {

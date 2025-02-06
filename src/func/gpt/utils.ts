@@ -9,20 +9,6 @@
 
 import { sql } from "@/api";
 
-export const adaptIMessageContent = (content: IMessage['content']) => {
-    if (typeof content === 'string') {
-        return {
-            'text': content,
-            'images': null
-        }
-    }
-
-    return {
-        'text': content.filter((item) => item.type === 'text').map((item) => item.text).join('\n'),
-        'images': content.filter((item) => item.type === 'image_url').map((item) => item.image_url?.url)
-    }
-}
-
 //https://github.com/siyuan-note/siyuan/blob/master/app/src/protyle/util/addScript.ts
 export const addScript = (path: string, id: string) => {
     return new Promise((resolve) => {

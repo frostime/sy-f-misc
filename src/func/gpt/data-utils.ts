@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-28 15:49:07
  * @FilePath     : /src/func/gpt/data-utils.ts
- * @LastEditTime : 2025-01-29 11:09:18
+ * @LastEditTime : 2025-02-06 13:16:37
  * @Description  : 
  */
 
@@ -72,5 +72,5 @@ export const applyMsgItemVersion = (item: IChatSessionMsgItem, version: string) 
 
 
 export const isMsgItemWithMultiVersion = (item: IChatSessionMsgItem) => {
-    return Object.keys(item.versions).length > 1;
+    return item.versions !== undefined && Object.keys(item.versions).length > 1;
 }
