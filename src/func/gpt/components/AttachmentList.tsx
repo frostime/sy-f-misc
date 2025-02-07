@@ -77,7 +77,7 @@ const AttachmentList: Component<Props> = (props) => {
                                     <summary>
                                         <strong>{item.name}</strong>
                                     </summary>
-                                    <p>{item.description}</p>
+                                    <p innerHTML={item.description}></p>
                                     <pre style={{
                                         "white-space": "pre-wrap",
                                     }}>{item.content}</pre>

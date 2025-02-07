@@ -10,6 +10,7 @@ import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { FocusDocProvider, OpenedDocProvider } from './ActiveDocProvider';
 import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
+import TextSearchProvider from './TextSearchProvider';
 
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
@@ -21,6 +22,7 @@ const contextProviders: CustomContextProvider[] = [
     OpenedDocProvider,
     TodayDailyNoteProvicer,
     SQLSearchProvicer,
+    TextSearchProvider,
 ];
 
 const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {

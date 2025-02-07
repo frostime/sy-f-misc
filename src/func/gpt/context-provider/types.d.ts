@@ -23,9 +23,9 @@ type ContextProviderType = "normal" | "query" | "submenu";
 
 interface CustomContextProvider {
     name: string;
+    displayTitle: string;
+    description: string;
     icon?: string;
-    displayTitle?: string;
-    description?: string;
     type?: ContextProviderType;
     getContextItems(input?: {
         query?: string;
