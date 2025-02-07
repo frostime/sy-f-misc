@@ -1,3 +1,4 @@
+import { createSignalRef } from "@frostime/solid-signal-ref";
 import { createMemo, For, JSX } from "solid-js";
 
 interface IProps extends Partial<ISettingItemCore> {
@@ -12,6 +13,8 @@ interface IProps extends Partial<ISettingItemCore> {
 export default function FormInput(props: IProps) {
 
     const fn_size = props.fn_size ?? true;
+
+    const value = createSignalRef(props.value);
 
     function click() {
         props.button?.callback();
@@ -125,7 +128,7 @@ export default function FormInput(props: IProps) {
             );
         } else if (props.type === "slider") {
             return (
-                <div class="b3-tooltips b3-tooltips__n" aria-label={props.value}>
+                <div class="b3-tooltips b3-tooltips__n" aria-label={value()}>
                     <input
                         class="b3-slider"
                         classList={{ fn__size200: fn_size }}
@@ -138,6 +141,7 @@ export default function FormInput(props: IProps) {
                         value={props.value}
                         onInput={(e) => {
                             changed(e.currentTarget.value);
+                            value(e.currentTarget.value);
                         }}
                     />
                 </div>

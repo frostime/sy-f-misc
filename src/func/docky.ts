@@ -36,13 +36,14 @@ export const selectIconDialog = () => {
     });
 }
 
-const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
-    const div = document.createElement('div');
-    div.className = 'docky-panel-body';
-    div.dataset.nodeId = id;
-    div.style.height = '100%';
-    div.style.width = '100%';
-    new Protyle(plugin.app, div, {
+const initDockPanel = (docky: IDockyBlock, ele: HTMLElement, plugin: FMiscPlugin) => {
+    const id: BlockId = docky.id;
+    const protyleContainer = document.createElement('div');
+    protyleContainer.className = 'docky-panel-body';
+    protyleContainer.dataset.nodeId = id;
+    protyleContainer.style.height = '100%';
+    protyleContainer.style.width = '100%';
+    new Protyle(plugin.app, protyleContainer, {
         action: ['cb-get-all'],
         blockId: id,
         render: {
@@ -56,14 +57,31 @@ const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
     });
 
     let html = `
-    <div class="f-misc__docky-action">
-        <svg data-name="focus">
-            <use xlink:href="#iconFocus"></use>
-        </svg>
+    <div class="f-misc__docky" style="width: 100%; height: 100%;">
+        <div class="block__icons">
+            <div class="block__logo">
+                <svg class="block__logoicon">
+                    <use xlink:href="#iconBookmark"></use>
+                </svg>
+                ${docky.name || 'Protyle'}
+            </div>
+            <span class="fn__flex-1"></span>
+            <span data-type="focus" class="block__icon b3-tooltips b3-tooltips__w" aria-label="聚焦">
+                <svg>
+                    <use xlink:href="#iconFocus"></use>
+                </svg>
+            </span>
+            <span class="fn__space"></span>
+            <span data-type="min" class="block__icon b3-tooltips b3-tooltips__w" aria-label="最小化 Ctrl+W">
+                <svg>
+                    <use xlink:href="#iconMin"></use>
+                </svg>
+            </span>
+        </div>
     </div>
     `;
     let frag = html2ele(html);
-    frag.querySelector('svg').addEventListener('click', () => {
+    frag.querySelector('span[data-type="focus"]')?.addEventListener('click', () => {
         openTab({
             app: plugin.app,
             doc: {
@@ -73,7 +91,7 @@ const initDockPanel = (id: BlockId, ele: HTMLElement, plugin: FMiscPlugin) => {
         })
     });
 
-    ele.appendChild(div);
+    frag.appendChild(protyleContainer);
     ele.appendChild(frag);
 }
 
@@ -137,7 +155,7 @@ const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
             plugin: this,
         },
         init() {
-            initDockPanel(dock.id, this.element, plugin)
+            initDockPanel(dock, this.element, plugin)
         }
     })
 }
@@ -253,26 +271,12 @@ export const load = (plugin: FMiscPlugin) => {
     }
 
     updateStyleDom('f-misc-docky-style', `
-        .f-misc__docky-action {
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-            display: flex;
-            position: absolute;
-            right: 5px;
-            top: 5px;
-            padding: 5px 5px;
-            border-radius: 5px;
-            background: var(--b3-theme-surface-light);
-            color: var(--b3-toolbar-color);
-        }
-        .f-misc__docky-action:hover {
-            opacity: 1;
-        }
-
-        .f-misc__docky-action>svg {
-            width: 15px;
-            height: 15px;
-            cursor: pointer;
+        .docky-panel-body.protyle {
+            zoom: var(--plugin-docky-zoom);
+            .protyle-wysiwyg {
+                padding-left: 16px !important;
+                padding-right: 16px !important;
+            }
         }
     `);
 
