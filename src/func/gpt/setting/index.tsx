@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-01-30 00:00:27
+ * @LastEditTime : 2025-02-07 17:35:13
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -139,6 +139,35 @@ const GlobalSetting = () => {
                                         'font-size': '1.2em',
                                         'line-height': '1.1em',
                                         height: '6em'
+                                    }}
+                                />
+                            </Form.Wrap>
+                            <Form.Wrap
+                                title="隐私关键词"
+                                description="在使用 @ 添加上下文的时候，如果有屏蔽隐私的需求请在这里配置<br/> 每行一个关键词，这些关键词在 GPT 附带的上下文中会被替换为隐私屏蔽词"
+                                direction="row"
+                            >
+                                <Form.Input
+                                    type="textarea"
+                                    value={globalMiscConfigs().privacyKeywords}
+                                    changed={(v) => {
+                                        globalMiscConfigs.update('privacyKeywords', v);
+                                    }}
+                                    style={{
+                                        height: '100px'
+                                    }}
+                                />
+                            </Form.Wrap>
+
+                            <Form.Wrap
+                                title="隐私屏蔽词"
+                                description="用于替换隐私关键词的文本，默认为 ***"
+                            >
+                                <Form.Input
+                                    type="textinput"
+                                    value={globalMiscConfigs().privacyMask}
+                                    changed={(v) => {
+                                        globalMiscConfigs.update('privacyMask', v || '***');
                                     }}
                                 />
                             </Form.Wrap>

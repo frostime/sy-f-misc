@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-01-27 21:40:55
+ * @LastEditTime : 2025-02-07 17:44:36
  * @Description  : 
  */
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -15,6 +15,7 @@ import TextSearchProvider from './TextSearchProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
+import { globalMiscConfigs } from '../setting/store';
 
 const contextProviders: CustomContextProvider[] = [
     SelectedTextProvider,
@@ -24,6 +25,54 @@ const contextProviders: CustomContextProvider[] = [
     SQLSearchProvicer,
     TextSearchProvider,
 ];
+
+/**
+ * 处理隐私信息，将隐私关键词替换为屏蔽词
+ * @param text 需要处理的文本
+ * @returns 处理后的文本
+ */
+const handlePrivacy = (text: string): string => {
+    if (!text) return text;
+    const keywords = globalMiscConfigs.value.privacyKeywords.trim();
+    if (!keywords) return text;
+
+    const mask = globalMiscConfigs.value.privacyMask || '***';
+    const keywordList = keywords.split('\n').filter(k => k.trim());
+
+    let result = text;
+    for (const keyword of keywordList) {
+        if (!keyword.trim()) continue;
+        result = result.replaceAll(keyword, mask);
+    }
+    return result;
+}
+
+/**
+ * 处理上下文对象中的隐私信息
+ * @param context 上下文对象
+ * @returns 处理后的上下文对象
+ */
+const handleContextPrivacy = (context: IProvidedContext): IProvidedContext => {
+    if (!context) return context;
+
+    // 深拷贝以避免修改原对象
+    const newContext = JSON.parse(JSON.stringify(context));
+
+    // 处理 contextItems 中的文本
+    newContext.contextItems = newContext.contextItems.map(item => ({
+        ...item,
+        name: handlePrivacy(item.name),
+        content: handlePrivacy(item.content),
+        title: handlePrivacy(item.title)
+    }));
+
+    // 处理描述信息
+    // if (newContext.description) {
+    //     newContext.description = handlePrivacy(newContext.description);
+    // }
+
+    return newContext;
+}
 
 const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {
     const option: Parameters<CustomContextProvider['getContextItems']>[0] = {
@@ -96,6 +145,9 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
         default:
             break;
     }
+
+    // 处理隐私信息
+    context = handleContextPrivacy(context);
 
     return context;
 }

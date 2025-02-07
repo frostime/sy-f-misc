@@ -1,0 +1,5 @@
+This is a SiYuan Note plugin project using:
+- SolidJS framework
+- @frostime/solid-signal-ref library for easier use of solid signal
+- SiYuan API and types
+- SiYuan CSS classes (prefixed with b3-) and CSS variables

@@ -43,6 +43,8 @@ export const globalMiscConfigs = useStoreRef({
 ------
 {{content}}
 `.trim(),
+    privacyKeywords: '',  // 多行隐私关键词
+    privacyMask: '***',   // 隐私词替换为
 });
 
 
