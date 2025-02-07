@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-14 22:13:04
  * @FilePath     : /src/func/migrate-refs/index.ts
- * @LastEditTime : 2025-01-03 12:48:57
+ * @LastEditTime : 2025-02-07 18:06:23
  * @Description  : 
  */
 import { subMenu, type IGetDocInfo, type IProtyle } from "siyuan";
@@ -48,6 +48,7 @@ const clickDocIcon = async (event: CustomEvent<{
                 title: `Refs ${name}`,
                 loader: () => RefsTable({ defBlock: defBlock, queryRefBlocks }),
                 width: '1250px',
+                maxWidth: '90%',
                 maxHeight: '80%'
             })
         }

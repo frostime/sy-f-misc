@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-02-07 17:44:36
+ * @LastEditTime : 2025-02-07 17:52:08
  * @Description  : 
  */
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -142,6 +142,9 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
         case SQLSearchProvicer.name:
             context.description = `SQL 查询结果: ${option['query']?.replaceAll('\n', ' ')}`;
             break;
+        case TextSearchProvider.name:
+            context.description = `在笔记库中搜索关键词: ${option['query']?.replaceAll('\n', ' ')}`;
+            break;
         default:
             break;
     }
@@ -185,4 +188,4 @@ function context2prompt(context: IProvidedContext): string {
     return prompt;
 }
 
-export { contextProviders, executeContextProvider, assembleContext2Prompt };
+export { contextProviders, executeContextProvider, assembleContext2Prompt, handlePrivacy };

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-02-07 16:52:25
  * @FilePath     : /src/func/gpt/context-provider/TextSearchProvider.ts
- * @LastEditTime : 2025-02-07 17:20:12
+ * @LastEditTime : 2025-02-07 17:55:10
  * @Description  : Reference to https://ld246.com/article/1738895231883
  */
 import { getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -13,7 +13,7 @@ import { request } from "@frostime/siyuan-plugin-kits/api";
 const TextSearchProvider: CustomContextProvider = {
     name: 'TextSearch',
     displayTitle: '关键词搜索',
-    description: '在笔记库当中进行关键字搜索之后的结果。',
+    description: '在笔记库中搜索关键词',
     type: 'query',
     icon: 'iconFont',
     async getContextItems(options) {

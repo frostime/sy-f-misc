@@ -57,11 +57,11 @@ const ParseTemplatePattern = () => {
     Templates = [];
     const lines = TemplatePattern.trim().split('\n');
     lines.forEach(line => {
-        const parts = line.split(';');
-        if (parts.length === 3) {
-            const name = parts[0].trim();
-            const filter = parts[1].trim().split(/\s+/);
-            const template = parts[2].trim();
+        const parts = line.split(';').map(part => part.trim());
+        if (parts.length >= 3) {
+            const name = parts[0];
+            const filter = parts[1].split(/\s+/);
+            const template = parts.slice(2).join(';'); 
             Templates.push({
                 name,
                 filter,
@@ -198,4 +198,3 @@ export const unload = (plugin: FMiscPlugin) => {
     });
     window.removeEventListener('keypress', updateTime);
 }
-
