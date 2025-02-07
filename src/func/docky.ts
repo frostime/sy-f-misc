@@ -66,7 +66,7 @@ const initDockPanel = (docky: IDockyBlock, ele: HTMLElement, plugin: FMiscPlugin
                 ${docky.name || 'Protyle'}
             </div>
             <span class="fn__flex-1"></span>
-            <span data-type="focus" class="block__icon b3-tooltips b3-tooltips__w" aria-label="聚焦">
+            <span data-type="focus" class="block__icon b3-tooltips b3-tooltips__w popover__block" data-id="${id}" aria-label="聚焦">
                 <svg>
                     <use xlink:href="#iconFocus"></use>
                 </svg>

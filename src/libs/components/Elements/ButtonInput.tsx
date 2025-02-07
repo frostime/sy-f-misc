@@ -1,15 +1,15 @@
 import { createMemo } from "solid-js";
 import type { JSX } from "solid-js";
 
-interface IButtonInputProps {
+
+export default function ButtonInput(props: {
     label?: string;
     style?: JSX.CSSProperties;
     onClick?: () => void;
     classOutlined?: boolean;
     classText?: boolean;
-}
-
-export default function ButtonInput(props: IButtonInputProps) {
+    children?: JSX.Element
+}) {
     const attrStyle = createMemo(() => ({
         style: props.style ?? {}
     }));
@@ -25,6 +25,7 @@ export default function ButtonInput(props: IButtonInputProps) {
             onClick={() => props.onClick?.()}
         >
             {props.label}
+            {props.children}
         </button>
     );
-} 
+}

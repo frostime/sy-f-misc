@@ -7,11 +7,12 @@ import AttachmentList from './AttachmentList';
 import { addScript, addStyle, convertMathFormulas } from '../utils';
 import { adaptIMessageContent } from '../data-utils';
 import { Constants, showMessage } from 'siyuan';
-import { defaultConfig } from '../setting/store';
+import { defaultConfig, UIConfig } from '../setting/store';
 import { type useSession, useSimpleContext } from './UseSession';
 import { solidDialog } from '@/libs/dialog';
 import Markdown from '@/libs/components/Elements/Markdown';
 import { createSignalRef } from '@frostime/solid-signal-ref';
+import { ButtonInput } from '@/libs/components/Elements';
 
 
 const useCodeToolbar = (language: string, code: string) => {
@@ -192,6 +193,8 @@ const MessageVersionView: Component<{
         ref: IChatSessionMsgItem['versions'][string]
     }
 
+    const fontSize = createSignalRef(UIConfig().inputFontsize);
+
     const msgItem = createMemo(() => {
         const idx = props.session.messages().findIndex((item) => item.id === props.messageItemId);
         if (idx === -1) return null;
@@ -313,7 +316,24 @@ const MessageVersionView: Component<{
 
     return (
         <div class="fn__flex-column fn__flex-1" style="gap: 8px">
-            <div class="fn__flex" style="justify-content: flex-end">
+            <div class="fn__flex" style={{
+                'align-items': 'center',
+                "justify-content": 'flex-end',
+                gap: '3px',
+                padding: '4px 12px'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    "align-items": 'center'
+                }}>
+                    <ButtonInput classText={true} onClick={() => { fontSize.value += 1; }} >
+                        +
+                    </ButtonInput>
+                    <span class='b3-label__text'>/</span>
+                    <ButtonInput classText={true} onClick={() => { fontSize.value -= 1; }} >
+                        -
+                    </ButtonInput>
+                </div>
                 <button class="b3-button b3-button--text" onClick={deleteSelectedVersions} disabled={!versionItems().some((item) => item.selected)}>
                     Delete
                 </button>
@@ -325,10 +345,10 @@ const MessageVersionView: Component<{
             }}>
                 <ListItems />
                 <div style={{
-                    flex: 1,
+                    flex: 2,
                     'overflow-y': 'auto'
                 }}>
-                    <Markdown markdown={previewMarkdown()} fontSize='16px' />
+                    <Markdown markdown={previewMarkdown()} fontSize={fontSize() + 'px'} />
                 </div>
             </div>
         </div>
@@ -522,8 +542,8 @@ const MessageItem: Component<{
                         }}
                     />
                 ),
-                width: '1200px',
-                height: '720px',
+                width: '1600px',
+                height: '1000px',
                 maxHeight: '85%',
                 maxWidth: '90%'
             });
