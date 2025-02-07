@@ -5,12 +5,24 @@ import { appendBlock, request } from "@/api";
 import { searchAttr, formatSiYuanDate, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { openTab, openWindow } from "siyuan";
-import { html2ele } from "@frostime/siyuan-plugin-kits";
+// import { html2ele } from "@frostime/siyuan-plugin-kits";
 import { importJavascriptFile } from "@frostime/siyuan-plugin-kits";
 import { createJavascriptFile } from "@frostime/siyuan-plugin-kits";
 
 import { openQuickDraft } from "../quick-draft";
 import { startEntry } from "../toggl/state";
+
+
+const superBlock = (content: string) => {
+
+    return `
+{{{row
+
+${content}
+
+}}}`.trim();
+
+}
 
 /**
  * 把 text 添加到我的 dailynote 快记当中
@@ -57,25 +69,9 @@ const appendDnList = async (text: string) => {
     let timestr = `${hours}:${minutes}:${seconds}`; // 12:10:10
 
     text = text.trim();
-    //将所有 _new_line_ 替换为 \n
-    text = text.replaceAll('_new_line_', '\n');
-
-    let multiBlocks = text.split('\n\n');
-    let firstPara = multiBlocks[0];
-    let ans = await appendBlock('markdown', `- [${timestr}] ${firstPara}`, id);
-
-    // console.log(ans);
-    if (multiBlocks.length !== 1) {
-        const html: string = ans[0].doOperations[0].data;
-        const ele = html2ele(html).firstChild as HTMLElement;
-        let liId = (ele.querySelector('div.li') as HTMLElement).getAttribute('data-node-id');
-
-        //如果还有多余的段落，则继续添加
-        multiBlocks = multiBlocks.slice(1);
-        let markdown = multiBlocks.join('\n\n');
-        // console.log(liId, markdown);
-        await appendBlock('markdown', markdown, liId);
-    }
+    const isMultiline = text.includes('\n\n');
+    let content = isMultiline ? superBlock(`[${timestr}] ${text}`) : `[${timestr}] ${text}`;
+    await appendBlock('markdown', content, id);
     refreshDocument();
 }
 
@@ -117,8 +113,9 @@ const defaultModule = {
     /**
      * @param {string} body - The message body
      * @param {Object} context - The context object
-     * @param {import('siyuan').Plugin} context.plugin - Plugin instance
-     * @param {typeof import('siyuan')} context.siyuan - SiYuan API instance
+     * @param {require('siyuan').Plugin} context.plugin - Plugin instance
+     * @param {typeof require('siyuan')} context.siyuan - SiYuan API instance
+     * @param {(url: string, data: any) => Promise<any>} context.request - Kernal request, return response.data or null
      */
     'example': (body, context) => {
         console.log(body, context);

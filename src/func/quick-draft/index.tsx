@@ -25,7 +25,7 @@ const InMiniWindow = () => {
     return body.classList.contains('body--window');
 }
 
-function ProtyleComponent(props: { 
+function ProtyleComponent(props: {
     blockId: string, autoDelete: boolean
 }) {
     let divProtyle: HTMLDivElement | undefined;
@@ -111,6 +111,15 @@ function ProtyleComponent(props: {
 
             status.insertBefore(div, status.firstChild);
         }
+
+        // 双击 tab 标签页进行固定
+        const tabHeader = document.querySelector('li[data-type="tab-header"]');
+        const doubleClickEvent = new MouseEvent('dblclick', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+        });
+        tabHeader?.dispatchEvent(doubleClickEvent);
 
         if (props.autoDelete) {
             setTimeout(() => {
