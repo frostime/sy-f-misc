@@ -117,7 +117,8 @@ const PromptTemplateListItem = (props: {
                 margin: '4px 22px',
                 border: '1px solid var(--b3-border-color)',
                 'border-radius': '4px',
-                'box-shadow': '0 2px 4px var(--b3-theme-surface-light)'
+                'box-shadow': '0 2px 4px var(--b3-theme-surface-light)',
+                'user-select': 'none'
             }}
         >
             <span style={{ flex: 1, "font-weight": "bold" }}>
@@ -246,8 +247,13 @@ const PromptTemplateSetting = () => {
                     gap: '3px'
                 }}>
                     <For each={promptTemplates()}>
-                        {(template, index) => (
-                            <div onDragOver={(e) => handleDragOver(e, index())} onDrop={handleDrop}>
+                        {(_, index) => (
+                            <div
+                                onDragOver={(e) => handleDragOver(e, index())}
+                                onDrop={handleDrop} style={{
+                                    display: 'contents'
+                                }}
+                            >
                                 <PromptTemplateListItem index={index} dragHandle={handleDragStart} />
                             </div>
                         )}
