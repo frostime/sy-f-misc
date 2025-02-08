@@ -1,10 +1,10 @@
 import { searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
 import { appendBlock, getBlockAttrs, getBlockByID, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
-import { addAttributeViewBlocks, updateAttrViewName } from "./api";
+import { addAttributeViewBlocks, getAttributeViewPrimaryKeyValues, updateAttrViewName } from "./api";
 
 // 主要是是否删掉不存在的块
-type TSyncStrategy = 'keep-unlinked' | 'one-one-matched';
+// type TSyncStrategy = 'keep-unlinked' | 'one-one-matched';
 
 const queryBacklinks = async (doc: DocumentId) => {
     return searchBacklinks(doc, 999) || [];
@@ -47,8 +47,8 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
 
 const getSuperRefDb = async (doc: DocumentId): Promise<{ block: BlockId, av: BlockId } | null> => {
     const attr = await getBlockAttrs(doc);
-    if (!attr || !attr['custom-super-ref-db']) return;
-    let data = JSON.parse(attr['custom-super-ref-db']);
+    if (!attr || !attr['custom-bind-super-ref-db']) return;
+    let data = JSON.parse(attr['custom-bind-super-ref-db']);
     return data;
 }
 
@@ -59,8 +59,8 @@ export const syncDatabaseFromBacklinks = async (input: {
         av: BlockId;
     }
 }) => {
-    const backlinks = await queryBacklinks(input.doc);
-    if (backlinks.length == 0) return;
+    const refs = await queryBacklinks(input.doc);
+    if (refs.length == 0) return;
     let database = input.database;
     if (!database) {
         const data = await getSuperRefDb(input.doc);
@@ -68,6 +68,23 @@ export const syncDatabaseFromBacklinks = async (input: {
         const { block, av } = data;
         database = { block, av };
     }
+    const data = await getAttributeViewPrimaryKeyValues(database.av);
 
-    await addAttributeViewBlocks(database.av, database.block, backlinks.map((b) => ({ id: b.id, isDetached: false })));
+    let refsBlockIds = refs.map(b => b.id);
+    let rowBlockIds = data.rows.values.map(v => v.blockID);
+
+    // diff set
+    const refSet = new Set(refsBlockIds);
+    const rowSet = new Set(rowBlockIds);
+    // const newBlocksToAdd = Array.from(backlinksSet).filter(id => !rowSet.has(id));
+    const newRefsToAdd = refSet.difference(rowSet);
+    if (newRefsToAdd.size == 0) return;
+
+    // const existRowsToRemove = rowSet.difference(refSet);
+    //TODO 考虑一下如何处理哪些已经不在反链但是还在数据库中的块
+
+    // Add new blocks to attribute view
+    await addAttributeViewBlocks(database.av, database.block, 
+        Array.from(newRefsToAdd).map(id => ({ id, isDetached: false }))
+    );
 }

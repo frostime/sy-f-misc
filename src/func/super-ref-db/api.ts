@@ -77,6 +77,42 @@ export const addAttributeViewBlocks = (avId: BlockId, dbBlockId: BlockId, blockT
     });
 }
 
+
+export const getAttributeViewPrimaryKeyValues = async (avId: BlockId): Promise<{
+    blockIDs: BlockId[];
+    name: string;
+    rows: {
+        key: {
+            id: BlockId;
+            name: string;
+            type: string;
+            icon: string;
+            desc: string;
+            numberFormat: string;
+            template: string;
+        };
+        values: {
+            id: BlockId;
+            keyID: BlockId;
+            blockID: BlockId;
+            type: string;
+            createdAt: number;
+            updatedAt: number;
+            block: {
+                id: BlockId;
+                icon: string;
+                content: string;
+                created: number;
+                updated: number;
+            };
+        }[];
+    };
+}> => {
+    return request('/api/av/getAttributeViewPrimaryKeyValues', {
+        id: avId
+    });
+}
+
 export const updateAttrViewName = async (options: {
     dbName: string;
     dbBlockId: BlockId;
