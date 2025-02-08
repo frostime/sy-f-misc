@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2025-02-08 16:39:25
  * @FilePath     : /src/func/super-ref-db/index.ts
- * @LastEditTime : 2025-02-08 19:13:27
+ * @LastEditTime : 2025-02-08 20:10:55
  * @Description  : siyuan://blocks/20250208162727-qgmztam
  */
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { createBlankSuperRefDatabase, syncDatabaseFromBacklinks } from "./top-down";
+import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks } from "./top-down";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 
 export let name = "SuperRefDB";
@@ -90,8 +90,12 @@ export const load = () => {
                 let block = await getBlockByID(dataId);
                 if (!block) return;
                 if (block.type !== 'd') return;
-                await createBlankSuperRefDatabase(block.id);
-                await syncDatabaseFromBacklinks({ doc: block.id });
+                let db = await getSuperRefDb(block.id);
+                if (!db) {
+                    await createBlankSuperRefDatabase(block.id);
+                } else {
+                    await syncDatabaseFromBacklinks({ doc: block.id, database: db });
+                }
             }
         });
     });

@@ -20,7 +20,12 @@ const superBlock = (content: string) => {
 
 ${content}
 
-}}}`.trim();
+}}}
+{: style="border: 1px solid var(--b3-border-color);" }
+
+
+{: type="p" }
+`.trim();
 
 }
 

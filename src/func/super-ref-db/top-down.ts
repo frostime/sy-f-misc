@@ -1,5 +1,5 @@
 import { searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
-import { appendBlock, getBlockAttrs, getBlockByID, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
+import { getBlockAttrs, getBlockByID, prependBlock, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
 import { addAttributeViewBlocks, getAttributeViewPrimaryKeyValues, updateAttrViewName } from "./api";
 
@@ -27,7 +27,7 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
 <div data-type="NodeAttributeView" data-av-id="${newAvId}" data-av-type="table"></div>
 {: id="${newBlockId}" custom-super-ref-db="${doc}" }
 `;
-    await appendBlock('markdown', template, doc);
+    await prependBlock('markdown', template, doc);
     await setBlockAttrs(doc, {
         'custom-bind-super-ref-db': JSON.stringify({
             block: newBlockId,
@@ -37,7 +37,9 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
     // const blockId = result[0].doOperations[0].id;
     await updateAttrViewName({ dbName: `SuperRef@${document.content}`, dbBlockId: newBlockId, dvAvId: newAvId });
 
-    await syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId } });
+    setTimeout(() => {
+        syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId } });
+    }, 0);
 
     return {
         block: newBlockId,
@@ -45,10 +47,14 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
     }
 }
 
-const getSuperRefDb = async (doc: DocumentId): Promise<{ block: BlockId, av: BlockId } | null> => {
+export const getSuperRefDb = async (doc: DocumentId): Promise<{ block: BlockId, av: BlockId } | null> => {
     const attr = await getBlockAttrs(doc);
-    if (!attr || !attr['custom-bind-super-ref-db']) return;
+    if (!attr || !attr['custom-bind-super-ref-db']) return null;
     let data = JSON.parse(attr['custom-bind-super-ref-db']);
+    let { block, av } = data;
+    if (!block || !av) return null;
+    const findDoc = await getBlockByID(block);
+    if (!findDoc) return null;
     return data;
 }
 
@@ -79,12 +85,15 @@ export const syncDatabaseFromBacklinks = async (input: {
     // const newBlocksToAdd = Array.from(backlinksSet).filter(id => !rowSet.has(id));
     const newRefsToAdd = refSet.difference(rowSet);
     if (newRefsToAdd.size == 0) return;
-
     // const existRowsToRemove = rowSet.difference(refSet);
     //TODO 考虑一下如何处理哪些已经不在反链但是还在数据库中的块
 
     // Add new blocks to attribute view
-    await addAttributeViewBlocks(database.av, database.block, 
-        Array.from(newRefsToAdd).map(id => ({ id, isDetached: false }))
+    // await addAttributeViewBlocks(database.av, database.block, 
+    //     Array.from(newRefsToAdd).map(id => ({ id, isDetached: false }))
+    // );
+    await addAttributeViewBlocks(database.av, database.block,
+        Array.from(refSet).map(id => ({ id, isDetached: false }))
     );
+
 }
