@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-01-23 17:24:44
+ * @LastEditTime : 2025-02-07 22:04:55
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -91,9 +91,11 @@ export const listAvialableModels = (): Record<string, string> => {
         'siyuan': '思源内置模型'
     };
     providers().forEach((provider) => {
-        provider.models.forEach((model) => {
-            availableModels[`${model}@${provider.name}`] = `(${provider.name}) ${model}`;
-        });
+        if (provider.disabled !== true) {
+            provider.models.forEach((model) => {
+                availableModels[`${model}@${provider.name}`] = `(${provider.name}) ${model}`;
+            });
+        }
     });
     return availableModels;
 }

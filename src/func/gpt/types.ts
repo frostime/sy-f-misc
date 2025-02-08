@@ -92,6 +92,7 @@ interface IGPTProvider {
     models: string[];  //所有的模型
     url: string;
     apiKey: string;
+    disabled?: boolean;  //是否禁用该provider
 }
 
 interface IGPTModel {

@@ -109,7 +109,17 @@ const ProviderEditForm: Component<{
                         'font-size': '1.3em',
                         'line-height': '1.2em'
                     }}
-                    spellcheck={false}
+                />
+            </Form.Wrap>
+
+            <Form.Wrap
+                title="禁用该 Provider"
+                description="禁用后，该 Provider 的模型将不会出现在模型选择列表中"
+            >
+                <Form.Input
+                    type="checkbox"
+                    value={provider().disabled || false}
+                    changed={(v) => updateProvider(index(), 'disabled', v)}
                 />
             </Form.Wrap>
         </div>
@@ -132,7 +142,7 @@ const ProviderListItem = (props: {
                 </SimpleProvider>
             ),
             width: '750px',
-            height: '640px'
+            height: '700px'
         })
     }
 
@@ -157,6 +167,9 @@ const ProviderListItem = (props: {
             <span style={{ flex: 1, "font-weight": "bold" }}>
                 {providers()[props.index()].name}
             </span>
+            {providers()[props.index()].disabled && (
+                <SvgSymbol size="15px">iconEyeoff</SvgSymbol>
+            )}
             <button class="b3-button b3-button--text" onclick={() => onEdit()}>
                 <SvgSymbol size="15px">iconEdit</SvgSymbol>
             </button>
