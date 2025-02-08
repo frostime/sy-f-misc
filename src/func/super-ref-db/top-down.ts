@@ -71,7 +71,7 @@ export const syncDatabaseFromBacklinks = async (input: {
     const data = await getAttributeViewPrimaryKeyValues(database.av);
 
     let refsBlockIds = refs.map(b => b.id);
-    let rowBlockIds = data.rows.values.map(v => v.blockID);
+    let rowBlockIds = data.rows.values?.map(v => v.blockID) ?? [];
 
     // diff set
     const refSet = new Set(refsBlockIds);

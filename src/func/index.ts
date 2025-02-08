@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-02-08 17:03:52
+ * @LastEditTime : 2025-02-08 19:25:39
  * @Description  : 
  */
 // import { type JSX } from "solid-js";
@@ -46,7 +46,7 @@ let _ModulesToEnable: IFuncModule[] = [
     css,
     gp,
     wb,
-
+    srdb,
     docky,
     // ss,
     it,
@@ -64,7 +64,7 @@ let _ModulesToEnable: IFuncModule[] = [
     md
 ];
 
-let _ModulesAlwaysEnable: IFuncModule[] = [sc, srdb];
+let _ModulesAlwaysEnable: IFuncModule[] = [sc];
 
 export const ModulesToEnable = _ModulesToEnable.filter(module => module.allowToUse ? module.allowToUse() : true);
 export const ModulesAlwaysEnable = _ModulesAlwaysEnable.filter(module => module.allowToUse ? module.allowToUse() : true);

@@ -3,12 +3,13 @@
  * @Author       : frostime
  * @Date         : 2025-02-08 16:39:25
  * @FilePath     : /src/func/super-ref-db/index.ts
- * @LastEditTime : 2025-02-08 19:02:26
+ * @LastEditTime : 2025-02-08 19:13:27
  * @Description  : siyuan://blocks/20250208162727-qgmztam
  */
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createBlankSuperRefDatabase, syncDatabaseFromBacklinks } from "./top-down";
+import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 
 export let name = "SuperRefDB";
 export let enabled = false;
@@ -79,9 +80,25 @@ export const load = () => {
             }
         });
     });
+    let d3 = plugin.registerEventbusHandler('open-menu-blockref', (detail) => {
+        const span = detail.element;
+        const dataId = span.getAttribute('data-id');
+        detail.menu.addItem({
+            icon: 'iconDatabase',
+            label: '绑定为SuperRef',
+            click: async () => {
+                let block = await getBlockByID(dataId);
+                if (!block) return;
+                if (block.type !== 'd') return;
+                await createBlankSuperRefDatabase(block.id);
+                await syncDatabaseFromBacklinks({ doc: block.id });
+            }
+        });
+    });
     unRegister = () => {
         d1();
         d2();
+        d3();
     };
 };
 
