@@ -77,6 +77,12 @@ export const addAttributeViewBlocks = (avId: BlockId, dbBlockId: BlockId, blockT
     });
 }
 
+export const removeAttributeViewBlocks = (avId: BlockId, blockIds: BlockId[]) => {
+    return request('/api/av/removeAttributeViewBlocks', {
+        avID: avId,
+        srcIDs: blockIds
+    });
+}
 
 export const getAttributeViewPrimaryKeyValues = async (avId: BlockId): Promise<{
     blockIDs: BlockId[];

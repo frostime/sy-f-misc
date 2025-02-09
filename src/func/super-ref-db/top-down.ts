@@ -1,7 +1,7 @@
-import { searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
+import { confirmDialog, getLute, html2ele, html2frag, id2block, searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
 import { getBlockAttrs, getBlockByID, prependBlock, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
-import { addAttributeViewBlocks, getAttributeViewPrimaryKeyValues, updateAttrViewName } from "./api";
+import { addAttributeViewBlocks, getAttributeViewPrimaryKeyValues, removeAttributeViewBlocks, updateAttrViewName } from "./api";
 import { fb2p } from "@/libs";
 
 // 主要是是否删掉不存在的块
@@ -82,12 +82,14 @@ export const syncDatabaseFromBacklinks = async (input: {
         block: BlockId;
         av: BlockId;
     },
+    redirectStrategy?: 'none' | 'fb2p';
     addNewRefsStrategy?: 'add-diff' | 'add-all';
     orphanRowsStrategy?: 'keep' | 'remove';
 }) => {
-    const { 
+    const {
         addNewRefsStrategy = 'add-diff',
-        orphanRowsStrategy = 'keep'
+        orphanRowsStrategy = 'keep',
+        redirectStrategy = 'fb2p'
     } = input;
 
     let backlinks = await queryBacklinks(input.doc) as Block[];
@@ -95,10 +97,15 @@ export const syncDatabaseFromBacklinks = async (input: {
     if (backlinks.length == 0) return;
 
     // 重定向反向链接
-    const refs = await fb2p(backlinks, {
-        heading: true,
-        doc: true
-    });
+    let refs = [];
+    if (redirectStrategy == 'fb2p') {
+        refs = await fb2p(backlinks, {
+            heading: true,
+            doc: true
+        });
+    } else {
+        refs = backlinks;
+    }
 
     let database = input.database;
     if (!database) {
@@ -136,7 +143,23 @@ export const syncDatabaseFromBacklinks = async (input: {
             const orphanRowIds = Array.from(orphanRows);
             const rowsToRemove = data.rows.values?.filter(row => orphanRowIds.includes(row.blockID)) ?? [];
             if (rowsToRemove.length > 0) {
-                // await removeAttributeViewBlock(database.av, rowsToRemove.map(row => row.id));
+                const markdownComment = `
+以下行已经不再链接到本文档，是否需要删除他们?
+
+${rowsToRemove.map((row, index) => `${index + 1}. ((${row.blockID} '${row.block.content}'))`).join('\n')}
+`;
+                const lute = getLute();
+                //@ts-ignore
+                const html = `<div class="protyle-wysiwyg" style="font-size: 16px;">${lute.Md2BlockDOM(markdownComment)}</div>`;
+                const element = html2frag(html);
+                element.querySelectorAll('[contenteditable]').forEach((e: HTMLElement) => e.contentEditable = 'false');
+                confirmDialog({
+                    title: '是否删除无用行?',
+                    content: element,
+                    confirm: async () => {
+                        await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
+                    }
+                });
             }
         }
     }
