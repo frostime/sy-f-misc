@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-02-09 16:36:23
+ * @LastEditTime : 2025-02-09 22:47:01
  * @Description  : 
  */
 import { exportMdContent } from "@/api";
 import { getLute, html2ele, id2block, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { getBlockByID, request, updateBlock } from "@frostime/siyuan-plugin-kits/api";
-import { showMessage } from "siyuan";
+import { Protyle, showMessage } from "siyuan";
 
 export let name = "Markdown";
 export let enabled = false;
@@ -157,6 +157,32 @@ export const load = () => {
             }, 200);
         },
     });
+    plugin.addProtyleSlash({
+        id: 'superblock-rows',
+        filter: ['superblock-rows', 'sb-rows', 'rows'],
+        html: '多行超级块',
+        callback: (protyle: Protyle) => {
+            protyle.insert(`{{{row
+
+{: id="20250209123606-srmeqlw" }
+
+}}}
+{: style="border: 1px solid var(--b3-border-color); border-radius: 0px;" }`, true);
+        }
+    });
+    plugin.addProtyleSlash({
+        id: 'superblock-cols',
+        filter: ['superblock-cols', 'sb-cols', 'cols'],
+        html: '多列超级块',
+        callback: (protyle: Protyle) => {
+            protyle.insert(`{{{col
+
+{: id="20250209123606-srmeqlw" }
+
+}}}
+{: style="border: 1px solid var(--b3-border-color); border-radius: 0px;" }`, true);
+        }
+    });
     disposer = () => {
         d1();
         d2();
@@ -170,4 +196,5 @@ export const unload = () => {
     disposer = () => { };
     const plugin = thisPlugin();
     plugin.delProtyleSlash('format-refs');
+    plugin.delProtyleSlash('superblock-rows');
 };
