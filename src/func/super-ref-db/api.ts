@@ -65,7 +65,13 @@ const requestTransaction = async (options: {
     });
 }
 
-export const addAttributeViewBlocks = (avId: BlockId, dbBlockId: BlockId, blockToAdd: {
+export const getAttributeView = async (avID: BlockId) => {
+    return request('/api/av/getAttributeView', {
+        id: avID
+    });
+}
+
+export const addAttributeViewBlocks = async (avId: BlockId, dbBlockId: BlockId, blockToAdd: {
     id: BlockId;
     isDetached?: boolean;
 }[]) => {
@@ -77,7 +83,7 @@ export const addAttributeViewBlocks = (avId: BlockId, dbBlockId: BlockId, blockT
     });
 }
 
-export const removeAttributeViewBlocks = (avId: BlockId, blockIds: BlockId[]) => {
+export const removeAttributeViewBlocks = async (avId: BlockId, blockIds: BlockId[]) => {
     return request('/api/av/removeAttributeViewBlocks', {
         avID: avId,
         srcIDs: blockIds

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-02-08 16:39:25
  * @FilePath     : /src/func/super-ref-db/index.ts
- * @LastEditTime : 2025-02-09 15:30:43
+ * @LastEditTime : 2025-02-10 00:37:23
  * @Description  : siyuan://blocks/20250208162727-qgmztam
  */
 
@@ -68,13 +68,6 @@ export const load = () => {
                 openBlock(db.block, { zoomIn: true });
             }
         });
-        // detail.menu.addItem({
-        //     icon: 'iconDatabase',
-        //     label: '更新SuperRef数据库',
-        //     click: () => {
-        //         syncDatabaseFromBacklinks({ doc: detail.root_id, 'addNewRefsStrategy': 'add-all' });
-        //     }
-        // });
     });
     let d2 = plugin.registerOnClickBlockicon((detail) => {
         if (detail.blocks.length !== 1) return;

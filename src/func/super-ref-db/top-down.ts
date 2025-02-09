@@ -1,4 +1,4 @@
-import { confirmDialog, getLute, html2ele, html2frag, id2block, searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
+import { confirmDialog, getLute, html2frag, searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
 import { getBlockAttrs, getBlockByID, prependBlock, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
 import { addAttributeViewBlocks, getAttributeViewPrimaryKeyValues, removeAttributeViewBlocks, updateAttrViewName } from "./api";
@@ -13,6 +13,10 @@ const queryBacklinks = async (doc: DocumentId) => {
 
 export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
     const document = await getBlockByID(doc);
+    if (!document) {
+        showMessage('无法找到对应文档', 3000, 'error');
+        return;
+    }
     const existed = await searchAttr('custom-super-ref-db', doc, '=');
     if (existed && existed?.length > 0) {
         if (existed.length == 1) {
@@ -35,12 +39,11 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
             av: newAvId
         })
     });
-    // const blockId = result[0].doOperations[0].id;
-    await updateAttrViewName({ dbName: `SuperRef@${document.content}`, dbBlockId: newBlockId, dvAvId: newAvId });
 
-    setTimeout(() => {
-        syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId }, addNewRefsStrategy: 'add-all' });
-    }, 0);
+    setTimeout(async () => {
+        await syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId }, addNewRefsStrategy: 'add-all' });
+        await updateAttrViewName({ dbName: `SuperRef@${document.content}`, dbBlockId: newBlockId, dvAvId: newAvId });
+    }, 100);
 
     return {
         block: newBlockId,
@@ -94,11 +97,9 @@ export const syncDatabaseFromBacklinks = async (input: {
 
     let backlinks = await queryBacklinks(input.doc) as Block[];
 
-    if (backlinks.length == 0) return;
-
     // 重定向反向链接
     let refs = [];
-    if (redirectStrategy == 'fb2p') {
+    if (redirectStrategy == 'fb2p' && backlinks.length > 0) {
         refs = await fb2p(backlinks, {
             heading: true,
             doc: true
@@ -117,7 +118,7 @@ export const syncDatabaseFromBacklinks = async (input: {
     const data = await getAttributeViewPrimaryKeyValues(database.av);
 
     let refsBlockIds = refs.map(b => b.id);
-    let rowBlockIds = data.rows.values?.map(v => v.blockID) ?? [];
+    let rowBlockIds = data?.rows.values?.map(v => v.blockID) ?? [];
 
     // diff set
     const refSet = new Set(refsBlockIds);
