@@ -3,21 +3,22 @@
  * @Author       : frostime
  * @Date         : 2025-02-08 16:39:25
  * @FilePath     : /src/func/super-ref-db/index.ts
- * @LastEditTime : 2025-02-08 20:10:55
+ * @LastEditTime : 2025-02-09 15:13:09
  * @Description  : siyuan://blocks/20250208162727-qgmztam
  */
 
-import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks } from "./top-down";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
+import { openTab, showMessage } from "siyuan";
 
 export let name = "SuperRefDB";
 export let enabled = false;
 
 // Optional: Configure module settings
 export const declareToggleEnabled = {
-    title: "超级引用",
-    description: "将双链引用和数据库功能相结合，实现类似 Super Tag 的功能",
+    title: "🔗 Super Ref",
+    description: "将双链引用和数据库功能相结合",
     defaultEnabled: false
 };
 
@@ -57,11 +58,23 @@ export const load = () => {
         });
         detail.menu.addItem({
             icon: 'iconDatabase',
-            label: '更新SuperRef数据库',
-            click: () => {
-                syncDatabaseFromBacklinks({ doc: detail.root_id });
+            label: '打开SuperRef数据库',
+            click: async () => {
+                const db = await getSuperRefDb(detail.root_id);
+                if (!db || !matchIDFormat(db.block)) {
+                    showMessage('无法找到SuperRef数据库');
+                    return;
+                }
+                openBlock(db.block, { zoomIn: true });
             }
         });
+        // detail.menu.addItem({
+        //     icon: 'iconDatabase',
+        //     label: '更新SuperRef数据库',
+        //     click: () => {
+        //         syncDatabaseFromBacklinks({ doc: detail.root_id, 'addNewRefsStrategy': 'add-all' });
+        //     }
+        // });
     });
     let d2 = plugin.registerOnClickBlockicon((detail) => {
         if (detail.blocks.length !== 1) return;
@@ -76,7 +89,7 @@ export const load = () => {
             icon: 'iconDatabase',
             label: '更新SuperRef数据库',
             click: () => {
-                syncDatabaseFromBacklinks({ doc: docId });
+                syncDatabaseFromBacklinks({ doc: docId, 'addNewRefsStrategy': 'add-all' });
             }
         });
     });
@@ -94,7 +107,9 @@ export const load = () => {
                 if (!db) {
                     await createBlankSuperRefDatabase(block.id);
                 } else {
-                    await syncDatabaseFromBacklinks({ doc: block.id, database: db });
+                    await syncDatabaseFromBacklinks({
+                        doc: block.id, database: db, addNewRefsStrategy: 'add-diff', orphanRowsStrategy: 'keep'
+                    });
                 }
             }
         });

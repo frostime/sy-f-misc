@@ -2,6 +2,7 @@ import { searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
 import { getBlockAttrs, getBlockByID, prependBlock, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
 import { addAttributeViewBlocks, getAttributeViewPrimaryKeyValues, updateAttrViewName } from "./api";
+import { fb2p } from "@/libs";
 
 // 主要是是否删掉不存在的块
 // type TSyncStrategy = 'keep-unlinked' | 'one-one-matched';
@@ -38,7 +39,7 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
     await updateAttrViewName({ dbName: `SuperRef@${document.content}`, dbBlockId: newBlockId, dvAvId: newAvId });
 
     setTimeout(() => {
-        syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId } });
+        syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId }, addNewRefsStrategy: 'add-all' });
     }, 0);
 
     return {
@@ -58,15 +59,47 @@ export const getSuperRefDb = async (doc: DocumentId): Promise<{ block: BlockId, 
     return data;
 }
 
+
+/**
+ * 同步反向链接数据库
+ * 
+ * @param input - 输入参数对象
+ * @param input.doc - 文档ID
+ * @param input.database - 可选的数据库对象, 包含 block 和 av ID
+ * @param input.addNewRefsStrategy - 添加新引用的策略
+ *                                - 'add-diff': 只添加不在数据库中的新引用
+ *                                - 'add-all': 重新添加所有引用
+ *                                默认为 'add-diff'
+ * @param input.orphanRowsStrategy - 处理孤儿行的策略
+ *                                - 'keep': 保留在数据库中的孤儿行
+ *                                - 'remove': 删除不再有引用的行
+ *                                默认为 'keep'
+ * @returns - 无返回值
+ */
 export const syncDatabaseFromBacklinks = async (input: {
     doc: DocumentId;
     database?: {
         block: BlockId;
         av: BlockId;
-    }
+    },
+    addNewRefsStrategy?: 'add-diff' | 'add-all';
+    orphanRowsStrategy?: 'keep' | 'remove';
 }) => {
-    const refs = await queryBacklinks(input.doc);
-    if (refs.length == 0) return;
+    const { 
+        addNewRefsStrategy = 'add-diff',
+        orphanRowsStrategy = 'keep'
+    } = input;
+
+    let backlinks = await queryBacklinks(input.doc) as Block[];
+
+    if (backlinks.length == 0) return;
+
+    // 重定向反向链接
+    const refs = await fb2p(backlinks, {
+        heading: true,
+        doc: true
+    });
+
     let database = input.database;
     if (!database) {
         const data = await getSuperRefDb(input.doc);
@@ -82,18 +115,29 @@ export const syncDatabaseFromBacklinks = async (input: {
     // diff set
     const refSet = new Set(refsBlockIds);
     const rowSet = new Set(rowBlockIds);
-    // const newBlocksToAdd = Array.from(backlinksSet).filter(id => !rowSet.has(id));
-    const newRefsToAdd = refSet.difference(rowSet);
-    if (newRefsToAdd.size == 0) return;
-    // const existRowsToRemove = rowSet.difference(refSet);
-    //TODO 考虑一下如何处理哪些已经不在反链但是还在数据库中的块
 
-    // Add new blocks to attribute view
-    // await addAttributeViewBlocks(database.av, database.block, 
-    //     Array.from(newRefsToAdd).map(id => ({ id, isDetached: false }))
-    // );
-    await addAttributeViewBlocks(database.av, database.block,
-        Array.from(refSet).map(id => ({ id, isDetached: false }))
-    );
+    // 处理新引用
+    let blocksToAdd: { id: string; isDetached: boolean; }[] = [];
+    if (addNewRefsStrategy === 'add-diff') {
+        const newRefsToAdd = refSet.difference(rowSet);
+        blocksToAdd = Array.from(newRefsToAdd).map(id => ({ id, isDetached: false }));
+    } else { // add-all
+        blocksToAdd = Array.from(refSet).map(id => ({ id, isDetached: false }));
+    }
 
+    if (blocksToAdd.length > 0) {
+        await addAttributeViewBlocks(database.av, database.block, blocksToAdd);
+    }
+
+    // 处理孤儿行
+    if (orphanRowsStrategy === 'remove') {
+        const orphanRows = rowSet.difference(refSet);
+        if (orphanRows.size > 0) {
+            const orphanRowIds = Array.from(orphanRows);
+            const rowsToRemove = data.rows.values?.filter(row => orphanRowIds.includes(row.blockID)) ?? [];
+            if (rowsToRemove.length > 0) {
+                // await removeAttributeViewBlock(database.av, rowsToRemove.map(row => row.id));
+            }
+        }
+    }
 }
