@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-02-06 13:04:59
+ * @LastEditTime : 2025-02-08 19:25:39
  * @Description  : 
  */
 // import { type JSX } from "solid-js";
@@ -35,6 +35,8 @@ import * as md from './markdown';
 
 import * as sc from './shared-configs';
 
+import * as srdb from './super-ref-db';
+
 // import * as bookmark from './bookmarks';
 
 let _ModulesToEnable: IFuncModule[] = [
@@ -44,7 +46,7 @@ let _ModulesToEnable: IFuncModule[] = [
     css,
     gp,
     wb,
-
+    srdb,
     docky,
     // ss,
     it,

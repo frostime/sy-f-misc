@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-01-03 18:13:33
+ * @LastEditTime : 2025-02-09 16:36:23
  * @Description  : 
  */
 import { exportMdContent } from "@/api";
-import { getLute, html2ele, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { getLute, html2ele, id2block, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { getBlockByID, request } from "@frostime/siyuan-plugin-kits/api";
+import { getBlockByID, request, updateBlock } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
 
 export let name = "Markdown";
@@ -92,6 +92,71 @@ export const load = () => {
             }
         });
     });
+
+    /**
+     * 格式化引用文本
+     * 比如把 「其他文本项目 ((ID 锚文本))」 变为 「((ID 其他文本项目))」
+     */
+    plugin.addProtyleSlash({
+        'id': 'format-refs',
+        'filter': ['ref', 'backlink', 'formatref'],
+        'html': '格式化双链引用',
+        callback(protyle) {
+            protyle.insert(window.Lute.Caret, false, false);
+
+            setTimeout(async () => {
+                const selection = window.getSelection();
+                const focusNode: Node = selection?.focusNode;
+                if (!focusNode) {
+                    showMessage(`Failed, can't find focus node`, 5000, 'error');
+                    return;
+                }
+                let ele: HTMLElement = focusNode.nodeType === Node.TEXT_NODE ?
+                    focusNode.parentElement : focusNode as HTMLElement;
+                ele = ele.closest('[data-node-id]') as HTMLElement;
+                if (!ele) {
+                    return
+                }
+                let id = ele.dataset.nodeId;
+
+                let block = (await id2block(id))[0] || null;
+                if (!block) return;
+
+                const type = ele.dataset.type;
+
+                if (!['NodeParagraph', 'NodeHeading'].includes(type)) return;
+
+                const editable = ele.querySelector('div[contenteditable]');
+                if (!editable) return;
+
+                const blockRefs = editable.querySelectorAll('span[data-type="block-ref"]');
+                if (blockRefs.length !== 1) return;
+
+                // 获取所有子文本节点
+                const textNodes = Array.from(editable.childNodes).filter(node => node.nodeType === Node.TEXT_NODE) as Text[];
+                let newText = textNodes.map(node => node.textContent).join('').trim();
+                if (newText.length === 0) return;
+
+                const ref = blockRefs[0].cloneNode() as HTMLElement;
+
+                // if (ref.dataset.subtype === 'd') {
+                //     const oldText = ref.innerText;
+                //     newText += oldText;
+                // }
+                ref.setAttribute('data-subtype', 's'); //设置为静态锚文本
+                ref.innerText = newText;
+                //更改 editable 的内容
+                editable.innerHTML = '';
+                editable.appendChild(ref);
+
+                const inputEvent = new Event('input', {
+                    bubbles: true,
+                    cancelable: false
+                });
+                editable.dispatchEvent(inputEvent);
+            }, 200);
+        },
+    });
     disposer = () => {
         d1();
         d2();
@@ -103,4 +168,6 @@ export const unload = () => {
     enabled = false;
     disposer();
     disposer = () => { };
+    const plugin = thisPlugin();
+    plugin.delProtyleSlash('format-refs');
 };
