@@ -1,5 +1,5 @@
 import { confirmDialog, getLute, html2frag, searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
-import { getBlockAttrs, getBlockByID, prependBlock, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
+import { getBlockAttrs, getBlockByID, prependBlock, request, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
 import { addAttributeViewBlocks, getAttributeViewPrimaryKeyValues, removeAttributeViewBlocks, updateAttrViewName } from "./api";
 import { fb2p } from "@/libs";
@@ -33,6 +33,12 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
 {: id="${newBlockId}" custom-super-ref-db="${doc}" }
 `;
     await prependBlock('markdown', template, doc);
+    // https://github.com/siyuan-note/siyuan/issues/14037#issuecomment-2646869586
+    await request('/api/av/renderAttributeView', {
+        "id": newAvId,
+        "viewID": "",
+        "query": ""
+      });
     await setBlockAttrs(doc, {
         'custom-bind-super-ref-db': JSON.stringify({
             block: newBlockId,
