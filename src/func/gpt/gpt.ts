@@ -1,5 +1,152 @@
 import { useModel } from "./setting/store";
 
+/**
+ * 适配即将发给 GPT 的消息
+ */
+const adpatInputMessage = (input: Parameters<typeof complete>[0], modelName?: string) => {
+    let messages: IMessage[] = [];
+    if (typeof input === 'string') {
+        messages = [{
+            "role": "user",
+            "content": input
+        }];
+    } else {
+        // 去掉可能的不需要的字段
+        messages = input.map(item => ({
+            role: item.role,
+            content: item.content
+        }));
+    }
+
+    return messages;
+}
+
+interface CompletionResponse {
+    content: string;
+    usage: any | null;
+    reasoning_content?: string;
+}
+
+interface StreamChunkData {
+    content: string;
+    reasoning_content: string;
+}
+
+/**
+ * 处理流式响应的数据块
+ */
+const handleStreamChunk = (line: string): StreamChunkData | null => {
+    if (line.includes('[DONE]') || !line.startsWith('data: ')) {
+        return null;
+    }
+
+    try {
+        const responseData = JSON.parse(line.slice(6));
+        if (responseData.error && !responseData.choices) {
+            return {
+                content: `**[Error]** \`\`\`json\n${JSON.stringify(responseData.error)}\`\`\``,
+                reasoning_content: ''
+            };
+        }
+
+        const delta = responseData.choices[0].delta;
+        return {
+            content: delta.content || '',
+            reasoning_content: delta.reasoning_content || ''
+        };
+    } catch (e) {
+        console.warn('Failed to parse stream data:', e);
+        return null;
+    }
+}
+
+/**
+ * 处理流式响应
+ */
+const handleStreamResponse = async (
+    response: Response,
+    options: NonNullable<Parameters<typeof complete>[1]>
+): Promise<CompletionResponse> => {
+    if (!response.body) {
+        throw new Error('Response body is null');
+    }
+
+    const responseContent: CompletionResponse = {
+        content: '',
+        reasoning_content: '',
+        usage: null
+    };
+
+    const transformStream = new TransformStream({
+        transform: (chunk, controller) => {
+            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+            for (const line of lines) {
+                const result = handleStreamChunk(line);
+                if (result) {
+                    controller.enqueue(result);
+                }
+            }
+        }
+    });
+
+    const stream = response.body
+        .pipeThrough(new TextDecoderStream())
+        .pipeThrough(transformStream);
+
+    const reader = stream.getReader();
+    const checkAbort = options?.abortControler?.signal 
+        ? () => options.abortControler.signal.aborted 
+        : () => false;
+
+    try {
+        while (true) {
+            const readResult = await reader.read();
+            if (readResult.done) break;
+
+            if (checkAbort()) {
+                await reader.cancel();
+                responseContent.content += `\n **[Error]** Request aborted`;
+                break;
+            }
+
+            const { content, reasoning_content } = readResult.value as StreamChunkData;
+            responseContent.reasoning_content += reasoning_content;
+            responseContent.content += content;
+            let streamingMsg = '';
+            if (responseContent.reasoning_content) {
+                streamingMsg += `<think>\n${responseContent.reasoning_content}\n</think>\n`;
+            }
+            if (responseContent.content) {
+                streamingMsg += responseContent.content;
+            }
+            options.streamMsg?.(streamingMsg);
+        }
+    } catch (error) {
+        responseContent.content += `\n **[Error]** ${error}`;
+    }
+
+    return responseContent;
+}
+
+/**
+ * 处理非流式响应
+ */
+const handleNormalResponse = async (response: Response): Promise<CompletionResponse> => {
+    const data = await response.json();
+    if (data.error && !data.data) {
+        return {
+            usage: null,
+            content: JSON.stringify(data.error),
+            reasoning_content: ''
+        };
+    }
+    return {
+        content: data.choices[0].message.content,
+        usage: data.usage,
+        reasoning_content: data.choices[0].message?.reasoning_content
+    };
+}
+
 export const complete = async (input: string | IMessage[], options?: {
     model?: IGPTModel,
     systemPrompt?: string,
@@ -8,42 +155,26 @@ export const complete = async (input: string | IMessage[], options?: {
     streamInterval?: number,
     option?: IChatOption
     abortControler?: AbortController
-}): Promise<{ content: string, usage: any | null }> => {
-    let { url, model, apiKey } = options?.model ?? useModel('siyuan');
-
-    options.option = options.option && {};
-
-    let messages: IMessage[] = [];
-    if (typeof input === 'string') {
-        messages = [{
-            "role": "user",
-            "content": input
-        }];
-    } else {
-        messages = [...input];
-    }
-
-    if (options?.systemPrompt) {
-        messages.unshift({
-            "role": "system",
-            "content": options.systemPrompt
-        });
-    }
-
-    if (options?.stream !== undefined && options?.stream !== null) {
-        options.option.stream = options.stream;
-    }
-    const payload = {
-        "model": model,
-        "messages": messages,
-        ...options.option
-    };
-    let response: Response;
+}): Promise<CompletionResponse> => {
     try {
-        // const controller = new AbortController();
-        // const signal = controller.signal;
+        const { url, model, apiKey } = options?.model ?? useModel('siyuan');
+        const messages = adpatInputMessage(input, model);
 
-        response = await fetch(url, {
+        if (options?.systemPrompt) {
+            messages.unshift({
+                role: "system",
+                content: options.systemPrompt
+            });
+        }
+
+        const payload = {
+            model: model,
+            messages: messages,
+            ...options?.option,
+            stream: options?.stream
+        };
+
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -51,108 +182,28 @@ export const complete = async (input: string | IMessage[], options?: {
                 'Accept': 'text/event-stream'
             },
             body: JSON.stringify(payload),
-            signal: options?.abortControler?.signal // 添加 signal 以支持中断
+            signal: options?.abortControler?.signal
         });
 
-        // 在需要中断请求时调用
-        // controller.abort();
-
         if (!response.ok) {
-            try {
-                const data = await response.json();
-                if (data.error && !data.data) {
-                    return {
-                        usage: null,
-                        content: JSON.stringify(data.error)
-                    };
-                }
-            } catch {
-
+            const errorData = await response.json().catch(() => null);
+            if (errorData?.error) {
+                return {
+                    usage: null,
+                    content: JSON.stringify(errorData.error)
+                };
             }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        if (options?.stream) {
-            // --- 替换位置开始 ---
-            if (!response.body) {
-                throw new Error('Response body is null');
-            }
-
-            let usage: Record<string, any> | null = null;
-
-            const transformStream = new TransformStream({
-                transform: (chunk, controller) => {
-                    const lines = chunk.split('\n').filter((line: string) => line.trim() !== '');
-                    for (const line of lines) {
-                        if (line.includes('[DONE]')) {
-                            return;
-                        }
-                        if (!line.startsWith('data: ')) continue;
-                        try {
-                            let responseData = JSON.parse(line.slice(6));
-                            if (responseData.error && !responseData.choices) {
-                                // fullText += JSON.stringify(responseData.error);
-                                const errorMessage = JSON.stringify(responseData.error);
-                                controller.enqueue(`**[Error]** \`\`\`json\n${errorMessage}\`\`\``);
-                                continue;
-                            }
-                            usage = responseData.usage ?? usage;
-                            if (!responseData.choices[0].delta?.content) continue;
-                            const content = responseData.choices[0].delta.content;
-                            controller.enqueue(content);
-                        } catch (e) {
-                            console.warn('Failed to parse stream data:', e);
-                        }
-                    }
-                }
-            });
-
-            const stream = response.body
-                .pipeThrough(new TextDecoderStream())
-                .pipeThrough(transformStream);
-
-            const reader = stream.getReader();
-            let fullText = '';
-            let readResult: ReadableStreamReadResult<string>;
-            const checkAbort = options?.abortControler?.signal ? () => options.abortControler.signal.aborted : () => false;
-            while (true) {
-                try {
-                    readResult = await reader.read();
-                    if (readResult.done) break;
-
-                    if (checkAbort()) {
-                        try {
-                            await reader.cancel();
-                        } catch (error) {
-                            if (error.name !== 'AbortError') {
-                                console.error('Error during reader.cancel():', error);
-                            }
-                        }
-                        fullText += `\n **[Error]** Request aborted`;
-                        break;
-                    }
-                    fullText += readResult.value;
-                    options.streamMsg?.(fullText);
-                } catch (error) {
-                    fullText += `\n **[Error]** ${error}\n`;
-                    break;
-                }
-            }
-
-            return { content: fullText, usage: usage };
-        } else {
-            // 非流式处理部分保持不变
-            const data = await response.json();
-            if (data.error && !data.data) {
-                return {
-                    usage: null,
-                    content: JSON.stringify(data.error)
-                };
-            }
-            return { content: data.choices[0].message.content, usage: data.usage };
-        }
+        return options?.stream 
+            ? handleStreamResponse(response, options)
+            : handleNormalResponse(response);
 
     } catch (error) {
-        return { content: `[Error] Failed to request openai api, ${error}`, usage: null };
+        return {
+            content: `[Error] Failed to request openai api, ${error}`,
+            usage: null
+        };
     }
 }

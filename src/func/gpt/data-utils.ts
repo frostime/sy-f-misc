@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-28 15:49:07
  * @FilePath     : /src/func/gpt/data-utils.ts
- * @LastEditTime : 2025-02-06 13:16:37
+ * @LastEditTime : 2025-02-10 16:42:42
  * @Description  : 
  */
 
@@ -41,6 +41,7 @@ export const stageMsgItemVersion = (item: IChatSessionMsgItem, version?: string)
         item.versions = item.versions || {}; // 确保 versions 存在
         item.versions[versionId] = {
             content: item.message.content,
+            reasoning_content: item.message.reasoning_content || '',
             author: item.author,
             timestamp: item.timestamp,
             token: item.token
@@ -62,6 +63,12 @@ export const applyMsgItemVersion = (item: IChatSessionMsgItem, version: string) 
     if (item.versions && item.versions[version]) {
         const selectedVersion = item.versions[version];
         item.message.content = selectedVersion.content;
+        // 更新 reasoning_content，如果存在的话
+        if (selectedVersion.reasoning_content) {
+            item.message.reasoning_content = selectedVersion.reasoning_content;
+        } else if (item.message.reasoning_content) {
+            item.message.reasoning_content = '';
+        }
         selectedVersion.author && (item.author = selectedVersion.author);
         selectedVersion.timestamp && (item.timestamp = selectedVersion.timestamp);
         selectedVersion.token && (item.token = selectedVersion.token);

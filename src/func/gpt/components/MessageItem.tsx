@@ -195,6 +195,8 @@ const MessageVersionView: Component<{
 
     const fontSize = createSignalRef(UIConfig().inputFontsize);
 
+    // const lute = getLute();
+
     const msgItem = createMemo(() => {
         const idx = props.session.messages().findIndex((item) => item.id === props.messageItemId);
         if (idx === -1) return null;
@@ -207,7 +209,10 @@ const MessageVersionView: Component<{
         const content = item.versions[version];
         if (!content) return null;
         const { text } = adaptIMessageContent(content.content);
-        return text;
+        return {
+            text,
+            reasoning: content.reasoning_content
+        };
     }
 
     const [versionItems, setVersionItems] = createSignal<VersionItem[]>(
@@ -219,7 +224,7 @@ const MessageVersionView: Component<{
     );
 
     const previewVersion = createSignalRef<string>(props.currentVersion);
-    const previewMarkdown = createMemo(() => (versionContent(previewVersion())));
+    const previewContent = createMemo(() => (versionContent(previewVersion())));
 
     const toggleSelect = (version: string) => {
         setVersionItems((prev) =>
@@ -245,6 +250,7 @@ const MessageVersionView: Component<{
     const ListItems = () => (
         <div class={styles.historyList} style={{
             width: 'auto',
+            "min-width": '400px',
             "overflow-y": 'auto'
         }}>
             {versionItems().map((item) => (
@@ -303,11 +309,13 @@ const MessageVersionView: Component<{
                             'white-space': 'normal'
                         }} onClick={(e) => {
                             e.stopPropagation();
-                            // previewMarkdown(versionContent(item.version));
                             previewVersion(item.version);
                         }}
                     >
-                        {versionContent(item.version)}
+                        <Show when={item.ref.reasoning_content}>
+                            <b>包含推理过程</b>
+                        </Show>
+                        {versionContent(item.version)?.text}
                     </div>
                 </div>
             ))}
@@ -348,7 +356,14 @@ const MessageVersionView: Component<{
                     flex: 2,
                     'overflow-y': 'auto'
                 }}>
-                    <Markdown markdown={previewMarkdown()} fontSize={fontSize() + 'px'} />
+                    <Show when={previewContent()?.reasoning}>
+                        <details class={styles.reasoningDetails}>
+                            <summary>推理过程</summary>
+                            <Markdown markdown={previewContent()?.reasoning} fontSize={fontSize() + 'px'} />
+                            <br />
+                        </details>
+                    </Show>
+                    <Markdown markdown={previewContent()?.text} fontSize={fontSize() + 'px'} />
                 </div>
             </div>
         </div>
@@ -829,6 +844,18 @@ const MessageItem: Component<{
                 <div class={styles.icon}><IconAssistant /></div>
             )}
             <div class={styles.messageContainer}>
+                <Show when={props.messageItem.message.reasoning_content}>
+                    <details class={styles.reasoningDetails}>
+                        <summary>推理过程</summary>
+                        <div
+                            class={`${styles.reasoningContent} b3-typography`}
+                            innerHTML={
+                                // @ts-ignore
+                                lute.Md2HTML(props.messageItem.message.reasoning_content)
+                            }
+                        />
+                    </details>
+                </Show>
                 <div
                     oncontextmenu={onContextMenu}
                     classList={{

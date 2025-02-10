@@ -319,7 +319,7 @@ ${inputContent}
                 });
             }
 
-            const { content, usage } = await gpt.complete(msgToSend, {
+            const { content, usage, reasoning_content } = await gpt.complete(msgToSend, {
                 model: model,
                 systemPrompt: systemPrompt().trim() || undefined,
                 stream: option.stream ?? true,
@@ -337,8 +337,11 @@ ${inputContent}
             messages.update(nextIndex, (msgItem: IChatSessionMsgItem) => {
                 const newMessageContent: IMessage = {
                     role: 'assistant',
-                    content: content
+                    content: content,
                 };
+                if (reasoning_content) {
+                    newMessageContent['reasoning_content'] = reasoning_content;
+                }
                 // 记录最新版本的消息
                 msgItem = {
                     ...msgItem,
@@ -420,7 +423,7 @@ ${inputContent}
             contexts.update([]);
 
             const lastIdx = messages().length - 1;
-            const { content, usage } = await gpt.complete(msgToSend, {
+            const { content, usage, reasoning_content } = await gpt.complete(msgToSend, {
                 model: model,
                 systemPrompt: sysPrompt || undefined,
                 stream: option.stream ?? true,
@@ -434,6 +437,13 @@ ${inputContent}
             });
 
             const vid = new Date().getTime().toString();
+            const newMessageContent: IMessage = {
+                role: 'assistant',
+                content: content
+            }
+            if (reasoning_content) {
+                newMessageContent['reasoning_content'] = reasoning_content;
+            }
             // 更新最终内容
             messages.update(prev => {
                 const lastIdx = prev.length - 1;
@@ -441,10 +451,7 @@ ${inputContent}
                 updated[lastIdx] = {
                     ...updated[lastIdx],
                     loading: false,
-                    message: {
-                        role: 'assistant',
-                        content: content
-                    },
+                    message: newMessageContent,
                     author: model.model,
                     timestamp: new Date().getTime(),
                     attachedItems: msgToSend.length,
