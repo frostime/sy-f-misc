@@ -201,13 +201,18 @@ export const useSession = (props: {
         return option;
     }
 
-    const customComplete = async (messageToSend: IMessage[] | string, stream: boolean = false, model?: IGPTModel) => {
+    const customComplete = async (messageToSend: IMessage[] | string, options?: {
+        stream?: boolean;
+        model?: IGPTModel;
+        chatOption?: Partial<IChatOption>;
+    }) => {
         try {
-            model = model ?? props.model();
+            const model = options?.model ?? props.model();
+            const baseOption = gptOption();
             const { content } = await gpt.complete(messageToSend, {
                 model: model,
-                option: gptOption(),
-                stream: stream,
+                option: options?.chatOption ? { ...baseOption, ...options.chatOption } : baseOption,
+                stream: options?.stream ?? false,
             });
             return content;
         } catch (error) {
@@ -242,7 +247,13 @@ ${inputContent}
         if (autoTitleModel) {
             model = useModel(autoTitleModel);
         }
-        const newTitle = await customComplete(messageToSend, false, model);
+        const newTitle = await customComplete(messageToSend, {
+            model,
+            stream: false,
+            chatOption: {
+                max_tokens: 128
+            }
+        });
         if (newTitle?.trim()) {
             title.update(newTitle.trim());
         }

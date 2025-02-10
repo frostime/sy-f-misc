@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-02-07 18:05:50
  * @FilePath     : /src/func/transfer-ref/index.ts
- * @LastEditTime : 2025-02-10 20:39:02
+ * @LastEditTime : 2025-02-10 22:34:47
  * @Description  : 
  */
 import { Menu } from "siyuan";
@@ -13,16 +13,6 @@ import TransferRefs from "./transfer-refs";
 import { solidDialog } from "@/libs/dialog";
 
 const showTransferDialog = (srcBlock: BlockId) => {
-    // let dialog = new Dialog({
-    //     title: '转移引用',
-    //     content: `<div id="transfer-ref" class="fn__flex fn__flex-1"></div>`,
-    //     width: "60%",
-    //     height: "50%"
-    // });
-    // let div: HTMLElement = dialog.element.querySelector("#transfer-ref");
-    // render(() => TransferRefs({
-    //     plugin, srcBlockID: srcBlock
-    // }), div);
     solidDialog({
         title: '转移引用',
         loader: () => (
@@ -30,7 +20,8 @@ const showTransferDialog = (srcBlock: BlockId) => {
                 plugin, srcBlockID: srcBlock
             })
         ),
-        width: '60%',
+        width: '1450px',
+        maxWidth: '90%',
         height: '600px'
     })
 }

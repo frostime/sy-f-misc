@@ -75,8 +75,8 @@ const DestinationSelect = (props: { srcBlock: BlockId, onSelect: (id: BlockId) =
     const BlockOption = (props: { block: Block }) => {
         const isSelected = () => selected() === props.block.id;
         return (
-            <div 
-                class="fn__flex b3-list-item" 
+            <div
+                class="fn__flex b3-list-item"
                 style={{ "align-items": "center", "cursor": "pointer" }}
                 onClick={() => handleSelect(props.block.id)}
             >
@@ -199,16 +199,24 @@ const TransferRefs: Component<{
                 <Table.Cell>
                     <A id={props.redirected.id}>{props.block.content}</A>
                 </Table.Cell>
-                <Table.Cell>
+                <Table.Cell styles={{
+                    "min-width": '3rem'
+                }}>
                     {BlockTypeShort[props.block.type] ?? 'Unknown'}
                 </Table.Cell>
-                <Table.Cell>
+                <Table.Cell styles={{
+                    "min-width": '3rem'
+                }}>
                     {isFb2p() ? BlockTypeShort[props.redirected.type] : '-'}
                 </Table.Cell>
-                <Table.Cell>
+                <Table.Cell styles={{
+                    "min-width": '3rem'
+                }}>
                     {getNotebook(props.block.box).name}
                 </Table.Cell>
-                <Table.Cell>
+                <Table.Cell styles={{
+                    "min-width": '2rem'
+                }}>
                     {props.block.hpath}
                 </Table.Cell>
             </Table.Row>
@@ -257,7 +265,10 @@ const TransferRefs: Component<{
                 padding: "8px", "flex-direction": "column", gap: '5px',
                 'min-width': '200px'
             }}>
-                <div style={{ display: 'flex', "align-items": 'center', gap: '8px' }}>
+                <div style={{
+                    display: 'flex', "align-items": 'center',
+                    gap: '8px', 'justify-content': 'space-between'
+                }}>
                     <TextInput text={selectedDst()} update={id => selectedDst(id)} />
                     <button class="b3-button b3-button--text" onClick={handleTransfer}>
                         转移引用
