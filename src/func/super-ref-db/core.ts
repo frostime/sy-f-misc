@@ -47,8 +47,9 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
     });
 
     setTimeout(async () => {
+        let dbname = document.name ? `SuperRef@${document.name}` : `SuperRef@${document.content}`;
         await syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId }, addNewRefsStrategy: 'add-all' });
-        await updateAttrViewName({ dbName: `SuperRef@${document.content}`, dbBlockId: newBlockId, dvAvId: newAvId });
+        await updateAttrViewName({ dbName: dbname, dbBlockId: newBlockId, dvAvId: newAvId });
     }, 100);
 
     return {

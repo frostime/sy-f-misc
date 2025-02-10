@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2025-02-08 16:39:25
  * @FilePath     : /src/func/super-ref-db/index.ts
- * @LastEditTime : 2025-02-10 00:37:23
+ * @LastEditTime : 2025-02-10 14:14:48
  * @Description  : siyuan://blocks/20250208162727-qgmztam
  */
 
 import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks } from "./top-down";
+import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks } from "./core";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
-import { openTab, showMessage } from "siyuan";
+import { showMessage } from "siyuan";
 
 export let name = "SuperRefDB";
 export let enabled = false;
@@ -22,25 +22,6 @@ export const declareToggleEnabled = {
     defaultEnabled: false
 };
 
-/*
-// Optional: Declare settings panel
-export const declareSettingPanel = [
-    {
-        key: "",
-        title: "",
-        element: () => null
-    }
-];
-
-// Optional: Declare simple module config
-export const declareModuleConfig = {
-    key: "",
-    items: [],
-    init: (itemValues?: Record<string, any>) => {
-        // Initialize config here
-    }
-};
-*/
 
 let unRegister = () => { };
 

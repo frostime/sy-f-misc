@@ -80,11 +80,11 @@ export const fb2p = async (inputs: Block[], enable?: { heading?: boolean, doc?: 
 
         if (
             info.previousID === '' &&
-            ['NodeBlockquote', 'NodeListItem'].includes(info.parentType) // 容器块的第一个段落块
+            ['NodeBlockquote', 'NodeListItem', 'NodeSuperBlock'].includes(info.parentType) // 容器块的第一个段落块
         ) {
             let resultp = result[result.length - 1];
             resultp.id = info.parentID;
-            resultp.type = { 'NodeBlockquote': 'b', 'NodeListItem': 'i' }[info.parentType];
+            resultp.type = { 'NodeBlockquote': 'b', 'NodeListItem': 'i', 'NodeSuperBlock': 'sb' }[info.parentType];
         } else if (enable.heading && info.previousType === "NodeHeading") { // 标题块下方第一个段落
             let resultp = result[result.length - 1];
             resultp.id = info.previousID;
