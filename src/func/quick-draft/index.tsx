@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-01-20 22:57:08
+ * @LastEditTime : 2025-02-10 17:19:33
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
@@ -120,6 +120,7 @@ function ProtyleComponent(props: {
             view: window
         });
         tabHeader?.dispatchEvent(doubleClickEvent);
+        tabHeader?.classList.toggle('item--unupdate', false);
 
         if (props.autoDelete) {
             setTimeout(() => {

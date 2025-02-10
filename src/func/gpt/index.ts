@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-01-23 17:22:12
+ * @LastEditTime : 2025-02-10 17:11:43
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -100,7 +100,7 @@ const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory)
         outsideInputs[activeTabId] = input;
     }
     let disposer = () => { };
-    openCustomTab({
+    const tab = await openCustomTab({
         tabId: tabId,
         render: (container: HTMLElement) => {
             disposer = render(() => ChatSession({
@@ -142,6 +142,10 @@ const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory)
         icon: 'iconGithub',
         position: prompt.trim() ? 'right' : undefined
     });
+    setTimeout(() => {
+        if (!tab?.headElement) return;
+        tab.headElement.classList.toggle('item--unupdate', false);
+    }, 100);
 }
 
 
