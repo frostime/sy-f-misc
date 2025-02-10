@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-02-09 22:47:01
+ * @LastEditTime : 2025-02-10 13:46:36
  * @Description  : 
  */
 import { exportMdContent } from "@/api";
@@ -74,7 +74,7 @@ export const load = () => {
         });
     });
     let d2 = plugin.registerOnClickBlockicon((detail) => {
-        console.log(detail);
+        // console.log(detail);
         if (detail.blocks.length !== 1) return;
         let block = detail.blocks[0];
         if (block.type !== 'NodeHeading') return;
@@ -167,20 +167,24 @@ export const load = () => {
 {: id="20250209123606-srmeqlw" }
 
 }}}
-{: style="border: 1px solid var(--b3-border-color); border-radius: 0px;" }`, true);
+`.trim(), true);
         }
     });
     plugin.addProtyleSlash({
         id: 'superblock-cols',
-        filter: ['superblock-cols', 'sb-cols', 'cols'],
-        html: '多列超级块',
+        filter: ['cols-2'],
+        html: '双列超级块',
         callback: (protyle: Protyle) => {
             protyle.insert(`{{{col
 
-{: id="20250209123606-srmeqlw" }
+Col 1
+{: id="20250209123606-aaaaaaa" }
+
+Col 2
+{: id="20250209123606-bbbbbbb" }
 
 }}}
-{: style="border: 1px solid var(--b3-border-color); border-radius: 0px;" }`, true);
+`.trim(), true);
         }
     });
     disposer = () => {
