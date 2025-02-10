@@ -3,12 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 15:35:35
  * @FilePath     : /src/func/websocket/index.ts
- * @LastEditTime : 2025-01-04 20:22:40
+ * @LastEditTime : 2025-02-10 14:29:05
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 import WebSocketManager from "./ws-manager";
-import { request } from "@/api";
+
+import { api } from "@frostime/siyuan-plugin-kits";
 
 import { Configs } from "./components";
 import { Handlers } from "./handlers";
@@ -34,7 +35,7 @@ export const load = async (plugin: FMiscPlugin) => {
         return;
     }
 
-    let info = await request('/api/broadcast/getChannelInfo', { name: plugin.name });
+    let info = await api.request('/api/broadcast/getChannelInfo', { name: plugin.name });
     if (info.channel?.count > 0) {
         console.info('已经存在 Web Socket 服务，无需重复连接.')
         console.log(info.channel);

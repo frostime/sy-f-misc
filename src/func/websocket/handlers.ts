@@ -1,8 +1,7 @@
 import * as SiYuan from "siyuan";
 
 
-import { appendBlock, request } from "@/api";
-import { searchAttr, formatSiYuanDate, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { searchAttr, formatSiYuanDate, thisPlugin, api } from "@frostime/siyuan-plugin-kits";
 
 import { openTab, openWindow } from "siyuan";
 // import { html2ele } from "@frostime/siyuan-plugin-kits";
@@ -11,7 +10,9 @@ import { createJavascriptFile } from "@frostime/siyuan-plugin-kits";
 
 import { openQuickDraft } from "../quick-draft";
 import { startEntry } from "../toggl/state";
+import { insertBlock } from "@frostime/siyuan-plugin-kits/api";
 
+const { appendBlock, request } = api;
 
 const superBlock = (content: string) => {
 
@@ -21,10 +22,10 @@ const superBlock = (content: string) => {
 ${content}
 
 }}}
-{: style="border: 1px solid var(--b3-border-color);" }
+{: id="20250209123606-aaaaaaa" style="outline: 1px solid var(--b3-border-color);" }
 
 
-{: type="p" }
+{: id="20250209123606-bbbbbbb" }
 `.trim();
 
 }
@@ -56,7 +57,7 @@ const appendDnList = async (text: string) => {
         }, 0); //关闭再打开，以刷新文档内容
     }
 
-    let name = 'custom-dn-quicklist';
+    let name = 'custom-dn-quickh2';
 
     let today = new Date();
     let year = today.getFullYear();
@@ -64,19 +65,23 @@ const appendDnList = async (text: string) => {
     let day = today.getDate().toString().padStart(2, '0');
     let v = `${year}${month}${day}`; // 20240710
 
-    let blocks = await searchAttr(name, v);
-    if (blocks.length !== 1) return;
-    let id = blocks[0].id;
-
     let hours = today.getHours().toString().padStart(2, '0');
     let minutes = today.getMinutes().toString().padStart(2, '0');
     let seconds = today.getSeconds().toString().padStart(2, '0');
     let timestr = `${hours}:${minutes}:${seconds}`; // 12:10:10
-
     text = text.trim();
-    const isMultiline = text.includes('\n\n');
+    const lines = text.split(/\r?\n\r?\n/);
+    const isMultiline = lines.length > 1;
     let content = isMultiline ? superBlock(`[${timestr}] ${text}`) : `[${timestr}] ${text}`;
-    await appendBlock('markdown', content, id);
+
+    let blocks = await searchAttr(name, v);
+    if (blocks.length !== 1) return;
+    let id = blocks[0].id;
+
+    let headChildren = await request('/api/block/getHeadingChildrenIDs', { id: id })
+    if (!headChildren || headChildren.length === 0) return;
+    const lastChild = headChildren[headChildren.length - 1];
+    await insertBlock('markdown', content, null, lastChild, null);
     refreshDocument();
 }
 
@@ -121,6 +126,7 @@ const defaultModule = {
      * @param {require('siyuan').Plugin} context.plugin - Plugin instance
      * @param {typeof require('siyuan')} context.siyuan - SiYuan API instance
      * @param {(url: string, data: any) => Promise<any>} context.request - Kernal request, return response.data or null
+     * @param context.api - Wrapped siyuan kernel api
      */
     'example': (body, context) => {
         console.log(body, context);
@@ -132,6 +138,7 @@ export default defaultModule;
 type FHandler = (body: string, context?: {
     plugin: SiYuan.Plugin,
     siyuan: typeof SiYuan,
+    api: typeof api,
     request: typeof request,
 }) => void;
 
@@ -149,7 +156,8 @@ const parseCustomHandlerModule = async () => {
             handler(body, {
                 plugin,
                 siyuan: SiYuan,
-                request: request
+                request: request,
+                api: api
             });
         }
     });
