@@ -1,19 +1,38 @@
-import { Dialog, Menu } from "siyuan";
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2025-02-07 18:05:50
+ * @FilePath     : /src/func/transfer-ref/index.ts
+ * @LastEditTime : 2025-02-10 20:39:02
+ * @Description  : 
+ */
+import { Menu } from "siyuan";
 
 import type FMiscPlugin from "@/index";
-import { TransferRefsComponent } from "./pannel";
-
+import TransferRefs from "./transfer-refs";
+import { solidDialog } from "@/libs/dialog";
 
 const showTransferDialog = (srcBlock: BlockId) => {
-    let components = new TransferRefsComponent(plugin, srcBlock);
-    let dialog = new Dialog({
+    // let dialog = new Dialog({
+    //     title: '转移引用',
+    //     content: `<div id="transfer-ref" class="fn__flex fn__flex-1"></div>`,
+    //     width: "60%",
+    //     height: "50%"
+    // });
+    // let div: HTMLElement = dialog.element.querySelector("#transfer-ref");
+    // render(() => TransferRefs({
+    //     plugin, srcBlockID: srcBlock
+    // }), div);
+    solidDialog({
         title: '转移引用',
-        content: `<div id="transfer-ref" class="fn__flex fn__flex-1"></div>`,
-        width: "60%",
-        height: "50%"
-    });
-    let div: HTMLElement = dialog.element.querySelector("#transfer-ref");
-    components.render(div);
+        loader: () => (
+            TransferRefs({
+                plugin, srcBlockID: srcBlock
+            })
+        ),
+        width: '60%',
+        height: '600px'
+    })
 }
 
 function onBlockGutterClicked({ detail }: any) {

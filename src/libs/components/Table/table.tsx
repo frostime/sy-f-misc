@@ -2,7 +2,7 @@ import { JSX } from "solid-js";
 import styles from "./table.module.scss";
 
 interface TableProps {
-    columns: string[];
+    columns: (string | JSX.Element)[];
     children: JSX.Element;
     styles?: JSX.CSSProperties;
 }

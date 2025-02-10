@@ -6,15 +6,13 @@ const Enter = (e: KeyboardEvent) => {
     }
 }
 
-interface IProps {
+const TextInput = (props: {
     text: string;
     update: (v: string) => void;
     type?: 'line' | 'area';
     fontSize?: string;
     styles?: JSX.CSSProperties;
-}
-
-const TextInput = (props: IProps) => {
+}) => {
     if (props.type === 'area') {
         return <textarea class="b3-text-field fn__block" onkeydown={Enter}
             style={{
