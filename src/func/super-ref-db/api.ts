@@ -1,4 +1,4 @@
-import { formatSiYuanTimestamp, IResdoOperations } from "@frostime/siyuan-plugin-kits";
+import { formatSiYuanTimestamp } from "@frostime/siyuan-plugin-kits";
 import { getBlockByID, request } from "@frostime/siyuan-plugin-kits/api";
 
 
@@ -164,4 +164,34 @@ export const updateAttrViewName = async (options: {
     await requestTransaction({
         doOperations, undoOperations
     });
+}
+
+export const replaceAttrViewBlock = async (options: {
+    avId: BlockId;
+    previousId: BlockId;
+    nextId: BlockId;
+    isDetached: boolean;
+}) => {
+    const { avId, previousId, nextId, isDetached = false } = options;
+    const payload = {
+        "doOperations": [
+            {
+                "action": "replaceAttrViewBlock",
+                "avID": avId,
+                "previousID": previousId,
+                "nextID": nextId,
+                "isDetached": isDetached
+            }
+        ],
+        "undoOperations": [
+            {
+                "action": "replaceAttrViewBlock",
+                "avID": avId,
+                "previousID": previousId,
+                "nextID": nextId,
+                "isDetached": isDetached
+            }
+        ]
+    }
+    return requestTransaction(payload);
 }

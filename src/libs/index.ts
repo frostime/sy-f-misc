@@ -11,6 +11,8 @@ import { request } from "@frostime/siyuan-plugin-kits/api";
  * @alias `redirect`
  */
 export const fb2p = async (inputs: Block[], enable?: { heading?: boolean, doc?: boolean }) => {
+    // 深度拷贝，防止修改原始输入
+    inputs = structuredClone(inputs);
     /**
      * 处理输入参数
      */

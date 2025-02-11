@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-02-08 16:39:25
  * @FilePath     : /src/func/super-ref-db/index.ts
- * @LastEditTime : 2025-02-10 14:14:48
+ * @LastEditTime : 2025-02-11 22:33:51
  * @Description  : siyuan://blocks/20250208162727-qgmztam
  */
 
@@ -64,7 +64,7 @@ export const load = () => {
             label: '更新SuperRef数据库',
             click: () => {
                 syncDatabaseFromBacklinks({
-                    doc: docId, 'addNewRefsStrategy': 'add-all', 'orphanRowsStrategy': 'remove'
+                    doc: docId, removeOrphanRows: 'ask', redirectStrategy: 'fb2p'
                 });
             }
         });
@@ -84,7 +84,7 @@ export const load = () => {
                     await createBlankSuperRefDatabase(block.id);
                 } else {
                     await syncDatabaseFromBacklinks({
-                        doc: block.id, database: db, addNewRefsStrategy: 'add-diff', orphanRowsStrategy: 'keep'
+                        doc: block.id, database: db, removeOrphanRows: 'no', redirectStrategy: 'fb2p'
                     });
                 }
             }
