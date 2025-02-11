@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-01-30 11:52:18
+ * @LastEditTime : 2025-02-11 13:36:16
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -449,7 +449,10 @@ const ChatSession: Component = (props: {
         scrollToBottom(true);
         userHasScrolled = false; // 重置滚动状态
         await session.sendMessage(userMessage);
-        scrollToBottom(true); // 发送新消息时强制滚动到底部
+
+        if (!userHasScrolled) {
+            scrollToBottom(true);
+        }
     };
 
     let menu: Menu;

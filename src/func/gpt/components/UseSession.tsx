@@ -427,7 +427,7 @@ ${inputContent}
             };
             messages.update(prev => [...prev, assistantMsg]);
 
-            props.scrollToBottom();
+            // props.scrollToBottom();
 
             // Clear attachments after sending
             attachments.update([]);
@@ -483,7 +483,7 @@ ${inputContent}
                 });
             }
 
-            props.scrollToBottom(false);
+            // props.scrollToBottom(false);
 
             if (!hasStarted) {
                 hasStarted = true;
