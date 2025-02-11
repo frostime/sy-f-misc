@@ -7,6 +7,10 @@ import { fb2p } from "@/libs";
 // 主要是是否删掉不存在的块
 // type TSyncStrategy = 'keep-unlinked' | 'one-one-matched';
 
+export const configs = {
+    doRedirect: true
+}
+
 const queryBacklinks = async (doc: DocumentId) => {
     return searchBacklinks(doc, 999) || [];
 }

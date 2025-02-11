@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-02-08 19:25:39
+ * @LastEditTime : 2025-02-12 00:39:23
  * @Description  : 
  */
 // import { type JSX } from "solid-js";
@@ -20,7 +20,7 @@ import * as tr from './transfer-ref';
 // import * as ss from './simple-search';
 // import * as dq from './data-query';
 import * as dc from './doc-context';
-import * as ta from './test-api';
+// import * as ta from './test-api';
 import * as ws from './websocket';
 import * as pd from './post-doc';
 import * as wb from './webview';
@@ -40,28 +40,28 @@ import * as srdb from './super-ref-db';
 // import * as bookmark from './bookmarks';
 
 let _ModulesToEnable: IFuncModule[] = [
-    mw,
-    dc,
     gpt,
     css,
-    gp,
-    wb,
     srdb,
+    mw,
+    gp,
+    md,
+    zt,
+    tg,
+    nf,
+    dc,
     docky,
+    wb,
     // ss,
+    qd,
     it,
     tl,
-    qd,
     ct,
-    tg,
-    zt,
-    nf,
+    pd,
     tr,
     mr,
     ws,
-    pd,
-    ta,
-    md
+    // ta,
 ];
 
 let _ModulesAlwaysEnable: IFuncModule[] = [sc];
