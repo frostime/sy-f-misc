@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-02-10 17:11:43
+ * @LastEditTime : 2025-02-14 15:04:12
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -23,6 +23,7 @@ import { showMessage } from "siyuan";
 import { solidDialog } from "@/libs/dialog";
 import HistoryList from "./components/HistoryList";
 import { globalMiscConfigs } from "./setting/store";
+import { showMessageLog } from "./MessageLogger";
 
 export let name = "GPT";
 export let enabled = false;
@@ -236,17 +237,23 @@ export const load = (plugin: FMiscPlugin) => {
                 width: '600px',
                 height: '600px'
             });
-        }
-    }, {
-        label: '导入对话',
-        icon: 'iconGithub',
-        submenu: [{
-            label: 'Google AI Studio',
-            icon: 'iconGithub',
-            click: () => {
-                persist.importGoogleAIStudio();
+        },
+        submenu: [
+            {
+                label: '消息控制台日志',
+                icon: 'iconGithub',
+                click: () => {
+                    showMessageLog();
+                }
+            },
+            {
+                'label': '导入 Google AI Studio 对话',
+                icon: 'iconGithub',
+                click: () => {
+                    persist.importGoogleAIStudio();
+                }
             }
-        }]
+        ]
     }]);
 
     plugin.addCommand({

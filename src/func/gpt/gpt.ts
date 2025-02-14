@@ -1,4 +1,5 @@
 import { useModel } from "./setting/store";
+import { appendLog } from "./MessageLogger";
 
 /**
  * 适配即将发给 GPT 的消息
@@ -36,6 +37,7 @@ interface StreamChunkData {
  * 处理流式响应的数据块
  */
 const handleStreamChunk = (line: string): StreamChunkData | null => {
+    appendLog({ type: 'chunk', data: line });
     if (line.includes('[DONE]') || !line.startsWith('data: ')) {
         return null;
     }
@@ -43,8 +45,9 @@ const handleStreamChunk = (line: string): StreamChunkData | null => {
     try {
         const responseData = JSON.parse(line.slice(6));
         if (responseData.error && !responseData.choices) {
+            const error = `**[Error]** \`\`\`json\n${JSON.stringify(responseData.error)}\`\`\``;
             return {
-                content: `**[Error]** \`\`\`json\n${JSON.stringify(responseData.error)}\`\`\``,
+                content: error,
                 reasoning_content: ''
             };
         }
@@ -133,6 +136,7 @@ const handleStreamResponse = async (
  */
 const handleNormalResponse = async (response: Response): Promise<CompletionResponse> => {
     const data = await response.json();
+    appendLog({ type: 'response', data });
     if (data.error && !data.data) {
         return {
             usage: null,
@@ -156,6 +160,9 @@ export const complete = async (input: string | IMessage[], options?: {
     option?: IChatOption
     abortControler?: AbortController
 }): Promise<CompletionResponse> => {
+
+    let response: Response;
+
     try {
         const { url, model, apiKey } = options?.model ?? useModel('siyuan');
         const messages = adpatInputMessage(input, model);
@@ -185,7 +192,9 @@ export const complete = async (input: string | IMessage[], options?: {
             ...chatOption
         };
 
-        const response = await fetch(url, {
+        appendLog({ type: 'request', data: payload });
+
+        response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -198,13 +207,19 @@ export const complete = async (input: string | IMessage[], options?: {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
-            if (errorData?.error) {
+            if (errorData) {
+                appendLog({ type: 'response', data: errorData });
                 return {
                     usage: null,
-                    content: JSON.stringify(errorData.error)
-                };
+                    content: JSON.stringify(errorData)
+                }
+            } else {
+                const data = await response.text().catch(() => '');
+                return {
+                    usage: null,
+                    content: `[Error] HTTP error! status: ${response.status}\n${data}`
+                }
             }
-            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         return options?.stream 

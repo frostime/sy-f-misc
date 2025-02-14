@@ -1,16 +1,14 @@
 import { createMemo } from "solid-js";
 import type { JSX } from "solid-js";
 
-interface INumberInputProps {
+export default function NumberInput(props: {
     value?: number;
     changed?: (value: number) => void;
     style?: JSX.CSSProperties;
     min?: number;
     max?: number;
     step?: number;
-}
-
-export default function NumberInput(props: INumberInputProps) {
+}) {
     const attrStyle = createMemo(() => ({
         style: props.style ?? {}
     }));
