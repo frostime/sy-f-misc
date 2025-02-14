@@ -251,7 +251,11 @@ ${inputContent}
             model,
             stream: false,
             chatOption: {
-                max_tokens: 128
+                'max_tokens': 128,
+                'temperature': 0.7,
+                'frequency_penalty': null,
+                'presence_penalty': null,
+                'top_p': null
             }
         });
         if (newTitle?.trim()) {

@@ -167,11 +167,22 @@ export const complete = async (input: string | IMessage[], options?: {
             });
         }
 
+        const chatOption = options?.option ?? {};
+        // 过滤掉为 null 的字段
+        for (const key in chatOption) {
+            if (chatOption[key] === null || chatOption[key] === undefined) {
+                delete chatOption[key];
+            }
+        }
+
+        if (options?.stream !== undefined) {
+            chatOption.stream = options.stream;
+        }
+
         const payload = {
             model: model,
             messages: messages,
-            ...options?.option,
-            stream: options?.stream
+            ...chatOption
         };
 
         const response = await fetch(url, {
