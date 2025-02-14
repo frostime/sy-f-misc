@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2025-01-29 23:58:22
+ * @LastEditTime : 2025-02-14 20:51:33
  * @Description  : 
  */
 
@@ -143,7 +143,7 @@ const ChatSessionSetting = (props: {
             </Form.Wrap>
             <Form.Wrap
                 title="Top P"
-                description="控制生成文本的多样性。值越低，生成的文本越保守和确定性；值越高（最大为1），生成的文本越多样和随机。注意不要和温度参数一同变更。"
+                description="控制生成文本的多样性。值越低，生成的文本越保守和确定性；值越高（最大为1），生成的文本越多样和随机。建议不要和温度参数一同变更。"
             >
                 <Form.Input
                     type="number"
@@ -161,7 +161,7 @@ const ChatSessionSetting = (props: {
             </Form.Wrap>
             <Form.Wrap
                 title="存在惩罚 (Presence Penalty)"
-                description="控制生成文本中是否使用已出现过的词的惩罚力度。值越高（最大为2），模型越倾向于避免使用已出现过的词，从而鼓励生成更多新词；值越低（最小为-2），则允许模型更多地重复使用已出现过的词，降低生成新词的倾向。"
+                description="控制生成文本中是否使用已出现过的词的惩罚力度。值越高（最大为2），模型越倾向于避免使用已出现过的词，从而鼓励生成更多新词。"
             >
                 <Form.Input
                     type="number"
@@ -179,7 +179,7 @@ const ChatSessionSetting = (props: {
             </Form.Wrap>
             <Form.Wrap
                 title="频率惩罚 (Frequency Penalty)"
-                description="控制生成文本中频繁出现的词的惩罚力度。值越高（最大为2），模型越倾向于减少重复词的出现频率，使文本更加均衡；值越低（最小为-2），则允许模型更多地使用重复词，可能导致文本出现重复的短语或句子。"
+                description="控制生成文本中频繁出现的词的惩罚力度。值越高（最大为2），模型越倾向于减少重复词的出现频率，从而增加模型谈论新主题的可能性。"
             >
                 <Form.Input
                     type="number"

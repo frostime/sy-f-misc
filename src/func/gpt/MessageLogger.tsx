@@ -5,7 +5,7 @@ import { render } from "solid-js/web";
 
 import { ButtonInput, NumberInput } from "@/libs/components/Elements";
 
-const max_log_items = createSignalRef(1000);
+const max_log_items = createSignalRef(500);
 export const messageLog = createSignalRef<{ time: string, data: any, type: string }[]>([]);
 
 export const appendLog = (options: {
