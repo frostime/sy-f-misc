@@ -34,7 +34,7 @@
         "paths": {
             "@/*": ["./src/*"],
             "@/libs/*": ["./src/libs/*"],
-            "@bookmarks/*": ["./src/func/bookmarks/*"]
+            "@gpt/*": ["./src/func/gpt/*"]
         }
     },
     "include": [

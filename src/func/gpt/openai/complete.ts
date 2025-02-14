@@ -1,26 +1,7 @@
-import { useModel } from "./setting/store";
-import { appendLog } from "./MessageLogger";
+import { useModel } from "../setting/store";
+import { appendLog } from "../MessageLogger";
+import { adpatInputMessage, adaptChatOptions } from './adpater';
 
-/**
- * 适配即将发给 GPT 的消息
- */
-const adpatInputMessage = (input: Parameters<typeof complete>[0], modelName?: string) => {
-    let messages: IMessage[] = [];
-    if (typeof input === 'string') {
-        messages = [{
-            "role": "user",
-            "content": input
-        }];
-    } else {
-        // 去掉可能的不需要的字段
-        messages = input.map(item => ({
-            role: item.role,
-            content: item.content
-        }));
-    }
-
-    return messages;
-}
 
 interface CompletionResponse {
     content: string;
@@ -151,6 +132,7 @@ const handleNormalResponse = async (response: Response): Promise<CompletionRespo
     };
 }
 
+
 export const complete = async (input: string | IMessage[], options?: {
     model?: IGPTModel,
     systemPrompt?: string,
@@ -165,7 +147,7 @@ export const complete = async (input: string | IMessage[], options?: {
 
     try {
         const { url, model, apiKey } = options?.model ?? useModel('siyuan');
-        const messages = adpatInputMessage(input, model);
+        const messages = adpatInputMessage(input);
 
         if (options?.systemPrompt) {
             messages.unshift({
@@ -174,13 +156,12 @@ export const complete = async (input: string | IMessage[], options?: {
             });
         }
 
-        const chatOption = options?.option ?? {};
-        // 过滤掉为 null 的字段
-        for (const key in chatOption) {
-            if (chatOption[key] === null || chatOption[key] === undefined) {
-                delete chatOption[key];
-            }
-        }
+        let chatOption = options?.option ?? {};
+        chatOption = adaptChatOptions({
+            chatOption,
+            model,
+            apiUrl: url
+        });
 
         if (options?.stream !== undefined) {
             chatOption.stream = options.stream;

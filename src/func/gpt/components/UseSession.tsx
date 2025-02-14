@@ -6,7 +6,7 @@ import { createSimpleContext } from '@/libs/simple-context';
 
 import { ChatSetting } from '../setting';
 import { UIConfig, promptTemplates, useModel } from '../setting/store';
-import * as gpt from '../gpt';
+import * as gpt from '@gpt/openai';
 import { adaptIMessageContent } from '../data-utils';
 import { assembleContext2Prompt } from '../context-provider';
 import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
