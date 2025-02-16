@@ -4,7 +4,7 @@
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
  * @LastEditTime : 2025-02-12 00:39:23
- * @Description  : 
+ * @Description  :
  */
 // import { type JSX } from "solid-js";
 
@@ -38,6 +38,7 @@ import * as sc from './shared-configs';
 import * as srdb from './super-ref-db';
 
 // import * as bookmark from './bookmarks';
+import * as dft from './docfile-tools';
 
 let _ModulesToEnable: IFuncModule[] = [
     gpt,
@@ -49,6 +50,7 @@ let _ModulesToEnable: IFuncModule[] = [
     zt,
     tg,
     nf,
+    dft,
     dc,
     docky,
     wb,

@@ -43,7 +43,7 @@
 		  "export const declareModuleConfig = {",
 		  "\tkey: \"$6\",",
 		  "\titems: [],",
-		  "\tinit: (itemValues?: Record<string, any>) => {",
+		  "\tload: (itemValues?: Record<string, any>) => {",
 		  "\t\t// Initialize config here",
 		  "\t}",
 		  "};",
