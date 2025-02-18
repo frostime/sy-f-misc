@@ -541,18 +541,19 @@ ${inputContent}
             let visibleCount = 0;
             let startIndex = previousMessages.length - 1;
 
-            if (contextNum > 0) {
-                for (let i = startIndex; i >= 0; i--) {
-                    const msg = previousMessages[i];
-                    if (msg.type === 'message' && !msg.hidden) {
-                        visibleCount++;
-                        if (visibleCount >= contextNum) {
-                            startIndex = i;
-                            break;
-                        }
+            while (startIndex >= 0) {
+                const msg = previousMessages[startIndex];
+                if (msg.type === 'message' && !msg.hidden) {
+                    visibleCount++;
+                    if (visibleCount >= contextNum) {
+                        // startIndex = i;
+                        break;
                     }
                 }
+                if (startIndex === 0) break;
+                startIndex--;
             }
+
             lastMessages = previousMessages.slice(startIndex);
         }
 
@@ -661,7 +662,7 @@ ${inputContent}
             const index = messages().findIndex(item => item.id === itemId);
             if (index === -1) return;
             const msgItem = messages()[index];
-            let switchFun = () => {};
+            let switchFun = () => { };
             if (!msgItem.versions || msgItem.versions[version] === undefined) {
                 showMessage('此版本不存在');
                 return;

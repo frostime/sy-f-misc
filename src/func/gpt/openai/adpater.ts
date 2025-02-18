@@ -22,11 +22,17 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
         const model = options?.model;
         // 非视觉模型去掉图片消息字段
         if (!visualModel().includes(model)) {
+            let hasImage = false;
             messages.forEach(item => {
                 if (typeof item.content !== 'string') {
-                    item.content = item.content.filter(content => content.type === 'text');
+                    const content = item.content.filter(content => content.type === 'text');
+                    hasImage = content.length !== item.content.length;
+                    item.content = content;
                 }
-            })
+            });
+            if (hasImage) {
+                console.warn(`注意: 模型 ${model} 不支持图片消息!已在内部自动过滤图片信息。`);
+            }
         }
     }
 
