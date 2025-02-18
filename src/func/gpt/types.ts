@@ -94,10 +94,12 @@ interface IGPTProvider {
     url: string;
     apiKey: string;
     disabled?: boolean;  //是否禁用该provider
+    redirect?: Record<string, string>;  //模型名称重定向; 适合字节火山等使用接入端点而非模型名称作为输入的情况
 }
 
 interface IGPTModel {
-    model: string;  //模型名称, 可以
+    modelToUse?: string; //模型, 发送给 Chat 请求用的名称, 如果为空则使用 model
+    model: string;  //模型名称
     url: string;
     apiKey: string;
 }

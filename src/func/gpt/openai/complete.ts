@@ -146,7 +146,7 @@ export const complete = async (input: string | IMessage[], options?: {
     let response: Response;
 
     try {
-        const { url, model, apiKey } = options?.model ?? useModel('siyuan');
+        const { url, model, apiKey, modelToUse } = options?.model ?? useModel('siyuan');
         const messages = adpatInputMessage(input);
 
         if (options?.systemPrompt) {
@@ -168,7 +168,7 @@ export const complete = async (input: string | IMessage[], options?: {
         }
 
         const payload = {
-            model: model,
+            model: modelToUse || model,
             messages: messages,
             ...chatOption
         };

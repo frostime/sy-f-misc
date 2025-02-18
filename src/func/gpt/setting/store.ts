@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-02-07 22:04:55
+ * @LastEditTime : 2025-02-18 13:16:33
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -106,11 +106,11 @@ export const listAvialableModels = (): Record<string, string> => {
  * @param id: `modelName@providerName` | 'siyuan'
  * @returns 
  */
-export const useModel = (id: string) => {
+export const useModel = (id: string): IGPTModel => {
     if (id === 'siyuan') {
         return siyuanModel();
     }
-    const [modelName, providerName] = id.trim().split('@');
+    let [modelName, providerName] = id.trim().split('@');
     if (!modelName || !providerName) {
         throw new Error('Invalid model name');
     }
@@ -122,7 +122,13 @@ export const useModel = (id: string) => {
     if (!provider.models.includes(modelName)) {
         console.warn(`Model ${modelName} not found in provider ${providerName}`);
     }
+
+    let modelToUse = modelName;
+    if (provider.redirect && provider.redirect[modelName]) {
+        modelToUse = provider.redirect[modelName];
+    }
     return {
+        modelToUse,
         model: modelName,
         url: provider.url,
         apiKey: provider.apiKey

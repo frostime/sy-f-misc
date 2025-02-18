@@ -1,4 +1,4 @@
-import { Accessor, Component, For, createSignal } from "solid-js";
+import { Accessor, Component, For, createSignal, onCleanup } from "solid-js";
 import Form from "@/libs/components/Form";
 import { providers } from "./store";
 import Heading from "./Heading";
@@ -8,6 +8,7 @@ import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { solidDialog } from "@/libs/dialog";
 import { SvgSymbol } from "../components/Elements";
 import { createSignalRef } from "@frostime/solid-signal-ref";
+import { showMessage } from "siyuan";
 
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<{
@@ -29,8 +30,19 @@ const ProviderEditForm: Component<{
     }
 
     let initModels = provider().models.join('\n');
+    let redirectString = createSignalRef(provider().redirect ? JSON.stringify(provider().redirect, null, 2) : '');
 
     const hidekey = createSignalRef(true);
+
+    onCleanup(() => {
+        if (!redirectString()) return;
+        try {
+            let parsed = JSON.parse(redirectString());
+            updateProvider(index(), 'redirect', parsed);
+        } catch (e) {
+            showMessage(`无法解析 ${provider().name} 的重定向配置`)
+        }
+    })
 
     return (
         <div style={{
@@ -120,6 +132,25 @@ const ProviderEditForm: Component<{
                     type="checkbox"
                     value={provider().disabled || false}
                     changed={(v) => updateProvider(index(), 'disabled', v)}
+                />
+            </Form.Wrap>
+
+            <Form.Wrap
+                title="模型名称重定向"
+                description={`如果有需要，可以使用 JSON 语法配置模型重定向 { "显示的模型名称": "发送给服务商的模型名称" }<br/> 此配置选项可以为空，此选项一般主要给字节火山平台适配使用`}
+                direction="row"
+            >
+                <Form.Input
+                    type="textarea"
+                    value={redirectString()}
+                    changed={(value: string) => {
+                        redirectString(value.trim())
+                    }}
+                    style={{
+                        width: "100%",
+                        'font-size': '1.3em',
+                        'line-height': '1.2em'
+                    }}
                 />
             </Form.Wrap>
         </div>
