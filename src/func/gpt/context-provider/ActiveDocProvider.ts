@@ -7,7 +7,7 @@
  * @Description  : 
  */
 import { getMarkdown } from "@frostime/siyuan-plugin-kits";
-import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
+import { getBlockByID } from "@frostime/siyuan-plugin-kits";
 
 
 const FocusDocProvider: CustomContextProvider = {

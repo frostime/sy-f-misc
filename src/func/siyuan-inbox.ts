@@ -1,7 +1,15 @@
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2025-02-06 15:42:29
+ * @FilePath     : /src/func/siyuan-inbox.ts
+ * @LastEditTime : 2025-02-18 11:33:11
+ * @Description  : 
+ */
 import type FMiscPlugin from "@/index";
 import { request } from "@frostime/siyuan-plugin-kits/api";
 import { formatDate } from "./toggl/utils/time";
-import { createDailynote } from "@frostime/siyuan-plugin-kits";
+// import { createDailynote } from "@frostime/siyuan-plugin-kits";
 
 
 interface IInboxMessage {

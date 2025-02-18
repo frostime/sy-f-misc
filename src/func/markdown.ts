@@ -6,10 +6,10 @@
  * @LastEditTime : 2025-02-10 13:46:36
  * @Description  : 
  */
-import { exportMdContent } from "@/api";
+
 import { getLute, html2ele, id2block, simpleDialog } from "@frostime/siyuan-plugin-kits";
-import { thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { getBlockByID, request, updateBlock } from "@frostime/siyuan-plugin-kits/api";
+import { thisPlugin, getBlockByID } from "@frostime/siyuan-plugin-kits";
+import { request, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
 import { Protyle, showMessage } from "siyuan";
 
 export let name = "Markdown";
@@ -68,7 +68,11 @@ export const load = () => {
             label: '查看 Markdown',
             icon: 'iconMarkdown',
             click: async () => {
-                let md = await exportMdContent(root_id);
+                let md = await exportMdContent(root_id, {
+                    yfm: false,
+                    embedMode: 0,
+                    refMode: 2
+                });
                 exportDialog(md.content, md.hPath.split('/').pop() || 'Markdown');
             }
         });

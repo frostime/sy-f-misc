@@ -13,7 +13,7 @@ import * as nf from './new-file';
 import * as it from './insert-time';
 import * as tl from './titled-link';
 import * as zt from './zotero';
-import * as ct from './change-theme';
+// import * as ct from './change-theme';
 import * as mw from './mini-window';
 import * as docky from './docky';
 import * as tr from './transfer-ref';
@@ -58,7 +58,7 @@ let _ModulesToEnable: IFuncModule[] = [
     qd,
     it,
     tl,
-    ct,
+    // ct,
     pd,
     tr,
     mr,

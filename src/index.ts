@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-01-12 11:45:37
+ * @LastEditTime : 2025-02-18 12:18:35
  * @Description  : 
  */
 import {
@@ -11,22 +11,17 @@ import {
     Menu,
     Plugin,
     getFrontend,
-    showMessage,
-    Protyle
+    showMessage
 } from "siyuan";
 
 import { load, unload } from "./func";
 
 import "@/index.scss";
 
-// import { updateStyleLink } from "./libs/style";
 import { initSetting } from "./settings";
-// import { onPaste } from "./global-paste";
 
-import { updateStyleDom, registerPlugin } from "@frostime/siyuan-plugin-kits";
+import { registerPlugin } from "@frostime/siyuan-plugin-kits";
 
-// import type {} from "solid-styled-jsx";
-import { getFile } from "./api";
 
 import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
 
