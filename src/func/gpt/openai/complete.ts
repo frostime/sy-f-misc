@@ -147,7 +147,7 @@ export const complete = async (input: string | IMessage[], options?: {
 
     try {
         const { url, model, apiKey, modelToUse } = options?.model ?? useModel('siyuan');
-        const messages = adpatInputMessage(input);
+        const messages = adpatInputMessage(input, { model });
 
         if (options?.systemPrompt) {
             messages.unshift({

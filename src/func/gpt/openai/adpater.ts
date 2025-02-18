@@ -1,21 +1,36 @@
+import { visualModel } from "../setting";
 import { type complete } from "./complete";
 
-export const adpatInputMessage = (input: Parameters<typeof complete>[0]) => {
-   let messages: IMessage[] = [];
-   if (typeof input === 'string') {
-       messages = [{
-           "role": "user",
-           "content": input
-       }];
-   } else {
-       // 去掉可能的不需要的字段
-       messages = input.map(item => ({
-           role: item.role,
-           content: item.content
-       }));
-   }
+export const adpatInputMessage = (input: Parameters<typeof complete>[0], options: {
+    model: string;
+}) => {
+    let messages: IMessage[] = [];
+    if (typeof input === 'string') {
+        messages = [{
+            "role": "user",
+            "content": input
+        }];
+    } else {
+        // 去掉可能的不需要的字段
+        messages = input.map(item => ({
+            role: item.role,
+            content: item.content
+        }));
+    }
 
-   return messages;
+    if (options) {
+        const model = options?.model;
+        // 非视觉模型去掉图片消息字段
+        if (!visualModel().includes(model)) {
+            messages.forEach(item => {
+                if (typeof item.content !== 'string') {
+                    item.content = item.content.filter(content => content.type === 'text');
+                }
+            })
+        }
+    }
+
+    return messages;
 }
 
 export const adaptChatOptions = (target: {
