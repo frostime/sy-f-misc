@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-02-10 13:46:36
+ * @LastEditTime : 2025-02-18 14:03:55
  * @Description  : 
  */
 
@@ -69,9 +69,7 @@ export const load = () => {
             icon: 'iconMarkdown',
             click: async () => {
                 let md = await exportMdContent(root_id, {
-                    yfm: false,
-                    embedMode: 0,
-                    refMode: 2
+                    yfm: false
                 });
                 exportDialog(md.content, md.hPath.split('/').pop() || 'Markdown');
             }

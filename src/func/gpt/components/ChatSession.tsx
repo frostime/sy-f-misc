@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-02-11 13:36:16
+ * @LastEditTime : 2025-02-18 13:39:49
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -332,6 +332,7 @@ const ChatSession: Component = (props: {
                 label: provider.displayTitle,
                 click: async () => {
                     const context = await executeContextProvider(provider);
+                    if (!context) return;
                     if (context.contextItems.length === 0) return;
                     // 将上下文添加到 UseSession 中
                     session.setContext(context);
