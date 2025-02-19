@@ -15,8 +15,8 @@
     --chat-max-width: 1250px;
 }
 
-$chat-narrow-container: 540px;
-$chat-very-narrow-container: 360px;
+$chat-narrow-container: 600px;
+$chat-very-narrow-container: 400px;
 
 // 顶层的思源容器会设置 container-type 为 inline-size
 .chatContainer {
@@ -78,6 +78,33 @@ $chat-very-narrow-container: 360px;
         text-overflow: ellipsis; // 使用 ... 表示被截断的文本
         padding-left: 5px;
         padding-right: 5px;
+
+        @container (max-width: #{$chat-narrow-container}) {
+            font-size: 0.85em;
+        }
+        @container (max-width: #{$chat-very-narrow-container}) {
+            font-size: 0.75em;
+        }
+    }
+
+    // @container (max-width: #{$chat-narrow-container}) {
+    //     >div[data-role="spacer"] {
+    //         display: none;
+    //     }
+
+    //     justify-content: unset;
+
+    //     span[data-hint="true"] {
+    //         display: none;
+    //     }
+    // }
+
+    @container (max-width: #{$chat-very-narrow-container}) {
+        span[data-role="copy-link"],
+        span[data-role="multi-select"],
+        span[data-role="history"] {
+            display: none;
+        }
     }
 }
 
@@ -134,9 +161,9 @@ $chat-very-narrow-container: 360px;
         }
 
         @container (max-width: #{$chat-narrow-container}) {
-            >div[data-role="spacer"] {
-                display: none;
-            }
+            // >div[data-role="spacer"] {
+            //     display: none;
+            // }
 
             justify-content: unset;
 
@@ -148,6 +175,14 @@ $chat-very-narrow-container: 360px;
         @container (max-width: #{$chat-very-narrow-container}) {
             >span[data-role="model"] {
                 max-width: 5em !important;
+            }
+
+            
+
+            span.toolbarLabel[data-role="clear-context"],
+            span.toolbarLabel[data-role="system-prompt"],
+            span.toolbarLabel[data-role="word-count"] {
+                display: none;
             }
         }
     }

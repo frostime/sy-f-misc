@@ -1,7 +1,7 @@
 @use './HistoryList.module.scss';
 
-$chat-narrow-container: 540px;
-$chat-very-narrow-container: 360px;
+$chat-narrow-container: 600px;
+$chat-very-narrow-container: 400px;
 
 .messageItem {
     --chat-hidden-message-max-height: 7.5em;

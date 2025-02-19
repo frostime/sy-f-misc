@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-02-14 15:04:12
+ * @LastEditTime : 2025-02-19 11:32:41
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -211,6 +211,47 @@ const addSVG = (plugin: FMiscPlugin) => {
     plugin.addIcons(symbol);
 }
 
+let dockAdded = false;
+const addDock = (plugin: FMiscPlugin) => {
+    if (dockAdded) return;
+    dockAdded = true;
+    let disposer = () => { };
+    plugin.addDock({
+        config: {
+            position: 'RightBottom',
+            size: {
+                width: 300,
+                height: null
+            },
+            icon: 'iconGithub',
+            title: 'GPT 侧边对话',
+            hotkey: translateHotkey('Ctrl+Alt+L'),
+        },
+        data: {
+
+        },
+        type: 'fmisGPTChat',
+        init(dock) {
+            const container = dock.element;
+            disposer = render(() => ChatSession({
+                systemPrompt: 'You are a helpful assistant.',
+                updateTitleCallback: (title: string) => {
+                    if (!title) return;
+                    if (title.length > 30) {
+                        title = title.slice(0, 30);
+                        title += '...';
+                    }
+                },
+            }), container);
+            container.style.overflowY = 'clip';
+            container.style.containerType = 'inline-size';
+        },
+        destroy() {
+            disposer();
+        }
+    })
+}
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
@@ -264,7 +305,11 @@ export const load = (plugin: FMiscPlugin) => {
             openChatTab(true);
         }
     });
-    setting.load(plugin);
+    setting.load(plugin).then(() => {
+        if (globalMiscConfigs().pinChatDock) {
+            addDock(plugin);
+        }
+    })
     clickEvent.register();
 
     plugin.eventBus.on('open-siyuan-url-plugin', openUrl);

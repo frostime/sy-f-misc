@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-02-07 17:35:13
+ * @LastEditTime : 2025-02-18 20:13:45
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -124,6 +124,18 @@ const GlobalSetting = () => {
                     <Match when={activeTab() === 'chat'}>
                         <div>
                             <ChatSetting config={store.defaultConfig} />
+                            <Form.Wrap
+                                title="侧边对话栏目"
+                                description="开启后，会在侧边栏中固定一个对话窗口; 重启后生效"
+                            >
+                                <Form.Input
+                                    type="checkbox"
+                                    value={globalMiscConfigs().pinChatDock}
+                                    changed={(v) => {
+                                        globalMiscConfigs.update('pinChatDock', v);
+                                    }}
+                                />
+                            </Form.Wrap>
                             <Form.Wrap
                                 title="选中内容格式"
                                 description="用户选中内容时，插入到对话中的格式。使用 {{content}} 作为占位符表示选中的内容"

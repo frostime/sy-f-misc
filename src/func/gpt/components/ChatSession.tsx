@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-02-18 13:39:49
+ * @LastEditTime : 2025-02-19 11:30:21
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -192,12 +192,12 @@ const useSiYuanEditor = (props: {
 }
 
 
-const ChatSession: Component = (props: {
+const ChatSession: Component<{
     input?: ISignalRef<string>;
     systemPrompt?: string;
     history?: IChatSessionHistory;
     updateTitleCallback?: (title: string) => void;
-}) => {
+}> = (props) => {
     const modelId = useSignalRef(defaultModelId());
     const model = createMemo(() => useModel(modelId()));
     //Detach from the solidjs store's reactive system
@@ -287,21 +287,24 @@ const ChatSession: Component = (props: {
     /**
      * 当外部的 input signal 变化的时候，自动添加到文本框内
      */
-    createRenderEffect(on(props.input.signal, (text: string) => {
-        if (!text) return;
-        input.value += text;
-        //刚刚创建的时候，可能还没有 textarea 元素
-        if (!textareaRef) return;
-        //需要等待 textarea 调整高度后再设置值
-        setTimeout(() => {
-            adjustTextareaHeight();
-            textareaRef?.focus();
-            //设置 textarea 滚动到顶部
-            textareaRef.scrollTop = 0;
-            //重新设置当前光标位置
-            textareaRef.setSelectionRange(textareaRef.selectionStart, textareaRef.selectionStart);
-        }, 0);
-    }));
+    if (props.input) {
+        createRenderEffect(on(props.input.signal, (text: string) => {
+            if (!text) return;
+            input.value += text;
+            //刚刚创建的时候，可能还没有 textarea 元素
+            if (!textareaRef) return;
+            //需要等待 textarea 调整高度后再设置值
+            setTimeout(() => {
+                adjustTextareaHeight();
+                textareaRef?.focus();
+                //设置 textarea 滚动到顶部
+                textareaRef.scrollTop = 0;
+                //重新设置当前光标位置
+                textareaRef.setSelectionRange(textareaRef.selectionStart, textareaRef.selectionStart);
+            }, 0);
+        }));
+    }
+
 
     onMount(() => {
         adjustTextareaHeight();
@@ -624,6 +627,7 @@ const ChatSession: Component = (props: {
             <ToolbarLabel
                 onclick={props.onclick ?? (() => { })}
                 label={props.label}
+                role={props?.role}
                 styles={{
                     background: 'var(--chat-bg-color)',
                     color: 'var(--chat-text-color)',
@@ -677,6 +681,7 @@ const ChatSession: Component = (props: {
                 />
                 <Item
                     label="复制链接"
+                    role="copy-link"
                     icon="iconLink"
                     onclick={() => {
                         persist.persistHistory(session.sessionHistory(), { onlyJson: true, verbose: false });
@@ -701,6 +706,7 @@ const ChatSession: Component = (props: {
                         }
                     }}
                     label='多选'
+                    role="multi-select"
                     icon='iconCheck'
                     styles={
                         multiSelect() ? {
@@ -715,9 +721,14 @@ const ChatSession: Component = (props: {
                     }}
                     label='自动生成标题'
                     icon='iconH1'
+                    role="auto-title"
                 />
                 <div
-                    class={styles.chatTitle}
+                    // class={styles.chatTitle}
+                    classList={{
+                        [styles.chatTitle]: true,
+                        'ariaLabel': true
+                    }}
                     onclick={() => {
                         inputDialog({
                             title: '更改标题',
@@ -728,6 +739,7 @@ const ChatSession: Component = (props: {
                             width: '600px',
                         })
                     }}
+                    aria-label={session.title()}
                 >
                     {session.title()}
                 </div>
@@ -736,10 +748,12 @@ const ChatSession: Component = (props: {
                     onclick={openHistoryList}
                     label='历史记录'
                     icon='iconHistory'
+                    role="history"
                 />
                 <Item
                     onclick={() => isReadingMode.update(!isReadingMode())}
                     label={isReadingMode() ? '退出阅读' : '阅读模式'}
+                    role="reading-mode"
                     icon={'iconEye'}
                     styles={
                         isReadingMode() ? {
@@ -986,7 +1000,7 @@ const ChatSession: Component = (props: {
                     <ToolbarLabel onclick={openSetting} label='设置' >
                         <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>
-                    <ToolbarLabel onclick={session.toggleClearContext} label='新的上下文' >
+                    <ToolbarLabel onclick={session.toggleClearContext} label='新的上下文' role='clear-context' >
                         <SvgSymbol size="15px">iconLine</SvgSymbol>
                     </ToolbarLabel>
                     <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
@@ -1048,10 +1062,10 @@ const ChatSession: Component = (props: {
                             width: '680px',
                             height: '480px'
                         });
-                    }} label='系统提示' data-role="system-prompt" >
+                    }} label='系统提示' role="system-prompt" >
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
                     </ToolbarLabel>
-                    <ToolbarLabel>
+                    <ToolbarLabel role="word-count">
                         <span data-hint="true">字数: </span>{input().length}
                     </ToolbarLabel>
                     <ToolbarLabel onclick={slideAttachHistoryCnt} label='更改附带消息条数' >

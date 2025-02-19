@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-02-18 13:16:33
+ * @LastEditTime : 2025-02-18 20:01:34
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -38,7 +38,13 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
 });
 
 
-export const globalMiscConfigs = useStoreRef({
+export const globalMiscConfigs = useStoreRef<{
+    pinChatDock: boolean;
+    userSelectedContextFormat: string;
+    privacyKeywords: string;
+    privacyMask: string;
+}>({
+    pinChatDock: false,
     userSelectedContextFormat: `**以下是用户附带的内容**:
 ------
 {{content}}
