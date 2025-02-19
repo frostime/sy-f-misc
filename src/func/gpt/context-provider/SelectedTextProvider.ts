@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:25:34
  * @FilePath     : /src/func/gpt/context-provider/SelectedTextProvider.ts
- * @LastEditTime : 2025-01-29 22:41:20
+ * @LastEditTime : 2025-02-19 18:57:21
 * @Description  : 
 */
 
@@ -52,10 +52,10 @@ const SelectedTextProvider: CustomContextProvider = {
             let markdown = markdowns.join('\n').trim();
 
             const title = protyle.querySelector('.protyle-title__input');
-            const displayTitle = title.textContent;
+            const displayTitle = title?.textContent ?? '';
             contextItems.push({
                     name: markdown.length > 15 ? markdown.substring(0, 15) + '...' : markdown,
-                    description: `用户在文档 [${displayTitle}] 中选中的内容块`,
+                    description: `用户在文档${displayTitle ? `[${displayTitle}]` : ''}中选中的内容块`,
                     content: markdown,
             });
         }
