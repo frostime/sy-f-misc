@@ -3,7 +3,7 @@ import * as SiYuan from "siyuan";
 
 import { searchAttr, formatSiYuanDate, thisPlugin, api } from "@frostime/siyuan-plugin-kits";
 
-import { openTab, openWindow } from "siyuan";
+import { openWindow } from "siyuan";
 // import { html2ele } from "@frostime/siyuan-plugin-kits";
 import { importJavascriptFile } from "@frostime/siyuan-plugin-kits";
 import { createJavascriptFile } from "@frostime/siyuan-plugin-kits";
@@ -39,22 +39,29 @@ const appendDnList = async (text: string) => {
 
     const refreshDocument = () => {
         let docId = blocks[0].root_id;
-        let title = document.querySelector(`.protyle-title[data-node-id="${docId}"]`);
-        const protyle = title?.closest('div.protyle');
-        if (!protyle) return;
-        const dataId = protyle?.getAttribute('data-id');
-        let tabHeader = document.querySelector(`li[data-type="tab-header"][data-id="${dataId}"]`);
-        let closeEle = tabHeader?.querySelector('span.item__close') as HTMLSpanElement;
-        closeEle?.click();
-        setTimeout(() => {
-            let plugin = thisPlugin();
-            openTab({
-                app: plugin.app,
-                doc: {
-                    id: docId,
-                }
-            })
-        }, 0); //关闭再打开，以刷新文档内容
+        const protyles = SiYuan.getAllEditor();
+        protyles.forEach((protyle) => {
+            if (protyle.protyle.block.rootID == docId) {
+                return;
+            }
+            protyle.reload(false);
+        });
+        // let title = document.querySelector(`.protyle-title[data-node-id="${docId}"]`);
+        // const protyle = title?.closest('div.protyle');
+        // if (!protyle) return;
+        // const dataId = protyle?.getAttribute('data-id');
+        // let tabHeader = document.querySelector(`li[data-type="tab-header"][data-id="${dataId}"]`);
+        // let closeEle = tabHeader?.querySelector('span.item__close') as HTMLSpanElement;
+        // closeEle?.click();
+        // setTimeout(() => {
+        //     let plugin = thisPlugin();
+        //     openTab({
+        //         app: plugin.app,
+        //         doc: {
+        //             id: docId,
+        //         }
+        //     })
+        // }, 0); //关闭再打开，以刷新文档内容
     }
 
     let name = 'custom-dn-quickh2';
