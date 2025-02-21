@@ -5,7 +5,7 @@ import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
 
 import { ChatSetting } from '../setting';
-import { UIConfig, promptTemplates, useModel } from '../setting/store';
+import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '@gpt/openai';
 import { adaptIMessageContent } from '../data-utils';
 import { assembleContext2Prompt } from '../context-provider';
@@ -35,7 +35,7 @@ export const useSession = (props: {
 }) => {
     let sessionId = useSignalRef<string>(window.Lute.NewNodeID());
 
-    const systemPrompt = useSignalRef<string>('');
+    const systemPrompt = useSignalRef<string>(globalMiscConfigs().defaultSystemPrompt || '');
     // 当前的 attachments
     const attachments = useSignalRef<Blob[]>([]);
     const contexts = useStoreRef<IProvidedContext[]>([]);
@@ -637,7 +637,8 @@ ${inputContent}
         },
         newSession: () => {
             sessionId.value = window.Lute.NewNodeID();
-            systemPrompt.update('');
+            // systemPrompt.update('');
+            systemPrompt.value = globalMiscConfigs().defaultSystemPrompt || '';
             timestamp = new Date().getTime();
             title.update('新的对话');
             messages.update([]);

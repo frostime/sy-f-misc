@@ -1,7 +1,7 @@
 // h:\SrcCode\SiYuanDevelopment\sy-f-misc\src\func\gpt\setting\PromptTemplateSetting.tsx
 import { Accessor, Component, For, createSignal } from "solid-js";
 import Form from "@/libs/components/Form";
-import { promptTemplates } from "./store";
+import { globalMiscConfigs, promptTemplates } from "./store";
 import Heading from "./Heading";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
@@ -212,16 +212,28 @@ const PromptTemplateSetting = () => {
 
     const { handleDragStart, handleDragOver, handleDrop } = useDndReorder();
 
-    const storage = sessionStorage.getItem('PromptTemplateSetting.isListOpen');
-    const isListOpen = useSignalRef(storage ? JSON.parse(storage) : true);
-    const toggleList = () => {
-        isListOpen.value = !isListOpen.value;
-        sessionStorage.setItem('PromptTemplateSetting.isListOpen', JSON.stringify(isListOpen.value));
-    };
+    // const storage = sessionStorage.getItem('PromptTemplateSetting.isListOpen');
+    // const isListOpen = useSignalRef(storage ? JSON.parse(storage) : true);
+    // const toggleList = () => {
+    //     isListOpen.value = !isListOpen.value;
+    //     sessionStorage.setItem('PromptTemplateSetting.isListOpen', JSON.stringify(isListOpen.value));
+    // };
 
     return (
         <SimpleProvider state={{ updateTemplate, removeTemplate }}>
             <div>
+                <Form.Wrap
+                    title="默认系统提示词"
+                    description="系统提示词用于在对话开始时给用户提供一些引导"
+                    direction="row"
+                >
+                    <Form.Input
+                        type="textarea"
+                        value={globalMiscConfigs().defaultSystemPrompt}
+                        changed={(v) => globalMiscConfigs.update('defaultSystemPrompt', v)}
+                        spellcheck={false}
+                    />
+                </Form.Wrap>
                 <Heading>
                     <div style={{
                         display: 'flex',
