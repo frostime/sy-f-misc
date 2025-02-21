@@ -22,7 +22,7 @@ const superBlock = (content: string) => {
 ${content}
 
 }}}
-{: id="20250209123606-aaaaaaa" style="outline: 1px solid var(--b3-border-color);" }
+{: id="20250209123606-aaaaaaa" }
 
 
 {: id="20250209123606-bbbbbbb" }

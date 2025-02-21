@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 17:06:29
  * @FilePath     : /src/func/toggl/func/record-to-dn.ts
- * @LastEditTime : 2025-01-15 18:13:03
+ * @LastEditTime : 2025-02-20 13:56:47
  * @Description  : 
  */
 import { sql, updateBlock, prependBlock, setBlockAttrs } from "@/api";
@@ -85,7 +85,7 @@ export const recordTodayEntriesToDN = async () => {
     }
 
     let entries = response.data;
-    if (entries.length === 0) {
+    if (!entries || entries.length === 0) {
         showMessage('今天没有 toggl 记录', 4000, 'info');
         return;
     }
