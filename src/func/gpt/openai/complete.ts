@@ -1,17 +1,26 @@
 import { useModel } from "../setting/store";
 import { appendLog } from "../MessageLogger";
-import { adpatInputMessage, adaptChatOptions } from './adpater';
+import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference } from './adpater';
 
 
 interface CompletionResponse {
     content: string;
     usage: any | null;
     reasoning_content?: string;
+    references?: TReference[];
 }
 
 interface StreamChunkData {
     content: string;
     reasoning_content: string;
+    references?: TReference[];
+}
+
+const buildReferencesText = (refers: CompletionResponse['references']) => {
+    if (!refers) return '';
+    return '**References**:\n' + refers.map(ref => {
+        return `- [${ref.title || ref.url}](${ref.url})`;
+    }).join('\n');
 }
 
 /**
@@ -19,12 +28,12 @@ interface StreamChunkData {
  */
 const handleStreamChunk = (line: string): StreamChunkData | null => {
     appendLog({ type: 'chunk', data: line });
-    if (line.includes('[DONE]') || !line.startsWith('data: ')) {
+    if (line.includes('[DONE]') || !line.startsWith('data:')) {
         return null;
     }
 
     try {
-        const responseData = JSON.parse(line.slice(6));
+        const responseData = JSON.parse(line.slice(5).trim());
         if (responseData.error && !responseData.choices) {
             const error = `**[Error]** \`\`\`json\n${JSON.stringify(responseData.error)}\`\`\``;
             return {
@@ -34,10 +43,12 @@ const handleStreamChunk = (line: string): StreamChunkData | null => {
         }
 
         const delta = responseData.choices[0].delta;
-        return {
+        const result = {
             content: delta.content || '',
             reasoning_content: delta.reasoning_content || ''
         };
+        result['references'] = adaptResponseReferences(responseData);
+        return result;
     } catch (e) {
         console.warn('Failed to parse stream data:', e);
         return null;
@@ -58,8 +69,10 @@ const handleStreamResponse = async (
     const responseContent: CompletionResponse = {
         content: '',
         reasoning_content: '',
-        usage: null
+        usage: null,
     };
+
+    let references: TReference[] = null;
 
     const transformStream = new TransformStream({
         transform: (chunk, controller) => {
@@ -104,9 +117,21 @@ const handleStreamResponse = async (
                 streamingMsg += responseContent.content;
             }
             options.streamMsg?.(streamingMsg);
+
+            // 引用
+            const refers = adaptResponseReferences(readResult.value as StreamChunkData);
+            if (refers) {
+                if (!references) references = [];
+                references = [...references, ...refers];
+            }
         }
     } catch (error) {
         responseContent.content += `\n **[Error]** ${error}`;
+    }
+
+    if (references && references.length) {
+        // responseContent.references = references;
+        responseContent.content += '\n' + buildReferencesText(references);
     }
 
     return responseContent;
@@ -125,11 +150,17 @@ const handleNormalResponse = async (response: Response): Promise<CompletionRespo
             reasoning_content: ''
         };
     }
-    return {
+    const results = {
         content: data.choices[0].message.content,
         usage: data.usage,
-        reasoning_content: data.choices[0].message?.reasoning_content
+        reasoning_content: data.choices[0].message?.reasoning_content,
     };
+    let references = adaptResponseReferences(data);
+    if (references && references.length) {
+        // results.references = data.references;
+        results.content += '\n' + buildReferencesText(references);
+    }
+    return results;
 }
 
 

@@ -82,3 +82,21 @@ export const adaptChatOptions = (target: {
 
     return chatOption;
 }
+
+
+export type TReference = {
+    title: string;
+    url: string;
+};
+/**
+ * 一些联网的请求里面会有引用
+ */
+export const adaptResponseReferences = (data: any): TReference[] | undefined => {
+    if (data.references) {
+        return data.references.map((item: any) => ({
+            title: item.title,
+            url: item.url
+        }));
+    }
+    return undefined;
+}

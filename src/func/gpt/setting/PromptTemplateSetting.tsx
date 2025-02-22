@@ -7,7 +7,6 @@ import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
 import { SvgSymbol } from "../components/Elements";
-import { useSignalRef } from "@frostime/solid-signal-ref";
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<{
     updateTemplate: (index: number, key: keyof IPromptTemplate, value: any) => void;
@@ -232,6 +231,9 @@ const PromptTemplateSetting = () => {
                         value={globalMiscConfigs().defaultSystemPrompt}
                         changed={(v) => globalMiscConfigs.update('defaultSystemPrompt', v)}
                         spellcheck={false}
+                        style={{
+                            "white-space": "pre-wrap"
+                        }}
                     />
                 </Form.Wrap>
                 <Heading>
