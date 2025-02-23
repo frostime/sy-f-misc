@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-02-23 21:10:40
+ * @LastEditTime : 2025-02-23 21:45:55
  * @Description  : 
  */
-import { inputDialog } from '@frostime/siyuan-plugin-kits';
+// import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { FocusDocProvider, OpenedDocProvider } from './ActiveDocProvider';
 import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
@@ -16,6 +16,7 @@ import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
 import { globalMiscConfigs } from '../setting/store';
+import { inputDialogForProvider } from './InputForProvder';
 
 const contextProviders: CustomContextProvider[] = [
     SelectedTextProvider,
@@ -87,19 +88,20 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
     let contextItems = [];
     if (provider.type === undefined || provider.type === 'normal') {
         contextItems = await provider.getContextItems(option);
-    } else if (provider.type === 'query') {
+    } else if (provider.type === 'input-line' || provider.type === 'input-area') {
         const query = await new Promise<string>((resolve, reject) => {
-            inputDialog({
-                title: provider.description,
-                type: 'textarea',
+            inputDialogForProvider({
+                title: provider.displayTitle,
+                description: provider.description,
+                type: provider.type === 'input-line' ? 'line' : 'area',
                 confirm: (text) => {
                     resolve(text);
                 },
-                destroyCallback: () => {
+                cancel: () => {
                     resolve(null);
                 },
                 width: '720px',
-                height: '320px',
+                height: provider.type === 'input-line' ? null : '320px',
             });
         });
         if (!query) return;

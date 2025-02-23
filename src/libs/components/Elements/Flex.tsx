@@ -5,7 +5,8 @@ export const Rows: Component<{
     children: JSX.Element,
     gap?: string,
     align?: 'center' | 'flex-start' | 'flex-end',
-    justify?: 'center' | 'flex-start' | 'flex-end' | 'space-between'
+    justify?: 'center' | 'flex-start' | 'flex-end' | 'space-between',
+    style?: JSX.CSSProperties
 }> = (props) => {
     const C = children(() => props.children);
     return (
@@ -14,8 +15,9 @@ export const Rows: Component<{
                 display: 'flex',
                 'flex-direction': 'column',
                 gap: props.gap ?? '5px',
-                'align-items': props.align ?? 'center',
-                'justify-content': props.justify ?? 'center'
+                'align-items': props.align ?? 'flex-start',
+                'justify-content': props.justify ?? 'center',
+                ...props.style
             }}
         >
             {C()}
@@ -28,7 +30,8 @@ export const Cols: Component<{
     children: JSX.Element,
     gap?: string,
     align?: 'center' | 'flex-start' | 'flex-end',
-    justify?: 'center' | 'flex-start' | 'flex-end' | 'space-between'
+    justify?: 'center' | 'flex-start' | 'flex-end' | 'space-between',
+    style?: JSX.CSSProperties
 }> = (props) => {
     const C = children(() => props.children);
     return (
@@ -38,7 +41,8 @@ export const Cols: Component<{
                 'flex-direction': 'row',
                 gap: props.gap ?? '5px',
                 'align-items': props.align ?? 'center',
-                'justify-content': props.justify ?? 'center'
+                'justify-content': props.justify ?? 'center',
+                ...props.style
             }}
         >
             {C()}

@@ -105,7 +105,7 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
 };
 
 const URLProvider: CustomContextProvider = {
-    type: "query",
+    type: "input-line",
     name: "URLProvider",
     icon: 'iconLink',
     displayTitle: "URL内容获取",

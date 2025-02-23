@@ -8,12 +8,18 @@ interface ITextAreaProps {
     spellcheck?: boolean;
 }
 
+const Enter = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+        e.stopImmediatePropagation();
+    }
+}
+
 export default function TextArea(props: ITextAreaProps) {
     const attrStyle = createMemo(() => {
         const baseStyle: JSX.CSSProperties = {
             resize: "vertical",
             height: '10rem',
-            "white-space": "nowrap"
+            "white-space": "pre-wrap"
         };
         return {
             style: { ...baseStyle, ...(props.style ?? {}) }
@@ -29,6 +35,7 @@ export default function TextArea(props: ITextAreaProps) {
             onInput={(e) => {
                 props.changed?.(e.currentTarget.value);
             }}
+            onkeydown={Enter}
         />
     );
 } 

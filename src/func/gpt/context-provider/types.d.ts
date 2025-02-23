@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:10:29
  * @FilePath     : /src/func/gpt/context-provider/types.d.ts
- * @LastEditTime : 2025-01-27 19:44:17
+ * @LastEditTime : 2025-02-23 21:43:02
  * @Description  : 
  */
 interface ContextItem {
@@ -19,7 +19,7 @@ interface ContextSubmenuItem {
 }
 
 
-type ContextProviderType = "normal" | "query" | "submenu";
+type ContextProviderType = "normal" | "input-line" | "input-area" | "submenu";
 
 interface CustomContextProvider {
     name: string;

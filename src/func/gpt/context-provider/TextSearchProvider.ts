@@ -14,7 +14,7 @@ const TextSearchProvider: CustomContextProvider = {
     name: 'TextSearch',
     displayTitle: '关键词搜索',
     description: '在笔记库中搜索关键词',
-    type: 'query',
+    type: 'input-line',
     icon: 'iconFont',
     async getContextItems(options) {
         let { query } = options;

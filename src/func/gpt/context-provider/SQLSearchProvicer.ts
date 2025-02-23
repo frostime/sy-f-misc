@@ -27,7 +27,7 @@ const validateInput = (sqlCode: any) => {
 }
 
 const SQLSearchProvicer: CustomContextProvider = {
-    type: "query",
+    type: "input-area",
     name: "QuerySearch",
     icon: 'iconSQL',
     displayTitle: "SQL/JS 查询",
