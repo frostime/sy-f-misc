@@ -2,10 +2,12 @@ import { Component, createSignal, onCleanup } from "solid-js";
 import { getAlive } from ".";
 import FormWrap from "@/libs/components/Form/form-wrap";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { currentHandlers, moduleJsName } from "./handlers";
+import { currentHandlers, Handlers, moduleJsName } from "./handlers";
 import { FormInput } from "@/libs/components/Form";
 import { showMessage } from "siyuan";
 import { sharedConfigs } from "../shared-configs";
+import WebSocketManager from "./ws-manager";
+import { Rows } from "@/libs/components/Elements/Flex";
 
 let timer = null;
 
@@ -73,26 +75,43 @@ export const Configs = () => {
                 title="自定义消息处理函数"
                 description={`编辑 /data/storage/petal/${plugin.name}/${moduleJsName} 文件`}
             >
-                <FormInput
-                    type="button"
-                    button={{
-                        label: '编辑',
-                        callback: () => {
-                            if (!cp) {
-                                showMessage('非桌面端环境无法编辑代码', 3000, 'error');
-                                return;
+                <Rows>
+                    <FormInput
+                        type="button"
+                        button={{
+                            label: '编辑',
+                            callback: () => {
+                                if (!cp) {
+                                    showMessage('非桌面端环境无法编辑代码', 3000, 'error');
+                                    return;
+                                }
+                                const dataDir = window.siyuan.config.system.dataDir;
+                                const jsPath = `${dataDir}/storage/petal/${plugin.name}/${moduleJsName}`;
+                                let editorCmd = sharedConfigs('codeEditor') + ' ' + jsPath;
+                                try {
+                                    cp.exec(editorCmd);
+                                } catch (error) {
+                                    showMessage(`打开编辑器失败: ${error.message}`, 3000, 'error');
+                                }
                             }
-                            const dataDir = window.siyuan.config.system.dataDir;
-                            const jsPath = `${dataDir}/storage/petal/${plugin.name}/${moduleJsName}`;
-                            let editorCmd = sharedConfigs('codeEditor') + ' ' + jsPath;
-                            try {
-                                cp.exec(editorCmd);
-                            } catch (error) {
-                                showMessage(`打开编辑器失败: ${error.message}`, 3000, 'error');
+                        }}
+                    />
+                    <FormInput
+                        type="button"
+                        button={{
+                            label: '重新导入',
+                            callback: async () => {
+                                let handlers = await Handlers();
+                                const wsManager = WebSocketManager.getInstance();
+                                Object.entries(handlers).forEach(([key, handler]) => {
+                                    wsManager.registerMessageHandler(key, handler);
+                                });
+                                let names = Object.keys(handlers);
+                                showMessage(`导入成功: ${names.join(', ')}`, 3000);
                             }
-                        }
-                    }}
-                />
+                        }}
+                    />
+                </Rows>
             </FormWrap>
         </>
     )
