@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-02-23 20:41:50
+ * @LastEditTime : 2025-02-23 21:10:40
  * @Description  : 
  */
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -11,7 +11,7 @@ import { FocusDocProvider, OpenedDocProvider } from './ActiveDocProvider';
 import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
 import TextSearchProvider from './TextSearchProvider';
-
+import URLProvider from './URLProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
@@ -24,6 +24,7 @@ const contextProviders: CustomContextProvider[] = [
     TodayDailyNoteProvicer,
     SQLSearchProvicer,
     TextSearchProvider,
+    URLProvider,
 ];
 
 /**
@@ -97,7 +98,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
                 destroyCallback: () => {
                     resolve(null);
                 },
-                width: '540px',
+                width: '720px',
                 height: '320px',
             });
         });
@@ -140,10 +141,10 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
 
     switch (provider.name) {
         case SQLSearchProvicer.name:
-            context.description = `SQL 查询结果: ${option['query']?.replaceAll('\n', ' ')}`;
+            context.description += `\n查询代码如下: ${option['query']?.replaceAll('\n', ' ')}`;
             break;
         case TextSearchProvider.name:
-            context.description = `在笔记库中搜索关键词: ${option['query']?.replaceAll('\n', ' ')}`;
+            context.description += `\n搜索关键词如下: ${option['query']?.replaceAll('\n', ' ')}`;
             break;
         default:
             break;
@@ -159,7 +160,7 @@ const assembleContext2Prompt = (contexts: IProvidedContext[]) => {
     if (contexts.length === 0) {
         return '';
     }
-    let start = '**The following is the attached contexts**:\n\n';
+    let start = '<START_OF_THE_ATTACHED_CONTEXTS_CONTENT>\n\n';
     let contextsPrompt = contexts.map(context2prompt).join('\n\n');
     return start + contextsPrompt;
 }
