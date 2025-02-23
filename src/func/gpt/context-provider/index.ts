@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-02-07 17:52:08
+ * @LastEditTime : 2025-02-23 20:41:50
  * @Description  : 
  */
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -168,23 +168,22 @@ function context2prompt(context: IProvidedContext): string {
     if (context.contextItems.length === 0) {
         return '';
     }
-    const sep = '='.repeat(15);
-    let prompt = `${sep} Start of Context: ${context.displayTitle} ${sep}\n`;
-    prompt += `Description: ${context.description}\n`;
 
-    if (context.contextItems.length === 1) {
-        let item = context.contextItems[0];
-        prompt += `[${item.name.replaceAll('\n', ' ')}]` + item.description + '| Content as follows:\n';
-        prompt += item.content + '\n';
-    } else {
-        context.contextItems.forEach((item) => {
-            prompt += `---------- Item ${item.name.replaceAll('\n', ' ')} ----------\n`;
-            prompt += `${item.description} | Content as follows:\n`;
-            prompt += `${item.content}\n\n`;
-        });
-    }
+    let prompt = '';
 
-    prompt += `${sep} End of Context: ${context.displayTitle} ${sep}`;
+    prompt += `<${context.name} title="${context.displayTitle}" description="${context.description}">`;
+
+    const itemPrompts = [];
+    context.contextItems.forEach((item) => {
+        let itemPrompt = '';
+        itemPrompt += `<${context.name}.ITEM name="${item.name.replaceAll('\n', ' ')}" description="${item.description.replaceAll('\n', ' ')}">\n`;
+        itemPrompt += `${item.content}\n`;
+        itemPrompt += `</${context.name}.ITEM>`;
+        itemPrompts.push(itemPrompt);
+    });
+    prompt += `\n${itemPrompts.join('\n').trim()}\n`;
+
+    prompt += `</${context.name}>`;
     return prompt;
 }
 
