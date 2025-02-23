@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-02-23 21:45:55
+ * @LastEditTime : 2025-02-24 00:40:52
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -17,11 +17,13 @@ import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
 import { globalMiscConfigs } from '../setting/store';
 import { inputDialogForProvider } from './InputForProvder';
+import { RecentUpdatedDocProvider } from './RecentDocProvider';
 
 const contextProviders: CustomContextProvider[] = [
     SelectedTextProvider,
     FocusDocProvider,
     OpenedDocProvider,
+    RecentUpdatedDocProvider,
     TodayDailyNoteProvicer,
     SQLSearchProvicer,
     TextSearchProvider,
@@ -116,7 +118,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
                 },
                 destroyCallback: () => {
                     resolve(null);
-                }
+                },
             });
         });
 
@@ -162,9 +164,10 @@ const assembleContext2Prompt = (contexts: IProvidedContext[]) => {
     if (contexts.length === 0) {
         return '';
     }
-    let start = '<START_OF_THE_ATTACHED_CONTEXTS_CONTENT>\n\n';
+
+    let start = '<START_OF_THE_ATTACHED_CONTEXTS_CONTENT NOTE="Following XML tags are used to structure various of LLM context content, don\'t treat XML tags themselves as part of the formal content!">\n\n';
     let contextsPrompt = contexts.map(context2prompt).join('\n\n');
-    return start + contextsPrompt;
+    return start + contextsPrompt + '\n\n</END_OF_THE_ATTACHED_CONTEXTS_CONTENT>';
 }
 
 function context2prompt(context: IProvidedContext): string {

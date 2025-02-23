@@ -16,12 +16,20 @@ interface SelectItemsProps {
     confirm: (selected: ContextSubmenuItem[]) => void;
     options?: {
         multiChoice?: boolean;  // 是否允许多选, 默认 true
+        defaultAllSelected?: boolean;
     };
 }
 
 const SelectItems: Component<SelectItemsProps> = (props) => {
     const multiChoice = () => props.options?.multiChoice ?? true;
-    const [selectedItems, setSelectedItems] = createSignal<ContextSubmenuItem[]>(props.candidates);
+    // let defaultSelected = props.options?.defaultAllSelected === true ? props.candidates : [props.candidates.length > 0 ? props.candidates[0] : null];
+    let defaultSelected = [];
+    if (props.options?.defaultAllSelected === true) {
+        defaultSelected = props.candidates;
+    } else if (props.candidates.length > 0) {
+        defaultSelected = [props.candidates[0]];
+    }
+    const [selectedItems, setSelectedItems] = createSignal<ContextSubmenuItem[]>(defaultSelected);
 
     const toggleItem = (item: ContextSubmenuItem) => {
         if (multiChoice()) {
@@ -49,11 +57,16 @@ const SelectItems: Component<SelectItemsProps> = (props) => {
         <div class={styles.container}>
             <div class={styles.footer}>
                 {multiChoice() && (
-                    <button class="b3-button b3-button--outline" onClick={() => {
-                        props.candidates.forEach(item => {
-                            toggleItem(item);
-                        });
-                    }}>Toggl</button>
+                    <>
+                        <button class="b3-button b3-button--outline" onClick={() => {
+                            setSelectedItems(props.candidates);
+                        }}>全选</button>
+                        <button class="b3-button b3-button--outline" onClick={() => {
+                            props.candidates.forEach(item => {
+                                toggleItem(item);
+                            });
+                        }}>反选</button>
+                    </>
                 )}
                 <button class="b3-button" onClick={handleConfirm}>确认</button>
             </div>
@@ -75,6 +88,7 @@ const SelectItems: Component<SelectItemsProps> = (props) => {
 const showSelectContextDialog = async (candidates: ContextSubmenuItem[], options: {
     confirm: (selected: ContextSubmenuItem[]) => void,
     destroyCallback: () => void,
+    defaultAllSelected?: boolean,
     multiChoice?: boolean;  // 是否允许多选, 默认 true
 }) => {
     const { close } = solidDialog({
@@ -83,13 +97,14 @@ const showSelectContextDialog = async (candidates: ContextSubmenuItem[], options
             <SelectItems candidates={candidates} confirm={(selected) => {
                 options.confirm(selected);
                 close();
-            }} options={options} />
+            }} options={options}
+            />
         ),
         callback: () => {
             options.destroyCallback();
         },
-        width: '720px',
-        height: '400px'
+        width: '800px',
+        height: '600px'
     });
 };
 

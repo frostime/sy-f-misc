@@ -11,11 +11,12 @@
     justify-content: space-between;
 
     &:hover {
-        border-color: var(--b3-theme-primary-lightest);
+        border-color: var(--b3-theme-primary);
     }
 
     &.selected {
         border-color: var(--b3-theme-primary);
+        background-color: var(--b3-theme-primary-lighter);
     }
 }
 
