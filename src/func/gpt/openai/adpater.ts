@@ -85,18 +85,50 @@ export const adaptChatOptions = (target: {
 
 
 export type TReference = {
-    title: string;
+    title?: string;
     url: string;
 };
+
 /**
- * 一些联网的请求里面会有引用
+ * Adapts various reference formats from API responses into a standardized format
+ * Handles multiple possible formats:
+ * 1. Standard {title, url} format
+ * 2. Citations format
+ * 3. Plain URL strings
+ * 4. Array of URLs
  */
-export const adaptResponseReferences = (data: any): TReference[] | undefined => {
-    if (data.references) {
-        return data.references.map((item: any) => ({
-            title: item.title,
-            url: item.url
-        }));
+export const adaptResponseReferences = (responseData: any): TReference[] | undefined => {
+    if (!responseData) return undefined;
+
+    const mapper = (item: any): TReference => {
+        if (item === null || item === undefined || item === '') return null;
+        if (typeof item === 'string') {
+            // Handle plain URL string
+            return { url: item, title: item };
+        }
+        if (item.url) {
+            return {
+                title: item.title || item.url,
+                url: item.url
+            };
+        }
+        return null;
     }
+
+    const testExtract = (key: string) => {
+        if (responseData[key] && Array.isArray(responseData[key])) {
+            return responseData[key].map(mapper).filter(Boolean);
+        }
+        return undefined;
+    }
+
+    const keysToTry = ['references', 'citations'];
+    for (const key of keysToTry) {
+        const result = testExtract(key);
+        if (result) {
+            return result;
+        }
+    }
+
     return undefined;
 }

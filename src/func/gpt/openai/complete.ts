@@ -18,8 +18,8 @@ interface StreamChunkData {
 
 const buildReferencesText = (refers: CompletionResponse['references']) => {
     if (!refers) return '';
-    return '**References**:\n' + refers.map(ref => {
-        return `- [${ref.title || ref.url}](${ref.url})`;
+    return '**References**:\n' + refers.filter(ref => Boolean(ref.url)).map((ref, index) => {
+        return `${index + 1}. [${ref.title || ref.url}](${ref.url})`;
     }).join('\n');
 }
 
@@ -121,8 +121,13 @@ const handleStreamResponse = async (
             // 引用
             const refers = adaptResponseReferences(readResult.value as StreamChunkData);
             if (refers) {
-                if (!references) references = [];
-                references = [...references, ...refers];
+                references = references || [];
+                // 只添加不存在的引用，保持原有顺序
+                for (const ref of refers) {
+                    if (!references.some(existing => existing.url === ref.url)) {
+                        references.push(ref);
+                    }
+                }
             }
         }
     } catch (error) {
