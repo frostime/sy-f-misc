@@ -51,19 +51,19 @@ export const adaptChatOptions = (target: {
         if (chatOption[key] === null || chatOption[key] === undefined) {
             delete chatOption[key];
         }
+
+        //有些模型不支持这两个参数, 反正不填默认就是 0，那干脆可以闪电
+        if (key === 'frequency_penalty' && chatOption[key] === 0) {
+            delete chatOption[key];
+        }
+
+        if (key === 'presence_penalty' && chatOption[key] === 0) {
+            delete chatOption[key];
+        }
     }
 
 
     model = model.toLocaleLowerCase();
-    // Gemini 官方 OpenAI 适配接口目前 (2025-02-14) 还不支持这两个参数
-    const isGemini = model.match(/gemini/);
-    if (isGemini && apiUrl.startsWith('https://generativelanguage.googleapis.com/v1beta/openai')) {
-        for (const key in chatOption) {
-            if (key === 'presence_penalty' || key === 'frequency_penalty') {
-                delete chatOption[key];
-            }
-        }
-    }
 
     const isDoubao = model.match(/doubao/);
     if (isDoubao) {
@@ -73,12 +73,12 @@ export const adaptChatOptions = (target: {
         }
     }
 
-    // SB 硅基流动
-    if (apiUrl.startsWith('https://api.siliconflow.cn/') && model.endsWith('deepseek-ai/deepseek-v3')) {
-        if (chatOption?.max_tokens > 4096) {
-            chatOption.max_tokens = 4096;
-        }
-    }
+    // SB 硅基流动只允许 max_tokens 小于 4096
+    // if (apiUrl.startsWith('https://api.siliconflow.cn/') && model.endsWith('deepseek-ai/deepseek-v3')) {
+    //     if (chatOption?.max_tokens > 4096) {
+    //         chatOption.max_tokens = 4096;
+    //     }
+    // }
 
     return chatOption;
 }
