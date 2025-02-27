@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-07-10 16:11:07
  * @FilePath     : /src/func/websocket/ws-manager.ts
- * @LastEditTime : 2024-12-16 22:19:23
+ * @LastEditTime : 2025-02-26 23:51:44
  * @Description  : 
  */
 import { Plugin } from 'siyuan';
@@ -38,7 +38,7 @@ export default class WebSocketManager {
         this.plugin = plugin;
         this.config = {
             reconnectInterval: 5000,
-            maxReconnectAttempts: Infinity,
+            maxReconnectAttempts: 5,
             ...config
         };
         this.validateConfig();
@@ -98,18 +98,47 @@ export default class WebSocketManager {
         return null;
     }
 
-    public createWebSocket() {
+    async createWebSocket() {
         if (this.ws) {
             console.debug('[WebSocket] already connected');
             return;
         }
 
-        this.ws = new WebSocket(this.url);
+        try {
+            this.ws = new WebSocket(this.url);
 
-        this.ws.onopen = () => this.onOpen();
-        this.ws.onmessage = (event: MessageEvent) => this.onMessage(event);
-        this.ws.onclose = (event: CloseEvent) => this.onClose(event);
-        this.ws.onerror = (error: Event) => this.onError(error);
+            this.ws.onopen = () => this.onOpen();
+            this.ws.onmessage = (event: MessageEvent) => this.onMessage(event);
+            this.ws.onclose = (event: CloseEvent) => this.onClose(event);
+            this.ws.onerror = (error: Event) => this.onError(error);
+
+            // 添加连接超时检查
+            const connectionTimeout = setTimeout(() => {
+                if (this.ws?.readyState !== WebSocket.OPEN) {
+                    console.warn('[WebSocket] Connection timeout');
+                    this.ws?.close();
+                    throw new Error('WebSocket connection timeout');
+                }
+            }, 5000);
+
+            // 等待连接成功或失败
+            await new Promise((resolve, reject) => {
+                this.ws!.onopen = () => {
+                    clearTimeout(connectionTimeout);
+                    this.onOpen();
+                    resolve(true);
+                };
+                this.ws!.onerror = (error) => {
+                    clearTimeout(connectionTimeout);
+                    reject(error);
+                };
+            });
+
+        } catch (error) {
+            console.error('[WebSocket] Failed to create connection:', error);
+            this.ws = null;
+            this.scheduleReconnect();
+        }
     }
 
     private onOpen() {
@@ -156,6 +185,10 @@ export default class WebSocketManager {
 
     private scheduleReconnect() {
         if (this.reconnectTimeout) {
+            return;
+        }
+        if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
+            console.warn(`[WebSocket] Max reconnect attempts reached: ${this.reconnectAttempts}`);
             return;
         }
         this.isReconnecting = true;
