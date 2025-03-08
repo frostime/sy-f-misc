@@ -166,7 +166,7 @@ export const load = () => {
         callback: (protyle: Protyle) => {
             protyle.insert(`{{{row
 
-{: id="20250209123606-srmeqlw" }
+{: id="${window?.Lute.NewNodeID() || '20250101120606-aaaaaaa'}" }
 
 }}}
 `.trim(), true);
