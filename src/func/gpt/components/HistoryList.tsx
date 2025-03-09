@@ -15,10 +15,13 @@ const HistoryList = (props: {
 }) => {
 
     const sourceTypeCache = localStorage.getItem('gpt-history-list-source-type') || 'temporary';
-    let showShortcutsCache = localStorage.getItem('gpt-history-list-show-shortcuts') || true;
+    let showShortcutsCache = localStorage.getItem('gpt-history-list-show-shortcuts');
+    if (!showShortcutsCache) {
+        showShortcutsCache = sourceTypeCache === 'temporary' ? 'true' : 'false';
+    }
 
     const sourceType = useSignalRef<'temporary' | 'permanent'>(sourceTypeCache as 'temporary' | 'permanent');
-    const showShortcuts = useSignalRef(showShortcutsCache === true || showShortcutsCache === 'true');
+    const showShortcuts = useSignalRef(JSON.parse(showShortcutsCache));
 
     const onclick = (history: IChatSessionHistory) => {
         props.onclick?.(history);

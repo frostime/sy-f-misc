@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-02-19 11:30:21
+ * @LastEditTime : 2025-03-09 18:25:06
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -849,7 +849,8 @@ const ChatSession: Component<{
                         const msgItems = session.messages().filter(m => messageIds.includes(m.id));
                         const newSession = {
                             title: '新对话',
-                            items: msgItems
+                            items: msgItems,
+                            sysPrompt: session.systemPrompt()
                         };
                         newChatSession(newSession);
                         multiSelect.update(false);

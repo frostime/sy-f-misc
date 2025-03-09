@@ -607,6 +607,23 @@ const MessageItem: Component<{
         props.deleteIt?.();
     }
 
+    const createNewBranch = () => {
+        const messages = session.messages();
+        const currentIndex = messages.findIndex(m => m.id === props.messageItem.id);
+        if (currentIndex === -1) return;
+
+        confirm('确认?', '保留以上记录，创建一个新的对话分支', () => {
+            const branchMessages = messages.slice(0, currentIndex + 1);
+            const newSession = {
+                title: session.title() + ' - 新的分支',
+                items: branchMessages,
+                sysPrompt: session.systemPrompt()
+            };
+            session.newSession();
+            session.applyHistory(newSession);
+        });
+    };
+
     const ToolbarButton = (props: {
         icon: string, title?: string, onclick: (e?: MouseEvent) => void
     }) => {
@@ -640,6 +657,11 @@ const MessageItem: Component<{
             icon: 'iconCopy',
             label: '复制',
             click: copyMessage
+        });
+        menu.addItem({
+            icon: 'iconAdd',
+            label: '新的分支',
+            click: createNewBranch
         });
         menu.addItem({
             icon: 'iconLine',
@@ -910,6 +932,7 @@ const MessageItem: Component<{
                         e.preventDefault();
                         props.toggleSeperator?.();
                     }} />
+                    <ToolbarButton icon="iconAdd" title="新的分支" onclick={createNewBranch} />
                     <ToolbarButton
                         icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
                         title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
