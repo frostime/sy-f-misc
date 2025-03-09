@@ -25,7 +25,7 @@ import { registerPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
 
-const electron = window?.require('electron');
+const electron = window?.require?.('electron');
 
 
 const StorageNameConfigs = 'configs';

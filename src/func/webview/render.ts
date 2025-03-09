@@ -537,7 +537,7 @@ export const renderView = (
     });
 
     if (context.data.proxy) {
-        const session = window?.require('@electron/remote').session.fromPartition(context.data.name);
+        const session = window?.require?.('@electron/remote').session.fromPartition(context.data.name);
         if (session) {
             session.setProxy({
                 proxyRules: context.data.proxy,
@@ -578,7 +578,7 @@ export const renderView = (
         const filter = {
             urls: [context.data.url + '/*'],
         };
-        window?.require('@electron/remote').session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+        window?.require?.('@electron/remote').session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
             details.requestHeaders['Referer'] = context.data.referer;
             callback({ cancel: false, requestHeaders: details.requestHeaders });
         });

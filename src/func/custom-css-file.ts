@@ -16,7 +16,7 @@ import { updateStyleDom } from "@frostime/siyuan-plugin-kits";
 
 let cp: any;
 try {
-    cp = window?.require('child_process');
+    cp = window?.require?.('child_process');
 } catch (e) {
     cp = null;
 }

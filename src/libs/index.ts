@@ -106,3 +106,7 @@ export const fb2p = async (inputs: Block[], enable?: { heading?: boolean, doc?: 
     await ReplaceContentTask.run();
     return result
 }
+
+export const windowRequire = (name: string) => {
+    return window?.require?.(name);
+}
