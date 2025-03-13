@@ -112,7 +112,7 @@ const initKatex = async () => {
     const cdn = Constants.PROTYLE_CDN;
     addStyle(`${cdn}/js/katex/katex.min.css`, "protyleKatexStyle");
     await addScript(`${cdn}/js/katex/katex.min.js`, "protyleKatexScript");
-    return window.hljs !== undefined && window.hljs !== null;
+    return window.katex !== undefined && window.katex !== null;
 }
 
 const renderCodeblock = (ele: HTMLElement) => {

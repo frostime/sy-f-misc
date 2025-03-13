@@ -1,7 +1,7 @@
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
-import { upload } from "@/api";
-import { confirmDialog } from "@frostime/siyuan-plugin-kits";
+// import { upload } from "@/api";
+import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { FormInput } from '@/libs/components/Form';
 import { render } from "solid-js/web";
 import { onMount } from "solid-js";
@@ -103,25 +103,100 @@ const useBlankFile = async (fname: string): Promise<File | null> => {
  * @param fname 文件名称
  */
 const addNewEmptyFile = async (fname: string) => {
+    let prefix = '';
+    let name = '';
+    if (fname.includes('/')) {
+        [prefix, name] = fname.split('/');
+    } else {
+        name = fname;
+    }
+
+    let basename = name.split('.').slice(0, -1).join('.');
+    let ext = name.split('.').pop() || '';
+
     let file: File | null = null;
-    const ext = fname.split('.').pop() || '';
     if (['docx', 'xlsx', 'pptx'].includes(ext)) {
         file = await useBlankFile(fname);
     } else {
         file = createEmptyFileObject(fname);
     }
     if (!file) return null;
-    const res = await upload('/assets/', [file]);
-    // console.log(res, res.succMap[fname]);
-    return res.succMap;
+
+    const ID = window.Lute.NewNodeID();
+    const newFname = `${basename}-${ID}.${ext}`;
+
+    const plugin = thisPlugin();
+    await plugin.saveBlob(newFname, file, `data/assets/user/${prefix}`);
+
+    prefix = prefix ? `${prefix}/` : '';
+    const route = `assets/user/${prefix}${newFname}`;
+
+    return {
+        name: basename + '.' + ext,
+        route: route
+    };
 }
 
-const PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'js'];
+let PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'js'];
+
+let PredefinedPaths = ['Markdown', 'Office'];
+
+export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
+    key: "new-file",
+    title: "新建文件",
+    load: (itemValues: any) => {
+        if (itemValues.predefinedPaths) {
+            PredefinedPaths = itemValues.predefinedPaths.split(',').map(path => path.trim());
+        }
+        if (itemValues.predefinedExt) {
+            PredefinedExt = itemValues.predefinedExt.split(',').map(ext => ext.trim());
+            if (PredefinedExt.includes('')) {
+                PredefinedExt = PredefinedExt.filter(ext => ext !== '');
+            }
+        }
+    },
+    dump: () => {
+        return {
+            predefinedPaths: PredefinedPaths.join(', '),
+            predefinedExt: PredefinedExt.join(', ')
+        }
+    },
+    items: [
+        {
+            key: 'predefinedPaths',
+            type: 'textinput' as const,
+            title: '预定义路径',
+            description: `
+                使用逗号分隔的路径，例如：<br/>
+                <code>Markdown, OfficeDocs</code>
+            `,
+            direction: 'row',
+            get: () => PredefinedPaths.join(', '),
+            set: (value: string) => {
+                PredefinedPaths = value.split(',').map(path => path.trim());
+            }
+        },
+        {
+            key: 'predefinedExt',
+            type: 'textinput' as const,
+            title: '预定义扩展名',
+            description: `
+                使用逗号分隔的扩展名，例如：<br/>
+                <code>md, txt</code>
+            `,
+            direction: 'row',
+            get: () => PredefinedExt.join(', '),
+            set: (value: string) => {
+                PredefinedExt = value.split(',').map(ext => ext.trim());
+            }
+        }
+    ],
+};
 
 const NewFileApp = (props: { updated: (v) => void }) => {
-
     let fname = '';
     let ext = '';
+    let prefix = '';
 
     let options: { [key: string]: string } = PredefinedExt.reduce((acc, ext) => {
         acc[`.${ext}`] = `.${ext}`;
@@ -139,34 +214,75 @@ const NewFileApp = (props: { updated: (v) => void }) => {
         }
     });
 
+    const prefixMap = PredefinedPaths.reduce((acc, path) => {
+        acc[path] = path;
+        return acc;
+    }, {} as { [key: string]: string });
+    prefixMap[''] = '';
+    const updateFullPath = () => {
+        const cleanPrefix = prefix.replace(/^\/+|\/+$/g, ''); // Fixed the regex syntax
+        const path = cleanPrefix ? `${cleanPrefix}/` : '';
+        props.updated(path + fname + ext);
+    };
+
     return (
-        <div class="fn__flex" style="gap: 5px;">
-            <div class="fn__flex" ref={ref}>
-                <FormInput
-                    type='textinput'
-                    key='fname'
-                    value=''
-                    changed={(v) => {
-                        fname = v;
-                        props.updated(fname + ext);
-                    }}
-                />
+        <div class="fn__flex-column" style="gap: 8px;">
+            <div class="fn__flex" style="gap: 5px;">
+                <div class="fn__flex">
+                    <FormInput
+                        type='textinput'
+                        key='custom-prefix'
+                        value=''
+                        placeholder='自定义路径前缀'
+                        changed={(v) => {
+                            prefix = v;
+                            updateFullPath();
+                        }}
+                    />
+                </div>
+                <div class="fn__flex fn__flex-1">
+                    <FormInput
+                        type='select'
+                        key='prefix'
+                        value=''
+                        fn_size={false}
+                        options={prefixMap}
+                        changed={(v) => {
+                            prefix = v;
+                            updateFullPath();
+                        }}
+                    />
+                </div>
             </div>
-            <div class="fn__flex fn__flex-1">
-                <FormInput
-                    type='select'
-                    key='ext'
-                    value=''
-                    fn_size={false}
-                    options={{
-                        '': '自定义',
-                        ...options
-                    }}
-                    changed={(v) => {
-                        ext = v;
-                        props.updated(fname + ext);
-                    }}
-                />
+            <div class="fn__flex" style="gap: 5px;">
+                <div class="fn__flex" ref={ref}>
+                    <FormInput
+                        type='textinput'
+                        key='fname'
+                        value=''
+                        placeholder='文件名'
+                        changed={(v) => {
+                            fname = v;
+                            updateFullPath();
+                        }}
+                    />
+                </div>
+                <div class="fn__flex fn__flex-1">
+                    <FormInput
+                        type='select'
+                        key='ext'
+                        value=''
+                        fn_size={false}
+                        options={{
+                            '': '自定义',
+                            ...options
+                        }}
+                        changed={(v) => {
+                            ext = v;
+                            updateFullPath();
+                        }}
+                    />
+                </div>
             </div>
         </div>
     );
@@ -194,11 +310,11 @@ export const load = (plugin: FMiscPlugin) => {
             let fname: string = '';
 
             const createCb = async () => {
-                let succMap = await addNewEmptyFile(fname);
-                let filePath = succMap?.[fname];
-                if (filePath) {
-                    showMessage(`新建文件${fname}成功, 文件路径: ${filePath}`);
-                    protyle.insert(`<span data-type="a" data-href="${filePath}">${fname}</span>`, false, true);
+                let result = await addNewEmptyFile(fname);
+                if (result) {
+                    const { name, route } = result;
+                    showMessage(`新建文件${name}成功, 文件路径: ${route}`);
+                    protyle.insert(`<span data-type="a" data-href="${route}">${name}</span>`, false, true);
                 } else {
                     showMessage(`新建文件${fname}失败`);
                     protyle.insert(``, false);
