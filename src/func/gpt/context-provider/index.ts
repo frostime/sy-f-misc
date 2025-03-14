@@ -18,12 +18,14 @@ import { showMessage } from 'siyuan';
 import { globalMiscConfigs } from '../setting/store';
 import { inputDialogForProvider } from './InputForProvder';
 import { RecentUpdatedDocProvider } from './RecentDocProvider';
+import BlocksProvider from './BlocksProvider';
 
 const contextProviders: CustomContextProvider[] = [
     SelectedTextProvider,
     FocusDocProvider,
     OpenedDocProvider,
     RecentUpdatedDocProvider,
+    BlocksProvider,
     TodayDailyNoteProvicer,
     SQLSearchProvicer,
     TextSearchProvider,
