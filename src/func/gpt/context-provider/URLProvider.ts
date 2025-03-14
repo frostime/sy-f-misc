@@ -10,6 +10,27 @@
 import { showMessage } from "siyuan";
 
 const isValidUrl = (url: string): boolean => {
+    // 空字符串或空白字符串
+    if (!url.trim()) {
+        return false;
+    }
+
+    // 相对路径（以 / 开头）
+    if (url.startsWith('/')) {
+        return true;
+    }
+
+    // 以 assets/ public/ 为开头
+    if (url.startsWith('assets/') || url.startsWith('public/')) {
+        return true;
+    }
+
+    // 协议相对路径（以 // 开头）
+    if (url.startsWith('//')) {
+        return true;
+    }
+
+    // 绝对路径（包含协议）
     try {
         new URL(url);
         return true;
