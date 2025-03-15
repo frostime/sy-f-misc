@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-09 18:25:06
+ * @LastEditTime : 2025-03-15 22:22:03
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -526,8 +526,14 @@ const ChatSession: Component<{
 
         if (e.key === '@') {
             const text = textareaRef.value;
-            // 检查当前的光标是否在最后的位置
-            if (text.length === textareaRef.selectionStart) {
+            const cursorPosition = textareaRef.selectionStart;
+
+            // Check if cursor is at the end of a line
+            const isAtLineEnd = cursorPosition === text.length ||
+                (cursorPosition < text.length && text[cursorPosition] === '\n') ||
+                (cursorPosition > 0 && text[cursorPosition - 1] === '\n');
+
+            if (isAtLineEnd) {
                 const event = new MouseEvent('context-provider-open');
                 menu = addContext(event);
                 menu.element.querySelector('.b3-menu__item')?.classList.add('b3-menu__item--current');
