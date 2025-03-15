@@ -126,7 +126,7 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
 };
 
 const URLProvider: CustomContextProvider = {
-    type: "input-line",
+    type: "input-area",
     name: "URLProvider",
     icon: 'iconLink',
     displayTitle: "URL内容获取",
@@ -134,61 +134,72 @@ const URLProvider: CustomContextProvider = {
     getContextItems: async (options: {
         query: string;
     }): Promise<ContextItem[]> => {
-        const url = options.query.trim();
-        if (!isValidUrl(url)) {
-            showMessage("无效的URL格式", 4000, "error");
+        const queryText = options.query.trim();
+        // 处理多行文本，按行分割
+        const lines = queryText.split('\n');
+        const urls = lines
+            .map(line => line.trim())
+            .filter(line => isValidUrl(line));
+
+        if (urls.length === 0) {
+            showMessage("未找到有效的URL", 4000, "error");
             return [];
         }
 
-        try {
-            const response = await fetch(url);
-            const contentType = response.headers.get('content-type');
+        const results: ContextItem[] = [];
 
-            // 如果是二进制内容，直接返回空
-            if (contentType && !contentType.includes('text') && !contentType.includes('json') && !contentType.includes('html')) {
-                return [];
-            }
+        // 处理每个URL
+        for (const url of urls) {
+            try {
+                const response = await fetch(url);
+                const contentType = response.headers.get('content-type');
 
-            let content = '';
-            if (contentType && contentType.includes('json')) {
-                // JSON内容
-                const jsonData = await response.json();
-                content = JSON.stringify(jsonData, null, 2);
-            } else if (contentType && (contentType.includes('html') || contentType.includes('text'))) {
-                // HTML或文本内容
-                const text = await response.text();
-                if (contentType.includes('html')) {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(text, 'text/html');
-                    const parsedContent = parseHtmlContent(doc);
-
-                    // 组装格式化的内容
-                    const parts = [];
-                    if (parsedContent.title) parts.push(`标题: ${parsedContent.title}`);
-                    if (parsedContent.description) parts.push(`描述: ${parsedContent.description}`);
-                    if (parsedContent.keywords) parts.push(`关键词: ${parsedContent.keywords}`);
-                    if (parsedContent.author) parts.push(`作者: ${parsedContent.author}`);
-                    if (parsedContent.mainContent) parts.push(`\n正文内容:\n${parsedContent.mainContent}`);
-
-                    content = parts.join('\n');
-                } else {
-                    content = text;
+                // 如果是二进制内容，跳过
+                if (contentType && !contentType.includes('text') && !contentType.includes('json') && !contentType.includes('html')) {
+                    continue;
                 }
-            }
 
-            if (!content) {
-                return [];
-            }
+                let content = '';
+                if (contentType && contentType.includes('json')) {
+                    // JSON内容
+                    const jsonData = await response.json();
+                    content = JSON.stringify(jsonData, null, 2);
+                } else if (contentType && (contentType.includes('html') || contentType.includes('text'))) {
+                    // HTML或文本内容
+                    const text = await response.text();
+                    if (contentType.includes('html')) {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(text, 'text/html');
+                        const parsedContent = parseHtmlContent(doc);
 
-            return [{
-                name: 'HTTP 访问结果',
-                description: `访问: ${url}; 结果类型为 ${contentType}`,
-                content: content,
-            }];
-        } catch (error) {
-            showMessage(`获取URL内容失败: ${error.message}`, 4000, "error");
-            return [];
+                        // 组装格式化的内容
+                        const parts = [];
+                        if (parsedContent.title) parts.push(`标题: ${parsedContent.title}`);
+                        if (parsedContent.description) parts.push(`描述: ${parsedContent.description}`);
+                        if (parsedContent.keywords) parts.push(`关键词: ${parsedContent.keywords}`);
+                        if (parsedContent.author) parts.push(`作者: ${parsedContent.author}`);
+                        if (parsedContent.mainContent) parts.push(`\n正文内容:\n${parsedContent.mainContent}`);
+
+                        content = parts.join('\n');
+                    } else {
+                        content = text;
+                    }
+                }
+
+                if (content) {
+                    results.push({
+                        name: `URL内容: ${url.substring(0, 30)}${url.length > 30 ? '...' : ''}`,
+                        description: `访问: ${url}; 结果类型为 ${contentType}`,
+                        content: content,
+                    });
+                }
+            } catch (error) {
+                showMessage(`获取URL内容失败 (${url}): ${error.message}`, 4000, "error");
+                // 继续处理其他URL，不中断
+            }
         }
+
+        return results;
     }
 };
 
