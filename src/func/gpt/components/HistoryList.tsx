@@ -8,6 +8,44 @@ import * as persist from '../persistence';
 import { removeDoc } from "@/api";
 import { adaptIMessageContent } from "../data-utils";
 
+// Helper function to determine time group
+const getTimeGroup = (timestamp: number): 'today' | 'thisWeek' | 'thisMonth' | 'older' => {
+    const now = new Date();
+    const date = new Date(timestamp);
+
+    // Today: same year, month, and day
+    if (date.getFullYear() === now.getFullYear() &&
+        date.getMonth() === now.getMonth() &&
+        date.getDate() === now.getDate()) {
+        return 'today';
+    }
+
+    // This week: within the last 7 days
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(now.getDate() - 7);
+    if (date >= oneWeekAgo) {
+        return 'thisWeek';
+    }
+
+    // This month: same year and month
+    if (date.getFullYear() === now.getFullYear() &&
+        date.getMonth() === now.getMonth()) {
+        return 'thisMonth';
+    }
+
+    // Older: anything else
+    return 'older';
+};
+
+// Helper function to get group label
+const getGroupLabel = (group: 'today' | 'thisWeek' | 'thisMonth' | 'older'): string => {
+    switch (group) {
+        case 'today': return '今天';
+        case 'thisWeek': return '七天内';
+        case 'thisMonth': return '本月';
+        case 'older': return '更早';
+    }
+};
 
 const HistoryList = (props: {
     onclick?: (history: IChatSessionHistory) => void,
@@ -85,7 +123,33 @@ const HistoryList = (props: {
     }));
 
     const sortedHistory = createMemo(() => {
-        return historyRef().sort((a, b) => b.timestamp - a.timestamp);
+        return historyRef().sort((a, b) => {
+            // First sort by updated field if available
+            if (a.updated && b.updated) {
+                return b.updated - a.updated;
+            }
+            // If either doesn't have updated field or they're equal, sort by timestamp
+            return b.timestamp - a.timestamp;
+        });
+    });
+
+    // Group history items by time
+    const groupedHistory = createMemo(() => {
+        const groups: Record<string, IChatSessionHistory[]> = {
+            today: [],
+            thisWeek: [],
+            thisMonth: [],
+            older: []
+        };
+
+        sortedHistory().forEach(item => {
+            // Use the updated field if available, otherwise use timestamp
+            const timeToUse = item.updated || item.timestamp;
+            const group = getTimeGroup(timeToUse);
+            groups[group].push(item);
+        });
+
+        return groups;
     });
 
 
@@ -101,79 +165,106 @@ const HistoryList = (props: {
 
     return (
         <div class={styles.historyList}>
-            <div style={{ display: "flex", 'align-items': 'center', 'gap': '10px' }}>
-                <div style="display: flex; align-items: center;">
-                    共
-                    <span class="counter" style="margin: 0px;">
-                        {sortedHistory().length}
-                    </span>
-                    条
-                </div>
-                <input type="checkbox" class="b3-switch" checked={showShortcuts()} onChange={(e) => {
-                    showShortcuts.value = e.currentTarget.checked;
-                }} />
-                <Show when={sourceType() === 'temporary'}>
-                    <button class="b3-button b3-button--text"
-                        onClick={() => {
-                            batch(() => {
-                                historyRef().forEach(h => {
-                                    onremove(h.id);
-                                });
-                            });
-                        }}
-                    >
-                        全部清空
-                    </button>
-                </Show>
-                <div class="fn__flex-1" />
-                {/* options */}
-                <select class="b3-select" value={sourceType()} onChange={(e) => {
-                    //@ts-ignore
-                    sourceType.value = e.currentTarget.value;
-                }}>
-                    <option value="temporary">缓存记录</option>
-                    <option value="permanent">归档记录</option>
-                </select>
-            </div>
-            {sortedHistory().map(item => (
-                <div class={styles.historyItem} data-key={item.id}
-                    onClick={() => onclick(item)}
-                    style={{ position: 'relative' }}
-                >
-                    <div class={styles.historyTitleLine}>
-                        <div class={styles.historyTitle}>{item.title}</div>
-                        <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
-                        <Show when={sourceType() === 'permanent'}>
-                            <div
-                                class="toolbar__item"
-                                onclick={async (e: MouseEvent) => {
-                                    e.stopImmediatePropagation();
-                                    e.preventDefault();
-                                    let id = item.id;
-                                    let docs = await persist.findBindDoc(id);
-                                    if (docs && docs?.[0]) {
-                                        let doc = docs[0];
-                                        openBlock(doc.id);
-                                        props.close?.();
-                                    }
-                                }}
-                            >
-                                <svg><use href="#iconFocus"></use></svg>
-                            </div>
-                        </Show>
-                        <div class="toolbar__item" onClick={(e: MouseEvent) => {
-                            e.stopImmediatePropagation();
-                            e.preventDefault();
-                            onremove(item.id);
-                        }}>
-                            <svg><use href="#iconClose"></use></svg>
-                        </div>
+            <div class={styles.historyToolbar}>
+                <div style={{ display: "flex", 'align-items': 'center', 'gap': '10px' }}>
+                    <div style="display: flex; align-items: center;">
+                        共
+                        <span class="counter" style="margin: 0px;">
+                            {sortedHistory().length}
+                        </span>
+                        条
                     </div>
-                    <div class={styles.historyContent} classList={{
-                        'fn__none': !showShortcuts()
-                    }}>{contentShotCut(item)}</div>
+                    <input type="checkbox" class="b3-switch" checked={showShortcuts()} onChange={(e) => {
+                        showShortcuts.value = e.currentTarget.checked;
+                    }} />
+                    <Show when={sourceType() === 'temporary'}>
+                        <button class="b3-button b3-button--text"
+                            onClick={() => {
+                                batch(() => {
+                                    historyRef().forEach(h => {
+                                        onremove(h.id);
+                                    });
+                                });
+                            }}
+                        >
+                            全部清空
+                        </button>
+                    </Show>
+                    <div class="fn__flex-1" />
+                    {/* options */}
+                    <select class="b3-select" value={sourceType()} onChange={(e) => {
+                        //@ts-ignore
+                        sourceType.value = e.currentTarget.value;
+                    }}>
+                        <option value="temporary">缓存记录</option>
+                        <option value="permanent">归档记录</option>
+                    </select>
                 </div>
-            ))}
+            </div>
+            <div class={styles.historyItemsContainer}>
+                {Object.entries(groupedHistory()).map(([group, items]) => (
+                    items.length > 0 && (
+                        <>
+                            <div class={styles.historyGroupHeader}>
+                                {getGroupLabel(group as any)}
+                            </div>
+                            {items.map(item => (
+                                <div class={styles.historyItem} data-key={item.id}
+                                    onClick={() => onclick(item)}
+                                    style={{ position: 'relative' }}
+                                >
+                                    <div class={styles.historyTitleLine}>
+                                        <div class={styles.historyTitle}>{item.title}</div>
+                                        <div class={styles.historyTimeContainer}>
+                                            {item.updated && item.updated !== item.timestamp ? (
+                                                <>
+                                                    <div class={styles.historyTimeLabel}>创建:</div>
+                                                    <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
+                                                    <div class={styles.historyTimeLabel}>更新:</div>
+                                                    <div class={styles.historyTime}>{formatDateTime(null, new Date(item.updated))}</div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div class={styles.historyTimeLabel}>创建:</div>
+                                                    <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
+                                                </>
+                                            )}
+                                        </div>
+                                        <Show when={sourceType() === 'permanent'}>
+                                            <div
+                                                class="toolbar__item"
+                                                onclick={async (e: MouseEvent) => {
+                                                    e.stopImmediatePropagation();
+                                                    e.preventDefault();
+                                                    let id = item.id;
+                                                    let docs = await persist.findBindDoc(id);
+                                                    if (docs && docs?.[0]) {
+                                                        let doc = docs[0];
+                                                        openBlock(doc.id);
+                                                        props.close?.();
+                                                    }
+                                                }}
+                                            >
+                                                <svg><use href="#iconFocus"></use></svg>
+                                            </div>
+                                        </Show>
+                                        <div class="toolbar__item" onClick={(e: MouseEvent) => {
+                                            e.stopImmediatePropagation();
+                                            e.preventDefault();
+                                            onremove(item.id);
+                                        }}>
+                                            <svg><use href="#iconClose"></use></svg>
+                                        </div>
+                                    </div>
+                                    <div class={styles.historyContent} classList={{
+                                        'fn__none': !showShortcuts()
+                                    }}>{contentShotCut(item)}</div>
+                                </div>
+                            ))}
+                        </>
+                    )
+                ))}
+            </div>
         </div>
     );
 };

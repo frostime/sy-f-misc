@@ -41,6 +41,7 @@ export const useSession = (props: {
     const contexts = useStoreRef<IProvidedContext[]>([]);
 
     let timestamp = new Date().getTime();
+    let updated = timestamp; // Initialize updated time to match creation time
     const title = useSignalRef<string>('新的对话');
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
     const loading = useSignalRef<boolean>(false);
@@ -115,6 +116,7 @@ export const useSession = (props: {
             versions: {},
             ...optionalFields
         }]);
+        updated = new Date().getTime(); // Update the updated time when adding a message
     }
 
     const setContext = (context: IProvidedContext) => {
@@ -430,6 +432,7 @@ ${inputContent}
                 versions: {}
             };
             messages.update(prev => [...prev, assistantMsg]);
+            updated = new Date().getTime(); // Update the updated time when adding a message
 
             // props.scrollToBottom();
 
@@ -475,6 +478,7 @@ ${inputContent}
                     versions: {}  // 新消息只有一个版本，就暂时不需要存放多 versions, 空着就行
                 };
                 delete updated[lastIdx]['loading'];
+                // updated[lastIdx] = stageMsgItemVersion(updated[lastIdx]);
                 return updated;
             });
 
@@ -623,6 +627,7 @@ ${inputContent}
             return {
                 id: sessionId(),
                 timestamp,
+                updated,
                 title: title(),
                 items: messages.unwrap(),
                 sysPrompt: systemPrompt()
@@ -632,6 +637,7 @@ ${inputContent}
             history.id && (sessionId.value = history.id);
             history.title && (title.update(history.title));
             history.timestamp && (timestamp = history.timestamp);
+            history.updated && (updated = history.updated);
             history.items && (messages.update(history.items));
             history.sysPrompt && (systemPrompt.update(history.sysPrompt));
         },
@@ -640,6 +646,7 @@ ${inputContent}
             // systemPrompt.update('');
             systemPrompt.value = globalMiscConfigs().defaultSystemPrompt || '';
             timestamp = new Date().getTime();
+            updated = timestamp; // Reset updated time to match creation time
             title.update('新的对话');
             messages.update([]);
             loading.update(false);
@@ -658,6 +665,7 @@ ${inputContent}
                 const copied = structuredClone(prev);
                 return applyMsgItemVersion(copied, version);
             });
+            updated = new Date().getTime(); // Update the updated time when updating a message
         },
         delMsgItemVersion: (itemId: string, version: string, autoSwitch = true) => {
             const index = messages().findIndex(item => item.id === itemId);
@@ -687,6 +695,7 @@ ${inputContent}
                     }
                     return item;
                 });
+                updated = new Date().getTime(); // Update the updated time when updating a message
             })
         }
     }

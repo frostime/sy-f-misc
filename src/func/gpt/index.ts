@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-02-19 11:32:41
+ * @LastEditTime : 2025-03-16 19:03:20
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -275,8 +275,8 @@ export const load = (plugin: FMiscPlugin) => {
                         }
                     })
                 ),
-                width: '600px',
-                height: '600px'
+                width: '1000px',
+                height: '640px'
             });
         },
         submenu: [

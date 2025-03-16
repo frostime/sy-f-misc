@@ -659,7 +659,7 @@ const MessageItem: Component<{
             click: copyMessage
         });
         menu.addItem({
-            icon: 'iconAdd',
+            icon: 'iconCut',
             label: '新的分支',
             click: createNewBranch
         });
@@ -932,7 +932,7 @@ const MessageItem: Component<{
                         e.preventDefault();
                         props.toggleSeperator?.();
                     }} />
-                    <ToolbarButton icon="iconAdd" title="新的分支" onclick={createNewBranch} />
+                    <ToolbarButton icon="iconCut" title="新的分支" onclick={createNewBranch} />
                     <ToolbarButton
                         icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
                         title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}

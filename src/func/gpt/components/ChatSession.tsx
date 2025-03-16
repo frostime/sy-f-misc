@@ -614,8 +614,8 @@ const ChatSession: Component<{
                     />
                 </SimpleProvider>
             ),
-            width: '600px',
-            height: '600px'
+            width: '1000px',
+            height: '640px'
         });
     }
 

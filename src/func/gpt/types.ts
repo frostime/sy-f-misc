@@ -142,6 +142,7 @@ interface IChatSessionHistory {
     id: string;
     title: string;
     timestamp: number;
+    updated?: number;
     items: IChatSessionMsgItem[];
     sysPrompt?: string;
 }
