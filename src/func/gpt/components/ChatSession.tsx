@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-15 22:22:03
+ * @LastEditTime : 2025-03-16 18:31:59
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -628,7 +628,6 @@ const ChatSession: Component<{
     };
 
     const Topbar = () => {
-
         const Item = (props: any) => (
             <ToolbarLabel
                 onclick={props.onclick ?? (() => { })}
@@ -647,19 +646,106 @@ const ChatSession: Component<{
             </ToolbarLabel>
         );
 
+        const openToolsMenu = (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            let menu = new Menu("tools-menu");
+
+            // 复制链接选项
+            menu.addItem({
+                icon: 'iconLink',
+                label: '复制链接',
+                click: () => {
+                    persist.persistHistory(session.sessionHistory(), { 
+                        saveToSiYuan: false
+                    });
+                    const plugin = thisPlugin();
+                    const prefix = `siyuan://plugins/${plugin.name}/chat-session-history`;
+                    let urlObj = new URLSearchParams();
+                    urlObj.set("historyId", session.sessionHistory().id);
+                    urlObj.set("historyTitle", session.title());
+                    let url = `${prefix}?${urlObj.toString()}`;
+                    let markdown = `[${session.title()}](${url})`;
+                    navigator.clipboard.writeText(markdown).then(() => {
+                        showMessage("Copy links to clipboard!");
+                        console.debug("Copy links to clipboard!", markdown);
+                    });
+                }
+            });
+
+            // 多选选项
+            menu.addItem({
+                icon: 'iconCheck',
+                label: '多选',
+                click: () => {
+                    multiSelect.update(!multiSelect());
+                    if (!multiSelect()) {
+                        selectedMessages.update(new Set<string>());
+                    }
+                },
+                checked: multiSelect()
+            });
+
+            // 自动生成标题选项
+            menu.addItem({
+                icon: 'iconH1',
+                label: '自动生成标题',
+                click: () => {
+                    session.autoGenerateTitle();
+                }
+            });
+
+            // 阅读模式选项
+            menu.addItem({
+                icon: 'iconEye',
+                label: isReadingMode() ? '退出阅读' : '阅读模式',
+                checked: isReadingMode(),
+                click: () => {
+                    isReadingMode.update(!isReadingMode());
+                }
+            });
+
+            const target = e.target as HTMLElement;
+            const rect = target.getBoundingClientRect();
+            menu.open({
+                x: rect.left,
+                y: rect.bottom
+            });
+        };
+
         return (
             <div class={styles.topToolbar}>
+                {/* 左侧 - 工具按钮 */}
+                <Item
+                    onclick={openToolsMenu}
+                    label='更多功能'
+                    icon='iconPlugin'
+                />
+
+                {/* 左侧 - 保存导出按钮 */}
                 <Item
                     onclick={(e: MouseEvent) => {
-                        // persist.persistHistory(session.sessionHistory())
                         e.stopPropagation();
                         e.preventDefault();
                         let menu = new Menu();
                         menu.addItem({
-                            icon: 'iconSiYuan',
-                            label: '保存对话记录',
+                            icon: 'iconDatabase',
+                            label: '归档对话记录',
                             click: () => {
-                                persist.persistHistory(session.sessionHistory());
+                                persist.persistHistory(session.sessionHistory(), {
+                                    saveToSiYuan: false,
+                                    verbose: '保存成功'
+                                });
+                            }
+                        });
+                        menu.addItem({
+                            icon: 'iconSiYuan',
+                            label: '导出到笔记中',
+                            click: () => {
+                                persist.persistHistory(session.sessionHistory(), {
+                                    saveToSiYuan: true,
+                                    verbose: '导出成功'
+                                });
                             }
                         });
                         menu.addItem({
@@ -685,52 +771,9 @@ const ChatSession: Component<{
                     label='导出对话'
                     icon='iconUpload'
                 />
-                <Item
-                    label="复制链接"
-                    role="copy-link"
-                    icon="iconLink"
-                    onclick={() => {
-                        persist.persistHistory(session.sessionHistory(), { onlyJson: true, verbose: false });
-                        const plugin = thisPlugin();
-                        const prefix = `siyuan://plugins/${plugin.name}/chat-session-history`;
-                        let urlObj = new URLSearchParams();
-                        urlObj.set("historyId", session.sessionHistory().id);
-                        urlObj.set("historyTitle", session.title());
-                        let url = `${prefix}?${urlObj.toString()}`;
-                        let markdown = `[${session.title()}](${url})`;
-                        navigator.clipboard.writeText(markdown).then(() => {
-                            showMessage("Copy links to clipboard!");
-                            console.debug("Copy links to clipboard!", markdown);
-                        });
-                    }}
-                />
-                <Item
-                    onclick={() => {
-                        multiSelect.update(!multiSelect());
-                        if (!multiSelect()) {
-                            selectedMessages.update(new Set<string>());
-                        }
-                    }}
-                    label='多选'
-                    role="multi-select"
-                    icon='iconCheck'
-                    styles={
-                        multiSelect() ? {
-                            'background-color': 'var(--b3-theme-primary)',
-                            'color': 'var(--b3-theme-on-primary)'
-                        } : {}
-                    }
-                />
-                <Item
-                    onclick={() => {
-                        session.autoGenerateTitle()
-                    }}
-                    label='自动生成标题'
-                    icon='iconH1'
-                    role="auto-title"
-                />
+
+                {/* 中间 - 标题 */}
                 <div
-                    // class={styles.chatTitle}
                     classList={{
                         [styles.chatTitle]: true,
                         'ariaLabel': true
@@ -749,25 +792,18 @@ const ChatSession: Component<{
                 >
                     {session.title()}
                 </div>
-                <Item placeholder={true} />
+
+                {/* <Item placeholder={true} /> */}
+
+                {/* 右侧 - 历史记录 */}
                 <Item
                     onclick={openHistoryList}
                     label='历史记录'
                     icon='iconHistory'
                     role="history"
                 />
-                <Item
-                    onclick={() => isReadingMode.update(!isReadingMode())}
-                    label={isReadingMode() ? '退出阅读' : '阅读模式'}
-                    role="reading-mode"
-                    icon={'iconEye'}
-                    styles={
-                        isReadingMode() ? {
-                            'background-color': 'var(--b3-theme-primary)',
-                            'color': 'var(--b3-theme-on-primary)'
-                        } : {}
-                    }
-                />
+
+                {/* 右侧 - 新建对话 */}
                 <Item
                     onclick={newChatSession}
                     label='新建对话'

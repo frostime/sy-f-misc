@@ -3,28 +3,24 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:29:32
  * @FilePath     : /src/func/gpt/persistence/index.ts
- * @LastEditTime : 2025-01-16 20:39:21
+ * @LastEditTime : 2025-03-16 18:27:56
  * @Description  : 
  */
 import { saveToSiYuan } from "./sy-doc";
 import { saveToJson } from "./json-files";
-import { confirmDialog } from "@frostime/siyuan-plugin-kits";
+// import { confirmDialog } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 
 export const persistHistory = async (history: IChatSessionHistory, options?: {
-    onlyJson?: boolean;
-    verbose?: boolean;
+    saveToSiYuan?: boolean;
+    verbose?: string;
 }) => {
     await saveToJson(history)
-    if (options?.verbose !== false) showMessage('保存成功')
-    if (options?.onlyJson) return;
-    confirmDialog({
-        title: '保存成功',
-        content: `是否还需要将对话导出到思源笔记文档中?`,
-        confirm: async () => {
-            await saveToSiYuan(history)
-        }
-    });
+    if (options?.saveToSiYuan) {
+        await saveToSiYuan(history)
+    }
+    // if (options?.verbose !== false) showMessage('保存成功')
+    if (options?.verbose) showMessage(options.verbose)
 }
 
 export * from "./sy-doc";
