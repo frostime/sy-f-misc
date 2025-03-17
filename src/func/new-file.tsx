@@ -5,6 +5,7 @@ import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { FormInput } from '@/libs/components/Form';
 import { render } from "solid-js/web";
 import { onMount } from "solid-js";
+import { CheckboxInput, SelectInput, TextInput } from "@/libs/components/Elements";
 
 export const declareToggleEnabled = {
     title: '📄 New file',
@@ -101,8 +102,9 @@ const useBlankFile = async (fname: string): Promise<File | null> => {
 /**
  * 新建空白的文件, 上传到思源的附件中
  * @param fname 文件名称
+ * @param addId 是否添加ID到文件名，默认为true
  */
-const addNewEmptyFile = async (fname: string) => {
+const addNewEmptyFile = async (fname: string, addId: boolean = true) => {
     let prefix = '';
     let name = '';
     if (fname.includes('/')) {
@@ -122,8 +124,13 @@ const addNewEmptyFile = async (fname: string) => {
     }
     if (!file) return null;
 
-    const ID = window.Lute.NewNodeID();
-    const newFname = `${basename}-${ID}.${ext}`;
+    let newFname = '';
+    if (addId) {
+        const ID = window.Lute.NewNodeID();
+        newFname = `${basename}-${ID}.${ext}`;
+    } else {
+        newFname = `${basename}.${ext}`;
+    }
 
     const plugin = thisPlugin();
     await plugin.saveBlob(newFname, file, `data/assets/user/${prefix}`);
@@ -197,13 +204,14 @@ const NewFileApp = (props: { updated: (v) => void }) => {
     let fname = '';
     let ext = '';
     let prefix = '';
+    let addId = true;
 
     let options: { [key: string]: string } = PredefinedExt.reduce((acc, ext) => {
         acc[`.${ext}`] = `.${ext}`;
         return acc;
     }, {} as { [key: string]: string });
 
-    let ref: HTMLDivElement;
+    let ref: HTMLTableCellElement;
 
     onMount(() => {
         const input = ref?.querySelector('input');
@@ -222,68 +230,83 @@ const NewFileApp = (props: { updated: (v) => void }) => {
     const updateFullPath = () => {
         const cleanPrefix = prefix.replace(/^\/+|\/+$/g, ''); // Fixed the regex syntax
         const path = cleanPrefix ? `${cleanPrefix}/` : '';
-        props.updated(path + fname + ext);
+        props.updated({
+            path: path + fname + ext,
+            addId: addId
+        });
     };
 
     return (
         <div class="fn__flex-column" style="gap: 8px;">
-            <div class="fn__flex" style="gap: 5px;">
-                <div class="fn__flex">
-                    <FormInput
-                        type='textinput'
-                        key='custom-prefix'
-                        value=''
-                        placeholder='自定义路径前缀'
-                        changed={(v) => {
-                            prefix = v;
-                            updateFullPath();
-                        }}
-                    />
-                </div>
-                <div class="fn__flex fn__flex-1">
-                    <FormInput
-                        type='select'
-                        key='prefix'
-                        value=''
-                        fn_size={false}
-                        options={prefixMap}
-                        changed={(v) => {
-                            prefix = v;
-                            updateFullPath();
-                        }}
-                    />
-                </div>
-            </div>
-            <div class="fn__flex" style="gap: 5px;">
-                <div class="fn__flex" ref={ref}>
-                    <FormInput
-                        type='textinput'
-                        key='fname'
-                        value=''
-                        placeholder='文件名'
-                        changed={(v) => {
-                            fname = v;
-                            updateFullPath();
-                        }}
-                    />
-                </div>
-                <div class="fn__flex fn__flex-1">
-                    <FormInput
-                        type='select'
-                        key='ext'
-                        value=''
-                        fn_size={false}
-                        options={{
-                            '': '自定义',
-                            ...options
-                        }}
-                        changed={(v) => {
-                            ext = v;
-                            updateFullPath();
-                        }}
-                    />
-                </div>
-            </div>
+            <table class="b3-table" style="width: 100%; border-spacing: 0; border-collapse: collapse;">
+                <tbody>
+                    <tr>
+                        <td style="text-align: left; padding: 8px 4px;">
+                            <span>添加 ID 到文件名</span>
+                        </td>
+                        <td style="text-align: right; padding: 8px 4px;">
+                            <CheckboxInput
+                                checked={addId}
+                                changed={(v) => {
+                                    addId = v;
+                                    updateFullPath();
+                                }}
+                            />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 4px;">
+                            <TextInput
+                                value={prefix}
+                                changed={(v) => {
+                                    prefix = v;
+                                    updateFullPath();
+                                }}
+                                placeholder='自定义路径前缀'
+                                style={{ width: '100%' }}
+                            />
+                        </td>
+                        <td style="padding: 8px 4px;">
+                            <SelectInput
+                                value=''
+                                changed={(v) => {
+                                    prefix = v;
+                                    updateFullPath();
+                                }}
+                                options={prefixMap}
+                                style={{ width: '100%' }}
+                            />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 4px;" ref={ref}>
+                            <TextInput
+                                value={fname}
+                                changed={(v) => {
+                                    fname = v;
+                                    updateFullPath();
+                                }}
+                                placeholder='文件名'
+                                style={{ width: '100%' }}
+                            />
+                        </td>
+                        <td style="padding: 8px 4px;">
+                            <SelectInput
+                                value=''
+                                changed={(v) => {
+                                    ext = v;
+                                    updateFullPath();
+                                }}
+                                options={{
+                                    '': '自定义',
+                                    ...options
+                                }}
+                                style={{ width: '100%' }}
+                            />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     );
 }
@@ -308,9 +331,10 @@ export const load = (plugin: FMiscPlugin) => {
         id: 'new-file',
         callback: async (protyle: Protyle) => {
             let fname: string = '';
+            let addId: boolean = true;
 
             const createCb = async () => {
-                let result = await addNewEmptyFile(fname);
+                let result = await addNewEmptyFile(fname, addId);
                 if (result) {
                     const { name, route } = result;
                     showMessage(`新建文件${name}成功, 文件路径: ${route}`);
@@ -322,7 +346,10 @@ export const load = (plugin: FMiscPlugin) => {
             };
             let ele = document.createElement('div');
             render(() => NewFileApp({
-                updated: (v) => { fname = v; }
+                updated: (v) => {
+                    fname = v.path;
+                    addId = v.addId;
+                }
             }), ele);
 
             confirmDialog({
