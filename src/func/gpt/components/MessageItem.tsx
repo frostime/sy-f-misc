@@ -13,6 +13,7 @@ import { solidDialog } from '@/libs/dialog';
 import Markdown from '@/libs/components/Elements/Markdown';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 import { ButtonInput } from '@/libs/components/Elements';
+import { floatingEditor } from '@/libs/components/floating-editor';
 
 
 const useCodeToolbar = (language: string, code: string) => {
@@ -578,17 +579,28 @@ const MessageItem: Component<{
         </svg>
     );
 
-    const editMessage = () => {
-        inputDialog({
-            title: '编辑消息',
-            defaultText: textContent(),
-            confirm: (text) => {
+    const editMessage = (e: MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        floatingEditor({
+            initialText: textContent(),
+            onConfirm: (text) => {
                 props.updateIt?.(text);
             },
-            'type': 'textarea',
-            width: '700px',
-            height: '500px'
-        });
+            onCancel: () => {
+                // console.log('取消编辑');
+            },
+            title: '编辑消息',
+            placeholder: '请输入消息内容',
+            initialPosition: {
+                x: e.clientX,
+                y: e.clientY
+            },
+            style: {
+                width: '450px',
+                height: '320px'
+            }
+        })
     }
 
     const copyMessage = () => {
@@ -651,7 +663,7 @@ const MessageItem: Component<{
         menu.addItem({
             icon: 'iconEdit',
             label: '编辑',
-            click: editMessage
+            click: (ele, e) => editMessage(e)
         });
         menu.addItem({
             icon: 'iconCopy',

@@ -78,6 +78,8 @@ export const FloatingContainer: Component<{
                 containerRef.style.left = `${position().x}px`;
                 containerRef.style.top = `${position().y}px`;
             }
+            // 限制位置不能超出屏幕
+            adjustPosition();
 
             // 添加全局事件监听
             window.addEventListener('resize', handleResize);
