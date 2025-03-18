@@ -8,30 +8,41 @@
 
 import { type Component, createSignal, onCleanup, onMount, JSXElement } from 'solid-js';
 import { render } from 'solid-js/web';
-
-interface FloatingContainerProps {
-    children: JSXElement;
-    onClose?: () => void;
-    initialPosition?: { x: number; y: number };
-    minWidth?: string;
-    minHeight?: string;
-    maxWidth?: string;
-    maxHeight?: string;
-    style?: Record<string, string>;
-}
+import { IconSymbol } from './Elements';
+import { debounce } from '@frostime/siyuan-plugin-kits';
 
 /**
  * 浮动容器组件
  */
-export const FloatingContainer: Component<FloatingContainerProps> = (props) => {
-    const initialX = props.initialPosition?.x ?? window.innerWidth - 250;
-    const initialY = props.initialPosition?.y ?? window.innerHeight - 150;
+export const FloatingContainer: Component<{
+    children: JSXElement;
+    onClose?: () => void;
+    initialPosition?: { x: number; y: number };
+    style?: Record<string, string>;
+    title?: string;
+    id?: string;
+    allowResize?: boolean;
+}> = (props) => {
+    // 设置默认值
+    const allowResize = props.allowResize ?? false;
 
-    const [position, setPosition] = createSignal({ x: initialX, y: initialY });
+    // 初始化位置
+    const [position, setPosition] = createSignal({
+        x: props.initialPosition?.x ?? window.innerWidth / 2,
+        y: props.initialPosition?.y ?? window.innerHeight / 2
+    });
+
+    // 保存容器引用
+    let containerRef: HTMLDivElement | undefined;
+
+    // 拖动相关变量
     let isDragging = false;
     let dragOffset = { x: 0, y: 0 };
-    let containerRef: HTMLDivElement;
+    // 保存拖动前的尺寸
+    let containerWidthBeforeDrag = '';
+    let containerHeightBeforeDrag = '';
 
+    // 确保容器在屏幕范围内
     const adjustPosition = () => {
         if (!containerRef) return;
         const rect = containerRef.getBoundingClientRect();
@@ -43,22 +54,36 @@ export const FloatingContainer: Component<FloatingContainerProps> = (props) => {
         setPosition({ x: newX, y: newY });
     };
 
+    // 使用防抖减少频繁调用
+    const debouncedAdjustPosition = debounce(adjustPosition, 20);
+
+    // 窗口大小变化时调整位置
     const handleResize = () => {
         if (containerRef) {
-            containerRef.style.transition = 'all 0.3s ease';
-            adjustPosition();
+            debouncedAdjustPosition();
         }
     };
 
     onMount(() => {
-        // 初始化位置
         if (containerRef) {
-            containerRef.style.left = `${position().x}px`;
-            containerRef.style.top = `${position().y}px`;
+            // 如果未指定初始位置，则居中显示
+            if (!props.initialPosition) {
+                const rect = containerRef.getBoundingClientRect();
+                const centerX = (window.innerWidth - rect.width) / 2;
+                const centerY = (window.innerHeight - rect.height) / 2;
+                setPosition({ x: centerX, y: centerY });
+                containerRef.style.left = `${centerX}px`;
+                containerRef.style.top = `${centerY}px`;
+            } else {
+                containerRef.style.left = `${position().x}px`;
+                containerRef.style.top = `${position().y}px`;
+            }
+
+            // 添加全局事件监听
+            window.addEventListener('resize', handleResize);
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
         }
-        window.addEventListener('resize', handleResize);
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
     });
 
     onCleanup(() => {
@@ -67,6 +92,7 @@ export const FloatingContainer: Component<FloatingContainerProps> = (props) => {
         window.removeEventListener('resize', handleResize);
     });
 
+    // 拖动开始
     const handleMouseDown = (e: MouseEvent) => {
         if (!containerRef) return;
         isDragging = true;
@@ -75,34 +101,47 @@ export const FloatingContainer: Component<FloatingContainerProps> = (props) => {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
         };
-        // 添加拖动时的样式
-        containerRef.style.transition = 'none';
+
+        // 保存当前尺寸
+        containerWidthBeforeDrag = containerRef.style.width;
+        containerHeightBeforeDrag = containerRef.style.height;
+
         e.preventDefault();
     };
 
+    // 拖动过程
     const handleMouseMove = (e: MouseEvent) => {
         if (!isDragging || !containerRef) return;
 
-        const rect = containerRef.getBoundingClientRect();
-        const newX = Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - rect.width));
-        const newY = Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - rect.height));
+        const newX = Math.max(0, Math.min(e.clientX - dragOffset.x, window.innerWidth - containerRef.offsetWidth));
+        const newY = Math.max(0, Math.min(e.clientY - dragOffset.y, window.innerHeight - containerRef.offsetHeight));
 
-        // 直接更新 DOM 样式，而不是通过状态更新
+        // 直接更新DOM位置
         containerRef.style.left = `${newX}px`;
         containerRef.style.top = `${newY}px`;
+
         e.preventDefault();
     };
 
+    // 拖动结束
     const handleMouseUp = () => {
         if (!containerRef || !isDragging) return;
         isDragging = false;
-        // 恢复过渡动画
-        containerRef.style.transition = 'all 0.3s ease';
+
         // 更新状态，保存最终位置
-        const rect = containerRef.getBoundingClientRect();
-        setPosition({ x: rect.left, y: rect.top });
+        setPosition({ x: containerRef.offsetLeft, y: containerRef.offsetTop });
+
+        // 恢复拖动前保存的尺寸
+        if (containerWidthBeforeDrag) {
+            containerRef.style.width = containerWidthBeforeDrag;
+        }
+
+        if (containerHeightBeforeDrag) {
+            containerRef.style.height = containerHeightBeforeDrag;
+        }
     };
 
+    // 关闭容器
     const handleClose = () => {
         if (props.onClose) {
             props.onClose();
@@ -111,26 +150,32 @@ export const FloatingContainer: Component<FloatingContainerProps> = (props) => {
 
     return (
         <div
-            ref={containerRef!}
+            id={props.id}
+            class='floating-container'
+            ref={containerRef}
             style={{
                 'position': 'fixed',
                 'left': `${position().x}px`,
                 'top': `${position().y}px`,
                 'z-index': '9999',
                 'background-color': 'var(--b3-theme-background)',
-                'border': '1px solid var(--b3-theme-on-surface)',
+                'border': '1px solid var(--b3-border-color)',
                 'border-radius': '8px',
                 'padding': '8px',
-                'box-shadow': '0 2px 8px rgba(0, 0, 0, 0.15)',
-                'transition': 'all 0.3s ease',
-                'min-width': props.minWidth || '150px',
-                'min-height': props.minHeight || 'auto',
-                'max-width': props.maxWidth || 'none',
-                'max-height': props.maxHeight || 'none',
+                'box-shadow': 'var(--b3-dialog-shadow)',
+                'max-width': '95%',
+                'max-height': '95%',
                 'display': 'flex',
                 'flex-direction': 'column',
                 'user-select': 'none',
-                ...props.style
+                'resize': allowResize ? 'both' : 'none',
+                'overflow': 'auto', // Required for resize to work
+                'min-width': '200px', // Add minimum dimensions
+                'min-height': '100px',
+                'will-change': 'left, top, width, height', // 优化渲染性能
+                'overscroll-behavior': 'contain', // 防止滚动传播
+                'touch-action': 'none', // 优化触摸设备上的交互
+                ...(props.style || {})
             }}
         >
             <div
@@ -146,7 +191,19 @@ export const FloatingContainer: Component<FloatingContainerProps> = (props) => {
                 }}
                 onMouseDown={handleMouseDown}
             >
-                <div class="drag-handle" style={{ 'width': '16px', 'height': '4px', 'background-color': 'var(--b3-border-color)', 'border-radius': '2px' }}></div>
+                <div style={{ 'display': 'flex', 'align-items': 'center', 'gap': '8px' }}>
+                    <IconSymbol size='13px'>iconAttr</IconSymbol>
+                    <div
+                        class="floating-container-title"
+                        style={{
+                            'font-size': '14px',
+                            'font-weight': '500',
+                            'color': 'var(--b3-theme-on-background)'
+                        }}
+                    >
+                        {props.title}
+                    </div>
+                </div>
                 <div
                     class="close-button"
                     onClick={handleClose}
@@ -169,7 +226,7 @@ export const FloatingContainer: Component<FloatingContainerProps> = (props) => {
                     </svg>
                 </div>
             </div>
-            <div class="floating-container-content" style={{ 'flex': '1' }}>
+            <div class="floating-container-body" style={{ 'flex': '1' }}>
                 {props.children}
             </div>
         </div>
@@ -184,28 +241,27 @@ export const FloatingContainer: Component<FloatingContainerProps> = (props) => {
  * @param args.element DOM 元素
  * @param args.component Solid 组件
  * @param args.initialPosition 初始位置
- * @param args.minWidth 最小宽度
- * @param args.minHeight 最小高度
- * @param args.maxWidth 最大宽度
- * @param args.maxHeight 最大高度
  * @param args.style 样式
+ * @param args.title 标题
  * @param args.onClose 关闭事件
- * @returns {{dispose: () => void}} 返回一个包含 dispose 方法的对象，用于销毁容器
+ * @param args.allowResize 是否允许调整大小
+ * @returns {{
+ *   container: HTMLElement,
+ *   containerBody: HTMLElement,
+ *   dispose: () => void
+ * }} 返回一个包含容器元素、内容区元素和销毁方法的对象
  */
 export const floatingContainer = (args: {
     element?: HTMLElement;
     component?: () => JSXElement;
-    initialPosition?: { x: number; y: number };
-    minWidth?: string;
-    minHeight?: string;
-    maxWidth?: string;
-    maxHeight?: string;
+    title?: string;
     style?: Record<string, string>;
+    initialPosition?: { x: number; y: number };
     onClose?: () => void;
+    allowResize?: boolean;
 }) => {
     if (!args.component && !args.element) {
-        console.error('FloatingContainer: 必须提供 loader 或 element 参数');
-        return { dispose: () => { } };
+        throw new Error('FloatingContainer: 必须提供 component 或 element 参数');
     }
 
     const container = document.createElement('div');
@@ -214,18 +270,32 @@ export const floatingContainer = (args: {
 
     let dispose: (() => void) | undefined;
 
+    // 确保style中包含宽高
+    const style = args.style ? { ...args.style } : {};
+    if (!style.width) style.width = 'auto';
+    if (!style.height) style.height = 'auto';
+
+    // 定义销毁函数，清理所有资源
+    const disposeAll = () => {
+        if (dispose) {
+            dispose();
+            dispose = undefined;
+        }
+        if (container.parentNode) {
+            container.remove();
+        }
+    };
+
     // 渲染浮动容器
     const containerProps = {
         initialPosition: args.initialPosition,
-        minWidth: args.minWidth,
-        minHeight: args.minHeight,
-        maxWidth: args.maxWidth,
-        maxHeight: args.maxHeight,
-        style: args.style,
+        style: style,
+        title: args.title,
         onClose: () => {
             disposeAll();
             if (args.onClose) args.onClose();
-        }
+        },
+        allowResize: args.allowResize ?? false
     };
 
     // 处理两种不同的内容类型
@@ -233,7 +303,7 @@ export const floatingContainer = (args: {
         // 使用 Solid 组件渲染
         const ContainerComponent = () => (
             <FloatingContainer {...containerProps}>
-                {args.component()}
+                {args.component!()}
             </FloatingContainer>
         );
         dispose = render(ContainerComponent, container);
@@ -241,8 +311,8 @@ export const floatingContainer = (args: {
         // 使用普通 DOM 元素
         const ContainerComponent = () => (
             <FloatingContainer {...containerProps}>
-                <div ref={(el) => {
-                    if (el && args.element) {
+                <div style={{ 'display': 'contents' }} ref={(el) => {
+                    if (el && args.element && args.element.parentElement !== el) {
                         el.appendChild(args.element);
                     }
                 }}></div>
@@ -251,17 +321,10 @@ export const floatingContainer = (args: {
         dispose = render(ContainerComponent, container);
     }
 
-    // 销毁函数，清理所有资源
-    const disposeAll = () => {
-        if (dispose) {
-            dispose();
-            dispose = undefined;
-        }
-        container.remove();
-    };
-
-    // 返回对象，包含销毁方法
+    // 返回对象，包含容器元素、内容区元素和销毁方法
     return {
+        container: container,
+        containerBody: container.querySelector('.floating-container-body') as HTMLElement,
         dispose: disposeAll
     };
 };

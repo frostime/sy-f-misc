@@ -3,10 +3,11 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-02-18 14:03:55
+ * @LastEditTime : 2025-03-18 19:18:46
  * @Description  : 
  */
 
+import { floatingContainer } from "@/libs/components/floating-container";
 import { getLute, html2ele, id2block, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { thisPlugin, getBlockByID } from "@frostime/siyuan-plugin-kits";
 import { request, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
@@ -25,7 +26,7 @@ export const declareToggleEnabled = {
 const exportDialog = (md: string, title: string) => {
 
     const html = `
-    <div class="fn__flex fn__flex-column" style="height: 100%; flex: 1; gap: 3px; padding: 8px 12px; box-sizing: border-box;">
+    <div class="fn__fle-1 fn__flex fn__flex-column" style="height: 100%; flex: 1; gap: 3px; padding: 8px 12px; box-sizing: border-box;">
     <div data-type="row" style="font-size: 17px; display: flex; gap: 5px; align-items: center;">
         <span style="font-weight: 500; flex: 1;">${title}</span>
         <button class="b3-button b3-button--text">Download</button>
@@ -54,7 +55,7 @@ const exportDialog = (md: string, title: string) => {
         ele: ele,
         width: '1200px',
         height: '700px',
-    })
+    });
 }
 
 let disposer = () => { };
