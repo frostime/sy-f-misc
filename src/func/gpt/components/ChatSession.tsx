@@ -642,7 +642,7 @@ const ChatSession: Component<{
                     ...(props.styles ?? {})
                 }}
             >
-                <SvgSymbol size="20px">{props.icon}</SvgSymbol>
+                <SvgSymbol size="var(--topbar-btn-size)">{props.icon}</SvgSymbol>
             </ToolbarLabel>
         );
 
