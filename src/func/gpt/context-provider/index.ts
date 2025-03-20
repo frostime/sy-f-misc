@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-02-24 00:40:52
+ * @LastEditTime : 2025-03-19 15:13:55
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -167,9 +167,9 @@ const assembleContext2Prompt = (contexts: IProvidedContext[]) => {
         return '';
     }
 
-    let start = '<START_OF_THE_ATTACHED_CONTEXTS_CONTENT NOTE="Following XML tags are used to structure various of LLM context content, don\'t treat XML tags themselves as part of the formal content!">\n\n';
+    let start = '<ATTACHED_CONTEXTS_CONTENT NOTE="Followings are use\'s attached context content; XML tags <Context.xxx> <ContextItem> are only for structure, NOT part of the formal content; the context content are within <ContextItem> tags.">\n\n';
     let contextsPrompt = contexts.map(context2prompt).join('\n\n');
-    return start + contextsPrompt + '\n\n</END_OF_THE_ATTACHED_CONTEXTS_CONTENT>';
+    return start + contextsPrompt + '\n\n</ATTACHED_CONTEXTS_CONTENT>';
 }
 
 function context2prompt(context: IProvidedContext): string {
@@ -179,19 +179,19 @@ function context2prompt(context: IProvidedContext): string {
 
     let prompt = '';
 
-    prompt += `<${context.name} title="${context.displayTitle}" description="${context.description}">`;
+    prompt += `<Context.${context.name} title="${context.displayTitle}" description="${context.description}">`;
 
     const itemPrompts = [];
     context.contextItems.forEach((item) => {
         let itemPrompt = '';
-        itemPrompt += `<${context.name}.ITEM name="${item.name.replaceAll('\n', ' ')}" description="${item.description.replaceAll('\n', ' ')}">\n`;
+        itemPrompt += `<ContextItem name="${item.name.replaceAll('\n', ' ')}" description="${item.description.replaceAll('\n', ' ')}">\n`;
         itemPrompt += `${item.content}\n`;
-        itemPrompt += `</${context.name}.ITEM>`;
+        itemPrompt += `</ContextItem>`;
         itemPrompts.push(itemPrompt);
     });
     prompt += `\n${itemPrompts.join('\n').trim()}\n`;
 
-    prompt += `</${context.name}>`;
+    prompt += `</Context.${context.name}>`;
     return prompt;
 }
 
