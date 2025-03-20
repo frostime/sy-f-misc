@@ -3,18 +3,18 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:18:59
  * @FilePath     : /src/func/toggl/index.ts
- * @LastEditTime : 2025-01-14 20:34:36
+ * @LastEditTime : 2025-03-20 15:57:15
  * @Description  : 
  */
-import * as components from './components';
+// import * as components from './components';
 // import * as store from './state';
 import * as config from './state/config';
 import * as active from './state/active';
 import { recordTodayEntriesToDN, toggleAutoFetch } from './func/record-to-dn';
 import type FMiscPlugin from '@/index';
 import TogglSetting from './setting';
-import { solidDialog } from '@/libs/dialog';
-import TimeEntryHistory from './components/time-entry-history';
+// import { solidDialog } from '@/libs/dialog';
+// import TimeEntryHistory from './components/time-entry-history';
 import { createEffect, createRoot, on } from 'solid-js';
 
 export let name = 'Toggl';
@@ -71,29 +71,30 @@ export const load = async (plugin: FMiscPlugin) => {
                 recordTodayEntriesToDN();
             }
         },
-        {
-            label: '近期 Toggl 记录',
-            icon: 'iconClock',
-            click: () => {
-                solidDialog({
-                    title: 'Toggl 近期记录',
-                    loader: TimeEntryHistory,
-                    width: '800px',
-                    height: '600px',
-                })
-            }
-        }
+        //#TODO 暂时先关闭这个功能，后期看情况是否加回来
+        // {
+        //     label: '近期 Toggl 记录',
+        //     icon: 'iconClock',
+        //     click: () => {
+        //         solidDialog({
+        //             title: 'Toggl 近期记录',
+        //             loader: TimeEntryHistory,
+        //             width: '800px',
+        //             height: '600px',
+        //         })
+        //     }
+        // }
     ]);
 
     if (config.config().token) {
         toggleAutoFetch(config.config().dnAutoFetch);
     }
 
-    setTimeout(() => {
-        components.load();
-    }, 1000);
-    // plugin.addLayoutReadyCallback(() => {
-    // })
+    //#TODO 暂时先不加载组件
+    // setTimeout(() => {
+    //     components.load();
+    // }, 1000);
+
 
     reactivityRoot.use();
 };
@@ -104,7 +105,7 @@ export const unload = (plugin: FMiscPlugin) => {
     globalThis.toggl = null;
     plugin.unRegisterMenuTopMenu('toggl');
     toggleAutoFetch(false);
-    components.unload();
+    // components.unload();
     active.unload();
     reactivityRoot.dispose();
 }
