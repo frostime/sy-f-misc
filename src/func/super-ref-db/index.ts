@@ -105,10 +105,11 @@ export const load = () => {
                     });
                 }
             });
+            return;
         }
 
         // Add dynamic database options based on whether it's already set up
-        else if (dynamicQuery) {
+        if (dynamicQuery) {
             // Add update button for dynamic database if it already exists
             detail.menu.addItem({
                 icon: 'iconRefresh',
@@ -123,16 +124,15 @@ export const load = () => {
                     });
                 }
             });
-        } else {
-            // Add option to set up dynamic database if it doesn't exist yet
-            detail.menu.addItem({
-                icon: 'iconSQL',
-                label: '设置动态数据库',
-                click: async () => {
-                    await showDynamicDatabaseDialog(block.id);
-                }
-            });
         }
+        // Add option to set up dynamic database if it doesn't exist yet
+        detail.menu.addItem({
+            icon: 'iconSQL',
+            label: '设置动态数据库',
+            click: () => {
+                showDynamicDatabaseDialog(block.id);
+            }
+        });
     });
     let d3 = plugin.registerEventbusHandler('open-menu-blockref', (detail) => {
         const span = detail.element;

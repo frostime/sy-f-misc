@@ -114,19 +114,30 @@ const handleRedirection = async (
  */
 const calculateDiff = async (
     superRefDbId: BlockId,
-    refs: Block[],
-    rowBlockIds: string[],
-    newRedirectMap: RedirectMap
+    newBlocks: Block[] | BlockId[],
+    oldRowIds: string[],
+    newRedirectMap?: RedirectMap
 ): Promise<SyncResult> => {
-    const refsBlockIds = refs.map(b => b.id);
+    const refsBlockIds = newBlocks.map(b => {
+        if (typeof b === 'string') return b;
+        else if (typeof b?.id === 'string') return b.id;
+        else throw new Error('Invalid block type');
+    });
     const refSet = new Set(refsBlockIds);
-    const rowSet = new Set(rowBlockIds);
+    const rowSet = new Set(oldRowIds);
 
     // Get the old redirect map from block attributes
     const attrs = await getBlockAttrs(superRefDbId);
     const oldRedirectMap: RedirectMap = attrs['custom-super-ref-redirect-map']
         ? JSON.parse(attrs['custom-super-ref-redirect-map'])
         : {};
+
+    if (!newRedirectMap || Object.keys(newRedirectMap).length === 0) {
+        newRedirectMap = {};
+        newBlocks.forEach(ref => {
+            newRedirectMap[ref.id] = ref.id;
+        });
+    }
 
     // Update the redirect map in block attributes
     await setBlockAttrs(superRefDbId, {
@@ -212,13 +223,13 @@ export const syncDatabaseFromSearchResults = async (input: {
         block: BlockId;
         av: BlockId;
     },
-    refs: Block[],
+    newBlocks: Block[] | BlockId[],
     redirectMap?: RedirectMap,
     removeOrphanRows?: 'remove' | 'no' | 'ask';
 }) => {
     const {
         database,
-        refs,
+        newBlocks,
         redirectMap,
         removeOrphanRows = 'ask'
     } = input;
@@ -229,7 +240,7 @@ export const syncDatabaseFromSearchResults = async (input: {
     // Calculate differences
     const diff = await calculateDiff(
         database.block,
-        refs,
+        newBlocks,
         rowBlockIds,
         redirectMap ?? {},
     );
@@ -324,7 +335,7 @@ export const syncDatabaseFromBacklinks = async (input: {
     // Sync database with search results
     await syncDatabaseFromSearchResults({
         database,
-        refs,
+        newBlocks: refs,
         redirectMap,
         removeOrphanRows
     });
