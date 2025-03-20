@@ -134,9 +134,9 @@ const calculateDiff = async (
 
     if (!newRedirectMap || Object.keys(newRedirectMap).length === 0) {
         newRedirectMap = {};
-        newBlocks.forEach(ref => {
-            newRedirectMap[ref.id] = ref.id;
-        });
+        for (const id of refsBlockIds) {
+            newRedirectMap[id] = id;
+        }
     }
 
     // Update the redirect map in block attributes
@@ -242,7 +242,7 @@ export const syncDatabaseFromSearchResults = async (input: {
         database.block,
         newBlocks,
         rowBlockIds,
-        redirectMap ?? {},
+        redirectMap,
     );
 
     // Handle additions

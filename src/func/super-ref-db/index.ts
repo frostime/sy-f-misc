@@ -12,6 +12,7 @@ import { getAvIdFromBlockId } from "@/api/av";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR } from "./dynamic-db";
 import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import "./index.css";
 
 export let name = "SuperRefDB";
 export let enabled = false;
