@@ -3,13 +3,12 @@
  * @Author       : frostime
  * @Date         : 2025-03-21
  * @FilePath     : /src/func/super-ref-db/index.ts
- * @Description  : Super Reference Database
  */
 
 // import { openBlock } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./core";
-import { getAvIdFromBlockId } from "./api";
+import { getAvIdFromBlockId } from "@/api/av";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR } from "./dynamic-db";
 import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -88,12 +87,12 @@ export const load = () => {
     // This handler is for attribute view database blocks
     let d2 = plugin.registerOnClickBlockicon((detail) => {
         if (detail.blocks.length !== 1) return;
-        let block = detail.blocks[0];
+        const block = detail.blocks[0];
         if (block.type !== 'NodeAttributeView') return;
 
-        let ele = detail.blockElements[0];
-        let docId = ele.getAttribute('custom-super-ref-db');
-        let dynamicQuery = ele.getAttribute(DYNAMIC_DB_ATTR);
+        const ele = detail.blockElements[0];
+        const docId = ele.getAttribute('custom-super-ref-db');
+        const dynamicQuery = ele.getAttribute(DYNAMIC_DB_ATTR);
 
         // Original Super Ref update option for backlinks
         if (docId) {
@@ -115,12 +114,13 @@ export const load = () => {
                 icon: 'iconRefresh',
                 label: '更新动态数据库',
                 click: async () => {
-                    const avId = await getAvIdFromBlockId(block.id);
-                    if (!avId) {
-                        showMessage('无法找到数据库视图ID', 3000, 'error');
-                        return;
-                    }
-                    await updateDynamicDatabase(block.id, avId);
+                    await getAvIdFromBlockId(block.id).then(async (avId) => {
+                        if (!avId) {
+                            showMessage('无法找到数据库视图ID', 3000, 'error');
+                            return;
+                        }
+                        await updateDynamicDatabase(block.id, avId);
+                    });
                 }
             });
         } else {
@@ -141,7 +141,7 @@ export const load = () => {
             icon: 'iconDatabase',
             label: '绑定为SuperRef',
             click: async () => {
-                let block = await getBlockByID(dataId);
+                const block = await getBlockByID(dataId);
                 if (!block) return;
                 if (block.type !== 'd') return;
                 let db = await getSuperRefDb(block.id);
