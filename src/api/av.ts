@@ -89,9 +89,11 @@ function parseWsUrl(url: string) {
  */
 export const getAvIdFromBlockId = async (blockId: BlockId) => {
     const block = await getBlockByID(blockId);
-    const html = block.markdown;
     // <div data-type="NodeAttributeView" data-av-id="20250208170718-qbemcfc" data-av-type="table"></div>
-    return html.match(/data-av-id=\"([^\"]+)\"/)?.[1];
+    const html = block.markdown;
+    console.debug(html);
+    const avId =  html.match(/data-av-id=\"([^\"]+)\"/)?.[1];
+    return avId ?? null;
 }
 
 /**
@@ -146,11 +148,10 @@ export const requestTransaction = async (options: {
  * @param avID Attribute view ID
  * @returns Promise with the attribute view data
  */
-export const getAttributeView = async (avID: AvID): Promise<AttributeView> => {
-    const result = await request('/api/av/getAttributeView', {
+export const getAttributeView = async (avID: AvID) => {
+    return request('/api/av/getAttributeView', {
         id: avID
     });
-    return result.data.av;
 }
 
 /**
@@ -163,13 +164,13 @@ export const getAttributeView = async (avID: AvID): Promise<AttributeView> => {
  * @returns Promise with the result
  */
 export const addAttributeViewBlocks = async (
-    avId: AvID, 
+    avId: AvID,
+    blockID: BlockId,
     blocksToAdd: {
         id: BlockId;
         isDetached?: boolean;
     }[],
-    blockID: BlockId = "", 
-    previousID: string = "",
+    previousID?: string,
     ignoreFillFilter?: boolean
 ) => {
     return request('/api/av/addAttributeViewBlocks', {
