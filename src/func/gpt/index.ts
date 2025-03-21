@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-03-16 19:03:20
+ * @LastEditTime : 2025-03-21 13:47:33
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
 
-import { openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { inputDialog, openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { render } from "solid-js/web";
 
@@ -292,6 +292,27 @@ export const load = (plugin: FMiscPlugin) => {
                 icon: 'iconGithub',
                 click: () => {
                     persist.importGoogleAIStudio();
+                }
+            },
+            {
+                label: '从 MD 文本中创建对话',
+                icon: 'iconEdit',
+                click: () => {
+                    inputDialog({
+                        title: '输入符合格式要求的 Markdown 文本',
+                        defaultText: '',
+                        type: 'textarea',
+                        confirm: (text) => {
+                            const result = persist.parseMarkdownToChatHistory(text);
+                            if (!result) {
+                                showMessage('解析失败');
+                                return;
+                            }
+                            openChatTab(false, result);
+                        },
+                        width: '1000px',
+                        height: '720px',
+                    });
                 }
             }
         ]

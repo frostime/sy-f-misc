@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-03-21 12:52:39
+ * @LastEditTime : 2025-03-21 14:45:09
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -23,9 +23,25 @@ const CUSTOM_EDITABLE_AREA = `
 {: id="20241226142458-lrm1v3l" ${ATTR_GPT_EXPORT_DOC_EDITABLE_AREA}="true" custom-b="note" custom-callout-mode="small" memo="可编辑区域" }
 `.trim();
 
-const SEPERATOR_LINE = `> -------`;
+// Used to as separator between message items
+const SEPERATOR_LINE = `> ---`;
 
-const formatSingleItem = (name: string, content: string, meta?: Record<string, string>) => {
+
+/**
+Item 格式化为 markdown 的基本协议
+
+每个 Item 被格式化为:
+```
+> ---
+> < xml 说明 />
+
+具体内容
+```
+其中 xml 说明是一个单个闭合的 XML 标签, tag name 为 SYSTEM, USER, ASSISTANT 或者 SEPERATOR; 可以带有 xml 属性, 例如 author, timestamp 等。
+
+ */
+
+export const formatSingleItem = (name: string, content: string, meta?: Record<string, string>) => {
     const xmlAttrs = Object.entries(meta || {}).map(([key, value]) => {
         if (!value) return '';
         return `${key}="${value}"`;
@@ -71,19 +87,253 @@ ${SEPERATOR_LINE}
     const content = `${text}\n\n${imagesDivs()}`.trim();
     return formatSingleItem(xmlTagName, content, {
         author,
-        time: timeStr
+        timestamp: timeStr
     });
 
-//     return `
-// ${SEPERATOR_LINE}
-// > <${xmlTagName} ${author ? `author="${author}"` : ''} ${timeStr ? `time="${timeStr}"` : ''} />
+    //     return `
+    // ${SEPERATOR_LINE}
+    // > <${xmlTagName} ${author ? `author="${author}"` : ''} ${timeStr ? `time="${timeStr}"` : ''} />
 
-// ${text}
+    // ${text}
 
-// ${imagesDivs()}
+    // ${imagesDivs()}
 
-// `.trim();
+    // `.trim();
 }
+
+type History = {
+    items: IChatSessionMsgItem[],
+    sysPrompt?: string
+};
+
+
+export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | History,
+    options?: Parameters<typeof item2markdown>[1]
+) => {
+    let markdownText = '';
+    let item = null;
+    let sysPrompt = null;
+    if (Array.isArray(history)) {
+        item = history;
+    } else {
+        item = history.items;
+        sysPrompt = history.sysPrompt;
+    }
+    if (sysPrompt) {
+        markdownText += formatSingleItem('SYSTEM', sysPrompt) + '\n\n';
+    }
+    markdownText += item.map(item => item2markdown(item, options)).join('\n\n');
+    return markdownText;
+}
+
+
+/**
+ * 假定 markdown 已经 split 了 SEPERATOR_LINE, 将每个 item 输入本函数可以解析 item 信息
+ * @param markdown 
+ * @returns {name, content, meta}
+ */
+const parseItemMarkdown = (markdown: string) => {
+    markdown = markdown.trim();
+    if (!markdown) return null;
+
+    // 解析 xml tag - 修复正则表达式以匹配自闭合标签
+    // 正则表达式解释：
+    //   >\s*<([A-Z]+)([^>]*?)(\s*\/?)>
+    //   - >\s* 匹配 '>' 后面的空白字符
+    //   - <([A-Z]+) 匹配 '<' 后面的标签名（大写字母）
+    //   - ([^>]*?) 匹配标签属性（非 '>' 的任意字符，非贪婪匹配）
+    //   - (\s*\/?) 匹配标签的结束符（ '/' 或空白字符）
+    const xmlTagRegex = />\s*<([A-Z]+)([^>]*?)(\s*\/?)>/;
+    const match = markdown.match(xmlTagRegex);
+
+    if (!match) {
+        console.warn('Failed to match XML tag in:', markdown.substring(0, 100));
+        return null;
+    }
+
+    const [fullMatch, name, attributesStr] = match;
+
+    // 解析属性
+    const meta: Record<string, string> = {};
+    const attrRegex = /(\w+)="([^"]*)"/g;
+    let attrMatch;
+    while ((attrMatch = attrRegex.exec(attributesStr)) !== null) {
+        const [_, key, value] = attrMatch;
+        meta[key] = value;
+    }
+
+    // 提取内容 (去掉XML标签行)
+    let lines = markdown.split('\n');
+    const tagLineIndex = lines.findIndex(line => line.includes(fullMatch));
+
+    // 如果找不到标签行，返回空内容
+    if (tagLineIndex < 0) {
+        return { name, content: '', meta };
+    } else {
+        // 去掉这行
+        lines.splice(tagLineIndex, 1);
+    }
+
+    const content = lines.join('\n').trim();
+
+    return { name, content, meta };
+}
+
+
+export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistory | null => {
+    if (!markdown || typeof markdown !== 'string') {
+        return null;
+    }
+
+    console.group('parseMarkdownToChatHistory');
+    // 通过 SEPERATOR_LINE 分割
+    const splited = markdown.split(SEPERATOR_LINE).filter(Boolean);
+    console.log(`Split markdown into ${splited.length} parts`);
+
+    const parts = [];
+    let itemText = [];
+    for (let slice of splited) {
+        slice = slice.trim();
+
+        // 使用正则表达式检查是否匹配 XML 标签行模式
+        /**
+         > <XML/>
+        或者
+         >
+         > <XML/>
+         */
+        const xmlTagRegex = /^>\s*(?:\n>\s*)?\s*<[A-Z]+[^>]*\/>/;
+        const isXMLTagLine = xmlTagRegex.test(slice);
+
+        if (!isXMLTagLine) {
+            console.warn('Slice is not start with XML tag, suspended to next slice', slice);
+            itemText.push(slice);
+            continue;
+        }
+
+        if (slice.startsWith('>\n')) {
+            slice = slice.slice(2);
+            itemText.push(slice);
+        }
+
+        parts.push(itemText.join('\n\n'));
+        itemText = [];
+    }
+
+    // 添加最后一个项目（如果有）
+    if (itemText.length > 0) {
+        parts.push(itemText.join('\n\n'));
+    }
+
+    if (parts.length === 0) {
+        return null;
+    }
+
+    let sysPrompt: string | undefined;
+    const items: IChatSessionMsgItem[] = [];
+
+    for (const part of parts) {
+        const parsed = parseItemMarkdown(part);
+        if (!parsed) {
+            console.warn('Failed to parse item markdown:', part);
+            continue;
+        }
+
+        const { name, content, meta } = parsed;
+
+        // 处理系统提示
+        if (name === 'SYSTEM') {
+            sysPrompt = content;
+            continue;
+        }
+
+        // 处理分隔符
+        if (name === 'SEPERATOR') {
+            items.push({
+                type: 'seperator',
+                id: `seperator-${Date.now()}-${items.length}`
+            });
+            continue;
+        }
+
+        // 处理消息
+        const role = name.toLowerCase() as 'user' | 'assistant' | 'system';
+        if (!['user', 'assistant', 'system'].includes(role)) {
+            console.warn(`Unknown role: ${role}, skipping message`);
+            continue;
+        }
+
+        // 提取图片
+        const imgRegex = /<img[^>]*src="([^"]*)"[^>]*>/g;
+        const images: string[] = [];
+        let imgMatch;
+        let textContent = content;
+
+        // 如果内容中包含图片区域
+        if (content.includes('<div style="display: flex; flex-direction: column; gap: 10px;">')) {
+            // 分离文本内容和图片区域
+            const parts = content.split('<div style="display: flex; flex-direction: column; gap: 10px;">');
+            textContent = parts[0].trim();
+
+            // 提取所有图片URL
+            const imgPart = parts[1] || '';
+            while ((imgMatch = imgRegex.exec(imgPart)) !== null) {
+                images.push(imgMatch[1]);
+            }
+        }
+
+        // 构造消息内容
+        let messageContent: TMessageContent;
+        if (images.length > 0) {
+            messageContent = [
+                { type: 'text', text: textContent }
+            ];
+
+            for (const imgUrl of images) {
+                messageContent.push({
+                    type: 'image_url',
+                    image_url: { url: imgUrl }
+                });
+            }
+        } else {
+            messageContent = textContent;
+        }
+
+        // 创建消息项
+        const timestamp = meta.timestamp ?
+            new Date(meta.timestamp).getTime() :
+            Date.now();
+
+        const item: IChatSessionMsgItem = {
+            type: 'message',
+            id: `msg-${Date.now()}-${items.length}`,
+            message: {
+                role,
+                content: messageContent
+            },
+            author: meta.author || role,
+            timestamp
+        };
+
+        items.push(item);
+    }
+
+    const now = Date.now();
+
+    console.log(`Successfully parsed ${items.length} message items, system prompt: ${sysPrompt ? 'present' : 'not present'}`);
+
+    console.groupEnd();
+
+    return {
+        items,
+        sysPrompt,
+        id: `history-${now}`,
+        title: `Chat ${formatDateTime(null, new Date(now))}`,
+        timestamp: now,
+        updated: now
+    };
+}
+
 
 const checkBlockWithAttr = async (attr: string, value: string, cond: string = `B.type = 'd'`): Promise<Block[]> => {
     let docs = await sql(`
@@ -131,28 +381,6 @@ export async function ensureRootDocument(newTitle: string, notebookId?: Notebook
     );
     let blocks = await id2block(docid)[0];
     return blocks;
-}
-
-export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | {
-    items: IChatSessionMsgItem[],
-    sysPrompt?: string
-},
-    options?: Parameters<typeof item2markdown>[1]
-) => {
-    let markdownText = '';
-    let item = null;
-    let sysPrompt = null;
-    if (Array.isArray(history)) {
-        item = history;
-    } else {
-        item = history.items;
-        sysPrompt = history.sysPrompt;
-    }
-    if (sysPrompt) {
-        markdownText += formatSingleItem('SYSTEM', sysPrompt) + '\n\n';
-    }
-    markdownText += item.map(item => item2markdown(item, options)).join('\n\n');
-    return markdownText;
 }
 
 /**
