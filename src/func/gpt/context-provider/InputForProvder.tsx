@@ -41,12 +41,13 @@ export const inputDialogForProvider = (options: {
     type: 'line' | 'area';
     title: string;
     description: string;
+    initialText?: string;
     confirm: (text: string) => void;
     cancel?: () => void;
     width?: string;
     height?: string;
 }) => {
-    const input = useSignalRef('');
+    const input = useSignalRef(options?.initialText ?? '');
     const container = document.createElement('div');
     container.style.display = 'contents';
 

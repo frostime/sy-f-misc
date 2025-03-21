@@ -1,0 +1,26 @@
+.protyle-wysiwyg div[data-av-id][custom-dynamic-database] > .protyle-attr::after {
+    content: "🔎Dynamic";
+    word-break: break-all;
+    -webkit-line-clamp: 1;
+    overflow: hidden !important;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    display: -webkit-box;
+    line-height: 16px;
+    color: var(--b3-theme-on-surface);
+    text-decoration: underline;
+}
+
+
+.protyle-wysiwyg div[data-av-id][custom-super-ref-db]> .protyle-attr::after {
+    content: "🔗SuperRef";
+    word-break: break-all;
+    -webkit-line-clamp: 1;
+    overflow: hidden !important;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    display: -webkit-box;
+    line-height: 16px;
+    color: var(--b3-theme-on-surface);
+    text-decoration: underline;
+}

@@ -1,16 +1,18 @@
 /*
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
- * @Date         : 2025-02-08 16:39:25
+ * @Date         : 2025-03-21
  * @FilePath     : /src/func/super-ref-db/index.ts
- * @LastEditTime : 2025-02-12 00:36:32
- * @Description  : siyuan://blocks/20250208162727-qgmztam
  */
 
-import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./core";
-import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
+// import { openBlock } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
+import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./core";
+import { getAvIdFromBlockId } from "@/api/av";
+import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
+import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR } from "./dynamic-db";
+import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import "./index.css";
 
 export let name = "SuperRefDB";
 export let enabled = false;
@@ -64,7 +66,7 @@ export const load = () => {
     let d1 = plugin.registerOnClickDocIcon((detail) => {
         detail.menu.addItem({
             icon: 'iconDatabase',
-            label: '插入SuperRef数据库',
+            label: '创建SuperRef数据库',
             click: () => {
                 createBlankSuperRefDatabase(detail.root_id);
             }
@@ -82,22 +84,54 @@ export const load = () => {
             }
         });
     });
+
+    // This handler is for attribute view database blocks
     let d2 = plugin.registerOnClickBlockicon((detail) => {
         if (detail.blocks.length !== 1) return;
-        let block = detail.blocks[0];
+        const block = detail.blocks[0];
         if (block.type !== 'NodeAttributeView') return;
 
-        let ele = detail.blockElements[0];
-        let docId = ele.getAttribute('custom-super-ref-db');
-        if (!docId) return;
+        const ele = detail.blockElements[0];
+        const docId = ele.getAttribute('custom-super-ref-db');
+        const dynamicQuery = ele.getAttribute(DYNAMIC_DB_ATTR);
 
+        // Original Super Ref update option for backlinks
+        if (docId) {
+            detail.menu.addItem({
+                icon: 'iconDatabase',
+                label: '更新SuperRef数据库',
+                click: () => {
+                    syncDatabaseFromBacklinks({
+                        doc: docId, removeOrphanRows: 'ask', redirectStrategy: redirectStrategy()
+                    });
+                }
+            });
+            return;
+        }
+
+        // Add dynamic database options based on whether it's already set up
+        if (dynamicQuery) {
+            // Add update button for dynamic database if it already exists
+            detail.menu.addItem({
+                icon: 'iconRefresh',
+                label: '更新动态数据库',
+                click: async () => {
+                    await getAvIdFromBlockId(block.id).then(async (avId) => {
+                        if (!avId) {
+                            showMessage('无法找到数据库视图ID', 3000, 'error');
+                            return;
+                        }
+                        await updateDynamicDatabase(block.id, avId);
+                    });
+                }
+            });
+        }
+        // Add option to set up dynamic database if it doesn't exist yet
         detail.menu.addItem({
-            icon: 'iconDatabase',
-            label: '更新SuperRef数据库',
+            icon: 'iconSQL',
+            label: '设置动态数据库',
             click: () => {
-                syncDatabaseFromBacklinks({
-                    doc: docId, removeOrphanRows: 'ask', redirectStrategy: redirectStrategy()
-                });
+                showDynamicDatabaseDialog(block.id);
             }
         });
     });
@@ -108,7 +142,7 @@ export const load = () => {
             icon: 'iconDatabase',
             label: '绑定为SuperRef',
             click: async () => {
-                let block = await getBlockByID(dataId);
+                const block = await getBlockByID(dataId);
                 if (!block) return;
                 if (block.type !== 'd') return;
                 let db = await getSuperRefDb(block.id);

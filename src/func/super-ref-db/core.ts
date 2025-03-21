@@ -1,8 +1,9 @@
 import { confirmDialog, getLute, html2frag, searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
 import { getBlockAttrs, getBlockByID, prependBlock, request, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
-import { addAttributeViewBlocks, getAttributeViewPrimaryKeyValues, removeAttributeViewBlocks, replaceAttrViewBlock, updateAttrViewName } from "./api";
+import { addAttributeViewBlocks } from "./api";
 import { fb2p } from "@/libs";
+import { replaceAttrViewBlock, updateAttrViewName, getAttributeViewPrimaryKeyValues, removeAttributeViewBlocks } from "@/api/av";
 
 // 主要是是否删掉不存在的块
 // type TSyncStrategy = 'keep-unlinked' | 'one-one-matched';
@@ -11,8 +12,9 @@ export const configs = {
     doRedirect: true
 }
 
-const queryBacklinks = async (doc: DocumentId) => {
-    return searchBacklinks(doc, 999) || [];
+const queryBacklinks = async (doc: DocumentId, limit: number = 999) => {
+    const backlinks = await searchBacklinks(doc, limit) || [];
+    return backlinks.filter(block => block.type !== 'query_embed');
 }
 
 export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
@@ -112,19 +114,30 @@ const handleRedirection = async (
  */
 const calculateDiff = async (
     superRefDbId: BlockId,
-    refs: Block[],
-    rowBlockIds: string[],
-    newRedirectMap: RedirectMap
+    newBlocks: Block[] | BlockId[],
+    oldRowIds: string[],
+    newRedirectMap?: RedirectMap
 ): Promise<SyncResult> => {
-    const refsBlockIds = refs.map(b => b.id);
+    const refsBlockIds = newBlocks.map(b => {
+        if (typeof b === 'string') return b;
+        else if (typeof b?.id === 'string') return b.id;
+        else throw new Error('Invalid block type');
+    });
     const refSet = new Set(refsBlockIds);
-    const rowSet = new Set(rowBlockIds);
+    const rowSet = new Set(oldRowIds);
 
     // Get the old redirect map from block attributes
     const attrs = await getBlockAttrs(superRefDbId);
     const oldRedirectMap: RedirectMap = attrs['custom-super-ref-redirect-map']
         ? JSON.parse(attrs['custom-super-ref-redirect-map'])
         : {};
+
+    if (!newRedirectMap || Object.keys(newRedirectMap).length === 0) {
+        newRedirectMap = {};
+        for (const id of refsBlockIds) {
+            newRedirectMap[id] = id;
+        }
+    }
 
     // Update the redirect map in block attributes
     await setBlockAttrs(superRefDbId, {
@@ -180,48 +193,54 @@ const calculateDiff = async (
 }
 
 /**
- * 同步反向链接数据库
+ * Search blocks with optional redirection
+ * This function handles the search operation and redirection if needed
  * 
- * @param input - 输入参数对象
- * @param input.doc - 文档ID
- * @param input.database - 可选的数据库对象, 包含 block 和 av ID
- * @returns - 无返回值
+ * @param searchFn - Async function that returns blocks from search
+ * @param redirectStrategy - Redirection strategy, 'none' or 'fb2p'
+ * @returns - Object containing refs (possibly redirected blocks) and redirectMap
  */
-export const syncDatabaseFromBacklinks = async (input: {
-    doc: DocumentId;
-    database?: {
+export const searchBlocksWithRedirect = async (
+    searchFn: () => Promise<any[]>,
+    redirectStrategy: 'none' | 'fb2p' = 'none'
+): Promise<{ refs: Block[], redirectMap: RedirectMap }> => {
+    const blocks = await searchFn();
+    return handleRedirection(blocks as Block[], redirectStrategy);
+}
+
+/**
+ * Sync database content with search results
+ * 
+ * @param input - Input parameters
+ * @param input.database - Database object containing block and av IDs
+ * @param input.refs - Block references to sync to the database
+ * @param input.redirectMap - Redirection map for blocks
+ * @param input.removeOrphanRows - Strategy for handling orphan rows
+ * @returns - Void
+ */
+export const syncDatabaseFromSearchResults = async (input: {
+    database: {
         block: BlockId;
         av: BlockId;
     },
-    redirectStrategy?: 'none' | 'fb2p';
+    newBlocks: Block[] | BlockId[],
+    redirectMap?: RedirectMap,
     removeOrphanRows?: 'remove' | 'no' | 'ask';
 }) => {
     const {
-        redirectStrategy = 'fb2p',
+        database,
+        newBlocks,
+        redirectMap,
         removeOrphanRows = 'ask'
     } = input;
 
-    let backlinks = await queryBacklinks(input.doc) as Block[];
-    backlinks = backlinks.filter(block => block.type !== 'query_embed');
-
-    // Handle redirection
-    const { refs, redirectMap } = await handleRedirection(backlinks, redirectStrategy);
-
-    let database = input.database;
-    if (!database) {
-        const data = await getSuperRefDb(input.doc);
-        if (!data) return;
-        const { block, av } = data;
-        database = { block, av };
-    }
     const data = await getAttributeViewPrimaryKeyValues(database.av);
     const rowBlockIds = data?.rows.values?.map(v => v.blockID) ?? [];
-    // const block2RowMap = Object.fromEntries(data?.rows.values?.map(v => [v.blockID, v]) ?? []);
 
     // Calculate differences
     const diff = await calculateDiff(
         database.block,
-        refs,
+        newBlocks,
         rowBlockIds,
         redirectMap,
     );
@@ -274,4 +293,50 @@ ${rowsToRemove.map((row, index) => `${index + 1}. ((${row.blockID} '${row.block.
             await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
         }
     }
+}
+
+/**
+ * 同步反向链接数据库
+ * 
+ * @param input - 输入参数对象
+ * @param input.doc - 文档ID
+ * @param input.database - 可选的数据库对象, 包含 block 和 av ID
+ * @returns - 无返回值
+ */
+export const syncDatabaseFromBacklinks = async (input: {
+    doc: DocumentId;
+    database?: {
+        block: BlockId;
+        av: BlockId;
+    },
+    redirectStrategy?: 'none' | 'fb2p';
+    removeOrphanRows?: 'remove' | 'no' | 'ask';
+}) => {
+    const {
+        redirectStrategy = 'fb2p',
+        removeOrphanRows = 'ask'
+    } = input;
+
+    // Search for backlinks with redirection
+    const { refs, redirectMap } = await searchBlocksWithRedirect(
+        () => queryBacklinks(input.doc),
+        redirectStrategy
+    );
+
+    // Get database info if not provided
+    let database = input.database;
+    if (!database) {
+        const data = await getSuperRefDb(input.doc);
+        if (!data) return;
+        const { block, av } = data;
+        database = { block, av };
+    }
+
+    // Sync database with search results
+    await syncDatabaseFromSearchResults({
+        database,
+        newBlocks: refs,
+        redirectMap,
+        removeOrphanRows
+    });
 }

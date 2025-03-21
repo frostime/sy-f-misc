@@ -6,6 +6,7 @@ import { FormInput } from '@/libs/components/Form';
 import { render } from "solid-js/web";
 import { onMount } from "solid-js";
 import { CheckboxInput, SelectInput, TextInput } from "@/libs/components/Elements";
+import { createSignalRef } from "@frostime/solid-signal-ref";
 
 export const declareToggleEnabled = {
     title: '📄 New file',
@@ -87,7 +88,12 @@ const useBlankFile = async (fname: string): Promise<File | null> => {
     // 如果文件不存在
     if (!res.ok) {
         console.warn(`空白文件 ${blankFiles[ext]} 不存在!`);
-        showMessage(`空白文件 ${blankFiles[ext]} 不存在!`, 2500, 'error');
+        // showMessage(`空白文件 ${blankFiles[ext]} 不存在!`, 2500, 'error');
+        confirmDialog({
+            title: `空白文件 ${blankFiles[ext]} 不存在!`,
+            content: `⚠️ 注意，如果你想要创建一个空白的 Office 文件，
+            你首先需要在 <工作空间>/data/public/blank-files/ 目录下创建对应的空白模板文件 blank-word.docx, blank-excel.xlsx, blank-ppt.pptx`
+        })
         return null;
     }
     const blob = await res.blob();
@@ -202,8 +208,10 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
 
 const NewFileApp = (props: { updated: (v) => void }) => {
     let fname = '';
-    let ext = '';
-    let prefix = '';
+    let ext = PredefinedExt.includes('md') ? '.md' : PredefinedExt[0];
+    // let prefix = '';
+    let prefix = createSignalRef('');
+
     let addId = true;
 
     let options: { [key: string]: string } = PredefinedExt.reduce((acc, ext) => {
@@ -228,7 +236,7 @@ const NewFileApp = (props: { updated: (v) => void }) => {
     }, {} as { [key: string]: string });
     prefixMap[''] = '';
     const updateFullPath = () => {
-        const cleanPrefix = prefix.replace(/^\/+|\/+$/g, ''); // Fixed the regex syntax
+        const cleanPrefix = prefix().replace(/^\/+|\/+$/g, ''); // Fixed the regex syntax
         const path = cleanPrefix ? `${cleanPrefix}/` : '';
         props.updated({
             path: path + fname + ext,
@@ -257,9 +265,9 @@ const NewFileApp = (props: { updated: (v) => void }) => {
                     <tr>
                         <td style="padding: 8px 4px;">
                             <TextInput
-                                value={prefix}
+                                value={prefix()}
                                 changed={(v) => {
-                                    prefix = v;
+                                    prefix.update(v);
                                     updateFullPath();
                                 }}
                                 placeholder='自定义路径前缀'
@@ -268,9 +276,9 @@ const NewFileApp = (props: { updated: (v) => void }) => {
                         </td>
                         <td style="padding: 8px 4px;">
                             <SelectInput
-                                value=''
+                                value={''}
                                 changed={(v) => {
-                                    prefix = v;
+                                    prefix.update(v);
                                     updateFullPath();
                                 }}
                                 options={prefixMap}
@@ -292,7 +300,7 @@ const NewFileApp = (props: { updated: (v) => void }) => {
                         </td>
                         <td style="padding: 8px 4px;">
                             <SelectInput
-                                value=''
+                                value={ext}
                                 changed={(v) => {
                                     ext = v;
                                     updateFullPath();
