@@ -1,8 +1,8 @@
 import { createMemo } from "solid-js";
-import type { JSX } from "solid-js";
+import type { Accessor, JSX } from "solid-js";
 
 interface ITextInputProps {
-    value?: string;
+    value?: string | Accessor<string>;
     changed?: (value: string) => void;
     style?: JSX.CSSProperties;
     placeholder?: string;
@@ -15,12 +15,21 @@ export default function TextInput(props: ITextInputProps) {
         style: props.style ?? {}
     }));
 
+    const value = () => {
+        if (typeof props.value === 'string') {
+            return props.value;
+        } else if (typeof props.value === 'function') {
+            return props.value();
+        }
+        return '';
+    }
+
     return (
         <input
             class="b3-text-field fn__flex-center"
             {...attrStyle()}
             placeholder={props.placeholder}
-            value={props.value}
+            value={value()}
             onInput={(e) => {
                 props.changed?.(e.currentTarget.value);
             }}
