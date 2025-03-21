@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-03-21 14:45:09
+ * @LastEditTime : 2025-03-21 15:52:23
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -213,8 +213,8 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
 
         if (slice.startsWith('>\n')) {
             slice = slice.slice(2);
-            itemText.push(slice);
         }
+        itemText.push(slice);
 
         parts.push(itemText.join('\n\n'));
         itemText = [];

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-03-21 13:47:33
+ * @LastEditTime : 2025-03-21 18:14:16
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -85,7 +85,7 @@ let activeTabId = null;
 const outsideInputs = {}
 
 // src/func/gpt/index.ts (70-112)
-const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory) => {
+export const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory) => {
 
     const prompt = await attachSelectedText();
     //input 用于在从外部给内部 Chat 添加文本内容
@@ -291,7 +291,28 @@ export const load = (plugin: FMiscPlugin) => {
                 'label': '导入 Google AI Studio 对话',
                 icon: 'iconGithub',
                 click: () => {
-                    persist.importGoogleAIStudio();
+                    persist.importChatHistoryFile('google-ai-studio');
+                }
+            },
+            {
+                'label': '导入 Aizex Claude 对话',
+                icon: 'iconGithub',
+                click: () => {
+                    persist.importChatHistoryFile('aizex-claude');
+                }
+            },
+            {
+                label: '导入 Aizex GPT 对话',
+                icon: 'iconGithub',
+                click: () => {
+                    persist.importChatHistoryFile('aizex-gpt');
+                }
+            },
+            {
+                label: '导入 Cherry Studio 对话',
+                icon: 'iconGithub',
+                click: () => {
+                    persist.importChatHistoryFile('cherry-studio');
                 }
             },
             {
