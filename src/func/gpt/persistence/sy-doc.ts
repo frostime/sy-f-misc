@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-02-06 13:17:44
+ * @LastEditTime : 2025-03-21 12:52:39
  * @Description  : 
  */
 import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -23,13 +23,37 @@ const CUSTOM_EDITABLE_AREA = `
 {: id="20241226142458-lrm1v3l" ${ATTR_GPT_EXPORT_DOC_EDITABLE_AREA}="true" custom-b="note" custom-callout-mode="small" memo="可编辑区域" }
 `.trim();
 
-const item2markdown = (item: IChatSessionMsgItem) => {
+const SEPERATOR_LINE = `> -------`;
+
+const formatSingleItem = (name: string, content: string, meta?: Record<string, string>) => {
+    const xmlAttrs = Object.entries(meta || {}).map(([key, value]) => {
+        if (!value) return '';
+        return `${key}="${value}"`;
+    }).filter(Boolean).join(' ');
+    return `
+${SEPERATOR_LINE}
+> <${name} ${xmlAttrs}/>
+
+${content}
+
+`.trim();
+};
+
+const item2markdown = (item: IChatSessionMsgItem, options?: {
+    convertImage?: boolean
+}) => {
+    const { convertImage } = options || {
+        convertImage: true
+    };
     if (item.type === 'seperator') {
-        return '---\n > 开始新的对话';
+        return `
+${SEPERATOR_LINE}
+> <SEPERATOR />
+`.trim();
     }
     let author: string = item.message.role;
     if (item.message.role === 'assistant') {
-        author = `${item.message.role} [${item.author}]`;
+        author = item.author;
     }
     let { text, images } = adaptIMessageContent(item.message.content);
     if (defaultConfig().convertMathSyntax) {
@@ -37,21 +61,28 @@ const item2markdown = (item: IChatSessionMsgItem) => {
     }
 
     const imagesDivs = () => {
-        if (!images || images.length === 0) return '';
+        if (!images || images.length === 0 || !convertImage) return '';
         let imgs = images.map(b64code => `<img style="max-width: 100%; display: inline-block;" src="${b64code}" />`);
         return `<div style="display: flex; flex-direction: column; gap: 10px;">\n${imgs.join('\n')}\n</div>`;
     }
 
-    return `
----
+    let xmlTagName = item.message.role.toUpperCase();
+    const timeStr = item.timestamp ? formatDateTime(null, new Date(item.timestamp)) : '';
+    const content = `${text}\n\n${imagesDivs()}`.trim();
+    return formatSingleItem(xmlTagName, content, {
+        author,
+        time: timeStr
+    });
 
-> ${item.timestamp ? formatDateTime(null, new Date(item.timestamp)) : '--:--:--'} ${author}
+//     return `
+// ${SEPERATOR_LINE}
+// > <${xmlTagName} ${author ? `author="${author}"` : ''} ${timeStr ? `time="${timeStr}"` : ''} />
 
-${text}
+// ${text}
 
-${imagesDivs()}
+// ${imagesDivs()}
 
-`.trim();
+// `.trim();
 }
 
 const checkBlockWithAttr = async (attr: string, value: string, cond: string = `B.type = 'd'`): Promise<Block[]> => {
@@ -102,8 +133,25 @@ export async function ensureRootDocument(newTitle: string, notebookId?: Notebook
     return blocks;
 }
 
-export const itemsToMarkdown = (items: IChatSessionMsgItem[]) => {
-    let markdownText = items.map(item2markdown).join('\n\n');
+export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | {
+    items: IChatSessionMsgItem[],
+    sysPrompt?: string
+},
+    options?: Parameters<typeof item2markdown>[1]
+) => {
+    let markdownText = '';
+    let item = null;
+    let sysPrompt = null;
+    if (Array.isArray(history)) {
+        item = history;
+    } else {
+        item = history.items;
+        sysPrompt = history.sysPrompt;
+    }
+    if (sysPrompt) {
+        markdownText += formatSingleItem('SYSTEM', sysPrompt) + '\n\n';
+    }
+    markdownText += item.map(item => item2markdown(item, options)).join('\n\n');
     return markdownText;
 }
 
@@ -114,7 +162,7 @@ export const itemsToMarkdown = (items: IChatSessionMsgItem[]) => {
 export const saveToSiYuan = async (history: IChatSessionHistory) => {
     let { title, timestamp } = history;
     // 1. 检查之前是否已经导出过
-    let markdownText = itemsToMarkdown(history.items);
+    let markdownText = chatHistoryToMarkdown(history);
     let docs = await checkBlockWithAttr(ATTR_GPT_EXPORT_DOC, history.id);
 
     let doc = docs?.[0] ?? null;

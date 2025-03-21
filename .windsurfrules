@@ -3,3 +3,16 @@ This is a SiYuan Note plugin project using:
 - @frostime/solid-signal-ref library for easier use of solid signal
 - SiYuan API and types
 - SiYuan CSS classes (prefixed with b3-) and CSS variables
+
+Project Structure:
+- src: source code
+- src/libs: common libraries for plugins
+- src/func: functional components, this plugin offers multiple distinct functions, each of them are structured in their own folder/file
+
+Code Conventions:
+- Prevent excessive changes; focus on targeted, effective modifications
+- Preserve existing comments and documentation
+- Maintain code that's not directly related to the current task
+- Follow SolidJS best practices for component lifecycle and reactivity
+- Use SiYuan theme variables when create html elements/components for consistent styling
+- Ensure proper TypeScript typing

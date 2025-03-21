@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-16 18:31:59
+ * @LastEditTime : 2025-03-21 12:54:40
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -754,11 +754,25 @@ const ChatSession: Component<{
                             click: () => {
                                 inputDialog({
                                     title: '导出对话',
-                                    defaultText: persist.itemsToMarkdown(session.messages()),
+                                    defaultText: persist.chatHistoryToMarkdown(session.sessionHistory()),
                                     type: 'textarea',
                                     'width': '800px',
                                     'height': '700px'
                                 })
+                            }
+                        });
+                        // 下载 md
+                        menu.addItem({
+                            icon: 'iconDownload',
+                            label: '下载 Markdown',
+                            click: () => {
+                                const mdText = persist.chatHistoryToMarkdown(session.sessionHistory());
+                                const title = `${session.title()}.md`;
+                                const a = document.createElement('a');
+                                a.href = `data:text/markdown;charset=utf-8,${encodeURIComponent(mdText)}`;
+                                a.download = title;
+                                a.click();
+                                showMessage('下载到' + title);
                             }
                         });
                         const target = e.target as HTMLElement;
