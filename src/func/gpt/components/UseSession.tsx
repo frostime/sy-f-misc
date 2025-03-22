@@ -514,11 +514,11 @@ ${inputContent}
         }
     }
 
-    const toggleHidden = (index: number) => {
+    const toggleHidden = (index: number, value?: boolean) => {
         if (index < 0 || index >= messages().length) return;
         const targetMsg = messages()[index];
         if (targetMsg.type !== 'message') return;
-        messages.update(index, 'hidden', !targetMsg.hidden);
+        messages.update(index, 'hidden', value ?? !targetMsg.hidden);
     }
 
     const getAttachedHistory = (itemNum?: number, fromIndex?: number) => {

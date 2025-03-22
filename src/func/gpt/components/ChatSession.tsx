@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-21 12:54:40
+ * @LastEditTime : 2025-03-22 20:35:22
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -25,11 +25,11 @@ import { SvgSymbol } from './Elements';
 
 import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
-
 import * as syDoc from '../persistence/sy-doc';
 import { contextProviders, executeContextProvider } from '../context-provider';
 import { adaptIMessageContent } from '../data-utils';
 import { isMsgItemWithMultiVersion } from '../data-utils';
+import SessionItemsManager from './SessionItemsManager';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -204,7 +204,6 @@ const ChatSession: Component<{
     let defaultConfigVal = JSON.parse(JSON.stringify(defaultConfig.unwrap()));
     const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
     const multiSelect = useSignalRef(false);
-    const selectedMessages = useSignalRef<Set<string>>(new Set());
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
 
     let textareaRef: HTMLTextAreaElement;
@@ -614,8 +613,10 @@ const ChatSession: Component<{
                     />
                 </SimpleProvider>
             ),
-            width: '1000px',
-            height: '640px'
+            width: '1500px',
+            height: '1000px',
+            maxHeight: '85%',
+            maxWidth: '90%'
         });
     }
 
@@ -656,7 +657,7 @@ const ChatSession: Component<{
                 icon: 'iconLink',
                 label: '复制链接',
                 click: () => {
-                    persist.persistHistory(session.sessionHistory(), { 
+                    persist.persistHistory(session.sessionHistory(), {
                         saveToSiYuan: false
                     });
                     const plugin = thisPlugin();
@@ -674,17 +675,14 @@ const ChatSession: Component<{
             });
 
             // 多选选项
-            menu.addItem({
-                icon: 'iconCheck',
-                label: '多选',
-                click: () => {
-                    multiSelect.update(!multiSelect());
-                    if (!multiSelect()) {
-                        selectedMessages.update(new Set<string>());
-                    }
-                },
-                checked: multiSelect()
-            });
+            // menu.addItem({
+            //     icon: 'iconCheck',
+            //     label: '多选',
+            //     click: () => {
+            //         multiSelect.update(!multiSelect());
+            //     },
+            //     checked: multiSelect()
+            // });
 
             // 自动生成标题选项
             menu.addItem({
@@ -702,6 +700,25 @@ const ChatSession: Component<{
                 checked: isReadingMode(),
                 click: () => {
                     isReadingMode.update(!isReadingMode());
+                }
+            });
+
+            // 添加管理消息选项
+            menu.addItem({
+                icon: 'iconList',
+                label: '管理消息',
+                click: () => {
+                    const { close } = solidDialog({
+                        loader: () => (
+                            <SessionItemsManager
+                                session={session}
+                                onClose={() => close()}
+                            />
+                        ),
+                        title: '管理消息',
+                        width: '1100px',
+                        height: '800px'
+                    });
                 }
             });
 
@@ -807,8 +824,6 @@ const ChatSession: Component<{
                     {session.title()}
                 </div>
 
-                {/* <Item placeholder={true} /> */}
-
                 {/* 右侧 - 历史记录 */}
                 <Item
                     onclick={openHistoryList}
@@ -845,113 +860,10 @@ const ChatSession: Component<{
         </div>
     );
 
-    const BatchOperationBar = () => {
-        const Button = (props: {
-            icon: string;
-            label: string;
-            onclick: () => void;
-        }) => (
-            <button
-                class="b3-button b3-button--outline"
-                onclick={props.onclick}
-            >
-                <SvgSymbol size="15px">{props.icon}</SvgSymbol>
-                {props.label}
-            </button>
-        );
-
-        const Body = (props: {
-            selectedCount: number;
-        }) => (
-            <div class={styles.batchOperationBar}>
-                <span class="counter">已选择 {props.selectedCount} 条消息</span>
-                <div class="fn__flex-1" />
-                <Button
-                    icon="iconCheck"
-                    label="全选"
-                    onclick={() => {
-                        const messageIds = session.messages().map(m => m.id);
-                        selectedMessages.update(new Set(messageIds));
-                    }}
-                />
-                <Button
-                    icon="iconCheck"
-                    label="取消全选"
-                    onclick={() => {
-                        selectedMessages.update(new Set<string>());
-                    }}
-                />
-                <Button
-                    icon="iconUndo"
-                    label="反选"
-                    onclick={() => {
-                        const messageIds = session.messages().map(m => m.id);
-                        const newSet = new Set(selectedMessages());
-                        messageIds.forEach(id => {
-                            if (newSet.has(id)) {
-                                newSet.delete(id);
-                            } else {
-                                newSet.add(id);
-                            }
-                        });
-                        selectedMessages.update(newSet);
-                    }}
-                />
-                <Button
-                    icon="iconAdd"
-                    label="提取为新对话"
-                    onclick={() => {
-                        const messageIds = Array.from(selectedMessages());
-                        const msgItems = session.messages().filter(m => messageIds.includes(m.id));
-                        const newSession = {
-                            title: '新对话',
-                            items: msgItems,
-                            sysPrompt: session.systemPrompt()
-                        };
-                        newChatSession(newSession);
-                        multiSelect.update(false);
-                        selectedMessages.update(new Set<string>());
-                    }}
-                />
-                <Button
-                    icon="iconTrashcan"
-                    label="删除选中消息"
-                    onclick={() => {
-                        session.messages.update(msgs =>
-                            msgs.filter(m => !selectedMessages().has(m.id))
-                        );
-                        selectedMessages.update(new Set<string>());
-                    }}
-                />
-                {/* 设置隐藏 */}
-                <Button
-                    icon="iconEye"
-                    label="隐藏选中消息"
-                    onclick={() => {
-                        // session.toggleHidden
-                        const indices = Array.from(selectedMessages()).map(id => session.msgId2Index().get(id)).filter(index => index !== undefined);
-                        batch(() => {
-                            indices.forEach(index => {
-                                session.toggleHidden(index);
-                            });
-                        });
-                    }}
-                />
-            </div>
-        );
-
-        return (
-            <Show when={multiSelect()}>
-                <Body selectedCount={selectedMessages().size} />
-            </Show>
-        )
-    };
-
     const ChatContainer = () => (
         <div class={`${styles.chatContainer} ${isReadingMode() ? styles.readingMode : ''}`} style={styleVars()}>
             {/* 添加顶部工具栏 */}
             <Topbar />
-            <BatchOperationBar />
 
             <div
                 class={styles.messageList}
@@ -1017,15 +929,8 @@ const ChatSession: Component<{
                                         session.reRunMessage(index());
                                     }}
                                     multiSelect={multiSelect()}
-                                    selected={selectedMessages().has(item.id)}
-                                    onSelect={(id, selected) => {
-                                        const newSet = new Set(selectedMessages());
-                                        if (selected) {
-                                            newSet.add(id);
-                                        } else {
-                                            newSet.delete(id);
-                                        }
-                                        selectedMessages.update(newSet);
+                                    onSelect={(id) => {
+                                        // This function is now only used in the SessionItemsManager component
                                     }}
                                     toggleSeperator={() => {
                                         if (session.loading()) return;

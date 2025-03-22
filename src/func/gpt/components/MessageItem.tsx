@@ -373,17 +373,17 @@ const MessageVersionView: Component<{
 
 const MessageItem: Component<{
     messageItem: IChatSessionMsgItem,
-    markdown?: boolean,
-    updateIt?: (message: string) => void,
-    deleteIt?: () => void,
-    rerunIt?: () => void,
-    multiSelect?: boolean,
-    selected?: boolean,
-    onSelect?: (id: string, selected: boolean) => void,
-    toggleSeperator?: () => void,
-    toggleHidden?: () => void,
+    markdown?: boolean;
     index?: number,
-    totalCount?: number
+    totalCount?: number;
+    updateIt?: (text: string) => void;
+    deleteIt?: () => void;
+    rerunIt?: () => void;
+    toggleHidden?: () => void;
+    toggleSeperator?: () => void;
+    multiSelect?: boolean;
+    // Remove the selected prop and simplify onSelect
+    onSelect?: (id: string) => void;
 }> = (props) => {
 
     let lute = getLute();
@@ -864,10 +864,11 @@ const MessageItem: Component<{
             <Show when={props.multiSelect}>
                 <div class={styles.checkbox} onclick={(e) => {
                     e.stopPropagation();
-                    props.onSelect?.(props.messageItem.id, !props.selected);
+                    // Simplify the onSelect call since we're not tracking selection state here anymore
+                    props.onSelect?.(props.messageItem.id);
                 }}>
                     <svg>
-                        <use href={props.selected ? "#iconCheck" : "#iconUncheck"} />
+                        <use href="#iconUncheck" />
                     </svg>
                 </div>
             </Show>
