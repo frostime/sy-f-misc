@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-03-22 18:54:23
+ * @LastEditTime : 2025-03-22 18:58:38
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -156,6 +156,7 @@ const GlobalSetting = () => {
                                     changed={(v) => { globalMiscConfigs.update('maxMessageLogItems', v) }}
                                 />
                             </Form.Wrap>
+                            <Heading>其他设置</Heading>
                             <Form.Wrap
                                 title="选中内容格式"
                                 description="用户选中内容时，插入到对话中的格式。使用 {{content}} 作为占位符表示选中的内容"

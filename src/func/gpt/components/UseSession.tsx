@@ -226,7 +226,7 @@ export const useSession = (props: {
         let attachedHistory = props.config().attachedHistory;
         attachedHistory = Math.max(attachedHistory, 0);
         attachedHistory = Math.min(attachedHistory, 6);
-        const histories = getAttachedContext(attachedHistory);
+        const histories = getAttachedHistory(attachedHistory);
         if (histories.length == 0) return;
         let sizeLimit = props.config().maxInputLenForAutoTitle;
         let averageLimit = Math.floor(sizeLimit / histories.length);
@@ -297,7 +297,7 @@ ${inputContent}
 
         try {
             controller = new AbortController();
-            const msgToSend = getAttachedContext(props.config().attachedHistory, atIndex);
+            const msgToSend = getAttachedHistory(props.config().attachedHistory, atIndex);
             let model = props.model();
             let option = gptOption();
             // 更新或插入 assistant 消息
@@ -416,7 +416,7 @@ ${inputContent}
 
         try {
             controller = new AbortController();
-            const msgToSend = getAttachedContext();
+            const msgToSend = getAttachedHistory();
             let model = props.model();
             let option = gptOption();
 
@@ -521,15 +521,15 @@ ${inputContent}
         messages.update(index, 'hidden', !targetMsg.hidden);
     }
 
-    const getAttachedContext = (contextNum?: number, fromIndex?: number) => {
-        if (contextNum === undefined) {
-            contextNum = props.config().attachedHistory;
+    const getAttachedHistory = (itemNum?: number, fromIndex?: number) => {
+        if (itemNum === undefined) {
+            itemNum = props.config().attachedHistory;
         }
         const history = [...messages.unwrap()];
         const targetIndex = fromIndex ?? history.length - 1;
         const targetMessage = history[targetIndex];
 
-        if (contextNum === 0) {
+        if (itemNum === 0) {
             return [targetMessage.message!];
         }
 
@@ -540,7 +540,7 @@ ${inputContent}
         // 从指定位置向前截取历史消息
         const previousMessages = history.slice(0, targetIndex);
         let lastMessages: IChatSessionMsgItem[] = previousMessages;
-        if (contextNum > 0) {
+        if (itemNum > 0) {
             // 计算需要获取的消息数量，考虑hidden消息
             let visibleCount = 0;
             let startIndex = previousMessages.length - 1;
@@ -549,7 +549,7 @@ ${inputContent}
                 const msg = previousMessages[startIndex];
                 if (msg.type === 'message' && !msg.hidden) {
                     visibleCount++;
-                    if (visibleCount >= contextNum) {
+                    if (visibleCount >= itemNum) {
                         // startIndex = i;
                         break;
                     }
@@ -616,12 +616,12 @@ ${inputContent}
                     timestamp: new Date().getTime(),
                     loading: false
                 }]);
-                let attached = getAttachedContext(props.config().attachedHistory);
+                let attached = getAttachedHistory(props.config().attachedHistory);
                 //删掉临时插入的消息
                 messages.update(prev => prev.filter(item => item.id !== tempId));
                 return attached;
             }
-            return getAttachedContext(props.config().attachedHistory, index);
+            return getAttachedHistory(props.config().attachedHistory, index);
         },
         sessionHistory: (): IChatSessionHistory => {
             return {
