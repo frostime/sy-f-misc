@@ -3,15 +3,19 @@ import { createSignalRef } from "@frostime/solid-signal-ref";
 import { Component, createMemo, For } from "solid-js";
 import { render } from "solid-js/web";
 
-import { ButtonInput, NumberInput } from "@/libs/components/Elements";
+import { ButtonInput, CheckboxInput, NumberInput } from "@/libs/components/Elements";
+import { globalMiscConfigs } from "./setting/store";
 
-const max_log_items = createSignalRef(500);
+const max_log_items = () => globalMiscConfigs().maxMessageLogItems;
 export const messageLog = createSignalRef<{ time: string, data: any, type: string }[]>([]);
 
 export const appendLog = (options: {
     type: string,
     data: any
 }) => {
+    if (!globalMiscConfigs().enableMessageLogger) {
+        return;
+    }
     const { type, data } = options;
     messageLog.update(log => {
         if (log.length >= max_log_items()) {
@@ -21,7 +25,7 @@ export const appendLog = (options: {
     });
 }
 
-export const purgeLog = (options: {
+const purgeLog = (options: {
     all?: boolean;
     earliest?: number;
     latest?: number;
@@ -52,7 +56,7 @@ const formatMessage = (message: any): string => {
     return JSON.stringify(message);
 }
 
-export const MessageLog: Component = () => {
+const MessageLog: Component = () => {
     const clearLogs = () => purgeLog({ all: true });
 
     const logItems = createMemo(() => {
@@ -101,11 +105,22 @@ export const MessageLog: Component = () => {
 
                 <div class="fn__flex-1" />
 
-                <NumberInput
-                    value={max_log_items()}
-                    changed={(v) => { max_log_items(v) }}
-                    min={1}
-                />
+                <div style="display: flex; align-items: center; gap: 2px;">
+                    <span class="b3-label__text">启用消息日志</span>
+                    <CheckboxInput
+                        checked={globalMiscConfigs().enableMessageLogger}
+                        changed={(v) => { globalMiscConfigs.update('enableMessageLogger', v) }}
+                    />
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 2px;">
+                    <span class="b3-label__text">消息日志条数</span>
+                    <NumberInput
+                        value={max_log_items()}
+                        changed={(v) => { globalMiscConfigs.update('maxMessageLogItems', v) }}
+                        min={1}
+                    />
+                </div>
 
             </div>
             <div class="b3-typography" style="flex: 1; overflow-y: auto; padding: 8px;" ref={typoRef}>

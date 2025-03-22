@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-02-21 15:21:00
+ * @LastEditTime : 2025-03-22 18:56:40
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -44,6 +44,8 @@ export const globalMiscConfigs = useStoreRef<{
     privacyKeywords: string;
     privacyMask: string;
     defaultSystemPrompt: string;
+    enableMessageLogger: boolean;
+    maxMessageLogItems: number;
 }>({
     pinChatDock: false,
     userSelectedContextFormat: `**以下是用户附带的内容**:
@@ -52,7 +54,9 @@ export const globalMiscConfigs = useStoreRef<{
 `.trim(),
     privacyKeywords: '',  // 多行隐私关键词
     privacyMask: '***',   // 隐私词替换为
-    defaultSystemPrompt: `You are a helpful assistant.`
+    defaultSystemPrompt: `You are a helpful assistant.`,
+    enableMessageLogger: false,
+    maxMessageLogItems: 500
 });
 
 

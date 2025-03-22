@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-02-18 20:13:45
+ * @LastEditTime : 2025-03-22 18:54:23
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -134,6 +134,26 @@ const GlobalSetting = () => {
                                     changed={(v) => {
                                         globalMiscConfigs.update('pinChatDock', v);
                                     }}
+                                />
+                            </Form.Wrap>
+                            <Form.Wrap
+                                title="消息日志"
+                                description="开启后，自动记录所有和 LLM API 的网络消息"
+                            >
+                                <Form.Input
+                                    type="checkbox"
+                                    value={globalMiscConfigs().enableMessageLogger}
+                                    changed={(v) => { globalMiscConfigs.update('enableMessageLogger', v) }}
+                                />
+                            </Form.Wrap>
+                            <Form.Wrap
+                                title="消息日志条数"
+                                description="记录的消息记录的最大条数"
+                            >
+                                <Form.Input
+                                    type="number"
+                                    value={globalMiscConfigs().maxMessageLogItems}
+                                    changed={(v) => { globalMiscConfigs.update('maxMessageLogItems', v) }}
                                 />
                             </Form.Wrap>
                             <Form.Wrap
