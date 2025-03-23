@@ -18,6 +18,8 @@ import { createSignalRef } from '@frostime/solid-signal-ref';
 import { UIConfig } from '@gpt/setting/store';
 import { type useSession } from './UseSession';
 
+const MAX_PREVIEW_LENGTH = 1000;
+
 /**
  * 会话消息管理器组件
  */
@@ -171,68 +173,77 @@ const SessionItemsManager: Component<{
         }
     });
 
-    const MessageItemCard = (props: { item: IChatSessionMsgItem, index: Accessor<number> }) => (
-        <div
-            class={styles.messageItem}
-            classList={{
-                [styles.selected]: selectedIds().includes(props.item.id),
-                [styles.previewing]: previewId() === props.item.id,
-                [styles.hidden]: props.item.hidden
-            }}
-            onClick={() => setPreviewId(props.item.id)}
-        >
-            <div class={styles.messageHeader}>
-                <div class={styles.messageRole}>
-                    <span class={styles.roleLabel}>
-                        {props.item?.message?.role === 'user' ? '用户' : '助手'}
-                    </span>
-                    <span class={styles.messageIndex}>#{props.index() + 1}</span>
-                    {props.item.hidden && <span class={styles.hiddenLabel}>隐藏</span>}
+    const MessageItemCard = (props: { item: IChatSessionMsgItem, index: Accessor<number> }) => {
+        const textContent = (() => {
+            const { text } = adaptIMessageContent(props.item.message.content);
+            return text.length > MAX_PREVIEW_LENGTH ? text.substring(0, MAX_PREVIEW_LENGTH) + '...' : text;
+        });
+        return (
+            <div
+                class={styles.messageItem}
+                classList={{
+                    [styles.selected]: selectedIds().includes(props.item.id),
+                    [styles.previewing]: previewId() === props.item.id,
+                    [styles.hidden]: props.item.hidden
+                }}
+                onClick={() => setPreviewId(props.item.id)}
+            >
+                <div class={styles.messageHeader}>
+                    <div class={styles.messageRole}>
+                        <span class={styles.roleLabel}>
+                            {props.item?.message?.role === 'user' ? '用户' : '助手'}
+                        </span>
+                        <span class={styles.messageIndex}>#{props.index() + 1}</span>
+                        {props.item.hidden && <span class={styles.hiddenLabel}>隐藏</span>}
+                    </div>
+                    <div class={styles.messageActions}>
+                        <input
+                            type="checkbox"
+                            class="b3-switch"
+                            checked={selectedIds().includes(props.item.id)}
+                            onchange={() => toggleSelect(props.item.id)}
+                        />
+                        <button
+                            class="b3-button b3-button--text"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                selectBefore(props.item.id);
+                            }}
+                            title="选择此条及之前的消息"
+                        >
+                            <svg><use href="#iconUp"></use></svg>
+                        </button>
+                        <button
+                            class="b3-button b3-button--text"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                selectAfter(props.item.id);
+                            }}
+                            title="选择此条及之后的消息"
+                        >
+                            <svg><use href="#iconDown"></use></svg>
+                        </button>
+                    </div>
                 </div>
-                <div class={styles.messageActions}>
-                    <input
-                        type="checkbox"
-                        class="b3-switch"
-                        checked={selectedIds().includes(props.item.id)}
-                        onchange={() => toggleSelect(props.item.id)}
-                    />
-                    <button
-                        class="b3-button b3-button--text"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            selectBefore(props.item.id);
-                        }}
-                        title="选择此条及之前的消息"
-                    >
-                        <svg><use href="#iconUp"></use></svg>
-                    </button>
-                    <button
-                        class="b3-button b3-button--text"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            selectAfter(props.item.id);
-                        }}
-                        title="选择此条及之后的消息"
-                    >
-                        <svg><use href="#iconDown"></use></svg>
-                    </button>
+                <div
+                    classList={{
+                        [styles.messagePreview]: true,
+                        "ariaLabel": true
+                    }}
+                    aria-label={textContent()}
+                >
+                    {textContent()}
+                </div>
+                <div class={styles.messageFooter}>
+                    <span>{formatDateTime(null, new Date(props.item.timestamp))}</span>
+                    {props.item.message.reasoning_content && (
+                        <span class={styles.reasoningBadge}>包含推理</span>
+                    )}
                 </div>
             </div>
-            <div class={styles.messagePreview}>
-                {(() => {
-                    const { text } = adaptIMessageContent(props.item.message.content);
-                    return text.length > 500 ? text.substring(0, 500) + '...' : text;
-                })()}
-            </div>
-            <div class={styles.messageFooter}>
-                <span>{formatDateTime(null, new Date(props.item.timestamp))}</span>
-                {props.item.message.reasoning_content && (
-                    <span class={styles.reasoningBadge}>包含推理</span>
-                )}
-            </div>
-        </div>
 
-    );
+        );
+    }
 
     // 消息列表组件
     const MessageList = () => (

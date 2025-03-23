@@ -5,9 +5,12 @@ This is a SiYuan Note plugin project using:
 - SiYuan CSS classes (prefixed with b3-) and CSS variables
 
 Project Structure:
-- src: source code
-- src/libs: common libraries for plugins
-- src/func: functional components, this plugin offers multiple distinct functions, each of them are structured in their own folder/file
+- **src**: Contains the source code.
+- **src/libs**: Houses common libraries used across plugins.
+- **src/func**: Includes functional components. This plugin provides multiple distinct functions, each organized in its own folder/file.
+- **types**: Handles type declarations. The project utilizes global types for shared common types.
+  - **src/types/*.d.ts**: Contains all shared types.
+  - **src/func/gpt/types.ts**: Includes shared types specific to the GPT function.
 
 Code Conventions:
 - Prevent excessive changes; focus on targeted, effective modifications
@@ -16,3 +19,4 @@ Code Conventions:
 - Follow SolidJS best practices for component lifecycle and reactivity
 - Use SiYuan theme variables when create html elements/components for consistent styling
 - Ensure proper TypeScript typing
+  - If you find any undefined types in some code file and not sure what it might be, you can check the types definition files in the type declaration files.

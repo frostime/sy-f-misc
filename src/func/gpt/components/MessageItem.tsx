@@ -663,7 +663,7 @@ const MessageItem: Component<{
         menu.addItem({
             icon: 'iconEdit',
             label: '编辑',
-            click: (ele, e) => editMessage(e)
+            click: (_, e) => editMessage(e)
         });
         menu.addItem({
             icon: 'iconCopy',

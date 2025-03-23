@@ -1,11 +1,3 @@
----
-title: f-misc 简介
-date: 2025-01-02T16:52:29.000Z
-lastmod: 2025-02-19T11:44:05.000Z
----
-
-# f-misc 简介
-
 ## Preliminary
 
 1. **介绍说明：**   本插件集成了多种个人常用的功能，少部分功能迁移自其他插件。
@@ -18,7 +10,7 @@ lastmod: 2025-02-19T11:44:05.000Z
 
 🔔 注：默认情况下并非所有功能都自动启用，请打开插件设置，在「启用」栏目中根据自己的需求启用响应的功能。
 
-​![image](assets/image-20250206132715-d8qz2mn.png)​
+![image](assets/image-20250206132715-d8qz2mn.png)
 
 ## 目前的功能概览
 
@@ -49,11 +41,7 @@ lastmod: 2025-02-19T11:44:05.000Z
 
   * 一个将双向链接和数据库自动绑定，从而模拟 Tana 的 SuperTag 的方案
   * 详情参见：[将反向链接和数据库结合的尝试 - 链滴](https://ld246.com/article/1739206311467 "将反向链接和数据库结合的尝试 - 链滴")
-* Toggl
-
-  * 一个简易的 Toggl 客户端
-  * 定期将 Toggl 的 Time Entries 插入到 Daily Note 中
-  * 需要绑定 Toggl 账号的 API Token 使用
+  * 动态数据库，从查询语句中自动构建一个数据库（>= 5.6.0）
 * Zotero 工具
 
   * 注意需要使用 zotero debug bridge 绑定 zotero
@@ -64,6 +52,11 @@ lastmod: 2025-02-19T11:44:05.000Z
   * 将选定论文的笔记导入到思源中
 
     * 注意，zotero 笔记中的图片默认只会以 `file:///`​ 链接的形式插入到笔记中；你可以在思源文档中自行将「网络资源图片转换到本地」，来将这些图片导入到思源当中
+* WebSocket：允许外部通过 broadcast API 发送命令让插件执行；主要和 quicker 配合使用
+* 新建空白附件: 在思源中快速创建空白的 Markdown（.md）、文本文件（.txt）、Word 文档（.docx）等
+
+  * 使用 `/ni`​ 创建附件文件
+  * word, ppt, excel 等需要自行在 `data\public\blank-files`​ 下面放空白模板文件
 * 侧边栏显示块
 
   * 迁移自侧边显示插件，调整了使用方式
@@ -71,26 +64,31 @@ lastmod: 2025-02-19T11:44:05.000Z
 * 迁移引用
 
   * 将反向链接块迁移到同一笔记本中
-* 新建空白附件: 在思源中快速创建空白的 Markdown（.md）、文本文件（.txt）、Word 文档（.docx）等
-
-  * 使用 `/ni`​ 创建文档
-  * word, ppt, excel 空白文件需要自行在 `data\public\blank-files`​ 下面放空白模板文件
 * Quick Draft: 模仿快速卡片写作插件，快速创建独立的编辑窗口（主要当草稿用）
 
   * 全局注册 Alt + Shift + G 快捷键
   * 默认以卡片样式显示，Alt + Y 可以返回到普通的编辑器样式
-* Webview 网页视图: 在新窗口中打开 Webview，模仿自其他插件
 * 全局 Paste 处理：自定义粘贴事件，例如在粘贴 URL 文本时自动转换为链接等
-* WebSocket：允许外部通过 broadcast API 发送命令让插件执行；主要和 quicker 配合使用
+* Markdown 功能：
+
+  * 查看指定文档完整的 Markdown 内容并单独下载为文件
+  * 查看一个指定标题块下方所有的 Markdown 内容
+* 文档工具：
+
+  * 实现了一个帮助移动文档的小工具
+* Toggl
+
+  * 一个简易的 Toggl 客户端
+  * 定期将 Toggl 的 Time Entries 插入到 Daily Note 中
+  * 需要绑定 Toggl 账号的 API Token 使用
 
 * 中间小窗 (已拆分上架)
 * 文档上下文 (已拆分上架)
 * Insert Time  (已拆分上架)
-* 更换主题 (已拆分上架)
 * Titled Link（已拆分上架）
-* ~~Bookmark+（拆分上架并从本插件中删除）~~
-* ~~QueryView（拆分上架并从本插件中删除）~~
 
 其他还有一些不那么重要的功能，不再一一赘述。
+
+‍
 
 ‍
