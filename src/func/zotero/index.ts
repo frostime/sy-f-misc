@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-24 16:08:19
  * @FilePath     : /src/func/zotero/index.ts
- * @LastEditTime : 2025-01-20 22:44:21
+ * @LastEditTime : 2025-03-24 15:38:59
  * @Description  : 
  */
 import { Menu, Protyle, showMessage } from "siyuan";
@@ -39,25 +39,63 @@ let zotero: ZoteroDBModal = null;
 const SPECIAL_CHAR_DOLLAR = '转义美元真麻烦';
 
 const parseNoteHtml = (html: string, zoteroDir: string) => {
+    console.group('Parse note html');
+
     let div = document.createElement('div');
     div.innerHTML = html;
     let ele = div.firstElementChild as HTMLElement;
-    console.log(ele)
+    if (process.env.DEV_MODE) {
+        console.debug(ele.cloneNode(true));
+    }
 
     if (!ele) return html;
 
     ele.querySelectorAll('span.citation')?.forEach((span: HTMLSpanElement) => {
-        let anchor: HTMLAnchorElement = document.createElement('a');
-        anchor.innerHTML = span.innerHTML;
+        // Create a container to hold the formatted citation
+        const container = document.createElement('span');
+
+        // Add opening parenthesis
+        container.append('(');
+
+        // Get all citation items
+        const citationItems = span.querySelectorAll('.citation-item');
+
+        // Parse the citation data
         let data = decodeURIComponent(span.dataset.citation);
         const citationObject = JSON.parse(data);
-        let href: string = citationObject['citationItems'][0]['uris'][0];
-        // First try to match local pattern, then fall back to original pattern
-        href = href.replace(/https?:\/\/zotero\.org\/users\/local\/[^/]+\/items\/([^?]+)/, 'zotero://select/library/items/$1');
-        href = href.replace(/https?:\/\/zotero\.org\/users\/\d+/, 'zotero://select/library');
-        anchor.href = href;
+
+        // Process each citation item
+        citationItems.forEach((item: HTMLSpanElement, index: number) => {
+            // Create anchor for this citation item
+            const anchor = document.createElement('a');
+            anchor.innerHTML = item.innerHTML;
+
+            // Get the corresponding URI from the citation object
+            if (citationObject.citationItems && citationObject.citationItems[index] && citationObject.citationItems[index].uris) {
+                let href: string = citationObject.citationItems[index].uris[0];
+
+                // Transform the URI format
+                href = href.replace(/https?:\/\/zotero\.org\/users\/local\/[^/]+\/items\/([^?]+)/, 'zotero://select/library/items/$1');
+                href = href.replace(/https?:\/\/zotero\.org\/users\/\d+/, 'zotero://select/library');
+
+                anchor.href = href;
+            }
+
+            // Add the anchor to the container
+            container.appendChild(anchor);
+
+            // Add separator between items if not the last one
+            if (index < citationItems.length - 1) {
+                container.append('; ');
+            }
+        });
+
+        // Add closing parenthesis
+        container.append(')');
+
+        // Replace the original span with the container
         if (span.parentNode) {
-            span.parentNode.replaceChild(anchor, span);
+            span.parentNode.replaceChild(container, span);
         }
     });
     ele.querySelectorAll('span.math')?.forEach((span: HTMLSpanElement) => {
@@ -71,8 +109,18 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
         }
     });
     ele.querySelectorAll('span[data-annotation]')?.forEach((span: HTMLSpanElement) => {
-        let anchor: HTMLAnchorElement = document.createElement('a');
-        anchor.innerHTML = span.innerHTML;
+        // Create a container to hold both the text span and the link
+        const container = document.createElement('span');
+
+        // Create a text span to hold the original content
+        const textSpan = document.createElement('span');
+        textSpan.innerHTML = span.innerHTML;
+
+        // Create the anchor element for the link
+        const anchor = document.createElement('a');
+        anchor.textContent = 'PDF'; // Using a document emoji for the link
+
+        // Process the annotation data
         let data = decodeURIComponent(span.dataset.annotation);
         const citationObject = JSON.parse(data);
         let href: string = citationObject[`attachmentURI`] + `?page=${citationObject['pageLabel']}&annotation=${citationObject['annotationKey']}`
@@ -80,8 +128,16 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
         href = href.replace(/https?:\/\/zotero\.org\/users\/local\/[^/]+\/items\/([^?]+)(.*)/, 'zotero://open-pdf/library/items/$1$2');
         href = href.replace(/https?:\/\/zotero\.org\/users\/\d+/, 'zotero://open-pdf/library');
         anchor.href = href;
+
+        // Add both elements to the container
+        container.appendChild(textSpan);
+        container.append('(');
+        container.appendChild(anchor);
+        container.append(')');
+
+        // Replace the original span with the container
         if (span.parentNode) {
-            span.parentNode.replaceChild(anchor, span);
+            span.parentNode.replaceChild(container, span);
         }
     });
     ele.querySelectorAll('img[data-attachment-key]')?.forEach((img: HTMLImageElement) => {
@@ -92,10 +148,30 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
         let newimg: HTMLImageElement = document.createElement('img');
         newimg.alt = img.innerHTML;
         newimg.src = uri;
+
+        let anchorSrc;
+        if (img.getAttribute('data-annotation')) {
+            let data = decodeURIComponent(img.dataset.annotation);
+            const citationObject = JSON.parse(data);
+            let href: string = citationObject[`attachmentURI`] + `?page=${citationObject['pageLabel']}&annotation=${citationObject['annotationKey']}`
+            // First try to match local pattern, then fall back to original pattern
+            href = href.replace(/https?:\/\/zotero\.org\/users\/local\/[^/]+\/items\/([^?]+)(.*)/, 'zotero://open-pdf/library/items/$1$2');
+            href = href.replace(/https?:\/\/zotero\.org\/users\/\d+/, 'zotero://open-pdf/library');
+            anchorSrc = document.createElement('a');
+            anchorSrc.href = href;
+            anchorSrc.textContent = 'PDF';
+        }
+
         if (img.parentNode) {
-            img.parentNode.replaceChild(newimg, img);
+            const parent = img.parentNode as HTMLElement;
+            parent.replaceChild(newimg, img);
+            // 插入到 parent> newimg 后面
+            if (anchorSrc) {
+                parent.append('(', anchorSrc, ')');
+            }
         }
     });
+    console.groupEnd();
     // console.log(ele)
     return ele.innerHTML;
 }
