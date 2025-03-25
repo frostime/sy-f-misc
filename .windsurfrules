@@ -1,16 +1,18 @@
 This is a SiYuan Note plugin project using:
 - SolidJS framework
 - @frostime/solid-signal-ref library for easier use of solid signal
+  - https://www.npmjs.com/package/@frostime/solid-signal-ref
 - SiYuan API and types
 - SiYuan CSS classes (prefixed with b3-) and CSS variables
 
 Project Structure:
-- **src**: Contains the source code.
-- **src/libs**: Houses common libraries used across plugins.
-- **src/func**: Includes functional components. This plugin provides multiple distinct functions, each organized in its own folder/file.
-- **types**: Handles type declarations. The project utilizes global types for shared common types.
-  - **src/types/*.d.ts**: Contains all shared types.
-  - **src/func/gpt/types.ts**: Includes shared types specific to the GPT function.
+- `src/`: Contains the source code.
+- `src/libs/`: Houses common libraries used across plugins.
+  - `src/libs/components/`: Contains shared solidjs components.
+- `src/func/`: Includes functional components. This plugin provides multiple distinct functions, each organized in its own folder/file.
+- `types`: Handles type declarations. The project utilizes global types for shared common types.
+  - `src/types/*.d.ts`: Contains all shared types.
+  - `src/func/gpt/types.ts`: Includes shared types specific to the GPT function.
 
 Code Conventions:
 - Prevent excessive changes; focus on targeted, effective modifications

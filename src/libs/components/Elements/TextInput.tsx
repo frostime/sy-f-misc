@@ -1,16 +1,15 @@
 import { createMemo } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 
-interface ITextInputProps {
+export default function TextInput(props: {
     value?: string | Accessor<string>;
     changed?: (value: string) => void;
     style?: JSX.CSSProperties;
     placeholder?: string;
     password?: boolean;
     spellcheck?: boolean;
-}
-
-export default function TextInput(props: ITextInputProps) {
+    disabled?: boolean;
+}) {
     const attrStyle = createMemo(() => ({
         style: props.style ?? {}
     }));
@@ -35,6 +34,7 @@ export default function TextInput(props: ITextInputProps) {
             }}
             spellcheck={props.spellcheck}
             type={props.password ? "password" : "text"}
+            disabled={props.disabled}
         />
     );
 } 

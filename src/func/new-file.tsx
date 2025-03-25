@@ -2,11 +2,14 @@ import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 // import { upload } from "@/api";
 import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { FormInput } from '@/libs/components/Form';
 import { render } from "solid-js/web";
-import { onMount } from "solid-js";
+import { For, onMount, Show } from "solid-js";
 import { CheckboxInput, SelectInput, TextInput } from "@/libs/components/Elements";
 import { createSignalRef } from "@frostime/solid-signal-ref";
+import { sql } from "@frostime/siyuan-plugin-kits/api";
+import { solidDialog } from "@/libs/dialog";
+import Markdown from "@/libs/components/Elements/Markdown";
+import { request } from "@/api";
 
 export const declareToggleEnabled = {
     title: '📄 New file',
@@ -319,6 +322,343 @@ const NewFileApp = (props: { updated: (v) => void }) => {
     );
 }
 
+/**
+ * TODO
+ * 
+ * @ui
+ * - 按钮组，一行，靠右
+ *  - 查找指定附件的块
+ *  - 确认批量重命名
+ * - Form
+ *  - Row 1
+ *      - 原始文件名
+ *      - textline, 不可编辑
+ *  - Row 2
+ *      - 新文件名
+ *      - textline, 可编辑
+ * - 查找到的块的列表
+ *  - Item
+ *      - checkbox, 默认选中
+ *      - 显示块的 markdown 属性
+ */
+const RenameAssetFile = (props: { assetLink: string }) => {
+    /**
+     * 查找使用了指定附件链接的块
+     * @param assetLink 
+     * @returns 
+     */
+    const findAssetBlock = async (assetLink: string): Promise<Block[]> => {
+        let blocks = await sql(`
+        select * from blocks where (type='p' or type='h')
+        and (markdown like '%[%](${assetLink})%' or markdown like '%[%](${assetLink} "%")%')
+    `);
+        return blocks;
+    }
+
+    /**
+     * 移动资源文件
+     * 注意：这个函数是一个占位符，实际实现需要由用户完成
+     */
+    const moveAssetFile = async (source: string, destination: string): Promise<boolean> => {
+        //略, 由用户来实现
+        // console.log(`Moving asset from ${source} to ${destination}`);
+        if (source.startsWith('/assets')) {
+            source = source.slice(1);
+        }
+        if (destination.startsWith('/assets')) {
+            destination = destination.slice(1);
+        }
+
+        const results = await request('/api/file/renameFile', {
+            path: '/data/' + source,
+            newPath: '/data/' + destination
+        }, 'response');
+        if (results.code !== 0) {
+            showMessage('移动失败' + results.msg, 3000, 'error');
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 编辑块中的资源链接
+     * 注意：这个函数是一个占位符，实际实现需要由用户完成
+     */
+    const editBlocks = async (blockList: Block[], assetLink: {
+        old: string;
+        new: string;
+    }): Promise<{ success: boolean; result: Record<string, boolean> }> => {
+        const result: Record<string, boolean> = {};
+        try {
+            // 处理可能的斜杠前缀
+            const oldLink = assetLink.old.startsWith('/') ? assetLink.old.slice(1) : assetLink.old;
+            const newLink = assetLink.new.startsWith('/') ? assetLink.new.slice(1) : assetLink.new;
+
+            // 转义特殊字符，以便在正则表达式中使用
+            const escapedOldLink = oldLink.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            // 创建正则表达式匹配三种情况：
+            // 1. [](link)
+            // 2. [title](link)
+            // 3. [title](link "可选的文本")
+            const regex = new RegExp(`(\\[([^\\]]*)\\]\\()${escapedOldLink}((?:\\s+"[^"]*")?\\))`, 'g');
+
+            for (const block of blockList) {
+                // 替换 markdown 中的链接
+                const newMarkdown = block.markdown.replace(regex, (match, prefix, title, suffix) => {
+                    return `${prefix}${newLink}${suffix}`;
+                });
+
+                // 如果内容有变化，更新块
+                if (newMarkdown !== block.markdown) {
+                    const updateResult = await request('/api/block/updateBlock', {
+                        id: block.id,
+                        data: newMarkdown,
+                        dataType: 'markdown'
+                    }, 'response');
+
+                    if (updateResult.code !== 0) {
+                        console.warn(`Failed to update block ${block.id}:`, updateResult.msg);
+                        result[block.id] = false;
+                    } else {
+                        result[block.id] = true;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error updating blocks:', error);
+        }
+        return {
+            result,
+            success: Object.values(result).every(v => v)
+        };
+    }
+
+    /**
+     * 检查是否为有效的asset链接名
+     * @param name 
+     * @returns 
+     */
+    const checkIfValidAssetlinkName = (name: string): boolean => {
+        if (!name.startsWith('assets/')) return false;
+        return true;
+    }
+
+    // Create signals for component state
+    const originalAssetLink = createSignalRef(props.assetLink);
+    const newAssetLink = createSignalRef(props.assetLink);
+    const blocks = createSignalRef<Block[]>([]);
+    const selectedBlocks = createSignalRef<Record<string, boolean>>({});
+    const isSearching = createSignalRef(false);
+    const isRenaming = createSignalRef(false);
+
+    // Handle search for blocks using the asset
+    const handleSearch = async () => {
+        isSearching.value = true;
+        try {
+            const foundBlocks = await findAssetBlock(originalAssetLink.value);
+            blocks.value = foundBlocks;
+
+            // Initialize all blocks as selected
+            const selected: Record<string, boolean> = {};
+            foundBlocks.forEach(block => {
+                selected[block.id] = true;
+            });
+            selectedBlocks.value = selected;
+        } catch (error) {
+            console.error('Error searching for blocks:', error);
+            showMessage('查找块时出错', 3000, 'error');
+        } finally {
+            isSearching.value = false;
+        }
+    };
+
+    // Handle rename asset file and update blocks
+    const handleRename = async () => {
+        if (originalAssetLink.value === newAssetLink.value) {
+            showMessage('新文件名与原文件名相同，无需重命名', 3000, 'info');
+            return;
+        }
+
+        if (!checkIfValidAssetlinkName(newAssetLink.value)) {
+            showMessage('新文件名格式不正确，必须以 assets/ 开头', 3000, 'error');
+            return;
+        }
+
+        isRenaming.value = true;
+        try {
+            // Get selected blocks
+            const blocksToUpdate = blocks.value.filter(block => selectedBlocks.value[block.id]);
+
+            // Move asset file
+            const moveSuccess = await moveAssetFile(originalAssetLink.value, newAssetLink.value);
+            if (!moveSuccess) {
+                return;
+            }
+
+            // Update blocks
+            const updateSuccess = await editBlocks(blocksToUpdate, {
+                old: originalAssetLink.value,
+                new: newAssetLink.value
+            });
+
+            if (!updateSuccess.success) {
+                showMessage('更新块引用出现问题，建议查看控制台', 3000, 'error');
+            } else {
+                showMessage('重命名成功', 3000, 'info');
+                originalAssetLink.value = newAssetLink.value;
+                handleSearch();
+            }
+        } catch (error) {
+            console.error('Error renaming asset:', error);
+            showMessage('重命名时出错', 3000, 'error');
+        } finally {
+            isRenaming.value = false;
+        }
+    };
+
+    // Toggle block selection
+    const toggleBlockSelection = (blockId: string) => {
+        const newSelection = { ...selectedBlocks.value };
+        newSelection[blockId] = !newSelection[blockId];
+        selectedBlocks.value = newSelection;
+    };
+
+    // Select/deselect all blocks
+    const toggleAllBlocks = (select: boolean) => {
+        const newSelection: Record<string, boolean> = {};
+        blocks.value.forEach(block => {
+            newSelection[block.id] = select;
+        });
+        selectedBlocks.value = newSelection;
+    };
+
+    let container: HTMLDivElement;
+
+    // Expand/collapse all details elements
+    const toggleAllDetails = (open: boolean) => {
+        const detailsElements = container.querySelectorAll('.b3-card details');
+        detailsElements.forEach(detail => {
+            if (open) {
+                detail.setAttribute('open', '');
+            } else {
+                detail.removeAttribute('open');
+            }
+        });
+    };
+
+    return (
+        <div class="fn__flex-column" style="gap: 12px; padding: 8px 12px; flex: 1; font-size: 16px;"
+            ref={container}
+        >
+            <div class="fn__flex" style="justify-content: flex-end; gap: 8px;">
+                <button
+                    class="b3-button b3-button--outline"
+                    onClick={handleSearch}
+                    disabled={isSearching.value}
+                >
+                    {isSearching.value ? '查找中...' : '查找引用块'}
+                </button>
+                <button
+                    class="b3-button b3-button--text"
+                    onClick={handleRename}
+                    disabled={isRenaming.value || blocks.value.length === 0}
+                >
+                    {isRenaming.value ? '重命名中...' : '确认重命名'}
+                </button>
+            </div>
+            <div style="gap: 8px; display: flex; flex-direction: column;">
+                <div class="fn__flex" style="align-items: center; gap: 8px;">
+                    <label style="min-width: 80px;">原始文件名</label>
+                    <div class="fn__flex-1">
+                        <TextInput
+                            value={originalAssetLink.value}
+                            placeholder="原始文件名"
+                            spellcheck={false}
+                            style={{
+                                width: '100%'
+                            }}
+                            disabled={true}
+                        />
+                    </div>
+                </div>
+                <div class="fn__flex" style="align-items: center; gap: 8px;">
+                    <label style="min-width: 80px;">新文件名</label>
+                    <div class="fn__flex-1">
+                        <TextInput
+                            value={newAssetLink.value}
+                            changed={(value) => newAssetLink.value = value}
+                            placeholder="新文件名"
+                            spellcheck={false}
+                            style={{
+                                width: '100%'
+                            }}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Block list */}
+            <Show when={blocks.value.length > 0}>
+                <div style="gap: 8px; display: flex; flex-direction: column;">
+                    <div class="fn__flex" style="justify-content: space-between; align-items: center;">
+                        <span class="b3-label">引用块列表 ({blocks.value.length})</span>
+                        <div class="fn__flex" style="gap: 8px;">
+                            <button
+                                class="b3-button b3-button--text b3-button--small"
+                                onClick={() => toggleAllBlocks(true)}
+                            >
+                                全选
+                            </button>
+                            <button
+                                class="b3-button b3-button--text b3-button--small"
+                                onClick={() => toggleAllBlocks(false)}
+                            >
+                                取消全选
+                            </button>
+                            <button
+                                class="b3-button b3-button--text b3-button--small"
+                                onClick={() => toggleAllDetails(true)}
+                            >
+                                全部展开
+                            </button>
+                            <button
+                                class="b3-button b3-button--text b3-button--small"
+                                onClick={() => toggleAllDetails(false)}
+                            >
+                                全部折叠
+                            </button>
+                        </div>
+                    </div>
+
+                    <For each={blocks.value}>
+                        {(block) => (
+                            <div class="fn__flex b3-card" style="padding: 4px; align-items: center; gap: 8px; margin: 0px;">
+                                <CheckboxInput
+                                    checked={selectedBlocks.value[block.id] || false}
+                                    changed={() => toggleBlockSelection(block.id)}
+                                />
+                                <details open>
+                                    <summary class="popover__block" data-id={block.id}>
+                                        {block.hpath}
+                                    </summary>
+                                    <div onclick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }}>
+                                        <pre style="font-family: var(--b3-font-family);">{block.markdown}</pre>
+                                        <Markdown markdown={block.markdown} />
+                                    </div>
+                                </details>
+                            </div>
+                        )}
+                    </For>
+                </div>
+            </Show>
+        </div>
+    );
+}
+
 
 export let name = 'NewFile';
 export let enabled = false;
@@ -329,6 +669,8 @@ const HTML = `
     <span class="b3-list-item__text">新建空白附件</span>
 </div>
 `;
+
+let disposers = [];
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
@@ -368,12 +710,42 @@ export const load = (plugin: FMiscPlugin) => {
         }
     };
     plugin.addProtyleSlash(slash);
+
+    const dispose = thisPlugin().registerEventbusHandler('open-menu-link', (detail) => {
+        let menu = detail.menu;
+        // let protyle = detail.protyle;
+        const hrefSpan = detail.element;
+
+        // let text = hrefSpan.innerText;
+        let href = hrefSpan.getAttribute("data-href");
+        if (!href?.startsWith("assets/") && !href?.startsWith("/assets/")) {
+            return;
+        }
+        // console.log(hrefSpan);
+        menu.addItem({
+            icon: "iconImage",
+            label: '更改 Asset',
+            click: async () => {
+                solidDialog({
+                    title: '更改 Asset',
+                    loader: () => <RenameAssetFile assetLink={href} />,
+                    width: '960px',
+                    height: '500px'
+                });
+            }
+        });
+    });
+    disposers.push(dispose);
     enabled = true;
 }
 
 export const unload = (plugin: FMiscPlugin) => {
     if (!enabled) return;
 
+    for (const dispose of disposers) {
+        dispose();
+    }
+    disposers = [];
     plugin.delProtyleSlash('new-file');
     enabled = false;
 }
