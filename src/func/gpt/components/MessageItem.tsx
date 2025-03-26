@@ -1,5 +1,5 @@
 import { Component, createEffect, createMemo, createSignal, on, Show } from 'solid-js';
-import { formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { debounce, formatDateTime, getLute, html2ele, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { confirm, Menu } from "siyuan";
 
 import styles from './MessageItem.module.scss';
@@ -429,11 +429,9 @@ const MessageItem: Component<{
         renderMath();
     }
 
-    // onMount(async () => {
-    //     //仅仅只在需要配置调整 Lute 渲染的 markdown 内容时才会执行
-    //     if (props.markdown !== true) return;
-    //     runMdRenderer();
-    // });
+    const renderMarkdown = debounce(() => {
+        runMdRenderer();
+    }, 50);
 
     const textContent = createMemo(() => {
         let { text } = adaptIMessageContent(props.messageItem.message.content);
@@ -488,23 +486,10 @@ const MessageItem: Component<{
         return text.length;
     });
 
-    // createEffect(on(textContent, () => {
-    //     console.log(`Text changed: ${textContent()}`);
-    //     // renderCode();
-    //     // renderMath();
-    // }));
-
-    // Add effect to monitor message changes
-    // createEffect(on(() => props.messageItem.message, () => {
-    //     console.log(`Msg changed: ${props.messageItem.message}`);
-    //     if (props.markdown !== true) return;
-    //     runMdRenderer();
-    // }));
-
     createEffect(on(() => props.messageItem.message.content, () => {
         if (props.markdown !== true) return;
         // console.log(`Msg.content changed: ${props.messageItem.message.content}`);
-        runMdRenderer();
+        renderMarkdown();
     }));
 
     const VersionHooks = {
