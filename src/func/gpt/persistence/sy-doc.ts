@@ -3,20 +3,22 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-03-21 15:52:23
+ * @LastEditTime : 2025-03-26 16:16:58
  * @Description  : 
  */
-import { formatDateTime, getNotebook } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
 import { convertMathFormulas, id2block } from "../utils";
 import { adaptIMessageContent } from '../data-utils';
 
 import { showMessage } from "siyuan";
 import { defaultConfig } from "../setting";
+import { appendBlock } from "@frostime/siyuan-plugin-kits/api";
 
 const ATTR_GPT_EXPORT_ROOT = 'custom-gpt-export-root';
 export const ATTR_GPT_EXPORT_DOC = 'custom-gpt-export-doc';
 const ATTR_GPT_EXPORT_DOC_EDITABLE_AREA = 'custom-gpt-export-doc-editable-area';
+const ATTR_GPT_EXPORT_ASSET_LINK = 'custom-gpt-export-asset-link';
 
 const CUSTOM_EDITABLE_AREA = `
 > **可编辑区域**
@@ -444,6 +446,31 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
         }, 1000);
     } else {
         exportDoc(rootDoc);
+    }
+}
+
+
+/**
+ * 保存到思源笔记的附件当中
+ * @param history 
+ */
+export const saveToSiYuanAssetFile = async (history: IChatSessionHistory) => {
+    let { title, id } = history;
+    let markdownText = chatHistoryToMarkdown(history);
+
+    const plugin = thisPlugin();
+    await plugin.saveBlob(`${id}.md`, markdownText, '/data/assets/chat-markdown');
+
+    const newMd = `
+${formatDateTime()} | [${title}.md](assets/chat-markdown/${id}.md)
+{: ${ATTR_GPT_EXPORT_ASSET_LINK}="${history.id}" }
+`;
+    let rootDoc = await ensureRootDocument('GPT 导出文档');
+    let assetLinkBlock = await checkBlockWithAttr(ATTR_GPT_EXPORT_ASSET_LINK, history.id, null);
+    if (!assetLinkBlock || assetLinkBlock.length === 0) {
+        await appendBlock('markdown', newMd, rootDoc.id);
+    } else {
+        await updateBlock('markdown', newMd, assetLinkBlock[0].id);
     }
 }
 

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-22 20:35:22
+ * @LastEditTime : 2025-03-26 15:22:40
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -657,9 +657,7 @@ const ChatSession: Component<{
                 icon: 'iconLink',
                 label: '复制链接',
                 click: () => {
-                    persist.persistHistory(session.sessionHistory(), {
-                        saveToSiYuan: false
-                    });
+                    persist.persistHistory(session.sessionHistory());
                     const plugin = thisPlugin();
                     const prefix = `siyuan://plugins/${plugin.name}/chat-session-history`;
                     let urlObj = new URLSearchParams();
@@ -750,7 +748,6 @@ const ChatSession: Component<{
                             label: '归档对话记录',
                             click: () => {
                                 persist.persistHistory(session.sessionHistory(), {
-                                    saveToSiYuan: false,
                                     verbose: '保存成功'
                                 });
                             }
@@ -760,7 +757,17 @@ const ChatSession: Component<{
                             label: '导出到笔记中',
                             click: () => {
                                 persist.persistHistory(session.sessionHistory(), {
-                                    saveToSiYuan: true,
+                                    saveTo: 'document',
+                                    verbose: '导出成功'
+                                });
+                            }
+                        });
+                        menu.addItem({
+                            icon: 'iconSiYuan',
+                            label: '导出为附件',
+                            click: () => {
+                                persist.persistHistory(session.sessionHistory(), {
+                                    saveTo: 'asset',
                                     verbose: '导出成功'
                                 });
                             }
