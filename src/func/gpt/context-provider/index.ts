@@ -12,6 +12,7 @@ import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
 import TextSearchProvider from './TextSearchProvider';
 import URLProvider from './URLProvider';
+import TavilySearchProvider from './TavilySearchProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
@@ -30,6 +31,7 @@ const contextProviders: CustomContextProvider[] = [
     SQLSearchProvicer,
     TextSearchProvider,
     URLProvider,
+    TavilySearchProvider,
 ];
 
 /**
@@ -93,7 +95,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
     if (provider.type === undefined || provider.type === 'normal') {
         contextItems = await provider.getContextItems(option);
     } else if (provider.type === 'input-line' || provider.type === 'input-area') {
-        const query = await new Promise<string>((resolve, reject) => {
+        const query = await new Promise<string>((resolve) => {
             inputDialogForProvider({
                 title: provider.displayTitle,
                 description: provider.description,

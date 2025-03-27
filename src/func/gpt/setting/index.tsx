@@ -19,7 +19,7 @@ import PromptTemplateSetting from "./PromptTemplateSetting";
 import { globalMiscConfigs } from "./store";
 import Heading from "./Heading";
 
-type TabType = 'chat' | 'prompt' | 'provider';
+type TabType = 'chat' | 'prompt' | 'provider' | 'tools';
 
 const TabButton = (props: {
     active: boolean;
@@ -111,6 +111,15 @@ const GlobalSetting = () => {
                     <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
                         <span>🔌</span>
                         <span>Provider 配置</span>
+                    </div>
+                </TabButton>
+                <TabButton
+                    active={activeTab() === 'tools'}
+                    onClick={() => setActiveTab('tools')}
+                >
+                    <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
+                        <span>🛠️</span>
+                        <span>工具</span>
                     </div>
                 </TabButton>
             </div>
@@ -231,6 +240,28 @@ const GlobalSetting = () => {
                                     'line-height': '1.1em'
                                 }}
                                 spellcheck={false}
+                            />
+                        </Form.Wrap>
+                    </Match>
+
+                    <Match when={activeTab() === 'tools'}>
+                        <Heading>
+                            工具配置
+                        </Heading>
+                        <Form.Wrap
+                            title="Tavily API Key"
+                            description="配置 Tavily API Key 以启用联网查询功能。可前往 <a href='https://tavily.com/' target='_blank'>Tavily 官网</a> 获取。"
+                            direction="row"
+                        >
+                            <Form.Input
+                                type="textinput"
+                                value={globalMiscConfigs().tavilyApiKey}
+                                changed={(v) => {
+                                    globalMiscConfigs.update('tavilyApiKey', v);
+                                }}
+                                style={{
+                                    width: '100%'
+                                }}
                             />
                         </Form.Wrap>
                     </Match>
