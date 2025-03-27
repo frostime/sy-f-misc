@@ -7,7 +7,7 @@
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
-import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
 import AttachmentList from './AttachmentList';
@@ -22,7 +22,6 @@ import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
-import TavilySearchProvider from '../context-provider/TavilySearchProvider';
 import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
 import * as syDoc from '../persistence/sy-doc';
@@ -33,7 +32,7 @@ import SessionItemsManager from './SessionItemsManager';
 
 const useSiYuanEditor = (props: {
     id: string;
-    input: ISignalRef<string>;
+    input: ReturnType<typeof useSignalRef<string>>;
     fontSize?: string;
     title?: () => string;
     useTextarea: () => HTMLTextAreaElement;
@@ -195,7 +194,7 @@ const useSiYuanEditor = (props: {
 
 
 const ChatSession: Component<{
-    input?: ISignalRef<string>;
+    input?: ReturnType<typeof useSignalRef<string>>;
     systemPrompt?: string;
     history?: IChatSessionHistory;
     updateTitleCallback?: (title: string) => void;
@@ -455,45 +454,15 @@ const ChatSession: Component<{
         scrollToBottom(true);
         userHasScrolled = false; // 重置滚动状态
 
-        // Perform web search if enabled
+        // Send the message with web search if enabled
+        await session.sendMessage(userMessage, {
+            tavily: webSearchEnabled()
+        });
+
+        // Reset web search after using it once
         if (webSearchEnabled()) {
-            try {
-                // Execute the Tavily search provider with the user's message as the query
-                const context = await executeContextProvider({
-                    ...TavilySearchProvider,
-                    type: 'normal', // Override type to avoid showing input dialog
-                    getContextItems: async () => {
-                        const { tavilySearch } = await import('../tools/tavily');
-                        const searchResults = await tavilySearch(userMessage);
-
-                        if (!searchResults || !searchResults.results || searchResults.results.length === 0) {
-                            showMessage("未找到相关搜索结果", 3000, "info");
-                            return [];
-                        }
-
-                        // Convert search results to context items
-                        return searchResults.results.map((result, index) => ({
-                            name: `搜索结果 #${index + 1}: ${result.title}`,
-                            description: result.url,
-                            content: `${result.content}\n\n原始链接: ${result.url}`
-                        }));
-                    }
-                });
-
-                // Add the context to the session if results were found
-                if (context) {
-                    session.setContext(context);
-                }
-            } catch (error) {
-                console.error('Web search error:', error);
-                showMessage(`Web 搜索出错: ${error.message || '未知错误'}`, 3000, "error");
-            }
-
-            // Reset web search after using it once
             webSearchEnabled.update(false);
         }
-
-        await session.sendMessage(userMessage);
 
         if (!userHasScrolled) {
             scrollToBottom(true);
@@ -1035,7 +1004,7 @@ const ChatSession: Component<{
                             <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
                         </ToolbarLabel>
                     </div>
-                    <Show when={globalMiscConfigs().tavilyApiKey}>
+                    {/* <Show when={globalMiscConfigs().tavilyApiKey}>
                         <ToolbarLabel
                             onclick={() => webSearchEnabled.update(!webSearchEnabled())}
                             label='Web Search'
@@ -1049,7 +1018,7 @@ const ChatSession: Component<{
                         >
                             <SvgSymbol size="15px">iconWebSearch</SvgSymbol>
                         </ToolbarLabel>
-                    </Show>
+                    </Show> */}
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
                         const availableSystemPrompts = (): Record<string, string> => {

@@ -250,7 +250,7 @@ const GlobalSetting = () => {
                         </Heading>
                         <Form.Wrap
                             title="Tavily API Key"
-                            description="配置 Tavily API Key 以启用联网查询功能。可前往 <a href='https://tavily.com/' target='_blank'>Tavily 官网</a> 获取。"
+                            description="配置 Tavily API Key 以启用联网查询功能。可前往 <a href='https://app.tavily.com/home' target='_blank'>Tavily 官网</a> 获取。"
                             direction="row"
                         >
                             <Form.Input

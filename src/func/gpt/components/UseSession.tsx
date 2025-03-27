@@ -8,8 +8,9 @@ import { ChatSetting } from '../setting';
 import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '@gpt/openai';
 import { adaptIMessageContent } from '../data-utils';
-import { assembleContext2Prompt } from '../context-provider';
+import { assembleContext2Prompt, executeContextProvider } from '../context-provider';
 import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
+import TavilySearchProvider from '../context-provider/TavilySearchProvider';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -117,6 +118,84 @@ export const useSession = (props: {
             ...optionalFields
         }]);
         updated = new Date().getTime(); // Update the updated time when adding a message
+    }
+
+    /**
+     * 在已经 appendUserMsg 的情况下，重新更新 context 内容
+     */
+    const updateUserMsgContext = () => {
+        // Get the latest messages
+        const currentMessages = messages();
+        if (currentMessages.length === 0) return;
+
+        // Find the latest user message
+        let lastUserMsgIndex = -1;
+        for (let i = currentMessages.length - 1; i >= 0; i--) {
+            if (currentMessages[i].type === 'message' && currentMessages[i].author === 'user') {
+                lastUserMsgIndex = i;
+                break;
+            }
+        }
+
+        if (lastUserMsgIndex === -1) return; // No user message found
+
+        const lastUserMsg = currentMessages[lastUserMsgIndex];
+
+        // Get the current contexts
+        const currentContexts = contexts();
+        if (!currentContexts || currentContexts.length === 0) return;
+
+        // Get the original user prompt (without context)
+        let userPrompt = '';
+        let content = lastUserMsg.message?.content;
+
+        if (typeof content === 'string') {
+            // If content is string, use userPromptSlice if available, otherwise use the whole content
+            userPrompt = lastUserMsg.userPromptSlice
+                ? content.slice(lastUserMsg.userPromptSlice[0], lastUserMsg.userPromptSlice[1])
+                : content;
+        } else if (Array.isArray(content) && content.length > 0 && content[0].type === 'text') {
+            // If content is an array (with images), get the text part
+            userPrompt = lastUserMsg.userPromptSlice
+                ? content[0].text.slice(lastUserMsg.userPromptSlice[0], lastUserMsg.userPromptSlice[1])
+                : content[0].text;
+        } else {
+            return; // Unsupported content format
+        }
+
+        // Assemble new context prompts
+        const contextPrompts = assembleContext2Prompt(currentContexts);
+
+        messages.update(lastUserMsgIndex, prev => {
+            // Create a new message object with updated content
+            const updatedMsg = { ...prev };
+
+            // Update context and userPromptSlice
+            updatedMsg.context = currentContexts;
+            updatedMsg.userPromptSlice = [0, userPrompt.length];
+
+            // Update the content based on its type
+            if (typeof updatedMsg.message.content === 'string') {
+                updatedMsg.message = {
+                    ...updatedMsg.message,
+                    content: contextPrompts ? `${userPrompt}\n\n${contextPrompts}` : userPrompt
+                };
+            } else if (Array.isArray(updatedMsg.message.content) && updatedMsg.message.content.length > 0) {
+                // For content with images, update only the text part
+                const newContent = [...updatedMsg.message.content];
+                newContent[0] = {
+                    ...newContent[0],
+                    text: contextPrompts ? `${userPrompt}\n\n${contextPrompts}` : userPrompt
+                };
+
+                updatedMsg.message = {
+                    ...updatedMsg.message,
+                    content: newContent
+                };
+            }
+
+            return updatedMsg;
+        });
     }
 
     const setContext = (context: IProvidedContext) => {
@@ -406,13 +485,45 @@ ${inputContent}
         attachments.update(prev => [...prev, blob]);
     }
 
-    const sendMessage = async (userMessage: string) => {
+    /**
+     * 发送用户消息
+     * @param userMessage 用户消息
+     * @param options 选项
+     * @param options.tavily 是否启用 Tavily 网络搜索
+     */
+    const sendMessage = async (userMessage: string, options?: {
+        tavily?: boolean;
+    }) => {
         if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
 
         let sysPrompt = systemPrompt().trim() || '';
 
         await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
         loading.update(true);
+
+        if (options?.tavily) {
+            try {
+                const contextItems = await TavilySearchProvider.getContextItems({
+                    query: userMessage
+                })
+
+                // Add the context to the session if results were found
+                if (contextItems?.length > 0) {
+                    const context: IProvidedContext = {
+                        id: TavilySearchProvider.name,
+                        name: TavilySearchProvider.name,
+                        displayTitle: TavilySearchProvider.displayTitle,
+                        description: TavilySearchProvider.description,
+                        contextItems: contextItems
+                    };
+                    setContext(context);
+                    updateUserMsgContext();
+                }
+            } catch (error) {
+                console.error('Web search error:', error);
+                showMessage(`Web 搜索出错: ${error.message || '未知错误'}`, 3000, "error");
+            }
+        }
 
         try {
             controller = new AbortController();
