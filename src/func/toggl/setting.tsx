@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2025-01-04 01:34:21
+ * @LastEditTime : 2025-03-27 14:43:56
  * @Description  : 
  */
 
@@ -16,7 +16,10 @@ import { createSignal, onCleanup, Show } from "solid-js";
 // import { User } from "./api/types";
 import { getMe } from "./api/me";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+
+// #if [!PARTIAL]
 import { updateMiniTimerUI } from "./components";
+// #endif
 
 const DisplayRecord = (props: { record: Record<string, any> }) => {
     return (
@@ -125,6 +128,7 @@ const TogglSetting = () => {
                     }}
                 />
             </Form.Wrap>
+            {/* #if [!PARTIAL] */}
             <Form.Wrap
                 title="Mini Timer"
                 description="在思源中显示当前正在运行的活动"
@@ -145,6 +149,7 @@ const TogglSetting = () => {
                     }}
                 />
             </Form.Wrap>
+            {/* #endif */}
             <Form.Wrap
                 title="是否自动获取 Toggle 记录"
                 description="定时获取今天的 Toggle 记录，并写入 daily note 当中"

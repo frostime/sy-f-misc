@@ -7,6 +7,10 @@ import solidPlugin from 'vite-plugin-solid';
 import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
 import sass from 'sass'; // Use import instead of require
+import { visualizer } from 'rollup-plugin-visualizer';
+
+import vitePluginConditionalCompile from "vite-plugin-conditional-compile";
+
 
 const env = process.env;
 const isSrcmap = env.VITE_SOURCEMAP === 'inline';
@@ -37,6 +41,14 @@ export default defineConfig({
 
     plugins: [
 
+        vitePluginConditionalCompile({
+            env: {
+                // 去掉一些不太想要的功能代码
+                PARTIAL: process.env.PARTIAL === 'true',
+                DEV: process.env.DEV === 'true'
+            }
+        }),
+
         solidPlugin(),
 
         viteStaticCopy({
@@ -63,7 +75,12 @@ export default defineConfig({
                 }
             ],
         }),
-    ],
+        process.env.ANALYZE_BUNDLE === 'true' &&
+          visualizer({
+            open: true,
+            filename: './tmp/stats.html',
+          }),
+    ].filter(Boolean),
 
     define: {
         "process.env.DEV_MODE": JSON.stringify(isDev),

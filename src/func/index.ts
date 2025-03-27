@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-03-20 16:00:23
+ * @LastEditTime : 2025-03-27 14:35:29
  * @Description  :
  */
 // import { type JSX } from "solid-js";
@@ -17,8 +17,7 @@ import * as zt from './zotero';
 import * as mw from './mini-window';
 import * as docky from './docky';
 import * as tr from './transfer-ref';
-// import * as ss from './simple-search';
-// import * as dq from './data-query';
+
 import * as dc from './doc-context';
 // import * as ta from './test-api';
 import * as ws from './websocket';
@@ -52,18 +51,16 @@ let _ModulesToEnable: IFuncModule[] = [
     nf,
     dft,
     dc,
-    docky,
-    // wb,
-    // ss,
     qd,
     it,
     tl,
-    // ct,
     pd,
     tr,
     mr,
     ws,
-    // ta,
+// #if [!PARTIAL]
+    docky,
+// #endif
 ];
 
 let _ModulesAlwaysEnable: IFuncModule[] = [sc];
