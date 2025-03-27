@@ -252,7 +252,7 @@ const addDock = (plugin: FMiscPlugin) => {
     })
 }
 
-export const load = (plugin: FMiscPlugin) => {
+export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
     plugin.registerMenuTopMenu('gpt', [{
@@ -357,11 +357,17 @@ export const load = (plugin: FMiscPlugin) => {
     plugin.eventBus.on('open-siyuan-url-plugin', openUrl);
 
     addSVG(plugin);
+
+    await persist.restoreCache();
+    window.addEventListener('beforeunload', persist.saveCache);
 }
 
-export const unload = (plugin: FMiscPlugin) => {
+export const unload = async (plugin: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
     clickEvent.dispose();
     plugin.eventBus.off('open-siyuan-url-plugin', openUrl);
+
+    await persist.saveCache();
+    window.removeEventListener('beforeunload', persist.saveCache)
 }

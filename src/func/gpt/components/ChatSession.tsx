@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-26 15:22:40
+ * @LastEditTime : 2025-03-26 20:45:02
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -770,7 +770,20 @@ const ChatSession: Component<{
                                     saveTo: 'asset',
                                     verbose: '导出成功'
                                 });
-                            }
+                            },
+                            submenu: [
+                                {
+                                    icon: 'iconSiYuan',
+                                    label: '导出附件但不归档',
+                                    click: () => {
+                                        persist.persistHistory(session.sessionHistory(), {
+                                            saveJson: false,
+                                            saveTo: 'asset',
+                                            verbose: '导出成功'
+                                        });
+                                    },
+                                }
+                            ]
                         });
                         menu.addItem({
                             icon: 'iconMarkdown',

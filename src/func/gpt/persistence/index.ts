@@ -13,10 +13,11 @@ import { showMessage } from "siyuan";
 
 export const persistHistory = async (history: IChatSessionHistory, options?: {
     // saveToSiYuan?: boolean;
+    saveJson?: boolean; //default true
     saveTo?: 'document' | 'asset'
     verbose?: string;
 }) => {
-    await saveToJson(history)
+    if (options?.saveJson !== false) await saveToJson(history)
     if (options?.saveTo === 'document') {
         await saveToSiYuan(history)
     } else if (options?.saveTo === 'asset') {

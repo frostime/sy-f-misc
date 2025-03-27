@@ -1,6 +1,57 @@
-/**
- * 临时保存在 localStorage 中, key 为 ID
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2024-12-23 17:38:02
+ * @FilePath     : /src/func/gpt/persistence/local-storage.ts
+ * @LastEditTime : 2025-03-27 12:09:57
+ * @Description  : 
  */
+
+import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+
+const KEEP_N_CACHE_ITEM = 24;
+
+
+/**
+ * 临时缓存，防止重启之后 localStorage 中的记录被完全清空
+ */
+export const saveCache = async () => {
+    const data = listFromLocalStorage();
+    if (!data || data.length === 0) return;
+    const plugin = thisPlugin();
+    await plugin.saveBlob('gpt-chat-cache.json', data);
+}
+
+
+/**
+ * 恢复缓存
+ */
+export const restoreCache = async () => {
+    const plugin = thisPlugin();
+    const blob = await plugin.loadBlob('gpt-chat-cache.json');
+    if (!blob) return;
+    let histories: IChatSessionHistory[] = JSON.parse(await blob.text());
+    // sort by updated, 最新的在前
+    histories.sort((a, b) => {
+        if (a.updated && b.updated) {
+            return b.updated - a.updated;
+        }
+        return b.timestamp - a.timestamp;
+    });
+
+    const isExist = (key: string) => {
+        return Object.keys(localStorage).some(k => k === key);
+    }
+
+    let kept = 0;
+    for (let i = 0; i < histories.length && kept < KEEP_N_CACHE_ITEM; i++) {
+        const key = `gpt-chat-${histories[i].id}`;
+        if (!isExist(key)) {
+            localStorage.setItem(key, JSON.stringify(histories[i]));
+            kept++;
+        }
+    }
+}
 
 /**
  * 临时保存在 localStorage 中, key 为 ID
