@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-26 20:45:02
+ * @LastEditTime : 2025-03-27 13:25:32
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -56,7 +56,7 @@ const useSiYuanEditor = (props: {
             value: props.id,
             createOptions: {
                 content: textarea?.value ?? props.input(),
-                title: props.title ? props.title() : `gpt-input-${props.id}`,
+                title: props.title ? 'Input-' + props.title() : `gpt-input-${props.id}`,
                 ...configs
             }
         });
@@ -169,6 +169,8 @@ const useSiYuanEditor = (props: {
     const showDialog = async () => {
         if (!document) {
             await prepareDocument();
+        } else {
+            await document.setContent(props.input().trim());
         }
         const { close } = solidDialog({
             title: '高级编辑',
