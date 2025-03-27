@@ -8,7 +8,7 @@ import { ChatSetting } from '../setting';
 import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '@gpt/openai';
 import { adaptIMessageContent } from '../data-utils';
-import { assembleContext2Prompt, executeContextProvider } from '../context-provider';
+import { assembleContext2Prompt, providerMetaInfo } from '../context-provider';
 import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
 import TavilySearchProvider from '../context-provider/TavilySearchProvider';
 
@@ -511,10 +511,8 @@ ${inputContent}
                 if (contextItems?.length > 0) {
                     const context: IProvidedContext = {
                         id: TavilySearchProvider.name,
-                        name: TavilySearchProvider.name,
-                        displayTitle: TavilySearchProvider.displayTitle,
-                        description: TavilySearchProvider.description,
-                        contextItems: contextItems
+                        contextItems: contextItems,
+                        ...providerMetaInfo(TavilySearchProvider)
                     };
                     setContext(context);
                     updateUserMsgContext();

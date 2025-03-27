@@ -82,6 +82,14 @@ const handleContextPrivacy = (context: IProvidedContext): IProvidedContext => {
     return newContext;
 }
 
+const providerMetaInfo = (provider: CustomContextProvider) => {
+    return {
+        name: provider.name,
+        displayTitle: provider.displayTitle,
+        description: provider.description
+    }
+}
+
 const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {
     const option: Parameters<CustomContextProvider['getContextItems']>[0] = {
         query: '',
@@ -141,9 +149,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
 
     let context = ({
         id: id,
-        name: provider.name,
-        displayTitle: provider.displayTitle,
-        description: provider.description,
+        ...providerMetaInfo(provider),
         contextItems: contextItems,
     });
 
@@ -197,4 +203,4 @@ function context2prompt(context: IProvidedContext): string {
     return prompt;
 }
 
-export { contextProviders, executeContextProvider, assembleContext2Prompt, handlePrivacy };
+export { contextProviders, executeContextProvider, providerMetaInfo, assembleContext2Prompt, handlePrivacy };
