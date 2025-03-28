@@ -1,6 +1,28 @@
 import { visualModel } from "../setting";
 import { type complete } from "./complete";
 
+
+/**
+ * 用户自定义的预处理器, 可以在发送 complete 请求之前，对消息进行处理
+ * 
+ * 例如: 实现 Deepseek V3 0324 的默认温度缩放; 特别模型不支持 frequency_penalty 等参数需要删除等
+ * 
+ * @param payload - 选项
+ * @param payload.model - 模型
+ * @param payload.url - API URL
+ * @param payload.option - 选项
+ * @returns void
+ */
+export const userCustomizedPreprocessor = {
+    preprocess: (payload: {
+        model: string;
+        url: string;
+        option: IChatOption;
+    }) => {
+
+    }
+};
+
 export const adpatInputMessage = (input: Parameters<typeof complete>[0], options: {
     model: string;
 }) => {

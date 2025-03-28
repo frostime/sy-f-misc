@@ -252,6 +252,11 @@ const addDock = (plugin: FMiscPlugin) => {
     })
 }
 
+
+const loadPreprocessor = () => {
+    
+}
+
 export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;

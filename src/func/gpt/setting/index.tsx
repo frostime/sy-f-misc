@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-03-28 15:07:39
+ * @LastEditTime : 2025-03-28 16:53:02
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -18,6 +18,9 @@ import { onCleanup } from "solid-js";
 import PromptTemplateSetting from "./PromptTemplateSetting";
 import { globalMiscConfigs } from "./store";
 import Heading from "./Heading";
+import { showMessage } from "siyuan";
+import { sharedConfigs } from "@/func/shared-configs";
+import { Rows } from "@/libs/components/Elements/Flex";
 
 type TabType = 'chat' | 'prompt' | 'provider' | 'tools';
 
@@ -46,6 +49,13 @@ const TabButton = (props: {
         </button>
     );
 };
+
+let cp: any;
+try {
+    cp = window?.require?.('child_process');
+} catch (e) {
+    cp = null;
+}
 
 /**
  * 指定设置默认的配置
@@ -214,6 +224,48 @@ const GlobalSetting = () => {
                                         globalMiscConfigs.update('privacyMask', v || '***');
                                     }}
                                 />
+                            </Form.Wrap>
+
+                            <Form.Wrap
+                                title="自定义对话参数预处理模块"
+                                description={`自定义 JS 函数，对输入的模型参数进行预处理更改，例如实现 Deepseek v3 0324 的温度缩放、适配硅基流动 max token 限制等; 重启后生效`}
+                            >
+                                <Rows>
+
+                                    <Form.Input
+                                        type="button"
+                                        button={{
+                                            label: '编辑',
+                                            callback: () => {
+                                                if (!cp) {
+                                                    showMessage('非桌面端环境无法编辑代码', 3000, 'error');
+                                                    return;
+                                                }
+                                                const plugin = thisPlugin();
+                                                const dataDir = window.siyuan.config.system.dataDir;
+                                                const jsPath = `${dataDir}/storage/petal/${plugin.name}/${store.preprocessModuleJsName}`;
+                                                let editorCmd = sharedConfigs('codeEditor') + ' ' + jsPath;
+                                                try {
+                                                    cp.exec(editorCmd);
+                                                } catch (error) {
+                                                    showMessage(`打开编辑器失败: ${error.message}`, 3000, 'error');
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    <Form.Input
+                                        type="button"
+                                        button={{
+                                            label: '重新导入',
+                                            callback: async () => {
+                                                const flag = store.loadCustomPreprocessModule();
+                                                if (flag) {
+                                                    showMessage('导入成功', 3000);
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </Rows>
                             </Form.Wrap>
                         </div>
                     </Match>
