@@ -117,7 +117,7 @@ export async function tavilyExtract(urls: string | string[], options?: {
 
     try {
         const urlsArray = Array.isArray(urls) ? urls : [urls];
-        
+
         const response = await fetch('https://api.tavily.com/extract', {
             method: 'POST',
             headers: {
@@ -156,7 +156,7 @@ export function formatTavilyResults(results: TavilySearchResponse): string {
     }
 
     let markdown = `## Search Results for: "${results.query}"\n\n`;
-    
+
     if (results.answer) {
         markdown += `### Answer\n${results.answer}\n\n`;
     }
@@ -194,7 +194,7 @@ export function formatTavilyExtractResult(result: TavilyExtractResponse): string
     result.content.forEach((item, index) => {
         markdown += `### ${index + 1}. [${item.url}](${item.url})\n\n`;
         markdown += `${item.content.substring(0, 500)}...\n\n`;
-        
+
         if (item.images && item.images.length > 0) {
             markdown += `#### Images\n`;
             item.images.forEach((imageUrl, imgIndex) => {

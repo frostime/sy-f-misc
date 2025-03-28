@@ -43,7 +43,7 @@ export default defineConfig({
 
         vitePluginConditionalCompile({
             env: {
-                // 去掉一些不太想要的功能代码
+                // 仅仅给我测试使用或者我暂时不想要的一些功能，和正式发布版区分开
                 PARTIAL: process.env.PARTIAL === 'true',
                 DEV: process.env.DEV === 'true'
             }

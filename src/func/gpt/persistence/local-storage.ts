@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:38:02
  * @FilePath     : /src/func/gpt/persistence/local-storage.ts
- * @LastEditTime : 2025-03-27 12:09:57
+ * @LastEditTime : 2025-03-28 12:06:36
  * @Description  : 
  */
 
@@ -29,9 +29,13 @@ export const saveCache = async () => {
 export const restoreCache = async () => {
     const plugin = thisPlugin();
     const blob = await plugin.loadBlob('gpt-chat-cache.json');
-    if (!blob) return;
-    let histories: IChatSessionHistory[] = JSON.parse(await blob.text());
+    const data = await blob?.text();
+    if (!blob || !data) return;
+    let histories: any[] | { code: number } = JSON.parse(data);
+    if (!histories || (histories as { code: number }).code === 404) return;
     // sort by updated, 最新的在前
+    histories = histories as IChatSessionHistory[];
+    if (histories.length === 0) return;
     histories.sort((a, b) => {
         if (a.updated && b.updated) {
             return b.updated - a.updated;

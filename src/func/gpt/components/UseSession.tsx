@@ -8,9 +8,8 @@ import { ChatSetting } from '../setting';
 import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '@gpt/openai';
 import { adaptIMessageContent } from '../data-utils';
-import { assembleContext2Prompt, providerMetaInfo } from '../context-provider';
+import { assembleContext2Prompt } from '../context-provider';
 import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
-import TavilySearchProvider from '../context-provider/TavilySearchProvider';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -500,28 +499,6 @@ ${inputContent}
 
         await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
         loading.update(true);
-
-        if (options?.tavily) {
-            try {
-                const contextItems = await TavilySearchProvider.getContextItems({
-                    query: userMessage
-                })
-
-                // Add the context to the session if results were found
-                if (contextItems?.length > 0) {
-                    const context: IProvidedContext = {
-                        id: TavilySearchProvider.name,
-                        contextItems: contextItems,
-                        ...providerMetaInfo(TavilySearchProvider)
-                    };
-                    setContext(context);
-                    updateUserMsgContext();
-                }
-            } catch (error) {
-                console.error('Web search error:', error);
-                showMessage(`Web 搜索出错: ${error.message || '未知错误'}`, 3000, "error");
-            }
-        }
 
         try {
             controller = new AbortController();

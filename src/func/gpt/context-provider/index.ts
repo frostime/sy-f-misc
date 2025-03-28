@@ -31,7 +31,9 @@ const contextProviders: CustomContextProvider[] = [
     SQLSearchProvicer,
     TextSearchProvider,
     URLProvider,
+// if [PARTIAL]
     TavilySearchProvider,
+// end [PARTIAL]
 ];
 
 /**

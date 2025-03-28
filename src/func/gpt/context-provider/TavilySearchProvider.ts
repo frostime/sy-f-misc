@@ -53,7 +53,7 @@ const TavilySearchProvider: CustomContextProvider = {
             const contextItems: ContextItem[] = results.map((result, index) => {
                 return {
                     name: `搜索结果 #${index + 1}: ${result.title}`,
-                    description: `来源: ${result.url}`,
+                    description: `相关性 ${result.score} | 来源: ${result.url}`,
                     content: `${result.content}\n\n原始链接: ${result.url}`
                 };
             });

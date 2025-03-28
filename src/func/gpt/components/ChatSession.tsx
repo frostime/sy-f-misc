@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-27 13:25:32
+ * @LastEditTime : 2025-03-28 12:00:17
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -13,7 +13,7 @@ import MessageItem from './MessageItem';
 import AttachmentList from './AttachmentList';
 import styles from './ChatSession.module.scss';
 
-import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel, globalMiscConfigs } from '../setting/store';
+import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu, Protyle, showMessage } from 'siyuan';
@@ -206,7 +206,7 @@ const ChatSession: Component<{
     const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
     const multiSelect = useSignalRef(false);
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
-    const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
+    // const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -454,15 +454,16 @@ const ChatSession: Component<{
         scrollToBottom(true);
         userHasScrolled = false; // 重置滚动状态
 
+        await session.sendMessage(userMessage);
         // Send the message with web search if enabled
-        await session.sendMessage(userMessage, {
-            tavily: webSearchEnabled()
-        });
+        // await session.sendMessage(userMessage, {
+        //     tavily: webSearchEnabled()
+        // });
 
-        // Reset web search after using it once
-        if (webSearchEnabled()) {
-            webSearchEnabled.update(false);
-        }
+        // // Reset web search after using it once
+        // if (webSearchEnabled()) {
+        //     webSearchEnabled.update(false);
+        // }
 
         if (!userHasScrolled) {
             scrollToBottom(true);
