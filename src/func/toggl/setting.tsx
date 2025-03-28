@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2025-03-27 14:43:56
+ * @LastEditTime : 2025-03-28 15:37:31
  * @Description  : 
  */
 
@@ -17,7 +17,7 @@ import { createSignal, onCleanup, Show } from "solid-js";
 import { getMe } from "./api/me";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 
-// #if [!PARTIAL]
+// #if [!PRIVATE_REMOVE]
 import { updateMiniTimerUI } from "./components";
 // #endif
 
@@ -128,7 +128,7 @@ const TogglSetting = () => {
                     }}
                 />
             </Form.Wrap>
-            {/* #if [!PARTIAL] */}
+            {/* #if [!PRIVATE_REMOVE] */}
             <Form.Wrap
                 title="Mini Timer"
                 description="在思源中显示当前正在运行的活动"

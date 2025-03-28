@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-03-22 18:58:38
+ * @LastEditTime : 2025-03-28 15:07:39
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -19,7 +19,7 @@ import PromptTemplateSetting from "./PromptTemplateSetting";
 import { globalMiscConfigs } from "./store";
 import Heading from "./Heading";
 
-type TabType = 'chat' | 'prompt' | 'provider';
+type TabType = 'chat' | 'prompt' | 'provider' | 'tools';
 
 const TabButton = (props: {
     active: boolean;
@@ -113,6 +113,17 @@ const GlobalSetting = () => {
                         <span>Provider 配置</span>
                     </div>
                 </TabButton>
+                {/* #if [PRIVATE_ADD] */}
+                <TabButton
+                    active={activeTab() === 'tools'}
+                    onClick={() => setActiveTab('tools')}
+                >
+                    <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
+                        <span>🛠️</span>
+                        <span>工具</span>
+                    </div>
+                </TabButton>
+                {/* #endif */}
             </div>
 
             <div style={{
@@ -231,6 +242,28 @@ const GlobalSetting = () => {
                                     'line-height': '1.1em'
                                 }}
                                 spellcheck={false}
+                            />
+                        </Form.Wrap>
+                    </Match>
+
+                    <Match when={activeTab() === 'tools'}>
+                        <Heading>
+                            工具配置
+                        </Heading>
+                        <Form.Wrap
+                            title="Tavily API Key"
+                            description="可前往 <a href='https://app.tavily.com/home' target='_blank'>Tavily 官网</a> 获取。"
+                            direction="row"
+                        >
+                            <Form.Input
+                                type="textinput"
+                                value={globalMiscConfigs().tavilyApiKey}
+                                changed={(v) => {
+                                    globalMiscConfigs.update('tavilyApiKey', v);
+                                }}
+                                style={{
+                                    width: '100%'
+                                }}
                             />
                         </Form.Wrap>
                     </Match>

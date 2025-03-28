@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-27 13:25:32
+ * @LastEditTime : 2025-03-28 12:00:17
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
-import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
 import AttachmentList from './AttachmentList';
@@ -22,7 +22,6 @@ import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
-
 import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
 import * as syDoc from '../persistence/sy-doc';
@@ -33,7 +32,7 @@ import SessionItemsManager from './SessionItemsManager';
 
 const useSiYuanEditor = (props: {
     id: string;
-    input: ISignalRef<string>;
+    input: ReturnType<typeof useSignalRef<string>>;
     fontSize?: string;
     title?: () => string;
     useTextarea: () => HTMLTextAreaElement;
@@ -195,7 +194,7 @@ const useSiYuanEditor = (props: {
 
 
 const ChatSession: Component<{
-    input?: ISignalRef<string>;
+    input?: ReturnType<typeof useSignalRef<string>>;
     systemPrompt?: string;
     history?: IChatSessionHistory;
     updateTitleCallback?: (title: string) => void;
@@ -207,6 +206,7 @@ const ChatSession: Component<{
     const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
     const multiSelect = useSignalRef(false);
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
+    // const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -453,7 +453,17 @@ const ChatSession: Component<{
         adjustTextareaHeight();
         scrollToBottom(true);
         userHasScrolled = false; // 重置滚动状态
+
         await session.sendMessage(userMessage);
+        // Send the message with web search if enabled
+        // await session.sendMessage(userMessage, {
+        //     tavily: webSearchEnabled()
+        // });
+
+        // // Reset web search after using it once
+        // if (webSearchEnabled()) {
+        //     webSearchEnabled.update(false);
+        // }
 
         if (!userHasScrolled) {
             scrollToBottom(true);
@@ -995,6 +1005,21 @@ const ChatSession: Component<{
                             <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
                         </ToolbarLabel>
                     </div>
+                    {/* <Show when={globalMiscConfigs().tavilyApiKey}>
+                        <ToolbarLabel
+                            onclick={() => webSearchEnabled.update(!webSearchEnabled())}
+                            label='Web Search'
+                            role='web-search'
+                            styles={
+                                webSearchEnabled() ? {
+                                    'background-color': 'var(--b3-theme-primary)',
+                                    'color': 'var(--b3-theme-on-primary)'
+                                } : {}
+                            }
+                        >
+                            <SvgSymbol size="15px">iconWebSearch</SvgSymbol>
+                        </ToolbarLabel>
+                    </Show> */}
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
                         const availableSystemPrompts = (): Record<string, string> => {

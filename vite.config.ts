@@ -43,9 +43,12 @@ export default defineConfig({
 
         vitePluginConditionalCompile({
             env: {
-                // 去掉一些不太想要的功能代码
-                PARTIAL: process.env.PARTIAL === 'true',
-                DEV: process.env.DEV === 'true'
+                DEV: process.env.DEV === 'true',
+                // 仅仅给我测试使用或者我暂时不想要的一些功能，和正式发布版区分开
+                // PRIVATE_ADD: env.PRIVATE !== undefined || isDev,  // 私人打包的时候才加进去，公开发布打包不加入的功能
+                // PRIVATE_REMOVE: env.PRIVATE === undefined && !isDev,  // 私人打包的时候删掉的功能，但公开发布打包的时候不删除
+                PRIVATE_ADD: env.PRIVATE_ADD !== undefined,
+                PRIVATE_REMOVE: env.PRIVATE_REMOVE !== undefined
             }
         }),
 

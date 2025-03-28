@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-03-27 14:35:29
+ * @LastEditTime : 2025-03-28 15:37:50
  * @Description  :
  */
 // import { type JSX } from "solid-js";
@@ -58,7 +58,7 @@ let _ModulesToEnable: IFuncModule[] = [
     tr,
     mr,
     ws,
-// #if [!PARTIAL]
+// #if [!PRIVATE_REMOVE]
     docky,
 // #endif
 ];

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-03-22 18:56:40
+ * @LastEditTime : 2025-03-24 19:16:43
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
@@ -46,6 +46,7 @@ export const globalMiscConfigs = useStoreRef<{
     defaultSystemPrompt: string;
     enableMessageLogger: boolean;
     maxMessageLogItems: number;
+    tavilyApiKey: string;
 }>({
     pinChatDock: false,
     userSelectedContextFormat: `**以下是用户附带的内容**:
@@ -56,20 +57,9 @@ export const globalMiscConfigs = useStoreRef<{
     privacyMask: '***',   // 隐私词替换为
     defaultSystemPrompt: `You are a helpful assistant.`,
     enableMessageLogger: false,
-    maxMessageLogItems: 500
+    maxMessageLogItems: 500,
+    tavilyApiKey: ''      // Tavily API Key for web search
 });
-
-
-export const providers = useStoreRef<IGPTProvider[]>([]);
-
-
-export const UIConfig = useStoreRef({
-    inputFontsize: 20,
-    msgFontsize: 19,
-    maxWidth: 1250
-});
-
-export const promptTemplates = useStoreRef<IPromptTemplate[]>([]);
 
 /**
  * 返回可以用于保存为 json 的配置信息
@@ -180,3 +170,12 @@ export const load = async (plugin?: Plugin) => {
         console.debug('Load GPT config:', current);
     }
 }
+
+export const providers = useStoreRef<IGPTProvider[]>([]);
+export const UIConfig = useStoreRef({
+    inputFontsize: 20,
+    msgFontsize: 19,
+    maxWidth: 1250
+});
+
+export const promptTemplates = useStoreRef<IPromptTemplate[]>([]);

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-03-19 15:13:55
+ * @LastEditTime : 2025-03-28 15:10:52
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -12,6 +12,7 @@ import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
 import TextSearchProvider from './TextSearchProvider';
 import URLProvider from './URLProvider';
+import TavilySearchProvider from './TavilySearchProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
@@ -30,6 +31,9 @@ const contextProviders: CustomContextProvider[] = [
     SQLSearchProvicer,
     TextSearchProvider,
     URLProvider,
+// #if [PRIVATE_ADD]
+    TavilySearchProvider,
+// #endif
 ];
 
 /**
@@ -80,6 +84,14 @@ const handleContextPrivacy = (context: IProvidedContext): IProvidedContext => {
     return newContext;
 }
 
+const providerMetaInfo = (provider: CustomContextProvider) => {
+    return {
+        name: provider.name,
+        displayTitle: provider.displayTitle,
+        description: provider.description
+    }
+}
+
 const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {
     const option: Parameters<CustomContextProvider['getContextItems']>[0] = {
         query: '',
@@ -93,7 +105,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
     if (provider.type === undefined || provider.type === 'normal') {
         contextItems = await provider.getContextItems(option);
     } else if (provider.type === 'input-line' || provider.type === 'input-area') {
-        const query = await new Promise<string>((resolve, reject) => {
+        const query = await new Promise<string>((resolve) => {
             inputDialogForProvider({
                 title: provider.displayTitle,
                 description: provider.description,
@@ -139,9 +151,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
 
     let context = ({
         id: id,
-        name: provider.name,
-        displayTitle: provider.displayTitle,
-        description: provider.description,
+        ...providerMetaInfo(provider),
         contextItems: contextItems,
     });
 
@@ -195,4 +205,4 @@ function context2prompt(context: IProvidedContext): string {
     return prompt;
 }
 
-export { contextProviders, executeContextProvider, assembleContext2Prompt, handlePrivacy };
+export { contextProviders, executeContextProvider, providerMetaInfo, assembleContext2Prompt, handlePrivacy };
