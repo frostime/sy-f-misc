@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-03-28 15:10:52
+ * @LastEditTime : 2025-03-28 16:05:25
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -19,9 +19,13 @@ import { showMessage } from 'siyuan';
 import { globalMiscConfigs } from '../setting/store';
 import { inputDialogForProvider } from './InputForProvder';
 import { RecentUpdatedDocProvider } from './RecentDocProvider';
+import { UserInputProvider } from './UserInputProvider';
 import BlocksProvider from './BlocksProvider';
 
 const contextProviders: CustomContextProvider[] = [
+// #if [PRIVATE_ADD]
+    UserInputProvider,
+// #endif
     SelectedTextProvider,
     FocusDocProvider,
     OpenedDocProvider,
@@ -189,12 +193,16 @@ function context2prompt(context: IProvidedContext): string {
 
     let prompt = '';
 
-    prompt += `<Context.${context.name} title="${context.displayTitle}" description="${context.description}">`;
+    const attrTitle = context.displayTitle ? ` title="${context.displayTitle}"` : '';
+    const attrDescription = context.description ? ` description="${context.description}"` : '';
+    prompt += `<Context.${context.name}${attrTitle}${attrDescription}>`;
 
     const itemPrompts = [];
     context.contextItems.forEach((item) => {
         let itemPrompt = '';
-        itemPrompt += `<ContextItem name="${item.name.replaceAll('\n', ' ')}" description="${item.description.replaceAll('\n', ' ')}">\n`;
+        const name = item.name ? ` name="${item.name}"` : '';
+        const description = item.description ? ` description="${item.description}"` : '';
+        itemPrompt += `<ContextItem${name}${description}>\n`;
         itemPrompt += `${item.content}\n`;
         itemPrompt += `</ContextItem>`;
         itemPrompts.push(itemPrompt);
