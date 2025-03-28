@@ -921,10 +921,10 @@ const ChatSession: Component<{
                                         let contextText = '';
                                         if (session.messages()[index()].userPromptSlice) {
                                             const [beg, end] = session.messages()[index()].userPromptSlice;
+                                            contextText = text.slice(0, beg); // Changed: context is now before user text
                                             userText = text.slice(beg, end);
-                                            contextText = text.slice(end);
                                         }
-                                        const newText = message + contextText;
+                                        const newText = contextText + message;
                                         if (Array.isArray(content)) {
                                             // 找到 item.type === 'text'
                                             const idx = content.findIndex(item => item.type === 'text');
@@ -933,7 +933,9 @@ const ChatSession: Component<{
                                                 batch(() => {
                                                     session.messages.update(index(), 'message', 'content', content);
                                                     if (contextText && contextText.length > 0) {
-                                                        session.messages.update(index(), 'userPromptSlice', [0, message.length]);
+                                                        // 更新 userPromptSlice，使其指向 context 后面的用户输入部分
+                                                        const contextLength = contextText.length;
+                                                        session.messages.update(index(), 'userPromptSlice', [contextLength, contextLength + message.length]);
                                                     }
                                                 });
                                             }
@@ -942,7 +944,9 @@ const ChatSession: Component<{
                                             batch(() => {
                                                 session.messages.update(index(), 'message', 'content', newText);
                                                 if (contextText && contextText.length > 0) {
-                                                    session.messages.update(index(), 'userPromptSlice', [0, message.length]);
+                                                    // 更新 userPromptSlice，使其指向 context 后面的用户输入部分
+                                                    const contextLength = contextText.length;
+                                                    session.messages.update(index(), 'userPromptSlice', [contextLength, contextLength + message.length]);
                                                 }
                                             });
                                         }

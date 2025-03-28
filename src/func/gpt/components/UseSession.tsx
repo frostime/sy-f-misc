@@ -68,10 +68,12 @@ export const useSession = (props: {
         if (contexts && contexts?.length > 0) {
             let prompts = assembleContext2Prompt(contexts);
             if (prompts) {
-                // 将 user prompt 字符串的起止位置记录下来，以便于在 MessageItem 中隐藏 context prompt
-                optionalFields['userPromptSlice'] = [0, msg.length];
+                // 将 context prompt 放在前面，user prompt 放在后面
                 optionalFields['context'] = contexts;
-                msg += `\n\n${prompts}`;
+                // 记录 context prompt 的长度，以便在 MessageItem 中显示用户输入部分
+                const contextLength = prompts.length + 2; // +2 for \n\n
+                optionalFields['userPromptSlice'] = [contextLength, contextLength + msg.length];
+                msg = `${prompts}\n\n${msg}`;
             }
         }
 
@@ -171,20 +173,24 @@ export const useSession = (props: {
 
             // Update context and userPromptSlice
             updatedMsg.context = currentContexts;
-            updatedMsg.userPromptSlice = [0, userPrompt.length];
+            const finalContent = contextPrompts ? `${contextPrompts}\n\n${userPrompt}` : userPrompt;
+
+            // Update userPromptSlice to point to the user input portion after context
+            const contextLength = contextPrompts ? contextPrompts.length + 2 : 0; // +2 for \n\n
+            updatedMsg.userPromptSlice = [contextLength, contextLength + userPrompt.length];
 
             // Update the content based on its type
             if (typeof updatedMsg.message.content === 'string') {
                 updatedMsg.message = {
                     ...updatedMsg.message,
-                    content: contextPrompts ? `${userPrompt}\n\n${contextPrompts}` : userPrompt
+                    content: finalContent
                 };
             } else if (Array.isArray(updatedMsg.message.content) && updatedMsg.message.content.length > 0) {
                 // For content with images, update only the text part
                 const newContent = [...updatedMsg.message.content];
                 newContent[0] = {
                     ...newContent[0],
-                    text: contextPrompts ? `${userPrompt}\n\n${contextPrompts}` : userPrompt
+                    text: finalContent
                 };
 
                 updatedMsg.message = {

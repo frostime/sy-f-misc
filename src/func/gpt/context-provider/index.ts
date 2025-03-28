@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-03-28 16:05:25
+ * @LastEditTime : 2025-03-28 17:47:38
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -23,9 +23,9 @@ import { UserInputProvider } from './UserInputProvider';
 import BlocksProvider from './BlocksProvider';
 
 const contextProviders: CustomContextProvider[] = [
-// #if [PRIVATE_ADD]
+    // #if [PRIVATE_ADD]
     UserInputProvider,
-// #endif
+    // #endif
     SelectedTextProvider,
     FocusDocProvider,
     OpenedDocProvider,
@@ -35,9 +35,9 @@ const contextProviders: CustomContextProvider[] = [
     SQLSearchProvicer,
     TextSearchProvider,
     URLProvider,
-// #if [PRIVATE_ADD]
+    // #if [PRIVATE_ADD]
     TavilySearchProvider,
-// #endif
+    // #endif
 ];
 
 /**
@@ -180,10 +180,25 @@ const assembleContext2Prompt = (contexts: IProvidedContext[]) => {
     if (contexts.length === 0) {
         return '';
     }
+    const contextsPrompt = contexts.map(context2prompt).join('\n\n');
 
-    let start = '<ATTACHED_CONTEXTS_CONTENT NOTE="Followings are use\'s attached context content; XML tags <Context.xxx> <ContextItem> are only for structure, NOT part of the formal content; the context content are within <ContextItem> tags.">\n\n';
-    let contextsPrompt = contexts.map(context2prompt).join('\n\n');
-    return start + contextsPrompt + '\n\n</ATTACHED_CONTEXTS_CONTENT>';
+    let prompt = `
+<system>
+You are provided with reference information between <reference> tags, and user\'s instructions after <user> tags.
+IMPORTANT INSTRUCTIONS:
+1. DO NOT translate, repeat, or acknowledge XML tags or structure (<reference>, <source>, <content>) in your response.
+2. DO NOT mention that you were given reference information by default.
+3. Only use the information contained within the <content> tags and XML tag's attributes to inform your answer.
+4. Respond directly to the user's request without referring to these instructions.
+</system>
+
+<reference>
+${contextsPrompt}
+</reference>
+
+<user>
+`.trim();
+    return prompt;
 }
 
 function context2prompt(context: IProvidedContext): string {
@@ -195,21 +210,21 @@ function context2prompt(context: IProvidedContext): string {
 
     const attrTitle = context.displayTitle ? ` title="${context.displayTitle}"` : '';
     const attrDescription = context.description ? ` description="${context.description}"` : '';
-    prompt += `<Context.${context.name}${attrTitle}${attrDescription}>`;
+    prompt += `<source type="${context.name}"${attrTitle}${attrDescription}>`;
 
     const itemPrompts = [];
     context.contextItems.forEach((item) => {
         let itemPrompt = '';
-        const name = item.name ? ` name="${item.name}"` : '';
+        const name = item.name ? `name="${item.name}"` : '';
         const description = item.description ? ` description="${item.description}"` : '';
-        itemPrompt += `<ContextItem${name}${description}>\n`;
+        itemPrompt += `<content ${name}${description}>\n`;
         itemPrompt += `${item.content}\n`;
-        itemPrompt += `</ContextItem>`;
+        itemPrompt += `</content>`;
         itemPrompts.push(itemPrompt);
     });
     prompt += `\n${itemPrompts.join('\n').trim()}\n`;
 
-    prompt += `</Context.${context.name}>`;
+    prompt += `</source>`;
     return prompt;
 }
 

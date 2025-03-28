@@ -436,7 +436,7 @@ const MessageItem: Component<{
     const textContent = createMemo(() => {
         let { text } = adaptIMessageContent(props.messageItem.message.content);
         if (props.messageItem.userPromptSlice) {
-            //隐藏 context prompt
+            //隐藏 context prompt，现在 context 在用户输入前面
             text = text.slice(props.messageItem.userPromptSlice[0], props.messageItem.userPromptSlice[1]);
         }
 
