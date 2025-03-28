@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-03-22 18:58:38
+ * @LastEditTime : 2025-03-28 15:07:39
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -113,6 +113,7 @@ const GlobalSetting = () => {
                         <span>Provider 配置</span>
                     </div>
                 </TabButton>
+                {/* #if [PRIVATE_ADD] */}
                 <TabButton
                     active={activeTab() === 'tools'}
                     onClick={() => setActiveTab('tools')}
@@ -122,6 +123,7 @@ const GlobalSetting = () => {
                         <span>工具</span>
                     </div>
                 </TabButton>
+                {/* #endif */}
             </div>
 
             <div style={{

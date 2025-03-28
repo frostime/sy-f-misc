@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-03-19 15:13:55
+ * @LastEditTime : 2025-03-28 15:10:52
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -31,9 +31,9 @@ const contextProviders: CustomContextProvider[] = [
     SQLSearchProvicer,
     TextSearchProvider,
     URLProvider,
-// if [PARTIAL]
+// #if [PRIVATE_ADD]
     TavilySearchProvider,
-// end [PARTIAL]
+// #endif
 ];
 
 /**
