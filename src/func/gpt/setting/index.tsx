@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-03-28 16:53:02
+ * @LastEditTime : 2025-03-29 14:46:51
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -23,6 +23,48 @@ import { sharedConfigs } from "@/func/shared-configs";
 import { Rows } from "@/libs/components/Elements/Flex";
 
 type TabType = 'chat' | 'prompt' | 'provider' | 'tools';
+
+const JSModuleButtonGroup = (props: {
+    jsPath: string;
+    reloadModule: () => Promise<boolean>
+}) => {
+    return (
+        <Rows>
+
+            <Form.Input
+                type="button"
+                button={{
+                    label: '编辑',
+                    callback: () => {
+                        if (!cp) {
+                            showMessage('非桌面端环境无法编辑代码', 3000, 'error');
+                            return;
+                        }
+                        const jsPath = props.jsPath;
+                        let editorCmd = sharedConfigs('codeEditor') + ' ' + jsPath;
+                        try {
+                            cp.exec(editorCmd);
+                        } catch (error) {
+                            showMessage(`打开编辑器失败: ${error.message}`, 3000, 'error');
+                        }
+                    }
+                }}
+            />
+            <Form.Input
+                type="button"
+                button={{
+                    label: '重新导入',
+                    callback: async () => {
+                        const flag = await props.reloadModule();
+                        if (flag) {
+                            showMessage('导入成功', 3000);
+                        }
+                    }
+                }}
+            />
+        </Rows>
+    )
+}
 
 const TabButton = (props: {
     active: boolean;
@@ -76,6 +118,10 @@ const GlobalSetting = () => {
             store.visualModel.update(models);
         }
     }
+
+    const plugin = thisPlugin();
+    const dataDir = window.siyuan.config.system.dataDir;
+    const petalDir = `${dataDir}/storage/petal/${plugin.name}`;
 
     return (
         <div class={'config__tab-container'}
@@ -226,7 +272,7 @@ const GlobalSetting = () => {
                                 />
                             </Form.Wrap>
 
-                            <Form.Wrap
+                            {/* <Form.Wrap
                                 title="自定义对话参数预处理模块"
                                 description={`自定义 JS 函数，对输入的模型参数进行预处理更改，例如实现 Deepseek v3 0324 的温度缩放、适配硅基流动 max token 限制等; 重启后生效`}
                             >
@@ -266,7 +312,7 @@ const GlobalSetting = () => {
                                         }}
                                     />
                                 </Rows>
-                            </Form.Wrap>
+                            </Form.Wrap> */}
                         </div>
                     </Match>
 
@@ -298,7 +344,33 @@ const GlobalSetting = () => {
                         </Form.Wrap>
                     </Match>
 
+                    {/* #if [PRIVATE_ADD] */}
                     <Match when={activeTab() === 'tools'}>
+                        <Heading>
+                            Custom Scripts
+                        </Heading>
+                        <Form.Wrap
+                            title="自定义对话参数预处理模块"
+                            description={`自定义 JS 函数，对输入的模型参数进行预处理更改，例如实现 Deepseek v3 0324 的温度缩放、适配硅基流动 max token 限制等; 重启后生效`}
+                        >
+                            <JSModuleButtonGroup
+                                jsPath={`${petalDir}/${store.preprocessModuleJsName}`}
+                                reloadModule={async () => {
+                                    return store.loadCustomPreprocessModule();
+                                }}
+                            />
+                        </Form.Wrap>
+                        <Form.Wrap
+                            title="自定义的 Context Provider"
+                            description={`在代码中自行实现 ContextProvider`}
+                        >
+                            <JSModuleButtonGroup
+                                jsPath={`${petalDir}/${store.contextProviderModuleJsName}`}
+                                reloadModule={async () => {
+                                    return store.loadCustomContextProviderModule();
+                                }}
+                            />
+                        </Form.Wrap>
                         <Heading>
                             工具配置
                         </Heading>
@@ -319,6 +391,7 @@ const GlobalSetting = () => {
                             />
                         </Form.Wrap>
                     </Match>
+                    {/* #endif */}
                 </Switch>
             </div>
         </div>

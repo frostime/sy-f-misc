@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-28 12:00:17
+ * @LastEditTime : 2025-03-29 14:55:28
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -25,7 +25,7 @@ import { SvgSymbol } from './Elements';
 import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
 import * as syDoc from '../persistence/sy-doc';
-import { contextProviders, executeContextProvider } from '../context-provider';
+import { getContextProviders, executeContextProvider } from '../context-provider';
 import { adaptIMessageContent } from '../data-utils';
 import { isMsgItemWithMultiVersion } from '../data-utils';
 import SessionItemsManager from './SessionItemsManager';
@@ -330,7 +330,7 @@ const ChatSession: Component<{
         e.preventDefault();
 
         let menu = new Menu();
-        contextProviders.forEach((provider) => {
+        getContextProviders().forEach((provider) => {
             menu.addItem({
                 icon: provider?.icon, // 你可以为每个 provider 添加图标
                 label: provider.displayTitle,

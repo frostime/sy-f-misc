@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-03-21 18:14:16
+ * @LastEditTime : 2025-03-29 14:47:48
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -250,11 +250,6 @@ const addDock = (plugin: FMiscPlugin) => {
             disposer();
         }
     })
-}
-
-
-const loadPreprocessor = () => {
-    
 }
 
 export const load = async (plugin: FMiscPlugin) => {

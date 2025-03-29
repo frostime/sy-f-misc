@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-03-28 17:47:38
+ * @LastEditTime : 2025-03-29 15:02:26
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -16,7 +16,7 @@ import TavilySearchProvider from './TavilySearchProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
-import { globalMiscConfigs } from '../setting/store';
+import { globalMiscConfigs, customContextProviders } from '../setting/store';
 import { inputDialogForProvider } from './InputForProvder';
 import { RecentUpdatedDocProvider } from './RecentDocProvider';
 import { UserInputProvider } from './UserInputProvider';
@@ -39,6 +39,18 @@ const contextProviders: CustomContextProvider[] = [
     TavilySearchProvider,
     // #endif
 ];
+
+// 动态添加自定义上下文提供器（如果存在）
+const getContextProviders = () => {
+    let providers = [...contextProviders];
+    if (customContextProviders?.preprocessProviders) {
+        const ans = customContextProviders.preprocessProviders(providers);
+        if (ans) {
+            providers = ans;
+        }
+    }
+    return providers;
+};
 
 /**
  * 处理隐私信息，将隐私关键词替换为屏蔽词
@@ -228,4 +240,4 @@ function context2prompt(context: IProvidedContext): string {
     return prompt;
 }
 
-export { contextProviders, executeContextProvider, providerMetaInfo, assembleContext2Prompt, handlePrivacy };
+export { executeContextProvider, providerMetaInfo, assembleContext2Prompt, handlePrivacy, getContextProviders };
