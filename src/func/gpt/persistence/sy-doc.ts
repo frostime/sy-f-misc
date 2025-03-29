@@ -12,7 +12,7 @@ import { convertMathFormulas, id2block } from "../utils";
 import { adaptIMessageContent } from '../data-utils';
 
 import { showMessage } from "siyuan";
-import { defaultConfig } from "../setting";
+import { defaultConfig, globalMiscConfigs } from "../setting";
 import { appendBlock } from "@frostime/siyuan-plugin-kits/api";
 
 const ATTR_GPT_EXPORT_ROOT = 'custom-gpt-export-root';
@@ -113,7 +113,7 @@ export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | History,
     options?: Parameters<typeof item2markdown>[1]
 ) => {
     let markdownText = '';
-    let item = null;
+    let item: IChatSessionMsgItem[] = null;
     let sysPrompt = null;
     if (Array.isArray(history)) {
         item = history;
@@ -121,6 +121,11 @@ export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | History,
         item = history.items;
         sysPrompt = history.sysPrompt;
     }
+
+    if (globalMiscConfigs().exportMDSkipHidden) {
+        item = item.filter(item => !item.hidden);
+    }
+
     if (sysPrompt) {
         markdownText += formatSingleItem('SYSTEM', sysPrompt) + '\n\n';
     }

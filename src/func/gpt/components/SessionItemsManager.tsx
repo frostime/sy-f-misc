@@ -26,7 +26,9 @@ const MAX_PREVIEW_LENGTH = 1000;
 const SessionItemsManager: Component<{
     session: ReturnType<typeof useSession>;
     onClose: () => void;
+    focusTo: (id: IChatSessionMsgItem['id']) => void;
 }> = (props) => {
+
     // 字体大小设置
     const fontSize = createSignalRef(UIConfig().inputFontsize);
 
@@ -84,7 +86,18 @@ const SessionItemsManager: Component<{
         const index = messages().findIndex(item => item.id === id);
         if (index === -1) return;
 
-        setSelectedIds(messages().slice(0, index + 1).map(item => item.id));
+        const messagesToSelect = messages().slice(0, index + 1);
+        const idsToSelect = messagesToSelect.map(item => item.id);
+
+        // 检查是否所有消息都已被选中
+        const allSelected = idsToSelect.every(id => selectedIds().includes(id));
+
+        // 如果所有消息都已被选中，则取消选择；否则选择这些消息
+        if (allSelected) {
+            setSelectedIds(prev => prev.filter(id => !idsToSelect.includes(id)));
+        } else {
+            setSelectedIds(idsToSelect);
+        }
     };
 
     // 选择指定消息之后的所有消息
@@ -92,7 +105,18 @@ const SessionItemsManager: Component<{
         const index = messages().findIndex(item => item.id === id);
         if (index === -1) return;
 
-        setSelectedIds(messages().slice(index).map(item => item.id));
+        const messagesToSelect = messages().slice(index);
+        const idsToSelect = messagesToSelect.map(item => item.id);
+
+        // 检查是否所有消息都已被选中
+        const allSelected = idsToSelect.every(id => selectedIds().includes(id));
+
+        // 如果所有消息都已被选中，则取消选择；否则选择这些消息
+        if (allSelected) {
+            setSelectedIds(prev => prev.filter(id => !idsToSelect.includes(id)));
+        } else {
+            setSelectedIds(idsToSelect);
+        }
     };
 
     // 批量删除选中的消息
@@ -142,6 +166,9 @@ const SessionItemsManager: Component<{
                 const idx = props.session.msgId2Index().get(id);
                 props.session.toggleHidden(idx, hidden);
             });
+
+            // 重置选中状态
+            setSelectedIds([]);
         });
     };
 
@@ -173,41 +200,52 @@ const SessionItemsManager: Component<{
         }
     });
 
-    const MessageItemCard = (props: { item: IChatSessionMsgItem, index: Accessor<number> }) => {
+    const MessageItemCard = (subProps: { item: IChatSessionMsgItem, index: Accessor<number> }) => {
         const textContent = (() => {
-            const { text } = adaptIMessageContent(props.item.message.content);
+            const { text } = adaptIMessageContent(subProps.item.message.content);
             return text.length > MAX_PREVIEW_LENGTH ? text.substring(0, MAX_PREVIEW_LENGTH) + '...' : text;
         });
         return (
             <div
                 class={styles.messageItem}
                 classList={{
-                    [styles.selected]: selectedIds().includes(props.item.id),
-                    [styles.previewing]: previewId() === props.item.id,
-                    [styles.hidden]: props.item.hidden
+                    [styles.selected]: selectedIds().includes(subProps.item.id),
+                    [styles.previewing]: previewId() === subProps.item.id,
+                    [styles.hidden]: subProps.item.hidden
                 }}
-                onClick={() => setPreviewId(props.item.id)}
+                onClick={() => setPreviewId(subProps.item.id)}
             >
                 <div class={styles.messageHeader}>
                     <div class={styles.messageRole}>
                         <span class={styles.roleLabel}>
-                            {props.item?.message?.role === 'user' ? '用户' : '助手'}
+                            {subProps.item?.message?.role === 'user' ? '用户' : '助手'}
                         </span>
-                        <span class={styles.messageIndex}>#{props.index() + 1}</span>
-                        {props.item.hidden && <span class={styles.hiddenLabel}>隐藏</span>}
+                        <span class={styles.messageIndex}>#{subProps.index() + 1}</span>
+                        {subProps.item.hidden && <span class={styles.hiddenLabel}>隐藏</span>}
                     </div>
                     <div class={styles.messageActions}>
+                        <button
+                            class="b3-button b3-button--text"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                props.focusTo(subProps.item.id);
+                            }}
+                            title="聚焦到此消息"
+                        >
+                            <svg><use href="#iconFocus" /></svg>
+                        </button>
                         <input
                             type="checkbox"
                             class="b3-switch"
-                            checked={selectedIds().includes(props.item.id)}
-                            onchange={() => toggleSelect(props.item.id)}
+                            checked={selectedIds().includes(subProps.item.id)}
+                            onchange={() => toggleSelect(subProps.item.id)}
+                            onClick={(e) => e.stopPropagation()}
                         />
                         <button
                             class="b3-button b3-button--text"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                selectBefore(props.item.id);
+                                selectBefore(subProps.item.id);
                             }}
                             title="选择此条及之前的消息"
                         >
@@ -217,7 +255,7 @@ const SessionItemsManager: Component<{
                             class="b3-button b3-button--text"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                selectAfter(props.item.id);
+                                selectAfter(subProps.item.id);
                             }}
                             title="选择此条及之后的消息"
                         >
@@ -235,8 +273,8 @@ const SessionItemsManager: Component<{
                     {textContent()}
                 </div>
                 <div class={styles.messageFooter}>
-                    <span>{formatDateTime(null, new Date(props.item.timestamp))}</span>
-                    {props.item.message.reasoning_content && (
+                    <span>{formatDateTime(null, new Date(subProps.item.timestamp))}</span>
+                    {subProps.item.message.reasoning_content && (
                         <span class={styles.reasoningBadge}>包含推理</span>
                     )}
                 </div>

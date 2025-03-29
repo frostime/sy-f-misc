@@ -3,20 +3,20 @@
  * @Author       : frostime
  * @Date         : 2024-08-27 13:23:39
  * @FilePath     : /src/func/toggl/setting.tsx
- * @LastEditTime : 2025-01-04 01:34:21
+ * @LastEditTime : 2025-03-28 15:37:31
  * @Description  : 
  */
 
-// import { Component, For, JSXElement, children } from "solid-js";
 import Form from "@/libs/components/Form";
 import { config, save, me as meRef } from "./state/config";
-// import * as store from './state';
 import { createSignal, onCleanup, Show } from "solid-js";
-// import type FMiscPlugin from "@/index";
-// import { User } from "./api/types";
+
 import { getMe } from "./api/me";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+
+// #if [!PRIVATE_REMOVE]
 import { updateMiniTimerUI } from "./components";
+// #endif
 
 const DisplayRecord = (props: { record: Record<string, any> }) => {
     return (
@@ -125,6 +125,7 @@ const TogglSetting = () => {
                     }}
                 />
             </Form.Wrap>
+            {/* #if [!PRIVATE_REMOVE] */}
             <Form.Wrap
                 title="Mini Timer"
                 description="在思源中显示当前正在运行的活动"
@@ -145,6 +146,7 @@ const TogglSetting = () => {
                     }}
                 />
             </Form.Wrap>
+            {/* #endif */}
             <Form.Wrap
                 title="是否自动获取 Toggle 记录"
                 description="定时获取今天的 Toggle 记录，并写入 daily note 当中"

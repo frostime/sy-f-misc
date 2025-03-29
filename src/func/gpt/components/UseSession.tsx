@@ -68,10 +68,12 @@ export const useSession = (props: {
         if (contexts && contexts?.length > 0) {
             let prompts = assembleContext2Prompt(contexts);
             if (prompts) {
-                // 将 user prompt 字符串的起止位置记录下来，以便于在 MessageItem 中隐藏 context prompt
-                optionalFields['userPromptSlice'] = [0, msg.length];
+                // 将 context prompt 放在前面，user prompt 放在后面
                 optionalFields['context'] = contexts;
-                msg += `\n\n${prompts}`;
+                // 记录 context prompt 的长度，以便在 MessageItem 中显示用户输入部分
+                const contextLength = prompts.length + 2; // +2 for \n\n
+                optionalFields['userPromptSlice'] = [contextLength, contextLength + msg.length];
+                msg = `${prompts}\n\n${msg}`;
             }
         }
 
@@ -117,6 +119,88 @@ export const useSession = (props: {
             ...optionalFields
         }]);
         updated = new Date().getTime(); // Update the updated time when adding a message
+    }
+
+    /**
+     * 在已经 appendUserMsg 的情况下，重新更新 context 内容
+     */
+    const updateUserMsgContext = () => {
+        // Get the latest messages
+        const currentMessages = messages();
+        if (currentMessages.length === 0) return;
+
+        // Find the latest user message
+        let lastUserMsgIndex = -1;
+        for (let i = currentMessages.length - 1; i >= 0; i--) {
+            if (currentMessages[i].type === 'message' && currentMessages[i].author === 'user') {
+                lastUserMsgIndex = i;
+                break;
+            }
+        }
+
+        if (lastUserMsgIndex === -1) return; // No user message found
+
+        const lastUserMsg = currentMessages[lastUserMsgIndex];
+
+        // Get the current contexts
+        const currentContexts = contexts();
+        if (!currentContexts || currentContexts.length === 0) return;
+
+        // Get the original user prompt (without context)
+        let userPrompt = '';
+        let content = lastUserMsg.message?.content;
+
+        if (typeof content === 'string') {
+            // If content is string, use userPromptSlice if available, otherwise use the whole content
+            userPrompt = lastUserMsg.userPromptSlice
+                ? content.slice(lastUserMsg.userPromptSlice[0], lastUserMsg.userPromptSlice[1])
+                : content;
+        } else if (Array.isArray(content) && content.length > 0 && content[0].type === 'text') {
+            // If content is an array (with images), get the text part
+            userPrompt = lastUserMsg.userPromptSlice
+                ? content[0].text.slice(lastUserMsg.userPromptSlice[0], lastUserMsg.userPromptSlice[1])
+                : content[0].text;
+        } else {
+            return; // Unsupported content format
+        }
+
+        // Assemble new context prompts
+        const contextPrompts = assembleContext2Prompt(currentContexts);
+
+        messages.update(lastUserMsgIndex, prev => {
+            // Create a new message object with updated content
+            const updatedMsg = { ...prev };
+
+            // Update context and userPromptSlice
+            updatedMsg.context = currentContexts;
+            const finalContent = contextPrompts ? `${contextPrompts}\n\n${userPrompt}` : userPrompt;
+
+            // Update userPromptSlice to point to the user input portion after context
+            const contextLength = contextPrompts ? contextPrompts.length + 2 : 0; // +2 for \n\n
+            updatedMsg.userPromptSlice = [contextLength, contextLength + userPrompt.length];
+
+            // Update the content based on its type
+            if (typeof updatedMsg.message.content === 'string') {
+                updatedMsg.message = {
+                    ...updatedMsg.message,
+                    content: finalContent
+                };
+            } else if (Array.isArray(updatedMsg.message.content) && updatedMsg.message.content.length > 0) {
+                // For content with images, update only the text part
+                const newContent = [...updatedMsg.message.content];
+                newContent[0] = {
+                    ...newContent[0],
+                    text: finalContent
+                };
+
+                updatedMsg.message = {
+                    ...updatedMsg.message,
+                    content: newContent
+                };
+            }
+
+            return updatedMsg;
+        });
     }
 
     const setContext = (context: IProvidedContext) => {
@@ -406,7 +490,15 @@ ${inputContent}
         attachments.update(prev => [...prev, blob]);
     }
 
-    const sendMessage = async (userMessage: string) => {
+    /**
+     * 发送用户消息
+     * @param userMessage 用户消息
+     * @param options 选项
+     * @param options.tavily 是否启用 Tavily 网络搜索
+     */
+    const sendMessage = async (userMessage: string, options?: {
+        tavily?: boolean;
+    }) => {
         if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
 
         let sysPrompt = systemPrompt().trim() || '';

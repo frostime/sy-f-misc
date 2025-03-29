@@ -22,3 +22,4 @@ Code Conventions:
 - Use SiYuan theme variables when create html elements/components for consistent styling
 - Ensure proper TypeScript typing
   - If you find any undefined types in some code file and not sure what it might be, you can check the types definition files in the type declaration files.
+- The project will be finnaly compiled into a single file, so NEVER USE DYNAMIC IMPORT `await import()`

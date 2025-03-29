@@ -436,7 +436,7 @@ const MessageItem: Component<{
     const textContent = createMemo(() => {
         let { text } = adaptIMessageContent(props.messageItem.message.content);
         if (props.messageItem.userPromptSlice) {
-            //隐藏 context prompt
+            //隐藏 context prompt，现在 context 在用户输入前面
             text = text.slice(props.messageItem.userPromptSlice[0], props.messageItem.userPromptSlice[1]);
         }
 
@@ -656,7 +656,7 @@ const MessageItem: Component<{
             click: copyMessage
         });
         menu.addItem({
-            icon: 'iconCut',
+            icon: 'iconFiles',
             label: '新的分支',
             click: createNewBranch
         });
@@ -824,6 +824,7 @@ const MessageItem: Component<{
 
     return (
         <div class={styles.messageItem} data-role={props.messageItem.message.role}
+            data-msg-id={props.messageItem.id}
             tabindex={props.index ?? -1}
             onKeyDown={(e: KeyboardEvent & { currentTarget: HTMLElement }) => {
                 if (!(e.ctrlKey || e.metaKey)) return;

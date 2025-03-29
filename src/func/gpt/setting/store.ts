@@ -3,13 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-03-22 18:56:40
+ * @LastEditTime : 2025-03-29 15:16:50
  * @Description  : 
  */
 import type { Plugin } from "siyuan";
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 
-import { debounce, deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { userCustomizedPreprocessor } from "../openai/adpater";
 
 
 /**
@@ -46,6 +47,8 @@ export const globalMiscConfigs = useStoreRef<{
     defaultSystemPrompt: string;
     enableMessageLogger: boolean;
     maxMessageLogItems: number;
+    tavilyApiKey: string;
+    exportMDSkipHidden: boolean;
 }>({
     pinChatDock: false,
     userSelectedContextFormat: `**以下是用户附带的内容**:
@@ -56,20 +59,10 @@ export const globalMiscConfigs = useStoreRef<{
     privacyMask: '***',   // 隐私词替换为
     defaultSystemPrompt: `You are a helpful assistant.`,
     enableMessageLogger: false,
-    maxMessageLogItems: 500
+    maxMessageLogItems: 500,
+    tavilyApiKey: '',      // Tavily API Key for web search
+    exportMDSkipHidden: false // 导出 Markdown 时是否跳过隐藏的消息
 });
-
-
-export const providers = useStoreRef<IGPTProvider[]>([]);
-
-
-export const UIConfig = useStoreRef({
-    inputFontsize: 20,
-    msgFontsize: 19,
-    maxWidth: 1250
-});
-
-export const promptTemplates = useStoreRef<IPromptTemplate[]>([]);
 
 /**
  * 返回可以用于保存为 json 的配置信息
@@ -161,6 +154,121 @@ const save_ = async (plugin?: Plugin) => {
     console.debug('Save GPT config:', storageData);
 }
 
+export const preprocessModuleJsName = 'gpt.preprocess.js';
+export const contextProviderModuleJsName = 'gpt.context-provider.custom.js';
+
+export const loadCustomPreprocessModule = async () => {
+    const DEFAULT_CODE = `
+/**
+ * 用户自定义的预处理器, 可以在发送 complete 请求之前，对消息进行处理
+ * 
+ * 例如: 实现 Deepseek V3 0324 的默认温度缩放; 特别模型不支持 frequency_penalty 等参数需要删除等
+ * 
+ * @param payload - 选项
+ * @param payload.model - 模型
+ * @param payload.url - API URL
+ * @param payload.option - GPT 请求的 option
+ * @returns void
+ */
+const preprocessor = (payload) => {
+    // if (payload.option.max_tokens > 4096) {
+    //     payload.option.max_tokens = 4096;
+    // }
+    return;
+}
+export default preprocessor;
+
+`.trimStart();
+    try {
+        const module = await importJavascriptFile(preprocessModuleJsName);
+        if (!module) {
+            createJavascriptFile(DEFAULT_CODE, preprocessModuleJsName);
+            return;
+        }
+        const preprocessor = module?.default;
+        if (!preprocessor) return;
+        // 检查是否为函数，以及参数等
+        if (typeof preprocessor !== 'function') {
+            console.error('Custom preprocessor must be a function');
+            return;
+        }
+        userCustomizedPreprocessor.preprocess = preprocessor;
+        console.log('成功导入自定义的 ChatOption 预处理器!')
+        return true;
+    } catch (error) {
+        console.error('Failed to load custom preprocessor:', error);
+        return false;
+    }
+}
+
+export const customContextProviders = {
+    preprocessProviders: (providers: CustomContextProvider[]): CustomContextProvider[] | void => { }
+}
+
+export const loadCustomContextProviderModule = async () => {
+    const DEFAULT_CODE = `
+/**
+ * 用户自定义的上下文提供器, 用于提供自定义的上下文内容
+ * 
+ * @returns {CustomContextProvider} 返回一个符合 CustomContextProvider 接口的对象
+ */
+const customContextProvider = {
+    name: "CustomProvider",
+    displayTitle: "自定义上下文提供器",
+    description: "用户自定义的上下文提供器",
+    type: "input-area",
+    icon: "iconCode",
+    getContextItems: async (options) => {
+        // 您可以在这里实现自己的逻辑，例如从外部API获取数据，处理本地文件等
+        return [{
+            name: "自定义上下文",
+            description: "这是一个自定义的上下文示例",
+            content: options?.query || "这里是自定义上下文的内容"
+        }];
+    }
+};
+
+
+/**
+ * 加载自定义上下文提供器
+ * @param {CustomContextProvider[]} providers - 内置的 Context Provider
+ */
+const loadProviders = (providers) => {
+    // 请在这里添加你的自定义上下文提供器
+    // providers.push(customContextProvider); // 添加自定义的 Provider
+    // providers = providers.filter(p => p.name !== 'TextSearch');  // 去掉不想要的 Provider
+    return providers;
+}
+
+export default loadProviders;
+`.trimStart();
+
+    try {
+        const module = await importJavascriptFile(contextProviderModuleJsName);
+        if (!module) {
+            createJavascriptFile(DEFAULT_CODE, contextProviderModuleJsName);
+            return;
+        }
+
+        let loader = module?.default as any[];
+        if (loader === undefined || loader === null) return;
+
+        // 检查是否为函数
+        if (typeof loader !== 'function') {
+            console.error('Custom context provider loader must be a function');
+            return;
+        }
+
+        customContextProviders.preprocessProviders = loader;
+
+        console.log('成功导入自定义的上下文提供器!');
+        return true;
+    } catch (error) {
+        console.error('Failed to load custom context provider:', error);
+        return false;
+    }
+}
+
 export const save = debounce(save_, 2000);
 export const load = async (plugin?: Plugin) => {
     let defaultData = asStorage();
@@ -179,4 +287,20 @@ export const load = async (plugin?: Plugin) => {
         current.promptTemplates && promptTemplates(current.promptTemplates)
         console.debug('Load GPT config:', current);
     }
+
+    // #if [PRIVATE_ADD]
+    await Promise.all([
+        loadCustomPreprocessModule(),
+        loadCustomContextProviderModule()
+    ]);
+    // #endif
 }
+
+export const providers = useStoreRef<IGPTProvider[]>([]);
+export const UIConfig = useStoreRef({
+    inputFontsize: 20,
+    msgFontsize: 19,
+    maxWidth: 1250
+});
+
+export const promptTemplates = useStoreRef<IPromptTemplate[]>([]);

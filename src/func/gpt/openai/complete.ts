@@ -1,6 +1,6 @@
 import { useModel } from "../setting/store";
 import { appendLog } from "../MessageLogger";
-import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference } from './adpater';
+import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor } from './adpater';
 
 
 interface CompletionResponse {
@@ -203,15 +203,30 @@ export const complete = async (input: string | IMessage[], options?: {
             chatOption.stream = options.stream;
         }
 
-        const payload = {
+        const chatInputs = {
             model: modelToUse || model,
+            url: url,
+            option: chatOption
+        }
+
+
+        /**
+         * 假如有用户自定义的预处理器, 则使用
+         */
+        if (userCustomizedPreprocessor?.preprocess) {
+            userCustomizedPreprocessor.preprocess(chatInputs);
+        }
+
+
+        const payload = {
+            model: chatInputs.model,
             messages: messages,
-            ...chatOption
+            ...chatInputs.option
         };
 
         appendLog({ type: 'request', data: payload });
 
-        response = await fetch(url, {
+        response = await fetch(chatInputs.url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

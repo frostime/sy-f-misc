@@ -7,6 +7,10 @@ import solidPlugin from 'vite-plugin-solid';
 import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
 import sass from 'sass'; // Use import instead of require
+import { visualizer } from 'rollup-plugin-visualizer';
+
+import vitePluginConditionalCompile from "vite-plugin-conditional-compile";
+
 
 const env = process.env;
 const isSrcmap = env.VITE_SOURCEMAP === 'inline';
@@ -37,6 +41,17 @@ export default defineConfig({
 
     plugins: [
 
+        vitePluginConditionalCompile({
+            env: {
+                DEV: process.env.DEV === 'true',
+                // 仅仅给我测试使用或者我暂时不想要的一些功能，和正式发布版区分开
+                // PRIVATE_ADD: env.PRIVATE !== undefined || isDev,  // 私人打包的时候才加进去，公开发布打包不加入的功能
+                // PRIVATE_REMOVE: env.PRIVATE === undefined && !isDev,  // 私人打包的时候删掉的功能，但公开发布打包的时候不删除
+                PRIVATE_ADD: env.PRIVATE_ADD !== undefined,
+                PRIVATE_REMOVE: env.PRIVATE_REMOVE !== undefined
+            }
+        }),
+
         solidPlugin(),
 
         viteStaticCopy({
@@ -63,7 +78,12 @@ export default defineConfig({
                 }
             ],
         }),
-    ],
+        process.env.ANALYZE_BUNDLE === 'true' &&
+          visualizer({
+            open: true,
+            filename: './tmp/stats.html',
+          }),
+    ].filter(Boolean),
 
     define: {
         "process.env.DEV_MODE": JSON.stringify(isDev),

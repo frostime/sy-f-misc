@@ -3,17 +3,17 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-27 13:25:32
+ * @LastEditTime : 2025-03-29 18:59:06
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
-import { ISignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
 import AttachmentList from './AttachmentList';
 import styles from './ChatSession.module.scss';
 
-import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
+import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel, globalMiscConfigs } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu, Protyle, showMessage } from 'siyuan';
@@ -22,18 +22,17 @@ import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
-
 import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
 
 import * as syDoc from '../persistence/sy-doc';
-import { contextProviders, executeContextProvider } from '../context-provider';
+import { getContextProviders, executeContextProvider } from '../context-provider';
 import { adaptIMessageContent } from '../data-utils';
 import { isMsgItemWithMultiVersion } from '../data-utils';
 import SessionItemsManager from './SessionItemsManager';
 
 const useSiYuanEditor = (props: {
     id: string;
-    input: ISignalRef<string>;
+    input: ReturnType<typeof useSignalRef<string>>;
     fontSize?: string;
     title?: () => string;
     useTextarea: () => HTMLTextAreaElement;
@@ -195,7 +194,7 @@ const useSiYuanEditor = (props: {
 
 
 const ChatSession: Component<{
-    input?: ISignalRef<string>;
+    input?: ReturnType<typeof useSignalRef<string>>;
     systemPrompt?: string;
     history?: IChatSessionHistory;
     updateTitleCallback?: (title: string) => void;
@@ -207,6 +206,7 @@ const ChatSession: Component<{
     const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
     const multiSelect = useSignalRef(false);
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
+    // const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -330,7 +330,7 @@ const ChatSession: Component<{
         e.preventDefault();
 
         let menu = new Menu();
-        contextProviders.forEach((provider) => {
+        getContextProviders().forEach((provider) => {
             menu.addItem({
                 icon: provider?.icon, // 你可以为每个 provider 添加图标
                 label: provider.displayTitle,
@@ -453,7 +453,17 @@ const ChatSession: Component<{
         adjustTextareaHeight();
         scrollToBottom(true);
         userHasScrolled = false; // 重置滚动状态
+
         await session.sendMessage(userMessage);
+        // Send the message with web search if enabled
+        // await session.sendMessage(userMessage, {
+        //     tavily: webSearchEnabled()
+        // });
+
+        // // Reset web search after using it once
+        // if (webSearchEnabled()) {
+        //     webSearchEnabled.update(false);
+        // }
 
         if (!userHasScrolled) {
             scrollToBottom(true);
@@ -713,11 +723,23 @@ const ChatSession: Component<{
                             <SessionItemsManager
                                 session={session}
                                 onClose={() => close()}
+                                focusTo={(id: IChatSessionMsgItem['id']) => {
+                                    close();
+                                    setTimeout(() => {
+                                        const targetElement = messageListRef.querySelector(`div[data-msg-id="${id}"]`) as HTMLElement;
+                                        if (targetElement) {
+                                            targetElement.focus();
+                                            targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+                                        }
+                                    }, 100)
+                                }}
                             />
                         ),
                         title: '管理消息',
-                        width: '1100px',
-                        height: '800px'
+                        width: '1200px',
+                        height: '800px',
+                        maxHeight: '90%',
+                        maxWidth: '90%'
                     });
                 }
             });
@@ -812,6 +834,17 @@ const ChatSession: Component<{
                                 a.download = title;
                                 a.click();
                                 showMessage('下载到' + title);
+                            }
+                        });
+                        menu.addSeparator();
+                        menu.addItem({
+                            icon: 'iconEye',
+                            checked: globalMiscConfigs().exportMDSkipHidden,
+                            label: '跳过隐藏消息',
+                            click: () => {
+                                const newValue = !globalMiscConfigs().exportMDSkipHidden;
+                                globalMiscConfigs.update('exportMDSkipHidden', newValue);
+                                showMessage(`导出时将${newValue ? '跳过' : '包含'}隐藏消息`);
                             }
                         });
                         const target = e.target as HTMLElement;
@@ -911,10 +944,10 @@ const ChatSession: Component<{
                                         let contextText = '';
                                         if (session.messages()[index()].userPromptSlice) {
                                             const [beg, end] = session.messages()[index()].userPromptSlice;
+                                            contextText = text.slice(0, beg); // Changed: context is now before user text
                                             userText = text.slice(beg, end);
-                                            contextText = text.slice(end);
                                         }
-                                        const newText = message + contextText;
+                                        const newText = contextText + message;
                                         if (Array.isArray(content)) {
                                             // 找到 item.type === 'text'
                                             const idx = content.findIndex(item => item.type === 'text');
@@ -923,7 +956,9 @@ const ChatSession: Component<{
                                                 batch(() => {
                                                     session.messages.update(index(), 'message', 'content', content);
                                                     if (contextText && contextText.length > 0) {
-                                                        session.messages.update(index(), 'userPromptSlice', [0, message.length]);
+                                                        // 更新 userPromptSlice，使其指向 context 后面的用户输入部分
+                                                        const contextLength = contextText.length;
+                                                        session.messages.update(index(), 'userPromptSlice', [contextLength, contextLength + message.length]);
                                                     }
                                                 });
                                             }
@@ -932,7 +967,9 @@ const ChatSession: Component<{
                                             batch(() => {
                                                 session.messages.update(index(), 'message', 'content', newText);
                                                 if (contextText && contextText.length > 0) {
-                                                    session.messages.update(index(), 'userPromptSlice', [0, message.length]);
+                                                    // 更新 userPromptSlice，使其指向 context 后面的用户输入部分
+                                                    const contextLength = contextText.length;
+                                                    session.messages.update(index(), 'userPromptSlice', [contextLength, contextLength + message.length]);
                                                 }
                                             });
                                         }
@@ -995,6 +1032,21 @@ const ChatSession: Component<{
                             <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
                         </ToolbarLabel>
                     </div>
+                    {/* <Show when={globalMiscConfigs().tavilyApiKey}>
+                        <ToolbarLabel
+                            onclick={() => webSearchEnabled.update(!webSearchEnabled())}
+                            label='Web Search'
+                            role='web-search'
+                            styles={
+                                webSearchEnabled() ? {
+                                    'background-color': 'var(--b3-theme-primary)',
+                                    'color': 'var(--b3-theme-on-primary)'
+                                } : {}
+                            }
+                        >
+                            <SvgSymbol size="15px">iconWebSearch</SvgSymbol>
+                        </ToolbarLabel>
+                    </Show> */}
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={() => {
                         const availableSystemPrompts = (): Record<string, string> => {

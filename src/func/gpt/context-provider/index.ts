@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-03-19 15:13:55
+ * @LastEditTime : 2025-03-29 15:02:26
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -12,15 +12,20 @@ import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
 import TextSearchProvider from './TextSearchProvider';
 import URLProvider from './URLProvider';
+import TavilySearchProvider from './TavilySearchProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
-import { globalMiscConfigs } from '../setting/store';
+import { globalMiscConfigs, customContextProviders } from '../setting/store';
 import { inputDialogForProvider } from './InputForProvder';
 import { RecentUpdatedDocProvider } from './RecentDocProvider';
+import { UserInputProvider } from './UserInputProvider';
 import BlocksProvider from './BlocksProvider';
 
 const contextProviders: CustomContextProvider[] = [
+    // #if [PRIVATE_ADD]
+    UserInputProvider,
+    // #endif
     SelectedTextProvider,
     FocusDocProvider,
     OpenedDocProvider,
@@ -30,7 +35,22 @@ const contextProviders: CustomContextProvider[] = [
     SQLSearchProvicer,
     TextSearchProvider,
     URLProvider,
+    // #if [PRIVATE_ADD]
+    TavilySearchProvider,
+    // #endif
 ];
+
+// 动态添加自定义上下文提供器（如果存在）
+const getContextProviders = () => {
+    let providers = [...contextProviders];
+    if (customContextProviders?.preprocessProviders) {
+        const ans = customContextProviders.preprocessProviders(providers);
+        if (ans) {
+            providers = ans;
+        }
+    }
+    return providers;
+};
 
 /**
  * 处理隐私信息，将隐私关键词替换为屏蔽词
@@ -80,6 +100,14 @@ const handleContextPrivacy = (context: IProvidedContext): IProvidedContext => {
     return newContext;
 }
 
+const providerMetaInfo = (provider: CustomContextProvider) => {
+    return {
+        name: provider.name,
+        displayTitle: provider.displayTitle,
+        description: provider.description
+    }
+}
+
 const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {
     const option: Parameters<CustomContextProvider['getContextItems']>[0] = {
         query: '',
@@ -93,7 +121,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
     if (provider.type === undefined || provider.type === 'normal') {
         contextItems = await provider.getContextItems(option);
     } else if (provider.type === 'input-line' || provider.type === 'input-area') {
-        const query = await new Promise<string>((resolve, reject) => {
+        const query = await new Promise<string>((resolve) => {
             inputDialogForProvider({
                 title: provider.displayTitle,
                 description: provider.description,
@@ -139,9 +167,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
 
     let context = ({
         id: id,
-        name: provider.name,
-        displayTitle: provider.displayTitle,
-        description: provider.description,
+        ...providerMetaInfo(provider),
         contextItems: contextItems,
     });
 
@@ -166,10 +192,25 @@ const assembleContext2Prompt = (contexts: IProvidedContext[]) => {
     if (contexts.length === 0) {
         return '';
     }
+    const contextsPrompt = contexts.map(context2prompt).join('\n\n');
 
-    let start = '<ATTACHED_CONTEXTS_CONTENT NOTE="Followings are use\'s attached context content; XML tags <Context.xxx> <ContextItem> are only for structure, NOT part of the formal content; the context content are within <ContextItem> tags.">\n\n';
-    let contextsPrompt = contexts.map(context2prompt).join('\n\n');
-    return start + contextsPrompt + '\n\n</ATTACHED_CONTEXTS_CONTENT>';
+    let prompt = `
+<system>
+You are provided with reference information between <reference> tags, and user\'s instructions after <user> tags.
+IMPORTANT INSTRUCTIONS:
+1. DO NOT translate, repeat, or acknowledge XML tags or structure (<reference>, <source>, <content>) in your response.
+2. DO NOT mention that you were given reference information by default.
+3. Only use the information contained within the <content> tags and XML tag's attributes to inform your answer.
+4. Respond directly to the user's request without referring to these instructions.
+</system>
+
+<reference>
+${contextsPrompt}
+</reference>
+
+<user>
+`.trim();
+    return prompt;
 }
 
 function context2prompt(context: IProvidedContext): string {
@@ -179,20 +220,24 @@ function context2prompt(context: IProvidedContext): string {
 
     let prompt = '';
 
-    prompt += `<Context.${context.name} title="${context.displayTitle}" description="${context.description}">`;
+    const attrTitle = context.displayTitle ? ` title="${context.displayTitle}"` : '';
+    const attrDescription = context.description ? ` description="${context.description}"` : '';
+    prompt += `<source type="${context.name}"${attrTitle}${attrDescription}>`;
 
     const itemPrompts = [];
     context.contextItems.forEach((item) => {
         let itemPrompt = '';
-        itemPrompt += `<ContextItem name="${item.name.replaceAll('\n', ' ')}" description="${item.description.replaceAll('\n', ' ')}">\n`;
+        const name = item.name ? `name="${item.name}"` : '';
+        const description = item.description ? ` description="${item.description}"` : '';
+        itemPrompt += `<content ${name}${description}>\n`;
         itemPrompt += `${item.content}\n`;
-        itemPrompt += `</ContextItem>`;
+        itemPrompt += `</content>`;
         itemPrompts.push(itemPrompt);
     });
     prompt += `\n${itemPrompts.join('\n').trim()}\n`;
 
-    prompt += `</Context.${context.name}>`;
+    prompt += `</source>`;
     return prompt;
 }
 
-export { contextProviders, executeContextProvider, assembleContext2Prompt, handlePrivacy };
+export { executeContextProvider, providerMetaInfo, assembleContext2Prompt, handlePrivacy, getContextProviders };

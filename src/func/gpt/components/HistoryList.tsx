@@ -60,6 +60,7 @@ const HistoryList = (props: {
 
     const sourceType = useSignalRef<'temporary' | 'permanent'>(sourceTypeCache as 'temporary' | 'permanent');
     const showShortcuts = useSignalRef(JSON.parse(showShortcutsCache));
+    const searchQuery = useSignalRef<string>('');
 
     const onclick = (history: IChatSessionHistory) => {
         props.onclick?.(history);
@@ -133,6 +134,27 @@ const HistoryList = (props: {
         });
     });
 
+    // Filter history items based on search query
+    const filteredHistory = createMemo(() => {
+        const query = searchQuery().toLowerCase().trim();
+        if (!query) return sortedHistory();
+
+        return sortedHistory().filter(item => {
+            // Search in title
+            if (item.title.toLowerCase().includes(query)) return true;
+
+            // Search in content
+            for (const messageItem of item.items) {
+                if (messageItem.type !== 'message' || !messageItem.message?.content) continue;
+                const { text } = adaptIMessageContent(messageItem.message.content);
+                if (text.toLowerCase().includes(query)) return true;
+                if (messageItem.author.toLowerCase().includes(query)) return true;
+            }
+
+            return false;
+        });
+    });
+
     // Group history items by time
     const groupedHistory = createMemo(() => {
         const groups: Record<string, IChatSessionHistory[]> = {
@@ -142,7 +164,7 @@ const HistoryList = (props: {
             older: []
         };
 
-        sortedHistory().forEach(item => {
+        filteredHistory().forEach(item => {
             // Use the updated field if available, otherwise use timestamp
             const timeToUse = item.updated || item.timestamp;
             const group = getTimeGroup(timeToUse);
@@ -166,11 +188,11 @@ const HistoryList = (props: {
     return (
         <div class={styles.historyList}>
             <div class={styles.historyToolbar}>
-                <div style={{ display: "flex", 'align-items': 'center', 'gap': '10px' }}>
+                <div style={{ display: "flex", 'align-items': 'center', 'gap': '10px', 'flex-wrap': 'wrap' }}>
                     <div style="display: flex; align-items: center;">
                         共
                         <span class="counter" style="margin: 0px;">
-                            {sortedHistory().length}
+                            {filteredHistory().length}
                         </span>
                         条
                     </div>
@@ -191,6 +213,26 @@ const HistoryList = (props: {
                         </button>
                     </Show>
                     <div class="fn__flex-1" />
+                    {/* Search box */}
+                    <div style="display: flex; align-items: center; position: relative; margin-right: 8px;">
+                        <input
+                            type="text"
+                            class="b3-text-field"
+                            placeholder="搜索历史记录..."
+                            value={searchQuery()}
+                            // onInput={(e) => searchQuery.value = e.currentTarget.value}
+                            onChange={(e) => searchQuery.value = e.currentTarget.value}
+                            style="padding-right: 24px; width: 180px;"
+                        />
+                        <Show when={searchQuery().length > 0}>
+                            <div
+                                style="position: absolute; right: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;"
+                                onClick={() => searchQuery.value = ''}
+                            >
+                                <svg style="width: 14px; height: 14px;"><use href="#iconClose"></use></svg>
+                            </div>
+                        </Show>
+                    </div>
                     {/* options */}
                     <select class="b3-select" value={sourceType()} onChange={(e) => {
                         //@ts-ignore
@@ -264,6 +306,11 @@ const HistoryList = (props: {
                         </>
                     )
                 ))}
+                <Show when={filteredHistory().length === 0}>
+                    <div style="display: flex; justify-content: center; align-items: center; padding: 20px; color: var(--b3-theme-on-surface-light);">
+                        {searchQuery().length > 0 ? '没有找到匹配的历史记录' : '没有历史记录'}
+                    </div>
+                </Show>
             </div>
         </div>
     );
