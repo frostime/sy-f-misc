@@ -18,53 +18,11 @@ import { onCleanup } from "solid-js";
 import PromptTemplateSetting from "./PromptTemplateSetting";
 import { globalMiscConfigs } from "./store";
 import Heading from "./Heading";
-import { showMessage } from "siyuan";
-import { sharedConfigs } from "@/func/shared-configs";
-import { Rows } from "@/libs/components/Elements/Flex";
+
+import { LoadModuleFileButtonGroup } from "@/libs/components/user-custom-module";
 
 type TabType = 'chat' | 'prompt' | 'provider' | 'tools';
 
-const JSModuleButtonGroup = (props: {
-    jsPath: string;
-    reloadModule: () => Promise<boolean>
-}) => {
-    return (
-        <Rows>
-
-            <Form.Input
-                type="button"
-                button={{
-                    label: '编辑',
-                    callback: () => {
-                        if (!cp) {
-                            showMessage('非桌面端环境无法编辑代码', 3000, 'error');
-                            return;
-                        }
-                        const jsPath = props.jsPath;
-                        let editorCmd = sharedConfigs('codeEditor') + ' ' + jsPath;
-                        try {
-                            cp.exec(editorCmd);
-                        } catch (error) {
-                            showMessage(`打开编辑器失败: ${error.message}`, 3000, 'error');
-                        }
-                    }
-                }}
-            />
-            <Form.Input
-                type="button"
-                button={{
-                    label: '重新导入',
-                    callback: async () => {
-                        const flag = await props.reloadModule();
-                        if (flag) {
-                            showMessage('导入成功', 3000);
-                        }
-                    }
-                }}
-            />
-        </Rows>
-    )
-}
 
 const TabButton = (props: {
     active: boolean;
@@ -324,8 +282,8 @@ const GlobalSetting = () => {
                             title="自定义对话参数预处理模块"
                             description={`自定义 JS 函数，对输入的模型参数进行预处理更改，例如实现 Deepseek v3 0324 的温度缩放、适配硅基流动 max token 限制等; 重启后生效`}
                         >
-                            <JSModuleButtonGroup
-                                jsPath={`${petalDir}/${store.preprocessModuleJsName}`}
+                            <LoadModuleFileButtonGroup
+                                moduleFilePath={`${petalDir}/${store.preprocessModuleJsName}`}
                                 reloadModule={async () => {
                                     return store.loadCustomPreprocessModule();
                                 }}
@@ -335,8 +293,8 @@ const GlobalSetting = () => {
                             title="自定义的 Context Provider"
                             description={`在代码中自行实现 ContextProvider`}
                         >
-                            <JSModuleButtonGroup
-                                jsPath={`${petalDir}/${store.contextProviderModuleJsName}`}
+                            <LoadModuleFileButtonGroup
+                                moduleFilePath={`${petalDir}/${store.contextProviderModuleJsName}`}
                                 reloadModule={async () => {
                                     return store.loadCustomContextProviderModule();
                                 }}

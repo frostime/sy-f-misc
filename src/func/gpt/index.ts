@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-03-29 14:47:48
+ * @LastEditTime : 2025-03-29 21:36:57
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -24,6 +24,8 @@ import { solidDialog } from "@/libs/dialog";
 import HistoryList from "./components/HistoryList";
 import { globalMiscConfigs } from "./setting/store";
 import { showMessageLog } from "./MessageLogger";
+
+import * as openai from './openai';
 
 export let name = "GPT";
 export let enabled = false;
@@ -360,6 +362,12 @@ export const load = async (plugin: FMiscPlugin) => {
 
     await persist.restoreCache();
     window.addEventListener('beforeunload', persist.saveCache);
+
+    //#if [PRIVATE_ADD]
+    globalThis.fmisc['gpt'] = {
+        complete: openai.complete
+    }
+    //#endif
 }
 
 export const unload = async (plugin: FMiscPlugin) => {
@@ -370,4 +378,8 @@ export const unload = async (plugin: FMiscPlugin) => {
 
     await persist.saveCache();
     window.removeEventListener('beforeunload', persist.saveCache)
+
+    //#if [PRIVATE_ADD]
+    globalThis.fmisc && delete globalThis.fmisc['gpt']
+    //#endif
 }

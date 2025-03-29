@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-03-16 18:23:11
+ * @LastEditTime : 2025-03-29 21:31:22
  * @Description  : 
  */
 import {
@@ -21,7 +21,6 @@ import "@/index.scss";
 import { initSetting } from "./settings";
 
 import { registerPlugin } from "@frostime/siyuan-plugin-kits";
-
 
 import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
 
@@ -64,6 +63,9 @@ export default class FMiscPlugin extends Plugin {
     }
 
     async onload() {
+        //#if [PRIVATE_ADD]
+        globalThis.fmisc = {}
+        //#endif
         const frontEnd = getFrontend();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         registerPlugin(this);
@@ -75,14 +77,14 @@ export default class FMiscPlugin extends Plugin {
         this.addIcons(svgs.join(''));
         await initSetting(this);
         load(this);
-        // this.globalContextMenuHandler = this.globalContextMenu.bind(this);
-        // document.addEventListener('mousedown', this.globalContextMenuHandler);
     }
 
     async onunload() {
-        // this.eventBus.off('paste', onPaste);
+        //#if [PRIVATE_ADD]
+        globalThis.fmisc && delete globalThis.fmisc
+        //#endif
+
         unload(this);
-        // document.removeEventListener('mousedown', this.globalContextMenuHandler);
     }
 
     async onLayoutReady() {

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-03-28 15:37:50
+ * @LastEditTime : 2025-03-29 21:39:16
  * @Description  :
  */
 // import { type JSX } from "solid-js";
@@ -80,7 +80,7 @@ export const load = (plugin: FMiscPlugin) => {
             module.load(plugin);
             console.debug(`Load ${module.name}`);
         }
-    });
+    }); 
 
     ModulesAlwaysEnable.forEach(module => {
         module.load(plugin);
