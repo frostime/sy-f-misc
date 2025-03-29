@@ -656,7 +656,7 @@ const MessageItem: Component<{
             click: copyMessage
         });
         menu.addItem({
-            icon: 'iconCut',
+            icon: 'iconFiles',
             label: '新的分支',
             click: createNewBranch
         });
@@ -824,6 +824,7 @@ const MessageItem: Component<{
 
     return (
         <div class={styles.messageItem} data-role={props.messageItem.message.role}
+            data-msg-id={props.messageItem.id}
             tabindex={props.index ?? -1}
             onKeyDown={(e: KeyboardEvent & { currentTarget: HTMLElement }) => {
                 if (!(e.ctrlKey || e.metaKey)) return;

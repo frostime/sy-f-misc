@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-29 14:55:28
+ * @LastEditTime : 2025-03-29 17:44:06
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -723,11 +723,23 @@ const ChatSession: Component<{
                             <SessionItemsManager
                                 session={session}
                                 onClose={() => close()}
+                                focusTo={(id: IChatSessionMsgItem['id']) => {
+                                    close();
+                                    setTimeout(() => {
+                                        const targetElement = messageListRef.querySelector(`div[data-msg-id="${id}"]`) as HTMLElement;
+                                        if (targetElement) {
+                                            targetElement.focus();
+                                            targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+                                        }
+                                    }, 100)
+                                }}
                             />
                         ),
                         title: '管理消息',
-                        width: '1100px',
-                        height: '800px'
+                        width: '1200px',
+                        height: '800px',
+                        maxHeight: '90%',
+                        maxWidth: '90%'
                     });
                 }
             });

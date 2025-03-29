@@ -3,11 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-03-18 19:18:46
+ * @LastEditTime : 2025-03-29 16:43:40
  * @Description  : 
  */
 
-import { floatingContainer } from "@/libs/components/floating-container";
 import { getLute, html2ele, id2block, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { thisPlugin, getBlockByID } from "@frostime/siyuan-plugin-kits";
 import { request, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
