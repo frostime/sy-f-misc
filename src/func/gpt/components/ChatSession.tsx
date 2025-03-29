@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-29 17:44:06
+ * @LastEditTime : 2025-03-29 18:59:06
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -13,7 +13,7 @@ import MessageItem from './MessageItem';
 import AttachmentList from './AttachmentList';
 import styles from './ChatSession.module.scss';
 
-import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel } from '../setting/store';
+import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel, globalMiscConfigs } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
 import Form from '@/libs/components/Form';
 import { Menu, Protyle, showMessage } from 'siyuan';
@@ -834,6 +834,17 @@ const ChatSession: Component<{
                                 a.download = title;
                                 a.click();
                                 showMessage('下载到' + title);
+                            }
+                        });
+                        menu.addSeparator();
+                        menu.addItem({
+                            icon: 'iconEye',
+                            checked: globalMiscConfigs().exportMDSkipHidden,
+                            label: '跳过隐藏消息',
+                            click: () => {
+                                const newValue = !globalMiscConfigs().exportMDSkipHidden;
+                                globalMiscConfigs.update('exportMDSkipHidden', newValue);
+                                showMessage(`导出时将${newValue ? '跳过' : '包含'}隐藏消息`);
                             }
                         });
                         const target = e.target as HTMLElement;

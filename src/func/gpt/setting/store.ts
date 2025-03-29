@@ -48,6 +48,7 @@ export const globalMiscConfigs = useStoreRef<{
     enableMessageLogger: boolean;
     maxMessageLogItems: number;
     tavilyApiKey: string;
+    exportMDSkipHidden: boolean;
 }>({
     pinChatDock: false,
     userSelectedContextFormat: `**以下是用户附带的内容**:
@@ -59,7 +60,8 @@ export const globalMiscConfigs = useStoreRef<{
     defaultSystemPrompt: `You are a helpful assistant.`,
     enableMessageLogger: false,
     maxMessageLogItems: 500,
-    tavilyApiKey: ''      // Tavily API Key for web search
+    tavilyApiKey: '',      // Tavily API Key for web search
+    exportMDSkipHidden: false // 导出 Markdown 时是否跳过隐藏的消息
 });
 
 /**
