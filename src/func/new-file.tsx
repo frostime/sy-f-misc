@@ -12,8 +12,8 @@ import Markdown from "@/libs/components/Elements/Markdown";
 import { request } from "@/api";
 
 export const declareToggleEnabled = {
-    title: '📄 New file',
-    description: '新建空白附件',
+    title: '📄 Asset Files',
+    description: '附件管理工具 (创新新附件，移动附件)',
     defaultEnabled: true
 };
 const mimeTypes: { [key: string]: string } = {
