@@ -5,7 +5,7 @@ import { confirm, Menu } from "siyuan";
 import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
 import { addScript, addStyle, convertMathFormulas } from '../utils';
-import { adaptIMessageContent } from '../data-utils';
+import { adaptIMessageContent, mergeMultiVesion } from '../data-utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig, UIConfig } from '../setting/store';
 import { type useSession, useSimpleContext } from './UseSession';
@@ -343,6 +343,20 @@ const MessageVersionView: Component<{
                         -
                     </ButtonInput>
                 </div>
+                <button
+                    class="b3-button b3-button--outline"
+                    onClick={() => {
+                        const mergedContent = mergeMultiVesion(msgItem());
+
+                        inputDialog({
+                            title: '合并的多版本消息',
+                            defaultText: mergedContent,
+                            height: '500px'
+                        });
+                    }}
+                >
+                    合并显示
+                </button>
                 <button class="b3-button b3-button--text" onClick={deleteSelectedVersions} disabled={!versionItems().some((item) => item.selected)}>
                     Delete
                 </button>

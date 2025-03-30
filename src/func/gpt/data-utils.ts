@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-28 15:49:07
  * @FilePath     : /src/func/gpt/data-utils.ts
- * @LastEditTime : 2025-02-10 16:42:42
+ * @LastEditTime : 2025-03-30 18:45:50
  * @Description  : 
  */
 
@@ -24,6 +24,21 @@ export const adaptIMessageContent = (content: IMessage['content']) => {
         'text': content.filter((item) => item.type === 'text').map((item) => item.text).join('\n'),
         'images': content.filter((item) => item.type === 'image_url').map((item) => item.image_url?.url)
     }
+}
+
+
+export const mergeMultiVesion = (item: IChatSessionMsgItem) => {
+    const allVersions = Object.values(item.versions || {});
+    if (!allVersions.length) return adaptIMessageContent(item.message.content).text;
+    let mergedContent = '以下是对同一个问题的不同回复:\n\n';
+    allVersions.forEach((v, index) => {
+        if (v.content) {
+            mergedContent += `<version number="${index + 1}" author="${v.author || ''}">\n`;
+            mergedContent += adaptIMessageContent(v.content).text;
+            mergedContent += '\n</version>\n\n';
+        }
+    });
+    return mergedContent;
 }
 
 
