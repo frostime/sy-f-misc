@@ -7,7 +7,7 @@ import { createSimpleContext } from '@/libs/simple-context';
 import { ChatSetting } from '../setting';
 import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '@gpt/openai';
-import { adaptIMessageContent } from '../data-utils';
+import { adaptIMessageContent, mergeInputWithContext } from '../data-utils';
 import { assembleContext2Prompt } from '../context-provider';
 import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
 
@@ -66,15 +66,10 @@ export const useSession = (props: {
 
         let optionalFields: Partial<IChatSessionMsgItem> = {};
         if (contexts && contexts?.length > 0) {
-            let prompts = assembleContext2Prompt(contexts);
-            if (prompts) {
-                // 将 context prompt 放在前面，user prompt 放在后面
-                optionalFields['context'] = contexts;
-                // 记录 context prompt 的长度，以便在 MessageItem 中显示用户输入部分
-                const contextLength = prompts.length + 2; // +2 for \n\n
-                optionalFields['userPromptSlice'] = [contextLength, contextLength + msg.length];
-                msg = `${prompts}\n\n${msg}`;
-            }
+            const result = mergeInputWithContext(msg, contexts);
+            msg = result.content;
+            optionalFields['context'] = contexts;
+            optionalFields['userPromptSlice'] = result.userPromptSlice;
         }
 
         if (images && images?.length > 0) {

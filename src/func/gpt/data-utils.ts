@@ -3,9 +3,11 @@
  * @Author       : frostime
  * @Date         : 2025-01-28 15:49:07
  * @FilePath     : /src/func/gpt/data-utils.ts
- * @LastEditTime : 2025-03-30 18:45:50
+ * @LastEditTime : 2025-03-30 22:23:42
  * @Description  : 
  */
+
+import { assembleContext2Prompt } from "./context-provider";
 
 /**
  * 解析获取 content 的内容，返回 text 和 images 两个部分
@@ -95,4 +97,21 @@ export const applyMsgItemVersion = (item: IChatSessionMsgItem, version: string) 
 
 export const isMsgItemWithMultiVersion = (item: IChatSessionMsgItem) => {
     return item.versions !== undefined && Object.keys(item.versions).length > 1;
+}
+
+export const mergeInputWithContext = (input: string, contexts: IProvidedContext[]) => {
+    let result = {
+        content: input,
+        userPromptSlice: [0, input.length] as [number, number]
+    }
+    if (contexts && contexts?.length > 0) {
+        let prompts = assembleContext2Prompt(contexts);
+        if (prompts) {
+            // 记录 context prompt 的长度，以便在 MessageItem 中显示用户输入部分
+            const contextLength = prompts.length + 2; // +2 for \n\n
+            result.userPromptSlice = [contextLength, contextLength + input.length];
+            result.content = `${prompts}\n\n${input}`;
+        }
+    }
+    return result;
 }
