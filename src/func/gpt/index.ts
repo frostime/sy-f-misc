@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-03-29 21:36:57
+ * @LastEditTime : 2025-03-29 22:11:39
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -26,6 +26,8 @@ import { globalMiscConfigs } from "./setting/store";
 import { showMessageLog } from "./MessageLogger";
 
 import * as openai from './openai';
+
+export { openai };
 
 export let name = "GPT";
 export let enabled = false;

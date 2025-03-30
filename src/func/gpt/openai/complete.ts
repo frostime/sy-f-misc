@@ -1,9 +1,10 @@
-import { useModel } from "../setting/store";
+import { defaultModelId, useModel } from "../setting/store";
 import { appendLog } from "../MessageLogger";
 import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor } from './adpater';
 
 
 interface CompletionResponse {
+    ok?: boolean;
     content: string;
     usage: any | null;
     reasoning_content?: string;
@@ -132,6 +133,7 @@ const handleStreamResponse = async (
         }
     } catch (error) {
         responseContent.content += `\n **[Error]** ${error}`;
+        responseContent.ok = false;
     }
 
     if (references && references.length) {
@@ -152,7 +154,8 @@ const handleNormalResponse = async (response: Response): Promise<CompletionRespo
         return {
             usage: null,
             content: JSON.stringify(data.error),
-            reasoning_content: ''
+            reasoning_content: '',
+            ok: false
         };
     }
     const results = {
@@ -182,7 +185,7 @@ export const complete = async (input: string | IMessage[], options?: {
     let response: Response;
 
     try {
-        const { url, model, apiKey, modelToUse } = options?.model ?? useModel('siyuan');
+        const { url, model, apiKey, modelToUse } = options?.model ?? useModel(defaultModelId() || 'siyuan');
         const messages = adpatInputMessage(input, { model });
 
         if (options?.systemPrompt) {
@@ -249,7 +252,8 @@ export const complete = async (input: string | IMessage[], options?: {
                 const data = await response.text().catch(() => '');
                 return {
                     usage: null,
-                    content: `[Error] HTTP error! status: ${response.status}\n${data}`
+                    content: `[Error] HTTP error! status: ${response.status}\n${data}`,
+                    ok: false
                 }
             }
         }
@@ -261,7 +265,8 @@ export const complete = async (input: string | IMessage[], options?: {
     } catch (error) {
         return {
             content: `[Error] Failed to request openai api, ${error}`,
-            usage: null
+            usage: null,
+            ok: false
         };
     }
 }

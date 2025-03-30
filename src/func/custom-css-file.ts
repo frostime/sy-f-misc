@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-11-23 15:37:06
  * @FilePath     : /src/func/custom-css-file.ts
- * @LastEditTime : 2025-01-12 20:39:27
+ * @LastEditTime : 2025-03-29 23:33:26
  * @Description  : 
  */
 // import { putFile, readDir } from "@/api"
@@ -66,7 +66,7 @@ const STYLE_FILE_ID = [];
 
 const CUSTOM_CSS_SNIPPET_ID = 'snippetCSS__fmisc__custom-css-snippet';
 const updateCustomCSSFile = async (create: boolean) => {
-    const res = await fetch(`/public/${fname}`);
+    const res = await fetch(`/public/${fname}?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) {
         if (create) {
             const file = new File([DEFAULT_STYLE], fname, { type: 'text/css' });
