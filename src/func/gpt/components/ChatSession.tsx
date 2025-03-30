@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-30 19:28:46
+ * @LastEditTime : 2025-03-30 19:41:21
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -1056,8 +1056,25 @@ const ChatSession: Component<{
                             </div>
                         ), attachedHistoryContainer);
 
+                        const temperatureContainer = document.createElement('div');
+                        const disposeTemp = render(() => (
+                            <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
+                                <SliderInput
+                                    value={config().chatOption.temperature}
+                                    changed={(v) => {
+                                        config.update('chatOption', 'temperature', v);
+                                    }}
+                                    min={0}
+                                    max={2}
+                                    step={0.1}
+                                />
+                                <span>{config().chatOption.temperature.toFixed(1)}</span>
+                            </div>
+                        ), temperatureContainer);
+
                         let menu = new Menu("tools-menu", () => {
                             dispose();
+                            disposeTemp();
                         });
 
                         // 新的上下文选项
@@ -1082,6 +1099,17 @@ const ChatSession: Component<{
                             submenu: [
                                 {
                                     element: attachedHistoryContainer
+                                }
+                            ]
+                        });
+
+                        // 温度选项
+                        menu.addItem({
+                            icon: 'iconLight',
+                            label: '温度: ' + config().chatOption.temperature.toFixed(1),
+                            submenu: [
+                                {
+                                    element: temperatureContainer
                                 }
                             ]
                         });
@@ -1112,9 +1140,6 @@ const ChatSession: Component<{
                         });
                     }} label='工具' >
                         <SvgSymbol size="15px">iconMenu</SvgSymbol>
-                    </ToolbarLabel>
-                    <ToolbarLabel onclick={openSetting} label='设置' role='setting' >
-                        <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>
                     <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>
@@ -1168,6 +1193,9 @@ const ChatSession: Component<{
                         }}
                     >
                         {model().model}
+                    </ToolbarLabel>
+                    <ToolbarLabel onclick={openSetting} label='设置' role='setting' >
+                        <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>
                 </div>
                 <div class={styles.inputWrapper}>
