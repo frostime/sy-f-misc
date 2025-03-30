@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-30 19:41:21
+ * @LastEditTime : 2025-03-30 22:07:07
  * @Description  : 
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -30,6 +30,7 @@ import { adaptIMessageContent } from '../data-utils';
 import { isMsgItemWithMultiVersion } from '../data-utils';
 import SessionItemsManager from './SessionItemsManager';
 import { SliderInput } from '@/libs/components/Elements';
+import SelectedTextProvider from '../context-provider/SelectedTextProvider';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -292,18 +293,16 @@ const ChatSession: Component<{
     if (props.input) {
         createRenderEffect(on(props.input.signal, (text: string) => {
             if (!text) return;
-            input.value += text;
-            //刚刚创建的时候，可能还没有 textarea 元素
-            if (!textareaRef) return;
+            // //刚刚创建的时候，可能还没有 textarea 元素
+            // if (!textareaRef) return;
             //需要等待 textarea 调整高度后再设置值
-            setTimeout(() => {
-                adjustTextareaHeight();
-                textareaRef?.focus();
-                //设置 textarea 滚动到顶部
-                textareaRef.scrollTop = 0;
-                //重新设置当前光标位置
-                textareaRef.setSelectionRange(textareaRef.selectionStart, textareaRef.selectionStart);
-            }, 0);
+            executeContextProvider(SelectedTextProvider, {
+                verbose: false
+            }).then(context => {
+                if (!context) return;
+                if (context.contextItems.length === 0) return;
+                session.setContext(context);
+            });
         }));
     }
 
@@ -315,6 +314,15 @@ const ChatSession: Component<{
         textareaRef.scrollTop = 0;
         // 将光标设置在开头位置
         textareaRef.setSelectionRange(0, 0);
+        // if (props.input && props.input()) {
+        //     executeContextProvider(SelectedTextProvider, {
+        //         verbose: false
+        //     }).then(context => {
+        //         if (!context) return;
+        //         if (context.contextItems.length === 0) return;
+        //         session.setContext(context);
+        //     });
+        // }
     });
 
     onCleanup(() => {

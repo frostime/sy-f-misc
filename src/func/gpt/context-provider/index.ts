@@ -100,7 +100,12 @@ const handleContextPrivacy = (context: IProvidedContext): IProvidedContext => {
     return newContext;
 }
 
-const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {
+const executeContextProvider = async (provider: CustomContextProvider, options?: {
+    verbose?: boolean
+}): Promise<IProvidedContext> => {
+
+    const { verbose = true } = options || {};
+
     const option: Parameters<CustomContextProvider['getContextItems']>[0] = {
         query: '',
         selected: []
@@ -152,7 +157,7 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
         return;
     }
 
-    if (!contextItems || contextItems.length === 0) {
+    if ((!contextItems || contextItems.length === 0) && verbose) {
         showMessage(`没有获取到 ${provider.name} 相关的数据`, 3000);
         return;
     }

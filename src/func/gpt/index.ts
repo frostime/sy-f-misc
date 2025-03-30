@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-03-29 22:11:39
+ * @LastEditTime : 2025-03-30 22:00:38
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -63,8 +63,7 @@ const attachSelectedText = async () => {
         if (!selectedText) {
             return '';
         }
-
-        return `\n\n${globalMiscConfigs().userSelectedContextFormat.replace('{{content}}', selectedText)}`;
+        return selectedText;
     }
 
     let blocksIds = [];
