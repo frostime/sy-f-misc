@@ -1,4 +1,5 @@
 import { createSettingAdapter } from "@frostime/siyuan-plugin-kits";
+import { importJavascriptFile, createJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 export let name = "global-configs";
 export let enabled = true;
@@ -43,9 +44,59 @@ export const sharedConfigs = (key: keyof IDefaultConfigs) => {
     return configAdapter.get(key);
 };
 
-export const load = () => {
+// User custom constants functionality
+export const userConstJsName = 'custom.user-constants.js';
+
+const DEFAULT_USER_CONST_CODE = `
+/**
+ * User custom constants
+ * Define your own constants here and they will be merged with the default ones
+ */
+
+const userConstants = {
+    // Add your custom constants here
+};
+
+export default userConstants;
+`.trimStart();
+
+// Default constants that will be merged with user constants
+export const defaultConstants = {
+    promptSummarize: ``
+};
+
+// The merged constants that will be used throughout the application
+export let userConst: typeof defaultConstants = { ...defaultConstants };
+
+/**
+ * Load user custom constants from JS file
+ * If the file doesn't exist, create a default one
+ */
+const reloadUserConstants = async (): Promise<void> => {
+    try {
+        const module = await importJavascriptFile(userConstJsName);
+        if (!module) {
+            // Create default JS file if it doesn't exist
+            createJavascriptFile(DEFAULT_USER_CONST_CODE, userConstJsName);
+            return;
+        }
+        // Merge user constants with default constants
+        const userConstants: Record<string, any> = module.default;
+        userConst = { ...defaultConstants, ...userConstants };
+        console.log('User constants loaded:', userConst);
+    } catch (error) {
+        console.error('Failed to load user constants:', error);
+    }
+};
+
+export const load = async () => {
+    await reloadUserConstants();
+    // #if [PRIVATE_ADD]
+    globalThis.fmisc['reloadUserConstants'] = reloadUserConstants;
+    // #endif
 };
 
 export const unload = () => {
-
+    // Reset to default constants when unloaded
+    userConst = { ...defaultConstants };
 };

@@ -12,6 +12,8 @@ import { startEntry } from "../toggl/state";
 import { getBlockByID, insertBlock, prependBlock, saveBlob } from "@frostime/siyuan-plugin-kits/api";
 import { openai } from "../gpt";
 
+import { userConst } from "../shared-configs";
+
 const { appendBlock, request } = api;
 
 const superBlock = (content: string) => {
@@ -134,7 +136,7 @@ const saveExcerpt = async (content: string) => {
     const hanCount = (content.match(/[\u4e00-\u9fa5]/g) || []).length; // 汉字
     const hanSymbolCount = (content.match(/[\u3000-\u303f\uff00-\uffef]/g) || []).length; // 汉字符号
     const chineseCount = hanCount + hanSymbolCount;
-    
+
     // 计算英文单词数量 - 使用正则表达式匹配英文单词
     // 使用单词边界符号 \b 确保匹配完整单词
     const englishWordCount = (content.match(/\b[a-zA-Z]+(?:[''-][a-zA-Z]+)*\b/g) || []).length;
@@ -154,7 +156,7 @@ const saveExcerpt = async (content: string) => {
         let latterPart = content.slice(-latterPartLength);
         const response = await openai.complete(`<RAW_EXCERPT>${formerPart}\n[中间部分省略]\n${latterPart}</RAW_EXCERPT>`, {
             // 编写系统提示，提取摘要
-            systemPrompt: `Please extract the main idea of the content within the <RAW_EXCERPT> tags, and generate a title and a summary for it.
+            systemPrompt: userConst.promptSummarize || `Please extract the main idea of the content within the <RAW_EXCERPT> tags, and generate a title and a summary for it.
 - You MUST ONLY output two seperate lines, the first line is the title, the second line is the summary, no other text.
 - The title must be accurate and concise, about 15 ~ 70 characters.
 - The summary must be accurate and logical, about 150 ~ 600 characters.
