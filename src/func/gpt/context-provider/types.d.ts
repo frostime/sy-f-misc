@@ -34,6 +34,17 @@ interface CustomContextProvider {
     loadSubmenuItems?: (
         args: {},
     ) => Promise<ContextSubmenuItem[]>;
+    /**
+     * 如果不实现此方法，使用 Provider 的元信息
+     */
+    contextMetaInfo?: (context?: {
+        input: Parameters<CustomContextProvider['getContextItems']>[0],
+        items: ContextItem[]
+    }) => {
+        name: string;
+        displayTitle: string;
+        description: string;
+    };
 }
 
 

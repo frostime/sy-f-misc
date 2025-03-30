@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-03-29 15:02:26
+ * @LastEditTime : 2025-03-30 21:43:46
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -100,14 +100,6 @@ const handleContextPrivacy = (context: IProvidedContext): IProvidedContext => {
     return newContext;
 }
 
-const providerMetaInfo = (provider: CustomContextProvider) => {
-    return {
-        name: provider.name,
-        displayTitle: provider.displayTitle,
-        description: provider.description
-    }
-}
-
 const executeContextProvider = async (provider: CustomContextProvider): Promise<IProvidedContext> => {
     const option: Parameters<CustomContextProvider['getContextItems']>[0] = {
         query: '',
@@ -165,22 +157,22 @@ const executeContextProvider = async (provider: CustomContextProvider): Promise<
         return;
     }
 
+    let providerMetaInfo = {
+        name: provider.name,
+        displayTitle: provider.displayTitle,
+        description: provider.description
+    }
+    let metaInfo = provider?.contextMetaInfo ? provider.contextMetaInfo({
+        input: option,
+        items: contextItems
+    }) : providerMetaInfo;
+    metaInfo = { ...providerMetaInfo, ...metaInfo };
+
     let context = ({
         id: id,
-        ...providerMetaInfo(provider),
+        ...metaInfo,
         contextItems: contextItems,
     });
-
-    switch (provider.name) {
-        case SQLSearchProvicer.name:
-            context.description += `\n查询代码如下: ${option['query']?.replaceAll('\n', ' ')}`;
-            break;
-        case TextSearchProvider.name:
-            context.description += `\n搜索关键词如下: ${option['query']?.replaceAll('\n', ' ')}`;
-            break;
-        default:
-            break;
-    }
 
     // 处理隐私信息
     context = handleContextPrivacy(context);
@@ -240,4 +232,4 @@ function context2prompt(context: IProvidedContext): string {
     return prompt;
 }
 
-export { executeContextProvider, providerMetaInfo, assembleContext2Prompt, handlePrivacy, getContextProviders };
+export { executeContextProvider, assembleContext2Prompt, handlePrivacy, getContextProviders };

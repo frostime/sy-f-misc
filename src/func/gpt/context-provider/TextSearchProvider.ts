@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-02-07 16:52:25
  * @FilePath     : /src/func/gpt/context-provider/TextSearchProvider.ts
- * @LastEditTime : 2025-02-07 17:55:10
+ * @LastEditTime : 2025-03-30 21:44:04
  * @Description  : Reference to https://ld246.com/article/1738895231883
  */
 import { getNotebook } from "@frostime/siyuan-plugin-kits";
@@ -81,6 +81,13 @@ const TextSearchProvider: CustomContextProvider = {
                 content: String(error),
             }];
         }
+    },
+    contextMetaInfo: (context) => {
+        return {
+            name: TextSearchProvider.name,
+            displayTitle: '关键词搜索',
+            description: `在笔记库中搜索关键词: ${context.input.query?.replaceAll('\n', ' ')}`
+        };
     }
 };
 
