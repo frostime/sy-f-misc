@@ -691,7 +691,7 @@ ${inputContent}
         abortMessage,
         toggleHidden,
         toggleSeperatorAt,
-        toggleClearContext: () => {
+        toggleNewThread: () => {
             toggleSeperator();
             props.scrollToBottom();
         },

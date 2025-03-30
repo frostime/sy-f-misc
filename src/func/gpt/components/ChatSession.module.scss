@@ -155,7 +155,7 @@ $chat-very-narrow-container: 400px;
             //     display: none;
             // }
 
-            justify-content: unset;
+            // justify-content: unset;
 
             span[data-hint="true"] {
                 display: none;
@@ -163,14 +163,12 @@ $chat-very-narrow-container: 400px;
         }
 
         @container (max-width: #{$chat-very-narrow-container}) {
-            >span[data-role="model"] {
-                max-width: 5em !important;
-            }
+            // >span[data-role="model"] {
+            //     max-width: 5em !important;
+            // }
 
-
-            span.toolbarLabel[data-role="clear-context"],
             span.toolbarLabel[data-role="system-prompt"],
-            span.toolbarLabel[data-role="word-count"] {
+            span.toolbarLabel[data-role="setting"] {
                 display: none;
             }
         }
