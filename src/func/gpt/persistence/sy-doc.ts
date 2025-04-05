@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-03-26 16:16:58
+ * @LastEditTime : 2025-03-31 17:59:15
  * @Description  : 
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -57,7 +57,7 @@ ${content}
 `.trim();
 };
 
-const item2markdown = (item: IChatSessionMsgItem, options?: {
+export const item2markdown = (item: IChatSessionMsgItem, options?: {
     convertImage?: boolean
 }) => {
     const { convertImage } = options || {

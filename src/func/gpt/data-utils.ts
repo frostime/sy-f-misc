@@ -3,11 +3,12 @@
  * @Author       : frostime
  * @Date         : 2025-01-28 15:49:07
  * @FilePath     : /src/func/gpt/data-utils.ts
- * @LastEditTime : 2025-03-30 22:23:42
+ * @LastEditTime : 2025-03-31 18:01:34
  * @Description  : 
  */
 
 import { assembleContext2Prompt } from "./context-provider";
+import { formatSingleItem } from "./persistence";
 
 /**
  * 解析获取 content 的内容，返回 text 和 images 两个部分
@@ -35,9 +36,14 @@ export const mergeMultiVesion = (item: IChatSessionMsgItem) => {
     let mergedContent = '以下是对同一个问题的不同回复:\n\n';
     allVersions.forEach((v, index) => {
         if (v.content) {
-            mergedContent += `<version number="${index + 1}" author="${v.author || ''}">\n`;
-            mergedContent += adaptIMessageContent(v.content).text;
-            mergedContent += '\n</version>\n\n';
+            mergedContent += formatSingleItem(
+                item.message.role.toUpperCase(),
+                adaptIMessageContent(v.content).text, {
+                version: (index + 1).toString(),
+                author: v.author
+            }
+            );
+            mergedContent += '\n\n';
         }
     });
     return mergedContent;
