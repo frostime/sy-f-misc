@@ -10,7 +10,7 @@ import { showMessage } from "siyuan";
 import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./core";
 import { getAvIdFromBlockId } from "@/api/av";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
-import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR } from "./dynamic-db";
+import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR, addRowsToDatabaseFromQuery } from "./dynamic-db";
 import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import "./index.css";
 
@@ -132,6 +132,27 @@ export const load = () => {
             label: '设置动态数据库',
             click: () => {
                 showDynamicDatabaseDialog(block.id);
+            }
+        });
+        detail.menu.addItem({
+            icon: 'iconFeedback',
+            label: '从查询结果中添加条目',
+            click: () => {
+                // 动态数据库绑定的是一个查询语法规则
+                // 而这个功能则是让用户临时输入一个新的查询语法
+                // 然后将查询结果中的条目添加到数据库中
+                // 查询完毕之后也不会保存查询语法
+                // 用户输入 - 执行查询 - 获取块 - 添加到数据库
+                getAvIdFromBlockId(block.id).then(async (avId) => {
+                    if (!avId) {
+                        showMessage('无法找到数据库视图ID', 3000, 'error');
+                        return;
+                    }
+                    await addRowsToDatabaseFromQuery({
+                        blockId: block.id,
+                        avId: avId
+                    });
+                });
             }
         });
     });
