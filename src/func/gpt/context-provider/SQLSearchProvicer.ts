@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:25:34
  * @FilePath     : /src/func/gpt/context-provider/SQLSearchProvicer.ts
- * @LastEditTime : 2025-02-23 21:09:26
+ * @LastEditTime : 2025-03-30 21:42:24
 */
 
 import { BlockTypeName, confirmDialog, getMarkdown } from "@frostime/siyuan-plugin-kits";
@@ -89,6 +89,19 @@ const SQLSearchProvicer: CustomContextProvider = {
         }
         return results;
     },
+    contextMetaInfo: (context) => {
+        let codeType = 'sql';
+        let code = '';
+        if (context.input.query?.trim().startsWith('//!js')) {
+            codeType = 'js';
+            code = context.input.query?.trim();
+        }
+        return {
+            name: SQLSearchProvicer.name,
+            displayTitle: (codeType === 'js' ? 'js' : 'sql').toUpperCase() + '查询',
+            description: `查询代码如下: ${context.input.query?.replaceAll('\n', ' ')}`
+        };
+    }
 };
 
 

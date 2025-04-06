@@ -73,19 +73,39 @@ $chat-very-narrow-container: 400px;
     div.chatTitle {
         display: flex;
         flex: 1;
+        position: relative;
         align-items: center;
         justify-content: center;
+        padding-left: 5px;
+        padding-right: 5px;
+        gap: 4px;
+        cursor: pointer;
+
+        // 标题文本
         white-space: nowrap; // 防止文本换行
         overflow: hidden; // 隐藏超出部分
         text-overflow: ellipsis; // 使用 ... 表示被截断的文本
-        padding-left: 5px;
-        padding-right: 5px;
+
+        :global(.b3-chips) {
+            position: absolute;
+            right: 0;
+            // transform: translateX(-100%);
+        }
 
         @container (max-width: #{$chat-narrow-container}) {
             font-size: 0.85em;
+
+            .b3-chips {
+                font-size: 0.6em;
+            }
         }
+
         @container (max-width: #{$chat-very-narrow-container}) {
             font-size: 0.75em;
+
+            .b3-chips {
+                display: none;
+            }
         }
     }
 
@@ -155,7 +175,7 @@ $chat-very-narrow-container: 400px;
             //     display: none;
             // }
 
-            justify-content: unset;
+            // justify-content: unset;
 
             span[data-hint="true"] {
                 display: none;
@@ -163,14 +183,12 @@ $chat-very-narrow-container: 400px;
         }
 
         @container (max-width: #{$chat-very-narrow-container}) {
-            >span[data-role="model"] {
-                max-width: 5em !important;
-            }
+            // >span[data-role="model"] {
+            //     max-width: 5em !important;
+            // }
 
-
-            span.toolbarLabel[data-role="clear-context"],
             span.toolbarLabel[data-role="system-prompt"],
-            span.toolbarLabel[data-role="word-count"] {
+            span.toolbarLabel[data-role="setting"] {
                 display: none;
             }
         }

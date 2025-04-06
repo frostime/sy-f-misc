@@ -145,6 +145,7 @@ interface IChatSessionHistory {
     updated?: number;
     items: IChatSessionMsgItem[];
     sysPrompt?: string;
+    tags?: string[];
 }
 
 interface IChatSessionConfig {

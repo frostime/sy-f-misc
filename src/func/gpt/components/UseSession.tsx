@@ -7,7 +7,7 @@ import { createSimpleContext } from '@/libs/simple-context';
 import { ChatSetting } from '../setting';
 import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '../setting/store';
 import * as gpt from '@gpt/openai';
-import { adaptIMessageContent } from '../data-utils';
+import { adaptIMessageContent, mergeInputWithContext } from '../data-utils';
 import { assembleContext2Prompt } from '../context-provider';
 import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
 
@@ -44,6 +44,7 @@ export const useSession = (props: {
     let updated = timestamp; // Initialize updated time to match creation time
     const title = useSignalRef<string>('新的对话');
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
+    const sessionTags = useStoreRef<string[]>([]);
     const loading = useSignalRef<boolean>(false);
     // const streamingReply = useSignalRef<string>('');
 
@@ -66,15 +67,10 @@ export const useSession = (props: {
 
         let optionalFields: Partial<IChatSessionMsgItem> = {};
         if (contexts && contexts?.length > 0) {
-            let prompts = assembleContext2Prompt(contexts);
-            if (prompts) {
-                // 将 context prompt 放在前面，user prompt 放在后面
-                optionalFields['context'] = contexts;
-                // 记录 context prompt 的长度，以便在 MessageItem 中显示用户输入部分
-                const contextLength = prompts.length + 2; // +2 for \n\n
-                optionalFields['userPromptSlice'] = [contextLength, contextLength + msg.length];
-                msg = `${prompts}\n\n${msg}`;
-            }
+            const result = mergeInputWithContext(msg, contexts);
+            msg = result.content;
+            optionalFields['context'] = contexts;
+            optionalFields['userPromptSlice'] = result.userPromptSlice;
         }
 
         if (images && images?.length > 0) {
@@ -680,6 +676,7 @@ ${inputContent}
         title,
         attachments,
         contexts,
+        sessionTags,
         msgId2Index,
         addAttachment,
         removeAttachment,
@@ -691,7 +688,7 @@ ${inputContent}
         abortMessage,
         toggleHidden,
         toggleSeperatorAt,
-        toggleClearContext: () => {
+        toggleNewThread: () => {
             toggleSeperator();
             props.scrollToBottom();
         },
@@ -722,7 +719,8 @@ ${inputContent}
                 updated,
                 title: title(),
                 items: messages.unwrap(),
-                sysPrompt: systemPrompt()
+                sysPrompt: systemPrompt(),
+                tags: sessionTags()
             }
         },
         applyHistory: (history: Partial<IChatSessionHistory>) => {
@@ -732,6 +730,7 @@ ${inputContent}
             history.updated && (updated = history.updated);
             history.items && (messages.update(history.items));
             history.sysPrompt && (systemPrompt.update(history.sysPrompt));
+            history.tags && (sessionTags.update(history.tags));
         },
         newSession: () => {
             sessionId.value = window.Lute.NewNodeID();
@@ -741,6 +740,7 @@ ${inputContent}
             updated = timestamp; // Reset updated time to match creation time
             title.update('新的对话');
             messages.update([]);
+            sessionTags.update([]);
             loading.update(false);
             hasStarted = false;
         },

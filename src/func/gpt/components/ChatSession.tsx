@@ -3,15 +3,16 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-29 18:59:06
+ * @LastEditTime : 2025-04-06 14:05:33
  * @Description  : 
  */
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch, createSignal } from 'solid-js';
 import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
 import AttachmentList from './AttachmentList';
 import styles from './ChatSession.module.scss';
+import TitleTagEditor from './TitleTagEditor';
 
 import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel, globalMiscConfigs } from '../setting/store';
 import { solidDialog } from '@/libs/dialog';
@@ -29,6 +30,8 @@ import { getContextProviders, executeContextProvider } from '../context-provider
 import { adaptIMessageContent } from '../data-utils';
 import { isMsgItemWithMultiVersion } from '../data-utils';
 import SessionItemsManager from './SessionItemsManager';
+import { SliderInput } from '@/libs/components/Elements';
+import SelectedTextProvider from '../context-provider/SelectedTextProvider';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -291,18 +294,16 @@ const ChatSession: Component<{
     if (props.input) {
         createRenderEffect(on(props.input.signal, (text: string) => {
             if (!text) return;
-            input.value += text;
-            //刚刚创建的时候，可能还没有 textarea 元素
-            if (!textareaRef) return;
+            // //刚刚创建的时候，可能还没有 textarea 元素
+            // if (!textareaRef) return;
             //需要等待 textarea 调整高度后再设置值
-            setTimeout(() => {
-                adjustTextareaHeight();
-                textareaRef?.focus();
-                //设置 textarea 滚动到顶部
-                textareaRef.scrollTop = 0;
-                //重新设置当前光标位置
-                textareaRef.setSelectionRange(textareaRef.selectionStart, textareaRef.selectionStart);
-            }, 0);
+            executeContextProvider(SelectedTextProvider, {
+                verbose: false
+            }).then(context => {
+                if (!context) return;
+                if (context.contextItems.length === 0) return;
+                session.setContext(context);
+            });
         }));
     }
 
@@ -314,6 +315,15 @@ const ChatSession: Component<{
         textareaRef.scrollTop = 0;
         // 将光标设置在开头位置
         textareaRef.setSelectionRange(0, 0);
+        // if (props.input && props.input()) {
+        //     executeContextProvider(SelectedTextProvider, {
+        //         verbose: false
+        //     }).then(context => {
+        //         if (!context) return;
+        //         if (context.contextItems.length === 0) return;
+        //         session.setContext(context);
+        //     });
+        // }
     });
 
     onCleanup(() => {
@@ -404,42 +414,6 @@ const ChatSession: Component<{
         menu.open({
             x: rect.left,
             y: rect.top,
-            isLeft: false
-        });
-    }
-
-    const slideAttachHistoryCnt = (e: MouseEvent) => {
-        e.stopImmediatePropagation();
-        e.preventDefault();
-        const contaner = document.createElement('div');
-        render(() => (
-            <Form.Input
-                type="slider"
-                fn_size={false}
-                value={config().attachedHistory}
-                changed={(v) => {
-                    v = parseInt(v);
-                    config.update('attachedHistory', v);
-                }}
-                slider={{
-                    min: -1,
-                    max: 16,
-                    step: 1,
-                }}
-            />
-        ), contaner);
-        let menu = new Menu();
-        menu.addItem({
-            element: contaner
-        });
-        let btn = contaner.closest('button.b3-menu__item') as HTMLButtonElement;
-        btn.style.background = 'var(--b3-menu-background) !important';
-
-        let targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
-        let rect = targetElement.getBoundingClientRect();
-        menu.open({
-            x: rect.left,
-            y: rect.bottom,
             isLeft: false
         });
     }
@@ -639,6 +613,8 @@ const ChatSession: Component<{
             '--chat-max-width': `${UIConfig().maxWidth}px`,
         };
     };
+
+    // 使用单独的 TitleTagEditor 组件
 
     const Topbar = () => {
         const Item = (props: any) => (
@@ -865,18 +841,40 @@ const ChatSession: Component<{
                         'ariaLabel': true
                     }}
                     onclick={() => {
-                        inputDialog({
-                            title: '更改标题',
-                            defaultText: session.title(),
-                            confirm: (text) => {
-                                session.title(text);
-                            },
-                            width: '600px',
-                        })
+                        // 获取当前会话的标题和标签
+                        const currentTitle = session.title();
+                        const currentTags = session.sessionHistory().tags || [];
+
+                        // 创建一个更现代化的对话框
+                        const { close } = solidDialog({
+                            title: '编辑会话信息',
+                            width: '750px',
+                            loader: () => (
+                                <TitleTagEditor
+                                    title={currentTitle}
+                                    tags={currentTags}
+                                    onSave={(title, tags) => {
+                                        // 更新标题
+                                        session.title(title);
+                                        session.sessionTags.update(tags);
+                                        // 关闭对话框
+                                        close();
+                                    }}
+                                    onClose={() => close()}
+                                />
+                            )
+                        });
                     }}
                     aria-label={session.title()}
                 >
                     {session.title()}
+                    <Show when={session.sessionTags().length > 0}>
+                        <div class="b3-chips">
+                            <For each={session.sessionTags()}>
+                                {(tag) => <span class="b3-chip b3-chip--middle b3-chip--info">{tag}</span>}
+                            </For>
+                        </div>
+                    </Show>
                 </div>
 
                 {/* 右侧 - 历史记录 */}
@@ -914,6 +912,58 @@ const ChatSession: Component<{
             }
         </div>
     );
+
+    const editSystemPrompt = () => {
+        const availableSystemPrompts = (): Record<string, string> => {
+            const systemPrompts = promptTemplates().filter(item => item.type === 'system');
+            return systemPrompts.reduce((acc, cur) => {
+                acc[cur.content] = cur.name;
+                return acc;
+            }, { '': 'No Prompt' });
+        }
+        solidDialog({
+            title: '系统提示',
+            loader: () => (
+                <Form.Wrap
+                    title="System Prompt"
+                    description="附带的系统级提示消息"
+                    direction="row"
+                    action={
+                        <Form.Input
+                            type="select"
+                            value={session.systemPrompt()}
+                            changed={(v) => {
+                                v = v.trim();
+                                if (v) {
+                                    session.systemPrompt(v);
+                                }
+                            }}
+                            options={availableSystemPrompts()}
+                        />
+                    }
+                    style={{
+                        flex: 1
+                    }}
+                >
+                    <Form.Input
+                        type="textarea"
+                        value={session.systemPrompt()}
+                        changed={(v) => {
+                            session.systemPrompt(v);
+                        }}
+                        style={{
+                            "font-size": Math.min(UIConfig().inputFontsize, 17) + "px",
+                            "line-height": "1.25",
+                            'white-space': 'pre-line',
+                            height: '320px'
+                        }}
+                    />
+                </Form.Wrap>
+            ),
+            width: '680px',
+            height: '480px'
+        });
+    }
 
     const ChatContainer = () => (
         <div class={`${styles.chatContainer} ${isReadingMode() ? styles.readingMode : ''}`} style={styleVars()}>
@@ -1018,11 +1068,111 @@ const ChatSession: Component<{
                             <SvgSymbol size="15px">iconPause</SvgSymbol>
                         </ToolbarLabel>
                     </Show>
-                    <ToolbarLabel onclick={openSetting} label='设置' >
-                        <SvgSymbol size="15px">iconSettings</SvgSymbol>
-                    </ToolbarLabel>
-                    <ToolbarLabel onclick={session.toggleClearContext} label='新的上下文' role='clear-context' >
-                        <SvgSymbol size="15px">iconLine</SvgSymbol>
+                    {/* 新增工具按钮 */}
+                    <ToolbarLabel onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+
+                        const attachedHistoryContainer = document.createElement('div');
+                        const dispose = render(() => (
+                            <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
+                                <SliderInput
+                                    value={config().attachedHistory}
+                                    changed={(v) => {
+                                        config.update('attachedHistory', v);
+                                    }}
+                                    min={-1}
+                                    max={24}
+                                    step={1}
+                                />
+                                <span>{config().attachedHistory} 条</span>
+                            </div>
+                        ), attachedHistoryContainer);
+
+                        const temperatureContainer = document.createElement('div');
+                        const disposeTemp = render(() => (
+                            <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
+                                <SliderInput
+                                    value={config().chatOption.temperature}
+                                    changed={(v) => {
+                                        config.update('chatOption', 'temperature', v);
+                                    }}
+                                    min={0}
+                                    max={2}
+                                    step={0.1}
+                                />
+                                <span>{config().chatOption.temperature.toFixed(1)}</span>
+                            </div>
+                        ), temperatureContainer);
+
+                        let menu = new Menu("tools-menu", () => {
+                            dispose();
+                            disposeTemp();
+                        });
+
+                        // 新的上下文选项
+                        menu.addItem({
+                            icon: 'iconLine',
+                            label: '新的上下文',
+                            click: () => {
+                                session.toggleNewThread();
+                            }
+                        });
+
+                        // 字数选项
+                        menu.addItem({
+                            icon: 'iconFont',
+                            label: '字数: ' + input().length
+                        });
+
+                        // 附带消息选项
+                        menu.addItem({
+                            icon: 'iconList',
+                            label: '附带消息: ' + config().attachedHistory,
+                            submenu: [
+                                {
+                                    element: attachedHistoryContainer
+                                }
+                            ]
+                        });
+
+                        // 温度选项
+                        menu.addItem({
+                            icon: 'iconLight',
+                            label: '温度: ' + config().chatOption.temperature.toFixed(1),
+                            submenu: [
+                                {
+                                    element: temperatureContainer
+                                }
+                            ]
+                        });
+
+                        // System Prompt
+                        menu.addItem({
+                            icon: 'iconUsers',
+                            label: 'System Prompt',
+                            click: editSystemPrompt,
+                            checked: session.systemPrompt().length > 0
+                        });
+
+                        menu.addSeparator();
+                        // 设置
+                        menu.addItem({
+                            icon: 'iconSettings',
+                            label: '打开设置',
+                            click: () => {
+                                openSetting();
+                            }
+                        });
+
+                        const target = e.target as HTMLElement;
+                        const rect = target.getBoundingClientRect();
+                        menu.open({
+                            x: rect.left,
+                            y: rect.bottom
+                        });
+                    }} label='工具' >
+                        <SvgSymbol size="15px">iconMenu</SvgSymbol>
                     </ToolbarLabel>
                     <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
                         <SvgSymbol size="15px">iconEdit</SvgSymbol>
@@ -1048,64 +1198,8 @@ const ChatSession: Component<{
                         </ToolbarLabel>
                     </Show> */}
                     <div data-role="spacer" style={{ flex: 1 }}></div>
-                    <ToolbarLabel onclick={() => {
-                        const availableSystemPrompts = (): Record<string, string> => {
-                            const systemPrompts = promptTemplates().filter(item => item.type === 'system');
-                            return systemPrompts.reduce((acc, cur) => {
-                                acc[cur.content] = cur.name;
-                                return acc;
-                            }, { '': 'No Prompt' });
-                        }
-                        solidDialog({
-                            title: '系统提示',
-                            loader: () => (
-                                <Form.Wrap
-                                    title="System Prompt"
-                                    description="附带的系统级提示消息"
-                                    direction="row"
-                                    action={
-                                        <Form.Input
-                                            type="select"
-                                            value={session.systemPrompt()}
-                                            changed={(v) => {
-                                                v = v.trim();
-                                                if (v) {
-                                                    session.systemPrompt(v);
-                                                }
-                                            }}
-                                            options={availableSystemPrompts()}
-                                        />
-                                    }
-                                    style={{
-                                        flex: 1
-                                    }}
-                                >
-                                    <Form.Input
-                                        type="textarea"
-                                        value={session.systemPrompt()}
-                                        changed={(v) => {
-                                            session.systemPrompt(v);
-                                        }}
-                                        style={{
-                                            "font-size": Math.min(UIConfig().inputFontsize, 17) + "px",
-                                            "line-height": "1.25",
-                                            'white-space': 'pre-line',
-                                            height: '320px'
-                                        }}
-                                    />
-                                </Form.Wrap>
-                            ),
-                            width: '680px',
-                            height: '480px'
-                        });
-                    }} label='系统提示' role="system-prompt" >
+                    <ToolbarLabel onclick={editSystemPrompt} label='系统提示' role="system-prompt" >
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
-                    </ToolbarLabel>
-                    <ToolbarLabel role="word-count">
-                        <span data-hint="true">字数: </span>{input().length}
-                    </ToolbarLabel>
-                    <ToolbarLabel onclick={slideAttachHistoryCnt} label='更改附带消息条数' >
-                        <span data-hint="true">附带消息: </span>{config().attachedHistory}
                     </ToolbarLabel>
                     <ToolbarLabel
                         label={`模型 ${model().model}`}
@@ -1132,6 +1226,9 @@ const ChatSession: Component<{
                         }}
                     >
                         {model().model}
+                    </ToolbarLabel>
+                    <ToolbarLabel onclick={openSetting} label='设置' role='setting' >
+                        <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>
                 </div>
                 <div class={styles.inputWrapper}>

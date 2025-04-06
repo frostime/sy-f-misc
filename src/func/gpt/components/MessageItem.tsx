@@ -351,7 +351,9 @@ const MessageVersionView: Component<{
                         inputDialog({
                             title: '合并的多版本消息',
                             defaultText: mergedContent,
-                            height: '500px'
+                            type: 'textarea',
+                            width: '1000px',
+                            height: '640px'
                         });
                     }}
                 >
@@ -945,7 +947,7 @@ const MessageItem: Component<{
                         e.preventDefault();
                         props.toggleSeperator?.();
                     }} />
-                    <ToolbarButton icon="iconCut" title="新的分支" onclick={createNewBranch} />
+                    <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
                     <ToolbarButton
                         icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
                         title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
