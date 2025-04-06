@@ -66,6 +66,183 @@ const HistoryList = (props: {
     const searchQuery = useSignalRef<string>('');
     const selectedTag = useSignalRef<string>('');
 
+    // 批量操作相关状态
+    const batchMode = useSignalRef<boolean>(false);
+    const selectedItems = useSignalRef<Set<string>>(new Set());
+
+    // 切换批量模式
+    const toggleBatchMode = () => {
+        batchMode.value = !batchMode();
+        // 清空选中项
+        if (!batchMode()) {
+            selectedItems.value = new Set();
+        }
+    };
+
+    // 选择/取消选择项目
+    const toggleSelectItem = (id: string, e: MouseEvent) => {
+        e.stopPropagation();
+
+        const newSelectedItems = new Set(selectedItems());
+        if (newSelectedItems.has(id)) {
+            newSelectedItems.delete(id);
+        } else {
+            newSelectedItems.add(id);
+        }
+        selectedItems.value = newSelectedItems;
+    };
+
+    // 全选/取消全选
+    const toggleSelectAll = () => {
+        if (selectedItems().size === filteredHistory().length) {
+            // 如果已全选，则取消全选
+            selectedItems.value = new Set();
+        } else {
+            // 否则全选
+            const newSelectedItems = new Set<string>();
+            filteredHistory().forEach(item => newSelectedItems.add(item.id));
+            selectedItems.value = newSelectedItems;
+        }
+    };
+
+    // 批量删除选中项
+    const batchDelete = async () => {
+        if (selectedItems().size === 0) return;
+
+        const itemCount = selectedItems().size;
+        confirmDialog({
+            title: `确认删除 ${itemCount} 个项目?`,
+            content: `此操作无法撤销，确定要继续吗？`,
+            confirm: () => {
+                // 批量删除
+                batch(() => {
+                    Array.from(selectedItems()).forEach(id => {
+                        onremove(id);
+                    });
+                });
+
+                // 清空选中项
+                selectedItems.value = new Set();
+                showMessage(`已删除 ${itemCount} 个项目`);
+            }
+        });
+    };
+
+    // 批量设置标签
+    const batchSetTags = () => {
+        if (selectedItems().size === 0) return;
+
+        // 获取选中项的历史记录
+        const selectedHistories = historyRef().filter(h => selectedItems().has(h.id));
+
+        // 获取所有选中项的标签集合
+        const commonTags = new Set<string>();
+        let isFirst = true;
+
+        selectedHistories.forEach(history => {
+            if (history.tags && history.tags.length > 0) {
+                if (isFirst) {
+                    // 对于第一个项目，直接添加所有标签
+                    history.tags.forEach(tag => commonTags.add(tag));
+                    isFirst = false;
+                } else {
+                    // 对于后续项目，只保留交集
+                    const currentTags = new Set(history.tags);
+                    Array.from(commonTags).forEach(tag => {
+                        if (!currentTags.has(tag)) {
+                            commonTags.delete(tag);
+                        }
+                    });
+                }
+            } else if (isFirst) {
+                // 如果第一个项目没有标签，则共同标签为空
+                isFirst = false;
+            } else {
+                // 如果任何项目没有标签，则共同标签为空
+                commonTags.clear();
+            }
+        });
+
+        // 打开标签编辑对话框
+        const { close } = solidDialog({
+            title: `编辑标签 (共 ${selectedItems().size} 个项目)`,
+            width: '750px',
+            loader: () => (
+                <TitleTagEditor
+                    title="" // 批量编辑不修改标题
+                    tags={Array.from(commonTags)}
+                    onSave={(_, tags) => {
+                        // 更新所有选中项的标签
+                        batch(() => {
+                            selectedHistories.forEach(history => {
+                                const updatedItem = {
+                                    ...history,
+                                    tags
+                                };
+
+                                // 保存更新
+                                if (sourceType() === 'temporary') {
+                                    persist.saveToLocalStorage(updatedItem);
+                                } else {
+                                    persist.saveToJson(updatedItem);
+                                }
+                            });
+
+                            // 更新列表中的项
+                            historyRef.update(histories => {
+                                return histories.map(h => {
+                                    if (selectedItems().has(h.id)) {
+                                        return {
+                                            ...h,
+                                            tags
+                                        };
+                                    }
+                                    return h;
+                                });
+                            });
+                        });
+
+                        showMessage(`已更新 ${selectedItems().size} 个项目的标签`);
+                        close();
+                    }}
+                    onClose={() => close()}
+                />
+            )
+        });
+    };
+
+    // 批量持久化存储
+    const batchPersist = async () => {
+        if (selectedItems().size === 0 || sourceType() !== 'temporary') return;
+
+        const itemCount = selectedItems().size;
+        confirmDialog({
+            title: `确认持久化 ${itemCount} 个项目?`,
+            content: `选中的项目将从临时存储移动到持久化存储。`,
+            confirm: () => {
+                // 获取选中项的历史记录
+                const selectedHistories = historyRef().filter(h => selectedItems().has(h.id));
+
+                // 批量持久化
+                batch(async () => {
+                    for (const history of selectedHistories) {
+                        // 保存到 JSON 文件
+                        await persist.saveToJson(history);
+                        // // 从本地存储中删除
+                        // persist.removeFromLocalStorage(history.id);
+                    }
+
+                    // 重新加载历史记录
+                    // await fetchHistory('temporary');
+                });
+
+                // 清空选中项
+                selectedItems.value = new Set();
+                showMessage(`已持久化 ${itemCount} 个项目`);
+            }
+        });
+    };
+
     const onclick = (history: IChatSessionHistory) => {
         props.onclick?.(history);
         props.close?.();
@@ -289,6 +466,18 @@ const HistoryList = (props: {
         <div class={styles.historyList}>
             <div class={styles.historyToolbar}>
                 <div style={{ display: "flex", 'align-items': 'center', 'gap': '10px', 'flex-wrap': 'wrap' }}>
+                    {/* 全选按钮 */}
+                    <Show when={batchMode()}>
+                        <div class="fn__flex fn__flex-center" style="margin-right: 8px;">
+                            <input
+                                type="checkbox"
+                                class="b3-checkbox"
+                                checked={selectedItems().size === filteredHistory().length && filteredHistory().length > 0}
+                                onChange={toggleSelectAll}
+                                title="全选/取消全选"
+                            />
+                        </div>
+                    </Show>
                     <div style="display: flex; align-items: center;">
                         共
                         <span class="counter" style="margin: 0px;">
@@ -296,10 +485,54 @@ const HistoryList = (props: {
                         </span>
                         条
                     </div>
+
+                    {/* 批量模式开关 */}
+                    <button
+                        class={`b3-button ${batchMode() ? 'b3-button--text' : 'b3-button--outline'}`}
+                        onClick={toggleBatchMode}
+                        title="切换批量操作模式"
+                    >
+                        {batchMode() ? '退出批量模式' : '批量操作'}
+                    </button>
+
+                    {/* 批量操作按钮组 */}
+                    <Show when={batchMode() && selectedItems().size > 0}>
+                        <div class="fn__flex" style="gap: 8px;">
+                            {/* 批量删除按钮 */}
+                            <button
+                                class="b3-button b3-button--outline b3-button--error"
+                                onClick={batchDelete}
+                                title="删除选中的所有项目"
+                            >
+                                删除 ({selectedItems().size})
+                            </button>
+
+                            {/* 批量设置标签按钮 */}
+                            <button
+                                class="b3-button b3-button--outline"
+                                onClick={batchSetTags}
+                                title="为选中项目设置标签"
+                            >
+                                设置标签
+                            </button>
+
+                            {/* 仅在 Temporary 模式下显示持久化按钮 */}
+                            <Show when={sourceType() === 'temporary'}>
+                                <button
+                                    class="b3-button b3-button--outline"
+                                    onClick={batchPersist}
+                                    title="将选中项目持久化存储"
+                                >
+                                    持久化
+                                </button>
+                            </Show>
+                        </div>
+                    </Show>
+
                     <input type="checkbox" class="b3-switch" checked={showShortcuts()} onChange={(e) => {
                         showShortcuts.value = e.currentTarget.checked;
                     }} />
-                    <Show when={sourceType() === 'temporary'}>
+                    <Show when={sourceType() === 'temporary' && !batchMode()}>
                         <button class="b3-button b3-button--text"
                             onClick={() => {
                                 batch(() => {
@@ -369,11 +602,31 @@ const HistoryList = (props: {
                             </div>
                             {items.map(item => (
                                 <div class={styles.historyItem} data-key={item.id}
-                                    onClick={() => onclick(item)}
+                                    onClick={() => batchMode() ? null : onclick(item)}
                                     onContextMenu={(e) => showHistoryItemMenu(e, item)}
                                     style={{ position: 'relative' }}
                                 >
-                                    <div class={styles.historyTitleLine}>
+                                    <div class={styles.historyTitleLine} style={batchMode() ? {
+                                        '--shift': '32px',
+                                        'padding-left': 'var(--shift)',
+                                        position: 'relative',
+                                        width: 'calc(100% - var(--shift))'
+                                    } : {}}>
+                                        {/* 批量模式下显示复选框 */}
+                                        <Show when={batchMode()}>
+                                            <div
+                                                class="fn__flex fn__flex-center"
+                                                style="position: absolute; left: 0px; top: 50%; transform: translateY(-50%); z-index: 1;"
+                                                onClick={(e) => toggleSelectItem(item.id, e)}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    class="b3-switch"
+                                                    checked={selectedItems().has(item.id)}
+                                                    onChange={(e) => e.stopPropagation()}
+                                                />
+                                            </div>
+                                        </Show>
                                         <div class={styles.historyTitle}>{item.title}</div>
 
                                         {/* 显示标签 */}
