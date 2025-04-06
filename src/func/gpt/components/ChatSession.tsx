@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-03-30 22:07:07
+ * @LastEditTime : 2025-04-05 22:35:21
  * @Description  : 
  */
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch, createSignal } from 'solid-js';
 import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -613,6 +613,116 @@ const ChatSession: Component<{
         };
     };
 
+    // 会话编辑器组件
+    const SessionEditor = (props: {
+        title: string;
+        tags: string[];
+        onSave: (title: string, tags: string[]) => void;
+        onClose: () => void;
+    }) => {
+        // 使用 SolidJS 的状态管理
+        const [title, setTitle] = createSignal(props.title);
+        const [tags, setTags] = createSignal([...props.tags]);
+        const [newTag, setNewTag] = createSignal('');
+
+        // 添加标签
+        const addTag = () => {
+            const tagToAdd = newTag().trim();
+            if (tagToAdd && !tags().includes(tagToAdd)) {
+                setTags([...tags(), tagToAdd]);
+                setNewTag('');
+            }
+        };
+
+        // 删除标签
+        const removeTag = (tag: string) => {
+            setTags(tags().filter(t => t !== tag));
+        };
+
+        // 保存更改
+        const saveChanges = () => {
+            props.onSave(title(), tags());
+        };
+
+        return (
+            <div style="padding: 16px; gap: 16px; width: 100%; height: 100%;">
+                <Form.Wrap
+                    title='标题'
+                    description=''
+                >
+                    <input
+                        type="text"
+                        class="b3-text-field"
+                        style={{
+                            flex: 1
+                        }}
+                        value={title()}
+                        onInput={(e) => setTitle(e.currentTarget.value)}
+                    />
+                </Form.Wrap>
+
+                <Form.Wrap
+                    title='标签'
+                    description=''
+                    direction='row'
+                >
+                    <div class="fn__flex" style="gap: 8px;">
+                        <input
+                            type="text"
+                            class="b3-text-field fn__flex-1"
+                            value={newTag()}
+                            onInput={(e) => setNewTag(e.currentTarget.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && addTag()}
+                            placeholder="输入标签名称并按回车添加"
+                        />
+                        <button
+                            class="b3-button b3-button--outline"
+                            onClick={addTag}
+                            disabled={!newTag().trim()}
+                        >
+                            添加
+                        </button>
+                    </div>
+
+                    {/* 标签展示区 */}
+                    <div class="fn__flex fn__flex-wrap" style="gap: 8px; min-height: 32px;">
+                        <Show when={tags().length > 0} fallback={
+                            <div style="color: var(--b3-theme-on-surface-light); font-style: italic;">
+                                暂无标签，请添加
+                            </div>
+                        }>
+                            <For each={tags()}>
+                                {(tag) => (
+                                    <div class="fn__flex fn__flex-center" style="
+                                        background-color: var(--b3-theme-primary-lightest);
+                                        color: var(--b3-theme-primary-dark);
+                                        border-radius: 16px;
+                                        padding: 4px 12px;
+                                        gap: 6px;
+                                    ">
+                                        <span>{tag}</span>
+                                        <span
+                                            onClick={() => removeTag(tag)}
+                                            style="cursor: pointer; display: flex; align-items: center;"
+                                        >
+                                            <svg style="width: 14px; height: 14px;"><use href="#iconClose"></use></svg>
+                                        </span>
+                                    </div>
+                                )}
+                            </For>
+                        </Show>
+                    </div>
+                </Form.Wrap>
+
+                {/* 按钮区 */}
+                <div class="fn__flex" style="justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                    <button class="b3-button b3-button--cancel" onClick={props.onClose}>取消</button>
+                    <button class="b3-button b3-button--text" onClick={saveChanges}>保存</button>
+                </div>
+            </div>
+        );
+    };
+
     const Topbar = () => {
         const Item = (props: any) => (
             <ToolbarLabel
@@ -838,18 +948,40 @@ const ChatSession: Component<{
                         'ariaLabel': true
                     }}
                     onclick={() => {
-                        inputDialog({
-                            title: '更改标题',
-                            defaultText: session.title(),
-                            confirm: (text) => {
-                                session.title(text);
-                            },
-                            width: '600px',
-                        })
+                        // 获取当前会话的标题和标签
+                        const currentTitle = session.title();
+                        const currentTags = session.sessionHistory().tags || [];
+
+                        // 创建一个更现代化的对话框
+                        const { close } = solidDialog({
+                            title: '编辑会话信息',
+                            width: '750px',
+                            loader: () => (
+                                <SessionEditor
+                                    title={currentTitle}
+                                    tags={currentTags}
+                                    onSave={(title, tags) => {
+                                        // 更新标题
+                                        session.title(title);
+                                        session.sessionTags.update(tags);
+                                        // 关闭对话框
+                                        close();
+                                    }}
+                                    onClose={() => close()}
+                                />
+                            )
+                        });
                     }}
                     aria-label={session.title()}
                 >
                     {session.title()}
+                    <Show when={session.sessionTags().length > 0}>
+                        <div class="b3-chips">
+                            <For each={session.sessionTags()}>
+                                {(tag) => <span class="b3-chip b3-chip--middle b3-chip--info">{tag}</span>}
+                            </For>
+                        </div>
+                    </Show>
                 </div>
 
                 {/* 右侧 - 历史记录 */}

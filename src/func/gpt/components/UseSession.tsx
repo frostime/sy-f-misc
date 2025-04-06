@@ -44,6 +44,7 @@ export const useSession = (props: {
     let updated = timestamp; // Initialize updated time to match creation time
     const title = useSignalRef<string>('新的对话');
     const messages = useStoreRef<IChatSessionMsgItem[]>([]);
+    const sessionTags = useStoreRef<string[]>([]);
     const loading = useSignalRef<boolean>(false);
     // const streamingReply = useSignalRef<string>('');
 
@@ -675,6 +676,7 @@ ${inputContent}
         title,
         attachments,
         contexts,
+        sessionTags,
         msgId2Index,
         addAttachment,
         removeAttachment,
@@ -717,7 +719,8 @@ ${inputContent}
                 updated,
                 title: title(),
                 items: messages.unwrap(),
-                sysPrompt: systemPrompt()
+                sysPrompt: systemPrompt(),
+                tags: sessionTags()
             }
         },
         applyHistory: (history: Partial<IChatSessionHistory>) => {
@@ -727,6 +730,7 @@ ${inputContent}
             history.updated && (updated = history.updated);
             history.items && (messages.update(history.items));
             history.sysPrompt && (systemPrompt.update(history.sysPrompt));
+            history.tags && (sessionTags.update(history.tags));
         },
         newSession: () => {
             sessionId.value = window.Lute.NewNodeID();
@@ -736,6 +740,7 @@ ${inputContent}
             updated = timestamp; // Reset updated time to match creation time
             title.update('新的对话');
             messages.update([]);
+            sessionTags.update([]);
             loading.update(false);
             hasStarted = false;
         },

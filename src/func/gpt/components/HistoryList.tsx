@@ -61,6 +61,7 @@ const HistoryList = (props: {
     const sourceType = useSignalRef<'temporary' | 'permanent'>(sourceTypeCache as 'temporary' | 'permanent');
     const showShortcuts = useSignalRef(JSON.parse(showShortcutsCache));
     const searchQuery = useSignalRef<string>('');
+    const selectedTag = useSignalRef<string>('');
 
     const onclick = (history: IChatSessionHistory) => {
         props.onclick?.(history);
@@ -134,16 +135,49 @@ const HistoryList = (props: {
         });
     });
 
-    // Filter history items based on search query
+    // 获取所有唯一标签
+    const allTags = createMemo(() => {
+        const tagSet = new Set<string>();
+        sortedHistory().forEach(item => {
+            if (item.tags && item.tags.length > 0) {
+                item.tags.forEach(tag => tagSet.add(tag));
+            }
+        });
+        return Array.from(tagSet).sort();
+    });
+
+    // Filter history items based on search query and selected tag
     const filteredHistory = createMemo(() => {
         const query = searchQuery().toLowerCase().trim();
-        if (!query) return sortedHistory();
+        const tag = selectedTag().trim();
 
         return sortedHistory().filter(item => {
-            // Search in title
+            // 先按标签过滤
+            if (tag) {
+                // 特殊标签: 所有标签 (::ALL::)
+                if (tag === '::ALL::') {
+                    // 继续处理，不过滤
+                }
+                // 特殊标签: 无标签 (::BLANK::)
+                else if (tag === '::BLANK::') {
+                    if (item.tags && item.tags.length > 0) return false;
+                }
+                // 普通标签: 必须包含指定标签
+                else if (!item.tags || !item.tags.includes(tag)) {
+                    return false;
+                }
+            }
+
+            // 如果没有搜索查询，只按标签过滤
+            if (!query) return true;
+
+            // 搜索标题
             if (item.title.toLowerCase().includes(query)) return true;
 
-            // Search in content
+            // 搜索标签
+            if (item.tags && item.tags.some(t => t.toLowerCase().includes(query))) return true;
+
+            // 搜索内容
             for (const messageItem of item.items) {
                 if (messageItem.type !== 'message' || !messageItem.message?.content) continue;
                 const { text } = adaptIMessageContent(messageItem.message.content);
@@ -214,13 +248,30 @@ const HistoryList = (props: {
                     </Show>
                     <div class="fn__flex-1" />
                     {/* Search box */}
+                    {/* 标签过滤器 */}
+                    <Show when={allTags().length > 0}>
+                        <select
+                            class="b3-select"
+                            value={selectedTag()}
+                            onChange={(e) => selectedTag.value = e.currentTarget.value}
+                            style="margin-right: 8px; min-width: 120px;"
+                            title="按标签筛选会话历史"
+                        >
+                            <option value="::ALL::">所有标签</option>
+                            <option value="::BLANK::">无标签</option>
+                            {allTags().map(tag => (
+                                <option value={tag}>{tag}</option>
+                            ))}
+                        </select>
+                    </Show>
+
+                    {/* 搜索框 */}
                     <div style="display: flex; align-items: center; position: relative; margin-right: 8px;">
                         <input
                             type="text"
                             class="b3-text-field"
                             placeholder="搜索历史记录..."
                             value={searchQuery()}
-                            // onInput={(e) => searchQuery.value = e.currentTarget.value}
                             onChange={(e) => searchQuery.value = e.currentTarget.value}
                             style="padding-right: 24px; width: 180px;"
                         />
@@ -257,6 +308,24 @@ const HistoryList = (props: {
                                 >
                                     <div class={styles.historyTitleLine}>
                                         <div class={styles.historyTitle}>{item.title}</div>
+
+                                        {/* 显示标签 */}
+                                        <Show when={item.tags && item.tags.length > 0}>
+                                            <div class={styles.historyTags}>
+                                                {item.tags.map(tag => (
+                                                    <span
+                                                        class={styles.historyTag}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            selectedTag.value = tag;
+                                                        }}
+                                                    >
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </Show>
+
                                         <div class={styles.historyTimeContainer}>
                                             {item.updated && item.updated !== item.timestamp ? (
                                                 <>
