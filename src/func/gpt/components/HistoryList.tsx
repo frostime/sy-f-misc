@@ -6,6 +6,9 @@ import { useSignalRef } from "@frostime/solid-signal-ref";
 import * as persist from '../persistence';
 
 import { removeDoc } from "@/api";
+import { Menu, showMessage } from "siyuan";
+import { solidDialog } from "@/libs/dialog";
+import TitleTagEditor from "./TitleTagEditor";
 import { adaptIMessageContent } from "../data-utils";
 
 // Helper function to determine time group
@@ -67,6 +70,69 @@ const HistoryList = (props: {
         props.onclick?.(history);
         props.close?.();
     }
+
+    // 显示历史记录项的右键菜单
+    const showHistoryItemMenu = (e: MouseEvent, item: IChatSessionHistory) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const menu = new Menu('history-item-menu');
+
+        // 添加编辑选项
+        menu.addItem({
+            icon: 'iconEdit',
+            label: '编辑标题和标签',
+            click: () => {
+                // 打开编辑对话框
+                openEditDialog(item);
+            }
+        });
+
+        // 显示菜单
+        menu.open({
+            x: e.clientX,
+            y: e.clientY
+        });
+    };
+
+    // 打开编辑对话框
+    const openEditDialog = (item: IChatSessionHistory) => {
+        const { close } = solidDialog({
+            title: '编辑会话信息',
+            width: '750px',
+            loader: () => (
+                <TitleTagEditor
+                    title={item.title || ''}
+                    tags={item.tags || []}
+                    onSave={(title, tags) => {
+                        // 更新标题和标签
+                        const updatedItem = {
+                            ...item,
+                            title,
+                            tags,
+                            updated: Date.now()
+                        };
+
+                        // 保存更新
+                        if (sourceType() === 'temporary') {
+                            persist.saveToLocalStorage(updatedItem);
+                        } else {
+                            persist.saveToJson(updatedItem);
+                        }
+
+                        // 更新列表中的项
+                        historyRef.update(histories => {
+                            return histories.map(h => h.id === item.id ? updatedItem : h);
+                        });
+
+                        showMessage(`已更新会话 "${title}"`);
+                        close();
+                    }}
+                    onClose={() => close()}
+                />
+            )
+        });
+    };
 
     const onremove = (id: string) => {
         if (sourceType() === 'temporary') {
@@ -304,6 +370,7 @@ const HistoryList = (props: {
                             {items.map(item => (
                                 <div class={styles.historyItem} data-key={item.id}
                                     onClick={() => onclick(item)}
+                                    onContextMenu={(e) => showHistoryItemMenu(e, item)}
                                     style={{ position: 'relative' }}
                                 >
                                     <div class={styles.historyTitleLine}>

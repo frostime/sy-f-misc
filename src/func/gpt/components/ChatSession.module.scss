@@ -89,7 +89,7 @@ $chat-very-narrow-container: 400px;
         :global(.b3-chips) {
             position: absolute;
             right: 0;
-            transform: translateX(-100%);
+            // transform: translateX(-100%);
         }
 
         @container (max-width: #{$chat-narrow-container}) {
