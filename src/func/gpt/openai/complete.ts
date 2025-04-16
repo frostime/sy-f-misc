@@ -208,6 +208,7 @@ export const complete = async (input: string | IMessage[], options?: {
 
         const chatInputs = {
             model: modelToUse || model,
+            modelDisplayName: model,
             url: url,
             option: chatOption
         }

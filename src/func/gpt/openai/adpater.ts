@@ -9,6 +9,7 @@ import { type complete } from "./complete";
  * 
  * @param payload - 选项
  * @param payload.model - 模型
+ * @param payload.modelDisplayName - 模型名称; 例如用户配置了重定向，{ [modelDisplayName]: modelName }; 比如 {'Deepseek V3': 'deepseek-ai/deepseek-v3'}
  * @param payload.url - API URL
  * @param payload.option - 选项
  * @returns void
@@ -16,6 +17,7 @@ import { type complete } from "./complete";
 export const userCustomizedPreprocessor = {
     preprocess: (payload: {
         model: string;
+        modelDisplayName: string;
         url: string;
         option: IChatOption;
     }) => {
