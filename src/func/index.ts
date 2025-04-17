@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-03-29 21:39:16
+ * @LastEditTime : 2025-04-17 18:15:02
  * @Description  :
  */
 // import { type JSX } from "solid-js";
@@ -39,7 +39,12 @@ import * as srdb from './super-ref-db';
 // import * as bookmark from './bookmarks';
 import * as dft from './docfile-tools';
 
+import * as priv from './private-func';
+
 let _ModulesToEnable: IFuncModule[] = [
+// #if [PRIVATE_ADD]
+    priv,
+// #endif
     gpt,
     css,
     srdb,
