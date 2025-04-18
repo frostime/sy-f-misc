@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2023-04-17 15:28:36
  * @FilePath     : /src/func/private-func/auto-sync.ts
- * @LastEditTime : 2025-04-17 18:21:19
+ * @LastEditTime : 2025-04-17 22:35:58
  */
 
 import { throttle } from "@frostime/siyuan-plugin-kits";
@@ -15,7 +15,7 @@ let isEnabled = false;
 
 const WAIT_INTERVAL_SECONDS = 3600; // 1 hour
 const MIN_SYNC_INTERVAL_SECONDS = 300; // 5 minutes
-const INTERACTION_EVENTS = ['mousemove', 'keydown', 'focus'];
+const INTERACTION_EVENTS = ['mousemove', 'focus'];
 
 const timeRecorder = {
     lastInteractionTime: Date.now(),
@@ -94,7 +94,9 @@ export const toggleEnable = () => {
  */
 export const toggleDisable = () => {
     console.debug('[Auto-Sync] toggleDisable');
-    if (!isEnabled) return;  // Already disabled
+    if (!isEnabled) {
+        return;  // Already disabled
+    }
 
     isEnabled = false;
 
