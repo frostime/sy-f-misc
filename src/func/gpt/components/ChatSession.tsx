@@ -6,7 +6,7 @@
  * @LastEditTime : 2025-04-06 14:05:33
  * @Description  :
  */
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch, createSignal } from 'solid-js';
+import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
 import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 import MessageItem from './MessageItem';
@@ -23,7 +23,7 @@ import { render } from 'solid-js/web';
 import * as persist from '../persistence';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
-import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
+import { useSession, useSessionSetting, SimpleProvider } from './ChatSession.helper';
 
 import * as syDoc from '../persistence/sy-doc';
 import { getContextProviders, executeContextProvider } from '../context-provider';

@@ -16,7 +16,7 @@ import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 import { UIConfig } from '@gpt/setting/store';
-import { type useSession } from './UseSession';
+import { type useSession } from './ChatSession.helper';
 
 const MAX_PREVIEW_LENGTH = 1000;
 
