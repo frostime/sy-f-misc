@@ -3,6 +3,7 @@ import styles from './MessageItem.module.scss';
 
 import { debounce, getLute, html2ele, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { addScript, addStyle } from '../utils';
+import { useSimpleContext } from './ChatSession.helper';
 
 
 /**
@@ -329,6 +330,7 @@ export const renderMathBlock = (element: HTMLElement) => {
  */
 export function createMarkdownRenderer() {
     let lute = getLute();
+    const { config } = useSimpleContext();
     /**
      * Run post-processors for code blocks and math formulas
      */
@@ -365,7 +367,7 @@ export function createMarkdownRenderer() {
 
     /**
      * Render markdown content to HTML
-     * 
+     *
      * @param text The markdown text to render
      * @param isLoading Whether the content is still loading/streaming
      * @param lute The Lute instance for markdown rendering
@@ -380,6 +382,12 @@ export function createMarkdownRenderer() {
 
         // If content is loading, use streaming mode
         if (isLoading) {
+            // 使用配置项来决定是否在流式模式下渲染 Markdown
+            if (!config().renderInStreamMode) {
+                text = window.Lute.EscapeHTMLStr(text)
+                return `<div style="white-space: pre-wrap;">${text}</div>`;
+            }
+
             const { renderablePart, remainingPart } = splitMarkdownForStreaming(text);
 
             // Render the safe part as markdown

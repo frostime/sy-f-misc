@@ -4,7 +4,7 @@
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
  * @LastEditTime : 2025-02-10 16:43:26
- * @Description  : 
+ * @Description  :
  */
 interface IMessageContent {
     type: 'text' | 'image_url';
@@ -154,5 +154,6 @@ interface IChatSessionConfig {
     convertMathSyntax: boolean;
     maxInputLenForAutoTitle: number;
     autoTitleModelId?: string;
+    renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
     chatOption: IChatOption;
 }
