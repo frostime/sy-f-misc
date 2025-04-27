@@ -343,3 +343,18 @@ $chat-very-narrow-container: 400px;
     justify-content: center;
     margin: 1em 0;
 }
+
+.streamingText {
+    font-family: var(--b3-font-family-code);
+    padding: 8px 0;
+    margin-top: 8px;
+    border-top: 1px dashed var(--b3-border-color);
+    white-space: pre-wrap;
+    color: var(--b3-theme-on-surface);
+    opacity: 0.85;
+}
+
+.pre-scroll-container {
+    overflow-x: auto;
+    max-width: 100%;
+}

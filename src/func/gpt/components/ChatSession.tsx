@@ -4,7 +4,7 @@
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
  * @LastEditTime : 2025-04-06 14:05:33
- * @Description  : 
+ * @Description  :
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch, createSignal } from 'solid-js';
 import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
@@ -448,7 +448,7 @@ const ChatSession: Component<{
 
     /**
      * 在通过 @ 触发了 ContextMenu 弹出时临时监听键盘事件
-     * @returns 
+     * @returns
      */
     const useTempKeyPressListener = () => {
         const listener = (e: KeyboardEvent) => {
@@ -985,7 +985,7 @@ const ChatSession: Component<{
                                 )}
                                 <MessageItem
                                     messageItem={item}
-                                    markdown={item.loading !== true} // 流式输出时禁用 markdown
+                                    loading={item.loading === true} // 使用 loading 参数替代 markdown
                                     updateIt={(message) => {
                                         if (session.loading()) return;
                                         const content = session.messages()[index()].message.content;

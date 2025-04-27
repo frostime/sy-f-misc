@@ -4,7 +4,7 @@ import { confirm, Menu } from "siyuan";
 
 import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
-import { addScript, addStyle, convertMathFormulas } from '../utils';
+import { addScript, addStyle, convertMathFormulas, splitMarkdownForStreaming } from '../utils';
 import { adaptIMessageContent, mergeMultiVesion } from '../data-utils';
 import { Constants, showMessage } from 'siyuan';
 import { defaultConfig, UIConfig } from '../setting/store';
@@ -389,7 +389,7 @@ const MessageVersionView: Component<{
 
 const MessageItem: Component<{
     messageItem: IChatSessionMsgItem,
-    markdown?: boolean;
+    loading?: boolean; // 替换 markdown 参数为 loading
     index?: number,
     totalCount?: number;
     updateIt?: (text: string) => void;
@@ -445,6 +445,9 @@ const MessageItem: Component<{
         renderMath();
     }
 
+    /**
+     * 额外用来渲染 Markdown 中需要特别处理的公式、代码块等部分
+     */
     const renderMarkdown = debounce(() => {
         runMdRenderer();
     }, 50);
@@ -486,14 +489,38 @@ const MessageItem: Component<{
         return images;
     });
 
+    // 分割流式内容为可渲染部分和剩余部分
+    const splitContent = createMemo(() => {
+        // 只在加载状态下进行分割
+        if (!props.loading) {
+            return { renderablePart: textContent(), remainingPart: '' };
+        }
+
+        return splitMarkdownForStreaming(textContent());
+    });
+
     const messageAsHTML = createMemo(() => {
-        let text = textContent();
-        if (props.markdown) {
-            //@ts-ignore
-            let html = lute.Md2HTML(text);
+        // 如果是加载状态，使用分割后的内容
+        if (props.loading) {
+            const { renderablePart, remainingPart } = splitContent();
+
+            // 渲染可安全渲染的部分为 Markdown
+            let html = '';
+            if (renderablePart) {
+                //@ts-ignore
+                html = lute.Md2HTML(renderablePart);
+            }
+
+            // 如果有剩余部分，添加为纯文本
+            if (remainingPart) {
+                html += `<div class="${styles.streamingText}">${window.Lute.EscapeHTMLStr(remainingPart)}</div>`;
+            }
+
             return html;
         } else {
-            return window.Lute.EscapeHTMLStr(text);
+            // 非加载状态，按照原来的逻辑处理
+            //@ts-ignore
+            return lute.Md2HTML(textContent());
         }
     });
 
@@ -503,9 +530,16 @@ const MessageItem: Component<{
     });
 
     createEffect(on(() => props.messageItem.message.content, () => {
-        if (props.markdown !== true) return;
+        if (props.loading === true) return; // 在加载状态下不触发额外渲染
         // console.log(`Msg.content changed: ${props.messageItem.message.content}`);
         renderMarkdown();
+    }));
+
+    // 当加载状态从 true 变为 false 时，触发渲染
+    createEffect(on(() => props.loading, (loading, prevLoading) => {
+        if (prevLoading === true && loading === false) {
+            renderMarkdown();
+        }
     }));
 
     const VersionHooks = {
@@ -529,7 +563,7 @@ const MessageItem: Component<{
                 return {
                     icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
                     label: `v${index + 1}`,
-                    click: (_, event: MouseEvent) => {
+                    click: (_: unknown, event: MouseEvent) => {
                         const target = event.target as HTMLElement;
                         if (target.closest('.b3-menu__action')) {
                             session.delMsgItemVersion(props.messageItem.id, version);
@@ -901,9 +935,9 @@ const MessageItem: Component<{
                         'b3-typography': true,
                         [styles.hidden]: props.messageItem.hidden
                     }}
-                    style={{
-                        'white-space': props.markdown ? '' : 'pre-wrap',
-                    }}
+                    // style={{
+                    //     'white-space': props.loading ? 'pre-wrap' : '',
+                    // }}
                     innerHTML={messageAsHTML()}
                     ref={msgRef}
                 />
