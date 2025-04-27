@@ -1,7 +1,7 @@
 import { Constants } from 'siyuan';
 import styles from './MessageItem.module.scss';
 
-import { html2ele, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { debounce, getLute, html2ele, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { addScript, addStyle } from '../utils';
 
 
@@ -321,5 +321,90 @@ export const renderMathBlock = (element: HTMLElement) => {
         // 可以在这里添加错误处理逻辑，比如显示错误提示
         element.innerHTML = `<span style="color: red;">Error rendering formula: ${error.message}</span>`;
     }
+}
+
+/**
+ * Hook for rendering markdown with support for streaming content
+ * Provides an elegant API for rendering markdown in components
+ */
+export function createMarkdownRenderer() {
+    let lute = getLute();
+    /**
+     * Run post-processors for code blocks and math formulas
+     */
+    const runPostProcessors = async (contentRef: HTMLElement) => {
+        if (!contentRef) return;
+
+        // Process code blocks
+        const codeBlocks = contentRef.querySelectorAll('pre>code');
+        if (codeBlocks.length > 0) {
+            if (!window.hljs) {
+                await initHljs();
+            }
+            if (window.hljs) {
+                codeBlocks.forEach((ele: HTMLElement) => {
+                    renderCodeblock(ele);
+                });
+            }
+        }
+
+        // Process math formulas
+        const mathElements: HTMLElement[] = Array.from(contentRef.querySelectorAll('.language-math'));
+        if (mathElements.length > 0) {
+            if (!window.katex) {
+                await initKatex();
+            }
+            mathElements.forEach((element) => {
+                renderMathBlock(element);
+            });
+        }
+    };
+
+    // Debounced version of runPostProcessors to avoid excessive processing
+    const renderHTMLBlock = debounce(runPostProcessors, 50);
+
+    /**
+     * Render markdown content to HTML
+     * 
+     * @param text The markdown text to render
+     * @param isLoading Whether the content is still loading/streaming
+     * @param lute The Lute instance for markdown rendering
+     * @param streamingClass CSS class for streaming text
+     * @returns Rendered HTML
+     */
+    const renderMarkdown = (
+        text: string,
+        isLoading: boolean = false
+    ): string => {
+        if (!text) return '';
+
+        // If content is loading, use streaming mode
+        if (isLoading) {
+            const { renderablePart, remainingPart } = splitMarkdownForStreaming(text);
+
+            // Render the safe part as markdown
+            let html = '';
+            if (renderablePart) {
+                //@ts-ignore
+                html = lute.Md2HTML(renderablePart);
+            }
+
+            // Add the remaining part as escaped HTML
+            if (remainingPart) {
+                html += `<div class="${styles.streamingText || ''}">${window.Lute.EscapeHTMLStr(remainingPart)}</div>`;
+            }
+            return html;
+        } else {
+            // Regular rendering for complete content
+            //@ts-ignore
+            const html = lute.Md2HTML(text);
+            return html;
+        }
+    };
+
+    return {
+        renderMarkdown,
+        renderHTMLBlock
+    };
 }
 

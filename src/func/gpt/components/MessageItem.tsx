@@ -1,5 +1,5 @@
 import { Component, createEffect, createMemo, createSignal, on, Show } from 'solid-js';
-import { debounce, formatDateTime, getLute, inputDialog } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, getLute, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { confirm, Menu } from "siyuan";
 
 import styles from './MessageItem.module.scss';
@@ -15,7 +15,7 @@ import { createSignalRef } from '@frostime/solid-signal-ref';
 import { ButtonInput } from '@/libs/components/Elements';
 import { floatingEditor } from '@/libs/components/floating-editor';
 
-import { splitMarkdownForStreaming, renderCodeblock, renderMathBlock, initHljs, initKatex } from './MessageItem.helper';
+import { createMarkdownRenderer } from './MessageItem.helper';
 
 
 const MessageVersionView: Component<{
@@ -241,54 +241,11 @@ const MessageItem: Component<{
 }> = (props) => {
 
     let lute = getLute();
-
     let msgRef: HTMLDivElement;
-
     const { session } = useSimpleContext();
 
-    const renderCode = async () => {
-        const codeBlocks = msgRef.querySelectorAll('pre>code');
-        if (codeBlocks.length === 0) {
-            return;
-        }
-        if (!window.hljs) {
-            await initHljs();
-        }
-        if (window.hljs) {
-            codeBlocks.forEach((ele: HTMLElement) => {
-                renderCodeblock(ele);
-            });
-        }
-    }
-
-    const renderMath = async () => {
-        let mathElements: HTMLElement[] = Array.from(msgRef.querySelectorAll('.language-math'));
-
-        if (mathElements.length === 0) {
-            return;
-        }
-
-        if (!window.katex) {
-            await initKatex();
-        }
-
-        // 遍历所有数学公式元素并渲染
-        mathElements.forEach((element) => {
-            renderMathBlock(element);
-        });
-    }
-
-    const runMdRenderer = () => {
-        renderCode();
-        renderMath();
-    }
-
-    /**
-     * 额外用来渲染 Markdown 中需要特别处理的公式、代码块等部分
-     */
-    const renderMarkdown = debounce(() => {
-        runMdRenderer();
-    }, 50);
+    // Create markdown renderer hook
+    const markdownRenderer = createMarkdownRenderer();
 
     const textContent = createMemo(() => {
         let { text } = adaptIMessageContent(props.messageItem.message.content);
@@ -327,39 +284,14 @@ const MessageItem: Component<{
         return images;
     });
 
-    // 分割流式内容为可渲染部分和剩余部分
-    const splitContent = createMemo(() => {
-        // 只在加载状态下进行分割
-        if (!props.loading) {
-            return { renderablePart: textContent(), remainingPart: '' };
-        }
-
-        return splitMarkdownForStreaming(textContent());
-    });
-
+    // Use the hook to render markdown
     const messageAsHTML = createMemo(() => {
-        // 如果是加载状态，使用分割后的内容
-        if (props.loading) {
-            const { renderablePart, remainingPart } = splitContent();
-
-            // 渲染可安全渲染的部分为 Markdown
-            let html = '';
-            if (renderablePart) {
-                //@ts-ignore
-                html = lute.Md2HTML(renderablePart);
-            }
-
-            // 如果有剩余部分，添加为纯文本
-            if (remainingPart) {
-                html += `<div class="${styles.streamingText}">${window.Lute.EscapeHTMLStr(remainingPart)}</div>`;
-            }
-
-            return html;
-        } else {
-            // 非加载状态，按照原来的逻辑处理
-            //@ts-ignore
-            return lute.Md2HTML(textContent());
-        }
+        const currentText = textContent();
+        const html = markdownRenderer.renderMarkdown(
+            currentText,
+            props.loading
+        );
+        return html;
     });
 
     const msgLength = createMemo(() => {
@@ -368,15 +300,16 @@ const MessageItem: Component<{
     });
 
     createEffect(on(() => props.messageItem.message.content, () => {
-        if (props.loading === true) return; // 在加载状态下不触发额外渲染
+        if (props.loading === true) return; // 在加载状态下不触发额外渲染; 主要给 edit message 导致消息发生变更的情况使用
         // console.log(`Msg.content changed: ${props.messageItem.message.content}`);
-        renderMarkdown();
+        markdownRenderer.renderHTMLBlock(msgRef);
     }));
 
-    // 当加载状态从 true 变为 false 时，触发渲染
+    // 当加载状态从 true 变为 false 时，触发渲染并重置状态
     createEffect(on(() => props.loading, (loading, prevLoading) => {
         if (prevLoading === true && loading === false) {
-            renderMarkdown();
+            // 触发完整渲染
+            markdownRenderer.renderHTMLBlock(msgRef);
         }
     }));
 
