@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-03-30 22:00:38
+ * @LastEditTime : 2025-04-28 17:28:05
  * @Description  : 
  */
 import type FMiscPlugin from "@/index";
@@ -362,7 +362,8 @@ export const load = async (plugin: FMiscPlugin) => {
     addSVG(plugin);
 
     await persist.restoreCache();
-    window.addEventListener('beforeunload', persist.saveCache);
+    await persist.updateCacheFile();
+    window.addEventListener('beforeunload', persist.updateCacheFile);
 
     //#if [PRIVATE_ADD]
     globalThis.fmisc['gpt'] = {
@@ -377,8 +378,8 @@ export const unload = async (plugin: FMiscPlugin) => {
     clickEvent.dispose();
     plugin.eventBus.off('open-siyuan-url-plugin', openUrl);
 
-    await persist.saveCache();
-    window.removeEventListener('beforeunload', persist.saveCache)
+    await persist.updateCacheFile();
+    window.removeEventListener('beforeunload', persist.updateCacheFile)
 
     //#if [PRIVATE_ADD]
     globalThis.fmisc && delete globalThis.fmisc['gpt']

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-04-06 14:05:33
+ * @LastEditTime : 2025-04-28 17:09:54
  * @Description  :
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
@@ -278,7 +278,7 @@ const ChatSession: Component<{
     }));
 
     const newChatSession = (history?: Partial<IChatSessionHistory>) => {
-        if (session.messages().length > 0) {
+        if (session.messages().length > 0 && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
         session.newSession();
@@ -328,7 +328,7 @@ const ChatSession: Component<{
 
     onCleanup(() => {
         siyuanEditor.cleanUp();
-        if (session.messages().length > 0) {
+        if (session.messages().length > 0 && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
     });

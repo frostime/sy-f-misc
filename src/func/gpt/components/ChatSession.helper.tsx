@@ -677,6 +677,9 @@ ${inputContent}
         attachments,
         contexts,
         sessionTags,
+        hasUpdated: () => {
+            return updated > timestamp;
+        },
         msgId2Index,
         addAttachment,
         removeAttachment,
