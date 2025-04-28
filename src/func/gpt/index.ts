@@ -12,7 +12,7 @@ import { inputDialog, openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-
 
 import { render } from "solid-js/web";
 
-import ChatSession from "./components/ChatSession";
+import ChatSession from "./chat/ChatSession";
 import { translateHotkey } from "@/libs/hotkey";
 import * as setting from "./setting";
 import { ISignalRef, useSignalRef } from "@frostime/solid-signal-ref";
@@ -21,7 +21,7 @@ import { id2block } from "./utils";
 import * as persist from './persistence';
 import { showMessage } from "siyuan";
 import { solidDialog } from "@/libs/dialog";
-import HistoryList from "./components/HistoryList";
+import HistoryList from "./chat/HistoryList";
 import { globalMiscConfigs } from "./setting/store";
 import { showMessageLog } from "./MessageLogger";
 

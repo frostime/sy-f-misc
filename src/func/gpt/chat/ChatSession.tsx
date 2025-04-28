@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
- * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-04-28 17:09:54
+ * @FilePath     : /src/func/gpt/chat/ChatSession.tsx
+ * @LastEditTime : 2025-04-28 18:18:27
  * @Description  :
  */
 import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch } from 'solid-js';
