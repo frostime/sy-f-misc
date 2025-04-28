@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-04-27 22:29:01
+ * @LastEditTime : 2025-04-27 22:31:43
  * @Description  :
  */
 import type { Plugin } from "siyuan";
@@ -28,7 +28,7 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     convertMathSyntax: true,
     maxInputLenForAutoTitle: 500,
     autoTitleModelId: '',
-    renderInStreamMode: false, // 默认在 stream 模式下渲染 markdown
+    renderInStreamMode: true, // 默认在 stream 模式下渲染 markdown
     chatOption: {
         temperature: 0.7,
         stream: true,

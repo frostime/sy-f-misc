@@ -368,7 +368,7 @@ export function createMarkdownRenderer() {
     /**
      * Render markdown content to HTML
      *
-     * @param text The markdown text to render
+     * @param text The markdown text to render, in streaming mode, this will be the full lastest response content
      * @param isLoading Whether the content is still loading/streaming
      * @param lute The Lute instance for markdown rendering
      * @param streamingClass CSS class for streaming text
