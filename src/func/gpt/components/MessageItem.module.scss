@@ -345,7 +345,8 @@ $chat-very-narrow-container: 400px;
 }
 
 .streamingText {
-    font-family: var(--b3-font-family-code);
+    // font-family: var(--b3-font-family-code);
+    // font-size: 90%;
     padding: 8px 0;
     margin-top: 8px;
     border-top: 1px dashed var(--b3-border-color);
