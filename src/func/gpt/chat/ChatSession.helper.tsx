@@ -12,10 +12,10 @@ import * as gpt from '@gpt/openai';
 import { ChatSetting } from '@gpt/setting';
 import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '@gpt/setting/store';
 import {
-  adaptIMessageContent,
-  mergeInputWithContext,
-  applyMsgItemVersion,
-  stageMsgItemVersion
+    adaptIMessageContent,
+    mergeInputWithContext,
+    applyMsgItemVersion,
+    stageMsgItemVersion
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
 
@@ -34,37 +34,13 @@ export {
 }
 
 /**
- *
+ * 消息管理相关的 hook
  */
-export const useSession = (props: {
-    model: Accessor<IGPTModel>;
-    config: IStoreRef<IChatSessionConfig>;
-    scrollToBottom: (force?: boolean) => void;
+const useMessageManagement = (params: {
+    messages: IStoreRef<IChatSessionMsgItem[]>;
+    contexts: IStoreRef<IProvidedContext[]>;
 }) => {
-    let sessionId = useSignalRef<string>(window.Lute.NewNodeID());
-
-    const systemPrompt = useSignalRef<string>(globalMiscConfigs().defaultSystemPrompt || '');
-    // 当前的 attachments
-    const attachments = useSignalRef<Blob[]>([]);
-    const contexts = useStoreRef<IProvidedContext[]>([]);
-
-    let timestamp = new Date().getTime();
-    let updated = timestamp; // Initialize updated time to match creation time
-    const title = useSignalRef<string>('新的对话');
-    const messages = useStoreRef<IChatSessionMsgItem[]>([]);
-    const sessionTags = useStoreRef<string[]>([]);
-    const loading = useSignalRef<boolean>(false);
-    // const streamingReply = useSignalRef<string>('');
-
-    const msgId2Index = createMemo(() => {
-        let map = new Map<string, number>();
-        messages().forEach((item, index) => {
-            map.set(item.id, index);
-        });
-        return map;
-    });
-
-    let hasStarted = false;
+    const { messages, contexts } = params;
 
     const newID = () => {
         return window.Lute.NewNodeID();
@@ -122,7 +98,7 @@ export const useSession = (props: {
             versions: {},
             ...optionalFields
         }]);
-        updated = new Date().getTime(); // Update the updated time when adding a message
+        return timestamp;
     }
 
     /**
@@ -207,21 +183,6 @@ export const useSession = (props: {
         });
     }
 
-    const setContext = (context: IProvidedContext) => {
-        const currentIds = contexts().map(c => c.id);
-        if (currentIds.includes(context.id)) {
-            const index = currentIds.indexOf(context.id);
-            contexts.update(index, context);
-        } else {
-            contexts.update(prev => [...prev, context]);
-        }
-    }
-
-    const delContext = (id: IProvidedContext['id']) => {
-        contexts.update(prev => prev.filter(c => c.id !== id));
-    }
-
-
     const toggleSeperator = (index?: number) => {
         if (messages().length === 0) return;
 
@@ -268,26 +229,142 @@ export const useSession = (props: {
         }
     }
 
-    // const appendSeperator = toggleSeperator;
-
-    // const removeSeperator = () => {
-    //     if (messages().length === 0) return;
-    //     const last = messages()[messages().length - 1];
-    //     if (last.type === 'seperator') {
-    //         messages.update(prev => prev.slice(0, -1));
-    //     }
-    // }
-
     const toggleSeperatorAt = (index: number) => {
         if (index < 0 || index >= messages().length) return;
         toggleSeperator(index);
     }
 
+    const toggleHidden = (index: number, value?: boolean) => {
+        if (index < 0 || index >= messages().length) return;
+        const targetMsg = messages()[index];
+        if (targetMsg.type !== 'message') return;
+        messages.update(index, 'hidden', value ?? !targetMsg.hidden);
+    }
+
+    const switchMsgItemVersion = (itemId: string, version: string) => {
+        const index = messages().findIndex(item => item.id === itemId);
+        if (index === -1) return;
+        const msgItem = messages()[index];
+        if (msgItem.currentVersion === version) return;
+        if (!msgItem.versions) return;
+        if (Object.keys(msgItem.versions).length <= 1) return;
+        const msgContent = msgItem.versions[version];
+        if (!msgContent) return;
+        messages.update(index, (prev: IChatSessionMsgItem) => {
+            const copied = structuredClone(prev);
+            return applyMsgItemVersion(copied, version);
+        });
+        return new Date().getTime(); // Return updated timestamp
+    }
+
+    const delMsgItemVersion = (itemId: string, version: string, autoSwitch = true) => {
+        const index = messages().findIndex(item => item.id === itemId);
+        if (index === -1) return;
+        const msgItem = messages()[index];
+        let switchFun = () => { };
+        if (!msgItem.versions || msgItem.versions[version] === undefined) {
+            showMessage('此版本不存在');
+            return;
+        }
+        if (msgItem.currentVersion === version) {
+            const versionLists = Object.keys(msgItem.versions);
+            if (versionLists.length <= 1) {
+                showMessage('当前版本不能删除');
+                return;
+            } else if (autoSwitch) {
+                const idx = versionLists.indexOf(version);
+                const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
+                switchFun = () => switchMsgItemVersion(itemId, versionLists[newIdx]);
+            }
+        }
+
+        let updatedTimestamp;
+        batch(() => {
+            updatedTimestamp = switchFun();
+            messages.update(index, (item: IChatSessionMsgItem) => {
+                if (item.versions?.[version] !== undefined) {
+                    delete item.versions[version];
+                }
+                return item;
+            });
+            if (!updatedTimestamp) {
+                updatedTimestamp = new Date().getTime();
+            }
+        });
+
+        return updatedTimestamp;
+    }
+
+    return {
+        newID,
+        appendUserMsg,
+        updateUserMsgContext,
+        toggleSeperator,
+        toggleSeperatorAt,
+        toggleHidden,
+        switchMsgItemVersion,
+        delMsgItemVersion
+    };
+};
+
+/**
+ * 上下文和附件管理相关的 hook
+ */
+const useContextAndAttachments = (params: {
+    contexts: IStoreRef<IProvidedContext[]>;
+    attachments: ReturnType<typeof useSignalRef<Blob[]>>;
+}) => {
+    const { contexts, attachments } = params;
+
+    const setContext = (context: IProvidedContext) => {
+        const currentIds = contexts().map(c => c.id);
+        if (currentIds.includes(context.id)) {
+            const index = currentIds.indexOf(context.id);
+            contexts.update(index, context);
+        } else {
+            contexts.update(prev => [...prev, context]);
+        }
+    }
+
+    const delContext = (id: IProvidedContext['id']) => {
+        contexts.update(prev => prev.filter(c => c.id !== id));
+    }
+
+    const removeAttachment = (attachment: Blob) => {
+        attachments.update((prev: Blob[]) => prev.filter((a: Blob) => a !== attachment));
+    }
+
+    const addAttachment = (blob: Blob) => {
+        attachments.update((prev: Blob[]) => [...prev, blob]);
+    }
+
+    return {
+        setContext,
+        delContext,
+        removeAttachment,
+        addAttachment
+    };
+};
+
+/**
+ * GPT 通信相关的 hook
+ */
+const useGptCommunication = (params: {
+    model: Accessor<IGPTModel>;
+    config: IStoreRef<IChatSessionConfig>;
+    messages: IStoreRef<IChatSessionMsgItem[]>;
+    systemPrompt: ReturnType<typeof useSignalRef<string>>;
+    loading: ReturnType<typeof useSignalRef<boolean>>;
+    newID: () => string;
+    getAttachedHistory: (itemNum?: number, fromIndex?: number) => IMessage[];
+}) => {
+    const { model, config, messages, systemPrompt, loading, newID, getAttachedHistory } = params;
+
     let controller: AbortController;
 
     // src/func/gpt/components/ChatSession.tsx
     const gptOption = () => {
-        let option = { ...props.config().chatOption };
+        let option = { ...config().chatOption };
         return option;
     }
 
@@ -297,10 +374,10 @@ export const useSession = (props: {
         chatOption?: Partial<IChatOption>;
     }) => {
         try {
-            const model = options?.model ?? props.model();
+            const modelToUse = options?.model ?? model();
             const baseOption = gptOption();
             const { content } = await gpt.complete(messageToSend, {
-                model: model,
+                model: modelToUse,
                 option: options?.chatOption ? { ...baseOption, ...options.chatOption } : baseOption,
                 stream: options?.stream ?? false,
             });
@@ -311,12 +388,12 @@ export const useSession = (props: {
     }
 
     const autoGenerateTitle = async () => {
-        let attachedHistory = props.config().attachedHistory;
+        let attachedHistory = config().attachedHistory;
         attachedHistory = Math.max(attachedHistory, 0);
         attachedHistory = Math.min(attachedHistory, 6);
         const histories = getAttachedHistory(attachedHistory);
         if (histories.length == 0) return;
-        let sizeLimit = props.config().maxInputLenForAutoTitle;
+        let sizeLimit = config().maxInputLenForAutoTitle;
         let averageLimit = Math.floor(sizeLimit / histories.length);
 
         let inputContent = histories.map(item => {
@@ -332,13 +409,13 @@ export const useSession = (props: {
 ---
 ${inputContent}
 `.trim();
-        let autoTitleModel = props.config().autoTitleModelId;
-        let model = null;
+        let autoTitleModel = config().autoTitleModelId;
+        let modelToUse = null;
         if (autoTitleModel) {
-            model = useModel(autoTitleModel);
+            modelToUse = useModel(autoTitleModel);
         }
         const newTitle = await customComplete(messageToSend, {
-            model,
+            model: modelToUse,
             stream: false,
             chatOption: {
                 'max_tokens': 128,
@@ -348,9 +425,7 @@ ${inputContent}
                 'top_p': null
             }
         });
-        if (newTitle?.trim()) {
-            title.update(newTitle.trim());
-        }
+        return newTitle?.trim();
     }
 
     /**
@@ -381,12 +456,12 @@ ${inputContent}
         }
 
         loading.update(true);
-        // props.scrollToBottom(); //不要滚动到最底部
+        // scrollToBottom(); //不要滚动到最底部
 
         try {
             controller = new AbortController();
-            const msgToSend = getAttachedHistory(props.config().attachedHistory, atIndex);
-            let model = props.model();
+            const msgToSend = getAttachedHistory(config().attachedHistory, atIndex);
+            let modelToUse = model();
             let option = gptOption();
             // 更新或插入 assistant 消息
             const nextIndex = atIndex + 1;
@@ -411,7 +486,7 @@ ${inputContent}
                         type: 'message',
                         id: newID(),
                         timestamp: timestamp,
-                        author: model.model,
+                        author: modelToUse.model,
                         loading: true,
                         message: {
                             role: 'assistant',
@@ -425,13 +500,13 @@ ${inputContent}
             }
 
             const { content, usage, reasoning_content } = await gpt.complete(msgToSend, {
-                model: model,
+                model: modelToUse,
                 systemPrompt: systemPrompt().trim() || undefined,
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
                     messages.update(nextIndex, 'message', 'content', msg);
-                    // props.scrollToBottom();
+                    // scrollToBottom();
                 },
                 abortControler: controller,
                 option: option,
@@ -452,7 +527,7 @@ ${inputContent}
                     ...msgItem,
                     loading: false,
                     message: newMessageContent,
-                    author: model.model,
+                    author: modelToUse.model,
                     timestamp: new Date().getTime(),
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
@@ -477,7 +552,7 @@ ${inputContent}
                 });
             }
 
-            // props.scrollToBottom(); rerun, 不需要滚动到底部
+            // scrollToBottom(); rerun, 不需要滚动到底部
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -486,34 +561,32 @@ ${inputContent}
         }
     };
 
-    const removeAttachment = (attachment: Blob) => {
-        attachments.update(prev => prev.filter(a => a !== attachment));
-    }
-
-    const addAttachment = (blob: Blob) => {
-        attachments.update(prev => [...prev, blob]);
-    }
-
     /**
      * 发送用户消息
      * @param userMessage 用户消息
      * @param options 选项
      * @param options.tavily 是否启用 Tavily 网络搜索
      */
-    const sendMessage = async (userMessage: string, options?: {
-        tavily?: boolean;
-    }) => {
-        if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
+    const sendMessage = async (
+        userMessage: string,
+        attachments: Blob[],
+        contexts: IProvidedContext[],
+        scrollToBottom?: (force?: boolean) => void,
+        options?: {
+            tavily?: boolean;
+        }
+    ) => {
+        if (!userMessage.trim() && attachments.length === 0 && contexts.length === 0) return;
 
         let sysPrompt = systemPrompt().trim() || '';
 
-        await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
+        // 这里不再调用 appendUserMsg，而是由外部调用
         loading.update(true);
 
         try {
             controller = new AbortController();
             const msgToSend = getAttachedHistory();
-            let model = props.model();
+            let modelToUse = model();
             let option = gptOption();
 
             // 添加助手消息占位
@@ -522,29 +595,25 @@ ${inputContent}
                 id: newID(),
                 token: null,
                 message: { role: 'assistant', content: '' },
-                author: model.model,
+                author: modelToUse.model,
                 timestamp: new Date().getTime(),
                 loading: true,
                 versions: {}
             };
             messages.update(prev => [...prev, assistantMsg]);
-            updated = new Date().getTime(); // Update the updated time when adding a message
+            const updatedTimestamp = new Date().getTime(); // Update the updated time when adding a message
 
-            // props.scrollToBottom();
-
-            // Clear attachments after sending
-            attachments.update([]);
-            contexts.update([]);
+            // scrollToBottom();
 
             const lastIdx = messages().length - 1;
             const { content, usage, reasoning_content } = await gpt.complete(msgToSend, {
-                model: model,
+                model: modelToUse,
                 systemPrompt: sysPrompt || undefined,
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
                     messages.update(lastIdx, 'message', 'content', msg);
-                    props.scrollToBottom(false);  // 不强制滚动，尊重用户的滚动位置
+                    scrollToBottom && scrollToBottom(false);  // 不强制滚动，尊重用户的滚动位置
                 },
                 abortControler: controller,
                 option: option,
@@ -566,7 +635,7 @@ ${inputContent}
                     ...updated[lastIdx],
                     loading: false,
                     message: newMessageContent,
-                    author: model.model,
+                    author: modelToUse.model,
                     timestamp: new Date().getTime(),
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0),
@@ -587,17 +656,12 @@ ${inputContent}
                 });
             }
 
-            // props.scrollToBottom(false);
+            // scrollToBottom(false);
 
-            if (!hasStarted) {
-                hasStarted = true;
-                if (messages().length <= 2) {
-                    setTimeout(autoGenerateTitle, 100);
-                }
-            }
-
+            return { updatedTimestamp, hasResponse: true };
         } catch (error) {
             console.error('Error:', error);
+            return { updatedTimestamp: new Date().getTime(), hasResponse: false };
         } finally {
             loading.update(false);
             controller = null;
@@ -610,13 +674,58 @@ ${inputContent}
         }
     }
 
-    const toggleHidden = (index: number, value?: boolean) => {
-        if (index < 0 || index >= messages().length) return;
-        const targetMsg = messages()[index];
-        if (targetMsg.type !== 'message') return;
-        messages.update(index, 'hidden', value ?? !targetMsg.hidden);
+    return {
+        gptOption,
+        customComplete,
+        autoGenerateTitle,
+        reRunMessage,
+        sendMessage,
+        abortMessage
+    };
+};
+
+/**
+ * 主会话 hook
+ */
+export const useSession = (props: {
+    model: Accessor<IGPTModel>;
+    config: IStoreRef<IChatSessionConfig>;
+    scrollToBottom: (force?: boolean) => void;
+}) => {
+    let sessionId = useSignalRef<string>(window.Lute.NewNodeID());
+
+    const systemPrompt = useSignalRef<string>(globalMiscConfigs().defaultSystemPrompt || '');
+    // 当前的 attachments
+    const attachments = useSignalRef<Blob[]>([]);
+    const contexts = useStoreRef<IProvidedContext[]>([]);
+
+    let timestamp = new Date().getTime();
+    let updated = timestamp; // Initialize updated time to match creation time
+    const title = useSignalRef<string>('新的对话');
+    const messages = useStoreRef<IChatSessionMsgItem[]>([]);
+    const sessionTags = useStoreRef<string[]>([]);
+    const loading = useSignalRef<boolean>(false);
+    // const streamingReply = useSignalRef<string>('');
+
+    const renewUpdatedTimestamp = () => {
+        updated = new Date().getTime();
     }
 
+    const msgId2Index = createMemo(() => {
+        let map = new Map<string, number>();
+        messages().forEach((item, index) => {
+            map.set(item.id, index);
+        });
+        return map;
+    });
+
+    let hasStarted = false;
+
+    const newID = () => {
+        return window.Lute.NewNodeID();
+    }
+
+    // 获取历史消息的函数
     const getAttachedHistory = (itemNum?: number, fromIndex?: number) => {
         if (itemNum === undefined) {
             itemNum = props.config().attachedHistory;
@@ -676,6 +785,167 @@ ${inputContent}
         return [...attachedMessages, targetMessage].map(item => item.message!);
     }
 
+    // 使用消息管理 hook
+    const {
+        appendUserMsg: appendUserMsgInternal,
+        // updateUserMsgContext,
+        toggleSeperator,
+        toggleSeperatorAt,
+        toggleHidden,
+        switchMsgItemVersion,
+        delMsgItemVersion
+    } = useMessageManagement({
+        messages,
+        contexts
+    });
+
+    // 使用上下文和附件管理 hook
+    const {
+        setContext,
+        delContext,
+        removeAttachment,
+        addAttachment
+    } = useContextAndAttachments({
+        contexts,
+        attachments
+    });
+
+    // 使用 GPT 通信 hook
+    const {
+        // gptOption,
+        // customComplete,
+        autoGenerateTitle: autoGenerateTitleInternal,
+        reRunMessage: reRunMessageInternal,
+        sendMessage: sendMessageInternal,
+        abortMessage
+    } = useGptCommunication({
+        model: props.model,
+        config: props.config,
+        messages,
+        systemPrompt,
+        loading,
+        newID,
+        getAttachedHistory
+    });
+
+    // 包装 appendUserMsg 以更新 updated 时间戳
+    const appendUserMsg = async (msg: string, images?: Blob[], contexts?: IProvidedContext[]) => {
+        const timestamp = await appendUserMsgInternal(msg, images, contexts);
+        renewUpdatedTimestamp();
+        return timestamp;
+    }
+
+    // 包装 autoGenerateTitle 以更新标题
+    const autoGenerateTitle = async () => {
+        const newTitle = await autoGenerateTitleInternal();
+        if (newTitle?.trim()) {
+            title.update(newTitle.trim());
+        }
+    }
+
+    // 包装 reRunMessage 以传递 scrollToBottom
+    const reRunMessage = async (atIndex: number) => {
+        await reRunMessageInternal(atIndex);
+        renewUpdatedTimestamp();
+    }
+
+    // 包装 sendMessage 以处理用户消息和更新状态
+    const sendMessage = async (userMessage: string, options?: {
+        tavily?: boolean;
+    }) => {
+        if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
+
+        await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
+
+        const result = await sendMessageInternal(
+            userMessage,
+            attachments(),
+            [...contexts.unwrap()],
+            props.scrollToBottom,
+            options
+        );
+
+        if (result?.updatedTimestamp) {
+            renewUpdatedTimestamp();
+        }
+
+        // Clear attachments after sending
+        attachments.update([]);
+        contexts.update([]);
+
+        if (!hasStarted && result?.hasResponse) {
+            hasStarted = true;
+            if (messages().length <= 2) {
+                setTimeout(autoGenerateTitle, 100);
+            }
+        }
+    }
+
+    // 定义 hooks 对象中需要的函数
+    const toggleNewThread = () => {
+        toggleSeperator();
+        props.scrollToBottom();
+    }
+
+    const checkAttachedContext = (index?: number) => {
+        if (index === undefined || index < 0 || index >= messages().length) {
+            // 临时插入一个虚假的消息
+            let tempId = window.Lute.NewNodeID();
+            //@ts-ignore
+            messages.update(prev => [...prev, {
+                type: '',  // 临时加入的虚假消息
+                id: tempId,
+                message: { role: 'user', content: '' },
+                author: props.model().model,
+                timestamp: new Date().getTime(),
+                loading: false
+            }]);
+            let attached = getAttachedHistory(props.config().attachedHistory);
+            //删掉临时插入的消息
+            messages.update(prev => prev.filter(item => item.id !== tempId));
+            return attached;
+        }
+        return getAttachedHistory(props.config().attachedHistory, index);
+    }
+
+    // 定义 sessionHistory 函数
+    const sessionHistory = (): IChatSessionHistory => {
+        return {
+            id: sessionId(),
+            timestamp,
+            updated,
+            title: title(),
+            items: messages.unwrap(),
+            sysPrompt: systemPrompt(),
+            tags: sessionTags()
+        }
+    }
+
+    // 定义 applyHistory 函数
+    const applyHistory = (history: Partial<IChatSessionHistory>) => {
+        history.id && (sessionId.value = history.id);
+        history.title && (title.update(history.title));
+        history.timestamp && (timestamp = history.timestamp);
+        history.updated && (updated = history.updated);
+        history.items && (messages.update(history.items));
+        history.sysPrompt && (systemPrompt.update(history.sysPrompt));
+        history.tags && (sessionTags.update(history.tags));
+    }
+
+    // 定义 newSession 函数
+    const newSession = () => {
+        sessionId.value = window.Lute.NewNodeID();
+        // systemPrompt.update('');
+        systemPrompt.value = globalMiscConfigs().defaultSystemPrompt || '';
+        timestamp = new Date().getTime();
+        updated = timestamp; // Reset updated time to match creation time
+        title.update('新的对话');
+        messages.update([]);
+        sessionTags.update([]);
+        loading.update(false);
+        hasStarted = false;
+    }
+
     const hooks = {
         sessionId,
         systemPrompt,
@@ -699,107 +969,18 @@ ${inputContent}
         abortMessage,
         toggleHidden,
         toggleSeperatorAt,
-        toggleNewThread: () => {
-            toggleSeperator();
-            props.scrollToBottom();
-        },
-        checkAttachedContext: (index?: number) => {
-            if (index === undefined || index < 0 || index >= messages().length) {
-                // 临时插入一个虚假的消息
-                let tempId = window.Lute.NewNodeID();
-                //@ts-ignore
-                messages.update(prev => [...prev, {
-                    type: '',  // 临时加入的虚假消息
-                    id: tempId,
-                    message: { role: 'user', content: '' },
-                    author: props.model().model,
-                    timestamp: new Date().getTime(),
-                    loading: false
-                }]);
-                let attached = getAttachedHistory(props.config().attachedHistory);
-                //删掉临时插入的消息
-                messages.update(prev => prev.filter(item => item.id !== tempId));
-                return attached;
-            }
-            return getAttachedHistory(props.config().attachedHistory, index);
-        },
-        sessionHistory: (): IChatSessionHistory => {
-            return {
-                id: sessionId(),
-                timestamp,
-                updated,
-                title: title(),
-                items: messages.unwrap(),
-                sysPrompt: systemPrompt(),
-                tags: sessionTags()
-            }
-        },
-        applyHistory: (history: Partial<IChatSessionHistory>) => {
-            history.id && (sessionId.value = history.id);
-            history.title && (title.update(history.title));
-            history.timestamp && (timestamp = history.timestamp);
-            history.updated && (updated = history.updated);
-            history.items && (messages.update(history.items));
-            history.sysPrompt && (systemPrompt.update(history.sysPrompt));
-            history.tags && (sessionTags.update(history.tags));
-        },
-        newSession: () => {
-            sessionId.value = window.Lute.NewNodeID();
-            // systemPrompt.update('');
-            systemPrompt.value = globalMiscConfigs().defaultSystemPrompt || '';
-            timestamp = new Date().getTime();
-            updated = timestamp; // Reset updated time to match creation time
-            title.update('新的对话');
-            messages.update([]);
-            sessionTags.update([]);
-            loading.update(false);
-            hasStarted = false;
-        },
+        toggleNewThread,
+        checkAttachedContext,
+        sessionHistory,
+        applyHistory,
+        newSession,
         switchMsgItemVersion: (itemId: string, version: string) => {
-            const index = messages().findIndex(item => item.id === itemId);
-            if (index === -1) return;
-            const msgItem = messages()[index];
-            if (msgItem.currentVersion === version) return;
-            if (!msgItem.versions) return;
-            if (Object.keys(msgItem.versions).length <= 1) return;
-            const msgContent = msgItem.versions[version];
-            if (!msgContent) return;
-            messages.update(index, (prev: IChatSessionMsgItem) => {
-                const copied = structuredClone(prev);
-                return applyMsgItemVersion(copied, version);
-            });
-            updated = new Date().getTime(); // Update the updated time when updating a message
+            switchMsgItemVersion(itemId, version);
+            renewUpdatedTimestamp();
         },
         delMsgItemVersion: (itemId: string, version: string, autoSwitch = true) => {
-            const index = messages().findIndex(item => item.id === itemId);
-            if (index === -1) return;
-            const msgItem = messages()[index];
-            let switchFun = () => { };
-            if (!msgItem.versions || msgItem.versions[version] === undefined) {
-                showMessage('此版本不存在');
-                return;
-            }
-            if (msgItem.currentVersion === version) {
-                const versionLists = Object.keys(msgItem.versions);
-                if (versionLists.length <= 1) {
-                    showMessage('当前版本不能删除');
-                    return;
-                } else if (autoSwitch) {
-                    const idx = versionLists.indexOf(version);
-                    const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
-                    switchFun = () => hooks.switchMsgItemVersion(itemId, versionLists[newIdx]);
-                }
-            }
-            batch(() => {
-                switchFun();
-                messages.update(index, (item: IChatSessionMsgItem) => {
-                    if (item.versions?.[version] !== undefined) {
-                        delete item.versions[version];
-                    }
-                    return item;
-                });
-                updated = new Date().getTime(); // Update the updated time when updating a message
-            })
+            delMsgItemVersion(itemId, version, autoSwitch);
+            renewUpdatedTimestamp();
         }
     }
     return hooks;
