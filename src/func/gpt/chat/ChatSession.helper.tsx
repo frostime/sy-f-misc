@@ -1,15 +1,23 @@
+// External libraries
 import { showMessage } from 'siyuan';
 import { Accessor, batch, createMemo } from 'solid-js';
 import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+
+// Local components and utilities
 import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
 
-import { ChatSetting } from '../setting';
-import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '../setting/store';
+// GPT-related imports
 import * as gpt from '@gpt/openai';
-import { adaptIMessageContent, mergeInputWithContext } from '../data-utils';
-import { assembleContext2Prompt } from '../context-provider';
-import { applyMsgItemVersion, stageMsgItemVersion } from '../data-utils';
+import { ChatSetting } from '@gpt/setting';
+import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '@gpt/setting/store';
+import {
+  adaptIMessageContent,
+  mergeInputWithContext,
+  applyMsgItemVersion,
+  stageMsgItemVersion
+} from '@gpt/data-utils';
+import { assembleContext2Prompt } from '@gpt/context-provider';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -26,7 +34,7 @@ export {
 }
 
 /**
- * 
+ *
  */
 export const useSession = (props: {
     model: Accessor<IGPTModel>;

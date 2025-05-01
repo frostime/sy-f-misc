@@ -10,13 +10,14 @@ import { Accessor, batch, Component, createEffect, createMemo, createSignal, For
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { confirm } from "siyuan";
 
-import styles from './SessionItemsManager.module.scss';
-import { adaptIMessageContent } from '../data-utils';
 import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 import { createSignalRef } from '@frostime/solid-signal-ref';
+
+import { adaptIMessageContent } from '@gpt/data-utils';
 import { UIConfig } from '@gpt/setting/store';
 import { type useSession } from './ChatSession.helper';
+import styles from './SessionItemsManager.module.scss';
 
 const MAX_PREVIEW_LENGTH = 1000;
 

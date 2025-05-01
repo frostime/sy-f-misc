@@ -1,7 +1,7 @@
-import { Component, For, createMemo, Show } from 'solid-js';
+import { Component, For, createMemo } from 'solid-js';
 import { simpleDialog } from '@frostime/siyuan-plugin-kits';
-import styles from './AttachmentList.module.scss';
 import { solidDialog } from '@/libs/dialog';
+import styles from './AttachmentList.module.scss';
 
 type ImageSource = Blob | string;
 

@@ -1,15 +1,16 @@
 // src/func/gpt/components/HistoryList.tsx
+import { Menu, showMessage } from "siyuan";
 import { batch, createEffect, createMemo, on, onMount, Show } from "solid-js";
-import styles from "./HistoryList.module.scss";
 import { confirmDialog, formatDateTime, openBlock } from "@frostime/siyuan-plugin-kits";
 import { useSignalRef } from "@frostime/solid-signal-ref";
-import * as persist from '../persistence';
 
 import { removeDoc } from "@/api";
-import { Menu, showMessage } from "siyuan";
 import { solidDialog } from "@/libs/dialog";
+
+import { adaptIMessageContent } from "@gpt/data-utils";
+import * as persist from '@gpt/persistence';
 import TitleTagEditor from "./TitleTagEditor";
-import { adaptIMessageContent } from "../data-utils";
+import styles from "./HistoryList.module.scss";
 
 // Helper function to determine time group
 const getTimeGroup = (timestamp: number): 'today' | 'thisWeek' | 'thisMonth' | 'older' => {

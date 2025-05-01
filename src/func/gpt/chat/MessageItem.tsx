@@ -1,19 +1,22 @@
+import { showMessage, confirm, Menu } from 'siyuan';
 import { Component, createEffect, createMemo, createSignal, on, Show } from 'solid-js';
 import { formatDateTime, getLute, inputDialog } from "@frostime/siyuan-plugin-kits";
-import { confirm, Menu } from "siyuan";
+import { createSignalRef } from '@frostime/solid-signal-ref';
+
+
+import { solidDialog } from '@/libs/dialog';
+import Markdown from '@/libs/components/Elements/Markdown';
+import { ButtonInput } from '@/libs/components/Elements';
+import { floatingEditor } from '@/libs/components/floating-editor';
+
+import { convertMathFormulas } from '@gpt/utils';
+import { adaptIMessageContent, mergeMultiVesion } from '@gpt/data-utils';
+import { defaultConfig, UIConfig } from '@gpt/setting/store';
 
 import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
-import { convertMathFormulas } from '../utils';
-import { adaptIMessageContent, mergeMultiVesion } from '../data-utils';
-import { showMessage } from 'siyuan';
-import { defaultConfig, UIConfig } from '../setting/store';
 import { type useSession, useSimpleContext } from './ChatSession.helper';
-import { solidDialog } from '@/libs/dialog';
-import Markdown from '@/libs/components/Elements/Markdown';
-import { createSignalRef } from '@frostime/solid-signal-ref';
-import { ButtonInput } from '@/libs/components/Elements';
-import { floatingEditor } from '@/libs/components/floating-editor';
+
 
 import { createMarkdownRenderer } from './MessageItem.helper';
 
