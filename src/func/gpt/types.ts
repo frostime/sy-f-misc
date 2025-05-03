@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-02-10 16:43:26
+ * @LastEditTime : 2025-05-02 16:47:37
  * @Description  :
  */
 interface IMessageContent {

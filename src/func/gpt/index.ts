@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-04-28 17:28:05
- * @Description  : 
+ * @LastEditTime : 2025-05-03 15:13:51
+ * @Description  :
  */
 import type FMiscPlugin from "@/index";
 
@@ -26,6 +26,10 @@ import { globalMiscConfigs } from "./setting/store";
 import { showMessageLog } from "./MessageLogger";
 
 import * as openai from './openai';
+
+//#if [DEV]
+import * as workflow from './workflow';
+//#endif
 
 export { openai };
 
@@ -155,7 +159,7 @@ export const openChatTab = async (reuse: boolean = true, history?: IChatSessionH
 
 /**
  * 点击文档图标时触发的事件，用于打开绑定的 GPT 记录
- * @returns 
+ * @returns
  */
 export const useSyDocClickEvent = () => {
     let disposer = () => { };
@@ -367,7 +371,18 @@ export const load = async (plugin: FMiscPlugin) => {
 
     //#if [PRIVATE_ADD]
     globalThis.fmisc['gpt'] = {
-        complete: openai.complete
+        complete: openai.complete,
+        // workflow: {
+        //     run: workflow.runWorkflow,
+        //     builtins: workflow.builtinWorkflows.default
+        // }
+    }
+    //#endif
+
+    //#if [DEV]
+    globalThis.fmisc['workflow'] = {
+        run: workflow.runWorkflow,
+        builtins: workflow.builtinWorkflows.default
     }
     //#endif
 }

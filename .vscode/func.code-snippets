@@ -61,5 +61,29 @@
 		  "};"
 		],
 		"description": "Load and unload functions for FMiscPlugin."
+	},
+	"Condition Private Add": {
+		"prefix": "private_add",
+		"body": [
+			"//#if [PRIVATE_ADD]",
+			"$1",
+			"//#endif"
+		]
+	},
+	"Condition Private Remove": {
+		"prefix": "private_remove",
+		"body": [
+			"//#if [!PRIVATE_REMOVE]",
+			"$1",
+			"//#endif"
+		]
+	},
+	"Condition Dev": {
+		"prefix": "dev",
+		"body": [
+			"//#if [DEV]",
+			"$1",
+			"//#endif"
+		]
 	}
 }
