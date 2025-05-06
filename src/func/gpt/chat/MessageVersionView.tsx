@@ -10,6 +10,7 @@ import { UIConfig } from '@gpt/setting/store';
 
 import styles from './MessageItem.module.scss';
 import { type useSession } from './ChatSession.helper';
+import { showMessage } from 'siyuan';
 
 const MessageVersionView: Component<{
     session: ReturnType<typeof useSession>;
@@ -119,6 +120,15 @@ const MessageVersionView: Component<{
                                 disabled={item.version === props.currentVersion}
                             >
                                 <svg><use href="#iconTrashcan"></use></svg>
+                            </button>
+                            <button
+                                class="b3-button b3-button--text"
+                                onclick={() => {
+                                    navigator.clipboard.writeText(versionContent(item.version)?.text);
+                                    showMessage('已复制到剪贴板');
+                                }}
+                            >
+                                <svg><use href="#iconCopy"></use></svg>
                             </button>
                             <button
                                 class="b3-button b3-button--text"

@@ -436,6 +436,109 @@ const MessageItem: Component<{
         );
     };
 
+    const ReasoningSection = () => {
+        const copyReasoningContent = (e: MouseEvent) => {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            try {
+                document.body.focus();
+                navigator.clipboard.writeText(props.messageItem.message.reasoning_content);
+                showMessage('已复制推理过程到剪贴板');
+            } catch (error) {
+                console.error('剪贴板操作失败:', error);
+                showMessage('复制失败，请重试');
+            }
+        };
+
+        return (
+            <Show when={props.messageItem.message.reasoning_content}>
+                <details class={styles.reasoningDetails}>
+                    <summary>
+                        推理过程
+                        <button
+                            class={`${styles.toolbarButton} b3-button b3-button--text`}
+                            style={{ "margin-left": "8px" }}
+                            onclick={copyReasoningContent}
+                            title="复制推理过程"
+                        >
+                            <svg><use href="#iconCopy" /></svg>
+                        </button>
+                    </summary>
+                    <div
+                        class={`${styles.reasoningContent} b3-typography`}
+                        innerHTML={
+                            // @ts-ignore
+                            lute.Md2HTML(props.messageItem.message.reasoning_content)
+                        }
+                    />
+                </details>
+            </Show>
+        );
+    };
+
+    const MessageToolbar = () => {
+        return (
+            <div class={styles.toolbar}>
+                <span data-label="timestamp">
+                    {formatDateTime(null, new Date(props.messageItem.timestamp))}
+                </span>
+                <span data-label="author">
+                    {props.messageItem.author}
+                </span>
+                <span data-label="msgLength">
+                    消息长度: {msgLength()}
+                </span>
+                <span data-label="attachedItems">
+                    {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''}
+                </span>
+                <span data-label="attachedChars">
+                    {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
+                </span>
+                <Show when={props.messageItem.token}>
+                    <span data-label="token" class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
+                </Show>
+
+                <div class="fn__flex-1" />
+
+                <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
+                <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
+                <ToolbarButton icon="iconLine" title="下方添加分隔" onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    props.toggleSeperator?.();
+                }} />
+                <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
+                <ToolbarButton
+                    icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
+                    title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
+                    onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        props.toggleHidden?.();
+                    }}
+                />
+                <ToolbarButton icon="iconTrashcan" title="删除" onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    // Ctrl + 点击
+                    if (e.ctrlKey) {
+                        deleteMessage();
+                    } else {
+                        showMessage('如果想要删除此消息，请按 Ctrl + 点击');
+                    }
+                }} />
+                <ToolbarButton icon="iconRefresh" title="重新运行" onclick={(e: MouseEvent) => {
+                    // Ctrl + 点击
+                    if (e.ctrlKey) {
+                        props.rerunIt?.();
+                    } else {
+                        showMessage('如果想要重新运行，请按 Ctrl + 点击');
+                    }
+                }} />
+            </div>
+        );
+    };
+
     return (
         <div class={styles.messageItem} data-role={props.messageItem.message.role}
             data-msg-id={props.messageItem.id}
@@ -479,18 +582,7 @@ const MessageItem: Component<{
                 <div class={styles.icon}><IconAssistant /></div>
             )}
             <div class={styles.messageContainer}>
-                <Show when={props.messageItem.message.reasoning_content}>
-                    <details class={styles.reasoningDetails}>
-                        <summary>推理过程</summary>
-                        <div
-                            class={`${styles.reasoningContent} b3-typography`}
-                            innerHTML={
-                                // @ts-ignore
-                                lute.Md2HTML(props.messageItem.message.reasoning_content)
-                            }
-                        />
-                    </details>
-                </Show>
+                <ReasoningSection />
                 <div
                     oncontextmenu={onContextMenu}
                     classList={{
@@ -512,68 +604,7 @@ const MessageItem: Component<{
                         size="small"
                     />
                 </Show>
-                <div class={styles.toolbar}>
-                    {/* <span data-label="index">
-                        {props.index}
-                    </span>
-                    <span>|</span> */}
-                    <span data-label="timestamp">
-                        {formatDateTime(null, new Date(props.messageItem.timestamp))}
-                    </span>
-                    <span data-label="author">
-                        {props.messageItem.author}
-                    </span>
-                    <span data-label="msgLength">
-                        消息长度: {msgLength()}
-                    </span>
-                    <span data-label="attachedItems">
-                        {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''}
-                    </span>
-                    <span data-label="attachedChars">
-                        {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
-                    </span>
-                    <Show when={props.messageItem.token}>
-                        <span data-label="token" class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
-                    </Show>
-
-                    <div class="fn__flex-1" />
-
-                    <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
-                    <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
-                    <ToolbarButton icon="iconLine" title="下方添加分隔" onclick={(e: MouseEvent) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        props.toggleSeperator?.();
-                    }} />
-                    <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
-                    <ToolbarButton
-                        icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
-                        title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
-                        onclick={(e: MouseEvent) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            props.toggleHidden?.();
-                        }}
-                    />
-                    <ToolbarButton icon="iconTrashcan" title="删除" onclick={(e: MouseEvent) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        // Ctrl + 点击
-                        if (e.ctrlKey) {
-                            deleteMessage();
-                        } else {
-                            showMessage('如果想要删除此消息，请按 Ctrl + 点击');
-                        }
-                    }} />
-                    <ToolbarButton icon="iconRefresh" title="重新运行" onclick={(e: MouseEvent) => {
-                        // Ctrl + 点击
-                        if (e.ctrlKey) {
-                            props.rerunIt?.();
-                        } else {
-                            showMessage('如果想要重新运行，请按 Ctrl + 点击');
-                        }
-                    }} />
-                </div>
+                <MessageToolbar />
             </div>
         </div>
     )
