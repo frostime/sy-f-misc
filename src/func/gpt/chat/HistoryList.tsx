@@ -1,5 +1,5 @@
 // src/func/gpt/components/HistoryList.tsx
-import { Menu, showMessage } from "siyuan";
+import { confirm, Menu, showMessage } from "siyuan";
 import { batch, createEffect, createMemo, on, onMount, Show } from "solid-js";
 import { confirmDialog, formatDateTime, openBlock } from "@frostime/siyuan-plugin-kits";
 import { useSignalRef } from "@frostime/solid-signal-ref";
@@ -118,7 +118,7 @@ const HistoryList = (props: {
                 // 批量删除
                 batch(() => {
                     Array.from(selectedItems()).forEach(id => {
-                        onremove(id);
+                        onremove(id, false);
                     });
                 });
 
@@ -312,36 +312,48 @@ const HistoryList = (props: {
         });
     };
 
-    const onremove = (id: string) => {
+    const requestDeleteBindDoc = async (id: BlockId) => {
+        let docs = await persist.findBindDoc(id);
+        if (!docs || docs.length === 0) return;
+        let syDoc = docs?.[0] ?? null;
+        if (!syDoc?.id) {
+            return;
+        }
+        confirmDialog({
+            title: `是否删除文档?`,
+            content: `当前对话记录绑定了思源文档 ${syDoc?.hpath}，是否删除该文档?`,
+            confirm: async () => {
+                await removeDoc(syDoc.box, syDoc.path);
+            }
+        });
+    }
+
+    const onremove = (id: string, doConfirm = true) => {
+        let history = historyRef().find(history => history.id === id);
+        let title = history.title;
+
         if (sourceType() === 'temporary') {
             persist.removeFromLocalStorage(id);
-            historyRef.update(h => h.filter(h => h.id !== id));
-        } else {
-            persist.removeFromJson(id);
-            let history = historyRef().find(history => history.id === id);
-            let title = history.title;
-            persist.findBindDoc(id).then((docs) => {
-                let syDoc = docs?.[0] ?? null;
-                confirmDialog({
-                    title: `确认删除记录 ${title}@${id}?`,
-                    content: `<div class="fn__flex" style="gap: 10px;">
-                                    <p style="flex: 1;">同时删除思源文档 ${syDoc?.hpath ?? '未绑定'}?</p>
-                                    <input type="checkbox" class="b3-switch" />
-                                </div>
-                                `,
-                    confirm: async (ele: HTMLElement) => {
-                        persist.removeFromJson(id);
-                        const checkbox = ele.querySelector('input') as HTMLInputElement;
-                        if (checkbox.checked) {
-                            // showMessage(`正在删除思源文档 ${id}...`);
-                            if (syDoc.id) {
-                                await removeDoc(syDoc.box, syDoc.path);
-                            }
-                        }
-                        historyRef.update(h => h.filter(h => h.id !== id));
-                    }
+            // historyRef.update(h => h.filter(h => h.id !== id));
+            if (doConfirm) {
+                confirm('删除', `是否删除临时对话记录 ${title}@${id}?`, () => {
+                    historyRef.update(h => h.filter(h => h.id !== id));
                 });
-            })
+            } else {
+                historyRef.update(h => h.filter(h => h.id !== id));
+            }
+        } else {
+            if (!doConfirm) {
+                persist.removeFromJson(id);
+                requestDeleteBindDoc(id);
+                historyRef.update(h => h.filter(h => h.id !== id));
+            } else {
+                confirm('删除', `是否删除归档对话记录 ${title}@${id}?`, () => {
+                    persist.removeFromJson(id);
+                    requestDeleteBindDoc(id);
+                    historyRef.update(h => h.filter(h => h.id !== id));
+                });
+            }
         }
     }
 
@@ -462,138 +474,235 @@ const HistoryList = (props: {
         return content;
     }
 
+    const Toolbar = () => (
+        <div class={styles.historyToolbar}>
+            <div style={{ display: "flex", 'align-items': 'center', 'gap': '10px', 'flex-wrap': 'wrap' }}>
+                {/* 全选按钮 */}
+                <Show when={batchMode()}>
+                    <div class="fn__flex fn__flex-center" style="margin-right: 8px;">
+                        <input
+                            type="checkbox"
+                            class="b3-checkbox"
+                            checked={selectedItems().size === filteredHistory().length && filteredHistory().length > 0}
+                            onChange={toggleSelectAll}
+                            title="全选/取消全选"
+                        />
+                    </div>
+                </Show>
+                <div style="display: flex; align-items: center;">
+                    共
+                    <span class="counter" style="margin: 0px;">
+                        {filteredHistory().length}
+                    </span>
+                    条
+                </div>
+
+                {/* 批量模式开关 */}
+                <button
+                    class={`b3-button ${batchMode() ? 'b3-button--text' : 'b3-button--outline'}`}
+                    onClick={toggleBatchMode}
+                    title="切换批量操作模式"
+                >
+                    {batchMode() ? '退出批量模式' : '批量操作'}
+                </button>
+
+                {/* 批量操作按钮组 */}
+                <Show when={batchMode() && selectedItems().size > 0}>
+                    <div class="fn__flex" style="gap: 8px;">
+                        {/* 批量删除按钮 */}
+                        <button
+                            class="b3-button b3-button--outline b3-button--error"
+                            onClick={batchDelete}
+                            title="删除选中的所有项目"
+                        >
+                            删除 ({selectedItems().size})
+                        </button>
+
+                        {/* 批量设置标签按钮 */}
+                        <button
+                            class="b3-button b3-button--outline"
+                            onClick={batchSetTags}
+                            title="为选中项目设置标签"
+                        >
+                            设置标签
+                        </button>
+
+                        {/* 仅在 Temporary 模式下显示持久化按钮 */}
+                        <Show when={sourceType() === 'temporary'}>
+                            <button
+                                class="b3-button b3-button--outline"
+                                onClick={batchPersist}
+                                title="将选中项目持久化存储"
+                            >
+                                持久化
+                            </button>
+                        </Show>
+                    </div>
+                </Show>
+
+                <input type="checkbox" class="b3-switch" checked={showShortcuts()} onChange={(e) => {
+                    showShortcuts.value = e.currentTarget.checked;
+                }} />
+                <Show when={sourceType() === 'temporary' && !batchMode()}>
+                    <button class="b3-button b3-button--text"
+                        onClick={() => {
+                            batch(() => {
+                                historyRef().forEach(h => {
+                                    onremove(h.id);
+                                });
+                            });
+                        }}
+                    >
+                        全部清空
+                    </button>
+                </Show>
+                <div class="fn__flex-1" />
+                {/* Search box */}
+                {/* 标签过滤器 */}
+                <Show when={allTags().length > 0}>
+                    <select
+                        class="b3-select"
+                        value={selectedTag()}
+                        onChange={(e) => selectedTag.value = e.currentTarget.value}
+                        style="margin-right: 8px; min-width: 120px;"
+                        title="按标签筛选会话历史"
+                    >
+                        <option value="::ALL::">所有标签</option>
+                        <option value="::BLANK::">无标签</option>
+                        {allTags().map(tag => (
+                            <option value={tag}>{tag}</option>
+                        ))}
+                    </select>
+                </Show>
+
+                {/* 搜索框 */}
+                <div style="display: flex; align-items: center; position: relative; margin-right: 8px;">
+                    <input
+                        type="text"
+                        class="b3-text-field"
+                        placeholder="搜索历史记录..."
+                        value={searchQuery()}
+                        onChange={(e) => searchQuery.value = e.currentTarget.value}
+                        style="padding-right: 24px; width: 180px;"
+                    />
+                    <Show when={searchQuery().length > 0}>
+                        <div
+                            style="position: absolute; right: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;"
+                            onClick={() => searchQuery.value = ''}
+                        >
+                            <svg style="width: 14px; height: 14px;"><use href="#iconClose"></use></svg>
+                        </div>
+                    </Show>
+                </div>
+                {/* options */}
+                <select class="b3-select" value={sourceType()} onChange={(e) => {
+                    //@ts-ignore
+                    sourceType.value = e.currentTarget.value;
+                }}>
+                    <option value="temporary">缓存记录</option>
+                    <option value="permanent">归档记录</option>
+                </select>
+            </div>
+        </div>
+    );
+
+    const HistoryItem = (item: IChatSessionHistory) => (
+        <div class={styles.historyItem} data-key={item.id}
+            onClick={() => batchMode() ? null : onclick(item)}
+            onContextMenu={(e) => showHistoryItemMenu(e, item)}
+            style={{ position: 'relative' }}
+        >
+            <div class={styles.historyTitleLine} style={batchMode() ? {
+                '--shift': '32px',
+                'padding-left': 'var(--shift)',
+                position: 'relative',
+                width: 'calc(100% - var(--shift))'
+            } : {}}>
+                {/* 批量模式下显示复选框 */}
+                <Show when={batchMode()}>
+                    <div
+                        class="fn__flex fn__flex-center"
+                        style="position: absolute; left: 0px; top: 50%; transform: translateY(-50%); z-index: 1;"
+                        onClick={(e) => toggleSelectItem(item.id, e)}
+                    >
+                        <input
+                            type="checkbox"
+                            class="b3-switch"
+                            checked={selectedItems().has(item.id)}
+                            onChange={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                </Show>
+                <div class={styles.historyTitle}>{item.title}</div>
+
+                {/* 显示标签 */}
+                <Show when={item.tags && item.tags.length > 0}>
+                    <div class={styles.historyTags}>
+                        {item.tags.map(tag => (
+                            <span
+                                class={styles.historyTag}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    selectedTag.value = tag;
+                                }}
+                            >
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                </Show>
+
+                <div class={styles.historyTimeContainer}>
+                    {item.updated && item.updated !== item.timestamp ? (
+                        <>
+                            <div class={styles.historyTimeLabel}>创建:</div>
+                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
+                            <div class={styles.historyTimeLabel}>更新:</div>
+                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.updated))}</div>
+                        </>
+                    ) : (
+                        <>
+                            <div class={styles.historyTimeLabel}>创建:</div>
+                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
+                        </>
+                    )}
+                </div>
+                <Show when={sourceType() === 'permanent'}>
+                    <div
+                        class="toolbar__item"
+                        onclick={async (e: MouseEvent) => {
+                            e.stopImmediatePropagation();
+                            e.preventDefault();
+                            let id = item.id;
+                            let docs = await persist.findBindDoc(id);
+                            if (docs && docs?.[0]) {
+                                let doc = docs[0];
+                                openBlock(doc.id);
+                                props.close?.();
+                            }
+                        }}
+                    >
+                        <svg><use href="#iconFocus"></use></svg>
+                    </div>
+                </Show>
+                <div class="toolbar__item" onClick={(e: MouseEvent) => {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    onremove(item.id);
+                }}>
+                    <svg><use href="#iconClose"></use></svg>
+                </div>
+            </div>
+            <div class={styles.historyContent} classList={{
+                'fn__none': !showShortcuts()
+            }}>{contentShotCut(item)}</div>
+        </div>
+    )
+
 
     return (
         <div class={styles.historyList}>
-            <div class={styles.historyToolbar}>
-                <div style={{ display: "flex", 'align-items': 'center', 'gap': '10px', 'flex-wrap': 'wrap' }}>
-                    {/* 全选按钮 */}
-                    <Show when={batchMode()}>
-                        <div class="fn__flex fn__flex-center" style="margin-right: 8px;">
-                            <input
-                                type="checkbox"
-                                class="b3-checkbox"
-                                checked={selectedItems().size === filteredHistory().length && filteredHistory().length > 0}
-                                onChange={toggleSelectAll}
-                                title="全选/取消全选"
-                            />
-                        </div>
-                    </Show>
-                    <div style="display: flex; align-items: center;">
-                        共
-                        <span class="counter" style="margin: 0px;">
-                            {filteredHistory().length}
-                        </span>
-                        条
-                    </div>
-
-                    {/* 批量模式开关 */}
-                    <button
-                        class={`b3-button ${batchMode() ? 'b3-button--text' : 'b3-button--outline'}`}
-                        onClick={toggleBatchMode}
-                        title="切换批量操作模式"
-                    >
-                        {batchMode() ? '退出批量模式' : '批量操作'}
-                    </button>
-
-                    {/* 批量操作按钮组 */}
-                    <Show when={batchMode() && selectedItems().size > 0}>
-                        <div class="fn__flex" style="gap: 8px;">
-                            {/* 批量删除按钮 */}
-                            <button
-                                class="b3-button b3-button--outline b3-button--error"
-                                onClick={batchDelete}
-                                title="删除选中的所有项目"
-                            >
-                                删除 ({selectedItems().size})
-                            </button>
-
-                            {/* 批量设置标签按钮 */}
-                            <button
-                                class="b3-button b3-button--outline"
-                                onClick={batchSetTags}
-                                title="为选中项目设置标签"
-                            >
-                                设置标签
-                            </button>
-
-                            {/* 仅在 Temporary 模式下显示持久化按钮 */}
-                            <Show when={sourceType() === 'temporary'}>
-                                <button
-                                    class="b3-button b3-button--outline"
-                                    onClick={batchPersist}
-                                    title="将选中项目持久化存储"
-                                >
-                                    持久化
-                                </button>
-                            </Show>
-                        </div>
-                    </Show>
-
-                    <input type="checkbox" class="b3-switch" checked={showShortcuts()} onChange={(e) => {
-                        showShortcuts.value = e.currentTarget.checked;
-                    }} />
-                    <Show when={sourceType() === 'temporary' && !batchMode()}>
-                        <button class="b3-button b3-button--text"
-                            onClick={() => {
-                                batch(() => {
-                                    historyRef().forEach(h => {
-                                        onremove(h.id);
-                                    });
-                                });
-                            }}
-                        >
-                            全部清空
-                        </button>
-                    </Show>
-                    <div class="fn__flex-1" />
-                    {/* Search box */}
-                    {/* 标签过滤器 */}
-                    <Show when={allTags().length > 0}>
-                        <select
-                            class="b3-select"
-                            value={selectedTag()}
-                            onChange={(e) => selectedTag.value = e.currentTarget.value}
-                            style="margin-right: 8px; min-width: 120px;"
-                            title="按标签筛选会话历史"
-                        >
-                            <option value="::ALL::">所有标签</option>
-                            <option value="::BLANK::">无标签</option>
-                            {allTags().map(tag => (
-                                <option value={tag}>{tag}</option>
-                            ))}
-                        </select>
-                    </Show>
-
-                    {/* 搜索框 */}
-                    <div style="display: flex; align-items: center; position: relative; margin-right: 8px;">
-                        <input
-                            type="text"
-                            class="b3-text-field"
-                            placeholder="搜索历史记录..."
-                            value={searchQuery()}
-                            onChange={(e) => searchQuery.value = e.currentTarget.value}
-                            style="padding-right: 24px; width: 180px;"
-                        />
-                        <Show when={searchQuery().length > 0}>
-                            <div
-                                style="position: absolute; right: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;"
-                                onClick={() => searchQuery.value = ''}
-                            >
-                                <svg style="width: 14px; height: 14px;"><use href="#iconClose"></use></svg>
-                            </div>
-                        </Show>
-                    </div>
-                    {/* options */}
-                    <select class="b3-select" value={sourceType()} onChange={(e) => {
-                        //@ts-ignore
-                        sourceType.value = e.currentTarget.value;
-                    }}>
-                        <option value="temporary">缓存记录</option>
-                        <option value="permanent">归档记录</option>
-                    </select>
-                </div>
-            </div>
+            <Toolbar />
             <div class={styles.historyItemsContainer}>
                 {Object.entries(groupedHistory()).map(([group, items]) => (
                     items.length > 0 && (
@@ -602,96 +711,7 @@ const HistoryList = (props: {
                                 {getGroupLabel(group as any)}
                             </div>
                             {items.map(item => (
-                                <div class={styles.historyItem} data-key={item.id}
-                                    onClick={() => batchMode() ? null : onclick(item)}
-                                    onContextMenu={(e) => showHistoryItemMenu(e, item)}
-                                    style={{ position: 'relative' }}
-                                >
-                                    <div class={styles.historyTitleLine} style={batchMode() ? {
-                                        '--shift': '32px',
-                                        'padding-left': 'var(--shift)',
-                                        position: 'relative',
-                                        width: 'calc(100% - var(--shift))'
-                                    } : {}}>
-                                        {/* 批量模式下显示复选框 */}
-                                        <Show when={batchMode()}>
-                                            <div
-                                                class="fn__flex fn__flex-center"
-                                                style="position: absolute; left: 0px; top: 50%; transform: translateY(-50%); z-index: 1;"
-                                                onClick={(e) => toggleSelectItem(item.id, e)}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    class="b3-switch"
-                                                    checked={selectedItems().has(item.id)}
-                                                    onChange={(e) => e.stopPropagation()}
-                                                />
-                                            </div>
-                                        </Show>
-                                        <div class={styles.historyTitle}>{item.title}</div>
-
-                                        {/* 显示标签 */}
-                                        <Show when={item.tags && item.tags.length > 0}>
-                                            <div class={styles.historyTags}>
-                                                {item.tags.map(tag => (
-                                                    <span
-                                                        class={styles.historyTag}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            selectedTag.value = tag;
-                                                        }}
-                                                    >
-                                                        {tag}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </Show>
-
-                                        <div class={styles.historyTimeContainer}>
-                                            {item.updated && item.updated !== item.timestamp ? (
-                                                <>
-                                                    <div class={styles.historyTimeLabel}>创建:</div>
-                                                    <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
-                                                    <div class={styles.historyTimeLabel}>更新:</div>
-                                                    <div class={styles.historyTime}>{formatDateTime(null, new Date(item.updated))}</div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div class={styles.historyTimeLabel}>创建:</div>
-                                                    <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
-                                                </>
-                                            )}
-                                        </div>
-                                        <Show when={sourceType() === 'permanent'}>
-                                            <div
-                                                class="toolbar__item"
-                                                onclick={async (e: MouseEvent) => {
-                                                    e.stopImmediatePropagation();
-                                                    e.preventDefault();
-                                                    let id = item.id;
-                                                    let docs = await persist.findBindDoc(id);
-                                                    if (docs && docs?.[0]) {
-                                                        let doc = docs[0];
-                                                        openBlock(doc.id);
-                                                        props.close?.();
-                                                    }
-                                                }}
-                                            >
-                                                <svg><use href="#iconFocus"></use></svg>
-                                            </div>
-                                        </Show>
-                                        <div class="toolbar__item" onClick={(e: MouseEvent) => {
-                                            e.stopImmediatePropagation();
-                                            e.preventDefault();
-                                            onremove(item.id);
-                                        }}>
-                                            <svg><use href="#iconClose"></use></svg>
-                                        </div>
-                                    </div>
-                                    <div class={styles.historyContent} classList={{
-                                        'fn__none': !showShortcuts()
-                                    }}>{contentShotCut(item)}</div>
-                                </div>
+                                HistoryItem(item)
                             ))}
                         </>
                     )
