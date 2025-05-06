@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-03-31 17:59:15
+ * @LastEditTime : 2025-05-06 21:40:59
  * @Description  : 
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -327,6 +327,8 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
 
     const now = Date.now();
 
+    const id = window.Lute.NewNodeID();
+
     console.log(`Successfully parsed ${items.length} message items, system prompt: ${sysPrompt ? 'present' : 'not present'}`);
 
     console.groupEnd();
@@ -334,7 +336,7 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
     return {
         items,
         sysPrompt,
-        id: `history-${now}`,
+        id: id,
         title: `Chat ${formatDateTime(null, new Date(now))}`,
         timestamp: now,
         updated: now
