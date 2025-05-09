@@ -582,21 +582,25 @@ const MessageItem: Component<{
                 <div class={styles.icon}><IconAssistant /></div>
             )}
             <div class={styles.messageContainer}>
-                <ReasoningSection />
-                <div
-                    oncontextmenu={onContextMenu}
-                    classList={{
-                        [styles.message]: true,
-                        [styles[props.messageItem.message.role]]: true,
-                        'b3-typography': true,
-                        [styles.hidden]: props.messageItem.hidden
-                    }}
-                    // style={{
-                    //     'white-space': props.loading ? 'pre-wrap' : '',
-                    // }}
-                    innerHTML={messageAsHTML()}
-                    ref={msgRef}
-                />
+                <div class="message-content" style={{
+                    'display': 'contents'
+                }}>
+                    <ReasoningSection />
+                    <div
+                        oncontextmenu={onContextMenu}
+                        classList={{
+                            [styles.message]: true,
+                            [styles[props.messageItem.message.role]]: true,
+                            'b3-typography': true,
+                            [styles.hidden]: props.messageItem.hidden
+                        }}
+                        // style={{
+                        //     'white-space': props.loading ? 'pre-wrap' : '',
+                        // }}
+                        innerHTML={messageAsHTML()}
+                        ref={msgRef}
+                    />
+                </div>
                 <Show when={imageUrls().length > 0 || props.messageItem.context?.length > 0}>
                     <AttachmentList
                         images={imageUrls()}
