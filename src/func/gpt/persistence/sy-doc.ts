@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-05-06 21:40:59
+ * @LastEditTime : 2025-05-09 12:30:34
  * @Description  : 
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -36,6 +36,12 @@ Item 格式化为 markdown 的基本协议
 ```
 > ---
 > < xml 说明 />
+
+或者按照标准 Markdown 语法
+
+> ---
+>
+> < TAG_NAME />
 
 具体内容
 ```
@@ -204,10 +210,10 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
 
         // 使用正则表达式检查是否匹配 XML 标签行模式
         /**
-         > <XML/>
+         > <TAG_NAME/>
         或者
          >
-         > <XML/>
+         > <TAG_NAME/>
          */
         const xmlTagRegex = /^>\s*(?:\n>\s*)?\s*<[A-Z]+[^>]*\/>/;
         const isXMLTagLine = xmlTagRegex.test(slice);
@@ -249,13 +255,13 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
         const { name, content, meta } = parsed;
 
         // 处理系统提示
-        if (name === 'SYSTEM') {
+        if (name.toLocaleUpperCase() === 'SYSTEM') {
             sysPrompt = content;
             continue;
         }
 
         // 处理分隔符
-        if (name === 'SEPERATOR') {
+        if (name.toLocaleUpperCase() === 'SEPERATOR') {
             items.push({
                 type: 'seperator',
                 id: `seperator-${Date.now()}-${items.length}`
