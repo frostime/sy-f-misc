@@ -26,6 +26,7 @@ import { globalMiscConfigs } from "./setting/store";
 import { showMessageLog } from "./MessageLogger";
 
 import * as openai from './openai';
+import * as chatInDoc from './chat-in-doc';
 
 //#if [DEV]
 import * as workflow from './workflow';
@@ -365,6 +366,9 @@ export const load = async (plugin: FMiscPlugin) => {
 
     addSVG(plugin);
 
+    // 初始化文档内对话功能
+    chatInDoc.init();
+
     await persist.restoreCache();
     await persist.updateCacheFile();
     window.addEventListener('beforeunload', persist.updateCacheFile);
@@ -392,6 +396,9 @@ export const unload = async (plugin: FMiscPlugin) => {
     enabled = false;
     clickEvent.dispose();
     plugin.eventBus.off('open-siyuan-url-plugin', openUrl);
+
+    // 清理文档内对话功能
+    chatInDoc.destroy();
 
     await persist.updateCacheFile();
     window.removeEventListener('beforeunload', persist.updateCacheFile)
