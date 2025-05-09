@@ -8,35 +8,77 @@
 
 import { createSignal, onMount, onCleanup } from "solid-js";
 import { floatingContainer } from "@/libs/components/floating-container";
-import { getActiveDoc, getLute } from "@frostime/siyuan-plugin-kits";
+import { getActiveDoc, getLute, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, getDocumentContent, parseDocumentToHistory, getDocumentInfo } from "./document-parser";
 import { appendBlock, deleteBlock } from "@frostime/siyuan-plugin-kits/api";
+import styles from "./style.module.scss";
+// import { LeftRight } from "@/libs/components/Elements/Flex";
 
 const useTempHTMLBlock = (docId: DocumentId) => {
-    const html = `<div>处理中...</div>`;
+    // 使用我们定义的样式创建初始HTML
+    const initialHtml = `<div class="${styles.streamingContainer}">
+    AI 正在生成回复...
+</div>`;
+
     let id = null;
-    let dom = null;
+    let domNode = null;
+    let domCustomHTML = null;
 
     const lute = getLute();
 
+    const pushUserInputEvent = () => {
+        const event = new Event('input', {
+            bubbles: true,
+            cancelable: false
+        });
+        domNode?.dispatchEvent(event);
+    }
+
+    const dispatchEvent = throttle(pushUserInputEvent, 1000);
+
     return {
         init: async () => {
-            const res = await appendBlock('markdown', html, docId);
+            const res = await appendBlock('markdown', initialHtml, docId);
             id = res[0].doOperations[0].id;
             console.debug('Temp HTML Block ID:', id);
-            dom = document.querySelector(`[data-node-id="${id}"] protyle-html`) as HTMLElement;
+            domNode = document.querySelector(`[data-node-id="${id}"]`) as HTMLElement;
+            domNode.classList.add(styles.streamingContainer);
+            domCustomHTML = document.querySelector(`[data-node-id="${id}"] protyle-html`) as HTMLElement;
+
+            const icon = domNode.querySelector('.protyle-icons') as HTMLElement;
+            if (icon) {
+                icon.style.display = 'none';
+            }
         },
         update: (markdown: string) => {
-            if (!dom) return;
+            if (!domCustomHTML) return;
+
+            // 使用Lute将Markdown转换为HTML
             // @ts-ignore
-            let html = lute.Md2HTML(markdown);
-            dom?.setAttribute('data-content', html);
+            let contentHtml = lute.Md2HTML(markdown);
+
+            // 更新DOM
+            domCustomHTML.setAttribute('data-content', contentHtml);
+            dispatchEvent();
         },
         remove: () => {
             if (id) {
-                deleteBlock(id);
+                // 添加淡出类
+                domNode.classList.add(styles.fadeOut);
+                dispatchEvent();
+
+                // 淡出动画完成后设置 display: none
+                setTimeout(() => {
+                    domNode.style.display = 'none';
+                    dispatchEvent();
+
+                    // 然后再删除元素
+                    setTimeout(() => {
+                        deleteBlock(id);
+                    }, 2000);
+                }, 500); // 与动画时间匹配
             }
         }
     }
@@ -154,13 +196,35 @@ const ChatInDocWindow = () => {
 
     return (
         <div style={{ padding: "8px", display: "flex", "flex-direction": "column", gap: "12px" }}>
-            <div style={{ "font-weight": "bold" }}>当前文档: {docTitle()}</div>
+            <div style={{ "font-weight": "bold", display: "flex", "justify-content": "space-between", "align-items": "center" }}>
+                <span>当前文档: {docTitle()}</span>
+                {isLoading() && (
+                    <span style={{
+                        "font-size": "12px",
+                        "color": "var(--b3-theme-primary)",
+                        "display": "flex",
+                        "align-items": "center",
+                        "gap": "4px"
+                    }}>
+                        <span style={{
+                            "display": "inline-block",
+                            "width": "8px",
+                            "height": "8px",
+                            "border-radius": "50%",
+                            "background-color": "var(--b3-theme-primary)",
+                            "animation": "fadeInOut 1s ease-in-out infinite"
+                        }}></span>
+                        AI 正在响应...
+                    </span>
+                )}
+            </div>
 
             <div style={{ display: "flex", gap: "8px" }}>
                 <button
                     class="b3-button"
                     onClick={handleInsertUserMessage}
                     disabled={isLoading()}
+                    title="在文档末尾插入一个新的用户消息块"
                 >
                     用户
                 </button>
@@ -168,6 +232,7 @@ const ChatInDocWindow = () => {
                     class="b3-button b3-button--outline"
                     onClick={handleSendToGPT}
                     disabled={isLoading()}
+                    title="发送文档中的对话到GPT"
                 >
                     发送
                 </button>
@@ -179,31 +244,11 @@ const ChatInDocWindow = () => {
                         setIsLoading(false);
                     }}
                     disabled={!isLoading()}
+                    title="中断当前的GPT响应"
                 >
                     中断
                 </button>
-                {/* <button
-                    class="b3-button"
-                    onClick={handleInsertSystemMessage}
-                    disabled={isLoading()}
-                >
-                    系统
-                </button> */}
             </div>
-
-            {/* <div
-                style={{
-                    "min-height": "200px",
-                    "max-height": "400px",
-                    "overflow-y": "auto",
-                    "border": "1px solid var(--b3-border-color)",
-                    "border-radius": "4px",
-                    "padding": "8px",
-                    "white-space": "pre-wrap"
-                }}
-            >
-                {isLoading() ? responseText() : "在 <USER/> 下方编写你的问题，点击\"发送\"进行对话"}
-            </div> */}
         </div>
     );
 };

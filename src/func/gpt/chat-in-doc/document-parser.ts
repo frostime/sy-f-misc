@@ -73,6 +73,8 @@ export const parseDocumentToHistory = (content: string): IChatSessionHistory => 
 
 const userName = window.siyuan?.user?.userName ?? 'User';
 
+export const SECTION_ATTR = 'custom-chat-indoc-section';
+
 export const blankMessage = (type: 'USER' | 'ASSISTANT' | 'SYSTEM', content = '', escape: boolean = false) => {
     const timeStr = formatDateTime();
     let author: string = type;
@@ -81,12 +83,14 @@ export const blankMessage = (type: 'USER' | 'ASSISTANT' | 'SYSTEM', content = ''
     } else if (type === 'ASSISTANT') {
         author = defaultModelId();
     }
-    let markdown = formatSingleItem(type, content, {
+    let markdown = formatSingleItem(type, '', {
         author: author,
         timestamp: timeStr
-    });
+    }).trim();
     return `${escape ? window.Lute.EscapeHTMLStr(markdown) : markdown}
-{: custom-gpt-chat-in-doc="${type}" }
+{: ${SECTION_ATTR}="${type}" }
+
+${content}
 `.trim();
 }
 

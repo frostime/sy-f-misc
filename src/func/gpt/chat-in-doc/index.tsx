@@ -9,7 +9,7 @@
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { Protyle } from "siyuan";
 import { openChatInDocWindow } from "./floating-chat";
-import { blankMessage } from "./document-parser";
+import { blankMessage, SECTION_ATTR } from "./document-parser";
 
 // 模块状态
 let enabled = false;
@@ -28,9 +28,14 @@ export const init = () => {
         id: "chat-in-doc",
         filter: ["chat-in-doc", "chat", "对话"],
         html: "在文档中插入对话",
-        callback: (protyle: Protyle) => {
-            let md = blankMessage('USER', '', true);
-            protyle.insert(md, true);
+        //@ts-ignore
+        callback: (protyle: Protyle, nodeElement?: HTMLElement) => {
+            if (nodeElement && nodeElement.closest(`[${SECTION_ATTR}="USER"]`)) {
+                protyle.insert(window.Lute.Caret, false, false);
+            } else {
+                let md = blankMessage('USER', '', true);
+                protyle.insert(md, true);
+            }
             // 打开浮动窗口
             openChatInDocWindow();
         }
