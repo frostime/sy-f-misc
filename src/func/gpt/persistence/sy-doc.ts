@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-03-31 17:59:15
- * @Description  : 
+ * @LastEditTime : 2025-05-09 13:00:47
+ * @Description  :
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
@@ -36,6 +36,12 @@ Item 格式化为 markdown 的基本协议
 ```
 > ---
 > < xml 说明 />
+
+或者按照标准 Markdown 语法
+
+> ---
+>
+> < TAG_NAME />
 
 具体内容
 ```
@@ -136,7 +142,7 @@ export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | History,
 
 /**
  * 假定 markdown 已经 split 了 SEPERATOR_LINE, 将每个 item 输入本函数可以解析 item 信息
- * @param markdown 
+ * @param markdown
  * @returns {name, content, meta}
  */
 const parseItemMarkdown = (markdown: string) => {
@@ -145,12 +151,12 @@ const parseItemMarkdown = (markdown: string) => {
 
     // 解析 xml tag - 修复正则表达式以匹配自闭合标签
     // 正则表达式解释：
-    //   >\s*<([A-Z]+)([^>]*?)(\s*\/?)>
+    //   >\s*<([A-Za-z]+)([^>]*?)(\s*\/?)>
     //   - >\s* 匹配 '>' 后面的空白字符
-    //   - <([A-Z]+) 匹配 '<' 后面的标签名（大写字母）
+    //   - <([A-Za-z]+) 匹配 '<' 后面的标签名（大写字母）
     //   - ([^>]*?) 匹配标签属性（非 '>' 的任意字符，非贪婪匹配）
     //   - (\s*\/?) 匹配标签的结束符（ '/' 或空白字符）
-    const xmlTagRegex = />\s*<([A-Z]+)([^>]*?)(\s*\/?)>/;
+    const xmlTagRegex = />\s*<([A-Za-z]+)([^>]*?)(\s*\/?)>/;
     const match = markdown.match(xmlTagRegex);
 
     if (!match) {
@@ -187,14 +193,39 @@ const parseItemMarkdown = (markdown: string) => {
 }
 
 
-export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistory | null => {
+/**
+ * 扩展 IChatSessionHistory 接口，添加 preamble 字段
+ */
+interface IChatSessionHistoryWithPreamble extends IChatSessionHistory {
+    preamble?: string;
+}
+
+export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistoryWithPreamble | null => {
     if (!markdown || typeof markdown !== 'string') {
         return null;
     }
 
     console.group('parseMarkdownToChatHistory');
+
+    // 检测前导文本
+    let preamble: string | undefined;
+    let contentToParse = markdown;
+
+    // 查找第一个分隔符的位置
+    const firstSeparatorIndex = markdown.indexOf(SEPERATOR_LINE);
+
+    if (firstSeparatorIndex > 0) {
+        // 提取前导文本（第一个分隔符之前的所有内容）
+        preamble = markdown.substring(0, firstSeparatorIndex).trim();
+        if (preamble) {
+            console.log('Detected preamble:', preamble);
+        }
+        // 从第一个分隔符开始解析
+        contentToParse = markdown.substring(firstSeparatorIndex);
+    }
+
     // 通过 SEPERATOR_LINE 分割
-    const splited = markdown.split(SEPERATOR_LINE).filter(Boolean);
+    const splited = contentToParse.split(SEPERATOR_LINE).filter(Boolean);
     console.log(`Split markdown into ${splited.length} parts`);
 
     const parts = [];
@@ -204,12 +235,12 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
 
         // 使用正则表达式检查是否匹配 XML 标签行模式
         /**
-         > <XML/>
+         > <TAG_NAME/>
         或者
          >
-         > <XML/>
+         > <TAG_NAME/>
          */
-        const xmlTagRegex = /^>\s*(?:\n>\s*)?\s*<[A-Z]+[^>]*\/>/;
+        const xmlTagRegex = /^>\s*(?:\n>\s*)?\s*<[A-Za-z]+[^>]*\/>/;
         const isXMLTagLine = xmlTagRegex.test(slice);
 
         if (!isXMLTagLine) {
@@ -249,13 +280,13 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
         const { name, content, meta } = parsed;
 
         // 处理系统提示
-        if (name === 'SYSTEM') {
+        if (name.toLocaleUpperCase() === 'SYSTEM') {
             sysPrompt = content;
             continue;
         }
 
         // 处理分隔符
-        if (name === 'SEPERATOR') {
+        if (name.toLocaleUpperCase() === 'SEPERATOR') {
             items.push({
                 type: 'seperator',
                 id: `seperator-${Date.now()}-${items.length}`
@@ -327,14 +358,17 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
 
     const now = Date.now();
 
-    console.log(`Successfully parsed ${items.length} message items, system prompt: ${sysPrompt ? 'present' : 'not present'}`);
+    const id = window.Lute.NewNodeID();
+
+    console.log(`Successfully parsed ${items.length} message items, system prompt: ${sysPrompt ? 'present' : 'not present'}, preamble: ${preamble ? 'present' : 'not present'}`);
 
     console.groupEnd();
 
     return {
         items,
         sysPrompt,
-        id: `history-${now}`,
+        preamble,  // 添加前导文本
+        id: id,
         title: `Chat ${formatDateTime(null, new Date(now))}`,
         timestamp: now,
         updated: now
@@ -365,7 +399,7 @@ const checkBlockWithAttr = async (attr: string, value: string, cond: string = `B
 
 
 export async function ensureRootDocument(newTitle: string, notebookId?: NotebookId): Promise<Block> {
-    // 'custom-gpt-export-root', 'true', 
+    // 'custom-gpt-export-root', 'true',
     const attr = ATTR_GPT_EXPORT_ROOT;
     const value = 'true';
     let docs = await checkBlockWithAttr(attr, value);
@@ -392,7 +426,7 @@ export async function ensureRootDocument(newTitle: string, notebookId?: Notebook
 
 /**
  * 保存到思源笔记
- * @param history 
+ * @param history
  */
 export const saveToSiYuan = async (history: IChatSessionHistory) => {
     let { title, timestamp } = history;
@@ -457,7 +491,7 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
 
 /**
  * 保存到思源笔记的附件当中
- * @param history 
+ * @param history
  */
 export const saveToSiYuanAssetFile = async (history: IChatSessionHistory) => {
     let { title, id } = history;

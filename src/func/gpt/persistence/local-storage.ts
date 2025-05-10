@@ -3,23 +3,34 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:38:02
  * @FilePath     : /src/func/gpt/persistence/local-storage.ts
- * @LastEditTime : 2025-03-28 12:06:36
- * @Description  : 
+ * @LastEditTime : 2025-04-28 17:36:48
+ * @Description  :
  */
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 
-const KEEP_N_CACHE_ITEM = 24;
+const KEEP_N_CACHE_ITEM = 32;
 
 
 /**
  * 临时缓存，防止重启之后 localStorage 中的记录被完全清空
  */
-export const saveCache = async () => {
-    const data = listFromLocalStorage();
-    if (!data || data.length === 0) return;
+export const updateCacheFile = async () => {
+    let histories = listFromLocalStorage();
+    if (!histories || histories.length === 0) return;
+
+    // 按照更新时间排序，最新的在前
+    histories.sort((a, b) => {
+        if (a.updated && b.updated) {
+            return b.updated - a.updated;
+        }
+        return b.timestamp - a.timestamp;
+    });
+
+    histories = histories.slice(0, KEEP_N_CACHE_ITEM);
+
     const plugin = thisPlugin();
-    await plugin.saveBlob('gpt-chat-cache.json', data);
+    await plugin.saveBlob('gpt-chat-cache.json', histories);
 }
 
 

@@ -6,7 +6,7 @@ import Heading from "./Heading";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
-import { SvgSymbol } from "../components/Elements";
+import { SvgSymbol } from "../chat/Elements";
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<{
     updateTemplate: (index: number, key: keyof IPromptTemplate, value: any) => void;

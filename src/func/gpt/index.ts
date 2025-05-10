@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-03-30 22:00:38
- * @Description  : 
+ * @LastEditTime : 2025-05-03 15:13:51
+ * @Description  :
  */
 import type FMiscPlugin from "@/index";
 
@@ -12,7 +12,7 @@ import { inputDialog, openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-
 
 import { render } from "solid-js/web";
 
-import ChatSession from "./components/ChatSession";
+import ChatSession from "./chat/ChatSession";
 import { translateHotkey } from "@/libs/hotkey";
 import * as setting from "./setting";
 import { ISignalRef, useSignalRef } from "@frostime/solid-signal-ref";
@@ -21,11 +21,16 @@ import { id2block } from "./utils";
 import * as persist from './persistence';
 import { showMessage } from "siyuan";
 import { solidDialog } from "@/libs/dialog";
-import HistoryList from "./components/HistoryList";
+import HistoryList from "./chat/HistoryList";
 import { globalMiscConfigs } from "./setting/store";
 import { showMessageLog } from "./MessageLogger";
 
 import * as openai from './openai';
+import * as chatInDoc from './chat-in-doc';
+
+//#if [DEV]
+import * as workflow from './workflow';
+//#endif
 
 export { openai };
 
@@ -155,7 +160,7 @@ export const openChatTab = async (reuse: boolean = true, history?: IChatSessionH
 
 /**
  * 点击文档图标时触发的事件，用于打开绑定的 GPT 记录
- * @returns 
+ * @returns
  */
 export const useSyDocClickEvent = () => {
     let disposer = () => { };
@@ -361,12 +366,27 @@ export const load = async (plugin: FMiscPlugin) => {
 
     addSVG(plugin);
 
+    // 初始化文档内对话功能
+    chatInDoc.init();
+
     await persist.restoreCache();
-    window.addEventListener('beforeunload', persist.saveCache);
+    await persist.updateCacheFile();
+    window.addEventListener('beforeunload', persist.updateCacheFile);
 
     //#if [PRIVATE_ADD]
     globalThis.fmisc['gpt'] = {
-        complete: openai.complete
+        complete: openai.complete,
+        // workflow: {
+        //     run: workflow.runWorkflow,
+        //     builtins: workflow.builtinWorkflows.default
+        // }
+    }
+    //#endif
+
+    //#if [DEV]
+    globalThis.fmisc['workflow'] = {
+        run: workflow.runWorkflow,
+        builtins: workflow.builtinWorkflows.default
     }
     //#endif
 }
@@ -377,8 +397,11 @@ export const unload = async (plugin: FMiscPlugin) => {
     clickEvent.dispose();
     plugin.eventBus.off('open-siyuan-url-plugin', openUrl);
 
-    await persist.saveCache();
-    window.removeEventListener('beforeunload', persist.saveCache)
+    // 清理文档内对话功能
+    chatInDoc.destroy();
+
+    await persist.updateCacheFile();
+    window.removeEventListener('beforeunload', persist.updateCacheFile)
 
     //#if [PRIVATE_ADD]
     globalThis.fmisc && delete globalThis.fmisc['gpt']

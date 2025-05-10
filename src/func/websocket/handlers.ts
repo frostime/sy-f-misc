@@ -72,6 +72,8 @@ const appendDnList = async (text: string) => {
     const lastChild = headChildren[headChildren.length - 1];
     await insertBlock('markdown', content, null, lastChild, null);
     refreshDocument();
+
+    showMessage('WS: Quicklist appended!');
 }
 
 //#if [PRIVATE_ADD]
@@ -145,21 +147,22 @@ const saveExcerpt = async (content: string) => {
 
     let toSave = '';
 
-    if (length <= 1000) {
+    if (length <= 800) {
         toSave = superBlock(`[${time}] | ${content}`);
         await addContent(toSave);
+        showMessage('WS: 添加了新的摘录' + time);
     } else {
         // 太大了就不放入文档中，而是保存为附件
-        const MAX_LENGTH = 1000;
-        let formerPart = content.slice(0, MAX_LENGTH);
-        const latterPartLength = Math.min(MAX_LENGTH, length - MAX_LENGTH);
+        const SEGMENT_LENGTH = 1250;
+        let formerPart = content.slice(0, SEGMENT_LENGTH);
+        const latterPartLength = Math.min(SEGMENT_LENGTH, length - SEGMENT_LENGTH);
         let latterPart = content.slice(-latterPartLength);
         const response = await openai.complete(`<RAW_EXCERPT>${formerPart}\n[中间部分省略]\n${latterPart}</RAW_EXCERPT>`, {
             // 编写系统提示，提取摘要
-            systemPrompt: userConst.promptSummarize || `Please extract the main idea of the content within the <RAW_EXCERPT> tags, and generate a title and a summary for it.
+            systemPrompt: `Please extract the main idea of the content within the <RAW_EXCERPT> tags, and generate a title and a summary for it.
 - You MUST ONLY output two seperate lines, the first line is the title, the second line is the summary, no other text.
 - The title must be accurate and concise, about 15 ~ 70 characters.
-- The summary must be accurate and logical, about 150 ~ 600 characters.
+- The summary must be accurate and logical, about 200 ~ 600 characters.
 - 必须使用中文作为输出!
 `,
             stream: false
@@ -179,7 +182,9 @@ const saveExcerpt = async (content: string) => {
         const path = `assets/user/excerpt/${time.replaceAll(':', '_')}-${title}.md`;
         await saveBlob('/data/' + path, `# ${time} - ${title}\n\n${content}`);
         await addContent(superBlock(`[${time}] | [${title}](${path})\n\n> ${summary}`));
+        showMessage('WS: 添加了新的摘录' + title);
     }
+
 }
 
 //#endif

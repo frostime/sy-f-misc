@@ -4,7 +4,7 @@
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
  * @LastEditTime : 2025-02-14 20:51:33
- * @Description  : 
+ * @Description  :
  */
 
 
@@ -96,7 +96,7 @@ const ChatSessionSetting = (props: {
                 />
             </Form.Wrap>
             <Form.Wrap
-                title="Stream"
+                title="Stream 模式"
                 description="以 Stream 模式请求"
             >
                 <Form.Input
@@ -104,6 +104,18 @@ const ChatSessionSetting = (props: {
                     value={config().chatOption.stream ?? true}
                     changed={(v) => {
                         config.update('chatOption', 'stream', v);
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="Stream 模式下渲染 Markdown"
+                description="在 Stream 模式下是否实时渲染 Markdown，关闭后将只显示纯文本; 对性能会有负面影响"
+            >
+                <Form.Input
+                    type="checkbox"
+                    value={config().renderInStreamMode ?? true}
+                    changed={(v) => {
+                        config.update('renderInStreamMode', v);
                     }}
                 />
             </Form.Wrap>

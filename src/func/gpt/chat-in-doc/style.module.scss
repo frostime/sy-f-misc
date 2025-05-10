@@ -1,0 +1,76 @@
+/* 流式响应容器 */
+.streamingContainer {
+    position: relative;
+    padding: 16px;
+    border-radius: 8px;
+    background: var(--b3-theme-background);
+    border: 1px solid var(--b3-theme-primary-light);
+    margin: 12px 0;
+    overflow: hidden;
+
+    /* 添加一个微妙的渐变背景 */
+    background: linear-gradient(
+        to right,
+        var(--b3-theme-background),
+        var(--b3-theme-surface),
+        var(--b3-theme-background)
+    );
+    background-size: 200% 100%;
+    animation: gradientShift 3s ease infinite;
+
+    /* 添加脉冲边框效果 */
+    &::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border: 1px solid var(--b3-theme-primary);
+        border-radius: 8px;
+        opacity: 0;
+        animation: pulseBorder 2s ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    /* 添加一个指示器 */
+    &::after {
+        content: "AI 思考中...";
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-size: 12px;
+        color: var(--b3-theme-primary);
+        opacity: 0.8;
+        animation: fadeInOut 1.5s ease-in-out infinite;
+    }
+}
+
+/* 动画定义 */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes pulseBorder {
+    0% { opacity: 0; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.01); }
+    100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes cursorBlink {
+    0%, 100% { border-color: transparent; }
+    50% { border-color: var(--b3-theme-primary); }
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* 淡出动画 */
+.fadeOut {
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+}

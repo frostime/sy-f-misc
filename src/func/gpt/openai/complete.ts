@@ -1,6 +1,6 @@
 import { defaultModelId, useModel } from "../setting/store";
 import { appendLog } from "../MessageLogger";
-import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor } from './adpater';
+import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage } from './adpater';
 
 
 interface CompletionResponse {
@@ -44,10 +44,7 @@ const handleStreamChunk = (line: string): StreamChunkData | null => {
         }
 
         const delta = responseData.choices[0].delta;
-        const result = {
-            content: delta.content || '',
-            reasoning_content: delta.reasoning_content || ''
-        };
+        const result = adaptChunkMessage(delta) as StreamChunkData;
         result['references'] = adaptResponseReferences(responseData);
         return result;
     } catch (e) {
@@ -107,9 +104,9 @@ const handleStreamResponse = async (
                 break;
             }
 
-            const { content, reasoning_content } = readResult.value as StreamChunkData;
-            responseContent.reasoning_content += reasoning_content;
+            const { content, reasoning_content } = adaptChunkMessage(readResult.value) as StreamChunkData;
             responseContent.content += content;
+            responseContent.reasoning_content += reasoning_content;
             let streamingMsg = '';
             if (responseContent.reasoning_content) {
                 streamingMsg += `<think>\n${responseContent.reasoning_content}\n</think>\n`;
@@ -158,11 +155,13 @@ const handleNormalResponse = async (response: Response): Promise<CompletionRespo
             ok: false
         };
     }
-    const results = {
-        content: data.choices[0].message.content,
-        usage: data.usage,
-        reasoning_content: data.choices[0].message?.reasoning_content,
-    };
+    // const results = {
+    //     content: data.choices[0].message.content,
+    //     usage: data.usage,
+    //     reasoning_content: data.choices[0].message?.reasoning_content,
+    // };
+    let results = adaptChunkMessage(data.choices[0].message) as CompletionResponse;
+    results['usage'] = data.usage;
     let references = adaptResponseReferences(data);
     if (references && references.length) {
         // results.references = data.references;

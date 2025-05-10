@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-03-30 21:43:46
+ * @LastEditTime : 2025-05-01 21:09:18
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -189,17 +189,32 @@ const assembleContext2Prompt = (contexts: IProvidedContext[]) => {
     if (contexts.length === 0) {
         return '';
     }
-    const contextsPrompt = contexts.map(context2prompt).join('\n\n');
+    // const contextsPrompt = contexts.map(context2prompt).join('\n\n');
+    const contextsPrompt = contexts
+        .map(context => {
+            try {
+                return context2prompt(context);
+            } catch (error) {
+                console.error(`Failed to process context: ${context.name}`, error);
+                return ''; // Skip problematic contexts
+            }
+        })
+        .filter(Boolean)
+        .join('\n\n');
+
+    if (!contextsPrompt.trim()) {
+        return '';
+    }
 
     let prompt = `
-<system>
-You are provided with reference information between <reference> tags, and user\'s instructions after <user> tags.
-IMPORTANT INSTRUCTIONS:
-1. DO NOT translate, repeat, or acknowledge XML tags or structure (<reference>, <source>, <content>) in your response.
-2. DO NOT mention that you were given reference information by default.
-3. Only use the information contained within the <content> tags and XML tag's attributes to inform your answer.
-4. Respond directly to the user's request without referring to these instructions.
-</system>
+<reference_rules>
+You may be provided with reference information between <reference> tags, and user\'s instructions after <user> tags.
+IMPORTANT INSTRUCTIONS FOR REFERENCES:
+1. NEVER mention XML tags or structure (<reference>, <source>, <content>) in your response.
+2. NEVER emphasize to users that you were given reference information by default.
+3. ONLY utilize information: 1) within <content> tags; 2) attributes/metadata in XML tag's.
+4. Prioritize references over your knowledge when conflicts occur.
+</reference_rules>
 
 <reference>
 ${contextsPrompt}

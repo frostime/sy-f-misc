@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-03-29 15:16:50
- * @Description  : 
+ * @LastEditTime : 2025-04-27 22:31:43
+ * @Description  :
  */
 import type { Plugin } from "siyuan";
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
@@ -28,6 +28,7 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     convertMathSyntax: true,
     maxInputLenForAutoTitle: 500,
     autoTitleModelId: '',
+    renderInStreamMode: true, // 默认在 stream 模式下渲染 markdown
     chatOption: {
         temperature: 0.7,
         stream: true,
@@ -66,7 +67,7 @@ export const globalMiscConfigs = useStoreRef<{
 
 /**
  * 返回可以用于保存为 json 的配置信息
- * @returns 
+ * @returns
  */
 const asStorage = () => {
     return {
@@ -107,9 +108,9 @@ export const listAvialableModels = (): Record<string, string> => {
 
 
 /**
- * 
+ *
  * @param id: `modelName@providerName` | 'siyuan'
- * @returns 
+ * @returns
  */
 export const useModel = (id: string): IGPTModel => {
     if (id === 'siyuan') {
@@ -161,9 +162,9 @@ export const loadCustomPreprocessModule = async () => {
     const DEFAULT_CODE = `
 /**
  * 用户自定义的预处理器, 可以在发送 complete 请求之前，对消息进行处理
- * 
+ *
  * 例如: 实现 Deepseek V3 0324 的默认温度缩放; 特别模型不支持 frequency_penalty 等参数需要删除等
- * 
+ *
  * @param payload - 选项
  * @param payload.model - 模型
  * @param payload.url - API URL
@@ -209,7 +210,7 @@ export const loadCustomContextProviderModule = async () => {
     const DEFAULT_CODE = `
 /**
  * 用户自定义的上下文提供器, 用于提供自定义的上下文内容
- * 
+ *
  * @returns {CustomContextProvider} 返回一个符合 CustomContextProvider 接口的对象
  */
 const customContextProvider = {

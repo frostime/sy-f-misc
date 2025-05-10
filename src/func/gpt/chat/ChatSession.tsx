@@ -2,36 +2,50 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
- * @FilePath     : /src/func/gpt/components/ChatSession.tsx
- * @LastEditTime : 2025-04-06 14:05:33
- * @Description  : 
+ * @FilePath     : /src/func/gpt/chat/ChatSession.tsx
+ * @LastEditTime : 2025-05-01 19:31:27
+ * @Description  :
  */
-import { Accessor, Component, createMemo, For, Match, on, onMount, Show, Switch, createRenderEffect, JSX, onCleanup, createEffect, batch, createSignal } from 'solid-js';
+// External libraries
+import {
+  Accessor, Component, JSX,
+  createMemo, createEffect, createRenderEffect,
+  For, Match, Show, Switch,
+  on, onMount, onCleanup, batch
+} from 'solid-js';
+import { render } from 'solid-js/web';
 import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-
-import MessageItem from './MessageItem';
-import AttachmentList from './AttachmentList';
-import styles from './ChatSession.module.scss';
-import TitleTagEditor from './TitleTagEditor';
-
-import { defaultConfig, UIConfig, useModel, defaultModelId, listAvialableModels, promptTemplates, visualModel, globalMiscConfigs } from '../setting/store';
-import { solidDialog } from '@/libs/dialog';
-import Form from '@/libs/components/Form';
 import { Menu, Protyle, showMessage } from 'siyuan';
 import { getMarkdown, inputDialog, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
-import { render } from 'solid-js/web';
-import * as persist from '../persistence';
+
+// UI Components
+import Form from '@/libs/components/Form';
+import { SliderInput } from '@/libs/components/Elements';
+import { solidDialog } from '@/libs/dialog';
+
+// Local components
+import styles from './ChatSession.module.scss';
+import MessageItem from './MessageItem';
+import AttachmentList from './AttachmentList';
+import TitleTagEditor from './TitleTagEditor';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
-import { useSession, useSessionSetting, SimpleProvider } from './UseSession';
-
-import * as syDoc from '../persistence/sy-doc';
-import { getContextProviders, executeContextProvider } from '../context-provider';
-import { adaptIMessageContent } from '../data-utils';
-import { isMsgItemWithMultiVersion } from '../data-utils';
 import SessionItemsManager from './SessionItemsManager';
-import { SliderInput } from '@/libs/components/Elements';
-import SelectedTextProvider from '../context-provider/SelectedTextProvider';
+import { useSession, useSessionSetting, SimpleProvider } from './ChatSession.helper';
+
+// GPT and settings related
+import {
+  defaultConfig, UIConfig, useModel, defaultModelId,
+  listAvialableModels, promptTemplates, visualModel, globalMiscConfigs
+} from '@gpt/setting/store';
+import * as persist from '@gpt/persistence';
+import * as syDoc from '@gpt/persistence/sy-doc';
+import { getContextProviders, executeContextProvider } from '@gpt/context-provider';
+import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
+import {
+  adaptIMessageContent,
+  isMsgItemWithMultiVersion
+} from '@gpt/data-utils';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -278,7 +292,7 @@ const ChatSession: Component<{
     }));
 
     const newChatSession = (history?: Partial<IChatSessionHistory>) => {
-        if (session.messages().length > 0) {
+        if (session.messages().length > 0 && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
         session.newSession();
@@ -328,7 +342,7 @@ const ChatSession: Component<{
 
     onCleanup(() => {
         siyuanEditor.cleanUp();
-        if (session.messages().length > 0) {
+        if (session.messages().length > 0 && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
     });
@@ -448,7 +462,7 @@ const ChatSession: Component<{
 
     /**
      * 在通过 @ 触发了 ContextMenu 弹出时临时监听键盘事件
-     * @returns 
+     * @returns
      */
     const useTempKeyPressListener = () => {
         const listener = (e: KeyboardEvent) => {
@@ -985,7 +999,7 @@ const ChatSession: Component<{
                                 )}
                                 <MessageItem
                                     messageItem={item}
-                                    markdown={item.loading !== true} // 流式输出时禁用 markdown
+                                    loading={item.loading === true} // 使用 loading 参数替代 markdown
                                     updateIt={(message) => {
                                         if (session.loading()) return;
                                         const content = session.messages()[index()].message.content;

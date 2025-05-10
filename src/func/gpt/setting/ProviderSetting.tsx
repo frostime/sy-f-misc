@@ -6,7 +6,7 @@ import Heading from "./Heading";
 import { createSimpleContext } from "@/libs/simple-context";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { solidDialog } from "@/libs/dialog";
-import { SvgSymbol } from "../components/Elements";
+import { SvgSymbol } from "../chat/Elements";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { showMessage } from "siyuan";
 
