@@ -2,7 +2,7 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-05-10
- * @FilePath     : /src/func/gpt/chat-in-doc/index.tsx
+ * @FilePath     : /src/func/gpt/chat-in-doc/index.ts
  * @Description  : 文档内对话功能
  */
 
@@ -27,7 +27,7 @@ export const init = () => {
     plugin.addProtyleSlash({
         id: "chat-in-doc",
         filter: ["chat-in-doc", "chat", "对话"],
-        html: "在文档中插入对话",
+        html: "文档内 AI 对话",
         //@ts-ignore
         callback: (protyle: Protyle, nodeElement?: HTMLElement) => {
             if (nodeElement && nodeElement.closest(`[${SECTION_ATTR}="USER"]`)) {
@@ -36,8 +36,9 @@ export const init = () => {
                 let md = blankMessage('USER', '', true);
                 protyle.insert(md, true);
             }
+            const rootId = protyle.protyle.block.rootID;
             // 打开浮动窗口
-            openChatInDocWindow();
+            openChatInDocWindow(rootId);
         }
     });
 };

@@ -6,19 +6,22 @@
  * @Description  : 文档内对话浮动窗口
  */
 
-import { createSignal, onMount, onCleanup, createMemo } from "solid-js";
+import { onMount, onCleanup, createMemo, Show } from "solid-js";
+import { createSignalRef } from "@frostime/solid-signal-ref";
 import { floatingContainer } from "@/libs/components/floating-container";
-import { getActiveDoc, getLute, throttle } from "@frostime/siyuan-plugin-kits";
+import { getLute, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
-import { insertBlankMessage, insertAssistantMessage, getDocumentContent, parseDocumentToHistory, getDocumentInfo } from "./document-parser";
-import { appendBlock, deleteBlock } from "@frostime/siyuan-plugin-kits/api";
+import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory, getDocumentInfo } from "./document-parser";
+import { appendBlock, deleteBlock, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
 import styles from "./style.module.scss";
 import { defaultModelId, listAvialableModels, useModel } from "../setting/store";
 import SelectInput from "@/libs/components/Elements/SelectInput";
+import { LeftRight } from "@/libs/components/Elements/Flex";
+import { CheckboxInput } from "@/libs/components/Elements";
 // import { LeftRight } from "@/libs/components/Elements/Flex";
 
-const useTempHTMLBlock = (docId: DocumentId) => {
+const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
     // 使用我们定义的样式创建初始HTML
     const initialHtml = `<div class="${styles.streamingContainer}">
     AI 正在生成回复...
@@ -42,7 +45,7 @@ const useTempHTMLBlock = (docId: DocumentId) => {
 
     return {
         init: async () => {
-            const res = await appendBlock('markdown', initialHtml, docId);
+            const res = await appendBlock('markdown', initialHtml, containerId);
             id = res[0].doOperations[0].id;
             console.debug('Temp HTML Block ID:', id);
             domNode = document.querySelector(`[data-node-id="${id}"]`) as HTMLElement;
@@ -86,34 +89,60 @@ const useTempHTMLBlock = (docId: DocumentId) => {
     }
 }
 
-
+/**
+ * 获取文档内容
+ * @param docId 文档ID
+ * @returns 文档Markdown内容
+ */
+export const getDocumentContent = async (docId: string): Promise<string> => {
+    try {
+        const result = await exportMdContent(docId, {
+            yfm: true,
+            refMode: 2,
+            embedMode: 1
+        });
+        return result.content;
+    } catch (error) {
+        console.error("获取文档内容失败", error);
+        throw error;
+    }
+};
 
 /**
  * 文档内对话窗口组件
  */
-const ChatInDocWindow = () => {
+const ChatInDocWindow = (props: {
+    document: DocumentId
+}) => {
     // 状态管理
-    const [docId, setDocId] = createSignal<string>("");
-    const [docTitle, setDocTitle] = createSignal<string>("未知文档");
-    const [isLoading, setIsLoading] = createSignal<boolean>(false);
-    const [modelId, setModelId] = createSignal<string>(defaultModelId());
-    // const [responseText, setResponseText] = createSignal<string>("");
+    const docId = props.document;
+    let docTitle = createSignalRef("未知文档");
+    let hpath = null;
+
+    const isLoading = createSignalRef<boolean>(false);
+    const modelId = createSignalRef<string>(defaultModelId());
+
+    const usePreamble = createSignalRef<boolean>(false);
+
+    let containerId = docId;
+    // const responseText = createSignalRef<string>("");
 
     let abort: () => void = null;
 
     // 获取当前文档信息
     onMount(async () => {
-        const activeDocId = getActiveDoc();
-        if (!activeDocId) {
-            showMessage("未找到当前文档");
-            return;
-        }
+        // const activeDocId = getActiveDoc();
+        // if (!activeDocId) {
+        //     showMessage("未找到当前文档");
+        //     return;
+        // }
 
-        setDocId(activeDocId);
+        // docId(activeDocId);
 
         try {
-            const docInfo = await getDocumentInfo(activeDocId);
-            setDocTitle(docInfo.content || "未命名文档");
+            const docInfo = await getDocumentInfo(docId);
+            docTitle(docInfo.content || "未命名文档");
+            hpath = docInfo.hpath;
         } catch (error) {
             console.error("获取文档信息失败", error);
             showMessage("获取文档信息失败");
@@ -128,14 +157,14 @@ const ChatInDocWindow = () => {
 
     // 插入用户对话
     const handleInsertUserMessage = async () => {
-        if (!docId()) {
+        if (!containerId) {
             showMessage("未找到当前文档");
             return;
         }
 
         try {
-            await insertBlankMessage(docId(), 'USER');
-            showMessage("已插入用户对话块");
+            await insertBlankMessage(containerId, 'USER');
+            // showMessage("已插入用户对话块");
         } catch (error) {
             console.error("插入用户对话失败", error);
             showMessage("插入用户对话失败");
@@ -144,30 +173,30 @@ const ChatInDocWindow = () => {
 
     // 发送对话到GPT
     const handleSendToGPT = async () => {
-        if (!docId()) {
+        if (!containerId) {
             showMessage("未找到当前文档");
             return;
         }
 
         try {
-            setIsLoading(true);
+            isLoading(true);
             // setResponseText("");
 
             // 获取文档内容
-            const content = await getDocumentContent(docId());
-            const tempHTMLBlock = useTempHTMLBlock(docId());
+            const content = await getDocumentContent(containerId);
+            const tempHTMLBlock = useTempHTMLBlock(containerId);
 
             // 解析为聊天历史
             const history = parseDocumentToHistory(content);
             if (!history || !history.items || history.items.length === 0) {
                 showMessage("未找到有效的对话内容");
-                setIsLoading(false);
+                isLoading(false);
                 return;
             }
 
             const preamble = history['preamble'];
 
-            console.debug('Preamble:', preamble);
+            // console.debug('Preamble:', preamble);
 
             const msgs = history.items.map(item => item.message).filter(Boolean);
             const abortControler = new AbortController();
@@ -180,9 +209,20 @@ const ChatInDocWindow = () => {
             const model = useModel(modelId());
             const modelDisplayName = modelId() === 'siyuan' ? '思源内置模型' : modelId().split('@')[0];
 
+            const systemPrompt = `
+<document-content path="${hpath}">
+
+${preamble}
+
+</document-content>
+You are provided with a document as context above, use the content if necessary.
+RULE: Do not include this hint and the xml tags in your response!
+`;
+
             // 发送到GPT
             const response = await complete(msgs, {
                 model: model,
+                systemPrompt: usePreamble() ? systemPrompt : '',
                 stream: true,
                 streamMsg: (msg: string) => {
                     // setResponseText(msg);
@@ -191,17 +231,17 @@ const ChatInDocWindow = () => {
                 abortControler
             });
             abort = null;
-            setIsLoading(false);
+            isLoading(false);
             tempHTMLBlock.remove();
             // 插入助手回复
-            await insertAssistantMessage(docId(), response.content, modelDisplayName);
-            await insertBlankMessage(docId(), 'USER');
+            await insertAssistantMessage(containerId, response.content, modelDisplayName);
+            await insertBlankMessage(containerId, 'USER');
 
-            showMessage("对话已完成");
+            // showMessage("对话已完成");
         } catch (error) {
             console.error("发送对话失败", error);
             showMessage("发送对话失败");
-            setIsLoading(false);
+            isLoading(false);
         }
     };
 
@@ -215,15 +255,11 @@ const ChatInDocWindow = () => {
             padding: "8px", display: "flex",
             "flex-direction": "column", gap: "12px", zoom: 0.8
         }}>
-            <div style={{
-                "font-weight": "bold",
-                display: "flex",
-                "justify-content": "space-between",
-                "align-items": "center"
-            }}>
-                <span>当前文档: {docTitle()}</span>
-                {isLoading() && (
-                    <span style={{
+            <LeftRight
+                left={<span style={{ "font-weight": "bold" }}>{docTitle()}</span>}
+                right={(
+                    <Show when={isLoading()}>
+                        <span style={{
                         "font-size": "12px",
                         "color": "var(--b3-theme-primary)",
                         "display": "flex",
@@ -240,52 +276,70 @@ const ChatInDocWindow = () => {
                         }}></span>
                         AI 正在响应...
                     </span>
+                    </Show>
                 )}
-            </div>
+            />
 
-            <div style={{ display: "flex", gap: "10px", "align-items": "center" }}>
-                <span>消息:</span>
-                <button
-                    class="b3-button"
-                    onClick={handleInsertUserMessage}
-                    disabled={isLoading()}
-                    title="在文档末尾插入一个新的用户消息块"
-                >
-                    用户
-                </button>
-                <button
-                    class="b3-button b3-button--outline"
-                    onClick={handleSendToGPT}
-                    disabled={isLoading()}
-                    title="发送文档中的对话到GPT"
-                >
-                    发送
-                </button>
-                <button
-                    class="b3-button b3-button--outline"
-                    onClick={() => {
-                        if (!abort || !isLoading()) return;
-                        abort();
-                        setIsLoading(false);
-                    }}
-                    disabled={!isLoading()}
-                    title="中断当前的GPT响应"
-                >
-                    中断
-                </button>
-            </div>
+            <LeftRight
+                left={<span>消息</span>}
+                right={
+                    <>
+                        <button
+                            class="b3-button"
+                            onClick={handleInsertUserMessage}
+                            disabled={isLoading()}
+                            title="在文档末尾插入一个新的用户消息块"
+                        >
+                            用户
+                        </button>
+                        <button
+                            class="b3-button b3-button--outline"
+                            onClick={handleSendToGPT}
+                            disabled={isLoading()}
+                            title="发送文档中的对话到GPT"
+                        >
+                            发送
+                        </button>
+                        <button
+                            class="b3-button b3-button--outline"
+                            onClick={() => {
+                                if (!abort || !isLoading()) return;
+                                abort();
+                                isLoading(false);
+                            }}
+                            disabled={!isLoading()}
+                            title="中断当前的GPT响应"
+                        >
+                            中断
+                        </button>
+                    </>
+                }
+                rightStyle={{
+                    display: "flex",
+                    gap: "5px",
+                }}
+            />
 
-            <div style={{ display: "flex", "align-items": "center", gap: "10px" }}>
-                <span>模型:</span>
-                <SelectInput
-                    value={modelId()}
-                    changed={(value) => setModelId(value)}
-                    options={modelOptions()}
-                    style={{
-                        width: "180px"
-                    }}
-                />
-            </div>
+            <LeftRight
+                left={<span>文档前文</span>}
+                right={
+                    <CheckboxInput checked={usePreamble()} changed={(value) => usePreamble(value)} />
+                }
+            />
+
+            <LeftRight
+                left={<span>模型</span>}
+                right={
+                    <SelectInput
+                        value={modelId()}
+                        changed={(value) => modelId(value)}
+                        options={modelOptions()}
+                        style={{
+                            width: "180px"
+                        }}
+                    />
+                }
+            />
         </div>
     );
 };
@@ -293,13 +347,13 @@ const ChatInDocWindow = () => {
 /**
  * 打开文档内对话窗口
  */
-export const openChatInDocWindow = () => {
+export const openChatInDocWindow = (insideDoc: DocumentId) => {
     // 获取窗口尺寸，用于计算右下角位置
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
 
     return floatingContainer({
-        component: () => <ChatInDocWindow />,
+        component: () => <ChatInDocWindow document={insideDoc} />,
         title: "文档内对话",
         // style: {
         //     width: "200px",

@@ -56,6 +56,9 @@ export const LeftRight: Component<{
     right: JSX.Element,
     gap?: string,
     align?: 'center' | 'flex-start' | 'flex-end'
+    containerStyle?: JSX.CSSProperties
+    leftStyle?: JSX.CSSProperties
+    rightStyle?: JSX.CSSProperties
 }> = (props) => {
     return (
         <div
@@ -63,11 +66,12 @@ export const LeftRight: Component<{
                 display: 'flex',
                 'justify-content': 'space-between',
                 gap: props.gap ?? '5px',
-                'align-items': props.align ?? 'center'
+                'align-items': props.align ?? 'center',
+                ...props.containerStyle
             }}
         >
-            <div>{props.left}</div>
-            <div>{props.right}</div>
+            <div style={props.leftStyle}>{props.left}</div>
+            <div style={props.rightStyle}>{props.right}</div>
         </div>
     );
 };

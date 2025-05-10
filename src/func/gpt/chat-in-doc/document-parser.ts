@@ -7,28 +7,10 @@
  */
 
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
-import { appendBlock, exportMdContent, getBlockByID } from "@frostime/siyuan-plugin-kits/api";
+import { appendBlock, getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 import { formatSingleItem, parseMarkdownToChatHistory } from "../persistence/sy-doc";
 import { defaultModelId } from "../setting";
 
-
-
-/**
- * 获取文档内容
- * @param docId 文档ID
- * @returns 文档Markdown内容
- */
-export const getDocumentContent = async (docId: string): Promise<string> => {
-    try {
-        const result = await exportMdContent(docId, {
-            yfm: false
-        });
-        return result.content;
-    } catch (error) {
-        console.error("获取文档内容失败", error);
-        throw error;
-    }
-};
 
 /**
  * 获取文档信息
