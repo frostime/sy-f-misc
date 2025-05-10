@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-05-09 13:00:47
+ * @LastEditTime : 2025-05-10 20:25:37
  * @Description  :
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -56,6 +56,7 @@ export const formatSingleItem = (name: string, content: string, meta?: Record<st
     }).filter(Boolean).join(' ');
     return `
 ${SEPERATOR_LINE}
+>
 > <${name} ${xmlAttrs}/>
 
 ${content}

@@ -74,3 +74,47 @@
   opacity: 0;
   transition: opacity 0.5s ease-out;
 }
+
+/* 活跃对话超级块样式 */
+.activeChatBlock {
+  outline: 2px solid var(--b3-theme-primary) !important;
+  transition: all 0.3s ease !important;
+  position: relative !important;
+
+  &:hover {
+    outline: 2px solid var(--b3-theme-primary) !important;
+  }
+
+  /* 添加一个小标识在左上角 */
+  &::before {
+    content: "AI 对话中";
+    position: absolute;
+    top: -10px;
+    left: 10px;
+    font-size: 12px;
+    background: var(--b3-theme-background);
+    padding: 0 8px;
+    color: var(--b3-theme-primary);
+    border-radius: 3px;
+    z-index: 1;
+    border: 1px solid var(--b3-theme-primary-light);
+  }
+}
+
+/* 光晕动画效果 */
+@keyframes glow {
+  0% {
+    box-shadow: 0 0 5px var(--b3-theme-primary);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--b3-theme-primary);
+  }
+  100% {
+    box-shadow: 0 0 5px var(--b3-theme-primary);
+  }
+}
+
+/* 对话进行中的光晕效果 */
+.pulsingChatBlock {
+  animation: glow 2s ease-in-out infinite;
+}

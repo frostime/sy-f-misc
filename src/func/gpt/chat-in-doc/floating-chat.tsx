@@ -19,6 +19,8 @@ import { defaultModelId, listAvialableModels, useModel } from "../setting/store"
 import SelectInput from "@/libs/components/Elements/SelectInput";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { CheckboxInput } from "@/libs/components/Elements";
+import { getBlockByID } from "@/api";
+
 // import { LeftRight } from "@/libs/components/Elements/Flex";
 
 const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
@@ -92,16 +94,32 @@ const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
 /**
  * 获取文档内容
  * @param docId 文档ID
+ * @param containerId 容器ID，可选，如果提供且不等于docId，则表示使用超级块模式
  * @returns 文档Markdown内容
  */
-export const getDocumentContent = async (docId: string): Promise<string> => {
+export const getDocumentContent = async (docId: string, containerId?: string): Promise<string> => {
     try {
+        // 获取文档内容
         const result = await exportMdContent(docId, {
             yfm: true,
             refMode: 2,
             embedMode: 1
         });
-        return result.content;
+
+        let content = result.content;
+        // 如果没有指定containerId或containerId等于docId，直接返回文档内容
+        if (!containerId || containerId === docId) {
+            return result.content;
+        } else {
+            const superBlock = await getBlockByID(containerId);
+            if (superBlock) {
+                let markdown = superBlock.markdown;
+                markdown.replace('{{{row', '');
+                markdown.replace('}}}', '');
+                content = content.replace(markdown, '');
+            }
+        }
+        return content;
     } catch (error) {
         console.error("获取文档内容失败", error);
         throw error;
@@ -112,7 +130,8 @@ export const getDocumentContent = async (docId: string): Promise<string> => {
  * 文档内对话窗口组件
  */
 const ChatInDocWindow = (props: {
-    document: DocumentId
+    document: DocumentId,
+    containerId?: BlockId
 }) => {
     // 状态管理
     const docId = props.document;
@@ -124,20 +143,22 @@ const ChatInDocWindow = (props: {
 
     const usePreamble = createSignalRef<boolean>(false);
 
-    let containerId = docId;
+    let isMiniMode = props.containerId !== undefined;
+    // 使用传入的containerId或默认为docId
+    let containerId = props.containerId || docId;
     // const responseText = createSignalRef<string>("");
 
     let abort: () => void = null;
 
     // 获取当前文档信息
     onMount(async () => {
-        // const activeDocId = getActiveDoc();
-        // if (!activeDocId) {
-        //     showMessage("未找到当前文档");
-        //     return;
-        // }
-
-        // docId(activeDocId);
+        if (isMiniMode) {
+            let container = document.querySelector(`[data-node-id="${containerId}"]`) as HTMLElement;
+            if (container) {
+                // 添加活跃对话样式
+                container.classList.add(styles.activeChatBlock);
+            }
+        }
 
         try {
             const docInfo = await getDocumentInfo(docId);
@@ -152,6 +173,15 @@ const ChatInDocWindow = (props: {
     onCleanup(() => {
         if (abort) {
             abort();
+        }
+
+        // 移除超级块的活跃样式
+        if (isMiniMode) {
+            const blockElement = document.querySelector(`[data-node-id="${containerId}"]`) as HTMLElement;
+            if (blockElement) {
+                blockElement.classList.remove(styles.activeChatBlock);
+                blockElement.classList.remove(styles.pulsingChatBlock);
+            }
         }
     });
 
@@ -182,8 +212,17 @@ const ChatInDocWindow = (props: {
             isLoading(true);
             // setResponseText("");
 
+            // 添加脉冲效果
+            if (isMiniMode) {
+                const blockElement = document.querySelector(`[data-node-id="${containerId}"]`) as HTMLElement;
+                if (blockElement) {
+                    blockElement.classList.add(styles.pulsingChatBlock);
+                }
+            }
+
             // 获取文档内容
-            const content = await getDocumentContent(containerId);
+            // #BUG Mini 模式下不应该从这个获取上下文
+            const content = await getDocumentContent(docId, containerId);
             const tempHTMLBlock = useTempHTMLBlock(containerId);
 
             // 解析为聊天历史
@@ -195,6 +234,7 @@ const ChatInDocWindow = (props: {
             }
 
             const preamble = history['preamble'];
+            // TODO 兼容 mini 模式的上下文
 
             // console.debug('Preamble:', preamble);
 
@@ -233,6 +273,15 @@ RULE: Do not include this hint and the xml tags in your response!
             abort = null;
             isLoading(false);
             tempHTMLBlock.remove();
+
+            // 移除脉冲效果
+            if (isMiniMode) {
+                const blockElement = document.querySelector(`[data-node-id="${containerId}"]`) as HTMLElement;
+                if (blockElement) {
+                    blockElement.classList.remove(styles.pulsingChatBlock);
+                }
+            }
+
             // 插入助手回复
             await insertAssistantMessage(containerId, response.content, modelDisplayName);
             await insertBlankMessage(containerId, 'USER');
@@ -242,6 +291,14 @@ RULE: Do not include this hint and the xml tags in your response!
             console.error("发送对话失败", error);
             showMessage("发送对话失败");
             isLoading(false);
+
+            // 确保在错误情况下也移除脉冲效果
+            if (isMiniMode) {
+                const blockElement = document.querySelector(`[data-node-id="${containerId}"]`) as HTMLElement;
+                if (blockElement) {
+                    blockElement.classList.remove(styles.pulsingChatBlock);
+                }
+            }
         }
     };
 
@@ -346,15 +403,17 @@ RULE: Do not include this hint and the xml tags in your response!
 
 /**
  * 打开文档内对话窗口
+ * @param insideDoc 文档ID
+ * @param containerId 容器ID，可选，如果提供则将消息添加到该容器中
  */
-export const openChatInDocWindow = (insideDoc: DocumentId) => {
+export const openChatInDocWindow = (insideDoc: DocumentId, containerId?: BlockId) => {
     // 获取窗口尺寸，用于计算右下角位置
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
 
     return floatingContainer({
-        component: () => <ChatInDocWindow document={insideDoc} />,
-        title: "文档内对话",
+        component: () => <ChatInDocWindow document={insideDoc} containerId={containerId} />,
+        title: containerId === undefined ? "文档内对话" : "文档内对话(Mini)",
         // style: {
         //     width: "200px",
         //     height: "auto"

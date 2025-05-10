@@ -70,9 +70,13 @@ export const blankMessage = (type: 'USER' | 'ASSISTANT' | 'SYSTEM', content = ''
         timestamp: timeStr
     }).trim();
     return `${escape ? window.Lute.EscapeHTMLStr(markdown) : markdown}
-{: ${SECTION_ATTR}="${type}" }
+{: ${SECTION_ATTR}="${type}" id="${window?.Lute.NewNodeID()}" }
 
 ${content}
+
+
+{: id="${window?.Lute.NewNodeID() || '20250101120606-aaaaaaa'}" type="p" }
+
 `.trim();
 }
 
