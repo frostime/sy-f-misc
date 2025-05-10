@@ -156,3 +156,22 @@ export const adaptResponseReferences = (responseData: any): TReference[] | undef
 
     return undefined;
 }
+
+
+export const adaptChunkMessage = (messageInChoices: Record<string, string>): {
+    content: string;
+    reasoning_content?: string;
+} => {
+    const message = {
+        content: messageInChoices['content'] || '',
+        reasoning_content: ''
+    }
+
+    if (messageInChoices['reasoning_content']) {
+        message['reasoning_content'] = messageInChoices['reasoning_content'];
+    } else if (messageInChoices['reasoning']) {
+        message['reasoning_content'] = messageInChoices['reasoning'];
+    }
+
+    return message;
+}
