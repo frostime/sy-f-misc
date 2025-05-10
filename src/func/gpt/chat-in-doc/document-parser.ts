@@ -7,24 +7,10 @@
  */
 
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
-import { appendBlock, getBlockByID } from "@frostime/siyuan-plugin-kits/api";
+import { appendBlock } from "@frostime/siyuan-plugin-kits/api";
 import { formatSingleItem, parseMarkdownToChatHistory } from "../persistence/sy-doc";
 import { defaultModelId } from "../setting";
 
-
-/**
- * 获取文档信息
- * @param docId 文档ID
- * @returns 文档信息
- */
-export const getDocumentInfo = async (docId: string): Promise<Block> => {
-    try {
-        return getBlockByID(docId) as Promise<Block>;
-    } catch (error) {
-        console.error("获取文档信息失败", error);
-        throw error;
-    }
-};
 
 /**
  * 解析文档内容为聊天历史

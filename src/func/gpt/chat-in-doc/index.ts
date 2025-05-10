@@ -95,6 +95,7 @@ export const init = () => {
             if (existingSuperblockId) {
                 // 如果在超级块内，自动切换到mini模式
                 console.log("检测到在超级块内，自动切换到mini模式");
+                protyle.insert(window.Lute.Caret, false, false);
                 openChatInDocWindow(rootId, existingSuperblockId);
                 return;
             }

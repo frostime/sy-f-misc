@@ -12,8 +12,8 @@ import { floatingContainer } from "@/libs/components/floating-container";
 import { getLute, getMarkdown, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
-import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory, getDocumentInfo } from "./document-parser";
-import { appendBlock, deleteBlock, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
+import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory } from "./document-parser";
+import { appendBlock, deleteBlock, getBlockByID, request } from "@frostime/siyuan-plugin-kits/api";
 import styles from "./style.module.scss";
 import { defaultModelId, listAvialableModels, useModel } from "../setting/store";
 import SelectInput from "@/libs/components/Elements/SelectInput";
@@ -91,6 +91,10 @@ const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
     }
 }
 
+const childBlocks = async (id: BlockId): Promise<{id: BlockId; markdown: string; type: BlockType}[]> => {
+    return request('/api/block/getChildBlocks', { id });
+}
+
 /**
  * 获取文档内容
  * @param docId 文档ID
@@ -100,14 +104,8 @@ const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
 const getDocumentContent = async (docId: string): Promise<string> => {
     try {
         // 获取文档内容
-        const result = await exportMdContent(docId, {
-            yfm: true,
-            refMode: 2,
-            embedMode: 1
-        });
-
-        let content = result.content;
-        return content;
+        const result = await childBlocks(docId);
+        return result.join('\n\n');
     } catch (error) {
         console.error("获取文档内容失败", error);
         throw error;
@@ -124,7 +122,7 @@ const ChatInDocWindow = (props: {
     // 状态管理
     const docId = props.document;
     let docTitle = createSignalRef("未知文档");
-    let hpath = null;
+    let docBlock: Block = null;
 
     const isLoading = createSignalRef<boolean>(false);
     const modelId = createSignalRef<string>(defaultModelId());
@@ -149,9 +147,8 @@ const ChatInDocWindow = (props: {
         }
 
         try {
-            const docInfo = await getDocumentInfo(docId);
-            docTitle(docInfo.content || "未命名文档");
-            hpath = docInfo.hpath;
+            docBlock = await getBlockByID(docId) as Block;
+            docTitle(docBlock.content || "未命名文档");
         } catch (error) {
             console.error("获取文档信息失败", error);
             showMessage("获取文档信息失败");
@@ -242,14 +239,19 @@ const ChatInDocWindow = (props: {
             let context = '';
             if (useDocContext()) {
                 if (isMiniMode) {
-                    const docContent = await getDocumentContent(docId);
-                    context = docContent.replace(chatAreaMarkdown, '');
+                    const blocks = await childBlocks(docId);
+                    context = blocks.filter(b => b.id !== containerId).map(b => b.markdown).join('\n\n');
                 } else {
                     // 在文档模式下, 将区域前面部分的所有内容当作上下文
                     context = history['preamble'];
                 }
                 systemPrompt = `
-<document-content path="${hpath}">
+<document-content>
+---
+- Path: ${docBlock.hpath}
+- Created: ${docBlock.created}
+- Updated: ${docBlock.updated}
+---
 
 ${context}
 
