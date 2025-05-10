@@ -75,13 +75,13 @@ const userName = window.siyuan?.user?.userName ?? 'User';
 
 export const SECTION_ATTR = 'custom-chat-indoc-section';
 
-export const blankMessage = (type: 'USER' | 'ASSISTANT' | 'SYSTEM', content = '', escape: boolean = false) => {
+export const blankMessage = (type: 'USER' | 'ASSISTANT' | 'SYSTEM', content = '', escape: boolean = false, modelName?: string) => {
     const timeStr = formatDateTime();
     let author: string = type;
     if (type === 'USER') {
         author = userName;
     } else if (type === 'ASSISTANT') {
-        author = defaultModelId();
+        author = modelName || defaultModelId();
     }
     let markdown = formatSingleItem(type, '', {
         author: author,
@@ -113,10 +113,11 @@ export const insertBlankMessage = async (docId: string, type: 'USER' | 'ASSISTAN
  * 在文档末尾插入助手对话块
  * @param docId 文档ID
  * @param content 助手回复内容
+ * @param modelName 模型名称，可选
  */
-export const insertAssistantMessage = async (docId: string, content: string): Promise<void> => {
+export const insertAssistantMessage = async (docId: string, content: string, modelName?: string): Promise<void> => {
     // 创建助手对话块
-    const assistantBlock = blankMessage('ASSISTANT', content);
+    const assistantBlock = blankMessage('ASSISTANT', content, false, modelName);
 
     try {
         await appendBlock("markdown", assistantBlock.trim(), docId);

@@ -6,7 +6,7 @@
  * @Description  : 文档内对话浮动窗口
  */
 
-import { createSignal, onMount, onCleanup } from "solid-js";
+import { createSignal, onMount, onCleanup, createMemo } from "solid-js";
 import { floatingContainer } from "@/libs/components/floating-container";
 import { getActiveDoc, getLute, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
@@ -14,6 +14,8 @@ import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, getDocumentContent, parseDocumentToHistory, getDocumentInfo } from "./document-parser";
 import { appendBlock, deleteBlock } from "@frostime/siyuan-plugin-kits/api";
 import styles from "./style.module.scss";
+import { defaultModelId, listAvialableModels, useModel } from "../setting/store";
+import SelectInput from "@/libs/components/Elements/SelectInput";
 // import { LeftRight } from "@/libs/components/Elements/Flex";
 
 const useTempHTMLBlock = (docId: DocumentId) => {
@@ -84,6 +86,8 @@ const useTempHTMLBlock = (docId: DocumentId) => {
     }
 }
 
+
+
 /**
  * 文档内对话窗口组件
  */
@@ -92,6 +96,7 @@ const ChatInDocWindow = () => {
     const [docId, setDocId] = createSignal<string>("");
     const [docTitle, setDocTitle] = createSignal<string>("未知文档");
     const [isLoading, setIsLoading] = createSignal<boolean>(false);
+    const [modelId, setModelId] = createSignal<string>(defaultModelId());
     // const [responseText, setResponseText] = createSignal<string>("");
 
     let abort: () => void = null;
@@ -170,8 +175,14 @@ const ChatInDocWindow = () => {
                 abortControler.abort();
             }
             tempHTMLBlock.init();
+
+            // 获取当前选择的模型
+            const model = useModel(modelId());
+            const modelDisplayName = modelId() === 'siyuan' ? '思源内置模型' : modelId().split('@')[0];
+
             // 发送到GPT
             const response = await complete(msgs, {
+                model: model,
                 stream: true,
                 streamMsg: (msg: string) => {
                     // setResponseText(msg);
@@ -183,7 +194,7 @@ const ChatInDocWindow = () => {
             setIsLoading(false);
             tempHTMLBlock.remove();
             // 插入助手回复
-            await insertAssistantMessage(docId(), response.content);
+            await insertAssistantMessage(docId(), response.content, modelDisplayName);
             await insertBlankMessage(docId(), 'USER');
 
             showMessage("对话已完成");
@@ -194,9 +205,22 @@ const ChatInDocWindow = () => {
         }
     };
 
+    // 创建模型选项
+    const modelOptions = createMemo(() => {
+        return listAvialableModels();
+    });
+
     return (
-        <div style={{ padding: "8px", display: "flex", "flex-direction": "column", gap: "12px" }}>
-            <div style={{ "font-weight": "bold", display: "flex", "justify-content": "space-between", "align-items": "center" }}>
+        <div style={{
+            padding: "8px", display: "flex",
+            "flex-direction": "column", gap: "12px", zoom: 0.8
+        }}>
+            <div style={{
+                "font-weight": "bold",
+                display: "flex",
+                "justify-content": "space-between",
+                "align-items": "center"
+            }}>
                 <span>当前文档: {docTitle()}</span>
                 {isLoading() && (
                     <span style={{
@@ -219,7 +243,8 @@ const ChatInDocWindow = () => {
                 )}
             </div>
 
-            <div style={{ display: "flex", gap: "8px" }}>
+            <div style={{ display: "flex", gap: "10px", "align-items": "center" }}>
+                <span>消息:</span>
                 <button
                     class="b3-button"
                     onClick={handleInsertUserMessage}
@@ -249,6 +274,18 @@ const ChatInDocWindow = () => {
                     中断
                 </button>
             </div>
+
+            <div style={{ display: "flex", "align-items": "center", gap: "10px" }}>
+                <span>模型:</span>
+                <SelectInput
+                    value={modelId()}
+                    changed={(value) => setModelId(value)}
+                    options={modelOptions()}
+                    style={{
+                        width: "180px"
+                    }}
+                />
+            </div>
         </div>
     );
 };
@@ -257,13 +294,21 @@ const ChatInDocWindow = () => {
  * 打开文档内对话窗口
  */
 export const openChatInDocWindow = () => {
+    // 获取窗口尺寸，用于计算右下角位置
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
     return floatingContainer({
         component: () => <ChatInDocWindow />,
         title: "文档内对话",
-        style: {
-            width: "400px",
-            height: "auto"
+        // style: {
+        //     width: "200px",
+        //     height: "auto"
+        // },
+        initialPosition: {
+            x: windowWidth - 300, // 窗口宽度 - 浮动窗口宽度 - 边距
+            y: windowHeight - 200 // 窗口高度 - 浮动窗口高度 - 边距
         },
-        allowResize: true
+        allowResize: false
     });
 };

@@ -159,7 +159,7 @@ export const FloatingContainer: Component<{
                 'position': 'fixed',
                 'left': `${position().x}px`,
                 'top': `${position().y}px`,
-                'z-index': '9999',
+                'z-index': '999',
                 'background-color': 'var(--b3-theme-background)',
                 'border': '1px solid var(--b3-border-color)',
                 'border-radius': '8px',
