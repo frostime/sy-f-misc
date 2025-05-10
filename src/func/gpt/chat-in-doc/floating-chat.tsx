@@ -9,7 +9,7 @@
 import { onMount, onCleanup, createMemo, Show } from "solid-js";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { floatingContainer } from "@/libs/components/floating-container";
-import { getLute, throttle } from "@frostime/siyuan-plugin-kits";
+import { getLute, getMarkdown, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory, getDocumentInfo } from "./document-parser";
@@ -19,7 +19,7 @@ import { defaultModelId, listAvialableModels, useModel } from "../setting/store"
 import SelectInput from "@/libs/components/Elements/SelectInput";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { CheckboxInput } from "@/libs/components/Elements";
-import { getBlockByID } from "@/api";
+
 
 // import { LeftRight } from "@/libs/components/Elements/Flex";
 
@@ -97,7 +97,7 @@ const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
  * @param containerId 容器ID，可选，如果提供且不等于docId，则表示使用超级块模式
  * @returns 文档Markdown内容
  */
-export const getDocumentContent = async (docId: string, containerId?: string): Promise<string> => {
+const getDocumentContent = async (docId: string): Promise<string> => {
     try {
         // 获取文档内容
         const result = await exportMdContent(docId, {
@@ -107,18 +107,6 @@ export const getDocumentContent = async (docId: string, containerId?: string): P
         });
 
         let content = result.content;
-        // 如果没有指定containerId或containerId等于docId，直接返回文档内容
-        if (!containerId || containerId === docId) {
-            return result.content;
-        } else {
-            const superBlock = await getBlockByID(containerId);
-            if (superBlock) {
-                let markdown = superBlock.markdown;
-                markdown.replace('{{{row', '');
-                markdown.replace('}}}', '');
-                content = content.replace(markdown, '');
-            }
-        }
         return content;
     } catch (error) {
         console.error("获取文档内容失败", error);
@@ -141,7 +129,7 @@ const ChatInDocWindow = (props: {
     const isLoading = createSignalRef<boolean>(false);
     const modelId = createSignalRef<string>(defaultModelId());
 
-    const usePreamble = createSignalRef<boolean>(false);
+    const useDocContext = createSignalRef<boolean>(false);
 
     let isMiniMode = props.containerId !== undefined;
     // 使用传入的containerId或默认为docId
@@ -220,49 +208,63 @@ const ChatInDocWindow = (props: {
                 }
             }
 
+            // debugger
             // 获取文档内容
-            // #BUG Mini 模式下不应该从这个获取上下文
-            const content = await getDocumentContent(docId, containerId);
+            let chatAreaMarkdown = '';
+            if (isMiniMode) {
+                chatAreaMarkdown = await getMarkdown(containerId);
+                // 去掉超级块的标记符号
+                chatAreaMarkdown = chatAreaMarkdown.trim().replace(/^{{{row/, '').replace(/}}}$/, '').trim();
+            } else {
+                chatAreaMarkdown = await getDocumentContent(docId);
+            }
             const tempHTMLBlock = useTempHTMLBlock(containerId);
 
             // 解析为聊天历史
-            const history = parseDocumentToHistory(content);
+            const history = parseDocumentToHistory(chatAreaMarkdown);
             if (!history || !history.items || history.items.length === 0) {
                 showMessage("未找到有效的对话内容");
                 isLoading(false);
                 return;
             }
 
-            const preamble = history['preamble'];
-            // TODO 兼容 mini 模式的上下文
-
-            // console.debug('Preamble:', preamble);
-
             const msgs = history.items.map(item => item.message).filter(Boolean);
             const abortControler = new AbortController();
             abort = () => {
                 abortControler.abort();
             }
-            tempHTMLBlock.init();
 
             // 获取当前选择的模型
             const model = useModel(modelId());
             const modelDisplayName = modelId() === 'siyuan' ? '思源内置模型' : modelId().split('@')[0];
 
-            const systemPrompt = `
+            let systemPrompt = '';
+            let context = '';
+            if (useDocContext()) {
+                if (isMiniMode) {
+                    const docContent = await getDocumentContent(docId);
+                    context = docContent.replace(chatAreaMarkdown, '');
+                } else {
+                    // 在文档模式下, 将区域前面部分的所有内容当作上下文
+                    context = history['preamble'];
+                }
+                systemPrompt = `
 <document-content path="${hpath}">
 
-${preamble}
+${context}
 
 </document-content>
 You are provided with a document as context above, use the content if necessary.
 RULE: Do not include this hint and the xml tags in your response!
 `;
+            }
+
+            tempHTMLBlock.init();
 
             // 发送到GPT
             const response = await complete(msgs, {
                 model: model,
-                systemPrompt: usePreamble() ? systemPrompt : '',
+                systemPrompt: useDocContext() ? systemPrompt : '',
                 stream: true,
                 streamMsg: (msg: string) => {
                     // setResponseText(msg);
@@ -317,22 +319,22 @@ RULE: Do not include this hint and the xml tags in your response!
                 right={(
                     <Show when={isLoading()}>
                         <span style={{
-                        "font-size": "12px",
-                        "color": "var(--b3-theme-primary)",
-                        "display": "flex",
-                        "align-items": "center",
-                        "gap": "4px"
-                    }}>
-                        <span style={{
-                            "display": "inline-block",
-                            "width": "8px",
-                            "height": "8px",
-                            "border-radius": "50%",
-                            "background-color": "var(--b3-theme-primary)",
-                            "animation": "fadeInOut 1s ease-in-out infinite"
-                        }}></span>
-                        AI 正在响应...
-                    </span>
+                            "font-size": "12px",
+                            "color": "var(--b3-theme-primary)",
+                            "display": "flex",
+                            "align-items": "center",
+                            "gap": "4px"
+                        }}>
+                            <span style={{
+                                "display": "inline-block",
+                                "width": "8px",
+                                "height": "8px",
+                                "border-radius": "50%",
+                                "background-color": "var(--b3-theme-primary)",
+                                "animation": "fadeInOut 1s ease-in-out infinite"
+                            }}></span>
+                            AI 正在响应...
+                        </span>
                     </Show>
                 )}
             />
@@ -343,14 +345,6 @@ RULE: Do not include this hint and the xml tags in your response!
                     <>
                         <button
                             class="b3-button"
-                            onClick={handleInsertUserMessage}
-                            disabled={isLoading()}
-                            title="在文档末尾插入一个新的用户消息块"
-                        >
-                            用户
-                        </button>
-                        <button
-                            class="b3-button b3-button--outline"
                             onClick={handleSendToGPT}
                             disabled={isLoading()}
                             title="发送文档中的对话到GPT"
@@ -369,6 +363,17 @@ RULE: Do not include this hint and the xml tags in your response!
                         >
                             中断
                         </button>
+
+                        <span style="width: 5px;" />
+
+                        <button
+                            class="b3-button b3-button--outline"
+                            onClick={handleInsertUserMessage}
+                            disabled={isLoading()}
+                            title="在文档末尾插入一个新的用户消息块"
+                        >
+                            用户
+                        </button>
                     </>
                 }
                 rightStyle={{
@@ -380,7 +385,7 @@ RULE: Do not include this hint and the xml tags in your response!
             <LeftRight
                 left={<span>文档前文</span>}
                 right={
-                    <CheckboxInput checked={usePreamble()} changed={(value) => usePreamble(value)} />
+                    <CheckboxInput checked={useDocContext()} changed={(value) => useDocContext(value)} />
                 }
             />
 
