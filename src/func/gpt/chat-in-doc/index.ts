@@ -80,43 +80,10 @@ export const init = () => {
 
     const plugin = thisPlugin();
 
-    // 注册普通模式Slash命令
-    plugin.addProtyleSlash({
-        id: "chat-in-doc",
-        filter: ["chat-in-doc", "chat", "对话"],
-        html: "文档内 AI 对话",
-        //@ts-ignore
-        callback: async (protyle: Protyle, nodeElement?: HTMLElement) => {
-            const rootId = protyle.protyle.block.rootID;
-
-            // 检查是否在超级块内
-            const existingSuperblockId = findSuperblock(nodeElement);
-
-            if (existingSuperblockId) {
-                // 如果在超级块内，自动切换到mini模式
-                console.log("检测到在超级块内，自动切换到mini模式");
-                protyle.insert(window.Lute.Caret, false, false);
-                openChatInDocWindow(rootId, existingSuperblockId);
-                return;
-            }
-
-            // 普通模式处理
-            if (nodeElement && nodeElement.closest(`[${SECTION_ATTR}="USER"]`)) {
-                protyle.insert(window.Lute.Caret, false, false);
-            } else {
-                let md = blankMessage('USER', '', true);
-                protyle.insert(md, true);
-            }
-
-            // 打开浮动窗口
-            openChatInDocWindow(rootId);
-        }
-    });
-
-    // 注册Mini版Slash命令
+        // 注册Mini版Slash命令
     plugin.addProtyleSlash({
         id: "chat-in-doc-mini",
-        filter: ["chat-in-doc-mini", "chat-mini", "对话-mini"],
+        filter: ["chatmini", "对话mini"],
         html: "文档内 AI 对话 (Mini版)",
         //@ts-ignore
         callback: async (protyle: Protyle, nodeElement?: HTMLElement) => {
@@ -153,6 +120,40 @@ export const init = () => {
             }
         }
     });
+
+    // 注册普通模式Slash命令
+    plugin.addProtyleSlash({
+        id: "chat-in-doc",
+        filter: ["chatindoc", "chat", "对话"],
+        html: "文档内 AI 对话",
+        //@ts-ignore
+        callback: async (protyle: Protyle, nodeElement?: HTMLElement) => {
+            const rootId = protyle.protyle.block.rootID;
+
+            // 检查是否在超级块内
+            const existingSuperblockId = findSuperblock(nodeElement);
+
+            if (existingSuperblockId) {
+                // 如果在超级块内，自动切换到mini模式
+                console.log("检测到在超级块内，自动切换到mini模式");
+                protyle.insert(window.Lute.Caret, false, false);
+                openChatInDocWindow(rootId, existingSuperblockId);
+                return;
+            }
+
+            // 普通模式处理
+            if (nodeElement && nodeElement.closest(`[${SECTION_ATTR}="USER"]`)) {
+                protyle.insert(window.Lute.Caret, false, false);
+            } else {
+                let md = blankMessage('USER', '', true);
+                protyle.insert(md, true);
+            }
+
+            // 打开浮动窗口
+            openChatInDocWindow(rootId);
+        }
+    });
+
 };
 
 /**

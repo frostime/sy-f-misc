@@ -9,7 +9,7 @@
 import { onMount, onCleanup, createMemo, Show } from "solid-js";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { floatingContainer } from "@/libs/components/floating-container";
-import { getLute, getMarkdown, throttle } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, getLute, getMarkdown, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory } from "./document-parser";
@@ -105,7 +105,7 @@ const getDocumentContent = async (docId: string): Promise<string> => {
     try {
         // 获取文档内容
         const result = await childBlocks(docId);
-        return result.join('\n\n');
+        return result.map(b => b.markdown).join('\n\n');
     } catch (error) {
         console.error("获取文档内容失败", error);
         throw error;
@@ -235,7 +235,7 @@ const ChatInDocWindow = (props: {
             const model = useModel(modelId());
             const modelDisplayName = modelId() === 'siyuan' ? '思源内置模型' : modelId().split('@')[0];
 
-            let systemPrompt = '';
+            let systemPrompt = `Your are a helpful assistant. Today is ${formatDateTime()}.\n`;
             let context = '';
             if (useDocContext()) {
                 if (isMiniMode) {
@@ -245,7 +245,7 @@ const ChatInDocWindow = (props: {
                     // 在文档模式下, 将区域前面部分的所有内容当作上下文
                     context = history['preamble'];
                 }
-                systemPrompt = `
+                systemPrompt += `
 <document-content>
 ---
 - Path: ${docBlock.hpath}
