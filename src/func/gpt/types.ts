@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-05-02 16:47:37
+ * @LastEditTime : 2025-05-13 20:28:49
  * @Description  :
  */
 interface IMessageContent {
@@ -50,6 +50,18 @@ interface IChatOption {
      * @range 0.0 - 1.0
      */
     top_p?: number;
+
+    /**
+     * Options for streaming responses.
+     * @type {object}
+     */
+    stream_options?: {
+        /**
+         * Whether to include usage statistics in the response.
+         * @type {boolean}
+         */
+        include_usage?: boolean;
+    };
 
     /**
      * The maximum number of tokens in the response.
@@ -128,6 +140,11 @@ interface IChatSessionMsgItem {
     // 通过 slice 可以 获取 user prompt, 而去掉 context prompt 部分
     userPromptSlice?: [number, number];
     token?: number;
+    usage?: {
+        completion_tokens: number;
+        prompt_tokens: number;
+        total_tokens: number;
+    };
     author?: string;
     timestamp?: number;
     title?: string;

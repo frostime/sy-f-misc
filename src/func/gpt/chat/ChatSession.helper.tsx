@@ -526,6 +526,7 @@ ${inputContent}
                 msgItem = {
                     ...msgItem,
                     loading: false,
+                    usage,
                     message: newMessageContent,
                     author: modelToUse.model,
                     timestamp: new Date().getTime(),
@@ -633,6 +634,7 @@ ${inputContent}
                 const updated = [...prev];
                 updated[lastIdx] = {
                     ...updated[lastIdx],
+                    usage,
                     loading: false,
                     message: newMessageContent,
                     author: modelToUse.model,

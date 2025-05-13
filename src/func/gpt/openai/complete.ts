@@ -6,7 +6,11 @@ import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReferenc
 interface CompletionResponse {
     ok?: boolean;
     content: string;
-    usage: any | null;
+    usage?: {
+        completion_tokens: number;
+        prompt_tokens: number;
+        total_tokens: number;
+    };
     reasoning_content?: string;
     references?: TReference[];
 }
@@ -15,6 +19,11 @@ interface StreamChunkData {
     content: string;
     reasoning_content: string;
     references?: TReference[];
+    usage?: {
+        completion_tokens: number;
+        prompt_tokens: number;
+        total_tokens: number;
+    };
 }
 
 const buildReferencesText = (refers: CompletionResponse['references']) => {
@@ -27,7 +36,7 @@ const buildReferencesText = (refers: CompletionResponse['references']) => {
 /**
  * 处理流式响应的数据块
  */
-const handleStreamChunk = (line: string): StreamChunkData | null => {
+const handleStreamChunk = (line: string): (StreamChunkData | { usage: any }) | null => {
     appendLog({ type: 'chunk', data: line });
     if (line.includes('[DONE]') || !line.startsWith('data:')) {
         return null;
@@ -40,6 +49,15 @@ const handleStreamChunk = (line: string): StreamChunkData | null => {
             return {
                 content: error,
                 reasoning_content: ''
+            };
+        }
+
+        // Check if this is a usage data chunk (will have empty choices array and usage data)
+        if (responseData.usage && (!responseData.choices || responseData.choices.length === 0)) {
+            return {
+                content: '',
+                reasoning_content: '',
+                usage: responseData.usage
             };
         }
 
@@ -73,7 +91,7 @@ const handleStreamResponse = async (
     let references: TReference[] = null;
 
     const transformStream = new TransformStream({
-        transform: (chunk, controller) => {
+        transform: (chunk: string, controller) => {
             const lines = chunk.split('\n').filter(line => line.trim() !== '');
             for (const line of lines) {
                 const result = handleStreamChunk(line);
@@ -89,8 +107,8 @@ const handleStreamResponse = async (
         .pipeThrough(transformStream);
 
     const reader = stream.getReader();
-    const checkAbort = options?.abortControler?.signal 
-        ? () => options.abortControler.signal.aborted 
+    const checkAbort = options?.abortControler?.signal
+        ? () => options.abortControler.signal.aborted
         : () => false;
 
     try {
@@ -102,6 +120,12 @@ const handleStreamResponse = async (
                 await reader.cancel();
                 responseContent.content += `\n **[Error]** Request aborted`;
                 break;
+            }
+
+            // Check if this chunk contains usage data
+            if ('usage' in readResult.value && readResult.value.usage) {
+                responseContent.usage = readResult.value.usage;
+                continue; // Skip the rest of the processing for this chunk
             }
 
             const { content, reasoning_content } = adaptChunkMessage(readResult.value) as StreamChunkData;
@@ -212,6 +236,13 @@ export const complete = async (input: string | IMessage[], options?: {
             option: chatOption
         }
 
+        if (options.stream) {
+            // 设置 stream options，启用 usage 数据返回
+            chatInputs.option.stream_options = {
+                include_usage: true
+            };
+        }
+
 
         /**
          * 假如有用户自定义的预处理器, 则使用
@@ -258,7 +289,7 @@ export const complete = async (input: string | IMessage[], options?: {
             }
         }
 
-        return options?.stream 
+        return options?.stream
             ? handleStreamResponse(response, options)
             : handleNormalResponse(response);
 

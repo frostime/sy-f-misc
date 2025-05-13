@@ -374,11 +374,17 @@ const MessageItem: Component<{
                 type: 'readonly'
             });
         }
-        if (props.messageItem.token) {
+        // if (props.messageItem.token) {
+        //     submenus.push({
+        //         label: `Token: ${props.messageItem.token}`,
+        //         type: 'readonly'
+        //     });
+        // }
+        if (props.messageItem.usage) {
             submenus.push({
-                label: `Token: ${props.messageItem.token}`,
+                label: `Token ${props.messageItem.usage?.total_tokens} ↑ ${props.messageItem.usage?.prompt_tokens} ↓ ${props.messageItem.usage?.completion_tokens}`,
                 type: 'readonly'
-            });
+            })
         }
 
         menu.addItem({
@@ -495,7 +501,10 @@ const MessageItem: Component<{
                     {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
                 </span>
                 <Show when={props.messageItem.token}>
-                    <span data-label="token" class="counter" style={{ padding: 0 }}>Token: {props.messageItem.token}</span>
+                    <span data-label="token" class="counter" style={{ padding: 0 }}>
+                        {/* Token: {props.messageItem.token} */}
+                        Token: {props.messageItem.usage?.total_tokens} ↑ {props.messageItem.usage?.prompt_tokens} ↓ {props.messageItem.usage?.completion_tokens}
+                    </span>
                 </Show>
 
                 <div class="fn__flex-1" />
