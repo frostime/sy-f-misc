@@ -9,7 +9,7 @@
 import { onMount, onCleanup, createMemo, Show } from "solid-js";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { floatingContainer } from "@/libs/components/floating-container";
-import { formatDateTime, getLute, getMarkdown, parseSiYuanTimestamp, throttle } from "@frostime/siyuan-plugin-kits";
+import { getLute, getMarkdown, parseSiYuanTimestamp, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory } from "./document-parser";
@@ -19,6 +19,8 @@ import { defaultModelId, listAvialableModels, useModel } from "../setting/store"
 import SelectInput from "@/libs/components/Elements/SelectInput";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { CheckboxInput } from "@/libs/components/Elements";
+import { useSystemPrompt } from "./useSystemPrompt";
+import { extractBlockReferences } from "@/libs/markdown";
 
 
 // import { LeftRight } from "@/libs/components/Elements/Flex";
@@ -128,6 +130,7 @@ const ChatInDocWindow = (props: {
     const modelId = createSignalRef<string>(defaultModelId());
 
     const useDocContext = createSignalRef<boolean>(false);
+    const useRefContext = createSignalRef<boolean>(false);
 
     let isMiniMode = props.containerId !== undefined;
     // 使用传入的containerId或默认为docId
@@ -235,17 +238,16 @@ const ChatInDocWindow = (props: {
             const model = useModel(modelId());
             const modelDisplayName = modelId() === 'siyuan' ? '思源内置模型' : modelId().split('@')[0];
 
-            let systemPrompt = `Your are a helpful assistant. Today is ${formatDateTime()}.\n`;
+            // 使用 system prompt hook
+            const systemPromptHook = useSystemPrompt();
             let context = '';
 
             // 解析 mini mode 下的 preamble 部分
             if (isMiniMode) {
                 const preamble = history['preamble']?.trim();
-                preamble && (systemPrompt += `
-<reference type="paragraph">
-${preamble}
-</reference>
-`);
+                if (preamble) {
+                    systemPromptHook.addReference(preamble, 'paragraph');
+                }
             }
 
             // 解析 document context
@@ -258,23 +260,23 @@ ${preamble}
                     context = history['preamble'];
                 }
                 context = context?.trim();
-                context && (systemPrompt += `
-<reference type="document" path="${docBlock.hpath}">
-${context}
-</reference>
-`);
+                if (context) {
+                    systemPromptHook.addReference(context, 'document', {
+                        path: docBlock.hpath
+                    });
+                }
             }
 
-            if (systemPrompt.includes('<reference>')) {
-                systemPrompt += `
-
-<reference-rule>
-- The <reference> tags above contain contextual information relevant to this chat.
-- USE ONLY the content within <reference> tags, but DO NOT mention these tags in your response.
-- DO NOT mention this rule in your response!
-- e.g. If asked to "translate the document", only translate the actual text content within <reference>.
-</reference-rule>
-`.trim();
+            if (useRefContext()) {
+                const userMessageContent = msgs.filter(msg => msg.role.toLocaleLowerCase() === 'user').map(msg => msg.content).join('\n');
+                const refs = extractBlockReferences(userMessageContent);
+                for (const [blockId, anchorText] of Object.entries(refs)) {
+                    const content = await getMarkdown(blockId);
+                    systemPromptHook.addReference(content, 'block-ref', {
+                        id: blockId,
+                        anchor: anchorText,
+                    });
+                }
             }
 
             tempHTMLBlock.init();
@@ -282,7 +284,7 @@ ${context}
             // 发送到GPT
             const response = await complete(msgs, {
                 model: model,
-                systemPrompt: systemPrompt?.trim(),
+                systemPrompt: systemPromptHook.generate(),
                 stream: true,
                 streamMsg: (msg: string) => {
                     // setResponseText(msg);
@@ -401,9 +403,16 @@ ${context}
             />
 
             <LeftRight
-                left={<span>文档前文</span>}
+                left={<span>附带: 文档内容</span>}
                 right={
                     <CheckboxInput checked={useDocContext()} changed={(value) => useDocContext(value)} />
+                }
+            />
+
+            <LeftRight
+                left={<span>附带: 引用内容</span>}
+                right={
+                    <CheckboxInput checked={useRefContext()} changed={(value) => useRefContext(value)} />
                 }
             />
 
