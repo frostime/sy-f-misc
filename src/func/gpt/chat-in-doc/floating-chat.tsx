@@ -9,7 +9,7 @@
 import { onMount, onCleanup, createMemo, Show } from "solid-js";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { floatingContainer } from "@/libs/components/floating-container";
-import { getLute, getMarkdown, parseSiYuanTimestamp, throttle } from "@frostime/siyuan-plugin-kits";
+import { getLute, getMarkdown, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory } from "./document-parser";
@@ -45,7 +45,19 @@ const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
         domNode?.dispatchEvent(event);
     }
 
-    const dispatchEvent = throttle(pushUserInputEvent, 1000);
+
+    const renderHTML = (markdown: string) => {
+        // 使用Lute将Markdown转换为HTML
+        // @ts-ignore
+        let contentHtml = lute.Md2HTML(markdown);
+
+        // 更新DOM
+        domCustomHTML.setAttribute('data-content', contentHtml);
+        pushUserInputEvent();
+    }
+
+    const renderIt = throttle(renderHTML, 500);
+
 
     return {
         init: async () => {
@@ -63,25 +75,19 @@ const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
         },
         update: (markdown: string) => {
             if (!domCustomHTML) return;
+            renderIt(markdown);
 
-            // 使用Lute将Markdown转换为HTML
-            // @ts-ignore
-            let contentHtml = lute.Md2HTML(markdown);
-
-            // 更新DOM
-            domCustomHTML.setAttribute('data-content', contentHtml);
-            dispatchEvent();
         },
         remove: () => {
             if (id) {
                 // 添加淡出类
                 domNode.classList.add(styles.fadeOut);
-                dispatchEvent();
+                pushUserInputEvent();
 
                 // 淡出动画完成后设置 display: none
                 setTimeout(() => {
                     domNode.style.display = 'none';
-                    dispatchEvent();
+                    pushUserInputEvent();
 
                     // 然后再删除元素
                     setTimeout(() => {
@@ -93,7 +99,7 @@ const useTempHTMLBlock = (containerId: DocumentId | BlockId) => {
     }
 }
 
-const childBlocks = async (id: BlockId): Promise<{id: BlockId; markdown: string; type: BlockType}[]> => {
+const childBlocks = async (id: BlockId): Promise<{ id: BlockId; markdown: string; type: BlockType }[]> => {
     return request('/api/block/getChildBlocks', { id });
 }
 
