@@ -135,7 +135,7 @@ const handleStreamResponse = async (
 
     if (references && references.length) {
         // responseContent.references = references;
-        responseContent.content += '\n' + buildReferencesText(references);
+        responseContent.content += '\n\n' + buildReferencesText(references);
     }
 
     return responseContent;
@@ -165,7 +165,7 @@ const handleNormalResponse = async (response: Response): Promise<CompletionRespo
     let references = adaptResponseReferences(data);
     if (references && references.length) {
         // results.references = data.references;
-        results.content += '\n' + buildReferencesText(references);
+        results.content += '\n\n' + buildReferencesText(references);
     }
     return results;
 }

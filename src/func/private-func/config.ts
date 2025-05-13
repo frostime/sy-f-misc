@@ -3,14 +3,15 @@
  * @Author       : frostime
  * @Date         : 2025-04-17 18:16:50
  * @FilePath     : /src/func/private-func/config.ts
- * @LastEditTime : 2025-04-17 19:47:14
- * @Description  : 
+ * @LastEditTime : 2025-05-12 22:30:55
+ * @Description  :
  */
 import { toggleDisable, toggleEnable } from "./auto-sync";
 
 export const config = {
     AutoSyncAfterLongWait: false,
-    WAIT_INTERVAL_HOURS: 4
+    WAIT_INTERVAL_HOURS: 4,
+    EnableCtrlSFixTab: true
 }
 
 // Optional: Declare simple module config
@@ -42,6 +43,16 @@ export const declareModuleConfig = {
             set: (value: string) => {
                 config.WAIT_INTERVAL_HOURS = parseFloat(value);
             }
+        },
+        {
+            key: 'EnableCtrlSHandler',
+            title: '启用 Ctrl+S 自动固定页签',
+            description: '按下 Ctrl+S 之后，固定页签',
+            type: 'checkbox',
+            get: () => config.EnableCtrlSFixTab,
+            set: (value: boolean) => {
+                config.EnableCtrlSFixTab = value;
+            }
         }
     ] as IConfigItem<any>[],
     load: (itemValues?: Record<string, any>) => {
@@ -50,6 +61,9 @@ export const declareModuleConfig = {
         }
         if (itemValues?.WAIT_INTERVAL_HOURS !== undefined) {
             config.WAIT_INTERVAL_HOURS = parseFloat(itemValues.WAIT_INTERVAL_HOURS);
+        }
+        if (itemValues?.EnableCtrlSHandler !== undefined) {
+            config.EnableCtrlSFixTab = itemValues.EnableCtrlSHandler;
         }
     }
 };

@@ -9,7 +9,7 @@
 import { onMount, onCleanup, createMemo, Show } from "solid-js";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { floatingContainer } from "@/libs/components/floating-container";
-import { formatDateTime, getLute, getMarkdown, throttle } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, getLute, getMarkdown, parseSiYuanTimestamp, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory } from "./document-parser";
@@ -237,6 +237,18 @@ const ChatInDocWindow = (props: {
 
             let systemPrompt = `Your are a helpful assistant. Today is ${formatDateTime()}.\n`;
             let context = '';
+
+            // 解析 mini mode 下的 preamble 部分
+            if (isMiniMode) {
+                const preamble = history['preamble']?.trim();
+                preamble && (systemPrompt += `
+<reference type="paragraph">
+${preamble}
+</reference>
+`);
+            }
+
+            // 解析 document context
             if (useDocContext()) {
                 if (isMiniMode) {
                     const blocks = await childBlocks(docId);
@@ -245,20 +257,24 @@ const ChatInDocWindow = (props: {
                     // 在文档模式下, 将区域前面部分的所有内容当作上下文
                     context = history['preamble'];
                 }
-                systemPrompt += `
-<document-content>
----
-- Path: ${docBlock.hpath}
-- Created: ${docBlock.created}
-- Updated: ${docBlock.updated}
----
-
+                context = context?.trim();
+                context && (systemPrompt += `
+<reference type="document" path="${docBlock.hpath}">
 ${context}
+</reference>
+`);
+            }
 
-</document-content>
-You are provided with a document as context above, use the content if necessary.
-RULE: Do not include this hint and the xml tags in your response!
-`;
+            if (systemPrompt.includes('<reference>')) {
+                systemPrompt += `
+
+<reference-rule>
+- The <reference> tags above contain contextual information relevant to this chat.
+- USE ONLY the content within <reference> tags, but DO NOT mention these tags in your response.
+- DO NOT mention this rule in your response!
+- e.g. If asked to "translate the document", only translate the actual text content within <reference>.
+</reference-rule>
+`.trim();
             }
 
             tempHTMLBlock.init();
@@ -266,7 +282,7 @@ RULE: Do not include this hint and the xml tags in your response!
             // 发送到GPT
             const response = await complete(msgs, {
                 model: model,
-                systemPrompt: useDocContext() ? systemPrompt : '',
+                systemPrompt: systemPrompt?.trim(),
                 stream: true,
                 streamMsg: (msg: string) => {
                     // setResponseText(msg);

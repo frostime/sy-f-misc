@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:38:02
  * @FilePath     : /src/func/gpt/persistence/local-storage.ts
- * @LastEditTime : 2025-04-28 17:36:48
+ * @LastEditTime : 2025-05-12 22:15:18
  * @Description  :
  */
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 
-const KEEP_N_CACHE_ITEM = 32;
+const KEEP_N_CACHE_ITEM = 24;
 
 
 /**
