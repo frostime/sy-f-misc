@@ -50,7 +50,7 @@ const findSuperblock = (nodeElement?: HTMLElement): BlockId | undefined => {
  */
 const createChatSuperblock = async (docId: DocumentId, nodeId?: BlockId): Promise<BlockId> => {
     try {
-        let md = blankMessage('USER', '');
+        let md = blankMessage('USER', '', { escape: false });
         // 创建超级块内容
         const content = superBlock(md);
 
@@ -145,7 +145,7 @@ export const init = () => {
             if (nodeElement && nodeElement.closest(`[${SECTION_ATTR}="USER"]`)) {
                 protyle.insert(window.Lute.Caret, false, false);
             } else {
-                let md = blankMessage('USER', '', true);
+                let md = blankMessage('USER', '', { escape: true });
                 protyle.insert(md, true);
             }
 

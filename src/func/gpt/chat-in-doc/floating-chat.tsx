@@ -311,7 +311,7 @@ const ChatInDocWindow = (props: {
             }
 
             // 插入助手回复
-            await insertAssistantMessage(containerId, response.content, modelDisplayName);
+            await insertAssistantMessage(containerId, response, modelDisplayName);
             await insertBlankMessage(containerId, 'USER');
 
             // showMessage("对话已完成");

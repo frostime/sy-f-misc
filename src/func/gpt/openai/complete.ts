@@ -3,7 +3,7 @@ import { appendLog } from "../MessageLogger";
 import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage } from './adpater';
 
 
-interface CompletionResponse {
+export interface CompletionResponse {
     ok?: boolean;
     content: string;
     usage?: {
