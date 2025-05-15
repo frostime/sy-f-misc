@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-03-29 19:04:36
+ * @LastEditTime : 2025-05-15 12:43:43
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -182,24 +182,6 @@ const GlobalSetting = () => {
                                 />
                             </Form.Wrap>
                             <Heading>其他设置</Heading>
-                            <Form.Wrap
-                                title="选中内容格式"
-                                description="用户选中内容时，插入到对话中的格式。使用 {{content}} 作为占位符表示选中的内容"
-                                direction="row"
-                            >
-                                <Form.Input
-                                    type="textarea"
-                                    value={globalMiscConfigs().userSelectedContextFormat}
-                                    changed={(v) => {
-                                        globalMiscConfigs.update('userSelectedContextFormat', v);
-                                    }}
-                                    style={{
-                                        'font-size': '1.2em',
-                                        'line-height': '1.1em',
-                                        height: '6em'
-                                    }}
-                                />
-                            </Form.Wrap>
                             <Form.Wrap
                                 title="隐私关键词"
                                 description="在使用 @ 添加上下文的时候，如果有屏蔽隐私的需求请在这里配置<br/> 每行一个关键词，这些关键词在 GPT 附带的上下文中会被替换为隐私屏蔽词"

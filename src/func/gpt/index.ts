@@ -80,9 +80,9 @@ const attachSelectedText = async () => {
     let sortedBlocks = blocksIds.map(id => blocksMap.get(id));
     let blockMarkdown = sortedBlocks.map((block) => block?.markdown || '');
     const content = blockMarkdown.join('\n\n').trim();
-    const template = globalMiscConfigs().userSelectedContextFormat;
-    const context = template.replace('{{content}}', content.replace(/\$/g, '$$$$'));
-    return `\n\n${context}`;
+    // const template = globalMiscConfigs().userSelectedContextFormat;
+    // const context = template.replace('{{content}}', content.replace(/\$/g, '$$$$'));
+    return `\n\n${content}`;
 }
 
 let activeTabId = null;
