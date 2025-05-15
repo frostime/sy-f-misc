@@ -15,7 +15,8 @@ import {
     adaptIMessageContent,
     mergeInputWithContext,
     applyMsgItemVersion,
-    stageMsgItemVersion
+    stageMsgItemVersion,
+    convertImgsToBase64Url
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
 
@@ -65,24 +66,8 @@ const useMessageManagement = (params: {
             }];
 
             // 添加所有图片
-            await Promise.all(images.map(async (image) => {
-                const base64data = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        const result = reader.result as string;
-                        // 只获取 base64 部分（移除 data:image/jpeg;base64, 前缀）
-                        resolve(result.split(',')[1]);
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(image);
-                });
-                content.push({
-                    type: "image_url",
-                    image_url: {
-                        url: `data:image/jpeg;base64,${base64data}`
-                    }
-                });
-            }));
+            const img_urls = await convertImgsToBase64Url(images);
+            content.push(...img_urls);
         }
         const timestamp = new Date().getTime();
         messages.update(prev => [...prev, {

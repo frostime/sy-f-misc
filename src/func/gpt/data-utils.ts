@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-28 15:49:07
  * @FilePath     : /src/func/gpt/data-utils.ts
- * @LastEditTime : 2025-03-31 18:01:34
+ * @LastEditTime : 2025-05-13 21:59:00
  * @Description  : 
  */
 
@@ -28,6 +28,27 @@ export const adaptIMessageContent = (content: IMessage['content']) => {
         'images': content.filter((item) => item.type === 'image_url').map((item) => item.image_url?.url)
     }
 }
+
+
+export const convertImgsToBase64Url = async (images: Blob[]): Promise<IMessageContent[]> => {
+    return await Promise.all(images.map(async (image) => {
+        const base64data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const result = reader.result as string;
+                resolve(result.split(',')[1]);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(image);
+        });
+        return {
+            type: "image_url",
+            image_url: {
+                url: `data:image/jpeg;base64,${base64data}`
+            }
+        } as IMessageContent;
+    }));
+};
 
 
 export const mergeMultiVesion = (item: IChatSessionMsgItem) => {
