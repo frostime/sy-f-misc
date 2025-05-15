@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-03-29 21:31:22
+ * @LastEditTime : 2025-05-15 11:32:52
  * @Description  : 
  */
 import {
@@ -63,9 +63,7 @@ export default class FMiscPlugin extends Plugin {
     }
 
     async onload() {
-        //#if [PRIVATE_ADD]
         globalThis.fmisc = {}
-        //#endif
         const frontEnd = getFrontend();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         registerPlugin(this);
@@ -80,9 +78,7 @@ export default class FMiscPlugin extends Plugin {
     }
 
     async onunload() {
-        //#if [PRIVATE_ADD]
         globalThis.fmisc && delete globalThis.fmisc
-        //#endif
 
         unload(this);
     }

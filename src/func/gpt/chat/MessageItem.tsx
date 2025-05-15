@@ -382,7 +382,7 @@ const MessageItem: Component<{
         // }
         if (props.messageItem.usage) {
             submenus.push({
-                label: `Token ${props.messageItem.usage?.total_tokens} ↑ ${props.messageItem.usage?.prompt_tokens} ↓ ${props.messageItem.usage?.completion_tokens}`,
+                label: `Token: ${props.messageItem.usage?.total_tokens} ↑ ${props.messageItem.usage?.prompt_tokens} ↓ ${props.messageItem.usage?.completion_tokens}`,
                 type: 'readonly'
             })
         }
@@ -482,6 +482,17 @@ const MessageItem: Component<{
         );
     };
 
+    const attachedText = () => {
+        const texts = [];
+        if (props.messageItem.attachedItems) {
+            texts.push(`${props.messageItem.attachedItems}条`);
+        }
+        if (props.messageItem.attachedChars) {
+            texts.push(`${props.messageItem.attachedChars}字`);
+        }
+        return '上下文: ' + texts.join('/');
+    }
+
     const MessageToolbar = () => {
         return (
             <div class={styles.toolbar}>
@@ -495,12 +506,13 @@ const MessageItem: Component<{
                     消息长度: {msgLength()}
                 </span>
                 <span data-label="attachedItems">
-                    {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''}
+                    {/* {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''} */}
+                    {attachedText()}
                 </span>
-                <span data-label="attachedChars">
+                {/* <span data-label="attachedChars">
                     {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
-                </span>
-                <Show when={props.messageItem.token}>
+                </span> */}
+                <Show when={props.messageItem.usage}>
                     <span data-label="token" class="counter" style={{ padding: 0 }}>
                         {/* Token: {props.messageItem.token} */}
                         Token: {props.messageItem.usage?.total_tokens} ↑ {props.messageItem.usage?.prompt_tokens} ↓ {props.messageItem.usage?.completion_tokens}

@@ -340,6 +340,8 @@ const useGptCommunication = (params: {
     messages: IStoreRef<IChatSessionMsgItem[]>;
     systemPrompt: ReturnType<typeof useSignalRef<string>>;
     loading: ReturnType<typeof useSignalRef<boolean>>;
+    attachments: ReturnType<typeof useSignalRef<Blob[]>>;
+    contexts: IStoreRef<IProvidedContext[]>;
     newID: () => string;
     getAttachedHistory: (itemNum?: number, fromIndex?: number) => IMessage[];
 }) => {
@@ -484,6 +486,8 @@ ${inputContent}
                 });
             }
 
+            params.attachments.update([]);
+            params.contexts.update([]);
             const { content, usage, reasoning_content } = await gpt.complete(msgToSend, {
                 model: modelToUse,
                 systemPrompt: systemPrompt().trim() || undefined,
@@ -590,7 +594,8 @@ ${inputContent}
             const updatedTimestamp = new Date().getTime(); // Update the updated time when adding a message
 
             // scrollToBottom();
-
+            params.attachments.update([]);
+            params.contexts.update([]);
             const lastIdx = messages().length - 1;
             const { content, usage, reasoning_content } = await gpt.complete(msgToSend, {
                 model: modelToUse,
@@ -811,6 +816,8 @@ export const useSession = (props: {
         messages,
         systemPrompt,
         loading,
+        attachments,
+        contexts,
         newID,
         getAttachedHistory
     });

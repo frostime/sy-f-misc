@@ -52,18 +52,21 @@ const handleStreamChunk = (line: string): (StreamChunkData | { usage: any }) | n
             };
         }
 
-        // Check if this is a usage data chunk (will have empty choices array and usage data)
-        if (responseData.usage && (!responseData.choices || responseData.choices.length === 0)) {
-            return {
-                content: '',
-                reasoning_content: '',
-                usage: responseData.usage
-            };
-        }
+        let result = {
+            content: '',
+            reasoning_content: '',
+            usage: null
+        };
 
-        const delta = responseData.choices[0].delta;
-        const result = adaptChunkMessage(delta) as StreamChunkData;
+        if (responseData.usage) {
+            result['usage'] = responseData.usage;
+        }
         result['references'] = adaptResponseReferences(responseData);
+
+        if (responseData.choices && responseData.choices.length > 0) {
+            const delta = responseData.choices[0].delta || {};
+            result = {...result, ...adaptChunkMessage(delta)};
+        }
         return result;
     } catch (e) {
         console.warn('Failed to parse stream data:', e);

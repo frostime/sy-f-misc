@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-05-03 15:13:51
+ * @LastEditTime : 2025-05-15 11:29:19
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
@@ -29,7 +29,7 @@ import * as openai from './openai';
 import * as chatInDoc from './chat-in-doc';
 
 //#if [DEV]
-import * as workflow from './workflow';
+// import * as workflow from './workflow';
 //#endif
 
 export { openai };
@@ -384,10 +384,10 @@ export const load = async (plugin: FMiscPlugin) => {
     //#endif
 
     //#if [DEV]
-    globalThis.fmisc['workflow'] = {
-        run: workflow.runWorkflow,
-        builtins: workflow.builtinWorkflows.default
-    }
+    // globalThis.fmisc['workflow'] = {
+    //     run: workflow.runWorkflow,
+    //     builtins: workflow.builtinWorkflows.default
+    // }
     //#endif
 }
 
