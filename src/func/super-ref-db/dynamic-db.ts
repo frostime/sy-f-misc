@@ -28,7 +28,7 @@ export const DYNAMIC_DB_ATTR = 'custom-dynamic-database';
  * @param query - SQL query to be executed when updating the dynamic database
  * @returns - Promise resolving to boolean indicating success
  */
-export const setDynamicDatabase = async (blockId: BlockId, query: string): Promise<boolean> => {
+const setDynamicDatabase = async (blockId: BlockId, query: string): Promise<boolean> => {
     try {
         await setBlockAttrs(blockId, {
             [DYNAMIC_DB_ATTR]: query,
@@ -69,7 +69,7 @@ const validateInput = (sqlCode: string): boolean => {
  * @param query - Query to execute (SQL or JavaScript prefixed with //!js)
  * @returns - Array of blocks from query results
  */
-export const executeQuery = async (query: string): Promise<Block[]> => {
+const executeQuery = async (query: string): Promise<Block[]> => {
     let codeType = 'sql';
     let code = query.trim();
 
@@ -232,6 +232,7 @@ export const addRowsToDatabaseFromQuery = async (input: {
 const blocks = await sql("SELECT * FROM blocks WHERE content LIKE '%关键词%'");
 return blocks.map(b => b.id);
 </pre>
+            <b>注: 同动态数据库不同，本操作是一次性的，查询代码不会绑定到数据库中。</b>
             `,
             initialText: '',
             confirm: async (query) => {

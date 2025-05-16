@@ -20,7 +20,7 @@ export let enabled = false;
 // Optional: Configure module settings
 export const declareToggleEnabled = {
     title: "🔗 Super Ref",
-    description: "将双链引用和数据库功能相结合",
+    description: "自下而上地构建数据库",
     defaultEnabled: false
 };
 

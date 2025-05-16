@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-03-27 15:40:25
  * @FilePath     : /src/func/super-ref-db/super-ref.ts
- * @LastEditTime : 2025-05-16 19:26:52
+ * @LastEditTime : 2025-05-16 20:20:11
  * @Description  : 
  */
 import { searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
@@ -121,7 +121,7 @@ const handleRedirection = async (
  * @param redirectStrategy - Redirection strategy, 'none' or 'fb2p'
  * @returns - Object containing refs (possibly redirected blocks) and redirectMap
  */
-export const searchBlocksWithRedirect = async (
+const searchBlocksWithRedirect = async (
     searchFn: () => Promise<any[]>,
     redirectStrategy: 'none' | 'fb2p' = 'none'
 ): Promise<{ refs: Block[], redirectMap: RedirectMap }> => {
