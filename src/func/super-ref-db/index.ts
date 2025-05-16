@@ -7,7 +7,7 @@
 
 // import { openBlock } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
-import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./core";
+import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./super-ref";
 import { getAvIdFromBlockId } from "@/api/av";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR, addRowsToDatabaseFromQuery } from "./dynamic-db";
@@ -20,7 +20,7 @@ export let enabled = false;
 // Optional: Configure module settings
 export const declareToggleEnabled = {
     title: "🔗 Super Ref",
-    description: "将双链引用和数据库功能相结合",
+    description: "自下而上地构建数据库",
     defaultEnabled: false
 };
 
@@ -33,6 +33,12 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     load: (values: Record<string, any>) => {
         if (values.doRedirect !== undefined && values.doRedirect !== null) {
             configs.doRedirect = Boolean(values.doRedirect);
+        }
+        if (values.autoRefreshSuperRef !== undefined) {
+            configs.autoRefreshSuperRef = Boolean(values.autoRefreshSuperRef);
+        }
+        if (values.autoRefreshDynamicDb !== undefined) {
+            configs.autoRefreshDynamicDb = Boolean(values.autoRefreshDynamicDb);
         }
     },
     dump: () => {
@@ -50,6 +56,26 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             get: () => configs.doRedirect,
             set: (value: boolean) => {
                 configs.doRedirect = value;
+            }
+        },
+        {
+            key: 'autoRefreshSuperRef',
+            type: 'checkbox',
+            title: '自动刷新 SuperRef 数据库',
+            description: '在打开对应文档的时候，自动刷新 SuperRef 数据库; 重启后生效',
+            get: () => configs.autoRefreshSuperRef,
+            set: (value: boolean) => {
+                configs.autoRefreshSuperRef = value;
+            }
+        },
+        {
+            key: 'autoRefreshDynamicDb',
+            type: 'checkbox',
+            title: '自动刷新动态数据库',
+            description: '在打开对应文档的时候，自动刷新动态数据库; 重启后生效',
+            get: () => configs.autoRefreshDynamicDb,
+            set: (value: boolean) => {
+                configs.autoRefreshDynamicDb = value;
             }
         }
     ],
@@ -177,10 +203,48 @@ export const load = () => {
             }
         });
     });
+
+    let d4 = () => { };
+    if (configs.autoRefreshSuperRef || configs.autoRefreshDynamicDb) {
+        d4 = plugin.registerEventbusHandler('loaded-protyle-static', (details) => {
+            const { protyle } = details;
+            if (configs.autoRefreshSuperRef) {
+                const db = protyle.element.querySelectorAll('[data-type="NodeAttributeView"][custom-super-ref-db]');
+                if (db?.length > 0) {
+                    showMessage('自动更新 SuperRef 数据库...', 3000, 'info');
+                    db.forEach(async (dbElement) => {
+                        const bindDocId = dbElement.getAttribute('custom-super-ref-db');
+                        if (!bindDocId) return;
+                        await syncDatabaseFromBacklinks({
+                            doc: bindDocId, removeOrphanRows: 'ask', redirectStrategy: redirectStrategy()
+                        });
+                    });
+                }
+            }
+            if (configs.autoRefreshDynamicDb) {
+                const db = protyle.element.querySelectorAll(`[data-type="NodeAttributeView"][${DYNAMIC_DB_ATTR}]`);
+                if (db?.length > 0) {
+                    showMessage('自动更新动态数据库...', 3000, 'info');
+                    db.forEach(async (dbElement) => {
+                        const id = dbElement.getAttribute('data-node-id');
+                        if (!id) return;
+                        const avId = await getAvIdFromBlockId(id);
+                        if (!avId) {
+                            // showMessage('无法找到数据库视图ID', 3000, 'error');
+                            return;
+                        }
+                        await updateDynamicDatabase(id, avId);
+                    });
+                }
+            }
+        });
+    }
+
     unRegister = () => {
         d1();
         d2();
         d3();
+        d4();
     };
 };
 
