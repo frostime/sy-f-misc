@@ -8,6 +8,7 @@
 
 // import { request } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
+import { addScript } from "../utils";
 
 const isValidUrl = (url: string): boolean => {
     // 空字符串或空白字符串
@@ -89,10 +90,10 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
         // 移除不需要的元素
         const removeSelectors = [
             'script', 'style', 'iframe', 'noscript',
-            'header', 'footer', 'nav',
+            'header:not(article header)', 'footer:not(article footer)', 'nav',
             '.ad', '.ads', '.advertisement',
             '#comments', '.comments',
-            'aside'
+            'aside:not(article aside)', '.popup', '.modal',
         ];
 
         // 创建body的克隆以避免修改原始DOM
@@ -100,26 +101,43 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
 
         // 移除不需要的元素
         removeSelectors.forEach(selector => {
-            const elements = bodyClone.querySelectorAll(selector);
-            elements.forEach(el => el.remove());
+            try {
+                const elements = bodyClone.querySelectorAll(selector);
+                elements.forEach(el => el.remove());
+            } catch (e) {
+                // 忽略选择器语法错误
+            }
         });
 
-        // 提取主要内容
-        // 优先从 article 或 main 标签获取
-        let mainContent = '';
-        const mainElement = bodyClone.querySelector('article, main');
-        if (mainElement) {
-            mainContent = mainElement.textContent || '';
-        } else {
-            // 如果没有特定的内容标签，获取所有文本
-            mainContent = bodyClone.textContent || '';
-        }
+        //@ts-ignore
+        let turndownService = globalThis.TurndownService?.() as  { 
+            turndown(dom: HTMLElement, options: any): string, keep: any 
+        };
 
-        // 清理文本
-        result.mainContent = mainContent
-            .replace(/\s+/g, ' ')  // 合并空白字符
-            .replace(/\n+/g, '\n') // 合并换行
-            .trim();
+        if (turndownService && turndownService.turndown) {
+            turndownService.keep(['del', 'ins']);
+            const markdown = turndownService.turndown(bodyClone, {
+                headingStyle: 'atx',
+                codeBlockStyle: 'fenced',
+            });
+            result.mainContent = markdown;
+        } else {
+            console.warn('Turndown.js 未能正常加载，使用替代方案解析 HTML 内容');
+            let mainContent = '';
+            const mainElement = bodyClone.querySelector('article, main');
+            if (mainElement) {
+                mainContent = mainElement.textContent || '';
+            } else {
+                // 如果没有特定的内容标签，获取所有文本
+                mainContent = bodyClone.textContent || '';
+            }
+
+            // 清理文本
+            result.mainContent = mainContent
+                .replace(/\s+/g, ' ')  // 合并空白字符
+                .replace(/\n+/g, '\n\n') // 合并换行
+                .trim();
+        }
     }
 
     return result;
@@ -129,8 +147,8 @@ const URLProvider: CustomContextProvider = {
     type: "input-area",
     name: "URLProvider",
     icon: 'iconLink',
-    displayTitle: "URL内容获取",
-    description: "获取指定URL的内容。支持HTML和JSON格式。",
+    displayTitle: "网页内容获取",
+    description: "输入指定的网页 URL，解析其内容。",
     getContextItems: async (options: {
         query: string;
     }): Promise<ContextItem[]> => {
@@ -170,6 +188,9 @@ const URLProvider: CustomContextProvider = {
                     if (contentType.includes('html')) {
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(text, 'text/html');
+                        if (!globalThis.TurndownService) {
+                            await addScript('/plugins/sy-f-misc/scripts/turndown.js', 'turndown-js');
+                        }
                         const parsedContent = parseHtmlContent(doc);
 
                         // 组装格式化的内容
