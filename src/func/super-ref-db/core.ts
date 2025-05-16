@@ -9,7 +9,9 @@ import { replaceAttrViewBlock, updateAttrViewName, getAttributeViewPrimaryKeyVal
 // type TSyncStrategy = 'keep-unlinked' | 'one-one-matched';
 
 export const configs = {
-    doRedirect: true
+    doRedirect: true,
+    autoRefreshSuperRef: false,
+    autoRefreshDynamicDb: false
 }
 
 const queryBacklinks = async (doc: DocumentId, limit: number = 999) => {
