@@ -7,7 +7,7 @@
 
 // import { openBlock } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
-import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./core";
+import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./super-ref";
 import { getAvIdFromBlockId } from "@/api/av";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR, addRowsToDatabaseFromQuery } from "./dynamic-db";

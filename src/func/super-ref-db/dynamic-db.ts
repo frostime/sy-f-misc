@@ -9,9 +9,11 @@
 import { html2ele, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { getBlockAttrs, setBlockAttrs, getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 import { sql, request } from "@frostime/siyuan-plugin-kits/api";
-import { syncDatabaseFromSearchResults } from "./core";
 import { showMessage } from "siyuan";
+
 import { inputDialogForProvider } from "../gpt/context-provider/InputForProvder";
+import { syncDatabaseFromSearchResults } from "./core";
+
 
 // Define block ID type
 type BlockId = string;
