@@ -171,7 +171,8 @@ export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId): Pr
             database: { block: blockId, av: avId },
             newBlocks: blocks,
             redirectMap,
-            removeOrphanRows: 'ask'
+            removeOrphanRows: 'ask',
+            askRemovePrompt: '动态数据库'
         });
 
         showMessage(`更新成功: 找到 ${blocks.length} 个块`, 3000, 'info');

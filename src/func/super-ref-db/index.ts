@@ -214,7 +214,6 @@ export const load = () => {
                     showMessage('自动更新 SuperRef 数据库...', 3000, 'info');
                     db.forEach(async (dbElement) => {
                         const bindDocId = dbElement.getAttribute('custom-super-ref-db');
-                        // const nodeId = dbElement.getAttribute('data-node-id');
                         if (!bindDocId) return;
                         await syncDatabaseFromBacklinks({
                             doc: bindDocId, removeOrphanRows: 'ask', redirectStrategy: redirectStrategy()

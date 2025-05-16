@@ -228,12 +228,14 @@ export const syncDatabaseFromSearchResults = async (input: {
     newBlocks: Block[] | BlockId[],
     redirectMap?: RedirectMap,
     removeOrphanRows?: 'remove' | 'no' | 'ask';
+    askRemovePrompt?: 'SuperRef' | '动态数据库';
 }) => {
     const {
         database,
         newBlocks,
         redirectMap,
-        removeOrphanRows = 'ask'
+        removeOrphanRows = 'ask',
+        askRemovePrompt = 'SuperRef'
     } = input;
 
     const data = await getAttributeViewPrimaryKeyValues(database.av);
@@ -274,8 +276,9 @@ export const syncDatabaseFromSearchResults = async (input: {
         if (rowsToRemove.length === 0) return;
 
         if (removeOrphanRows === 'ask') {
-            const markdownComment = `
-以下行已经不再链接到本文档，是否需要删除他们?
+            const markdownComment = `**${askRemovePrompt}: 是否删除无用行?**
+
+更新数据库状态的过程中发现: 部分内容块原本在数据库中，但已经不在新的查询结果中，是否需要从数据库中删除他们?
 
 ${rowsToRemove.map((row, index) => `${index + 1}. ((${row.blockID} '${row.block.content}'))`).join('\n')}
 `;
@@ -285,7 +288,7 @@ ${rowsToRemove.map((row, index) => `${index + 1}. ((${row.blockID} '${row.block.
             const element = html2frag(html);
             element.querySelectorAll('[contenteditable]').forEach((e: HTMLElement) => e.contentEditable = 'false');
             confirmDialog({
-                title: '是否删除无用行?',
+                title: askRemovePrompt + '数据库状态更新中',
                 content: element,
                 confirm: async () => {
                     await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
