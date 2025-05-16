@@ -112,11 +112,20 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
 
         //@ts-ignore
         let turndownService = globalThis.TurndownService?.() as {
-            turndown(dom: HTMLElement, options: any): string, keep: any
+            turndown(dom: HTMLElement, options: any): string, keep: any,
+            addRule(name: string, rule: any): void
         };
 
         if (turndownService && turndownService.turndown) {
             turndownService.keep(['del', 'ins']);
+            turndownService.addRule('inlineParagraphInLink', {
+                filter: (node: Node) => node.nodeName === 'A',
+                replacement: (content: string, node: Element) => {
+                    const text = (node as HTMLElement).innerText.replace(/\n+/g, ' ').trim();
+                    const href = node.getAttribute('href') || '';
+                    return '[' + text + '](' + href + ')';
+                }
+            });
             const markdown = turndownService.turndown(bodyClone, {
                 headingStyle: 'atx',
                 hr: '---',
