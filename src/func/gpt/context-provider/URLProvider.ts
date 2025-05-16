@@ -89,11 +89,12 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
     if (body) {
         // 移除不需要的元素
         const removeSelectors = [
-            'script', 'style', 'iframe', 'noscript',
+            'script', 'style', 'iframe', 'noscript', 'svg',
             'header:not(article header)', 'footer:not(article footer)', 'nav',
             '.ad', '.ads', '.advertisement',
-            '#comments', '.comments',
-            'aside:not(article aside)', '.popup', '.modal',
+            'aside:not(article aside)',
+            '.popup, .modal, .cookie, .banner',
+            'form, button, input, select, textarea'
         ];
 
         // 创建body的克隆以避免修改原始DOM
@@ -110,15 +111,26 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
         });
 
         //@ts-ignore
-        let turndownService = globalThis.TurndownService?.() as  { 
-            turndown(dom: HTMLElement, options: any): string, keep: any 
+        let turndownService = globalThis.TurndownService?.() as {
+            turndown(dom: HTMLElement, options: any): string, keep: any
         };
 
         if (turndownService && turndownService.turndown) {
             turndownService.keep(['del', 'ins']);
             const markdown = turndownService.turndown(bodyClone, {
                 headingStyle: 'atx',
+                hr: '---',
+                bulletListMarker: '-',
                 codeBlockStyle: 'fenced',
+                fence: '```',
+                emDelimiter: '_',
+                strongDelimiter: '**',
+                linkStyle: 'inlined',
+                // linkReferenceStyle: 'full',
+                blankReplacement: (content, node) => {
+                    // 保留换行符
+                    return node.isBlock ? '\n\n' : '';
+                }
             });
             result.mainContent = markdown;
         } else {

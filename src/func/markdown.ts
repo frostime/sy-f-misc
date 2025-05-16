@@ -3,14 +3,15 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-03-29 16:43:40
+ * @LastEditTime : 2025-05-16 14:51:32
  * @Description  : 
  */
 
-import { getLute, html2ele, id2block, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { getLute, html2ele, id2block, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { thisPlugin, getBlockByID } from "@frostime/siyuan-plugin-kits";
 import { request, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
 import { Protyle, showMessage } from "siyuan";
+import URLProvider from "./gpt/context-provider/URLProvider";
 
 export let name = "Markdown";
 export let enabled = false;
@@ -57,11 +58,50 @@ const exportDialog = (md: string, title: string) => {
     });
 }
 
+async function onOpenMenuLink({ detail }) {
+    let menu = detail.menu;
+    const hrefSpan = detail.element;
+
+    let dataHref = hrefSpan.getAttribute("data-href");
+    if (!dataHref?.startsWith("http") && !dataHref?.startsWith("www.")) {
+        return;
+    }
+
+    menu.addItem({
+        icon: "iconUrl",
+        label: '解析网页内容',
+        click: async () => {
+            let dataHref = hrefSpan.getAttribute("data-href");
+            const items = await URLProvider.getContextItems({
+                query: dataHref
+            })
+            if (items.length === 0) {
+                showMessage('未能解析到内容', 3000, 'error');
+                return;
+            }
+            let item = items[0];
+            inputDialog({
+                title: dataHref,
+                defaultText: item.content,
+                type: 'textarea',
+                width: '1000px',
+                height: '800px',
+                maxWidth: '90%',
+                maxHeight: '90%'
+            });
+        }
+    });
+}
+
 let disposer = () => { };
 export const load = () => {
     if (enabled) return;
     enabled = true;
     const plugin = thisPlugin();
+
+    plugin.eventBus.on("open-menu-link", onOpenMenuLink);
+
+
     let d1 = plugin.registerOnClickDocIcon((detail) => {
         const { root_id } = detail;
         detail.menu.addItem({
@@ -203,4 +243,6 @@ export const unload = () => {
     const plugin = thisPlugin();
     plugin.delProtyleSlash('format-refs');
     plugin.delProtyleSlash('superblock-rows');
+
+    plugin.eventBus.off("open-menu-link", onOpenMenuLink);
 };
