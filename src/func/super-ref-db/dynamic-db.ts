@@ -12,7 +12,7 @@ import { sql, request } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
 
 import { inputDialogForProvider } from "../gpt/context-provider/InputForProvder";
-import { syncDatabaseFromSearchResults } from "./core";
+import { configs, syncDatabaseFromSearchResults } from "./core";
 
 
 // Define block ID type
@@ -173,7 +173,7 @@ export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId): Pr
             database: { block: blockId, av: avId },
             newBlocks: blocks,
             redirectMap,
-            removeOrphanRows: 'ask',
+            removeOrphanRows: configs.orphanOfDynamicDb,
             askRemovePrompt: '动态数据库'
         });
 

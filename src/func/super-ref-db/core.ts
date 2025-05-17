@@ -4,7 +4,18 @@ import { getBlockAttrs, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 
 import { addAttributeViewBlocks } from "./api";
 import { replaceAttrViewBlock, getAttributeViewPrimaryKeyValues, removeAttributeViewBlocks } from "@/api/av";
+import { showMessage } from "siyuan";
 
+
+type OrphanRowStrategy = 'remove' | 'no' | 'ask';
+
+export const configs = {
+    doRedirect: true,
+    autoRefreshSuperRef: false,
+    autoRefreshDynamicDb: false,
+    orphanOfSuperRef: 'ask' as OrphanRowStrategy,
+    orphanOfDynamicDb: 'ask' as OrphanRowStrategy
+}
 
 /**
  * Calculate the differences between current refs and database rows
@@ -109,8 +120,8 @@ export const syncDatabaseFromSearchResults = async (input: {
     },
     newBlocks: Block[] | BlockId[],
     redirectMap?: RedirectMap,
-    removeOrphanRows?: 'remove' | 'no' | 'ask';
-    askRemovePrompt?: 'SuperRef' | '动态数据库';
+    removeOrphanRows?: OrphanRowStrategy,
+    askRemovePrompt?: 'SuperRef' | '动态数据库'
 }) => {
     const {
         database,
@@ -151,13 +162,17 @@ export const syncDatabaseFromSearchResults = async (input: {
     }
 
     // Handle deletions
-    if (diff.toDelete.length > 0 && removeOrphanRows !== 'no') {
+    if (diff.toDelete.length > 0) {
         // await removeAttributeViewBlocks(database.av, diff.toDelete);
         const orphanRowIds = diff.toDelete;
         const rowsToRemove = data.rows.values?.filter(row => orphanRowIds.includes(row.blockID)) ?? [];
         if (rowsToRemove.length === 0) return;
 
-        if (removeOrphanRows === 'ask') {
+        if (removeOrphanRows === 'no') {
+            showMessage(`保留了 ${rowsToRemove.length} 个孤立条目`, 3000, 'info');
+        }
+
+        else if (removeOrphanRows === 'ask') {
             const markdownComment = `**${askRemovePrompt}: 是否删除无用行?**
 
 更新数据库状态的过程中发现: 部分内容块原本在数据库中，但已经不在新的查询结果中，是否需要从数据库中删除他们?
@@ -176,7 +191,10 @@ ${rowsToRemove.map((row, index) => `${index + 1}. ((${row.blockID} '${row.block.
                     await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
                 }
             });
-        } else if (removeOrphanRows === 'remove') {
+        }
+
+        else if (removeOrphanRows === 'remove') {
+            showMessage(`移除 ${rowsToRemove.length} 个孤立条目`, 3000, 'info');
             await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
         }
     }

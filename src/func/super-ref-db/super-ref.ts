@@ -14,15 +14,6 @@ import { fb2p } from "@/libs";
 import { updateAttrViewName } from "@/api/av";
 import { syncDatabaseFromSearchResults } from "./core";
 
-// 主要是是否删掉不存在的块
-// type TSyncStrategy = 'keep-unlinked' | 'one-one-matched';
-
-export const configs = {
-    doRedirect: true,
-    autoRefreshSuperRef: false,
-    autoRefreshDynamicDb: false
-}
-
 export const SUPER_REF_DB_ATTR = 'custom-super-ref-db';
 
 const queryBacklinks = async (doc: DocumentId, limit: number = 999) => {

@@ -7,11 +7,13 @@
 
 // import { openBlock } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
-import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks, configs } from "./super-ref";
-import { getAvIdFromBlockId } from "@/api/av";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
-import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR, addRowsToDatabaseFromQuery } from "./dynamic-db";
 import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
+
+import { getAvIdFromBlockId } from "@/api/av";
+import { configs } from "./core";
+import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks } from "./super-ref";
+import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR, addRowsToDatabaseFromQuery } from "./dynamic-db";
 import "./index.css";
 
 export let name = "SuperRefDB";
@@ -39,6 +41,12 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
         }
         if (values.autoRefreshDynamicDb !== undefined) {
             configs.autoRefreshDynamicDb = Boolean(values.autoRefreshDynamicDb);
+        }
+        if (values.orphanOfSuperRef !== undefined) {
+            configs.orphanOfSuperRef = values.orphanOfSuperRef;
+        }
+        if (values.orphanOfDynamicDb !== undefined) {
+            configs.orphanOfDynamicDb = values.orphanOfDynamicDb;
         }
     },
     dump: () => {
@@ -69,6 +77,21 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             }
         },
         {
+            key: 'orphanOfSuperRef',
+            type: 'select',
+            title: 'SuperRef 处理孤立条目',
+            description: 'SuperRef 更新后对应那些不在反链中的条目如何处理',
+            get: () => configs.orphanOfSuperRef,
+            set: (orphanOfSuperRef: 'ask' | 'remove' | 'no') => {
+                configs.orphanOfSuperRef = orphanOfSuperRef;
+            },
+            options: {
+                ask: '询问用户',
+                remove: '直接移除',
+                no: '保留'
+            }
+        },
+        {
             key: 'autoRefreshDynamicDb',
             type: 'checkbox',
             title: '自动刷新动态数据库',
@@ -77,7 +100,22 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             set: (value: boolean) => {
                 configs.autoRefreshDynamicDb = value;
             }
-        }
+        },
+        {
+            key: 'orphanOfDynamicDb',
+            type: 'select',
+            title: '动态数据库处理孤立条目',
+            description: '动态数据库更新后对应那些不在查询结果中的条目如何处理',
+            get: () => configs.orphanOfDynamicDb,
+            set: (orphanOfDynamicDb: 'ask' | 'remove' | 'no') => {
+                configs.orphanOfDynamicDb = orphanOfDynamicDb;
+            },
+            options: {
+                ask: '询问用户',
+                remove: '直接移除',
+                no: '保留'
+            }
+        },
     ],
 };
 
@@ -128,7 +166,9 @@ export const load = () => {
                 label: '更新SuperRef数据库',
                 click: () => {
                     syncDatabaseFromBacklinks({
-                        doc: docId, removeOrphanRows: 'ask', redirectStrategy: redirectStrategy()
+                        doc: docId,
+                        removeOrphanRows: configs.orphanOfSuperRef,
+                        redirectStrategy: redirectStrategy()
                     });
                 }
             });
@@ -197,7 +237,10 @@ export const load = () => {
                     await createBlankSuperRefDatabase(block.id);
                 } else {
                     await syncDatabaseFromBacklinks({
-                        doc: block.id, database: db, removeOrphanRows: 'no', redirectStrategy: redirectStrategy()
+                        doc: block.id,
+                        database: db,
+                        removeOrphanRows: 'no', //特殊情况, 不在数据库所在的页面，就避免触发 ask 模式
+                        redirectStrategy: redirectStrategy()
                     });
                 }
             }
@@ -216,7 +259,9 @@ export const load = () => {
                         const bindDocId = dbElement.getAttribute('custom-super-ref-db');
                         if (!bindDocId) return;
                         await syncDatabaseFromBacklinks({
-                            doc: bindDocId, removeOrphanRows: 'ask', redirectStrategy: redirectStrategy()
+                            doc: bindDocId,
+                            removeOrphanRows: configs.orphanOfSuperRef,
+                            redirectStrategy: redirectStrategy()
                         });
                     });
                 }
