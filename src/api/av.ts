@@ -2,72 +2,6 @@ import { formatSiYuanTimestamp } from "@frostime/siyuan-plugin-kits";
 import { getBlockByID, request } from "@frostime/siyuan-plugin-kits/api";
 
 
-type AvID = BlockId;
-
-/**
- * Type definitions for attribute view related structures
- */
-export interface AttributeViewKey {
-    id: string;
-    name: string;
-    type: string;
-    icon: string;
-    desc?: string;
-    numberFormat?: string;
-    template?: string;
-}
-
-export interface AttributeViewValue {
-    id: string;
-    keyID: string;
-    blockID: string;
-    type: string;
-    createdAt: number;
-    updatedAt: number;
-    content?: any;
-    block?: {
-        id: string;
-        icon: string;
-        content: string;
-        created: number;
-        updated: number;
-    };
-}
-
-export interface AttributeViewRow {
-    key: AttributeViewKey;
-    values: AttributeViewValue[];
-}
-
-export interface AttributeView {
-    id: string;
-    name: string;
-    viewID?: string;
-    viewType?: string;
-    views?: Array<{
-        id: string;
-        icon: string;
-        name: string;
-        hideAttrViewName: boolean;
-        type: string;
-        pageSize?: number;
-        desc?: string;
-    }>;
-    isMirror?: boolean;
-    view?: any;
-}
-
-export interface AttributeViewFilter {
-    column: string;
-    operator: string;
-    value: any;
-}
-
-export interface AttributeViewSort {
-    column: string;
-    order: string;
-}
-
 /**
  * Parse WebSocket URL to extract app and id parameters
  * @param url WebSocket URL
@@ -92,7 +26,7 @@ export const getAvIdFromBlockId = async (blockId: BlockId) => {
     // <div data-type="NodeAttributeView" data-av-id="20250208170718-qbemcfc" data-av-type="table"></div>
     const html = block.markdown;
     console.debug(html);
-    const avId =  html.match(/data-av-id=\"([^\"]+)\"/)?.[1];
+    const avId = html.match(/data-av-id=\"([^\"]+)\"/)?.[1];
     return avId ?? null;
 }
 
@@ -155,6 +89,69 @@ export const getAttributeView = async (avID: AvID) => {
 }
 
 /**
+ * Render attribute view
+ * @param id Attribute view ID
+ * @param viewID View ID (optional)
+ * @param query Query string (optional)
+ * @param page Page number (optional, default: 1)
+ * @param pageSize Page size (optional, default: -1 for all)
+ * @returns Promise with the rendered attribute view
+ */
+export const renderAttributeView = async (
+    id: BlockId,
+    viewID: string = "",
+    query: string = "",
+    page: number = 1,
+    pageSize: number = -1
+): Promise<AttributeView> => {
+    const result = await request('/api/av/renderAttributeView', {
+        id: id,
+        viewID: viewID,
+        query: query,
+        page: page,
+        pageSize: pageSize
+    });
+    return result.data;
+}
+
+/**
+ * Get attribute view keys
+ * @param id Attribute view ID
+ * @returns Promise with the attribute view keys
+ */
+export const getAttributeViewKeys = async (id: BlockId): Promise<IAVColumn[]> => {
+    const result = await request('/api/av/getAttributeViewKeys', {
+        id: id
+    });
+    return result.data;
+}
+
+/**
+ * Set attribute view block attribute
+ * @param avID Attribute view ID
+ * @param keyID Key ID
+ * @param rowID Row ID
+ * @param value Cell value
+ * @returns Promise with the updated value
+ */
+export const setAttributeViewBlockAttr = async (
+    avID: AvID,
+    keyID: string,
+    rowID: string,
+    value: IAVCellValue
+): Promise<{
+    value: IAVCellValue;
+}> => {
+    const result = await request('/api/av/setAttributeViewBlockAttr', {
+        avID: avID,
+        keyID: keyID,
+        rowID: rowID,
+        value: value
+    });
+    return result.data;
+}
+
+/**
  * Add blocks to an attribute view
  * @param avId Attribute view ID
  * @param blockID Block ID (optional)
@@ -211,7 +208,7 @@ export const getAttributeViewPrimaryKeyValues = async (
 ): Promise<{
     blockIDs: BlockId[];
     name: string;
-    rows: AttributeViewRow;
+    rows: IAVRow;
 }> => {
     return request('/api/av/getAttributeViewPrimaryKeyValues', {
         id: avId,
@@ -322,7 +319,7 @@ export const duplicateAttributeViewBlock = async (avID: AvID): Promise<{
  * @param avID Attribute view ID
  * @returns Promise with the attribute view keys
  */
-export const getAttributeViewKeysByAvID = async (avID: AvID): Promise<AttributeViewKey[]> => {
+export const getAttributeViewKeysByAvID = async (avID: AvID): Promise<IAVColumn[]> => {
     const result = await request('/api/av/getAttributeViewKeysByAvID', {
         avID: avID
     });
@@ -366,7 +363,7 @@ export const setDatabaseBlockView = async (blockID: BlockId, viewID: string) => 
  * @returns Promise with the result
  */
 export const appendAttributeViewDetachedBlocksWithValues = async (
-    avID: AvID, 
+    avID: AvID,
     blocksValues: any[][]
 ) => {
     return request('/api/av/appendAttributeViewDetachedBlocksWithValues', {
@@ -470,7 +467,7 @@ export const sortAttributeViewKey = async (
  * @returns Promise with the filters and sorts
  */
 export const getAttributeViewFilterSort = async (
-    avID: AvID, 
+    avID: AvID,
     blockID: BlockId
 ): Promise<{
     filters: AttributeViewFilter[];
@@ -490,10 +487,10 @@ export const getAttributeViewFilterSort = async (
  * @returns Promise with the non-relation keys
  */
 export const searchAttributeViewNonRelationKey = async (
-    avID: AvID, 
+    avID: AvID,
     keyword: string
 ): Promise<{
-    keys: AttributeViewKey[];
+    keys: IAVColumn[];
 }> => {
     const result = await request('/api/av/searchAttributeViewNonRelationKey', {
         avID: avID,
@@ -509,10 +506,10 @@ export const searchAttributeViewNonRelationKey = async (
  * @returns Promise with the relation keys
  */
 export const searchAttributeViewRelationKey = async (
-    avID: AvID, 
+    avID: AvID,
     keyword: string
 ): Promise<{
-    keys: AttributeViewKey[];
+    keys: IAVColumn[];
 }> => {
     const result = await request('/api/av/searchAttributeViewRelationKey', {
         avID: avID,
@@ -528,7 +525,7 @@ export const searchAttributeViewRelationKey = async (
  * @returns Promise with the search results
  */
 export const searchAttributeView = async (
-    keyword: string, 
+    keyword: string,
     excludes: string[] = []
 ): Promise<{
     results: AttributeView[];
@@ -547,7 +544,7 @@ export const searchAttributeView = async (
  * @returns Promise with the rendered attribute view
  */
 export const renderSnapshotAttributeView = async (
-    snapshot: string, 
+    snapshot: string,
     id: BlockId
 ): Promise<AttributeView> => {
     const result = await request('/api/av/renderSnapshotAttributeView', {
@@ -564,75 +561,12 @@ export const renderSnapshotAttributeView = async (
  * @returns Promise with the rendered attribute view
  */
 export const renderHistoryAttributeView = async (
-    id: BlockId, 
+    id: BlockId,
     created: string
 ): Promise<AttributeView> => {
     const result = await request('/api/av/renderHistoryAttributeView', {
         id: id,
         created: created
-    });
-    return result.data;
-}
-
-/**
- * Render attribute view
- * @param id Attribute view ID
- * @param viewID View ID (optional)
- * @param query Query string (optional)
- * @param page Page number (optional, default: 1)
- * @param pageSize Page size (optional, default: -1 for all)
- * @returns Promise with the rendered attribute view
- */
-export const renderAttributeView = async (
-    id: BlockId,
-    viewID: string = "",
-    query: string = "",
-    page: number = 1,
-    pageSize: number = -1
-): Promise<AttributeView> => {
-    const result = await request('/api/av/renderAttributeView', {
-        id: id,
-        viewID: viewID,
-        query: query,
-        page: page,
-        pageSize: pageSize
-    });
-    return result.data;
-}
-
-/**
- * Get attribute view keys
- * @param id Attribute view ID
- * @returns Promise with the attribute view keys
- */
-export const getAttributeViewKeys = async (id: BlockId): Promise<AttributeViewKey[]> => {
-    const result = await request('/api/av/getAttributeViewKeys', {
-        id: id
-    });
-    return result.data;
-}
-
-/**
- * Set attribute view block attribute
- * @param avID Attribute view ID
- * @param keyID Key ID
- * @param rowID Row ID
- * @param value Cell value
- * @returns Promise with the updated value
- */
-export const setAttributeViewBlockAttr = async (
-    avID: AvID,
-    keyID: string,
-    rowID: string,
-    value: any
-): Promise<{
-    value: any;
-}> => {
-    const result = await request('/api/av/setAttributeViewBlockAttr', {
-        avID: avID,
-        keyID: keyID,
-        rowID: rowID,
-        value: value
     });
     return result.data;
 }
