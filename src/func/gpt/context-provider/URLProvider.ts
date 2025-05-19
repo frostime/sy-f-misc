@@ -111,8 +111,19 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
         });
 
         //@ts-ignore
-        let turndownService = globalThis.TurndownService?.() as {
-            turndown(dom: HTMLElement, options: any): string, keep: any,
+        let turndownService = globalThis.TurndownService?.({
+                headingStyle: 'atx',
+                hr: '---',
+                bulletListMarker: '-',
+                codeBlockStyle: 'fenced',
+                linkStyle: 'inlined',
+                blankReplacement: (content, node) => {
+                    // 保留换行符
+                    return node.isBlock ? '\n\n' : '';
+                }
+            }) as {
+            turndown(dom: HTMLElement): string,
+            keep(input: string | string[]): void,
             addRule(name: string, rule: any): void
         };
 
@@ -126,21 +137,7 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
                     return '[' + text + '](' + href + ')';
                 }
             });
-            const markdown = turndownService.turndown(bodyClone, {
-                headingStyle: 'atx',
-                hr: '---',
-                bulletListMarker: '-',
-                codeBlockStyle: 'fenced',
-                fence: '```',
-                emDelimiter: '_',
-                strongDelimiter: '**',
-                linkStyle: 'inlined',
-                // linkReferenceStyle: 'full',
-                blankReplacement: (content, node) => {
-                    // 保留换行符
-                    return node.isBlock ? '\n\n' : '';
-                }
-            });
+            const markdown = turndownService.turndown(bodyClone);
             result.mainContent = markdown;
         } else {
             console.warn('Turndown.js 未能正常加载，使用替代方案解析 HTML 内容');
@@ -220,7 +217,7 @@ const URLProvider: CustomContextProvider = {
                         if (parsedContent.description) parts.push(`描述: ${parsedContent.description}`);
                         if (parsedContent.keywords) parts.push(`关键词: ${parsedContent.keywords}`);
                         if (parsedContent.author) parts.push(`作者: ${parsedContent.author}`);
-                        if (parsedContent.mainContent) parts.push(`\n正文内容:\n${parsedContent.mainContent}`);
+                        if (parsedContent.mainContent) parts.push(`\n正文内容:\n\n${parsedContent.mainContent}`);
 
                         content = parts.join('\n');
                     } else {
