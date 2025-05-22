@@ -128,7 +128,7 @@ const handleStreamResponse = async (
             // Check if this chunk contains usage data
             if ('usage' in readResult.value && readResult.value.usage) {
                 responseContent.usage = readResult.value.usage;
-                continue; // Skip the rest of the processing for this chunk
+                // continue;
             }
 
             const { content, reasoning_content } = adaptChunkMessage(readResult.value) as StreamChunkData;

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-05-19 18:46:22
  * @FilePath     : /src/func/zotero/zoteroModal.ts
- * @LastEditTime : 2025-01-21 14:18:26
+ * @LastEditTime : 2025-05-22 20:38:24
  * @Description  : 拷贝自思源 zotero 文件引用插件，做了一些修改
  * @Source       : https://github.com/WingDr/siyuan-plugin-citation
  */
@@ -149,7 +149,7 @@ export class ZoteroDBModal {
             method: "POST",
             headers: {
                 'Authorization': `Bearer ${password}`,
-                'Content-Type': 'application/javascript',
+                'Content-Type': 'text/plain',
                 'Zotero-Allowed-Request': 'true'
             },
             body: code
@@ -157,7 +157,7 @@ export class ZoteroDBModal {
 
         try {
             let response = await fetch(
-                `http://127.0.0.1:23119/debug-bridge/execute?password=${password}`, requestOptions
+                `http://127.0.0.1:23119/debug-bridge/execute`, requestOptions
             );
             if (response.ok) {
                 const data = await response.json();

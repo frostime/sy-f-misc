@@ -31,8 +31,11 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     items: [
         {
             type: 'textinput',
-            title: 'Zotero Password',
-            description: 'Zotero Debug-Bridge 的密码',
+            title: 'Zotero Debug-Bridge 访问 Token, 默认 CTT',
+            description: `依赖于 <a href="https://github.com/retorquere/zotero-better-bibtex/tree/master/test/fixtures/debug-bridge">Zotero Debug-Bridge</a> 插件, 测试版本: Zotero 7 / 插件版本 1.0
+<br />
+在 Zotero 面板中设置 Token: Zotero.Prefs.set("extensions.zotero.debug-bridge.token","<你的Token>",true);
+`,
             key: 'zoteroPassword',
             get: () => configs.zoteroPassword,
             set: (value: string) => {
@@ -41,8 +44,8 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
         },
         {
             type: 'textinput',
-            title: 'Zotero 存储目录',
-            description: 'Zotero 的数据存储位置',
+            title: 'Zotero 数据存储目录',
+            description: '见 Zotero 「设置 - 高级 - 数据存储目录」；本配置选项在各个设备上互相独立',
             key: 'zoteroDir',
             get: getZoteroDir,
             set: (value: string) => {
