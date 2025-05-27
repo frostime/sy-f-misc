@@ -88,7 +88,8 @@ export const stageMsgItemVersion = (item: IChatSessionMsgItem, version?: string)
             reasoning_content: item.message.reasoning_content || '',
             author: item.author,
             timestamp: item.timestamp,
-            token: item.token
+            token: item.token,
+            time: item.time
         };
         item.currentVersion = versionId; // 更新当前版本
     }
@@ -116,6 +117,7 @@ export const applyMsgItemVersion = (item: IChatSessionMsgItem, version: string) 
         selectedVersion.author && (item.author = selectedVersion.author);
         selectedVersion.timestamp && (item.timestamp = selectedVersion.timestamp);
         selectedVersion.token && (item.token = selectedVersion.token);
+        selectedVersion.time && (item.time = selectedVersion.time);
         item.currentVersion = version; // 更新当前版本
     }
     return item;

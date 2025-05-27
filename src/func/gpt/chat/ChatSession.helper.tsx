@@ -585,6 +585,7 @@ ${inputContent}
                 type: 'message',
                 id: newID(),
                 token: null,
+                time: null,
                 message: { role: 'assistant', content: '' },
                 author: modelToUse.model,
                 timestamp: new Date().getTime(),

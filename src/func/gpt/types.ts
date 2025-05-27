@@ -116,6 +116,25 @@ interface IGPTModel {
     apiKey: string;
 }
 
+interface CompletionResponse {
+    ok?: boolean;
+    content: string;
+    usage?: {
+        completion_tokens: number;
+        prompt_tokens: number;
+        total_tokens: number;
+    };
+    reasoning_content?: string;
+    references?: {
+        title?: string;
+        url: string;
+    }[];
+    time?: {
+        latency: number; // ms
+        throughput?: number; // tokens/s
+    }
+}
+
 /**
  * 对话 Session 中各个 item 记录
  */
@@ -134,6 +153,7 @@ interface IChatSessionMsgItem {
         author?: IChatSessionMsgItem['author'];
         timestamp?: IChatSessionMsgItem['timestamp'];
         token?: IChatSessionMsgItem['token'];
+        time?: CompletionResponse['time'];
     }>; //多版本 message 情况下有用
     context?: IProvidedContext[];
     // 为了在 MessageItem 当中隐藏 context prompt，在这里记录 prompt 字符串的起止位置

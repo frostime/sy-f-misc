@@ -3,22 +3,6 @@ import { appendLog } from "../MessageLogger";
 import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage } from './adpater';
 
 
-export interface CompletionResponse {
-    ok?: boolean;
-    content: string;
-    usage?: {
-        completion_tokens: number;
-        prompt_tokens: number;
-        total_tokens: number;
-    };
-    reasoning_content?: string;
-    references?: TReference[];
-    time?: {
-        latency: number; // ms
-        throughput?: number; // tokens/s
-    }
-}
-
 interface StreamChunkData {
     content: string;
     reasoning_content: string;

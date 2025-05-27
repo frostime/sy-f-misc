@@ -496,76 +496,80 @@ const MessageItem: Component<{
     const MessageToolbar = () => {
         return (
             <div class={styles.toolbar}>
-                <span data-label="timestamp">
-                    {formatDateTime(null, new Date(props.messageItem.timestamp))}
-                </span>
-                <span data-label="author">
-                    {props.messageItem.author}
-                </span>
-                <span data-label="msgLength">
-                    消息长度: {msgLength()}
-                </span>
-                <span data-label="attachedItems">
-                    {/* {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''} */}
-                    {attachedText()}
-                </span>
-                {/* <span data-label="attachedChars">
+                <div class={styles['toolbar-text']}>
+                    <span data-label="timestamp">
+                        {formatDateTime(null, new Date(props.messageItem.timestamp))}
+                    </span>
+                    <span data-label="author">
+                        {props.messageItem.author}
+                    </span>
+                    <span data-label="msgLength">
+                        消息长度: {msgLength()}
+                    </span>
+                    <span data-label="attachedItems">
+                        {/* {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''} */}
+                        {attachedText()}
+                    </span>
+                    {/* <span data-label="attachedChars">
                     {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
                 </span> */}
-                <Show when={props.messageItem.usage}>
-                    <span data-label="token" class="counter" style={{ padding: 0 }}>
-                        {/* Token: {props.messageItem.token} */}
-                        Token: {props.messageItem.usage?.total_tokens} ↑ {props.messageItem.usage?.prompt_tokens} ↓ {props.messageItem.usage?.completion_tokens}
-                    </span>
-                </Show>
+                    <Show when={props.messageItem.usage}>
+                        <span data-label="token" class="counter" style={{ padding: 0, 'line-height': 'unset' }}>
+                            {/* Token: {props.messageItem.token} */}
+                            Token: {props.messageItem.usage?.total_tokens} ↑ {props.messageItem.usage?.prompt_tokens} ↓ {props.messageItem.usage?.completion_tokens}
+                        </span>
+                    </Show>
 
-                <Show when={props.messageItem.time}>
-                    <span data-label="time" class="counter" style={{ padding: 0 }}>
-                        时延: {props.messageItem.time.latency} ms
-                        <Show when={props.messageItem.time.throughput}>
-                            &nbsp;|&nbsp;吞吐量: {props.messageItem.time.throughput.toFixed(2)} tokens/s
-                        </Show>
-                    </span>
+                    <Show when={props.messageItem.time}>
+                        <span data-label="time" class="counter" style={{ padding: 0, 'line-height': 'unset' }}>
+                            时延: {props.messageItem.time.latency} ms
+                            <Show when={props.messageItem.time.throughput}>
+                                &nbsp;|&nbsp;吞吐量: {props.messageItem.time.throughput.toFixed(2)} tokens/s
+                            </Show>
+                        </span>
 
-                </Show>
+                    </Show>
+                </div>
+                {/* 
+                <div class="fn__flex-1" /> */}
 
-                <div class="fn__flex-1" />
-
-                <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
-                <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
-                <ToolbarButton icon="iconLine" title="下方添加分隔" onclick={(e: MouseEvent) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    props.toggleSeperator?.();
-                }} />
-                <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
-                <ToolbarButton
-                    icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
-                    title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
-                    onclick={(e: MouseEvent) => {
+                <div class={styles['toolbar-buttons']}>
+                    <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
+                    <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
+                    <ToolbarButton icon="iconLine" title="下方添加分隔" onclick={(e: MouseEvent) => {
                         e.stopPropagation();
                         e.preventDefault();
-                        props.toggleHidden?.();
-                    }}
-                />
-                <ToolbarButton icon="iconTrashcan" title="删除" onclick={(e: MouseEvent) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    // Ctrl + 点击
-                    if (e.ctrlKey) {
-                        deleteMessage();
-                    } else {
-                        showMessage('如果想要删除此消息，请按 Ctrl + 点击');
-                    }
-                }} />
-                <ToolbarButton icon="iconRefresh" title="重新运行" onclick={(e: MouseEvent) => {
-                    // Ctrl + 点击
-                    if (e.ctrlKey) {
-                        props.rerunIt?.();
-                    } else {
-                        showMessage('如果想要重新运行，请按 Ctrl + 点击');
-                    }
-                }} />
+                        props.toggleSeperator?.();
+                    }} />
+                    <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
+                    <ToolbarButton
+                        icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
+                        title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
+                        onclick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            props.toggleHidden?.();
+                        }}
+                    />
+                    <ToolbarButton icon="iconTrashcan" title="删除" onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        // Ctrl + 点击
+                        if (e.ctrlKey) {
+                            deleteMessage();
+                        } else {
+                            showMessage('如果想要删除此消息，请按 Ctrl + 点击');
+                        }
+                    }} />
+                    <ToolbarButton icon="iconRefresh" title="重新运行" onclick={(e: MouseEvent) => {
+                        // Ctrl + 点击
+                        if (e.ctrlKey) {
+                            props.rerunIt?.();
+                        } else {
+                            showMessage('如果想要重新运行，请按 Ctrl + 点击');
+                        }
+                    }} />
+                </div>
             </div>
         );
     };
