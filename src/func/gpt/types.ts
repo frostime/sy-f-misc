@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-05-13 20:28:49
+ * @LastEditTime : 2025-05-27 11:44:02
  * @Description  :
  */
 interface IMessageContent {
@@ -144,6 +144,10 @@ interface IChatSessionMsgItem {
         completion_tokens: number;
         prompt_tokens: number;
         total_tokens: number;
+    };
+    time?: {
+        latency: number; // ms
+        throughput?: number; // tokens/s
     };
     author?: string;
     timestamp?: number;

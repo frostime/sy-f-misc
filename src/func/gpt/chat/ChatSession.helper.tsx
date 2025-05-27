@@ -488,7 +488,7 @@ ${inputContent}
 
             params.attachments.update([]);
             params.contexts.update([]);
-            const { content, usage, reasoning_content } = await gpt.complete(msgToSend, {
+            const { content, usage, reasoning_content, time } = await gpt.complete(msgToSend, {
                 model: modelToUse,
                 systemPrompt: systemPrompt().trim() || undefined,
                 stream: option.stream ?? true,
@@ -516,6 +516,7 @@ ${inputContent}
                     ...msgItem,
                     loading: false,
                     usage,
+                    time,
                     message: newMessageContent,
                     author: modelToUse.model,
                     timestamp: new Date().getTime(),
@@ -597,7 +598,7 @@ ${inputContent}
             params.attachments.update([]);
             params.contexts.update([]);
             const lastIdx = messages().length - 1;
-            const { content, usage, reasoning_content } = await gpt.complete(msgToSend, {
+            const { content, usage, reasoning_content, time } = await gpt.complete(msgToSend, {
                 model: modelToUse,
                 systemPrompt: sysPrompt || undefined,
                 stream: option.stream ?? true,
@@ -625,6 +626,7 @@ ${inputContent}
                 updated[lastIdx] = {
                     ...updated[lastIdx],
                     usage,
+                    time,
                     loading: false,
                     message: newMessageContent,
                     author: modelToUse.model,

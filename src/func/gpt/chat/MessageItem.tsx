@@ -519,6 +519,16 @@ const MessageItem: Component<{
                     </span>
                 </Show>
 
+                <Show when={props.messageItem.time}>
+                    <span data-label="time" class="counter" style={{ padding: 0 }}>
+                        时延: {props.messageItem.time.latency} ms
+                        <Show when={props.messageItem.time.throughput}>
+                            &nbsp;|&nbsp;吞吐量: {props.messageItem.time.throughput.toFixed(2)} tokens/s
+                        </Show>
+                    </span>
+
+                </Show>
+
                 <div class="fn__flex-1" />
 
                 <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />

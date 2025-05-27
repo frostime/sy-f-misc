@@ -13,6 +13,10 @@ export interface CompletionResponse {
     };
     reasoning_content?: string;
     references?: TReference[];
+    time?: {
+        latency: number; // ms
+        throughput?: number; // tokens/s
+    }
 }
 
 interface StreamChunkData {
@@ -79,7 +83,7 @@ const handleStreamChunk = (line: string): (StreamChunkData | { usage: any }) | n
  */
 const handleStreamResponse = async (
     response: Response,
-    options: NonNullable<Parameters<typeof complete>[1]>
+    options: NonNullable<Parameters<typeof complete>[1]> & { t0: number }
 ): Promise<CompletionResponse> => {
     if (!response.body) {
         throw new Error('Response body is null');
@@ -89,6 +93,10 @@ const handleStreamResponse = async (
         content: '',
         reasoning_content: '',
         usage: null,
+        time: {
+            latency: null,
+            throughput: null
+        }
     };
 
     let references: TReference[] = null;
@@ -114,9 +122,12 @@ const handleStreamResponse = async (
         ? () => options.abortControler.signal.aborted
         : () => false;
 
+    let t1 = null;
+
     try {
         while (true) {
             const readResult = await reader.read();
+            if (!t1) t1 = new Date().getTime();
             if (readResult.done) break;
 
             if (checkAbort()) {
@@ -159,6 +170,17 @@ const handleStreamResponse = async (
         responseContent.content += `\n **[Error]** ${error}`;
         responseContent.ok = false;
     }
+    let t2 = new Date().getTime();
+
+    responseContent['time'] = {
+        latency: t1 - options.t0,
+    }
+
+    if (responseContent['usage']?.completion_tokens) {
+        const completion_tokens = responseContent['usage'].completion_tokens;
+        const seconds = (t2 - t1) / 1000;
+        responseContent['time'].throughput = completion_tokens / seconds;
+    }
 
     if (references && references.length) {
         // responseContent.references = references;
@@ -171,8 +193,11 @@ const handleStreamResponse = async (
 /**
  * 处理非流式响应
  */
-const handleNormalResponse = async (response: Response): Promise<CompletionResponse> => {
+const handleNormalResponse = async (response: Response, options: { t0: number }): Promise<CompletionResponse> => {
     const data = await response.json();
+    const t1 = new Date().getTime();
+    const latency = t1 - options.t0;
+
     appendLog({ type: 'response', data });
     if (data.error && !data.data) {
         return {
@@ -193,6 +218,14 @@ const handleNormalResponse = async (response: Response): Promise<CompletionRespo
     if (references && references.length) {
         // results.references = data.references;
         results.content += '\n\n' + buildReferencesText(references);
+    }
+    results['time'] = {
+        latency
+    }
+    if (data.usage?.completion_tokens) {
+        const completion_tokens = data.usage.completion_tokens;
+        const seconds = completion_tokens / 1000;
+        results['time'].throughput = completion_tokens / seconds;
     }
     return results;
 }
@@ -263,6 +296,8 @@ export const complete = async (input: string | IMessage[], options?: {
 
         appendLog({ type: 'request', data: payload });
 
+        const t0 = new Date().getTime();
+
         response = await fetch(chatInputs.url, {
             method: 'POST',
             headers: {
@@ -293,8 +328,8 @@ export const complete = async (input: string | IMessage[], options?: {
         }
 
         return options?.stream
-            ? handleStreamResponse(response, options)
-            : handleNormalResponse(response);
+            ? handleStreamResponse(response, {...options, t0})
+            : handleNormalResponse(response, { t0 });
 
     } catch (error) {
         return {
