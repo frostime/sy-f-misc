@@ -48,6 +48,16 @@ interface ParsedHtmlContent {
     mainContent: string;
 }
 
+const DOMAIN_SPECIFIC_REMOVE = {
+    'sina\.com\.cn/.+shtml': ['#sina-header', '.article-content-right', '.page-tools'],
+    'ld246\.com/article/': [
+        '.wrapper>.side', '.content>.module:not(#comments)',
+        '#comments>.module-header,.fn__flex-inline', '.welcome', '.article-tail'
+    ]
+} as { [url: string]: string[] };
+
+const REGEX = Object.fromEntries(Object.entries(DOMAIN_SPECIFIC_REMOVE).map(([key, value]) => [key, new RegExp(key)]));
+
 const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
     const result: ParsedHtmlContent = {
         title: '',
@@ -94,7 +104,7 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
             '.ad', '.ads', '.advertisement',
             'aside:not(article aside)',
             '.popup, .modal, .cookie, .banner',
-            'form, button, input, select, textarea'
+            'button, input, select, textarea'
         ];
 
         // 创建body的克隆以避免修改原始DOM
@@ -112,16 +122,16 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
 
         //@ts-ignore
         let turndownService = globalThis.TurndownService?.({
-                headingStyle: 'atx',
-                hr: '---',
-                bulletListMarker: '-',
-                codeBlockStyle: 'fenced',
-                linkStyle: 'inlined',
-                blankReplacement: (content, node) => {
-                    // 保留换行符
-                    return node.isBlock ? '\n\n' : '';
-                }
-            }) as {
+            headingStyle: 'atx',
+            hr: '---',
+            bulletListMarker: '-',
+            codeBlockStyle: 'fenced',
+            linkStyle: 'inlined',
+            blankReplacement: (content, node) => {
+                // 保留换行符
+                return node.isBlock ? '\n\n' : '';
+            }
+        }) as {
             turndown(dom: HTMLElement): string,
             keep(input: string | string[]): void,
             addRule(name: string, rule: any): void
@@ -161,6 +171,31 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
     return result;
 };
 
+const html2Document = (text: string, url?: string): Document => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+
+    if (!url) {
+        return doc;
+    }
+    // 处理特殊的URL
+    const domain = new URL(url).hostname;
+    const path = new URL(url).pathname;
+
+    // 应用特殊删除规则
+    for (const [pattern, selectors] of Object.entries(DOMAIN_SPECIFIC_REMOVE)) {
+        const reg = REGEX[pattern];
+        const ans = reg.test(`${domain}${path}`);
+        if (ans) {
+            for (let selector of selectors) {
+                const elements = doc.querySelectorAll(selector);
+                elements.forEach(el => el.remove());
+            }
+        }
+    }
+    return doc;
+}
+
 const URLProvider: CustomContextProvider = {
     type: "input-area",
     name: "URLProvider",
@@ -187,7 +222,11 @@ const URLProvider: CustomContextProvider = {
         // 处理每个URL
         for (const url of urls) {
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+                    }
+                });
                 const contentType = response.headers.get('content-type');
 
                 // 如果是二进制内容，跳过
@@ -204,17 +243,18 @@ const URLProvider: CustomContextProvider = {
                     // HTML或文本内容
                     const text = await response.text();
                     if (contentType.includes('html')) {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(text, 'text/html');
                         if (!globalThis.TurndownService) {
                             await addScript('/plugins/sy-f-misc/scripts/turndown.js', 'turndown-js');
                         }
+
+                        const doc = html2Document(text, url);
+
                         const parsedContent = parseHtmlContent(doc);
 
                         // 组装格式化的内容
-                        const parts = [];
+                        const parts = [`URL: ${url}`];
                         if (parsedContent.title) parts.push(`标题: ${parsedContent.title}`);
-                        if (parsedContent.description) parts.push(`描述: ${parsedContent.description}`);
+                        if (parsedContent.description.trim()) parts.push(`描述: ${parsedContent.description}`);
                         if (parsedContent.keywords) parts.push(`关键词: ${parsedContent.keywords}`);
                         if (parsedContent.author) parts.push(`作者: ${parsedContent.author}`);
                         if (parsedContent.mainContent) parts.push(`\n正文内容:\n\n${parsedContent.mainContent}`);
@@ -239,7 +279,7 @@ const URLProvider: CustomContextProvider = {
         }
 
         return results;
-    }
+    },
 };
 
 export default URLProvider;

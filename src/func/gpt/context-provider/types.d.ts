@@ -45,6 +45,7 @@ interface CustomContextProvider {
         displayTitle: string;
         description: string;
     };
+    [key: string]: any;
 }
 
 

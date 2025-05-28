@@ -56,6 +56,8 @@ const AttachmentList: Component<Props> = (props) => {
                     details.forEach(detail => detail.removeAttribute('open'));
                 };
 
+                const wordCount = context.contextItems.reduce((acc, item) => acc + item.content.length, 0);
+
                 return (
                     <div
                         class="b3-typography"
@@ -63,7 +65,7 @@ const AttachmentList: Component<Props> = (props) => {
                         ref={typo}
                     >
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <h2>{context.name} | {context.displayTitle}</h2>
+                            <h2>{context.name} | {context.displayTitle} | 共{wordCount}个字符</h2>
                             <div>
                                 <button class="b3-button" onClick={expandAll}>展开全部</button>
                                 <button class="b3-button" style="margin-left: 8px;" onClick={collapseAll}>折叠全部</button>
@@ -75,7 +77,7 @@ const AttachmentList: Component<Props> = (props) => {
                             {context.contextItems.map((item) => (
                                 <details>
                                     <summary>
-                                        <strong>{item.name}</strong>
+                                        <strong>{item.name} | {item.content.length}字符</strong>
                                     </summary>
                                     <p innerHTML={item.description}></p>
                                     <pre style={{
