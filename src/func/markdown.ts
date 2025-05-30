@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-05-16 14:51:32
+ * @LastEditTime : 2025-05-28 15:59:50
  * @Description  : 
  */
 
@@ -11,7 +11,9 @@ import { getLute, html2ele, id2block, inputDialog, simpleDialog } from "@frostim
 import { thisPlugin, getBlockByID } from "@frostime/siyuan-plugin-kits";
 import { request, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
 import { Protyle, showMessage } from "siyuan";
-import URLProvider from "./gpt/context-provider/URLProvider";
+import URLProvider, { html2Document, parseHtmlContent } from "./gpt/context-provider/URLProvider";
+import FMiscPlugin from "..";
+import { addScript } from "./gpt/utils";
 
 export let name = "Markdown";
 export let enabled = false;
@@ -229,6 +231,43 @@ Col 2
 `.trim(), true);
         }
     });
+
+    //#if [PRIVATE_ADD]
+    (plugin as unknown as FMiscPlugin).registerMenuTopMenu('html2md', [
+        {
+            label: 'HTML 转 Markdown',
+            icon: 'iconMarkdown',
+            click: () => {
+                inputDialog({
+                    title: 'HTML 转 Markdown',
+                    defaultText: '',
+                    type: 'textarea',
+                    width: '1000px',
+                    height: '800px',
+                    maxWidth: '90%',
+                    maxHeight: '90%',
+                    confirm: async (text) => {
+                        if (!globalThis.TurndownService) {
+                            await addScript('/plugins/sy-f-misc/scripts/turndown.js', 'turndown-js');
+                        }
+                        const doc = html2Document(text);
+                        const parsedContent = parseHtmlContent(doc);
+                        inputDialog({
+                            title: parsedContent.title,
+                            defaultText: parsedContent.mainContent,
+                            type: 'textarea',
+                            width: '1000px',
+                            height: '800px',
+                            maxWidth: '90%',
+                            maxHeight: '90%'
+                        });
+                    }
+                });
+            }
+        }
+    ]);
+    //#endif
+
     disposer = () => {
         d1();
         d2();
@@ -245,4 +284,8 @@ export const unload = () => {
     plugin.delProtyleSlash('superblock-rows');
 
     plugin.eventBus.off("open-menu-link", onOpenMenuLink);
+
+    //#if [PRIVATE_ADD]
+    (plugin as unknown as FMiscPlugin).unRegisterMenuTopMenu('html2md');
+    //#endif
 };

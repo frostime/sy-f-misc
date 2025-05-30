@@ -58,7 +58,7 @@ const DOMAIN_SPECIFIC_REMOVE = {
 
 const REGEX = Object.fromEntries(Object.entries(DOMAIN_SPECIFIC_REMOVE).map(([key, value]) => [key, new RegExp(key)]));
 
-const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
+export const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
     const result: ParsedHtmlContent = {
         title: '',
         description: '',
@@ -171,7 +171,7 @@ const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
     return result;
 };
 
-const html2Document = (text: string, url?: string): Document => {
+export const html2Document = (text: string, url?: string): Document => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(text, 'text/html');
 
