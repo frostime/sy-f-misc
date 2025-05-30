@@ -6,8 +6,7 @@
  * @Description  : 工具调用链执行器
  */
 import { complete } from './complete';
-import { toolExecutorFactory, ToolExecuteStatus, ToolExecuteResult, ApprovalUIAdapter } from '../tools';
-import { DefaultUIAdapter } from '../tools/approval-ui';
+import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '../tools';
 
 /**
  * 工具调用链配置选项
@@ -33,9 +32,6 @@ export interface ToolChainOptions {
 
     // 聊天选项
     chatOption?: IChatOption;
-
-    // 审核UI适配器
-    approvalUIAdapter?: ApprovalUIAdapter;
 
     // 是否检查工具结果
     checkToolResults?: boolean;
@@ -115,44 +111,10 @@ export interface ToolChainResult {
  * @returns 工具调用链执行结果
  */
 export async function executeToolChain(
+    toolExecutor: ToolExecutor,
     llmResponseWithToolCalls: CompletionResponse,
     options: ToolChainOptions = {}
 ): Promise<ToolChainResult> {
-    // 初始化工具执行器
-    const toolExecutor = toolExecutorFactory();
-
-    // 设置 UI 适配器和回调函数
-    const uiAdapter = options.approvalUIAdapter || new DefaultUIAdapter();
-
-    // 设置执行审批回调
-    if (!toolExecutor.hasExecutionApprovalCallback()) {
-        toolExecutor.setExecutionApprovalCallback(async (toolName, toolDescription, args) => {
-            // 获取工具
-            const tool = toolExecutor.getTool(toolName);
-            if (!tool) {
-                return { approved: false, rejectReason: `Tool ${toolName} not found` };
-            }
-
-            // 调用 UI 适配器显示审批界面
-            return await uiAdapter.showToolExecutionApproval(
-                toolName,
-                toolDescription,
-                args,
-                tool.definition.permissionLevel
-            );
-        });
-    }
-
-    // 设置结果审批回调
-    if (!toolExecutor.hasResultApprovalCallback()) {
-        toolExecutor.setResultApprovalCallback(async (toolName, args, result) => {
-            return await uiAdapter.showToolResultApproval(
-                toolName,
-                args,
-                result
-            );
-        });
-    }
 
     // 初始化状态
     const state = {
