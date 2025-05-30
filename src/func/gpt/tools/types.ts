@@ -69,7 +69,6 @@ export type UserApprovalCallback = (
     args: Record<string, any>
 ) => Promise<{
     approved: boolean;
-    persistDecision?: boolean;  // 是否保存用户决定，避免下次重复询问
     rejectReason?: string;
 }>;
 
@@ -150,8 +149,7 @@ export interface ApprovalUIAdapter {
     showToolExecutionApproval(
         toolName: string,
         toolDescription: string,
-        args: Record<string, any>,
-        permissionLevel: ToolPermissionLevel
+        args: Record<string, any>
     ): Promise<{
         approved: boolean;
         persistDecision?: boolean;

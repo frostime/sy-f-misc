@@ -5,11 +5,9 @@
  * @FilePath     : /src/func/gpt/tools/approval-ui.tsx
  * @Description  : 工具审核 UI 组件和适配器
  */
-import { Component, createSignal, createMemo } from "solid-js";
-import { render } from "solid-js/web";
-import { ToolExecuteResult, ToolPermissionLevel, ApprovalUIAdapter, DisplayMode } from "./types";
+import { Component, createMemo } from "solid-js";
+import { ToolExecuteResult, ApprovalUIAdapter, DisplayMode } from "./types";
 import { ButtonInput } from "@/libs/components/Elements";
-import CheckboxInput from "@/libs/components/Elements/CheckboxInput";
 import { solidDialog } from "@/libs/dialog";
 
 /**
@@ -19,12 +17,10 @@ export const ToolExecutionApprovalUI: Component<{
     toolName: string;
     toolDescription: string;
     args: Record<string, any>;
-    canRemember: boolean;
-    onApprove: (remember: boolean) => void;
+    onApprove: () => void;
     onReject: () => void;
     displayMode: DisplayMode;
 }> = (props) => {
-    const [remember, setRemember] = createSignal(false);
 
     const containerStyle = createMemo(() =>
         props.displayMode === DisplayMode.INLINE
@@ -68,16 +64,6 @@ export const ToolExecutionApprovalUI: Component<{
                 </pre>
             </div>
 
-            {props.canRemember && (
-                <div style={{ "margin-bottom": "16px" }}>
-                    <CheckboxInput
-                        checked={remember()}
-                        changed={setRemember}
-                    />
-                    <span style={{ "margin-left": "8px" }}>记住我的决定</span>
-                </div>
-            )}
-
             <div style={{
                 "display": "flex",
                 "justify-content": "flex-end",
@@ -94,7 +80,7 @@ export const ToolExecutionApprovalUI: Component<{
                 />
                 <ButtonInput
                     label="允许"
-                    onClick={() => props.onApprove(remember())}
+                    onClick={() => props.onApprove()}
                     style={{
                         "background-color": "#4caf50",
                         "color": "white",
@@ -206,11 +192,9 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
     async showToolExecutionApproval(
         toolName: string,
         toolDescription: string,
-        args: Record<string, any>,
-        permissionLevel: ToolPermissionLevel
+        args: Record<string, any>
     ): Promise<{
         approved: boolean;
-        persistDecision?: boolean;
         rejectReason?: string;
     }> {
         return new Promise((resolve) => {
@@ -221,13 +205,11 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                         toolName={toolName}
                         toolDescription={toolDescription}
                         args={args}
-                        canRemember={permissionLevel === ToolPermissionLevel.MODERATE}
                         displayMode={DisplayMode.DIALOG}
-                        onApprove={(remember) => {
+                        onApprove={() => {
                             close();
                             resolve({
-                                approved: true,
-                                persistDecision: remember
+                                approved: true
                             });
                         }}
                         onReject={() => {

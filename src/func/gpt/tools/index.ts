@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 16:59:06
  * @FilePath     : /src/func/gpt/tools/index.ts
- * @LastEditTime : 2025-05-30 17:20:37
+ * @LastEditTime : 2025-05-30 17:38:41
  * @Description  :
  */
 // 导出类型和工具执行器
@@ -42,8 +42,7 @@ export const toolExecutorFactory = (options: {
             return await approvalAdapter.showToolExecutionApproval(
                 toolName,
                 toolDescription,
-                args,
-                tool.definition.permissionLevel
+                args
             );
         });
     }

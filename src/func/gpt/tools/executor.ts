@@ -19,7 +19,7 @@ interface ToolRegistry {
  * 用户审核记录
  */
 interface ApprovalRecord {
-    [toolName: string]: boolean;
+    [toolName: string]: Awaited<ReturnType<UserApprovalCallback>>;
 }
 
 /**
@@ -141,23 +141,17 @@ export class ToolExecutor {
         return this.registry[name];
     }
 
-    /**
-     * 向后兼容：检查工具结果使用权限
-     * @deprecated 使用 execute 方法的 skipResultApproval 参数替代
-     */
-    async checkToolResult(
-        toolName: string,
-        args: Record<string, any>,
-        result: ToolExecuteResult
-    ): Promise<{
-        approved: boolean;
-        rejectReason?: string;
-    }> {
-        return await this.checkResultApproval(toolName, args, result);
-    }
-
-
     // ==================== Approval ====================
+
+    /**
+     * 生成工具调用的唯一键
+     * @param toolName 工具名称
+     * @param args 参数
+     * @returns 唯一键
+     */
+    private generateApprovalKey(toolName: string, args: Record<string, any>): string {
+        return `${toolName}:${JSON.stringify(args)}`;
+    }
 
     /**
      * 检查工具执行权限
@@ -185,15 +179,14 @@ export class ToolExecutor {
             return { approved: true };
         }
 
+        const approvalKey = this.generateApprovalKey(toolName, args);
+
         // 中等敏感度工具，检查记录
         if (
             permissionLevel === ToolPermissionLevel.MODERATE &&
-            this.approvalRecords[toolName] !== undefined
+            this.approvalRecords[approvalKey] !== undefined
         ) {
-            return {
-                approved: this.approvalRecords[toolName],
-                rejectReason: this.approvalRecords[toolName] ? undefined : 'Previously rejected by user'
-            };
+            return this.approvalRecords[approvalKey];
         }
 
         // 需要用户审核
@@ -210,13 +203,9 @@ export class ToolExecutor {
             args
         );
 
-        // #TODO 应该记录工具 + 参数双重的记录
         // 记住用户选择
-        if (
-            result.persistDecision &&
-            permissionLevel === ToolPermissionLevel.MODERATE
-        ) {
-            this.approvalRecords[toolName] = result.approved;
+        if (permissionLevel === ToolPermissionLevel.MODERATE) {
+            this.approvalRecords[approvalKey] = result;
         }
 
         return {
