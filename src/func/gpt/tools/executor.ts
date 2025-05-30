@@ -31,6 +31,9 @@ export class ToolExecutor {
     private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
 
+
+    // ==================== Callback ====================
+
     /**
      * 设置执行审批回调函数
      */
@@ -61,21 +64,7 @@ export class ToolExecutor {
         return !!this.resultApprovalCallback;
     }
 
-    /**
-     * 向后兼容：设置用户审核回调函数
-     * @deprecated 使用 setExecutionApprovalCallback 替代
-     */
-    setApprovalCallback(callback: UserApprovalCallback): void {
-        this.executionApprovalCallback = callback;
-    }
-
-    /**
-     * 向后兼容：检查是否有审核回调
-     * @deprecated 使用 hasExecutionApprovalCallback 替代
-     */
-    hasApprovalCallback(): boolean {
-        return this.hasExecutionApprovalCallback();
-    }
+    // ==================== Register ====================
 
     /**
      * 注册单个工具
@@ -129,7 +118,46 @@ export class ToolExecutor {
         }
     }
 
+    /**
+     * 获取所有工具定义
+     */
+    getAllToolDefinitions(): IToolDefinition[] {
+        return Object.values(this.registry).map(tool => tool.definition);
+    }
 
+    /**
+     * 获取指定权限级别的工具定义
+     */
+    getToolDefinitionsByPermission(level: ToolPermissionLevel): IToolDefinition[] {
+        return Object.values(this.registry)
+            .filter(tool => tool.definition.permissionLevel === level)
+            .map(tool => tool.definition);
+    }
+
+    /**
+     * 获取工具
+     */
+    getTool(name: string): Tool | undefined {
+        return this.registry[name];
+    }
+
+    /**
+     * 向后兼容：检查工具结果使用权限
+     * @deprecated 使用 execute 方法的 skipResultApproval 参数替代
+     */
+    async checkToolResult(
+        toolName: string,
+        args: Record<string, any>,
+        result: ToolExecuteResult
+    ): Promise<{
+        approved: boolean;
+        rejectReason?: string;
+    }> {
+        return await this.checkResultApproval(toolName, args, result);
+    }
+
+
+    // ==================== Approval ====================
 
     /**
      * 检查工具执行权限
@@ -222,6 +250,9 @@ export class ToolExecutor {
         );
     }
 
+
+    // ==================== Execute ====================
+
     /**
      * 执行工具
      * 集成执行前审批检查和结果审批检查
@@ -293,104 +324,6 @@ export class ToolExecutor {
 
         // 返回成功结果
         return result;
-    }
-
-    /**
-     * 向后兼容：执行工具
-     * @deprecated 使用 execute 替代，并使用 skipExecutionApproval 参数
-     */
-    async executeWithPermissionCheck(
-        toolName: string,
-        args: Record<string, any>,
-        skipPermissionCheck?: boolean
-    ): Promise<ToolExecuteResult> {
-        return this.execute(toolName, args, { skipExecutionApproval: skipPermissionCheck });
-    }
-
-    /**
-     * 获取所有工具定义
-     */
-    getAllToolDefinitions(): IToolDefinition[] {
-        return Object.values(this.registry).map(tool => tool.definition);
-    }
-
-    /**
-     * 获取指定权限级别的工具定义
-     */
-    getToolDefinitionsByPermission(level: ToolPermissionLevel): IToolDefinition[] {
-        return Object.values(this.registry)
-            .filter(tool => tool.definition.permissionLevel === level)
-            .map(tool => tool.definition);
-    }
-
-    /**
-     * 获取工具
-     */
-    getTool(name: string): Tool | undefined {
-        return this.registry[name];
-    }
-
-    /**
-     * 向后兼容：检查工具结果使用权限
-     * @deprecated 使用 execute 方法的 skipResultApproval 参数替代
-     */
-    async checkToolResult(
-        toolName: string,
-        args: Record<string, any>,
-        result: ToolExecuteResult
-    ): Promise<{
-        approved: boolean;
-        rejectReason?: string;
-    }> {
-        return await this.checkResultApproval(toolName, args, result);
-    }
-
-    /**
-     * 按标签获取工具
-     * @param tags 标签数组
-     * @param matchAll 是否匹配所有标签，默认为 true
-     * @returns 匹配标签的工具数组
-     */
-    getToolsByTags(tags: string[], matchAll: boolean = true): Tool[] {
-        return Object.values(this.registry).filter(tool => {
-            if (!tool.tags || tool.tags.length === 0) {
-                return false;
-            }
-
-            if (matchAll) {
-                // 必须匹配所有标签
-                return tags.every(tag => tool.tags.includes(tag));
-            } else {
-                // 匹配任一标签
-                return tags.some(tag => tool.tags.includes(tag));
-            }
-        });
-    }
-
-    /**
-     * 按标签获取工具定义
-     * @param tags 标签数组
-     * @param matchAll 是否匹配所有标签，默认为 true
-     * @returns 匹配标签的工具定义数组
-     */
-    getToolDefinitionsByTags(tags: string[], matchAll: boolean = true): IToolDefinition[] {
-        return this.getToolsByTags(tags, matchAll).map(tool => tool.definition);
-    }
-
-    /**
-     * 获取所有标签
-     * @returns 所有标签的数组
-     */
-    getAllTags(): string[] {
-        const tagsSet = new Set<string>();
-
-        Object.values(this.registry).forEach(tool => {
-            if (tool.tags) {
-                tool.tags.forEach(tag => tagsSet.add(tag));
-            }
-        });
-
-        return Array.from(tagsSet);
     }
 }
 

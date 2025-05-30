@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 16:59:06
  * @FilePath     : /src/func/gpt/tools/index.ts
- * @LastEditTime : 2025-05-11 20:02:03
+ * @LastEditTime : 2025-05-30 16:51:13
  * @Description  :
  */
 // 导出类型和工具执行器
@@ -31,6 +31,7 @@ export const toolExecutorFactory = () => {
     const toolExecutor = new ToolExecutor();
     toolExecutor.registerTool(fetchTool);
     toolExecutor.registerToolModule(utilsTools);
+    // register group level tools
     return toolExecutor;
 }
 
