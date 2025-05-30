@@ -51,7 +51,7 @@ export interface ToolExecuteResult {
     status: ToolExecuteStatus;
 
     // 执行结果数据（成功时）
-    data?: any;
+    data?: string;
 
     // 错误信息（失败时）
     error?: string;

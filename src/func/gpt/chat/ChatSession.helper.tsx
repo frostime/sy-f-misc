@@ -19,6 +19,8 @@ import {
     convertImgsToBase64Url
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
+import { ToolExecutor, toolExecutorFactory } from '../tools';
+import { executeToolChain } from '@gpt/openai';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -332,7 +334,7 @@ const useContextAndAttachments = (params: {
 };
 
 /**
- * GPT 通信相关的 hook
+ * GPT 通信相关的 hook - 支持工具调用
  */
 const useGptCommunication = (params: {
     model: Accessor<IGPTModel>;
@@ -342,6 +344,7 @@ const useGptCommunication = (params: {
     loading: ReturnType<typeof useSignalRef<boolean>>;
     attachments: ReturnType<typeof useSignalRef<Blob[]>>;
     contexts: IStoreRef<IProvidedContext[]>;
+    toolExecutor?: ToolExecutor;
     newID: () => string;
     getAttachedHistory: (itemNum?: number, fromIndex?: number) => IMessage[];
 }) => {
@@ -349,9 +352,15 @@ const useGptCommunication = (params: {
 
     let controller: AbortController;
 
-    // src/func/gpt/components/ChatSession.tsx
     const gptOption = () => {
         let option = { ...config().chatOption };
+        if (params.toolExecutor) {
+            let tools = params.toolExecutor.getAllToolDefinitions();
+            if (tools && tools.length > 0) {
+                option['tools'] = tools;
+                option['tool_choice'] = 'auto';
+            }
+        }
         return option;
     }
 
@@ -363,9 +372,11 @@ const useGptCommunication = (params: {
         try {
             const modelToUse = options?.model ?? model();
             const baseOption = gptOption();
+            let opt = options?.chatOption ? { ...baseOption, ...options.chatOption } : baseOption;
+            opt['tool_choice'] = 'none'; // 自定义完成不使用工具
             const { content } = await gpt.complete(messageToSend, {
                 model: modelToUse,
-                option: options?.chatOption ? { ...baseOption, ...options.chatOption } : baseOption,
+                option: opt,
                 stream: options?.stream ?? false,
             });
             return content;
@@ -416,14 +427,82 @@ ${inputContent}
     }
 
     /**
-     * 首先检查 index 是否在合法范围内
-     * 确认无误
-     * 如果为 user 信息，则同 sendMessage 逻辑一样，把 user 消息当作最新的输入，获得的 gpt 结果
-     *  - 如果下一条本来就是 assistant 信息，则直接替换
-     *  - 如果下一条是 user 信息，则插入一条新的 assistant 信息
-     * 如果为 assistant 信息
-     *  - 如果他的上一条为 user 信息，则等价于上面的情况，也就是最后会更新他自己
-     *  - 如果他的上一条为 assistant 信息，则拒绝执行 rerun，并showMessage 报错
+     * 处理工具调用链
+     * @param initialResponse 初始GPT响应（可能包含工具调用）
+     * @param contextMessages 上下文消息
+     * @param targetIndex 目标消息索引
+     * @param scrollToBottom 滚动函数
+     */
+    const handleToolChain = async (
+        initialResponse: CompletionResponse,
+        contextMessages: IMessage[],
+        targetIndex: number,
+        scrollToBottom?: (force?: boolean) => void
+    ) => {
+        if (!params.toolExecutor || !initialResponse.tool_calls?.length) {
+            return initialResponse;
+        }
+
+        try {
+            // 执行工具调用链
+            const toolChainResult = await executeToolChain(params.toolExecutor, initialResponse, {
+                contextMessages,
+                maxRounds: 5,
+                maxCalls: 10,
+                abortController: controller,
+                model: model(),
+                systemPrompt: systemPrompt().trim() || undefined,
+                chatOption: gptOption(),
+                checkToolResults: true,
+                callbacks: {
+                    onToolCallStart: (toolName, args, callId) => {
+                        console.log(`Tool call started: ${toolName}`, { args, callId });
+                    },
+
+                    onToolCallComplete: (result, callId) => {
+                        console.log(`Tool call completed:`, { result, callId });
+                    },
+
+                    onLLMResponseUpdate: (content, toolCalls) => {
+                        // 更新目标消息内容（流式）
+                        messages.update(targetIndex, 'message', 'content', content);
+                        scrollToBottom && scrollToBottom(false);
+                    },
+
+                    onLLMResponseComplete: (response) => {
+                        console.log('LLM response completed:', response);
+                    },
+
+                    onError: (error, phase) => {
+                        console.error(`Tool chain error in ${phase}:`, error);
+                        showMessage(`工具调用出错 (${phase}): ${error.message}`);
+                    }
+                }
+            });
+
+            // 如果工具调用链成功完成，返回最终结果
+            // #NOTE: 目前的方案，只会保留最后的一个结果，不会被大量工具调用存放在 history 中
+            if (toolChainResult.status === 'completed') {
+                return {
+                    content: toolChainResult.content,
+                    usage: initialResponse.usage, // 使用初始响应的usage，实际项目中可能需要累加
+                    reasoning_content: initialResponse.reasoning_content,
+                    time: initialResponse.time
+                } as CompletionResponse;
+            } else {
+                // 工具调用链失败，返回原始响应
+                console.warn('Tool chain failed:', toolChainResult.error);
+                return initialResponse;
+            }
+        } catch (error) {
+            console.error('Tool chain execution failed:', error);
+            showMessage(`工具调用失败: ${error.message}`);
+            return initialResponse;
+        }
+    };
+
+    /**
+     * 重新运行消息（支持工具调用）
      */
     const reRunMessage = async (atIndex: number) => {
         if (atIndex < 0 || atIndex >= messages().length) return;
@@ -443,7 +522,6 @@ ${inputContent}
         }
 
         loading.update(true);
-        // scrollToBottom(); //不要滚动到最底部
 
         try {
             controller = new AbortController();
@@ -488,45 +566,54 @@ ${inputContent}
 
             params.attachments.update([]);
             params.contexts.update([]);
-            const { content, usage, reasoning_content, time } = await gpt.complete(msgToSend, {
+
+            // 获取初始响应
+            const initialResponse = await gpt.complete(msgToSend, {
                 model: modelToUse,
                 systemPrompt: systemPrompt().trim() || undefined,
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
                     messages.update(nextIndex, 'message', 'content', msg);
-                    // scrollToBottom();
                 },
                 abortControler: controller,
                 option: option,
             });
+
+            // 处理工具调用链
+            const finalResponse = await handleToolChain(
+                initialResponse,
+                msgToSend,
+                nextIndex
+            );
 
             // 更新最终内容
             const vid = new Date().getTime().toString();
             messages.update(nextIndex, (msgItem: IChatSessionMsgItem) => {
                 const newMessageContent: IMessage = {
                     role: 'assistant',
-                    content: content,
+                    content: finalResponse.content,
                 };
-                if (reasoning_content) {
-                    newMessageContent['reasoning_content'] = reasoning_content;
+                if (finalResponse.reasoning_content) {
+                    newMessageContent['reasoning_content'] = finalResponse.reasoning_content;
                 }
-                // 记录最新版本的消息
+
                 msgItem = {
                     ...msgItem,
                     loading: false,
-                    usage,
-                    time,
+                    usage: finalResponse.usage,
+                    time: finalResponse.time,
                     message: newMessageContent,
                     author: modelToUse.model,
                     timestamp: new Date().getTime(),
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
                 };
-                if (usage && usage.completion_tokens) {
-                    msgItem['token'] = usage.completion_tokens;
+
+                if (finalResponse.usage && finalResponse.usage.completion_tokens) {
+                    msgItem['token'] = finalResponse.usage.completion_tokens;
                 }
-                // delete msgItem['loading'];
+
                 msgItem = stageMsgItemVersion(msgItem, vid);
                 return msgItem;
             });
@@ -536,14 +623,13 @@ ${inputContent}
                 return stageMsgItemVersion(newItem);
             });
 
-            if (usage) {
+            if (finalResponse.usage) {
                 batch(() => {
-                    messages.update(nextIndex, 'token', usage?.completion_tokens);
-                    messages.update(atIndex, 'token', usage?.prompt_tokens);
+                    messages.update(nextIndex, 'token', finalResponse.usage?.completion_tokens);
+                    messages.update(atIndex, 'token', finalResponse.usage?.prompt_tokens);
                 });
             }
 
-            // scrollToBottom(); rerun, 不需要滚动到底部
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -553,10 +639,7 @@ ${inputContent}
     };
 
     /**
-     * 发送用户消息
-     * @param userMessage 用户消息
-     * @param options 选项
-     * @param options.tavily 是否启用 Tavily 网络搜索
+     * 发送用户消息（支持工具调用）
      */
     const sendMessage = async (
         userMessage: string,
@@ -570,8 +653,6 @@ ${inputContent}
         if (!userMessage.trim() && attachments.length === 0 && contexts.length === 0) return;
 
         let sysPrompt = systemPrompt().trim() || '';
-
-        // 这里不再调用 appendUserMsg，而是由外部调用
         loading.update(true);
 
         try {
@@ -593,41 +674,51 @@ ${inputContent}
                 versions: {}
             };
             messages.update(prev => [...prev, assistantMsg]);
-            const updatedTimestamp = new Date().getTime(); // Update the updated time when adding a message
+            const updatedTimestamp = new Date().getTime();
 
-            // scrollToBottom();
             params.attachments.update([]);
             params.contexts.update([]);
             const lastIdx = messages().length - 1;
-            const { content, usage, reasoning_content, time } = await gpt.complete(msgToSend, {
+
+            // 获取初始响应
+            const initialResponse = await gpt.complete(msgToSend, {
                 model: modelToUse,
                 systemPrompt: sysPrompt || undefined,
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
                     messages.update(lastIdx, 'message', 'content', msg);
-                    scrollToBottom && scrollToBottom(false);  // 不强制滚动，尊重用户的滚动位置
+                    scrollToBottom && scrollToBottom(false);
                 },
                 abortControler: controller,
                 option: option,
             });
 
+            // 处理工具调用链
+            const finalResponse = await handleToolChain(
+                initialResponse,
+                msgToSend,
+                lastIdx,
+                scrollToBottom
+            );
+
             const vid = new Date().getTime().toString();
             const newMessageContent: IMessage = {
                 role: 'assistant',
-                content: content
+                content: finalResponse.content
             }
-            if (reasoning_content) {
-                newMessageContent['reasoning_content'] = reasoning_content;
+            if (finalResponse.reasoning_content) {
+                newMessageContent['reasoning_content'] = finalResponse.reasoning_content;
             }
+
             // 更新最终内容
             messages.update(prev => {
                 const lastIdx = prev.length - 1;
                 const updated = [...prev];
                 updated[lastIdx] = {
                     ...updated[lastIdx],
-                    usage,
-                    time,
+                    usage: finalResponse.usage,
+                    time: finalResponse.time,
                     loading: false,
                     message: newMessageContent,
                     author: modelToUse.model,
@@ -635,23 +726,20 @@ ${inputContent}
                     attachedItems: msgToSend.length,
                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0),
                     currentVersion: vid,
-                    versions: {}  // 新消息只有一个版本，就暂时不需要存放多 versions, 空着就行
+                    versions: {}
                 };
                 delete updated[lastIdx]['loading'];
-                // updated[lastIdx] = stageMsgItemVersion(updated[lastIdx]);
                 return updated;
             });
 
-            if (usage) {
+            if (finalResponse.usage) {
                 batch(() => {
                     const lastIdx = messages().length - 1;
                     if (lastIdx < 1) return;
-                    messages.update(lastIdx, 'token', usage?.completion_tokens);
-                    messages.update(lastIdx - 1, 'token', usage?.prompt_tokens);
+                    messages.update(lastIdx, 'token', finalResponse.usage?.completion_tokens);
+                    messages.update(lastIdx - 1, 'token', finalResponse.usage?.prompt_tokens);
                 });
             }
-
-            // scrollToBottom(false);
 
             return { updatedTimestamp, hasResponse: true };
         } catch (error) {
@@ -688,6 +776,8 @@ export const useSession = (props: {
     scrollToBottom: (force?: boolean) => void;
 }) => {
     let sessionId = useSignalRef<string>(window.Lute.NewNodeID());
+
+    const toolExecutor = toolExecutorFactory({});
 
     const systemPrompt = useSignalRef<string>(globalMiscConfigs().defaultSystemPrompt || '');
     // 当前的 attachments
@@ -821,6 +911,7 @@ export const useSession = (props: {
         loading,
         attachments,
         contexts,
+        toolExecutor,
         newID,
         getAttachedHistory
     });

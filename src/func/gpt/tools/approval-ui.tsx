@@ -53,14 +53,15 @@ export const ToolExecutionApprovalUI: Component<{
                     <strong>参数:</strong>
                 </p>
                 <pre style={{
-                    "background-color": "#f5f5f5",
+                    "background-color": "var(--b3-theme-background)",
                     "padding": "8px",
                     "border-radius": "4px",
                     "max-height": props.displayMode === DisplayMode.INLINE ? "200px" : "150px",
                     "overflow": "auto",
-                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
+                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px",
+                    "font-family": 'var(--b3-font-family-code)'
                 }}>
-                    {JSON.stringify(props.args, null, 2)}
+                    {JSON.stringify(props.args, null, null)}
                 </pre>
             </div>
 
@@ -73,8 +74,7 @@ export const ToolExecutionApprovalUI: Component<{
                     label="拒绝"
                     onClick={props.onReject}
                     style={{
-                        "background-color": "#f44336",
-                        "color": "white",
+                        "background-color": "var(--b3-theme-error)",
                         "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
                     }}
                 />
@@ -82,8 +82,6 @@ export const ToolExecutionApprovalUI: Component<{
                     label="允许"
                     onClick={() => props.onApprove()}
                     style={{
-                        "background-color": "#4caf50",
-                        "color": "white",
                         "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
                     }}
                 />
@@ -131,12 +129,13 @@ export const ToolResultApprovalUI: Component<{
                     <strong>参数:</strong>
                 </p>
                 <pre style={{
-                    "background-color": "#f5f5f5",
+                    "background-color": "var(--b3-theme-background)",
                     "padding": "8px",
                     "border-radius": "4px",
                     "max-height": props.displayMode === DisplayMode.INLINE ? "100px" : "80px",
                     "overflow": "auto",
-                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
+                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px",
+                    "font-family": 'var(--b3-font-family-code)'
                 }}>
                     {JSON.stringify(props.args, null, 2)}
                 </pre>
@@ -145,14 +144,15 @@ export const ToolResultApprovalUI: Component<{
                     <strong>结果:</strong>
                 </p>
                 <pre style={{
-                    "background-color": "#f5f5f5",
+                    "background-color": "var(--b3-theme-background)",
                     "padding": "8px",
                     "border-radius": "4px",
                     "max-height": props.displayMode === DisplayMode.INLINE ? "200px" : "150px",
                     "overflow": "auto",
-                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
+                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px",
+                    "font-family": 'var(--b3-font-family-code)'
                 }}>
-                    {JSON.stringify(props.result.data, null, 2)}
+                    {JSON.stringify(props.result.data, null, null)}
                 </pre>
             </div>
 
@@ -165,8 +165,7 @@ export const ToolResultApprovalUI: Component<{
                     label="拒绝"
                     onClick={props.onReject}
                     style={{
-                        "background-color": "#f44336",
-                        "color": "white",
+                        "background-color": "var(--b3-theme-error)",
                         "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
                     }}
                 />
@@ -174,8 +173,6 @@ export const ToolResultApprovalUI: Component<{
                     label="允许"
                     onClick={props.onApprove}
                     style={{
-                        "background-color": "#4caf50",
-                        "color": "white",
                         "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
                     }}
                 />

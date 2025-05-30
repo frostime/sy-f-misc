@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/utils.ts
- * @LastEditTime : 2025-05-30 15:42:40
+ * @LastEditTime : 2025-05-30 19:53:08
  * @Description  : 
  */
 import {
@@ -32,9 +32,10 @@ export const datetimeTool: Tool = {
                     },
                     timezone: {
                         type: 'string',
-                        description: '时区，例如：Asia/Shanghai'
+                        description: '时区，例如：Asia/Shanghai',
                     }
-                }
+                },
+                required: []
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC
@@ -48,13 +49,7 @@ export const datetimeTool: Tool = {
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: {
-                    iso: now.toISOString(),
-                    timestamp: now.getTime(),
-                    local: now.toString(),
-                    // 添加原始参数，方便调试
-                    params: args
-                }
+                data: now.toISOString()
             };
         } catch (error) {
             return {

@@ -85,8 +85,7 @@ const handleStreamResponse = async (
     };
 
     let references: TReference[] = null;
-    // 用于跟踪和合并 tool_calls
-    const toolCallsMap = new Map<string, IToolCallResponse>();
+
 
     const transformStream = new TransformStream({
         transform: (chunk: string, controller) => {
@@ -110,6 +109,9 @@ const handleStreamResponse = async (
         : () => false;
 
     let t1 = null;
+
+    // 用于跟踪和合并 tool_calls
+    const toolCallsMap = new Map<number, IToolCallResponse>();
 
     try {
         while (true) {
@@ -144,12 +146,12 @@ const handleStreamResponse = async (
             // 处理 tool_calls
             if (tool_calls) {
                 for (const call of tool_calls) {
-                    if (toolCallsMap.has(call.id)) {
+                    if (toolCallsMap.has(call.index)) {
                         // 合并参数
-                        const existing = toolCallsMap.get(call.id);
+                        const existing = toolCallsMap.get(call.index);
                         existing.function.arguments += call.function.arguments;
                     } else {
-                        toolCallsMap.set(call.id, { ...call });
+                        toolCallsMap.set(call.index, { ...call });
                     }
                 }
                 // 更新响应中的 tool_calls

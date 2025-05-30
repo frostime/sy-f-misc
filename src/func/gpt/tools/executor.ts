@@ -121,17 +121,14 @@ export class ToolExecutor {
     /**
      * 获取所有工具定义
      */
-    getAllToolDefinitions(): IToolDefinition[] {
-        return Object.values(this.registry).map(tool => tool.definition);
-    }
-
-    /**
-     * 获取指定权限级别的工具定义
-     */
-    getToolDefinitionsByPermission(level: ToolPermissionLevel): IToolDefinition[] {
-        return Object.values(this.registry)
-            .filter(tool => tool.definition.permissionLevel === level)
-            .map(tool => tool.definition);
+    getAllToolDefinitions(level?: ToolPermissionLevel): IToolDefinition[] {
+        if (!level) {
+            return Object.values(this.registry).map(tool => tool.definition);
+        } else {
+            return Object.values(this.registry)
+                .filter(tool => tool.definition.permissionLevel === level)
+                .map(tool => tool.definition);
+        }
     }
 
     /**

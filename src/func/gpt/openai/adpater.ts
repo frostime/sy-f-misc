@@ -35,11 +35,17 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
             "content": input
         }];
     } else {
+        const ALLOWED_FIELDS = ['role', 'content', 'tool_call_id', 'tool_calls'];
         // 去掉可能的不需要的字段
-        messages = input.map(item => ({
-            role: item.role,
-            content: item.content
-        }));
+        messages = input.map(item => {
+            const result = {};
+            for (const key in item) {
+                if (ALLOWED_FIELDS.includes(key)) {
+                    result[key] = item[key];
+                }
+            }
+            return result as IMessage;
+        });
     }
 
     if (options) {

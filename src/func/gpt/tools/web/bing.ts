@@ -1,9 +1,11 @@
+import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+
 /*
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
- * @FilePath     : /src/func/gpt/tools/bing.ts
- * @LastEditTime : 2025-05-28 11:20:03
+ * @FilePath     : /src/func/gpt/tools/web/bing.ts
+ * @LastEditTime : 2025-05-30 20:01:38
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
@@ -47,3 +49,32 @@ export async function bingSearch(query: string, pageIdx: number = 1): Promise<{ 
         return [];
     }
 }
+
+export const bingSearchTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'BingSearch',
+            description: '使用 Bing 获取互联网上的搜索结果',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: {
+                        type: 'string',
+                        description: '搜索语句'
+                    },
+                },
+                required: ['query']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.MODERATE
+    },
+
+    execute: async (args: { query: string }): Promise<ToolExecuteResult> => {
+        const result = await bingSearch(args.query);
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: JSON.stringify(result)
+        };
+    }
+};

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 16:59:06
  * @FilePath     : /src/func/gpt/tools/index.ts
- * @LastEditTime : 2025-05-30 17:38:41
+ * @LastEditTime : 2025-05-30 20:02:48
  * @Description  :
  */
 // 导出类型和工具执行器
@@ -12,10 +12,10 @@ export { ToolExecutor } from './executor';
 
 // 导入工具
 import { ToolExecutor } from './executor';
-import fetchTool from './web/fetch';
 import * as utilsTools from './utils';
 import { ApprovalUIAdapter } from './types';
 import { DefaultUIAdapter } from './approval-ui';
+import { bingSearchTool } from './web/bing';
 
 
 
@@ -24,8 +24,9 @@ export const toolExecutorFactory = (options: {
 }) => {
     // 注册工具
     const toolExecutor = new ToolExecutor();
-    toolExecutor.registerTool(fetchTool);
+
     toolExecutor.registerToolModule(utilsTools);
+    toolExecutor.registerTool(bingSearchTool);
 
     const approvalAdapter = options.approvalAdapter || new DefaultUIAdapter();
 

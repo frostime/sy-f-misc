@@ -13,7 +13,7 @@ import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '../tools';
  */
 export interface ToolChainOptions {
     // 上下文消息历史
-    contextMessages?: IMessage[];
+    contextMessages: IMessage[];
 
     // 最大轮次（LLM-工具调用往返）
     maxRounds?: number;
@@ -113,7 +113,7 @@ export interface ToolChainResult {
 export async function executeToolChain(
     toolExecutor: ToolExecutor,
     llmResponseWithToolCalls: CompletionResponse,
-    options: ToolChainOptions = {}
+    options: ToolChainOptions
 ): Promise<ToolChainResult> {
 
     // 初始化状态
@@ -138,7 +138,8 @@ export async function executeToolChain(
     const initialAssistantMessage = {
         role: 'assistant' as const,
         content: llmResponseWithToolCalls.content,
-        reasoning_content: llmResponseWithToolCalls.reasoning_content
+        reasoning_content: llmResponseWithToolCalls.reasoning_content,
+        tool_calls: llmResponseWithToolCalls.tool_calls
     };
     state.toolChainMessages.push(initialAssistantMessage);
     state.allMessages.push(initialAssistantMessage);
@@ -335,7 +336,7 @@ export async function executeToolChain(
             complete: state.allMessages
         },
         toolCallHistory: state.toolCallHistory,
-        status: state.status,
+        status: 'completed',
         error: state.status === 'error' ? 'Error executing tool chain' : undefined,
         stats: {
             totalRounds: state.roundIndex,

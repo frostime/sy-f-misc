@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-05-27 12:23:32
+ * @LastEditTime : 2025-05-30 19:32:40
  * @Description  :
  */
 interface IMessageContent {
@@ -21,6 +21,8 @@ interface IMessage {
     content: TMessageContent;
     reasoning_content?: string;
     tool_call_id?: string;
+    tool_calls?: IToolCallResponse[];
+    [key: string]: any;
 }
 
 interface IPromptTemplate {
@@ -80,6 +82,7 @@ type IToolChoice =
  */
 interface IToolCallResponse {
     id: string;
+    index: number;
     type: 'function';
     function: {
         name: string;
