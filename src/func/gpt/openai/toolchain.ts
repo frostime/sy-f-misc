@@ -305,7 +305,8 @@ export async function executeToolChain(
                 const llmResponseMessage = {
                     role: 'assistant' as const,
                     content: response.content,
-                    reasoning_content: response.reasoning_content
+                    reasoning_content: response.reasoning_content,
+                    tool_calls: response.tool_calls
                 };
 
                 // 添加 LLM 响应到消息历史

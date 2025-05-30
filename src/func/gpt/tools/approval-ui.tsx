@@ -9,6 +9,9 @@ import { Component, createMemo } from "solid-js";
 import { ToolExecuteResult, ApprovalUIAdapter, DisplayMode } from "./types";
 import { ButtonInput } from "@/libs/components/Elements";
 import { solidDialog } from "@/libs/dialog";
+import Markdown from "@/libs/components/Elements/Markdown";
+import { createSignalRef } from "@frostime/solid-signal-ref";
+// import { json } from "stream/consumers";
 
 /**
  * 工具执行审核组件
@@ -18,61 +21,45 @@ export const ToolExecutionApprovalUI: Component<{
     toolDescription: string;
     args: Record<string, any>;
     onApprove: () => void;
-    onReject: () => void;
+    onReject: (reason?: string) => void;
     displayMode: DisplayMode;
 }> = (props) => {
 
-    const containerStyle = createMemo(() =>
-        props.displayMode === DisplayMode.INLINE
-            ? {
-                "padding": "16px",
-                "margin": "8px 0",
-                "border": "1px solid var(--b3-border-color)",
-                "border-radius": "4px"
-            }
-            : {
-                "padding": "16px",
-                "max-width": "500px"
-            }
-    );
+    const reason = createSignalRef('');
+
+    const md = `
+### 允许执行工具 ${props.toolName}？
+
+**描述:** ${props.toolDescription}
+
+**参数:**
+
+> ${JSON.stringify(props.args, null, null)}
+
+`;
 
     return (
-        <div style={containerStyle()}>
-            <h3 style={{
-                "font-size": props.displayMode === DisplayMode.INLINE ? "18px" : "16px",
-                "font-weight": "bold",
-                "margin-bottom": "8px"
-            }}>
-                允许执行工具 {props.toolName}？
-            </h3>
-            <div style={{ "margin-bottom": "16px" }}>
-                <p style={{ "margin-bottom": "8px" }}>
-                    <strong>描述:</strong> {props.toolDescription}
-                </p>
-                <p style={{ "margin-bottom": "8px" }}>
-                    <strong>参数:</strong>
-                </p>
-                <pre style={{
-                    "background-color": "var(--b3-theme-background)",
-                    "padding": "8px",
-                    "border-radius": "4px",
-                    "max-height": props.displayMode === DisplayMode.INLINE ? "200px" : "150px",
-                    "overflow": "auto",
-                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px",
-                    "font-family": 'var(--b3-font-family-code)'
-                }}>
-                    {JSON.stringify(props.args, null, null)}
-                </pre>
-            </div>
+        <div style={{
+            "padding": "16px",
+            "width": "100%"
+        }}>
+            <Markdown markdown={md} />
+
 
             <div style={{
                 "display": "flex",
-                "justify-content": "flex-end",
+                "align-content": "center",
                 "gap": "8px"
             }}>
+                <input type="text"
+                    class="b3-text-field" placeholder="可选的拒绝理由" value={reason()}
+                    onInput={(e) => reason(e.currentTarget.value)}
+                    style="width: unset; max-width: unset; flex: 1; display: inline-block;"
+                />
+
                 <ButtonInput
                     label="拒绝"
-                    onClick={props.onReject}
+                    onClick={() => props.onReject(reason())}
                     style={{
                         "background-color": "var(--b3-theme-error)",
                         "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
@@ -101,64 +88,30 @@ export const ToolResultApprovalUI: Component<{
     onReject: () => void;
     displayMode: DisplayMode;
 }> = (props) => {
-    const containerStyle = createMemo(() =>
-        props.displayMode === DisplayMode.INLINE
-            ? {
-                "padding": "16px",
-                "margin": "8px 0",
-                "border": "1px solid var(--b3-border-color)",
-                "border-radius": "4px"
-            }
-            : {
-                "padding": "16px",
-                "max-width": "500px"
-            }
-    );
+
+    const md = `
+### 允许将工具 ${props.toolName} 的结果发送给 LLM？
+
+**参数:**
+
+> ${JSON.stringify(props.args, null, null)}
+
+**结果:**
+
+${props.result.data}
+`;
 
     return (
-        <div style={containerStyle()}>
-            <h3 style={{
-                "font-size": props.displayMode === DisplayMode.INLINE ? "18px" : "16px",
-                "font-weight": "bold",
-                "margin-bottom": "8px"
-            }}>
-                允许将工具 {props.toolName} 的结果发送给 LLM？
-            </h3>
-            <div style={{ "margin-bottom": "16px" }}>
-                <p style={{ "margin-bottom": "8px" }}>
-                    <strong>参数:</strong>
-                </p>
-                <pre style={{
-                    "background-color": "var(--b3-theme-background)",
-                    "padding": "8px",
-                    "border-radius": "4px",
-                    "max-height": props.displayMode === DisplayMode.INLINE ? "100px" : "80px",
-                    "overflow": "auto",
-                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px",
-                    "font-family": 'var(--b3-font-family-code)'
-                }}>
-                    {JSON.stringify(props.args, null, 2)}
-                </pre>
-
-                <p style={{ "margin-bottom": "8px", "margin-top": "16px" }}>
-                    <strong>结果:</strong>
-                </p>
-                <pre style={{
-                    "background-color": "var(--b3-theme-background)",
-                    "padding": "8px",
-                    "border-radius": "4px",
-                    "max-height": props.displayMode === DisplayMode.INLINE ? "200px" : "150px",
-                    "overflow": "auto",
-                    "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px",
-                    "font-family": 'var(--b3-font-family-code)'
-                }}>
-                    {JSON.stringify(props.result.data, null, null)}
-                </pre>
-            </div>
+        <div style={{
+            "padding": "16px",
+            "width": "100%"
+        }}>
+            <Markdown markdown={md} />
 
             <div style={{
                 "display": "flex",
-                "justify-content": "flex-end",
+                "justify-content": "space-between",
+                "align-content": "center",
                 "gap": "8px"
             }}>
                 <ButtonInput
@@ -209,11 +162,11 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                                 approved: true
                             });
                         }}
-                        onReject={() => {
+                        onReject={(reason?: string) => {
                             close();
                             resolve({
                                 approved: false,
-                                rejectReason: '用户拒绝执行工具'
+                                rejectReason: reason?.trim() || '用户拒绝执行工具'
                             });
                         }}
                     />
@@ -223,7 +176,7 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                 callback: () => {
                     resolve({
                         approved: false,
-                        rejectReason: '用户关闭了审核对话框'
+                        rejectReason: '用户拒绝执行工具'
                     });
                 }
             });

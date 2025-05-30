@@ -2,8 +2,8 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
- * @FilePath     : /src/func/gpt/tools/utils.ts
- * @LastEditTime : 2025-05-30 19:53:08
+ * @FilePath     : /src/func/gpt/tools/basic.ts
+ * @LastEditTime : 2025-05-30 21:39:47
  * @Description  : 
  */
 import {
@@ -17,7 +17,7 @@ import {
 /**
  * 日期时间工具
  */
-export const datetimeTool: Tool = {
+const datetimeTool: Tool = {
     definition: {
         type: 'function',
         function: {
@@ -61,4 +61,10 @@ export const datetimeTool: Tool = {
 };
 
 // 导出工具列表
-export const tools = [datetimeTool];
+export const basicTool = {
+    name: 'basic-tools',
+    tools: [datetimeTool],
+    rulePrompt: `
+一些基础工具；如果在回答中涉及到实时性，并且你对当前的时间不确定，请务必调用 datetime 确保时间正确
+`
+}

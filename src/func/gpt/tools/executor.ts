@@ -4,7 +4,8 @@ import {
     ToolExecuteStatus,
     ToolExecuteResult,
     UserApprovalCallback,
-    ResultApprovalCallback
+    ResultApprovalCallback,
+    ToolGroup
 } from './types';
 
 
@@ -26,10 +27,43 @@ interface ApprovalRecord {
  * 工具执行器
  */
 export class ToolExecutor {
+
+    public rules: Record<string, string> = {
+        '*': '<tools>当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具。为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中。</tools>'
+    };
     private registry: ToolRegistry = {};
     private executionApprovalCallback: UserApprovalCallback | null = null;
     private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
+
+    // private enabledTool: string[];
+    private groupEnabled: Record<string, boolean> = {};
+
+    toolRules() {
+        let anyGroupEnabled = false;
+        for (const [name, enabled] of Object.entries(this.groupEnabled)) {
+            if (enabled) {
+                anyGroupEnabled = true;
+                break;
+            }
+        }
+        // 如果没有启用任何工具组，则不显示工具规则
+        if (!anyGroupEnabled) return '';
+        let prompt = '';
+        for (const [name, rule] of Object.entries(this.rules)) {
+            if (!this.isGroupEnabled(name)) continue;
+            prompt += `\n\n${rule}`;
+        }
+        return prompt;
+    }
+
+    isGroupEnabled(groupName: string) {
+        return this.groupEnabled[groupName] ?? false;
+    }
+
+    toggleGroupEnabled(groupName: string, enabled: boolean) {
+        this.groupEnabled[groupName] = enabled;
+    }
 
 
     // ==================== Callback ====================
@@ -86,6 +120,20 @@ export class ToolExecutor {
         for (const tool of tools) {
             this.registerTool(tool);
         }
+    }
+
+    registerToolGroup(group: ToolGroup): void {
+        group.tools.forEach(tool => this.registerTool(tool));
+        if (group.rulePrompt?.trim()) {
+            this.rules[group.name] = (`
+<tool-group-rule name="${group.name}">
+This group contains the following tools: ${group.tools.map(tool => tool.definition.function.name).join(', ')}.
+
+${group.rulePrompt.trim()}
+</tool-group-rule>
+`);
+        }
+        this.groupEnabled[group.name] = true;
     }
 
     /**

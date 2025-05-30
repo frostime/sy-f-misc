@@ -364,6 +364,14 @@ const useGptCommunication = (params: {
         return option;
     }
 
+    const currentSystemPrompt = () => {
+        let prompt = systemPrompt().trim() || '';
+        if (params.toolExecutor) {
+            prompt += params.toolExecutor.toolRules();
+        }
+        return prompt;
+    }
+
     const customComplete = async (messageToSend: IMessage[] | string, options?: {
         stream?: boolean;
         model?: IGPTModel;
@@ -451,7 +459,7 @@ ${inputContent}
                 maxCalls: 10,
                 abortController: controller,
                 model: model(),
-                systemPrompt: systemPrompt().trim() || undefined,
+                systemPrompt: currentSystemPrompt(),
                 chatOption: gptOption(),
                 checkToolResults: true,
                 callbacks: {
@@ -483,6 +491,8 @@ ${inputContent}
             // 如果工具调用链成功完成，返回最终结果
             // #NOTE: 目前的方案，只会保留最后的一个结果，不会被大量工具调用存放在 history 中
             if (toolChainResult.status === 'completed') {
+                // let toolHistory = toolChainResult.toolCallHistory.map(call => call.toolName).join('->');
+                // let hint = toolHistory ? '<system>当前回答经历工具调用获得，为节省开销暂时隐藏历史记录：' + toolHistory + '</system>\n' : '';
                 return {
                     content: toolChainResult.content,
                     usage: initialResponse.usage, // 使用初始响应的usage，实际项目中可能需要累加
@@ -570,7 +580,7 @@ ${inputContent}
             // 获取初始响应
             const initialResponse = await gpt.complete(msgToSend, {
                 model: modelToUse,
-                systemPrompt: systemPrompt().trim() || undefined,
+                systemPrompt: currentSystemPrompt(),
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
@@ -652,7 +662,6 @@ ${inputContent}
     ) => {
         if (!userMessage.trim() && attachments.length === 0 && contexts.length === 0) return;
 
-        let sysPrompt = systemPrompt().trim() || '';
         loading.update(true);
 
         try {
@@ -683,7 +692,7 @@ ${inputContent}
             // 获取初始响应
             const initialResponse = await gpt.complete(msgToSend, {
                 model: modelToUse,
-                systemPrompt: sysPrompt || undefined,
+                systemPrompt: currentSystemPrompt(),
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
