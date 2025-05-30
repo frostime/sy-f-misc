@@ -3,8 +3,10 @@ import {
     ToolPermissionLevel,
     ToolExecuteStatus,
     ToolExecuteResult,
-    UserApprovalCallback
+    UserApprovalCallback,
+    ResultApprovalCallback
 } from './types';
+
 
 /**
  * 工具注册表
@@ -25,8 +27,55 @@ interface ApprovalRecord {
  */
 export class ToolExecutor {
     private registry: ToolRegistry = {};
-    private approvalCallback: UserApprovalCallback | null = null;
+    private executionApprovalCallback: UserApprovalCallback | null = null;
+    private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
+
+    /**
+     * 设置执行审批回调函数
+     */
+    setExecutionApprovalCallback(callback: UserApprovalCallback): void {
+        this.executionApprovalCallback = callback;
+    }
+
+    /**
+     * 设置结果审批回调函数
+     */
+    setResultApprovalCallback(callback: ResultApprovalCallback): void {
+        this.resultApprovalCallback = callback;
+    }
+
+    /**
+     * 检查是否有执行审批回调
+     * @returns 是否有执行审批回调
+     */
+    hasExecutionApprovalCallback(): boolean {
+        return !!this.executionApprovalCallback;
+    }
+
+    /**
+     * 检查是否有结果审批回调
+     * @returns 是否有结果审批回调
+     */
+    hasResultApprovalCallback(): boolean {
+        return !!this.resultApprovalCallback;
+    }
+
+    /**
+     * 向后兼容：设置用户审核回调函数
+     * @deprecated 使用 setExecutionApprovalCallback 替代
+     */
+    setApprovalCallback(callback: UserApprovalCallback): void {
+        this.executionApprovalCallback = callback;
+    }
+
+    /**
+     * 向后兼容：检查是否有审核回调
+     * @deprecated 使用 hasExecutionApprovalCallback 替代
+     */
+    hasApprovalCallback(): boolean {
+        return this.hasExecutionApprovalCallback();
+    }
 
     /**
      * 注册单个工具
@@ -80,17 +129,12 @@ export class ToolExecutor {
         }
     }
 
-    /**
-     * 设置用户审核回调函数
-     */
-    setApprovalCallback(callback: UserApprovalCallback): void {
-        this.approvalCallback = callback;
-    }
+
 
     /**
-     * 检查工具权限
+     * 检查工具执行权限
      */
-    private async checkPermission(
+    private async checkExecutionApproval(
         toolName: string,
         args: Record<string, any>
     ): Promise<{
@@ -125,14 +169,14 @@ export class ToolExecutor {
         }
 
         // 需要用户审核
-        if (!this.approvalCallback) {
+        if (!this.executionApprovalCallback) {
             return {
                 approved: false,
-                rejectReason: 'No approval callback set'
+                rejectReason: 'No execution approval callback set'
             };
         }
 
-        const result = await this.approvalCallback(
+        const result = await this.executionApprovalCallback(
             toolName,
             tool.definition.function.description || '',
             args
@@ -149,18 +193,45 @@ export class ToolExecutor {
 
         return {
             approved: result.approved,
-            rejectReason: result.approved ? undefined : (result.rejectReason || 'Rejected by user')
+            rejectReason: result.approved ? undefined : (result.rejectReason || 'Execution rejected by user')
         };
     }
 
     /**
+     * 检查工具结果权限
+     */
+    private async checkResultApproval(
+        toolName: string,
+        args: Record<string, any>,
+        result: ToolExecuteResult
+    ): Promise<{
+        approved: boolean;
+        rejectReason?: string;
+    }> {
+        if (!this.resultApprovalCallback) {
+            return {
+                approved: false,
+                rejectReason: 'No result approval callback set'
+            };
+        }
+
+        return await this.resultApprovalCallback(
+            toolName,
+            args,
+            result
+        );
+    }
+
+    /**
      * 执行工具
+     * 集成执行前审批检查和结果审批检查
      */
     async execute(
         toolName: string,
         args: Record<string, any>,
         options?: {
-            skipPermissionCheck?: boolean;
+            skipExecutionApproval?: boolean;  // 跳过执行前审批检查
+            skipResultApproval?: boolean;     // 跳过结果审批检查
         }
     ): Promise<ToolExecuteResult> {
         const tool = this.registry[toolName];
@@ -172,29 +243,68 @@ export class ToolExecutor {
             };
         }
 
-        // 权限检查
-        if (!options?.skipPermissionCheck) {
-            const permission = await this.checkPermission(toolName, args);
+        // 执行前审批检查
+        const shouldCheckExecution = !options?.skipExecutionApproval &&
+            (tool.definition.requireExecutionApproval !== false);
 
-            if (!permission.approved) {
+        if (shouldCheckExecution) {
+            const approval = await this.checkExecutionApproval(toolName, args);
+            if (!approval.approved) {
                 return {
-                    status: ToolExecuteStatus.REJECTED,
-                    error: 'Permission denied',
-                    rejectReason: permission.rejectReason
+                    status: ToolExecuteStatus.EXECUTION_REJECTED,
+                    error: 'Execution not approved',
+                    rejectReason: approval.rejectReason
                 };
             }
         }
 
         // 执行工具
+        let result: ToolExecuteResult;
         try {
-            const result = await tool.execute(args);
-            return result;
+            result = await tool.execute(args);
         } catch (error) {
             return {
                 status: ToolExecuteStatus.ERROR,
                 error: `Error executing tool ${toolName}: ${error.message}`
             };
         }
+
+        // 如果工具执行失败，直接返回结果
+        if (result.status !== ToolExecuteStatus.SUCCESS) {
+            return result;
+        }
+
+        // 结果审批检查
+        const shouldCheckResult =
+            !options?.skipResultApproval &&
+            (tool.definition.requireResultApproval === true);
+
+        if (shouldCheckResult) {
+            const approval = await this.checkResultApproval(toolName, args, result);
+            if (!approval.approved) {
+                return {
+                    status: ToolExecuteStatus.RESULT_REJECTED,
+                    data: result.data,  // 保留原始数据，以便调用者可以访问
+                    error: 'Result not approved for LLM',
+                    rejectReason: approval.rejectReason
+                };
+            }
+        }
+
+        // 返回成功结果
+        return result;
+    }
+
+    /**
+     * 向后兼容：执行工具
+     * @deprecated 使用 execute 替代，并使用 skipExecutionApproval 参数
+     */
+    async executeWithPermissionCheck(
+        toolName: string,
+        args: Record<string, any>,
+        skipPermissionCheck?: boolean
+    ): Promise<ToolExecuteResult> {
+        return this.execute(toolName, args, { skipExecutionApproval: skipPermissionCheck });
     }
 
     /**
@@ -218,6 +328,21 @@ export class ToolExecutor {
      */
     getTool(name: string): Tool | undefined {
         return this.registry[name];
+    }
+
+    /**
+     * 向后兼容：检查工具结果使用权限
+     * @deprecated 使用 execute 方法的 skipResultApproval 参数替代
+     */
+    async checkToolResult(
+        toolName: string,
+        args: Record<string, any>,
+        result: ToolExecuteResult
+    ): Promise<{
+        approved: boolean;
+        rejectReason?: string;
+    }> {
+        return await this.checkResultApproval(toolName, args, result);
     }
 
     /**

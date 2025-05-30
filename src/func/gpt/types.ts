@@ -17,9 +17,10 @@ interface IMessageContent {
 type TMessageContent = IMessageContent[] | string;
 
 interface IMessage {
-    role: 'user' | 'assistant' | 'system';
+    role: 'user' | 'assistant' | 'system' | 'tool';
     content: TMessageContent;
     reasoning_content?: string;
+    tool_call_id?: string;
 }
 
 interface IPromptTemplate {
