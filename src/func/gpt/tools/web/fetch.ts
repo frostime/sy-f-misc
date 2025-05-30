@@ -3,7 +3,7 @@ import {
     ToolPermissionLevel,
     ToolExecuteStatus,
     ToolExecuteResult
-} from './types';
+} from '../types';
 
 /**
  * fetch 工具
@@ -46,8 +46,6 @@ const fetchTool: Tool = {
         // 设置权限级别为中等，需要用户首次审核
         permissionLevel: ToolPermissionLevel.MODERATE
     },
-    // 添加标签
-    tags: ['network', 'http', 'web', 'data'],
 
     execute: async (args: {
         url: string;

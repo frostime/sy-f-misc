@@ -114,7 +114,13 @@ export type ToolExecuteFunction = (
 export interface Tool {
     definition: ToolDefinitionWithPermission;
     execute: ToolExecuteFunction;
-    tags?: string[];  // 工具标签，用于分类和管理
+    // group?: 'web' | 'siyuan' | 'file-system';
+}
+
+export interface ToolGroup {
+    name: string;
+    tools: Tool[];
+    rulePrompt?: string;
 }
 
 /**

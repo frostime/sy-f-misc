@@ -7,7 +7,7 @@
  */
 
 import { showMessage } from "siyuan";
-import { tavilySearch, tavilyExtract } from "../tools/tavily";
+import { tavilySearch, tavilyExtract } from "../tools/web/tavily";
 import { globalMiscConfigs } from "../setting/store";
 
 

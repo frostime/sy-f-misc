@@ -2,10 +2,10 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-03-15
- * @FilePath     : /src/func/gpt/tools/tavily.ts
+ * @FilePath     : /src/func/gpt/tools/web/tavily.ts
  * @Description  : Tavily search API integration
  */
-import { globalMiscConfigs } from '../setting/store';
+import { globalMiscConfigs } from '../../setting/store';
 
 export interface TavilySearchResponse {
     query: string;

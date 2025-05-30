@@ -514,14 +514,22 @@ const MessageItem: Component<{
                     {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
                 </span> */}
                     <Show when={props.messageItem.usage}>
-                        <span data-label="token" class="counter" style={{ padding: 0, 'line-height': 'unset' }}>
+                        <span data-label="token" class="counter"
+                            style={{
+                                padding: 0, 'line-height': 'unset', 'font-size': '12px'
+                            }}
+                        >
                             {/* Token: {props.messageItem.token} */}
                             Token: {props.messageItem.usage?.total_tokens} ↑ {props.messageItem.usage?.prompt_tokens} ↓ {props.messageItem.usage?.completion_tokens}
                         </span>
                     </Show>
 
                     <Show when={props.messageItem.time}>
-                        <span data-label="time" class="counter" style={{ padding: 0, 'line-height': 'unset' }}>
+                        <span data-label="time" class="counter"
+                            style={{
+                                padding: 0, 'line-height': 'unset', 'font-size': '12px'
+                            }}
+                        >
                             时延: {props.messageItem.time.latency} ms
                             <Show when={props.messageItem.time.throughput}>
                                 &nbsp;|&nbsp;吞吐量: {props.messageItem.time.throughput.toFixed(2)} tokens/s

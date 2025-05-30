@@ -21,7 +21,7 @@ export {
 
 // 导入工具
 import { ToolExecutor } from './executor';
-import fetchTool from './fetch';
+import fetchTool from './web/fetch';
 import * as utilsTools from './utils';
 
 

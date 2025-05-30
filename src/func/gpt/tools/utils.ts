@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2025-05-30 15:10:56
+ * @FilePath     : /src/func/gpt/tools/utils.ts
+ * @LastEditTime : 2025-05-30 15:42:40
+ * @Description  : 
+ */
 import {
     Tool,
     ToolPermissionLevel,
@@ -31,7 +39,6 @@ export const datetimeTool: Tool = {
         },
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
-    tags: ['date', 'time', 'utility'],
 
     execute: async (args: { format?: string; timezone?: string }): Promise<ToolExecuteResult> => {
         try {

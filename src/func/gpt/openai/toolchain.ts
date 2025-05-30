@@ -5,7 +5,7 @@
  * @FilePath     : /src/func/gpt/openai/toolchain.ts
  * @Description  : 工具调用链执行器
  */
-import { complete, type CompletionResponse } from './complete';
+import { complete } from './complete';
 import { toolExecutorFactory, ToolExecuteStatus, ToolExecuteResult, ApprovalUIAdapter } from '../tools';
 import { DefaultUIAdapter } from '../tools/approval-ui';
 
