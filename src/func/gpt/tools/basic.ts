@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
- * @LastEditTime : 2025-05-30 21:39:47
+ * @LastEditTime : 2025-05-31 17:27:35
  * @Description  : 
  */
 import {
@@ -65,6 +65,7 @@ export const basicTool = {
     name: 'basic-tools',
     tools: [datetimeTool],
     rulePrompt: `
-一些基础工具；如果在回答中涉及到实时性，并且你对当前的时间不确定，请务必调用 datetime 确保时间正确
+一些基础工具
+如果在回答中涉及到实时性信息，例如用户询问了“最近”“近期”“XX月前”等，请务必调用 datetime 确认当前的时间
 `
 }

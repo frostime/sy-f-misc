@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-05-15 12:43:43
+ * @LastEditTime : 2025-05-31 16:56:49
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -295,6 +295,22 @@ const GlobalSetting = () => {
                                 value={globalMiscConfigs().tavilyApiKey}
                                 changed={(v) => {
                                     globalMiscConfigs.update('tavilyApiKey', v);
+                                }}
+                                style={{
+                                    width: '100%'
+                                }}
+                            />
+                        </Form.Wrap>
+                        <Form.Wrap
+                            title="博查 API Key"
+                            description="可前往 <a href='https://open.bochaai.com/home' target='_blank'>博查官网</a> 获取。"
+                            direction="row"
+                        >
+                            <Form.Input
+                                type="textinput"
+                                value={globalMiscConfigs().bochaApiKey}
+                                changed={(v) => {
+                                    globalMiscConfigs.update('bochaApiKey', v);
                                 }}
                                 style={{
                                     width: '100%'

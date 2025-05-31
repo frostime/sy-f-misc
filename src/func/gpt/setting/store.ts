@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-04-27 22:31:43
+ * @LastEditTime : 2025-05-31 16:56:37
  * @Description  :
  */
 import type { Plugin } from "siyuan";
@@ -40,17 +40,7 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
 });
 
 
-export const globalMiscConfigs = useStoreRef<{
-    pinChatDock: boolean;
-    userSelectedContextFormat: string;
-    privacyKeywords: string;
-    privacyMask: string;
-    defaultSystemPrompt: string;
-    enableMessageLogger: boolean;
-    maxMessageLogItems: number;
-    tavilyApiKey: string;
-    exportMDSkipHidden: boolean;
-}>({
+const _defaultGlobalMiscConfigs = {
     pinChatDock: false,
     userSelectedContextFormat: `**以下是用户附带的内容**:
 ------
@@ -62,8 +52,10 @@ export const globalMiscConfigs = useStoreRef<{
     enableMessageLogger: false,
     maxMessageLogItems: 500,
     tavilyApiKey: '',      // Tavily API Key for web search
+    bochaApiKey: '',       // 博查 API Key for web search
     exportMDSkipHidden: false // 导出 Markdown 时是否跳过隐藏的消息
-});
+}
+export const globalMiscConfigs = useStoreRef<typeof _defaultGlobalMiscConfigs>(_defaultGlobalMiscConfigs);
 
 /**
  * 返回可以用于保存为 json 的配置信息
