@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-05-31 16:56:49
+ * @LastEditTime : 2025-05-31 19:52:14
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -20,6 +20,7 @@ import { globalMiscConfigs } from "./store";
 import Heading from "./Heading";
 
 import { LoadModuleFileButtonGroup } from "@/libs/components/user-custom-module";
+import { ToolsManagerSetting } from "./ToolsManagerSetting";
 
 type TabType = 'chat' | 'prompt' | 'provider' | 'tools';
 
@@ -317,6 +318,11 @@ const GlobalSetting = () => {
                                 }}
                             />
                         </Form.Wrap>
+
+                        <Heading>
+                            工具管理
+                        </Heading>
+                        <ToolsManagerSetting />
                     </Match>
                     {/* #endif */}
                 </Switch>

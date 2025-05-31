@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 16:59:06
  * @FilePath     : /src/func/gpt/tools/index.ts
- * @LastEditTime : 2025-05-30 22:37:22
+ * @LastEditTime : 2025-05-31 20:11:07
  * @Description  :
  */
 // 导出类型和工具执行器
@@ -12,24 +12,28 @@ export { ToolExecutor } from './executor';
 
 // 导入工具
 import { ToolExecutor } from './executor';
-import * as utilsTools from './basic';
-import { ApprovalUIAdapter } from './types';
-import { DefaultUIAdapter } from './approval-ui';
+import { basicTool } from './basic';
 import { toolGroupWeb } from './web';
 import { fileSystemTools } from './file-system';
+import { ApprovalUIAdapter } from './types';
+import { DefaultUIAdapter } from './approval-ui';
+import { toolsManager } from '../setting/store';
 
-
-
+/**
+ * 工具执行器工厂函数
+ */
 export const toolExecutorFactory = (options: {
     approvalAdapter?: ApprovalUIAdapter;
 }) => {
-    // 注册工具
+    // 创建工具执行器
     const toolExecutor = new ToolExecutor();
 
-    toolExecutor.registerToolGroup(utilsTools.basicTool);
+    // 注册工具组
+    toolExecutor.registerToolGroup(basicTool);
     toolExecutor.registerToolGroup(toolGroupWeb);
     toolExecutor.registerToolGroup(fileSystemTools);
 
+    // 设置审批回调
     const approvalAdapter = options.approvalAdapter || new DefaultUIAdapter();
 
     // 设置执行审批回调
@@ -61,7 +65,19 @@ export const toolExecutorFactory = (options: {
         });
     }
 
-    // register group level tools
-    return toolExecutor;
-}
+    // 应用工具组默认设置
+    const groupDefaults = toolsManager().groupDefaults;
+    Object.entries(groupDefaults).forEach(([groupName, enabled]) => {
+        if (toolExecutor.groupRegistry[groupName]) {
+            toolExecutor.toggleGroupEnabled(groupName, enabled);
+        }
+    });
 
+    // 应用工具级别默认设置
+    const toolDefaults = toolsManager().toolDefaults;
+    Object.entries(toolDefaults).forEach(([toolName, enabled]) => {
+        toolExecutor.setToolEnabled(toolName, enabled);
+    });
+
+    return toolExecutor;
+};

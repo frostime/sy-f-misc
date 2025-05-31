@@ -3,13 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-05-31 16:56:37
+ * @LastEditTime : 2025-05-31 20:06:58
  * @Description  :
  */
 import type { Plugin } from "siyuan";
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 
 import { createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { toolExecutorFactory } from "../tools";
 import { userCustomizedPreprocessor } from "../openai/adpater";
 
 
@@ -57,6 +58,17 @@ const _defaultGlobalMiscConfigs = {
 }
 export const globalMiscConfigs = useStoreRef<typeof _defaultGlobalMiscConfigs>(_defaultGlobalMiscConfigs);
 
+// 工具管理器设置
+export const toolsManager = useStoreRef<{
+  // 工具组默认启用状态
+  groupDefaults: Record<string, boolean>;
+  // 工具级别的启用状态（按工具名称）
+  toolDefaults: Record<string, boolean>;
+}>({
+  groupDefaults: {},
+  toolDefaults: {}
+});
+
 /**
  * 返回可以用于保存为 json 的配置信息
  * @returns
@@ -69,7 +81,8 @@ const asStorage = () => {
         globalMiscConfigs: { ...globalMiscConfigs.unwrap() },
         providers: [...providers.unwrap()],
         ui: { ...UIConfig.unwrap() },
-        promptTemplates: [...promptTemplates.unwrap()]
+        promptTemplates: [...promptTemplates.unwrap()],
+        toolsManager: { ...toolsManager.unwrap() }
     }
 }
 
@@ -278,6 +291,8 @@ export const load = async (plugin?: Plugin) => {
         current.providers && providers(current.providers);
         current.ui && UIConfig(current.ui)
         current.promptTemplates && promptTemplates(current.promptTemplates)
+        console.debug('Load GPT config:', current);
+        current.toolsManager && toolsManager(current.toolsManager);
         console.debug('Load GPT config:', current);
     }
 

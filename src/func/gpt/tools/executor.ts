@@ -12,9 +12,7 @@ import {
 /**
  * 工具注册表
  */
-interface ToolRegistry {
-    [toolName: string]: Tool;
-}
+// type ToolRegistry = Record<string, Tool>;
 
 /**
  * 用户审核记录
@@ -28,14 +26,14 @@ interface ApprovalRecord {
  */
 export class ToolExecutor {
 
-    private registry: ToolRegistry = {};
+    private registry: Record<string, Tool> = {};
     private executionApprovalCallback: UserApprovalCallback | null = null;
     private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
-
-    private groupRegistry: Record<string, ToolGroup> = {};
+    public groupRegistry: Record<string, ToolGroup> = {};
     public groupEnabled: Record<string, boolean> = {};
     public groupRules: Record<string, string> = {};
+    private toolEnabled: Record<string, boolean> = {};
 
     toolRules() {
         if (!this.hasEnabledTools()) return '';
@@ -130,27 +128,39 @@ ${group.rulePrompt.trim()}
     }
 
     /**
-     * 获取所有工具定义
+     * 设置工具级别的启用状态
      */
-    getAllToolDefinitions(level?: ToolPermissionLevel): IToolDefinition[] {
-        if (!level) {
-            return Object.values(this.registry).map(tool => tool.definition);
-        } else {
-            return Object.values(this.registry)
-                .filter(tool => tool.definition.permissionLevel === level)
-                .map(tool => tool.definition);
-        }
+    setToolEnabled(toolName: string, enabled: boolean): void {
+        this.toolEnabled[toolName] = enabled;
     }
 
+    /**
+     * 获取工具级别的启用状态
+     */
+    isToolEnabled(toolName: string): boolean {
+        // 如果没有特别设置，默认为启用
+        return this.toolEnabled[toolName] !== false;
+    }
+
+    /**
+     * 获取启用的工具定义
+     */
     getEnabledToolDefinitions(): IToolDefinition[] {
         return Object.entries(this.groupEnabled)
-            .filter(([name, enabled]) => enabled)
-            .map(([name, enabled]) => this.groupRegistry[name].tools)
-            .flat().map(tool => tool.definition);
+            .filter(([groupName, enabled]) => enabled)
+            .flatMap(([groupName]) =>
+                this.groupRegistry[groupName].tools
+                    .filter(tool => this.isToolEnabled(tool.definition.function.name))
+                    .map(tool => tool.definition)
+            );
     }
 
-    getGroupToolDefinitions(groupName: string): IToolDefinition[] {
-        return this.groupRegistry[groupName].tools.map(tool => tool.definition);
+    getGroupToolDefinitions(groupName: string, shouldBeEnabled = true): IToolDefinition[] {
+        let tools = this.groupRegistry[groupName].tools.map(tool => tool.definition);
+        if (shouldBeEnabled) {
+            tools = tools.filter(tool => this.isToolEnabled(tool.function.name));
+        }
+        return tools;
     }
 
     /**
