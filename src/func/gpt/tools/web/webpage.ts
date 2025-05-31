@@ -23,7 +23,7 @@ export const webPageContentTool: Tool = {
                     },
                     limit: {
                         type: 'integer',
-                        description: '可选, 返回的网页内容字符数量的限制; 默认 6000; 如果小于等于 0, 则不限制'
+                        description: '可选, 返回的网页内容字符数量的限制; 默认 6000; 如果小于等于 0, 则不限制; 注意是字符数量(string.length)'
                     }
                 }
             }

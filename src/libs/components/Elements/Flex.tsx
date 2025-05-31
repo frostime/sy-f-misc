@@ -4,8 +4,8 @@ import { JSX, Component, children } from 'solid-js';
 export const Rows: Component<{
     children: JSX.Element,
     gap?: string,
-    align?: 'center' | 'flex-start' | 'flex-end',
-    justify?: 'center' | 'flex-start' | 'flex-end' | 'space-between',
+    align?: JSX.CSSProperties['align-items'],
+    justify?: JSX.CSSProperties['justify-content'],
     style?: JSX.CSSProperties
 }> = (props) => {
     const C = children(() => props.children);
@@ -29,8 +29,8 @@ export const Rows: Component<{
 export const Cols: Component<{
     children: JSX.Element,
     gap?: string,
-    align?: 'center' | 'flex-start' | 'flex-end',
-    justify?: 'center' | 'flex-start' | 'flex-end' | 'space-between',
+    align?: JSX.CSSProperties['align-items'],
+    justify?: JSX.CSSProperties['justify-content'],
     style?: JSX.CSSProperties
 }> = (props) => {
     const C = children(() => props.children);

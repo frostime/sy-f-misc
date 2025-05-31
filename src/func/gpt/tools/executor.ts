@@ -28,29 +28,19 @@ interface ApprovalRecord {
  */
 export class ToolExecutor {
 
-    public rules: Record<string, string> = {
-        '*': '<tools>当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具。为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中。</tools>'
-    };
     private registry: ToolRegistry = {};
     private executionApprovalCallback: UserApprovalCallback | null = null;
     private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
 
-    // private enabledTool: string[];
-    private groupEnabled: Record<string, boolean> = {};
+    private groupRegistry: Record<string, ToolGroup> = {};
+    public groupEnabled: Record<string, boolean> = {};
+    public groupRules: Record<string, string> = {};
 
     toolRules() {
-        let anyGroupEnabled = false;
-        for (const [name, enabled] of Object.entries(this.groupEnabled)) {
-            if (enabled) {
-                anyGroupEnabled = true;
-                break;
-            }
-        }
-        // 如果没有启用任何工具组，则不显示工具规则
-        if (!anyGroupEnabled) return '';
-        let prompt = '';
-        for (const [name, rule] of Object.entries(this.rules)) {
+        if (!this.hasEnabledTools()) return '';
+        let prompt = '<tools>当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具。为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中。</tools>';
+        for (const [name, rule] of Object.entries(this.groupRules)) {
             if (!this.isGroupEnabled(name)) continue;
             prompt += `\n\n${rule}`;
         }
@@ -65,7 +55,10 @@ export class ToolExecutor {
         return this.groupEnabled[groupName] ?? false;
     }
 
-    toggleGroupEnabled(groupName: string, enabled: boolean) {
+    toggleGroupEnabled(groupName: string, enabled?: boolean) {
+        if (enabled === undefined) {
+            enabled = !this.groupEnabled[groupName];
+        }
         this.groupEnabled[groupName] = enabled;
     }
 
@@ -117,23 +110,15 @@ export class ToolExecutor {
         this.registry[toolName] = tool;
     }
 
-    /**
-     * 注册多个工具
-     */
-    registerTools(tools: Tool[]): void {
-        for (const tool of tools) {
-            this.registerTool(tool);
-        }
-    }
-
     registerToolGroup(group: ToolGroup | (() => ToolGroup)): void {
         if (typeof group === 'function') {
             group = group();
         }
         if (group.tools.length === 0) return;
         group.tools.forEach(tool => this.registerTool(tool));
+        this.groupRegistry[group.name] = group;
         if (group.rulePrompt?.trim()) {
-            this.rules[group.name] = (`
+            this.groupRules[group.name] = (`
 <tool-group-rule group="${group.name}">
 This group contains the following tools: ${group.tools.map(tool => tool.definition.function.name).join(', ')}.
 
@@ -142,36 +127,6 @@ ${group.rulePrompt.trim()}
 `);
         }
         this.groupEnabled[group.name] = true;
-    }
-
-    /**
-     * 注册工具模块
-     * 支持默认导出单个工具或命名导出多个工具
-     */
-    registerToolModule(module: any): void {
-        // 处理默认导出
-        if (module.default) {
-            if (module.default.definition && module.default.execute) {
-                this.registerTool(module.default);
-            } else if (Array.isArray(module.default)) {
-                this.registerTools(module.default);
-            }
-        }
-
-        // 处理命名导出的工具列表
-        if (module.tools && Array.isArray(module.tools)) {
-            this.registerTools(module.tools);
-        }
-
-        // 处理单独命名导出的工具
-        for (const key in module) {
-            if (key !== 'default' && key !== 'tools') {
-                const item = module[key];
-                if (item && item.definition && item.execute) {
-                    this.registerTool(item);
-                }
-            }
-        }
     }
 
     /**
@@ -185,6 +140,17 @@ ${group.rulePrompt.trim()}
                 .filter(tool => tool.definition.permissionLevel === level)
                 .map(tool => tool.definition);
         }
+    }
+
+    getEnabledToolDefinitions(): IToolDefinition[] {
+        return Object.entries(this.groupEnabled)
+            .filter(([name, enabled]) => enabled)
+            .map(([name, enabled]) => this.groupRegistry[name].tools)
+            .flat().map(tool => tool.definition);
+    }
+
+    getGroupToolDefinitions(groupName: string): IToolDefinition[] {
+        return this.groupRegistry[groupName].tools.map(tool => tool.definition);
     }
 
     /**

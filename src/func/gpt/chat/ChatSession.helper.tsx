@@ -355,7 +355,7 @@ const useGptCommunication = (params: {
     const gptOption = () => {
         let option = { ...config().chatOption };
         if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
-            let tools = params.toolExecutor.getAllToolDefinitions();
+            let tools = params.toolExecutor.getEnabledToolDefinitions();
             if (tools && tools.length > 0) {
                 option['tools'] = tools;
                 option['tool_choice'] = 'auto';

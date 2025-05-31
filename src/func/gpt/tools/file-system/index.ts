@@ -288,7 +288,7 @@ const fileStateTool: Tool = {
  * 文件系统工具组
  */
 export const fileSystemTools = {
-    name: 'file-system',
+    name: '文件系统工具组',
     tools: fs ? [listDirTool, readFileTool, createFileTool, fileStateTool] : [],
     rulePrompt: ''
 };
@@ -328,7 +328,7 @@ if (fs && fileSystemTools.tools.length > 0) {
         drivesStr = `可用驱动器：${drivers.join(', ')}`;
     }
 
-    fileSystemTools.rulePrompt = `文件系统操作工具组
+    fileSystemTools.rulePrompt = `
 当前主机运行的系统: ${platform}, 用户家目录: ${homeDir}
 ${drivesStr}
 `.trim();

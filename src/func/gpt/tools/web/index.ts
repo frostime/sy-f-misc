@@ -13,7 +13,7 @@ export const toolGroupWeb = (): ToolGroup => {
     }
 
     const group = {
-        name: 'web-tools',
+        name: '网页检索工具组',
             tools: tools,
                 rulePrompt: `实现检索网页内容相关的工具
 ${isApiKeyValid ? "BingSearch/TavilySearch" : "BingSearch"} 返回搜索得到的网页链接和简单的描述

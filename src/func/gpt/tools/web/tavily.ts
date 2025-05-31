@@ -229,25 +229,36 @@ export const tavilySearchTool: Tool = {
                 properties: {
                     query: {
                         type: 'string',
-                        description: '搜索语句'
+                        description: 'The search query'
                     },
                     search_depth: {
                         type: 'string',
                         enum: ['basic', 'advanced'],
-                        description: '搜索深度，basic 为基础搜索，advanced 为高级搜索',
+                        description: 'Advanced search is tailored to retrieve the most relevant sources, basic search provides generic content snippets. A basic search costs 1 API Credit, while an advanced search costs 2 API Credits. Default basic',
                     },
                     include_answer: {
-                        type: 'boolean',
-                        description: '是否包含 AI 生成的答案摘要',
+                        type: 'string',
+                        description: 'Include an LLM-generated answer to the provided query. Default not included',
+                        enum: ['basic', 'advanced'],
                     },
                     max_results: {
                         type: 'integer',
-                        description: '返回的最大结果数量, 默认为 5',
+                        description: 'The maximum number of search results to return. Default 5.',
                     },
                     topic: {
                         type: 'string',
                         enum: ['general', 'news'],
-                        description: '搜索主题类型，general 为一般搜索，news 为新闻搜索，默认为 general'
+                        description: '搜索主题类型，news 为适用于获取实时更新的事情，general 为更广泛、更通用的搜索，默认为 general'
+                    },
+                    days: {
+                        type: 'integer',
+                        description: 'Number of days back from the current date to include. Available ONLY IF topic is news. Default 7.',
+                        minimum: 1,
+                    },
+                    time_range: {
+                        type: 'string',
+                        description: 'The time range back from the current date to filter results.',
+                        enum: ['day', 'week', 'month', 'year'],
                     }
                 },
                 required: ['query']

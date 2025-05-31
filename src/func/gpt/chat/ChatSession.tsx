@@ -3,24 +3,24 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/ChatSession.tsx
- * @LastEditTime : 2025-05-01 19:31:27
+ * @LastEditTime : 2025-05-31 15:52:27
  * @Description  :
  */
 // External libraries
 import {
-  Accessor, Component, JSX,
-  createMemo, createEffect, createRenderEffect,
-  For, Match, Show, Switch,
-  on, onMount, onCleanup, batch
+    Accessor, Component, JSX,
+    createMemo, createEffect, createRenderEffect,
+    For, Match, Show, Switch,
+    on, onMount, onCleanup, batch
 } from 'solid-js';
 import { render } from 'solid-js/web';
-import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 import { Menu, Protyle, showMessage } from 'siyuan';
 import { getMarkdown, inputDialog, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
 
 // UI Components
-import Form from '@/libs/components/Form';
-import { SliderInput } from '@/libs/components/Elements';
+import Form, { FormWrap } from '@/libs/components/Form';
+import { CheckboxInput, SliderInput } from '@/libs/components/Elements';
 import { solidDialog } from '@/libs/dialog';
 
 // Local components
@@ -35,17 +35,19 @@ import { useSession, useSessionSetting, SimpleProvider } from './ChatSession.hel
 
 // GPT and settings related
 import {
-  defaultConfig, UIConfig, useModel, defaultModelId,
-  listAvialableModels, promptTemplates, visualModel, globalMiscConfigs
+    defaultConfig, UIConfig, useModel, defaultModelId,
+    listAvialableModels, promptTemplates, visualModel, globalMiscConfigs
 } from '@gpt/setting/store';
 import * as persist from '@gpt/persistence';
 import * as syDoc from '@gpt/persistence/sy-doc';
 import { getContextProviders, executeContextProvider } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import {
-  adaptIMessageContent,
-  isMsgItemWithMultiVersion
+    adaptIMessageContent,
+    isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
+
+import { Rows } from '@/libs/components/Elements/Flex';
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -237,6 +239,8 @@ const ChatSession: Component<{
 
     const input = useSignalRef<string>('');
     const session = useSession({ model, config, scrollToBottom });
+
+    const hasToolEnabled = createSignalRef(session.toolExecutor.hasEnabledTools());
 
     const siyuanEditor = useSiYuanEditor({
         id: session.sessionId(),
@@ -1183,7 +1187,7 @@ const ChatSession: Component<{
                         const rect = target.getBoundingClientRect();
                         menu.open({
                             x: rect.left,
-                            y: rect.bottom
+                            y: rect.top
                         });
                     }} label='工具' >
                         <SvgSymbol size="15px">iconMenu</SvgSymbol>
@@ -1196,21 +1200,57 @@ const ChatSession: Component<{
                             <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
                         </ToolbarLabel>
                     </div>
-                    {/* <Show when={globalMiscConfigs().tavilyApiKey}>
-                        <ToolbarLabel
-                            onclick={() => webSearchEnabled.update(!webSearchEnabled())}
-                            label='Web Search'
-                            role='web-search'
-                            styles={
-                                webSearchEnabled() ? {
-                                    'background-color': 'var(--b3-theme-primary)',
-                                    'color': 'var(--b3-theme-on-primary)'
-                                } : {}
-                            }
-                        >
-                            <SvgSymbol size="15px">iconWebSearch</SvgSymbol>
-                        </ToolbarLabel>
-                    </Show> */}
+                    <ToolbarLabel
+                        onclick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            solidDialog({
+                                title: '可用工具',
+                                loader: () => (
+                                    <Rows align='normal' justify='normal' style={{
+                                        flex: 1,
+                                    }}>
+                                        <For each={Object.entries(session.toolExecutor.groupEnabled)}>
+                                            {([name, enabled]) => (
+
+                                                <FormWrap
+                                                    title={name}
+                                                    description={
+                                                        session.toolExecutor.getGroupToolDefinitions(name)
+                                                            .map(tool => `${tool.function.name}: ${tool.function.description}`)
+                                                            .join('<br/>')
+                                                    }
+                                                >
+                                                    <CheckboxInput
+                                                        checked={enabled}
+                                                        changed={(value) => {
+                                                            session.toolExecutor.toggleGroupEnabled(name, value);
+                                                        }}
+                                                    />
+                                                </FormWrap>
+                                            )}
+                                        </For>
+                                    </Rows>
+                                ),
+                                width: '840px',
+                                // height: '800px',
+                                maxHeight: '90%',
+                                callback: () => {
+                                    hasToolEnabled.update(session.toolExecutor.hasEnabledTools());
+                                }
+                            })
+                        }}
+                        label='工具'
+                        role='tool-calls'
+                        styles={
+                            hasToolEnabled() ? {
+                                'background-color': 'var(--b3-theme-primary)',
+                                'color': 'var(--b3-theme-on-primary)'
+                            } : {}
+                        }
+                    >
+                        <SvgSymbol size="15px">iconBazaar</SvgSymbol>
+                    </ToolbarLabel>
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={editSystemPrompt} label='系统提示' role="system-prompt" >
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
