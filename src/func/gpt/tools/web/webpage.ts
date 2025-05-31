@@ -23,7 +23,7 @@ export const webPageContentTool: Tool = {
                     },
                     limit: {
                         type: 'integer',
-                        description: '可选, 返回的网页内容字符数量的限制; 默认不设置限制'
+                        description: '可选, 返回的网页内容字符数量的限制; 默认 6000; 如果小于等于 0, 则不限制'
                     }
                 }
             }
@@ -32,6 +32,7 @@ export const webPageContentTool: Tool = {
     },
 
     execute: async (args: { url?: string, urlList?: string[], limit?: number }): Promise<ToolExecuteResult> => {
+        let limit = args.limit ?? 6000;
         let urlText = '';
         if (args.url) {
             urlText = args.url;
@@ -50,9 +51,9 @@ export const webPageContentTool: Tool = {
                 data: result.map(item => {
                     let content = item.content.trim();
                     let len = content.length;
-                    if (args.limit && args.limit > len) {
+                    if (limit > 0 && len > limit) {
                         content = content.substring(0, args.limit);
-                        content += `\n\n原始内容过长 (${len} 字符), 已省略`;
+                        content += `\n\n原始内容过长 (${len} 字符), 已省略; 只保留前 ${limit} 字符`;
                     }
                     return content;
                 }).join('\n\n')

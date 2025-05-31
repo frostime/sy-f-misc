@@ -6,6 +6,7 @@
  * @Description  : Tavily search API integration
  */
 import { globalMiscConfigs } from '../../setting/store';
+import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
 
 export interface TavilySearchResponse {
     query: string;
@@ -216,3 +217,77 @@ export function formatTavilyExtractResult(result: TavilyExtractResponse): string
 
     return markdown;
 }
+
+export const tavilySearchTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'TavilySearch',
+            description: '使用 Tavily API 获取互联网上的高质量搜索结果',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: {
+                        type: 'string',
+                        description: '搜索语句'
+                    },
+                    search_depth: {
+                        type: 'string',
+                        enum: ['basic', 'advanced'],
+                        description: '搜索深度，basic 为基础搜索，advanced 为高级搜索',
+                    },
+                    include_answer: {
+                        type: 'boolean',
+                        description: '是否包含 AI 生成的答案摘要',
+                    },
+                    max_results: {
+                        type: 'integer',
+                        description: '返回的最大结果数量, 默认为 5',
+                    },
+                    topic: {
+                        type: 'string',
+                        enum: ['general', 'news'],
+                        description: '搜索主题类型，general 为一般搜索，news 为新闻搜索，默认为 general'
+                    }
+                },
+                required: ['query']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.MODERATE
+    },
+
+    execute: async (args: {
+        query: string,
+        search_depth?: 'basic' | 'advanced',
+        include_answer?: boolean,
+        max_results?: number,
+        topic?: 'general' | 'news'
+    }): Promise<ToolExecuteResult> => {
+        let tavilyApiKey = globalMiscConfigs().tavilyApiKey;
+        if (!tavilyApiKey) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                data: "Tavily API key is not configured"
+            }
+        }
+
+        const result = await tavilySearch(args.query, {
+            search_depth: args.search_depth,
+            include_answer: args.include_answer,
+            max_results: args.max_results,
+            topic: args.topic
+        });
+
+        if (result === null) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                data: JSON.stringify({ error: "Tavily search failed. API key may be missing or invalid." })
+            };
+        }
+
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: JSON.stringify(result)
+        };
+    }
+};

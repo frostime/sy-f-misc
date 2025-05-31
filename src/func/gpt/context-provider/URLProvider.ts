@@ -255,9 +255,7 @@ const URLProvider: CustomContextProvider = {
                         const parts = [`URL: ${url}`];
                         if (parsedContent.title) parts.push(`标题: ${parsedContent.title}`);
                         if (parsedContent.description.trim()) parts.push(`描述: ${parsedContent.description}`);
-                        if (parsedContent.keywords) parts.push(`关键词: ${parsedContent.keywords}`);
-                        if (parsedContent.author) parts.push(`作者: ${parsedContent.author}`);
-                        if (parsedContent.mainContent) parts.push(`\n正文内容:\n\n${parsedContent.mainContent}`);
+                        if (parsedContent.mainContent) parts.push(`\n正文内容 (完整字符数: ${parsedContent.mainContent.length}):\n\n${parsedContent.mainContent}`);
 
                         content = parts.join('\n');
                     } else {

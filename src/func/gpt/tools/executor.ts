@@ -126,7 +126,10 @@ export class ToolExecutor {
         }
     }
 
-    registerToolGroup(group: ToolGroup): void {
+    registerToolGroup(group: ToolGroup | (() => ToolGroup)): void {
+        if (typeof group === 'function') {
+            group = group();
+        }
         if (group.tools.length === 0) return;
         group.tools.forEach(tool => this.registerTool(tool));
         if (group.rulePrompt?.trim()) {
