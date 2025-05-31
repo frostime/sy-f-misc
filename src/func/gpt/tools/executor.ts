@@ -57,6 +57,10 @@ export class ToolExecutor {
         return prompt;
     }
 
+    hasEnabledTools() {
+        return Object.values(this.groupEnabled).some(enabled => enabled);
+    }
+
     isGroupEnabled(groupName: string) {
         return this.groupEnabled[groupName] ?? false;
     }
@@ -123,10 +127,11 @@ export class ToolExecutor {
     }
 
     registerToolGroup(group: ToolGroup): void {
+        if (group.tools.length === 0) return;
         group.tools.forEach(tool => this.registerTool(tool));
         if (group.rulePrompt?.trim()) {
             this.rules[group.name] = (`
-<tool-group-rule name="${group.name}">
+<tool-group-rule group="${group.name}">
 This group contains the following tools: ${group.tools.map(tool => tool.definition.function.name).join(', ')}.
 
 ${group.rulePrompt.trim()}

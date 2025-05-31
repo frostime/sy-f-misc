@@ -1,0 +1,335 @@
+import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+
+/**
+ * 文件系统工具组
+ * 包含 ListDir 和 ReadFile 两个工具
+ */
+
+// 通过 window.require 引入 Node.js 模块
+const fs = window?.require?.('fs');
+const path = window?.require?.('path');
+
+// 安全限制：最大文件读取大小 (1MB)
+const MAX_FILE_SIZE = 1024 * 1024;
+
+const fileSize = (size: number) => {
+    //注意保留两位小数
+    if (size < 1024) {
+        return size.toFixed(2) + ' B';
+    } else if (size < 1024 * 1024) {
+        return (size / 1024).toFixed(2) + ' KB';
+    } else {
+        return (size / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+}
+
+/**
+ * ListDir 工具：列出目录内容
+ */
+const listDirTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'ListDir',
+            description: '列出指定目录下的文件和子目录',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: {
+                        type: 'string',
+                        description: '目录路径'
+                    }
+                },
+                required: ['path']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.MODERATE,
+        requireResultApproval: true
+    },
+
+    execute: async (args: { path: string }): Promise<ToolExecuteResult> => {
+        try {
+            // 解析为绝对路径
+            const dirPath = path.resolve(args.path);
+
+            // 读取目录内容
+            const items = fs.readdirSync(dirPath);
+
+            // 区分文件和目录
+            const result = items.map(item => {
+                const itemPath = path.join(dirPath, item);
+                const isDirectory = fs.statSync(itemPath).isDirectory();
+                let size = undefined;
+                if (!isDirectory) {
+                    const stats = fs.statSync(itemPath);
+                    size = fileSize(stats.size);
+                }
+                return {
+                    name: item,
+                    type: isDirectory ? 'directory' : 'file',
+                    size: size
+                };
+            });
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: JSON.stringify(result)
+            };
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `ListDir error: ${error.message}`
+            };
+        }
+    }
+};
+
+/**
+ * ReadFile 工具：读取文件内容
+ */
+const readFileTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'ReadFile',
+            description: '读取文件内容，可指定起始行(begin)和结束行(end)',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: {
+                        type: 'string',
+                        description: '文件路径'
+                    },
+                    begin: {
+                        type: 'number',
+                        description: '起始行号（从1开始计数，闭区间）',
+                        minimum: 1
+                    },
+                    end: {
+                        type: 'number',
+                        description: '结束行号',
+                        minimum: 1
+                    }
+                },
+                required: ['path']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    execute: async (args: { path: string; begin?: number; end?: number }): Promise<ToolExecuteResult> => {
+        try {
+            const filePath = path.resolve(args.path);
+            const stats = fs.statSync(filePath);
+
+            // 安全检查：文件大小限制
+            if (stats.size > MAX_FILE_SIZE) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `文件大小超过限制 (${stats.size} > ${MAX_FILE_SIZE} bytes)`
+                };
+            }
+
+            // 读取文件内容
+            const content = fs.readFileSync(filePath, 'utf-8');
+
+            // 处理行范围
+            if (args.begin || args.end) {
+                const lines = content.split('\n');
+                const totalLines = lines.length;
+
+                // 确定起始行和结束行
+                const startLine = args.begin ? Math.max(1, args.begin) : 1;
+                const endLine = args.end ? Math.min(totalLines, args.end) : totalLines;
+
+                // 验证行范围
+                if (startLine > endLine) {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: `起始行(${startLine})不能大于结束行(${endLine})`
+                    };
+                }
+
+                // 提取指定行范围
+                const resultContent = lines.slice(startLine - 1, endLine).join('\n');
+                return {
+                    status: ToolExecuteStatus.SUCCESS,
+                    data: `
+\`\`\`${filePath} (${startLine}-${endLine})
+${resultContent}
+\`\`\`
+`.trim(),
+                };
+            }
+
+            // 没有指定行范围，返回全部内容
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: content
+            };
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `ReadFile error: ${error.message}`
+            };
+        }
+    }
+};
+
+/**
+ * CreateFile 工具：创建文件
+ */
+const createFileTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'CreateFile',
+            description: '指定路径和内容创建文件，如果文件已存在则报错',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: {
+                        type: 'string',
+                        description: '文件路径'
+                    },
+                    content: {
+                        type: 'string',
+                        description: '文件内容'
+                    }
+                },
+                required: ['path', 'content']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    execute: async (args: { path: string; content: string }): Promise<ToolExecuteResult> => {
+        try {
+            const filePath = path.resolve(args.path);
+
+            // 检查文件是否已存在
+            if (fs.existsSync(filePath)) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `文件已存在: ${filePath}`
+                };
+            }
+
+            // 创建文件并写入内容
+            fs.writeFileSync(filePath, args.content, 'utf-8');
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: `文件创建成功: ${filePath}`
+            };
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `CreateFile error: ${error.message}`
+            };
+        }
+    }
+};
+
+/**
+ * FileState 工具：查看文件详细信息
+ */
+const fileStateTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'FileState',
+            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间等）',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: {
+                        type: 'string',
+                        description: '文件路径'
+                    }
+                },
+                required: ['path']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.PUBLIC,
+    },
+
+    execute: async (args: { path: string }): Promise<ToolExecuteResult> => {
+        try {
+            const filePath = path.resolve(args.path);
+
+            // 获取文件状态
+            const stats = fs.statSync(filePath);
+
+            // 格式化文件信息
+            const fileInfo = {
+                path: filePath,
+                size: fileSize(stats.size),
+                isDirectory: stats.isDirectory(),
+                createdAt: stats.birthtime.toISOString(),
+                modifiedAt: stats.mtime.toISOString(),
+                accessedAt: stats.atime.toISOString()
+            };
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: JSON.stringify(fileInfo)
+            };
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `FileState error: ${error.message}`
+            };
+        }
+    }
+};
+
+/**
+ * 文件系统工具组
+ */
+export const fileSystemTools = {
+    name: 'file-system',
+    tools: fs ? [listDirTool, readFileTool, createFileTool, fileStateTool] : [],
+    rulePrompt: ''
+};
+
+if (fs && fileSystemTools.tools.length > 0) {
+    const os = window?.require?.('os');
+    // 获取操作系统类型
+    const platform = os.platform();
+    // 返回 'win32', 'darwin' (macOS), 'linux' 等
+
+    // 获取用户家目录
+    const homeDir = os.homedir();
+
+    // 如果是 Windows，获取所有可用的驱动器
+    const getWindowsDrives = () => {
+        if (platform === 'win32') {
+            // 获取所有驱动器
+            const drives = [];
+            for (let i = 65; i <= 90; i++) {
+                const drive = String.fromCharCode(i) + ':\\';
+                try {
+                    if (fs.existsSync(drive)) {
+                        drives.push(drive);
+                    }
+                } catch (e) {
+                    // 忽略错误
+                }
+            }
+            return drives;
+        }
+        return [];
+    };
+
+    const drivers = getWindowsDrives();
+    let drivesStr = '';
+    if (drivers.length > 0) {
+        drivesStr = `可用驱动器：${drivers.join(', ')}`;
+    }
+
+    fileSystemTools.rulePrompt = `文件系统操作工具组
+当前主机运行的系统: ${platform}, 用户家目录: ${homeDir}
+${drivesStr}
+`.trim();
+}

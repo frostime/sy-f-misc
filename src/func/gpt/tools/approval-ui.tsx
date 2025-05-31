@@ -34,7 +34,7 @@ export const ToolExecutionApprovalUI: Component<{
 
 **参数:**
 
-> ${JSON.stringify(props.args, null, null)}
+${Object.keys(props.args).map(key => `- \`${key}\`: \`${props.args[key]}\``).join('\n')}
 
 `;
 
@@ -94,7 +94,8 @@ export const ToolResultApprovalUI: Component<{
 
 **参数:**
 
-> ${JSON.stringify(props.args, null, null)}
+${Object.keys(props.args).map(key => `- \`${key}\`: \`${props.args[key]}\``).join('\n')}
+
 
 **结果:**
 
@@ -171,8 +172,8 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                         }}
                     />
                 ),
-                width: '500px',
-                height: 'auto',
+                width: '640px',
+                maxHeight: '90%',
                 callback: () => {
                     resolve({
                         approved: false,
@@ -215,8 +216,8 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                         }}
                     />
                 ),
-                width: '500px',
-                height: 'auto',
+                width: '640px',
+                maxHeight: '90%',
                 callback: () => {
                     resolve({
                         approved: false,

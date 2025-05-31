@@ -354,7 +354,7 @@ const useGptCommunication = (params: {
 
     const gptOption = () => {
         let option = { ...config().chatOption };
-        if (params.toolExecutor) {
+        if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
             let tools = params.toolExecutor.getAllToolDefinitions();
             if (tools && tools.length > 0) {
                 option['tools'] = tools;
@@ -366,7 +366,7 @@ const useGptCommunication = (params: {
 
     const currentSystemPrompt = () => {
         let prompt = systemPrompt().trim() || '';
-        if (params.toolExecutor) {
+        if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
             prompt += params.toolExecutor.toolRules();
         }
         return prompt;
@@ -1051,6 +1051,7 @@ export const useSession = (props: {
         title,
         attachments,
         contexts,
+        toolExecutor,
         sessionTags,
         hasUpdated: () => {
             return updated > timestamp;
