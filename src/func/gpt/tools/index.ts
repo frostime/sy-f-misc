@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 16:59:06
  * @FilePath     : /src/func/gpt/tools/index.ts
- * @LastEditTime : 2025-05-31 20:11:07
+ * @LastEditTime : 2025-05-31 21:20:01
  * @Description  :
  */
 // 导出类型和工具执行器
@@ -15,6 +15,7 @@ import { ToolExecutor } from './executor';
 import { basicTool } from './basic';
 import { toolGroupWeb } from './web';
 import { fileSystemTools } from './file-system';
+import { scriptTools } from './script-tools';
 import { ApprovalUIAdapter } from './types';
 import { DefaultUIAdapter } from './approval-ui';
 import { toolsManager } from '../setting/store';
@@ -32,6 +33,7 @@ export const toolExecutorFactory = (options: {
     toolExecutor.registerToolGroup(basicTool);
     toolExecutor.registerToolGroup(toolGroupWeb);
     toolExecutor.registerToolGroup(fileSystemTools);
+    toolExecutor.registerToolGroup(scriptTools);
 
     // 设置审批回调
     const approvalAdapter = options.approvalAdapter || new DefaultUIAdapter();

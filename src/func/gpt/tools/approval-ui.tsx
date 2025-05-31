@@ -5,13 +5,88 @@
  * @FilePath     : /src/func/gpt/tools/approval-ui.tsx
  * @Description  : 工具审核 UI 组件和适配器
  */
-import { Component, createMemo } from "solid-js";
-import { ToolExecuteResult, ApprovalUIAdapter, DisplayMode } from "./types";
+import { Component, JSX } from "solid-js";
+import { ToolExecuteResult, ApprovalUIAdapter } from "./types";
 import { ButtonInput } from "@/libs/components/Elements";
 import { solidDialog } from "@/libs/dialog";
 import Markdown from "@/libs/components/Elements/Markdown";
 import { createSignalRef } from "@frostime/solid-signal-ref";
-// import { json } from "stream/consumers";
+
+/**
+ * 将对象参数格式化为Markdown列表
+ */
+const formatArgsToMarkdown = (args: Record<string, any>): string => {
+    return Object.keys(args).map(key => {
+        if (args[key] instanceof String) {
+            if (args[key].includes('\n')) {
+                return `- \`${key}\`:
+\`\`\`
+${args[key]}
+\`\`\`
+`;
+            } else {
+                return `- \`${key}\`: \`${args[key]}\``;
+            }
+        } else {
+            return `- \`${key}\`: \`${args[key]}\``;
+        }
+    }).join('\n');
+};
+
+
+const BaseApprovalUI = (props: {
+    markdown: string;
+    onApprove: () => void;
+    onReject: (reason?: string) => void;
+    showReasonInput?: boolean;
+    children?: JSX.Element;
+}) => {
+    const reason = createSignalRef('');
+
+    return (
+        <div style={{
+            "padding": "16px",
+            "width": "100%"
+        }}>
+            <Markdown markdown={props.markdown} />
+
+            {props.children}
+
+            <div style={{
+                "display": "flex",
+                "align-content": "center",
+                "gap": "8px"
+            }}>
+                {props.showReasonInput && (
+                    <input
+                        type="text"
+                        class="b3-text-field"
+                        placeholder="可选的拒绝理由"
+                        value={reason()}
+                        onInput={(e) => reason(e.currentTarget.value)}
+                        style="width: unset; max-width: unset; flex: 1; display: inline-block;"
+                    />
+                )}
+
+                <ButtonInput
+                    label="拒绝"
+                    onClick={() => props.onReject(props.showReasonInput ? reason() : undefined)}
+                    style={{
+                        "background-color": "var(--b3-theme-error)",
+                        "font-size": "12px"
+                    }}
+                />
+                <ButtonInput
+                    label="允许"
+                    onClick={() => props.onApprove()}
+                    style={{
+                        "font-size": "12px"
+                    }}
+                />
+            </div>
+        </div>
+    );
+};
 
 /**
  * 工具执行审核组件
@@ -22,58 +97,24 @@ export const ToolExecutionApprovalUI: Component<{
     args: Record<string, any>;
     onApprove: () => void;
     onReject: (reason?: string) => void;
-    displayMode: DisplayMode;
 }> = (props) => {
-
-    const reason = createSignalRef('');
-
-    const md = `
+    const markdown = `
 ### 允许执行工具 ${props.toolName}？
 
 **描述:** ${props.toolDescription}
 
 **参数:**
 
-${Object.keys(props.args).map(key => `- \`${key}\`: \`${props.args[key]}\``).join('\n')}
-
+${formatArgsToMarkdown(props.args)}
 `;
 
     return (
-        <div style={{
-            "padding": "16px",
-            "width": "100%"
-        }}>
-            <Markdown markdown={md} />
-
-
-            <div style={{
-                "display": "flex",
-                "align-content": "center",
-                "gap": "8px"
-            }}>
-                <input type="text"
-                    class="b3-text-field" placeholder="可选的拒绝理由" value={reason()}
-                    onInput={(e) => reason(e.currentTarget.value)}
-                    style="width: unset; max-width: unset; flex: 1; display: inline-block;"
-                />
-
-                <ButtonInput
-                    label="拒绝"
-                    onClick={() => props.onReject(reason())}
-                    style={{
-                        "background-color": "var(--b3-theme-error)",
-                        "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
-                    }}
-                />
-                <ButtonInput
-                    label="允许"
-                    onClick={() => props.onApprove()}
-                    style={{
-                        "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
-                    }}
-                />
-            </div>
-        </div>
+        <BaseApprovalUI
+            markdown={markdown}
+            onApprove={props.onApprove}
+            onReject={props.onReject}
+            showReasonInput={true}
+        />
     );
 };
 
@@ -86,53 +127,46 @@ export const ToolResultApprovalUI: Component<{
     result: ToolExecuteResult;
     onApprove: () => void;
     onReject: () => void;
-    displayMode: DisplayMode;
 }> = (props) => {
-
-    const md = `
+    const markdown = `
 ### 允许将工具 ${props.toolName} 的结果发送给 LLM？
 
 **参数:**
 
-${Object.keys(props.args).map(key => `- \`${key}\`: \`${props.args[key]}\``).join('\n')}
-
+${formatArgsToMarkdown(props.args)}
 
 **结果:**
 
-${props.result.data}
 `;
 
     return (
-        <div style={{
-            "padding": "16px",
-            "width": "100%"
-        }}>
-            <Markdown markdown={md} />
-
-            <div style={{
-                "display": "flex",
-                "justify-content": "space-between",
-                "align-content": "center",
-                "gap": "8px"
-            }}>
-                <ButtonInput
-                    label="拒绝"
-                    onClick={props.onReject}
-                    style={{
-                        "background-color": "var(--b3-theme-error)",
-                        "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
-                    }}
-                />
-                <ButtonInput
-                    label="允许"
-                    onClick={props.onApprove}
-                    style={{
-                        "font-size": props.displayMode === DisplayMode.INLINE ? "14px" : "12px"
-                    }}
-                />
-            </div>
-        </div>
+        <BaseApprovalUI
+            markdown={markdown}
+            onApprove={props.onApprove}
+            onReject={() => props.onReject()}
+            showReasonInput={false}
+        >
+            <textarea
+                class="b3-text-field"
+                style={{
+                    "width": "100%",
+                    "height": "120px",
+                    "margin": "8px 0",
+                    "resize": "vertical",
+                    "font-family": "var(--b3-font-family-code)"
+                }}
+                rows={6}
+                readOnly
+                value={props.result.data}
+            />
+        </BaseApprovalUI>
     );
+};
+
+// 审核对话框的共同配置
+const dialogConfig = {
+    width: '640px',
+    maxHeight: '90%'
 };
 
 /**
@@ -150,18 +184,15 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
     }> {
         return new Promise((resolve) => {
             const { close } = solidDialog({
-                title: `工具执行审核`,
+                title: '工具执行审核',
                 loader: () => (
                     <ToolExecutionApprovalUI
                         toolName={toolName}
                         toolDescription={toolDescription}
                         args={args}
-                        displayMode={DisplayMode.DIALOG}
                         onApprove={() => {
                             close();
-                            resolve({
-                                approved: true
-                            });
+                            resolve({ approved: true });
                         }}
                         onReject={(reason?: string) => {
                             close();
@@ -172,8 +203,8 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                         }}
                     />
                 ),
-                width: '640px',
-                maxHeight: '90%',
+                width: dialogConfig.width,
+                maxHeight: dialogConfig.maxHeight,
                 callback: () => {
                     resolve({
                         approved: false,
@@ -194,18 +225,15 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
     }> {
         return new Promise((resolve) => {
             const { close } = solidDialog({
-                title: `工具结果审核`,
+                title: '工具结果审核',
                 loader: () => (
                     <ToolResultApprovalUI
                         toolName={toolName}
                         args={args}
                         result={result}
-                        displayMode={DisplayMode.DIALOG}
                         onApprove={() => {
                             close();
-                            resolve({
-                                approved: true
-                            });
+                            resolve({ approved: true });
                         }}
                         onReject={() => {
                             close();
@@ -216,8 +244,8 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                         }}
                     />
                 ),
-                width: '640px',
-                maxHeight: '90%',
+                width: dialogConfig.width,
+                maxHeight: dialogConfig.maxHeight,
                 callback: () => {
                     resolve({
                         approved: false,

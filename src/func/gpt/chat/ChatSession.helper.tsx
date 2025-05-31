@@ -365,11 +365,12 @@ const useGptCommunication = (params: {
     }
 
     const currentSystemPrompt = () => {
+        let ptime = `当前时间: ${new Date().toLocaleString()}`;
         let prompt = systemPrompt().trim() || '';
         if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
             prompt += params.toolExecutor.toolRules();
         }
-        return prompt;
+        return `${ptime}\n\n${prompt}`;
     }
 
     const customComplete = async (messageToSend: IMessage[] | string, options?: {
