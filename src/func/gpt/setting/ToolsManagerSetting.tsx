@@ -18,11 +18,11 @@ export const ToolsManagerSetting: Component = () => {
     const tempExecutor = toolExecutorFactory({});
 
     // 为每个工具组创建一个展开/折叠状态
-    const [expandedGroups, setExpandedGroups] = createSignal<Record<string, boolean>>({});
+    const [collapsedGroups, setCollapsedGroups] = createSignal<Record<string, boolean>>({});
 
     // 切换工具组的展开/折叠状态
     const toggleGroupExpand = (groupName: string) => {
-        setExpandedGroups(prev => ({
+        setCollapsedGroups(prev => ({
             ...prev,
             [groupName]: !prev[groupName]
         }));
@@ -32,13 +32,6 @@ export const ToolsManagerSetting: Component = () => {
     const toggleGroupEnabled = (groupName: string) => {
         const currentEnabled = toolsManager().groupDefaults[groupName] !== false;
 
-        // toolsManager.update(prev => ({
-        //     ...prev,
-        //     groupDefaults: {
-        //         ...prev.groupDefaults,
-        //         [groupName]: !currentEnabled
-        //     }
-        // }));
         toolsManager.update('groupDefaults', groupName, !currentEnabled);
     };
 
@@ -46,24 +39,17 @@ export const ToolsManagerSetting: Component = () => {
     const toggleToolEnabled = (toolName: string) => {
         const currentEnabled = toolsManager().toolDefaults[toolName] !== false;
 
-        // toolsManager.update(prev => ({
-        //     ...prev,
-        //     toolDefaults: {
-        //         ...prev.toolDefaults,
-        //         [toolName]: !currentEnabled
-        //     }
-        // }));
         toolsManager.update('toolDefaults', toolName, !currentEnabled);
     };
 
     // 检查工具组是否启用
     const isGroupEnabled = (groupName: string) => {
-        return toolsManager().groupDefaults[groupName] !== false;
+        return toolsManager().groupDefaults[groupName] ?? false;
     };
 
     // 检查工具是否启用
     const isToolEnabled = (toolName: string) => {
-        return toolsManager().toolDefaults[toolName] !== false;
+        return toolsManager().toolDefaults[toolName] ?? true;
     };
 
     return (
@@ -85,11 +71,11 @@ export const ToolsManagerSetting: Component = () => {
                                     class="tools-manager-group-expand"
                                     onClick={() => toggleGroupExpand(groupName)}
                                 >
-                                    {expandedGroups()[groupName] ? '▼' : '◄'}
+                                    {collapsedGroups()[groupName] ? '◄' : '▼'}
                                 </div>
                             </div>
 
-                            <Show when={expandedGroups()[groupName]}>
+                            <Show when={collapsedGroups()[groupName] !== true}>
                                 <div class="tools-manager-tools">
                                     <For each={group.tools}>
                                         {tool => (

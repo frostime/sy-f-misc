@@ -106,6 +106,8 @@ export class ToolExecutor {
         }
 
         this.registry[toolName] = tool;
+        // 工具组内的工具默认启用
+        this.toolEnabled[toolName] = true;
     }
 
     registerToolGroup(group: ToolGroup | (() => ToolGroup)): void {
@@ -124,7 +126,8 @@ ${group.rulePrompt.trim()}
 </tool-group-rule>
 `);
         }
-        this.groupEnabled[group.name] = true;
+        //工具组默认禁用
+        this.groupEnabled[group.name] = false;
     }
 
     /**
@@ -138,8 +141,7 @@ ${group.rulePrompt.trim()}
      * 获取工具级别的启用状态
      */
     isToolEnabled(toolName: string): boolean {
-        // 如果没有特别设置，默认为启用
-        return this.toolEnabled[toolName] !== false;
+        return this.toolEnabled[toolName] ?? false;
     }
 
     /**
