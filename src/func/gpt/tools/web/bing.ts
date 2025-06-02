@@ -5,15 +5,28 @@ import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from 
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
- * @LastEditTime : 2025-05-30 20:01:38
+ * @LastEditTime : 2025-06-02 21:09:22
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
+
+    const ansItem = dom.querySelector('li.b_ans');
+
     // 获取所有的 li.b_algo 元素
     const algoListItems: NodeListOf<HTMLLIElement> = dom.querySelectorAll('li.b_algo');
 
     // 定义一个数组来存储搜索结果
     const searchResults: { title: string; link: string; description: string }[] = [];
+
+    if (ansItem) {
+        // 去掉 svg style 等元素
+        ansItem.querySelectorAll('svg, style').forEach((el) => el.remove());
+        searchResults.push({
+            title: 'Bing 直接回答',
+            link: '',
+            description: ansItem.textContent?.trim() || ''
+        })
+    }
 
     // 遍历每个 li.b_algo 元素
     algoListItems.forEach((item) => {

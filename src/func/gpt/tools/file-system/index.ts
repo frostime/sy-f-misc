@@ -9,9 +9,6 @@ import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 
-// 安全限制：最大文件读取大小 (1MB)
-const MAX_FILE_SIZE = 1024 * 1024;
-
 const fileSize = (size: number) => {
     //注意保留两位小数
     if (size < 1024) {
@@ -92,7 +89,7 @@ const readFileTool: Tool = {
         type: 'function',
         function: {
             name: 'ReadFile',
-            description: '读取文件内容，可指定起始行(begin)和结束行(end)',
+            description: '读取文件内容，可指定起始行 [begin, end] 闭区间',
             parameters: {
                 type: 'object',
                 properties: {
@@ -102,13 +99,13 @@ const readFileTool: Tool = {
                     },
                     begin: {
                         type: 'number',
-                        description: '起始行号（从1开始计数，闭区间）',
-                        minimum: 1
+                        description: '起始行号（从0开始计数，闭区间）; 如果仅指定 begin，表示从 begin 开始读取末尾',
+                        minimum: 0
                     },
                     end: {
                         type: 'number',
-                        description: '结束行号',
-                        minimum: 1
+                        description: '结束行号（从0开始计数，闭区间）; 如果仅指定 end，表示从开头读取到 end',
+                        minimum: 0
                     }
                 },
                 required: ['path']
@@ -120,27 +117,18 @@ const readFileTool: Tool = {
     execute: async (args: { path: string; begin?: number; end?: number }): Promise<ToolExecuteResult> => {
         try {
             const filePath = path.resolve(args.path);
-            const stats = fs.statSync(filePath);
-
-            // 安全检查：文件大小限制
-            if (stats.size > MAX_FILE_SIZE) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `文件大小超过限制 (${stats.size} > ${MAX_FILE_SIZE} bytes)`
-                };
-            }
 
             // 读取文件内容
             const content = fs.readFileSync(filePath, 'utf-8');
 
             // 处理行范围
-            if (args.begin || args.end) {
+            if (args.begin !== undefined || args.end !== undefined) {
                 const lines = content.split('\n');
                 const totalLines = lines.length;
 
-                // 确定起始行和结束行
-                const startLine = args.begin ? Math.max(1, args.begin) : 1;
-                const endLine = args.end ? Math.min(totalLines, args.end) : totalLines;
+                // 确定起始行和结束行（闭区间）
+                const startLine = args.begin !== undefined ? Math.max(0, args.begin) : 0;
+                const endLine = args.end !== undefined ? Math.min(totalLines - 1, args.end) : totalLines - 1;
 
                 // 验证行范围
                 if (startLine > endLine) {
@@ -150,12 +138,12 @@ const readFileTool: Tool = {
                     };
                 }
 
-                // 提取指定行范围
-                const resultContent = lines.slice(startLine - 1, endLine).join('\n');
+                // 提取指定行范围（闭区间）
+                const resultContent = lines.slice(startLine, endLine + 1).join('\n');
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: `
-\`\`\`${filePath} (${startLine}-${endLine})
+\`\`\`${filePath} [${startLine}-${endLine}]
 ${resultContent}
 \`\`\`
 `.trim(),
@@ -184,7 +172,7 @@ const createFileTool: Tool = {
         type: 'function',
         function: {
             name: 'CreateFile',
-            description: '指定路径和内容创建文件，如果文件已存在则报错',
+            description: '指定路径和内容创建文本文件，如果文件已存在则报错',
             parameters: {
                 type: 'object',
                 properties: {
