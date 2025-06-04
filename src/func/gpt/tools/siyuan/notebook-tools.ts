@@ -42,3 +42,52 @@ export const listNotebookTool: Tool = {
         }
     }
 };
+
+export const getNotebookTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'getNotebook',
+            description: '获取笔记本信息, id可以唯一确定笔记本, name可以不唯一',
+            parameters: {
+                type: 'object',
+                properties: {
+                    id: {
+                        type: 'string',
+                        description: '笔记本ID'
+                    },
+                    name: {
+                        type: 'string',
+                        description: '笔记本名称'
+                    }
+                }
+            }
+        },
+        permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    execute: async (args: { id?: string; name?: string }): Promise<ToolExecuteResult> => {
+        if (!args.id && !args.name) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: '至少提供 id 或 name 参数'
+            };
+        }
+        let notebook;
+        if (args.id) {
+            notebook = listNotebook().find(notebook => notebook.id === args.id);
+        } else if (args.name) {
+            notebook = listNotebook().find(notebook => notebook.name === args.name);
+        }
+        if (!notebook) {
+            return {
+                status: ToolExecuteStatus.NOT_FOUND,
+                error: `未找到笔记本: ${args.id || args.name}`
+            };
+        }
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: JSON.stringify(notebook)
+        };
+    }
+};

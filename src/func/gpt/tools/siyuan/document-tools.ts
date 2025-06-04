@@ -6,7 +6,7 @@
  * @Description  : 思源文档相关工具
  */
 
-import { getBlockByID } from "@frostime/siyuan-plugin-kits";
+import { getBlockByID, id2block } from "@frostime/siyuan-plugin-kits";
 import { listDocsByPath } from "@/api";
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
 import { documentMapper, getDocument, getDailyNoteDocs, listSubDocs } from './utils';
@@ -270,9 +270,10 @@ export const listSiblingDocsTool: Tool = {
                 };
             }
 
+            let blocks = await id2block(docs.files.map(doc => doc.id));
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(docs.map(documentMapper))
+                data: JSON.stringify(blocks.map(documentMapper))
             };
         } catch (error) {
             return {
@@ -282,6 +283,66 @@ export const listSiblingDocsTool: Tool = {
         }
     }
 };
+
+export const listNotebookDocsTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'listNotebookDocs',
+            description: '列出笔记本下的文档, 若 depth 则列出子文档森林',
+            parameters: {
+                type: 'object',
+                properties: {
+                    notebookId: {
+                        type: 'string',
+                        description: '笔记本ID'
+                    },
+                    depth: {
+                        type: 'number',
+                        description: '递归深度，默认为1',
+                        minimum: 1,
+                    }
+                },
+                required: ['notebookId', 'depth']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    execute: async (args: { notebookId: string; depth?: number }): Promise<ToolExecuteResult> => {
+        let topLevel = await listDocsByPath(args.notebookId, '');
+        if (!topLevel || topLevel.length === 0) {
+            return {
+                status: ToolExecuteStatus.NOT_FOUND,
+                error: `未找到笔记本下的文档: ${args.notebookId}`
+            };
+        }
+
+        let topLevelDocs = await id2block(topLevel.files.map(doc => doc.id));
+        if (args.depth === undefined || args.depth === 1) {
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: JSON.stringify(topLevelDocs.map(documentMapper))
+            };
+        }
+
+        const subDepth = args.depth - 1;
+        const subDocs = await Promise.all(
+            topLevelDocs.map(async (doc) => {
+                const subDocs = await listSubDocs(doc.id, subDepth);
+                return {
+                    ...doc,
+                    children: subDocs
+                };
+            })
+        );
+
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: JSON.stringify(subDocs)
+        };
+    }
+}
 
 /**
  * 获取日记文档工具

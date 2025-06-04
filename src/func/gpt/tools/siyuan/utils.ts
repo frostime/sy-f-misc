@@ -34,7 +34,7 @@ export const blockMapper = (block: Block | any) => {
         id: block.id,
         type: BlockTypeName[block.type],
         content: block.content,
-        document: block.root_id
+        root_id: block.root_id
     }
 }
 

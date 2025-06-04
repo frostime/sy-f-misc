@@ -3,24 +3,26 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-06-03 22:56:18
+ * @LastEditTime : 2025-06-04 11:45:16
  * @Description  : 思源笔记工具导出文件
  */
 
-import { listNotebookTool } from './notebook-tools';
+import { getNotebookTool, listNotebookTool } from './notebook-tools';
 import {
     listActiveDocsTool,
     getDocumentTool,
     getParentDocTool,
     listSubDocsTool,
     listSiblingDocsTool,
-    getDailyNoteDocsTool
+    getDailyNoteDocsTool,
+    listNotebookDocsTool
 } from './document-tools';
 import {
     getBlockMarkdownTool,
     appendMarkdownTool,
     appendDailyNoteTool
 } from './content-tools';
+import { searchDocumentTool, queryViewTools } from './search';
 
 // 导出思源笔记工具列表
 export const siyuanTool = {
@@ -28,67 +30,70 @@ export const siyuanTool = {
     description: '思源笔记工具',
     tools: [
         listNotebookTool,
+        getNotebookTool,
         listActiveDocsTool,
         getDocumentTool,
         getDailyNoteDocsTool,
         getParentDocTool,
         listSubDocsTool,
         listSiblingDocsTool,
+        listNotebookDocsTool,
         getBlockMarkdownTool,
         appendMarkdownTool,
-        appendDailyNoteTool
+        appendDailyNoteTool,
+        searchDocumentTool,
+        ...queryViewTools
     ],
     rulePrompt: `
 思源笔记(https://github.com/siyuan-note/siyuan)是一个块结构的笔记软件
 
-### 笔记本与文档
+### 笔记本与文档结构
 
-顶层为笔记本，每个笔记本下嵌套若干的文档块，每个文档块内部包含若干内容块
-文档可以上下嵌套，最大深度不超过 7
+- **笔记本(Notebook)**：顶层结构; 别名 box
+- **文档(Document)**：嵌套结构(最大深度7)，每个文档包含多个内容块
+- **内容块(Block)**: 以块对内容进行组织，如标题、列表、段落等为不同类型的块; 每个块的 root_id 指向容器文档id
 
-可以使用 listNotebook 工具获取所有笔记本的定义
-可以使用 getParentDoc/listSiblingDocs/listSubDocs 来获取嵌套的文档结构
+- **日记(DailyNote)**：一种特殊的文档，每个笔记本下按日期模板创建
 
-注意: 参数 docID 为文档块的 ID，而非文档的名称或者路径!
+### ID 规则
+每个块、文档、笔记本都有一个唯一的 ID
+- 格式：/\\d{14,}-\\w{7}/ (创建时间-随机符号)，如 20241016135347-zlrn2cz (2024-10-16 13:53:47 创建)
+- 所有"docId/notebookId"的参数都要用 ID 而非名称/路径 !IMPORTANT!
 
-DailyNote(日记) 是一种每个笔记本下会根据日期创建的特殊文档; 可以通过 getDailyNoteDocs 工具获取日记文档。
-由于日记文档每个笔记本内各自独立，所以当涉及到需要读取、写入某个特定的日记文档的时候，请你：
-1. 首先获取所有可以的 notebook
-2. 向用户询问使用哪个笔记本
-3. 然后再进行下一个操作
+### 文档级别属性
+- **id**: 唯一标识(块ID)
+- **path**: ID路径，笔记本内唯一，如 /20241020123921-0bdt86h/20240331203024-9vpgge9.sy; "20241020123921-0bdt86h" 是 "20240331203024-9vpgge" 的父文档
+- **hpath**: 名称路径，可能重复，如 /Inbox/独立测试文档; "Inbox" 是 "独立测试文档" 的父文档
 
-### 文档
+### 文档/块内容
 
-- ID: 文档本质也是一个块，他的 ID 是唯一的
-    - e.g. 20240331203024-9vpgge9
-- path: 是文档 ID 路径, 在相同笔记本下总是唯一的
-    - e.g. /20241020123921-0bdt86h/20240331203024-9vpgge9.sy
-    - 最后的"20240331203024-9vpgge9"是文档的 ID; sy 是后缀名，可以无视
-- hpath: 文档名称路径, path ， 在相同笔记本下可能重复 (例如存在两个都叫 A 的文档，但他们的 ID 不同)
-    - e.g. /Inbox/独立测试文档
-    - 最后的"独立测试文档"是文档的名称
+块/文档的内容用 Markdown 格式表示，兼容一些特殊语法
 
-思源笔记类似 vscode 支持多页签编辑文档，可以通过 listActiveDocs 工具获取当前活动的文档列表(页签中打开的)。
-如果用户没有任何上下文就提及了某个文档，并默认你应该知道，请使用 listActiveDocs 查看是否是当前活动文档。
+- 块链接: \`[内容](siyuan://blocks/<BlockId>)\`
+- 块引用: \`((<BlockId> "锚文本"))\`; 引号可以是单引号或双引号
 
-### 块/文档/笔记的 ID
+### 常用工具(不一定完整)
 
-每个块都有一个 ID，格式为 /^\d{14,}-\w{7}$/ (创建时间-随机符号), 例如 20241016135347-zlrn2cz 代表一个创建于 2024-10-16 13:53:47 的块
+- 笔记本操作
+  - listNotebook: 获取所有笔记本
+  - getNotebook: 获取特定笔记本
+- 文档结构
+  - getParentDoc/listSiblingDocs/listSubDocs: 查询文档上下层级关系
+  - listNotebookDocsTool: 获取笔记本下文档嵌套结构
+  - listActiveDocs: 获取当前活动的文档列表(思源支持类似 vscode 支持多页签编辑文档)
+  - searchDocument: 搜索文档(按名称/路径)
+- 日记文档
+  - getDailyNoteDocs: 获取日记文档
+- 内容操作
+  - getBlockMarkdown: 获取块内容(文档,普通块均可)
+  - appendMarkdown: 在文档末尾添加内容
+  - appendDailyNote: 在日记文档末尾添加内容
 
-所有工具中涉及到 docId/notebookId 的都需要传入这种格式的 ID，而非文档名称。 !IMPORTANT!
+### 工具使用经验
 
-### 内容
-
-块/文档的内容用 Markdown 格式表示.
-
-- 获取 Markdown： getBlockMarkdown
-    - 可选参数 begin/limit 用于限制返回的字符范围, 一般情况不用指定，除非明确发现所需要内容在限制范围之外
-- 增加: appendMarkdown 将内容添加到文档末尾
-    - 对日记文档，可使用 appendDailyNote (不用指定文档 ID)
-
-思源中的 Markdown 有一些特殊语法:
-- 块链接: [内容](siyuan://block/<BlockId>)，例如 [块](siyuan://block/20241016135347-zlrn2cz)
-- 块引用: ((<BlockId> "锚文本"))，例如 ((20241016135347-zlrn2cz "引用")); 这里的引号可以是单引号或双引号
-
+- 如果用户没有任何上下文就提及了某个文档，并默认你应该知道，尝试 listActiveDocs 查看是否是当前活动文档
+- 日记文档每个笔记本内各自独立; 所以涉及日记文档操作时，和用户确定使用哪个笔记本
+- 学会通过 path/hpath 来推断文档的层级关系
+- 学会通过 ID 来分析文档的时间戳
 `
 };
