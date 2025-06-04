@@ -447,7 +447,7 @@ ${inputContent}
         contextMessages: IMessage[],
         targetIndex: number,
         scrollToBottom?: (force?: boolean) => void
-    ) => {
+    ): Promise<CompletionResponse & { hintSize?: number }> => {
         if (!params.toolExecutor || !initialResponse.tool_calls?.length) {
             return initialResponse;
         }
@@ -492,13 +492,16 @@ ${inputContent}
             // 如果工具调用链成功完成，返回最终结果
             // #NOTE: 目前的方案，只会保留最后的一个结果，不会被大量工具调用存放在 history 中
             if (toolChainResult.status === 'completed') {
-                // let toolHistory = toolChainResult.toolCallHistory.map(call => call.toolName).join('->');
-                // let hint = toolHistory ? '<system>当前回答经历工具调用获得，为节省开销暂时隐藏历史记录：' + toolHistory + '</system>\n' : '';
+                let toolHistory = toolChainResult.toolCallHistory.map(call => {
+                    return call.toolName + `(${call.result.status})`;
+                }).join('->');
+                let hint = toolHistory ? `<tool-chain>${toolHistory}</tool-chain>\n` : '';
                 return {
-                    content: toolChainResult.content,
+                    content: hint + toolChainResult.content,
                     usage: initialResponse.usage, // 使用初始响应的usage，实际项目中可能需要累加
                     reasoning_content: initialResponse.reasoning_content,
-                    time: initialResponse.time
+                    time: initialResponse.time,
+                    hintSize: hint.length,
                 } as CompletionResponse;
             } else {
                 // 工具调用链失败，返回原始响应
@@ -625,6 +628,10 @@ ${inputContent}
                     msgItem['token'] = finalResponse.usage.completion_tokens;
                 }
 
+                if (finalResponse.hintSize) {
+                    msgItem.userPromptSlice = [finalResponse.hintSize, finalResponse.content.length];
+                }
+
                 msgItem = stageMsgItemVersion(msgItem, vid);
                 return msgItem;
             });
@@ -738,6 +745,9 @@ ${inputContent}
                     currentVersion: vid,
                     versions: {}
                 };
+                if (finalResponse.hintSize) {
+                    updated[lastIdx].userPromptSlice = [finalResponse.hintSize, finalResponse.content.length];
+                }
                 delete updated[lastIdx]['loading'];
                 return updated;
             });

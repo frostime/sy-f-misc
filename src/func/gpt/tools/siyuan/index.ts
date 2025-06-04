@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-06-04 13:25:06
+ * @LastEditTime : 2025-06-04 20:59:50
  * @Description  : 思源笔记工具导出文件
  */
 
@@ -102,6 +102,7 @@ export const siyuanTool = {
 - 日记文档每个笔记本内各自独立; 所以涉及日记文档操作时，和用户确定使用哪个笔记本
 - 学会通过 path/hpath 来推断文档的层级关系
 - 学会通过 ID 来分析文档的时间戳
+- 当涉及到写入文档内容(appendMarkdown, appendDailyNote)的时候，请在你的回答中用[文档](链接)的形式提及写入的文档目标 !IMPORTANT!
 - 不错的社区网站:
   - 思源论文精选: https://ld246.com/tag/siyuan/perfect
   - 思源主题博客: https://siyuannote.com/

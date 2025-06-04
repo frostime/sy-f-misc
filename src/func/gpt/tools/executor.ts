@@ -39,7 +39,7 @@ export class ToolExecutor {
         if (!this.hasEnabledTools()) return '';
         let prompt = `<tools>
 当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具。
-为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中。
+为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中，工具调用的记录可能被包含在<tool-chain></tool-chain>标签中，这部分内容不会显示给 USER 看。
 </tools>`;
         for (const [name, rule] of Object.entries(this.groupRules)) {
             if (!this.isGroupEnabled(name)) continue;
