@@ -2,6 +2,7 @@
 import { showMessage } from 'siyuan';
 import { Accessor, batch, createMemo } from 'solid-js';
 import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { ToolChainResult } from '../openai/toolchain';
 
 // Local components and utilities
 import Form from '@/libs/components/Form';
@@ -489,28 +490,33 @@ ${inputContent}
                 }
             });
 
-            // 如果工具调用链成功完成，返回最终结果
-            // #NOTE: 目前的方案，只会保留最后的一个结果，不会被大量工具调用存放在 history 中
-            if (toolChainResult.status === 'completed') {
-                let toolHistory = toolChainResult.toolCallHistory.map(call => {
-                    return call.toolName + `(${call.result.status})`;
-                }).join('->');
-                let hint = toolHistory ? `<tool-chain>${toolHistory}</tool-chain>\n` : '';
-                return {
-                    content: hint + toolChainResult.content,
-                    usage: initialResponse.usage, // 使用初始响应的usage，实际项目中可能需要累加
-                    reasoning_content: initialResponse.reasoning_content,
-                    time: initialResponse.time,
-                    hintSize: hint.length,
-                } as CompletionResponse;
-            } else {
-                // 工具调用链失败，返回原始响应
-                console.warn('Tool chain failed:', toolChainResult.error);
-                return initialResponse;
-            }
+            return processToolChainResult(toolChainResult, initialResponse);
         } catch (error) {
             console.error('Tool chain execution failed:', error);
             showMessage(`工具调用失败: ${error.message}`);
+            return initialResponse;
+        }
+    };
+
+    /**
+     * 处理工具调用链结果
+     * @param toolChainResult 工具调用链结果
+     * @param initialResponse 初始响应
+     * @returns 处理后的响应
+     */
+    const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: CompletionResponse): CompletionResponse => {
+        // #NOTE: 目前的方案，只会保留最后的一个结果，不会被大量工具调用存放在 history 中
+        if (toolChainResult.status === 'completed') {
+            return {
+                content: toolChainResult.toolChainContent + toolChainResult.responseContent,
+                usage: toolChainResult.usage,
+                reasoning_content: initialResponse.reasoning_content,
+                time: initialResponse.time,
+                hintSize: toolChainResult.toolChainContent.length,
+            } as CompletionResponse;
+        } else {
+            // 工具调用链失败，返回原始响应
+            console.warn('Tool chain failed:', toolChainResult.error);
             return initialResponse;
         }
     };

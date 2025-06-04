@@ -63,7 +63,10 @@ export interface ToolChainOptions {
  */
 export interface ToolChainResult {
     // 最终响应内容
-    content: string;
+    responseContent: string;
+    toolChainContent: string;
+
+    usage: CompletionResponse['usage'];
 
     // 消息分类
     messages: {
@@ -139,7 +142,8 @@ export async function executeToolChain(
         role: 'assistant' as const,
         content: llmResponseWithToolCalls.content,
         reasoning_content: llmResponseWithToolCalls.reasoning_content,
-        tool_calls: llmResponseWithToolCalls.tool_calls
+        tool_calls: llmResponseWithToolCalls.tool_calls,
+        usage: llmResponseWithToolCalls.usage
     };
     state.toolChainMessages.push(initialAssistantMessage);
     state.allMessages.push(initialAssistantMessage);
@@ -306,7 +310,8 @@ export async function executeToolChain(
                     role: 'assistant' as const,
                     content: response.content,
                     reasoning_content: response.reasoning_content,
-                    tool_calls: response.tool_calls
+                    tool_calls: response.tool_calls,
+                    usage: response.usage
                 };
 
                 // 添加 LLM 响应到消息历史
@@ -328,9 +333,16 @@ export async function executeToolChain(
         callbacks.onError?.(error, 'chain_execution');
     }
 
+    let toolHistory = state.toolCallHistory.map(call => {
+        return call.toolName + `(${call.result.status})`;
+    }).join('->');
+    let hint = toolHistory ? `<tool-chain>${toolHistory}</tool-chain>\n` : '';
+
     // 构建结果
     const result: ToolChainResult = {
-        content: currentResponse.content,
+        toolChainContent: hint,
+        responseContent: currentResponse.content,
+        usage: currentResponse.usage,
         messages: {
             context: state.contextMessages,
             toolChain: state.toolChainMessages,
