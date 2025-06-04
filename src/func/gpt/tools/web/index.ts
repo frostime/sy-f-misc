@@ -1,9 +1,18 @@
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2025-05-31 14:51:57
+ * @FilePath     : /src/func/gpt/tools/web/index.ts
+ * @LastEditTime : 2025-06-04 22:21:11
+ * @Description  : 
+ */
 import { ToolGroup } from "../types";
 import { bingSearchTool } from "./bing";
 import { webPageContentTool } from "./webpage";
 import { tavilySearchTool } from "./tavily";
 import { bochaSearchTool } from "./bocha";
 import { globalMiscConfigs } from "../../setting";
+// import { semanticScholarSearchTool } from "./sematic-scholar";
 
 export const toolGroupWeb = (): ToolGroup => {
     const tools = [bingSearchTool];

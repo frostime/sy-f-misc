@@ -13,13 +13,13 @@ import { appendBlock, request } from "@frostime/siyuan-plugin-kits/api";
  * 文档映射函数
  */
 export const documentMapper = (doc: Block | any) => {
-    const notebook = getNotebook(doc.box);
+    // const notebook = getNotebook(doc.box);
     return {
         id: doc.id,
         hpath: doc.hpath,
         path: doc.path,
         content: doc.content,
-        box: notebook.id
+        box: doc.box
     }
 }
 
