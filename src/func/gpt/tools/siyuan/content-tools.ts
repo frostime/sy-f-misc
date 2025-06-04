@@ -48,8 +48,9 @@ export const getBlockMarkdownTool: Tool = {
         try {
             let content = await getBlockFullMarkdownContent(args.blockId);
             if (limit > 0 && content.length > limit) {
+                const len = content.length;
                 content = content.substring(begin, begin + limit);
-                content += `\n\n原始内容过长 (${content.length} 字符), 已省略; 只保留从 ${begin} 开始的 ${limit} 字符`;
+                content += `\n\n原始内容过长 (${len} 字符), 已省略; 只保留从 ${begin} 开始的 ${limit} 字符`;
             }
             return {
                 status: ToolExecuteStatus.SUCCESS,

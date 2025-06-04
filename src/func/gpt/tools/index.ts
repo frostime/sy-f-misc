@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 16:59:06
  * @FilePath     : /src/func/gpt/tools/index.ts
- * @LastEditTime : 2025-06-02 22:29:49
+ * @LastEditTime : 2025-06-04 17:21:11
  * @Description  :
  */
 // 导出类型和工具执行器
@@ -21,6 +21,9 @@ import { DefaultUIAdapter } from './approval-ui';
 import { toolsManager } from '../setting/store';
 import { siyuanTool } from './siyuan';
 
+
+const IS_IN_APP = window?.require?.('electron') !== undefined;
+
 /**
  * 工具执行器工厂函数
  */
@@ -34,7 +37,7 @@ export const toolExecutorFactory = (options: {
     toolExecutor.registerToolGroup(basicTool);
     toolExecutor.registerToolGroup(toolGroupWeb);
     toolExecutor.registerToolGroup(fileSystemTools);
-    toolExecutor.registerToolGroup(scriptTools);
+    IS_IN_APP && toolExecutor.registerToolGroup(scriptTools);
     toolExecutor.registerToolGroup(siyuanTool);
 
     // 设置审批回调

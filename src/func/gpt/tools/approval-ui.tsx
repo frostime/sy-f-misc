@@ -155,17 +155,17 @@ export const ToolResultApprovalUI: Component<{
         >
             <ArgsListComponent args={props.args} />
 
-            <h3>结果:</h3>
+            <h3>结果 (共 {props.result.data.length} 字符)</h3>
             <textarea
                 class="b3-text-field"
                 style={{
                     "width": "100%",
-                    "height": "120px",
+                    // "height": "120px",
                     "margin": "8px 0",
                     "resize": "vertical",
                     "font-family": "var(--b3-font-family-code)"
                 }}
-                rows={6}
+                rows={10}
                 readOnly
                 value={props.result.data}
             />

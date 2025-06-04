@@ -45,39 +45,32 @@ const listDirTool: Tool = {
     },
 
     execute: async (args: { path: string }): Promise<ToolExecuteResult> => {
-        try {
-            // 解析为绝对路径
-            const dirPath = path.resolve(args.path);
+        // 解析为绝对路径
+        const dirPath = path.resolve(args.path);
 
-            // 读取目录内容
-            const items = fs.readdirSync(dirPath);
+        // 读取目录内容
+        const items = fs.readdirSync(dirPath);
 
-            // 区分文件和目录
-            const result = items.map(item => {
-                const itemPath = path.join(dirPath, item);
-                const isDirectory = fs.statSync(itemPath).isDirectory();
-                let size = undefined;
-                if (!isDirectory) {
-                    const stats = fs.statSync(itemPath);
-                    size = fileSize(stats.size);
-                }
-                return {
-                    name: item,
-                    type: isDirectory ? 'directory' : 'file',
-                    size: size
-                };
-            });
-
+        // 区分文件和目录
+        const result = items.map(item => {
+            const itemPath = path.join(dirPath, item);
+            const isDirectory = fs.statSync(itemPath).isDirectory();
+            let size = undefined;
+            if (!isDirectory) {
+                const stats = fs.statSync(itemPath);
+                size = fileSize(stats.size);
+            }
             return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(result)
+                name: item,
+                type: isDirectory ? 'directory' : 'file',
+                size: size
             };
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `ListDir error: ${error.message}`
-            };
-        }
+        });
+
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: JSON.stringify(result)
+        };
     }
 };
 
@@ -106,6 +99,10 @@ const readFileTool: Tool = {
                         type: 'number',
                         description: '结束行号（从0开始计数，闭区间）; 如果仅指定 end，表示从开头读取到 end',
                         minimum: 0
+                    },
+                    limit: {
+                        type: 'number',
+                        description: '为了防止文件内容过大，限制最大字符数量；默认 7000, 如果设置为 < 0 则不限制'
                     }
                 },
                 required: ['path']
@@ -114,53 +111,52 @@ const readFileTool: Tool = {
         permissionLevel: ToolPermissionLevel.SENSITIVE
     },
 
-    execute: async (args: { path: string; begin?: number; end?: number }): Promise<ToolExecuteResult> => {
-        try {
-            const filePath = path.resolve(args.path);
+    execute: async (args: { path: string; begin?: number; end?: number; limit?: number }): Promise<ToolExecuteResult> => {
+        const limit = args.limit ?? 7000;
+        const filePath = path.resolve(args.path);
 
-            // 读取文件内容
-            const content = fs.readFileSync(filePath, 'utf-8');
+        // 读取文件内容
+        const content = fs.readFileSync(filePath, 'utf-8');
 
-            // 处理行范围
-            if (args.begin !== undefined || args.end !== undefined) {
-                const lines = content.split('\n');
-                const totalLines = lines.length;
+        // 处理行范围
+        if (args.begin !== undefined || args.end !== undefined) {
+            const lines = content.split('\n');
+            const totalLines = lines.length;
 
-                // 确定起始行和结束行（闭区间）
-                const startLine = args.begin !== undefined ? Math.max(0, args.begin) : 0;
-                const endLine = args.end !== undefined ? Math.min(totalLines - 1, args.end) : totalLines - 1;
+            // 确定起始行和结束行（闭区间）
+            const startLine = args.begin !== undefined ? Math.max(0, args.begin) : 0;
+            const endLine = args.end !== undefined ? Math.min(totalLines - 1, args.end) : totalLines - 1;
 
-                // 验证行范围
-                if (startLine > endLine) {
-                    return {
-                        status: ToolExecuteStatus.ERROR,
-                        error: `起始行(${startLine})不能大于结束行(${endLine})`
-                    };
-                }
-
-                // 提取指定行范围（闭区间）
-                const resultContent = lines.slice(startLine, endLine + 1).join('\n');
+            // 验证行范围
+            if (startLine > endLine) {
                 return {
-                    status: ToolExecuteStatus.SUCCESS,
-                    data: `
+                    status: ToolExecuteStatus.ERROR,
+                    error: `起始行(${startLine})不能大于结束行(${endLine})`
+                };
+            }
+
+            // 提取指定行范围（闭区间）
+            let resultContent = lines.slice(startLine, endLine + 1).join('\n');
+            if (limit > 0 && resultContent.length > limit) {
+                const len = resultContent.length;
+                resultContent = resultContent.substring(0, limit);
+                resultContent += `\n\n原始内容过长 (${len} 字符), 已省略; 只保留前 ${limit} 字符`;
+            }
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: `
 \`\`\`${filePath} [${startLine}-${endLine}]
 ${resultContent}
 \`\`\`
 `.trim(),
-                };
-            }
-
-            // 没有指定行范围，返回全部内容
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: content
-            };
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `ReadFile error: ${error.message}`
             };
         }
+
+        // 没有指定行范围，返回全部内容
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: content
+        };
     }
 };
 
@@ -192,30 +188,23 @@ const createFileTool: Tool = {
     },
 
     execute: async (args: { path: string; content: string }): Promise<ToolExecuteResult> => {
-        try {
-            const filePath = path.resolve(args.path);
+        const filePath = path.resolve(args.path);
 
-            // 检查文件是否已存在
-            if (fs.existsSync(filePath)) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `文件已存在: ${filePath}`
-                };
-            }
-
-            // 创建文件并写入内容
-            fs.writeFileSync(filePath, args.content, 'utf-8');
-
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: `文件创建成功: ${filePath}`
-            };
-        } catch (error) {
+        // 检查文件是否已存在
+        if (fs.existsSync(filePath)) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `CreateFile error: ${error.message}`
+                error: `文件已存在: ${filePath}`
             };
         }
+
+        // 创建文件并写入内容
+        fs.writeFileSync(filePath, args.content, 'utf-8');
+
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: `文件创建成功: ${filePath}`
+        };
     }
 };
 
@@ -243,32 +232,25 @@ const fileStateTool: Tool = {
     },
 
     execute: async (args: { path: string }): Promise<ToolExecuteResult> => {
-        try {
-            const filePath = path.resolve(args.path);
+        const filePath = path.resolve(args.path);
 
-            // 获取文件状态
-            const stats = fs.statSync(filePath);
+        // 获取文件状态
+        const stats = fs.statSync(filePath);
 
-            // 格式化文件信息
-            const fileInfo = {
-                path: filePath,
-                size: fileSize(stats.size),
-                isDirectory: stats.isDirectory(),
-                createdAt: stats.birthtime.toISOString(),
-                modifiedAt: stats.mtime.toISOString(),
-                accessedAt: stats.atime.toISOString()
-            };
+        // 格式化文件信息
+        const fileInfo = {
+            path: filePath,
+            size: fileSize(stats.size),
+            isDirectory: stats.isDirectory(),
+            createdAt: stats.birthtime.toISOString(),
+            modifiedAt: stats.mtime.toISOString(),
+            accessedAt: stats.atime.toISOString()
+        };
 
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(fileInfo)
-            };
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `FileState error: ${error.message}`
-            };
-        }
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: JSON.stringify(fileInfo)
+        };
     }
 };
 
