@@ -18,11 +18,8 @@ export const documentMapper = (doc: Block | any) => {
         id: doc.id,
         hpath: doc.hpath,
         path: doc.path,
-        name: doc.content,
-        notebook: {
-            id: notebook.id,
-            name: notebook.name
-        }
+        content: doc.content,
+        box: notebook.id
     }
 }
 

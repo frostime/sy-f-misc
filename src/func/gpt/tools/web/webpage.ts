@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2025-05-30 20:11:55
+ * @FilePath     : /src/func/gpt/tools/web/webpage.ts
+ * @LastEditTime : 2025-06-04 11:59:34
+ * @Description  : 
+ */
 import URLProvider from "../../context-provider/URLProvider";
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
 
@@ -23,7 +31,7 @@ export const webPageContentTool: Tool = {
                     },
                     limit: {
                         type: 'integer',
-                        description: '可选, 返回的网页内容字符数量的限制; 默认 6000; 如果小于等于 0, 则不限制; 注意是字符数量(string.length)'
+                        description: '可选, 返回的网页内容字符数量的限制; 默认 5000; 如果小于等于 0, 则不限制; 注意是字符数量(string.length)'
                     }
                 }
             }
@@ -32,7 +40,7 @@ export const webPageContentTool: Tool = {
     },
 
     execute: async (args: { url?: string, urlList?: string[], limit?: number }): Promise<ToolExecuteResult> => {
-        let limit = args.limit ?? 6000;
+        let limit = args.limit ?? 5000;
         let urlText = '';
         if (args.url) {
             urlText = args.url;

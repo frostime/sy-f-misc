@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-06-04 11:45:16
+ * @LastEditTime : 2025-06-04 13:25:06
  * @Description  : 思源笔记工具导出文件
  */
 
@@ -22,7 +22,7 @@ import {
     appendMarkdownTool,
     appendDailyNoteTool
 } from './content-tools';
-import { searchDocumentTool, queryViewTools } from './search';
+import { searchDocumentTool, querySQLTool } from './search-tools';
 
 // 导出思源笔记工具列表
 export const siyuanTool = {
@@ -42,7 +42,7 @@ export const siyuanTool = {
         appendMarkdownTool,
         appendDailyNoteTool,
         searchDocumentTool,
-        ...queryViewTools
+        querySQLTool
     ],
     rulePrompt: `
 思源笔记(https://github.com/siyuan-note/siyuan)是一个块结构的笔记软件
@@ -71,6 +71,10 @@ export const siyuanTool = {
 
 - 块链接: \`[内容](siyuan://blocks/<BlockId>)\`
 - 块引用: \`((<BlockId> "锚文本"))\`; 引号可以是单引号或双引号
+  - 反链: 如果 A 引用了 B; 那么对 B 而言 A 是他的反链(ref/backlink)
+- 嵌入块/查询块: {{<SQL>}}; 思源支持SQL动态查询，SQL 语句需要用 _esc_newline_ 转义换行, 例如:
+    {{select * from blocks where type='d' _esc_newline_ order by updated desc;}}
+- 标签: \`#标签名#\`
 
 ### 常用工具(不一定完整)
 
@@ -88,12 +92,41 @@ export const siyuanTool = {
   - getBlockMarkdown: 获取块内容(文档,普通块均可)
   - appendMarkdown: 在文档末尾添加内容
   - appendDailyNote: 在日记文档末尾添加内容
+- 高级查询
+  - querySQL: 在思源中执行 SQL 查询 (高级的操作, 可自定义大部分查询需求)
+    - 请优先考虑现成的工具，若现有工具不足以完成任务再考虑使用 SQL 查询
 
-### 工具使用经验
+### 经验
 
 - 如果用户没有任何上下文就提及了某个文档，并默认你应该知道，尝试 listActiveDocs 查看是否是当前活动文档
 - 日记文档每个笔记本内各自独立; 所以涉及日记文档操作时，和用户确定使用哪个笔记本
 - 学会通过 path/hpath 来推断文档的层级关系
 - 学会通过 ID 来分析文档的时间戳
+- 不错的社区网站:
+  - 思源论文精选: https://ld246.com/tag/siyuan/perfect
+  - 思源主题博客: https://siyuannote.com/
+
+### SQL 相关简单说明
+querySQL 工具提供了 SQL 查询功能，是思源笔记的核心高级功能
+
+- 完整SQL表结构文档: https://docs.siyuan-note.club/zh-Hans/reference/database/table.html
+- SQL 查询 CheatSheet: https://ld246.com/article/1739546865001
+
+常用表为 blocks 表, refs 表, attributes 表
+
+**blocks 表核心部分说明**
+- id: 块id
+- type: d: 文档, h: 标题, m: 数学公式, c: 代码块, t: 表格块, l: 列表块, b: 引述块, s: 超级块，p：段落块，av：属性视图（俗称数据库，注意区分，这只是一个内容块的叫法）
+- subtype: 特定类型的内容块还存在子类型, 标题块的 h1 到 h6; 列表块的 u (无序), t (任务), o (有序)
+- markdown/content: 原始 markdown 内容和无格式内容
+  - 对文档块而言, content 为文档标题
+  - 对其他内容块而言, 为块的内容
+- created/updated
+- box: 所在笔记本
+- root_id/path/hpath: 所在文档
+
+**refs 表核心部分说明**(记录块引用/反链)
+- block_id: 引用所在内容块 ID
+- def_block_id: 被引用块的块 ID
 `
 };

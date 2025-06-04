@@ -75,33 +75,79 @@ export const getDocumentTool: Tool = {
         type: 'function',
         function: {
             name: 'getDocument',
-            description: '获取文档信息',
+            description: '获取文档信息; docId/docIdList 只能提供一个',
             parameters: {
                 type: 'object',
                 properties: {
                     docId: {
                         type: 'string',
                         description: '文档ID'
+                    },
+                    docIdList: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                        description: '文档ID列表，可同时获取多个文档信息'
                     }
                 },
-                required: ['docId']
+                required: []
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
-    execute: async (args: { docId: string }): Promise<ToolExecuteResult> => {
+    execute: async (args: { docId?: string; docIdList?: string[] }): Promise<ToolExecuteResult> => {
         try {
-            const doc = await getDocument({ docId: args.docId });
-            if (!doc) {
+            // 处理单个文档ID的情况
+            if (args.docId && !args.docIdList) {
+                const doc = await getDocument({ docId: args.docId });
+                if (!doc) {
+                    return {
+                        status: ToolExecuteStatus.NOT_FOUND,
+                        error: `未找到文档: ${args.docId}`
+                    };
+                }
                 return {
-                    status: ToolExecuteStatus.NOT_FOUND,
-                    error: `未找到文档: ${args.docId}`
+                    status: ToolExecuteStatus.SUCCESS,
+                    data: JSON.stringify(doc)
                 };
             }
+
+            // 处理多个文档ID的情况
+            if (args.docIdList && args.docIdList.length > 0) {
+                const docs = [];
+                const notFoundIds = [];
+
+                for (const docId of args.docIdList) {
+                    const doc = await getDocument({ docId });
+                    if (doc) {
+                        docs.push(doc);
+                    } else {
+                        notFoundIds.push(docId);
+                    }
+                }
+
+                if (docs.length === 0) {
+                    return {
+                        status: ToolExecuteStatus.NOT_FOUND,
+                        error: `未找到任何文档: ${notFoundIds.join(', ')}`
+                    };
+                }
+
+                return {
+                    status: ToolExecuteStatus.SUCCESS,
+                    data: JSON.stringify({
+                        docs,
+                        notFoundIds: notFoundIds.length > 0 ? notFoundIds : undefined
+                    })
+                };
+            }
+
+            // 如果既没有提供 docId 也没有提供 docIdList
             return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(doc)
+                status: ToolExecuteStatus.ERROR,
+                error: '请提供 docId 或 docIdList 参数'
             };
         } catch (error) {
             return {
@@ -155,7 +201,7 @@ export const getParentDocTool: Tool = {
             }
 
             const parentPath = parts.slice(0, -1).join('/');
-            const docs = await listDocsByPath(doc.notebook.id, parentPath);
+            const docs = await listDocsByPath(doc.box, parentPath);
             if (!docs || docs.length === 0) {
                 return {
                     status: ToolExecuteStatus.NOT_FOUND,
@@ -262,7 +308,7 @@ export const listSiblingDocsTool: Tool = {
             }
 
             const parentPath = parts.slice(0, -1).join('/');
-            const docs = await listDocsByPath(doc.notebook.id, parentPath);
+            const docs = await listDocsByPath(doc.box, parentPath);
             if (!docs || docs.length === 0) {
                 return {
                     status: ToolExecuteStatus.NOT_FOUND,

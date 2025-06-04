@@ -37,7 +37,10 @@ export class ToolExecutor {
 
     toolRules() {
         if (!this.hasEnabledTools()) return '';
-        let prompt = '<tools>当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具。为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中。</tools>';
+        let prompt = `<tools>
+当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具。
+为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中。
+</tools>`;
         for (const [name, rule] of Object.entries(this.groupRules)) {
             if (!this.isGroupEnabled(name)) continue;
             prompt += `\n\n${rule}`;
