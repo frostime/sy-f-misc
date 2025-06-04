@@ -9,33 +9,47 @@ import { Component, JSX } from "solid-js";
 import { ToolExecuteResult, ApprovalUIAdapter } from "./types";
 import { ButtonInput } from "@/libs/components/Elements";
 import { solidDialog } from "@/libs/dialog";
-import Markdown from "@/libs/components/Elements/Markdown";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 
 /**
- * 将对象参数格式化为Markdown列表
+ * 渲染参数列表组件
  */
-const formatArgsToMarkdown = (args: Record<string, any>): string => {
-    return Object.keys(args).map(key => {
-        if (args[key] instanceof String) {
-            if (args[key].includes('\n')) {
-                return `- \`${key}\`:
-\`\`\`
-${args[key]}
-\`\`\`
-`;
-            } else {
-                return `- \`${key}\`: \`${args[key]}\``;
-            }
-        } else {
-            return `- \`${key}\`: \`${args[key]}\``;
-        }
-    }).join('\n');
+const ArgsListComponent = (props: { args: Record<string, any> }) => {
+    return (
+        <>
+            <h3>参数:</h3>
+            <ul class="b3-list">
+                {Object.keys(props.args).map(key => (
+                    <li>
+                        <strong>{key}:</strong> {
+                            typeof props.args[key] === 'string' && props.args[key].includes('\n') ? (
+                                <textarea
+                                    class="b3-text-field"
+                                    readOnly
+                                    value={props.args[key]}
+                                    rows={4}
+                                    style={{
+                                        "width": "100%",
+                                        "margin": "8px 0",
+                                        "resize": "vertical",
+                                        "font-family": "var(--b3-font-family-code)"
+                                    }}
+                                />
+                            ) : (
+                                <code>{String(props.args[key])}</code>
+                            )
+                        }
+                    </li>
+                ))}
+            </ul>
+        </>
+    );
 };
 
 
 const BaseApprovalUI = (props: {
-    markdown: string;
+    title: string;
+    description?: string;
     onApprove: () => void;
     onReject: (reason?: string) => void;
     showReasonInput?: boolean;
@@ -48,9 +62,16 @@ const BaseApprovalUI = (props: {
             "padding": "16px",
             "width": "100%"
         }}>
-            <Markdown markdown={props.markdown} />
 
-            {props.children}
+            <div class="b3-typography" style={{
+                "margin": "8px 0"
+            }}>
+                <h3>{props.title}</h3>
+                {props.description && <p><strong>{props.description}</strong></p>}
+
+                {props.children}
+            </div>
+
 
             <div style={{
                 "display": "flex",
@@ -98,23 +119,18 @@ export const ToolExecutionApprovalUI: Component<{
     onApprove: () => void;
     onReject: (reason?: string) => void;
 }> = (props) => {
-    const markdown = `
-### 允许执行工具 ${props.toolName}？
 
-**描述:** ${props.toolDescription}
-
-**参数:**
-
-${formatArgsToMarkdown(props.args)}
-`;
 
     return (
         <BaseApprovalUI
-            markdown={markdown}
+            title={`允许执行工具 ${props.toolName}？`}
+            description={props.toolDescription}
             onApprove={props.onApprove}
             onReject={props.onReject}
             showReasonInput={true}
-        />
+        >
+            <ArgsListComponent args={props.args} />
+        </BaseApprovalUI>
     );
 };
 
@@ -128,24 +144,18 @@ export const ToolResultApprovalUI: Component<{
     onApprove: () => void;
     onReject: () => void;
 }> = (props) => {
-    const markdown = `
-### 允许将工具 ${props.toolName} 的结果发送给 LLM？
 
-**参数:**
-
-${formatArgsToMarkdown(props.args)}
-
-**结果:**
-
-`;
 
     return (
         <BaseApprovalUI
-            markdown={markdown}
+            title={`允许将工具 ${props.toolName} 的结果发送给 LLM？`}
             onApprove={props.onApprove}
             onReject={() => props.onReject()}
             showReasonInput={false}
         >
+            <ArgsListComponent args={props.args} />
+
+            <h3>结果:</h3>
             <textarea
                 class="b3-text-field"
                 style={{

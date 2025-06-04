@@ -206,10 +206,10 @@ ${group.rulePrompt.trim()}
             };
         }
 
-        const { permissionLevel } = tool.definition;
+        const { permissionLevel, requireExecutionApproval } = tool.definition;
 
         // 公开工具，无需审核
-        if (permissionLevel === ToolPermissionLevel.PUBLIC) {
+        if (permissionLevel === ToolPermissionLevel.PUBLIC || requireExecutionApproval === false) {
             return { approved: true };
         }
 

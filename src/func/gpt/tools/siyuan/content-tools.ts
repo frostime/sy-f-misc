@@ -37,7 +37,9 @@ export const getBlockMarkdownTool: Tool = {
                 required: ['blockId']
             }
         },
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        // permissionLevel: ToolPermissionLevel.PUBLIC,
+        requireExecutionApproval: false,
+        requireResultApproval: true
     },
 
     execute: async (args: { blockId: string; begin?: number; limit?: number }): Promise<ToolExecuteResult> => {

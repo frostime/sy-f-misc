@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 01:45:14
  * @FilePath     : /src/func/gpt/tools/types.ts
- * @LastEditTime : 2025-05-12 15:58:46
+ * @LastEditTime : 2025-06-04 13:30:33
  * @Description  : 工具类型定义
  */
 /**
@@ -89,7 +89,7 @@ export type ResultApprovalCallback = (
  */
 export type ToolDefinitionWithPermission = IToolDefinition & {
     // 工具权限级别
-    permissionLevel: ToolPermissionLevel;
+    permissionLevel?: ToolPermissionLevel;
 
     // 是否需要执行前权限检查，默认为 true
     // 设置为 false 可以跳过执行前权限检查，即使 permissionLevel 不是 PUBLIC
