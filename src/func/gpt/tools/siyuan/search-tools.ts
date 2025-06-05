@@ -1,4 +1,6 @@
 import { sql } from "@/api";
+import { request } from "@frostime/siyuan-plugin-kits/api";
+import { getNotebook } from "@frostime/siyuan-plugin-kits";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { blockMapper, documentMapper } from "./utils";
 
@@ -132,6 +134,125 @@ export const querySQLTool: Tool = {
         return {
             status: ToolExecuteStatus.SUCCESS,
             data: JSON.stringify(docs)
+        };
+    }
+}
+
+/**
+ * 关键词搜索工具
+ * 基于思源笔记的全文搜索API实现
+ */
+export const searchKeywordTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'searchKeyword',
+            description: '在笔记库中搜索关键词',
+            parameters: {
+                type: 'object',
+                properties: {
+                    keyword: {
+                        type: 'string',
+                        description: '要搜索的关键词'
+                    },
+                    notebook: {
+                        type: 'string',
+                        description: '笔记本ID，用于限定搜索范围'
+                    },
+                    limit: {
+                        type: 'number',
+                        description: '限制返回结果数量，默认为24'
+                    }
+                },
+                required: ['keyword']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    execute: async (args: {
+        keyword: string;
+        notebook?: string;
+        limit?: number;
+    }): Promise<ToolExecuteResult> => {
+        // 验证关键词
+        const keyword = args.keyword?.trim();
+        if (!keyword) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: '请提供搜索关键词'
+            };
+        }
+
+        // 构建搜索请求参数
+        const payload = {
+            query: keyword,
+            method: 0, // 精确匹配
+            types: {
+                // 默认搜索常用块类型
+                document: true,
+                heading: true,
+                paragraph: true,
+                blockquote: true,
+                codeBlock: false,
+                mathBlock: true,
+                table: true,
+                list: false,
+                listItem: false,
+                databaseBlock: true,
+                htmlBlock: false,
+                embedBlock: false,
+                audioBlock: false,
+                videoBlock: false,
+                iframeBlock: false,
+                widgetBlock: false,
+                superBlock: false
+            },
+            paths: args.notebook ? [args.notebook] : [], // 如果指定了笔记本，则限定搜索范围
+            groupBy: 0,
+            orderBy: 0,
+            page: 1,
+            pageSize: args.limit || 24, // 默认返回20条结果
+            reqId: Date.now(),
+        };
+
+        // 调用思源笔记的搜索API
+        const data = await request('/api/search/fullTextSearchBlock', payload);
+
+        // 处理返回结果
+        const blocks = data.blocks as {
+            id: string;
+            fcontent: string;
+            content: string;
+            name: string;
+            markdown: string;
+            hPath: string;
+            type: string;
+            box: string;
+            rootID: string;
+            parentID: string;
+        }[];
+
+        // 去掉搜索结果中的<mark>标签
+        const noMark = (text: string) => text.replace(/<mark>|<\/mark>/g, '');
+
+        // 格式化搜索结果
+        const results = blocks.map(block => ({
+            id: block.id,
+            type: block.type,
+            content: noMark(block.content),
+            root_id: block.rootID,
+            parent_id: block.parentID,
+            hpath: block.hPath,
+            notebook: {
+                id: block.box,
+                name: getNotebook(block.box)?.name || '未知笔记本'
+            }
+        }));
+
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: JSON.stringify(results)
         };
     }
 }
