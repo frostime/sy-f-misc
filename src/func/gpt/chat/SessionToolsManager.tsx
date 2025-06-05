@@ -1,22 +1,24 @@
 /*
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
- * @Date         : 2025-05-31 18:48:52
- * @FilePath     : /src/func/gpt/setting/ToolsManagerSetting.tsx
- * @Description  : 工具管理器设置组件
+ * @Date         : 2025-06-05 21:05:45
+ * @FilePath     : /src/func/gpt/chat/SessionToolsManager.tsx
+ * @Description  : 会话级别的工具管理器组件
  */
 import { Component, For, Show, createSignal } from 'solid-js';
-import { toolsManager } from './store';
-import { toolExecutorFactory } from '../tools';
-import './ToolsManagerSetting.scss';
+import { ToolExecutor } from '../tools';
+import '../setting/ToolsManagerSetting.scss';
 
 /**
- * 工具管理器设置组件
+ * 会话级别的工具管理器组件
+ * 复用 ToolsManagerSetting 的样式，但针对单个会话的 toolExecutor
  */
-export const ToolsManagerSetting: Component = () => {
-    // 创建一个临时的工具执行器，用于获取所有工具组和工具
-    const tempExecutor = toolExecutorFactory({});
-
+export const SessionToolsManager: Component<{
+    toolExecutor: ToolExecutor;
+    onToggleGroup?: (groupName: string, enabled: boolean) => void;
+    onToggleTool?: (toolName: string, enabled: boolean) => void;
+    onClose?: () => void;
+}> = (props) => {
     // 为每个工具组创建一个展开/折叠状态
     const [collapsedGroups, setCollapsedGroups] = createSignal<Record<string, boolean>>({});
 
@@ -30,39 +32,37 @@ export const ToolsManagerSetting: Component = () => {
 
     // 切换工具组的启用状态
     const toggleGroupEnabled = (groupName: string) => {
-        const currentEnabled = toolsManager().groupDefaults[groupName] !== false;
+        const currentEnabled = props.toolExecutor.isGroupEnabled(groupName);
+        props.toolExecutor.toggleGroupEnabled(groupName, !currentEnabled);
 
-        toolsManager.update('groupDefaults', groupName, !currentEnabled);
+        // 调用回调函数
+        if (props.onToggleGroup) {
+            props.onToggleGroup(groupName, !currentEnabled);
+        }
     };
 
     // 切换工具的启用状态
     const toggleToolEnabled = (toolName: string) => {
-        const currentEnabled = toolsManager().toolDefaults[toolName] !== false;
+        const currentEnabled = props.toolExecutor.isToolEnabled(toolName);
+        props.toolExecutor.setToolEnabled(toolName, !currentEnabled);
 
-        toolsManager.update('toolDefaults', toolName, !currentEnabled);
-    };
-
-    // 检查工具组是否启用
-    const isGroupEnabled = (groupName: string) => {
-        return toolsManager().groupDefaults[groupName] ?? false;
-    };
-
-    // 检查工具是否启用
-    const isToolEnabled = (toolName: string) => {
-        return toolsManager().toolDefaults[toolName] ?? true;
+        // 调用回调函数
+        if (props.onToggleTool) {
+            props.onToggleTool(toolName, !currentEnabled);
+        }
     };
 
     return (
-        <div class="tools-manager-setting">
+        <div class="tools-manager-setting" style={{ flex: 1 }}>
             <div class="tools-manager-groups">
-                <For each={Object.entries(tempExecutor.groupRegistry)}>
+                <For each={Object.entries(props.toolExecutor.groupRegistry)}>
                     {([groupName, group]) => (
                         <div class="tools-manager-group">
                             <div class="tools-manager-group-header" onClick={() => toggleGroupExpand(groupName)}>
                                 <div class="tools-manager-group-toggle">
                                     <input
                                         type="checkbox"
-                                        checked={isGroupEnabled(groupName)}
+                                        checked={props.toolExecutor.isGroupEnabled(groupName)}
                                         onChange={() => toggleGroupEnabled(groupName)}
                                         onClick={(e) => e.stopPropagation()}
                                     />
@@ -82,8 +82,7 @@ export const ToolsManagerSetting: Component = () => {
                                             <div class="tools-manager-tool">
                                                 <input
                                                     type="checkbox"
-                                                    checked={isToolEnabled(tool.definition.function.name)}
-                                                    disabled={!isGroupEnabled(groupName)}
+                                                    checked={props.toolExecutor.isToolEnabled(tool.definition.function.name)}
                                                     onChange={() => toggleToolEnabled(tool.definition.function.name)}
                                                 />
                                                 <span class="tools-manager-tool-name">

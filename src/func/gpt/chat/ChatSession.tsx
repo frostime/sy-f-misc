@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/ChatSession.tsx
- * @LastEditTime : 2025-05-31 15:52:27
+ * @LastEditTime : 2025-06-05 22:23:24
  * @Description  :
  */
 // External libraries
@@ -19,8 +19,8 @@ import { Menu, Protyle, showMessage } from 'siyuan';
 import { getMarkdown, inputDialog, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
 
 // UI Components
-import Form, { FormWrap } from '@/libs/components/Form';
-import { CheckboxInput, SliderInput } from '@/libs/components/Elements';
+import Form from '@/libs/components/Form';
+import { SliderInput } from '@/libs/components/Elements';
 import { solidDialog } from '@/libs/dialog';
 
 // Local components
@@ -31,6 +31,7 @@ import TitleTagEditor from './TitleTagEditor';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
 import SessionItemsManager from './SessionItemsManager';
+import { SessionToolsManager } from './SessionToolsManager';
 import { useSession, useSessionSetting, SimpleProvider } from './ChatSession.helper';
 
 // GPT and settings related
@@ -47,7 +48,7 @@ import {
     isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
 
-import { Rows } from '@/libs/components/Elements/Flex';
+// Import removed: Rows was unused
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -1204,41 +1205,26 @@ const ChatSession: Component<{
                         onclick={(e: MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            solidDialog({
+                            const { container } = solidDialog({
                                 title: '可用工具',
                                 loader: () => (
-                                    <Rows align='normal' justify='normal' style={{
-                                        flex: 1,
-                                    }}>
-                                        <For each={Object.entries(session.toolExecutor.groupEnabled)}>
-                                            {([name, enabled]) => (
-
-                                                <FormWrap
-                                                    title={name}
-                                                    description={
-                                                        session.toolExecutor.getGroupToolDefinitions(name)
-                                                            .map(tool => `${tool.function.name}: ${tool.function.description}`)
-                                                            .join('<br/>')
-                                                    }
-                                                >
-                                                    <CheckboxInput
-                                                        checked={enabled}
-                                                        changed={(value) => {
-                                                            session.toolExecutor.toggleGroupEnabled(name, value);
-                                                        }}
-                                                    />
-                                                </FormWrap>
-                                            )}
-                                        </For>
-                                    </Rows>
+                                    <SessionToolsManager 
+                                        toolExecutor={session.toolExecutor}
+                                        onToggleGroup={(_groupName, _enabled) => {
+                                            // 工具组状态已在组件内部更新，这里可以添加额外逻辑
+                                        }}
+                                        onToggleTool={(_toolName, _enabled) => {
+                                            // 工具状态已在组件内部更新，这里可以添加额外逻辑
+                                        }}
+                                    />
                                 ),
                                 width: '840px',
-                                // height: '800px',
-                                maxHeight: '90%',
+                                height: '640px',
                                 callback: () => {
                                     hasToolEnabled.update(session.toolExecutor.hasEnabledTools());
                                 }
-                            })
+                            });
+                            (container.querySelector('.dialog-content') as HTMLElement).style.height = 'unset';
                         }}
                         label='工具'
                         role='tool-calls'
