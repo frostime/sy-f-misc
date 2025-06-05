@@ -54,7 +54,7 @@ export const searchDocumentTool: Tool = {
         let docs = result.map(documentMapper)
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(docs)
+            data: docs
         };
     }
 }
@@ -133,7 +133,7 @@ export const querySQLTool: Tool = {
         let docs = result.map(blockMapper)
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(docs)
+            data: docs
         };
     }
 }
@@ -167,7 +167,8 @@ export const searchKeywordTool: Tool = {
                 required: ['keyword']
             }
         },
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        permissionLevel: ToolPermissionLevel.MODERATE,
+        requireResultApproval: true
     },
 
     execute: async (args: {
@@ -252,7 +253,7 @@ export const searchKeywordTool: Tool = {
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(results)
+            data: results
         };
     }
 }

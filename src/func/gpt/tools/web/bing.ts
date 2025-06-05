@@ -5,7 +5,7 @@ import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from 
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
- * @LastEditTime : 2025-06-02 21:09:22
+ * @LastEditTime : 2025-06-05 12:12:40
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
@@ -87,7 +87,7 @@ export const bingSearchTool: Tool = {
         const result = await bingSearch(args.query);
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(result)
+            data: result
         };
     }
 };

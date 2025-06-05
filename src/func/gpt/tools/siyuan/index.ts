@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-06-04 20:59:50
+ * @LastEditTime : 2025-06-05 12:17:29
  * @Description  : 思源笔记工具导出文件
  */
 
@@ -22,7 +22,7 @@ import {
     appendMarkdownTool,
     appendDailyNoteTool
 } from './content-tools';
-import { searchDocumentTool, querySQLTool } from './search-tools';
+import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
 
 // 导出思源笔记工具列表
 export const siyuanTool = {
@@ -42,7 +42,8 @@ export const siyuanTool = {
         appendMarkdownTool,
         appendDailyNoteTool,
         searchDocumentTool,
-        querySQLTool
+        querySQLTool,
+        searchKeywordTool
     ],
     rulePrompt: `
 思源笔记(https://github.com/siyuan-note/siyuan)是一个块结构的笔记软件
@@ -92,7 +93,8 @@ export const siyuanTool = {
   - getBlockMarkdown: 获取块内容(文档,普通块均可)
   - appendMarkdown: 在文档末尾添加内容
   - appendDailyNote: 在日记文档末尾添加内容
-- 高级查询
+- 查询
+  - searchKeyword: 思源中根据关键词搜索笔记内
   - querySQL: 在思源中执行 SQL 查询 (高级的操作, 可自定义大部分查询需求)
     - 请优先考虑现成的工具，若现有工具不足以完成任务再考虑使用 SQL 查询
 

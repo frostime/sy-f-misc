@@ -107,13 +107,13 @@ export const bochaSearchTool: Tool = {
         if (result === null) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                data: JSON.stringify({ error: "Search failed." })
+                data: { error: "Search failed." }
             };
         }
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(result)
+            data: result
         };
     }
 };

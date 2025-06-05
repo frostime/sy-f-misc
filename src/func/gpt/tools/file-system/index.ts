@@ -69,7 +69,7 @@ const listDirTool: Tool = {
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(result)
+            data: result
         };
     }
 };
@@ -249,7 +249,7 @@ const fileStateTool: Tool = {
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(fileInfo)
+            data: fileInfo
         };
     }
 };

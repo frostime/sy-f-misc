@@ -292,13 +292,13 @@ export const tavilySearchTool: Tool = {
         if (result === null) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                data: JSON.stringify({ error: "Tavily search failed. API key may be missing or invalid." })
+                data: { error: "Tavily search failed. API key may be missing or invalid." }
             };
         }
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(result)
+            data: result
         };
     }
 };

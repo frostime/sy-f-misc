@@ -59,10 +59,10 @@ export const listActiveDocsTool: Tool = {
         }
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify({
+            data: {
                 OpenedDocs: items,
                 Editing: edit
-            })
+            }
         };
     }
 };
@@ -110,7 +110,7 @@ export const getDocumentTool: Tool = {
                 }
                 return {
                     status: ToolExecuteStatus.SUCCESS,
-                    data: JSON.stringify(doc)
+                    data: doc
                 };
             }
 
@@ -137,10 +137,10 @@ export const getDocumentTool: Tool = {
 
                 return {
                     status: ToolExecuteStatus.SUCCESS,
-                    data: JSON.stringify({
+                    data: {
                         docs,
                         notFoundIds: notFoundIds.length > 0 ? notFoundIds : undefined
-                    })
+                    }
                 };
             }
 
@@ -211,7 +211,7 @@ export const getParentDocTool: Tool = {
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(documentMapper(docs[0]))
+                data: documentMapper(docs[0])
             };
         } catch (error) {
             return {
@@ -254,7 +254,7 @@ export const listSubDocsTool: Tool = {
             const result = await listSubDocs(args.docId, args.depth || 1);
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(result)
+                data: result
             };
         } catch (error) {
             return {
@@ -319,7 +319,7 @@ export const listSiblingDocsTool: Tool = {
             let blocks = await id2block(docs.files.map(doc => doc.id));
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(blocks.map(documentMapper))
+                data: blocks.map(documentMapper)
             };
         } catch (error) {
             return {
@@ -368,7 +368,7 @@ export const listNotebookDocsTool: Tool = {
         if (args.depth === undefined || args.depth === 1) {
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(topLevelDocs.map(documentMapper))
+                data: topLevelDocs.map(documentMapper)
             };
         }
 
@@ -385,7 +385,7 @@ export const listNotebookDocsTool: Tool = {
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(subDocs)
+            data: subDocs
         };
     }
 }
@@ -422,7 +422,7 @@ export const getDailyNoteDocsTool: Tool = {
             const docs = await getDailyNoteDocs(args);
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(docs)
+                data: docs
             };
         } catch (error) {
             return {

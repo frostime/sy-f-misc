@@ -145,6 +145,7 @@ export const ToolResultApprovalUI: Component<{
     onReject: () => void;
 }> = (props) => {
 
+    const dataContent = JSON.stringify(props.result.data);
 
     return (
         <BaseApprovalUI
@@ -155,7 +156,7 @@ export const ToolResultApprovalUI: Component<{
         >
             <ArgsListComponent args={props.args} />
 
-            <h3>结果 (共 {props.result.data.length} 字符)</h3>
+            <h3>结果 (共 {dataContent.length} 字符)</h3>
             <textarea
                 class="b3-text-field"
                 style={{
@@ -167,7 +168,7 @@ export const ToolResultApprovalUI: Component<{
                 }}
                 rows={10}
                 readOnly
-                value={props.result.data}
+                value={dataContent}
             />
         </BaseApprovalUI>
     );

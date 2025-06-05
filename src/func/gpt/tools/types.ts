@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 01:45:14
  * @FilePath     : /src/func/gpt/tools/types.ts
- * @LastEditTime : 2025-06-04 13:30:33
+ * @LastEditTime : 2025-06-05 12:14:11
  * @Description  : 工具类型定义
  */
 /**
@@ -51,7 +51,7 @@ export interface ToolExecuteResult {
     status: ToolExecuteStatus;
 
     // 执行结果数据（成功时）
-    data?: string;
+    data?: ScalarType | Record<string, any> | Array<ScalarType | Record<string, any>>;
 
     // 错误信息（失败时）
     error?: string;

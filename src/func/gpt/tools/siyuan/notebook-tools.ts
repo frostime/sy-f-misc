@@ -32,7 +32,7 @@ export const listNotebookTool: Tool = {
             const notebooks = listNotebook();
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: JSON.stringify(notebooks)
+                data: notebooks
             };
         } catch (error) {
             return {
@@ -87,7 +87,7 @@ export const getNotebookTool: Tool = {
         }
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: JSON.stringify(notebook)
+            data: notebook
         };
     }
 };
