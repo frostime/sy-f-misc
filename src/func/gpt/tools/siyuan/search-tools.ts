@@ -24,6 +24,11 @@ export const searchDocumentTool: Tool = {
                     notebook: {
                         type: 'string',
                         description: '笔记本ID, 用于过滤文档所在笔记本'
+                    },
+                    match: {
+                        type: 'string',
+                        enum: ['=', 'like'],
+                        description: 'name/hpath SQL 的查询匹配方式; 默认 ='
                     }
                 }
             }
@@ -31,12 +36,12 @@ export const searchDocumentTool: Tool = {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
-    execute: async (args: { name?: string; hpath?: string; notebook?: string }): Promise<ToolExecuteResult> => {
+    execute: async (args: { name?: string; hpath?: string; notebook?: string; match?: string }): Promise<ToolExecuteResult> => {
         let condition = [];
         if (args.hpath) {
-            condition.push(`hpath = '${args.hpath}'`);
+            condition.push(`hpath ${args.match || '='} '${args.hpath}'`);
         } else if (args.name) {
-            condition.push(`content = '${args.name}'`);
+            condition.push(`content ${args.match || '='} '${args.name}'`);
         } else {
             return {
                 status: ToolExecuteStatus.ERROR,
@@ -129,11 +134,10 @@ export const querySQLTool: Tool = {
         }
         args.sql = args.sql.replace(/_esc_newline_/g, '\n');
         const code = parseSQLInput(args.sql);
-        const result = await sql(code);
-        let docs = result.map(blockMapper)
+        let results = await sql(code);
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: docs
+            data: results
         };
     }
 }

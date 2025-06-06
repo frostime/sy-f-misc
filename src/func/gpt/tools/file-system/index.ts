@@ -60,16 +60,12 @@ const listDirTool: Tool = {
                 const stats = fs.statSync(itemPath);
                 size = fileSize(stats.size);
             }
-            return {
-                name: item,
-                type: isDirectory ? 'directory' : 'file',
-                size: size
-            };
+            return  `${isDirectory ? 'dir' : 'file'}\t${item}\t${size}`;
         });
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: result
+            data: result.join('\n')
         };
     }
 };
@@ -301,5 +297,11 @@ if (fs && fileSystemTools.tools.length > 0) {
     fileSystemTools.rulePrompt = `
 当前主机运行的系统: ${platform}, 用户家目录: ${homeDir}
 ${drivesStr}
+
+### 工具使用
+- ListDir: 列出目录, 用户提及本机目录结构时使用
+- FileState: 获取特定文件元信息
+- ReadFile: 读取文本文件内容
+- CreateFile: 创建文本文件
 `.trim();
 }

@@ -6,7 +6,7 @@
  * @Description  : 思源笔记工具辅助函数
  */
 
-import { BlockTypeName, getBlockByID, getMarkdown, getNotebook, listDailynote, searchChildDocs, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { BlockTypeName, getBlockByID, getMarkdown, listDailynote, searchChildDocs, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { appendBlock, request } from "@frostime/siyuan-plugin-kits/api";
 
 /**
@@ -27,26 +27,17 @@ export const documentMapper = (doc: Block | any) => {
  * 块映射函数
  */
 export const blockMapper = (block: Block | any) => {
-    return {
+    let ans: Partial<Block> = {
         id: block.id,
         type: BlockTypeName[block.type],
-        content: block.content,
         root_id: block.root_id
+    };
+    if (block.type === 'd') {
+        ans.content = block.content;
+    } else {
+        ans.markdown = block.markdown;
     }
-}
-
-/**
- * 获取笔记本列表
- */
-export const listNotebook = () => {
-    return window.siyuan.notebooks
-        .filter((notebook) => notebook.closed !== true)
-        .map((notebook) => {
-            return {
-                name: notebook.name,
-                id: notebook.id
-            }
-        });
+    return ans;
 }
 
 /**

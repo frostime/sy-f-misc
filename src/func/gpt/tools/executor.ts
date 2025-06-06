@@ -37,11 +37,18 @@ export class ToolExecutor {
 
     toolRules() {
         if (!this.hasEnabledTools()) return '';
-        let prompt = `<tools>
-当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具。
-为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中，工具调用的记录可能被包含在<tool-chain></tool-chain>标签中，这部分内容不会显示给 USER 看。
-有时候 USER 可能会想手动调用工具并查看结果(比如网络搜索)，请将工具结果良好格式化后呈现给他，不要自作主张只给“总结结果”而导致信息丢失。
-</tools>`;
+        let prompt = `<tool-rules>
+当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具.
+
+
+- 为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中; SYSTEM 将工具调用的记录放在<tool-chain></tool-chain>标签中并插入到消息里，这部分内容不会显示给 USER 看.
+  - ASSISTANT 也不得自行提及、生成 <tool-chain> 标签!
+- 有时候 USER 可能会想手动调用工具并查看结果(比如网络搜索等)，请将工具结果良好格式化后呈现给他，不要自作主张只给“总结结果”而导致信息丢失.
+
+- Keep going until the user’s query is completely resolved, before ending assistant's turn and yielding back to the user. Only terminate assistant turn when you are sure that the problem is solved.
+- You MUST plan extensively before each tool call, and reflect extensively on the outcomes of the previous tool calls.
+- DO NOT do this entire process by making tool calls only, as this can impair your ability to solve the problem and think insightfully. !IMPORTANT!
+</tool-rules>`;
         for (const [name, rule] of Object.entries(this.groupRules)) {
             if (!this.isGroupEnabled(name)) continue;
             prompt += `\n\n${rule}`;

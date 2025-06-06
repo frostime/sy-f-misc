@@ -89,6 +89,12 @@ const BaseApprovalUI = (props: {
                     />
                 )}
 
+                {!props.showReasonInput && (
+                    <div style={{
+                        "flex": 1
+                    }} />
+                )}
+
                 <ButtonInput
                     label="拒绝"
                     onClick={() => props.onReject(props.showReasonInput ? reason() : undefined)}
@@ -145,7 +151,13 @@ export const ToolResultApprovalUI: Component<{
     onReject: () => void;
 }> = (props) => {
 
-    const dataContent = JSON.stringify(props.result.data);
+    // const dataContent = instanceof(props.result.data, string) ? props.result.data : JSON.stringify(props.result.data);
+    let dataContent = '';
+    if (typeof props.result.data === 'string') {
+        dataContent = props.result.data;
+    } else {
+        dataContent = JSON.stringify(props.result.data);
+    }
 
     return (
         <BaseApprovalUI

@@ -182,43 +182,36 @@ export const getParentDocTool: Tool = {
     },
 
     execute: async (args: { docId: string }): Promise<ToolExecuteResult> => {
-        try {
-            const doc = await getDocument({ docId: args.docId });
-            if (!doc) {
-                return {
-                    status: ToolExecuteStatus.NOT_FOUND,
-                    error: `未找到文档: ${args.docId}`
-                };
-            }
-
-            const path = doc.path;
-            const parts = path.split('/');
-            if (parts.length <= 2) {
-                return {
-                    status: ToolExecuteStatus.NOT_FOUND,
-                    error: `文档 ${args.docId} 没有父文档`
-                };
-            }
-
-            const parentPath = parts.slice(0, -1).join('/');
-            const docs = await listDocsByPath(doc.box, parentPath);
-            if (!docs || docs.length === 0) {
-                return {
-                    status: ToolExecuteStatus.NOT_FOUND,
-                    error: `未找到父文档`
-                };
-            }
-
+        debugger
+        const doc = await getDocument({ docId: args.docId });
+        if (!doc) {
             return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: documentMapper(docs[0])
-            };
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `获取父文档失败: ${error.message}`
+                status: ToolExecuteStatus.NOT_FOUND,
+                error: `未找到文档: ${args.docId}`
             };
         }
+
+        const path = doc.path;
+        const parts = path.split('/').filter(p => p !== '');
+        if (parts.length <= 1) {
+            return {
+                status: ToolExecuteStatus.NOT_FOUND,
+                error: `文档 ${args.docId} 没有父文档`
+            };
+        }
+        // 获取倒数第二个
+        const parentId = parts[parts.length - 2];
+        const parentDoc = await getDocument({ docId: parentId });
+        if (!parentDoc) {
+            return {
+                status: ToolExecuteStatus.NOT_FOUND,
+                error: `未找到父文档: ${parentId}`
+            };
+        }
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: documentMapper(parentDoc)
+        };
     }
 };
 

@@ -6,8 +6,20 @@
  * @Description  : 思源笔记本相关工具
  */
 
+import { getNotebookConf } from '@frostime/siyuan-plugin-kits/api';
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { listNotebook } from './utils';
+
+
+const listNotebook = () => {
+    return window.siyuan.notebooks
+        .filter((notebook) => notebook.closed !== true)
+        .map((notebook) => {
+            return {
+                name: notebook.name,
+                id: notebook.id
+            }
+        });
+}
 
 /**
  * 笔记本列表工具
@@ -30,9 +42,16 @@ export const listNotebookTool: Tool = {
     execute: async (): Promise<ToolExecuteResult> => {
         try {
             const notebooks = listNotebook();
+            const boxes = await Promise.all(notebooks.map(async (notebook) => {
+                const conf = await getNotebookConf(notebook.id);
+                return {
+                    ...notebook,
+                    dailynotePathTemplate: conf.conf.dailyNoteSavePath
+                }
+            }));
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: notebooks
+                data: boxes
             };
         } catch (error) {
             return {
@@ -85,9 +104,13 @@ export const getNotebookTool: Tool = {
                 error: `未找到笔记本: ${args.id || args.name}`
             };
         }
+        const conf = await getNotebookConf(notebook.id);
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: notebook
+            data: {
+                ...notebook,
+                dailynotePathTemplate: conf.conf.dailyNoteSavePath
+            }
         };
     }
 };

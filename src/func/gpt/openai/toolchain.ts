@@ -178,8 +178,18 @@ export async function executeToolChain(
                 try {
                     args = JSON.parse(toolCall.function.arguments);
                 } catch (error) {
+                    console.warn(`Tool Call 调用参数无法正常解析: ${toolCall.function.arguments}`);
                     args = {};
                     callbacks.onError?.(error, 'parse_arguments');
+                    const toolResultMessage = {
+                        role: 'tool' as const,
+                        content: JSON.stringify({ error: `Failed to parse arguments string as json: ${toolCall.function.arguments}` }),
+                        tool_call_id: toolCall.id
+                    };
+
+                    // 添加工具结果消息
+                    state.toolChainMessages.push(toolResultMessage);
+                    state.allMessages.push(toolResultMessage);
                 }
 
                 // 记录开始时间
