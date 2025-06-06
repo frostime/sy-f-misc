@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-05-15 11:29:19
+ * @LastEditTime : 2025-06-06 22:18:58
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
@@ -373,22 +373,9 @@ export const load = async (plugin: FMiscPlugin) => {
     await persist.updateCacheFile();
     window.addEventListener('beforeunload', persist.updateCacheFile);
 
-    //#if [PRIVATE_ADD]
     globalThis.fmisc['gpt'] = {
-        complete: openai.complete,
-        // workflow: {
-        //     run: workflow.runWorkflow,
-        //     builtins: workflow.builtinWorkflows.default
-        // }
+        complete: openai.complete
     }
-    //#endif
-
-    //#if [DEV]
-    // globalThis.fmisc['workflow'] = {
-    //     run: workflow.runWorkflow,
-    //     builtins: workflow.builtinWorkflows.default
-    // }
-    //#endif
 }
 
 export const unload = async (plugin: FMiscPlugin) => {
@@ -403,7 +390,5 @@ export const unload = async (plugin: FMiscPlugin) => {
     await persist.updateCacheFile();
     window.removeEventListener('beforeunload', persist.updateCacheFile)
 
-    //#if [PRIVATE_ADD]
     globalThis.fmisc && delete globalThis.fmisc['gpt']
-    //#endif
 }

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-05-31 20:06:58
+ * @LastEditTime : 2025-06-06 22:19:35
  * @Description  :
  */
 import type { Plugin } from "siyuan";
@@ -296,12 +296,10 @@ export const load = async (plugin?: Plugin) => {
         console.debug('Load GPT config:', current);
     }
 
-    // #if [PRIVATE_ADD]
     await Promise.all([
         loadCustomPreprocessModule(),
         loadCustomContextProviderModule()
     ]);
-    // #endif
 }
 
 export const providers = useStoreRef<IGPTProvider[]>([]);

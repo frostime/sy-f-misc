@@ -2,11 +2,11 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-05-15 01:45:14
- * @FilePath     : /src/func/gpt/openai/toolchain.ts
+ * @FilePath     : /src/func/gpt/tools/toolchain.ts
  * @Description  : 工具调用链执行器
  */
-import { complete } from './complete';
-import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '../tools';
+import { complete } from '../openai/complete';
+import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '.';
 
 /**
  * 工具调用链配置选项
@@ -346,7 +346,7 @@ export async function executeToolChain(
     let toolHistory = state.toolCallHistory.map(call => {
         return call.toolName + `(${call.result.status})`;
     }).join('->');
-    let hint = toolHistory ? `<tool-chain>${toolHistory}</tool-chain>\n` : '';
+    let hint = toolHistory ? `<tool-trace>${toolHistory}</tool-trace>\n` : '';
 
     // 构建结果
     const result: ToolChainResult = {

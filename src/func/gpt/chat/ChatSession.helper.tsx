@@ -2,7 +2,7 @@
 import { showMessage } from 'siyuan';
 import { Accessor, batch, createMemo } from 'solid-js';
 import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { ToolChainResult } from '../openai/toolchain';
+import { ToolChainResult } from '../tools/toolchain';
 
 // Local components and utilities
 import Form from '@/libs/components/Form';
@@ -21,7 +21,7 @@ import {
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '../tools';
-import { executeToolChain } from '@gpt/openai';
+import { executeToolChain } from '@gpt/tools/toolchain';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-31 14:51:57
  * @FilePath     : /src/func/gpt/tools/web/index.ts
- * @LastEditTime : 2025-06-04 22:21:11
+ * @LastEditTime : 2025-06-06 22:46:16
  * @Description  : 
  */
 import { ToolGroup } from "../types";
@@ -31,21 +31,26 @@ export const toolGroupWeb = (): ToolGroup => {
     const group = {
         name: '网页检索工具组',
             tools: tools,
-                rulePrompt: `实现检索网页内容相关的工具
-${tools.map(tool => tool.definition.function.name).join('/')} 返回搜索得到的网页链接和简单的描述
-WebPageContent 获取给定 URL 网页的内容
+                rulePrompt: `实现一个检索网页内容的工具，支持以下功能：
+**搜索工具**：
+- BingSearch：完全免费，功能等同于用户在 Bing 搜索页面直接搜索，适合通常的检索任务。
+- TavilySearch：每月有一定免费额度，检索质量较高，更倾向于英文网页搜索。
+- BochaSearch：每次检索均需付费，开销较大，检索质量较高，可能更适应中国国内的检索。
 
-BingSearch 完全免费，基本等同于用户在 Bing 搜索页面直接搜索，适合基本的检索任务
-${tavily ? 'TavilySearch 每月有一定免费额度, 检索质量相对较高, 更倾向对英文网页进行搜索' : ''}
-${bocha ? 'BochaSearch 每次检索均需要付费，比 Tavily 开销更大；检索质量相对较高，且可能更适应中国国内的检索' : ''}
-如果用户没有指定的偏好，请自行衡量选择适当的搜索工具.
+如果用户未指定偏好，请根据需求自行选择适当的搜索工具。此外 Tavily/Bocha 工具不一定对 ASSISTANT 可用。
 
-对于简单网页检索需求，调用搜索即可
-对于复杂的需求，可以尝试先检索相关网页然后获取特定网页的内容
+**网页内容获取**：
+- WebPageContent：获取给定 URL 网页的内容。
 
+**使用场景**：
+- 如果用户的提问对时效性有要求，应当使用搜索工具。
+- 对于简单的网页检索需求，直接调用搜索工具即可。
+- 对于复杂的需求，可以尝试先检索相关网页，然后获取特定网页的内容。
+
+**回答要求**：
 当你最后根据网页搜索的结果回答时，请在你的回答中:
-1. 说明自己使用了网络工具来辅助回答
-2. 以参考文献的格式附注你参考的网页, 使用 Markdown 链接，以方便用户直接溯源
+1. 说明使用了网络工具来辅助回答。
+2. 以参考文献的格式附注参考的网页，使用 Markdown 链接，方便用户直接溯源。
 `
     };
 

@@ -12,6 +12,8 @@ const path = window?.require?.('path');
 const childProcess = window?.require?.('child_process');
 const os = window?.require?.('os');
 
+const platform = os.platform();
+
 /**
  * 执行 Shell 命令工具
  */
@@ -20,7 +22,7 @@ const shellTool: Tool = {
         type: 'function',
         function: {
             name: 'Shell',
-            description: '在本地运行 shell 脚本（Windows 上为 PowerShell，其他系统为 Bash）',
+            description: `在${platform} 运行 ${platform === 'win32' ? 'PowerShell' : 'Bash'} 命令`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -174,21 +176,6 @@ const javascriptTool: Tool = {
             _output: [] as string[],
             _errors: [] as string[],
             _warnings: [] as string[],
-            // setTimeout: setTimeout,
-            // clearTimeout: clearTimeout,
-            // setInterval: setInterval,
-            // clearInterval: clearInterval,
-            // JSON: JSON,
-            // Math: Math,
-            // Date: Date,
-            // Array: Array,
-            // Object: Object,
-            // String: String,
-            // Number: Number,
-            // Boolean: Boolean,
-            // Error: Error,
-            // RegExp: RegExp,
-            // 禁止访问 document 对象
             document: undefined
         };
 
@@ -306,15 +293,14 @@ const pandocTool: Tool = {
 export const scriptTools: ToolGroup = {
     name: '脚本执行工具组',
     tools: [shellTool, pythonTool, javascriptTool, pandocTool],
-    rulePrompt: `提供本地脚本执行能力的工具组
+    rulePrompt: `本地脚本执行工具组
 
-建议在需要和系统进行交互或者执行复杂运算的时候选用这些工具。
-以及在需要大量数据处理、统计、固定流程算法执行等大语言模型不擅长的领域来使用这些。（例如：用户询问了数学计算问题等）
+这些工具适用于需要与系统交互或执行复杂运算的场景，以及在处理大量数据、统计分析、固定流程算法等大语言模型不擅长的领域（如数学计算问题）。
 
-Shell 工具会根据当前系统自动选择使用 PowerShell 或 Bash。
-Python 工具需要确保当前系统已经安装 Python。
-JavaScript 工具运行在一个特殊环境中，document 对象被禁用。
-Pandoc 工具使用思源自带的 Pandoc 进行文档格式转换，默认转换为 Markdown 格式。如果需要读取外部的 docx 等文件的内容可以用它。
-
+- Shell 工具：运行当前系统的 shell 命令。
+  ${platform === 'win32' ? 'PowerShell -Command ...' : 'Bash -c ...'}
+- Python 工具：需确保系统已安装 Python。
+- JavaScript 工具：运行在特殊环境中，禁用 document 对象。
+- Pandoc 工具：使用思源自带的 Pandoc 进行文档格式转换，默认转换为 Markdown 格式。适用于读取外部 docx 等文件内容。
 `
 };

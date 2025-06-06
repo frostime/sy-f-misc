@@ -38,16 +38,24 @@ export class ToolExecutor {
     toolRules() {
         if (!this.hasEnabledTools()) return '';
         let prompt = `<tool-rules>
-当前对话中提供了一些工具，如果你发现有必要，请在回答中使用工具.
+在当前对话中，如果发现有必要，请使用提供的工具(tools)。以下是使用工具的指导原则：
 
+**工具调用记录**：
+- 为了节省资源，工具调用的中间过程消息不会显示给USER。
+- SYSTEM 会生成工具调用记录 <tool-trace>...</tool-trace> 并插入到消息里，这部分内容不会显示给 USER 看，也不由 ASSISTANT 生成。
+- ASSISTANT(你) **不得自行提及或生成** <tool-trace> 标签; 否则可能严重误导后续工具调用 !!IMPORTANT!!
 
-- 为了节省资源，工具调用的中间过程消息将不会被包含在和用户的对话中; SYSTEM 将工具调用的记录放在<tool-chain></tool-chain>标签中并插入到消息里，这部分内容不会显示给 USER 看.
-  - ASSISTANT 也不得自行提及、生成 <tool-chain> 标签!
-- 有时候 USER 可能会想手动调用工具并查看结果(比如网络搜索等)，请将工具结果良好格式化后呈现给他，不要自作主张只给“总结结果”而导致信息丢失.
+**工具结果呈现**：
+- 如果USER希望手动调用工具并查看结果（例如网络搜索等），请将工具结果**完整**呈现给USER，不要仅提供总结或选择性提供而导致信息丢失。
 
-- Keep going until the user’s query is completely resolved, before ending assistant's turn and yielding back to the user. Only terminate assistant turn when you are sure that the problem is solved.
-- You MUST plan extensively before each tool call, and reflect extensively on the outcomes of the previous tool calls.
-- DO NOT do this entire process by making tool calls only, as this can impair your ability to solve the problem and think insightfully. !IMPORTANT!
+**进入 Tool Call 流程后**：
+- 持续进行直到USER的问题完全解决，确保在结束 ASSISTANT 的回合并返回给USER之前，问题已经得到解决。
+- 只有在确定问题已解决时，才终止 ASSISTANT 的回合。
+
+**工具调用策略**：
+- 在每次工具调用之前，必须进行详细的规划。
+- 在每次工具调用之后，必须对结果进行深入的反思。
+- 不要仅仅给出工具调用的请求而不输出中间的思考和规划来——否则这可能严重影响 ASSISTANT 解决问题的能力和深入思考的能力。这一点非常重要！
 </tool-rules>`;
         for (const [name, rule] of Object.entries(this.groupRules)) {
             if (!this.isGroupEnabled(name)) continue;
