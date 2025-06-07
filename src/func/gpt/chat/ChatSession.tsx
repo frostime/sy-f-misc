@@ -3,18 +3,18 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/ChatSession.tsx
- * @LastEditTime : 2025-05-01 19:31:27
+ * @LastEditTime : 2025-06-05 22:23:24
  * @Description  :
  */
 // External libraries
 import {
-  Accessor, Component, JSX,
-  createMemo, createEffect, createRenderEffect,
-  For, Match, Show, Switch,
-  on, onMount, onCleanup, batch
+    Accessor, Component, JSX,
+    createMemo, createEffect, createRenderEffect,
+    For, Match, Show, Switch,
+    on, onMount, onCleanup, batch
 } from 'solid-js';
 import { render } from 'solid-js/web';
-import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 import { Menu, Protyle, showMessage } from 'siyuan';
 import { getMarkdown, inputDialog, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
 
@@ -31,21 +31,24 @@ import TitleTagEditor from './TitleTagEditor';
 import HistoryList from './HistoryList';
 import { SvgSymbol } from './Elements';
 import SessionItemsManager from './SessionItemsManager';
+import { SessionToolsManager } from './SessionToolsManager';
 import { useSession, useSessionSetting, SimpleProvider } from './ChatSession.helper';
 
 // GPT and settings related
 import {
-  defaultConfig, UIConfig, useModel, defaultModelId,
-  listAvialableModels, promptTemplates, visualModel, globalMiscConfigs
+    defaultConfig, UIConfig, useModel, defaultModelId,
+    listAvialableModels, promptTemplates, visualModel, globalMiscConfigs
 } from '@gpt/setting/store';
 import * as persist from '@gpt/persistence';
 import * as syDoc from '@gpt/persistence/sy-doc';
 import { getContextProviders, executeContextProvider } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import {
-  adaptIMessageContent,
-  isMsgItemWithMultiVersion
+    adaptIMessageContent,
+    isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
+
+// Import removed: Rows was unused
 
 const useSiYuanEditor = (props: {
     id: string;
@@ -237,6 +240,8 @@ const ChatSession: Component<{
 
     const input = useSignalRef<string>('');
     const session = useSession({ model, config, scrollToBottom });
+
+    const hasToolEnabled = createSignalRef(session.toolExecutor.hasEnabledTools());
 
     const siyuanEditor = useSiYuanEditor({
         id: session.sessionId(),
@@ -1183,7 +1188,7 @@ const ChatSession: Component<{
                         const rect = target.getBoundingClientRect();
                         menu.open({
                             x: rect.left,
-                            y: rect.bottom
+                            y: rect.top
                         });
                     }} label='工具' >
                         <SvgSymbol size="15px">iconMenu</SvgSymbol>
@@ -1196,21 +1201,42 @@ const ChatSession: Component<{
                             <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
                         </ToolbarLabel>
                     </div>
-                    {/* <Show when={globalMiscConfigs().tavilyApiKey}>
-                        <ToolbarLabel
-                            onclick={() => webSearchEnabled.update(!webSearchEnabled())}
-                            label='Web Search'
-                            role='web-search'
-                            styles={
-                                webSearchEnabled() ? {
-                                    'background-color': 'var(--b3-theme-primary)',
-                                    'color': 'var(--b3-theme-on-primary)'
-                                } : {}
-                            }
-                        >
-                            <SvgSymbol size="15px">iconWebSearch</SvgSymbol>
-                        </ToolbarLabel>
-                    </Show> */}
+                    <ToolbarLabel
+                        onclick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const { container } = solidDialog({
+                                title: '可用工具',
+                                loader: () => (
+                                    <SessionToolsManager 
+                                        toolExecutor={session.toolExecutor}
+                                        onToggleGroup={(_groupName, _enabled) => {
+                                            // 工具组状态已在组件内部更新，这里可以添加额外逻辑
+                                        }}
+                                        onToggleTool={(_toolName, _enabled) => {
+                                            // 工具状态已在组件内部更新，这里可以添加额外逻辑
+                                        }}
+                                    />
+                                ),
+                                width: '840px',
+                                height: '640px',
+                                callback: () => {
+                                    hasToolEnabled.update(session.toolExecutor.hasEnabledTools());
+                                }
+                            });
+                            (container.querySelector('.dialog-content') as HTMLElement).style.height = 'unset';
+                        }}
+                        label='工具'
+                        role='tool-calls'
+                        styles={
+                            hasToolEnabled() ? {
+                                'background-color': 'var(--b3-theme-primary)',
+                                'color': 'var(--b3-theme-on-primary)'
+                            } : {}
+                        }
+                    >
+                        <SvgSymbol size="15px">iconBazaar</SvgSymbol>
+                    </ToolbarLabel>
                     <div data-role="spacer" style={{ flex: 1 }}></div>
                     <ToolbarLabel onclick={editSystemPrompt} label='系统提示' role="system-prompt" >
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System

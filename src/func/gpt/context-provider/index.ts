@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-05-15 11:28:14
+ * @LastEditTime : 2025-05-31 15:52:05
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -12,7 +12,6 @@ import SelectedTextProvider from './SelectedTextProvider';
 import SQLSearchProvicer from './SQLSearchProvicer';
 import TextSearchProvider from './TextSearchProvider';
 import URLProvider from './URLProvider';
-import TavilySearchProvider from './TavilySearchProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
@@ -32,10 +31,7 @@ const contextProviders: CustomContextProvider[] = [
     TodayDailyNoteProvicer,
     SQLSearchProvicer,
     TextSearchProvider,
-    URLProvider,
-// #if [PRIVATE_ADD]
-    TavilySearchProvider,
-// #endif
+    URLProvider
 ];
 
 // 动态添加自定义上下文提供器（如果存在）

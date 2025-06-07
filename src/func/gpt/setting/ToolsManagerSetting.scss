@@ -1,0 +1,103 @@
+/*
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Author       : frostime
+ * @Date         : 2025-05-31 18:48:52
+ * @FilePath     : /src/func/gpt/setting/ToolsManagerSetting.scss
+ * @Description  : 工具管理器设置组件样式
+ */
+
+.tools-manager-setting {
+    margin: 22px;
+
+    .tools-manager-groups {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .tools-manager-group {
+        border: 1px solid var(--b3-theme-surface-lighter);
+        border-radius: 4px;
+        overflow: hidden;
+
+        &:hover {
+            border-color: var(--b3-theme-primary-light);
+        }
+    }
+
+    .tools-manager-group-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background-color: var(--b3-theme-background);
+        cursor: pointer;
+
+        &:hover {
+            background-color: var(--b3-theme-surface-light);
+        }
+    }
+
+    .tools-manager-group-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        input[type="checkbox"] {
+            margin: 0;
+        }
+    }
+
+    .tools-manager-group-name {
+        font-weight: 500;
+    }
+
+    .tools-manager-group-expand {
+        cursor: pointer;
+        user-select: none;
+        color: var(--b3-theme-on-surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        svg.icon-arrow {
+            width: 1em;
+            height: 1em;
+            transition: transform 0.2s ease-in-out;
+            fill: currentColor;
+            &.collapsed {
+                transform: rotate(90deg);
+            }
+        }
+    }
+
+    .tools-manager-tools {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 12px;
+        background-color: var(--b3-theme-surface-lighter);
+        border-top: 1px solid var(--b3-theme-surface-lighter);
+    }
+
+    .tools-manager-tool {
+        display: flex;
+        align-items: center;
+        padding: 6px 0;
+        margin-left: 24px;
+
+        input[type="checkbox"] {
+            margin: 0 8px 0 0;
+        }
+    }
+
+    .tools-manager-tool-name {
+        font-weight: 500;
+        margin-right: 8px;
+        min-width: 120px;
+    }
+
+    .tools-manager-tool-description {
+        color: var(--b3-theme-on-surface);
+        font-size: 0.9em;
+        opacity: 0.8;
+    }
+}

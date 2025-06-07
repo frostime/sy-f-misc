@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-05-15 12:43:43
+ * @LastEditTime : 2025-06-06 22:19:25
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -20,6 +20,7 @@ import { globalMiscConfigs } from "./store";
 import Heading from "./Heading";
 
 import { LoadModuleFileButtonGroup } from "@/libs/components/user-custom-module";
+import { ToolsManagerSetting } from "./ToolsManagerSetting";
 
 type TabType = 'chat' | 'prompt' | 'provider' | 'tools';
 
@@ -127,7 +128,6 @@ const GlobalSetting = () => {
                         <span>Provider 配置</span>
                     </div>
                 </TabButton>
-                {/* #if [PRIVATE_ADD] */}
                 <TabButton
                     active={activeTab() === 'tools'}
                     onClick={() => setActiveTab('tools')}
@@ -137,7 +137,6 @@ const GlobalSetting = () => {
                         <span>工具</span>
                     </div>
                 </TabButton>
-                {/* #endif */}
             </div>
 
             <div style={{
@@ -255,7 +254,6 @@ const GlobalSetting = () => {
                         </Form.Wrap>
                     </Match>
 
-                    {/* #if [PRIVATE_ADD] */}
                     <Match when={activeTab() === 'tools'}>
                         <Heading>
                             Custom Scripts
@@ -301,8 +299,28 @@ const GlobalSetting = () => {
                                 }}
                             />
                         </Form.Wrap>
+                        <Form.Wrap
+                            title="博查 API Key"
+                            description="可前往 <a href='https://open.bochaai.com/home' target='_blank'>博查官网</a> 获取。"
+                            direction="row"
+                        >
+                            <Form.Input
+                                type="textinput"
+                                value={globalMiscConfigs().bochaApiKey}
+                                changed={(v) => {
+                                    globalMiscConfigs.update('bochaApiKey', v);
+                                }}
+                                style={{
+                                    width: '100%'
+                                }}
+                            />
+                        </Form.Wrap>
+
+                        <Heading>
+                            工具管理
+                        </Heading>
+                        <ToolsManagerSetting />
                     </Match>
-                    {/* #endif */}
                 </Switch>
             </div>
         </div>

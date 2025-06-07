@@ -1,12 +1,12 @@
 import { defaultModelId, useModel } from "../setting/store";
 import { appendLog } from "../MessageLogger";
-import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage } from './adpater';
-
+import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage } from './adpater';
 
 interface StreamChunkData {
     content: string;
     reasoning_content: string;
     references?: TReference[];
+    tool_calls?: IToolCallResponse[];
     usage?: {
         completion_tokens: number;
         prompt_tokens: number;
@@ -80,10 +80,12 @@ const handleStreamResponse = async (
         time: {
             latency: null,
             throughput: null
-        }
+        },
+        tool_calls: [], // 初始化 tool_calls 数组
     };
 
     let references: TReference[] = null;
+
 
     const transformStream = new TransformStream({
         transform: (chunk: string, controller) => {
@@ -108,6 +110,9 @@ const handleStreamResponse = async (
 
     let t1 = null;
 
+    // 用于跟踪和合并 tool_calls
+    const toolCallsMap = new Map<number, IToolCallResponse>();
+
     try {
         while (true) {
             const readResult = await reader.read();
@@ -126,9 +131,34 @@ const handleStreamResponse = async (
                 // continue;
             }
 
-            const { content, reasoning_content } = adaptChunkMessage(readResult.value) as StreamChunkData;
-            responseContent.content += content;
-            responseContent.reasoning_content += reasoning_content;
+            const { content, reasoning_content, tool_calls } = readResult.value as StreamChunkData;
+
+            // 更新内容
+            if (content) {
+                responseContent.content += content;
+            }
+
+            // 更新推理内容
+            if (reasoning_content) {
+                responseContent.reasoning_content += reasoning_content;
+            }
+
+            // 处理 tool_calls
+            if (tool_calls) {
+                for (const call of tool_calls) {
+                    if (toolCallsMap.has(call.index)) {
+                        // 合并参数
+                        const existing = toolCallsMap.get(call.index);
+                        existing.function.arguments += call.function.arguments;
+                    } else {
+                        toolCallsMap.set(call.index, { ...call });
+                    }
+                }
+                // 更新响应中的 tool_calls
+                responseContent.tool_calls = Array.from(toolCallsMap.values());
+            }
+
+            // 构建流式消息
             let streamingMsg = '';
             if (responseContent.reasoning_content) {
                 streamingMsg += `<think>\n${responseContent.reasoning_content}\n</think>\n`;
@@ -136,7 +166,9 @@ const handleStreamResponse = async (
             if (responseContent.content) {
                 streamingMsg += responseContent.content;
             }
-            options.streamMsg?.(streamingMsg);
+
+            // 调用回调，添加 tool_calls 参数
+            options.streamMsg?.(streamingMsg, responseContent.tool_calls);
 
             // 引用
             const refers = adaptResponseReferences(readResult.value as StreamChunkData);
@@ -191,13 +223,12 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
             ok: false
         };
     }
-    // const results = {
-    //     content: data.choices[0].message.content,
-    //     usage: data.usage,
-    //     reasoning_content: data.choices[0].message?.reasoning_content,
-    // };
-    let results = adaptChunkMessage(data.choices[0].message) as CompletionResponse;
-    results['usage'] = data.usage;
+
+    // 使用适配器处理消息
+    let results = adaptResponseMessage(data.choices[0].message) as CompletionResponse;
+    results.usage = data.usage;
+
+    // 处理引用
     let references = adaptResponseReferences(data);
     if (references && references.length) {
         // results.references = data.references;
@@ -211,6 +242,7 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
         const seconds = completion_tokens / 1000;
         results['time'].throughput = completion_tokens / seconds;
     }
+
     return results;
 }
 
@@ -219,7 +251,7 @@ export const complete = async (input: string | IMessage[], options?: {
     model?: IGPTModel,
     systemPrompt?: string,
     stream?: boolean,
-    streamMsg?: (msg: string) => void,
+    streamMsg?: (msg: string, toolCalls?: IToolCallResponse[]) => void,
     streamInterval?: number,
     option?: IChatOption
     abortControler?: AbortController

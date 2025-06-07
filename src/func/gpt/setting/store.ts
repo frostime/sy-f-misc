@@ -3,13 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/setting/store.ts
- * @LastEditTime : 2025-04-27 22:31:43
+ * @LastEditTime : 2025-06-06 22:19:35
  * @Description  :
  */
 import type { Plugin } from "siyuan";
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 
 import { createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { toolExecutorFactory } from "../tools";
 import { userCustomizedPreprocessor } from "../openai/adpater";
 
 
@@ -40,17 +41,7 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
 });
 
 
-export const globalMiscConfigs = useStoreRef<{
-    pinChatDock: boolean;
-    userSelectedContextFormat: string;
-    privacyKeywords: string;
-    privacyMask: string;
-    defaultSystemPrompt: string;
-    enableMessageLogger: boolean;
-    maxMessageLogItems: number;
-    tavilyApiKey: string;
-    exportMDSkipHidden: boolean;
-}>({
+const _defaultGlobalMiscConfigs = {
     pinChatDock: false,
     userSelectedContextFormat: `**以下是用户附带的内容**:
 ------
@@ -62,7 +53,20 @@ export const globalMiscConfigs = useStoreRef<{
     enableMessageLogger: false,
     maxMessageLogItems: 500,
     tavilyApiKey: '',      // Tavily API Key for web search
+    bochaApiKey: '',       // 博查 API Key for web search
     exportMDSkipHidden: false // 导出 Markdown 时是否跳过隐藏的消息
+}
+export const globalMiscConfigs = useStoreRef<typeof _defaultGlobalMiscConfigs>(_defaultGlobalMiscConfigs);
+
+// 工具管理器设置
+export const toolsManager = useStoreRef<{
+  // 工具组默认启用状态
+  groupDefaults: Record<string, boolean>;
+  // 工具级别的启用状态（按工具名称）
+  toolDefaults: Record<string, boolean>;
+}>({
+  groupDefaults: {},
+  toolDefaults: {}
 });
 
 /**
@@ -77,7 +81,8 @@ const asStorage = () => {
         globalMiscConfigs: { ...globalMiscConfigs.unwrap() },
         providers: [...providers.unwrap()],
         ui: { ...UIConfig.unwrap() },
-        promptTemplates: [...promptTemplates.unwrap()]
+        promptTemplates: [...promptTemplates.unwrap()],
+        toolsManager: { ...toolsManager.unwrap() }
     }
 }
 
@@ -287,14 +292,14 @@ export const load = async (plugin?: Plugin) => {
         current.ui && UIConfig(current.ui)
         current.promptTemplates && promptTemplates(current.promptTemplates)
         console.debug('Load GPT config:', current);
+        current.toolsManager && toolsManager(current.toolsManager);
+        console.debug('Load GPT config:', current);
     }
 
-    // #if [PRIVATE_ADD]
     await Promise.all([
         loadCustomPreprocessModule(),
         loadCustomContextProviderModule()
     ]);
-    // #endif
 }
 
 export const providers = useStoreRef<IGPTProvider[]>([]);

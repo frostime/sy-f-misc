@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-05-27 11:44:02
+ * @LastEditTime : 2025-05-30 19:32:40
  * @Description  :
  */
 interface IMessageContent {
@@ -17,9 +17,12 @@ interface IMessageContent {
 type TMessageContent = IMessageContent[] | string;
 
 interface IMessage {
-    role: 'user' | 'assistant' | 'system';
+    role: 'user' | 'assistant' | 'system' | 'tool';
     content: TMessageContent;
     reasoning_content?: string;
+    tool_call_id?: string;
+    tool_calls?: IToolCallResponse[];
+    [key: string]: any;
 }
 
 interface IPromptTemplate {
@@ -31,6 +34,62 @@ interface IPromptTemplate {
 /**
  * Interface defining the options for interacting with the OpenAI GPT API.
  */
+/**
+ * JSON Schema 属性类型，用于 OpenAI tool call
+ */
+interface JSONSchemaProperty {
+    type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
+    description?: string;
+    enum?: any[];
+    items?: JSONSchemaProperty | JSONSchemaProperty[];  // 用于数组类型
+    properties?: Record<string, JSONSchemaProperty>;    // 用于对象类型
+    required?: string[];                               // 用于对象类型
+    minimum?: number;                                 // 用于数值类型
+    maximum?: number;                                 // 用于数值类型
+}
+
+/**
+ * 工具定义，用于描述模型可以调用的函数
+ */
+interface IToolDefinition {
+    type: 'function';
+    function: {
+        name: string;
+        description?: string;
+        parameters: {
+            type: 'object';
+            properties: Record<string, JSONSchemaProperty>;
+            required?: string[];
+        };
+    };
+}
+
+/**
+ * 工具选择，用于控制模型如何选择工具
+ */
+type IToolChoice =
+    | 'auto'
+    | 'none'
+    | {
+        type: 'function';
+        function: {
+            name: string;
+        };
+    };
+
+/**
+ * 工具调用响应，模型生成的工具调用
+ */
+interface IToolCallResponse {
+    id: string;
+    index: number;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string; // JSON 字符串
+    };
+}
+
 interface IChatOption {
     /**
      * Controls the randomness of the output.
@@ -97,7 +156,23 @@ interface IChatOption {
      */
     stop?: string | string[];
 
-    stream?: boolean
+    /**
+     * 是否使用流式响应
+     */
+    stream?: boolean;
+
+    /**
+     * 定义可供模型调用的工具列表
+     */
+    tools?: IToolDefinition[];
+
+    /**
+     * 控制模型如何选择工具
+     * - 'auto': 模型自行决定是否调用工具
+     * - 'none': 模型不调用任何工具
+     * - {type: 'function', function: {name: 'tool_name'}}: 强制模型调用指定工具
+     */
+    tool_choice?: IToolChoice;
 }
 
 interface IGPTProvider {
@@ -132,7 +207,8 @@ interface CompletionResponse {
     time?: {
         latency: number; // ms
         throughput?: number; // tokens/s
-    }
+    };
+    tool_calls?: IToolCallResponse[];
 }
 
 /**

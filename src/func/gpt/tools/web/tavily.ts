@@ -2,10 +2,11 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-03-15
- * @FilePath     : /src/func/gpt/tools/tavily.ts
+ * @FilePath     : /src/func/gpt/tools/web/tavily.ts
  * @Description  : Tavily search API integration
  */
-import { globalMiscConfigs } from '../setting/store';
+import { globalMiscConfigs } from '../../setting/store';
+import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
 
 export interface TavilySearchResponse {
     query: string;
@@ -216,3 +217,88 @@ export function formatTavilyExtractResult(result: TavilyExtractResponse): string
 
     return markdown;
 }
+
+export const tavilySearchTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'TavilySearch',
+            description: '使用 Tavily API 获取互联网上的高质量搜索结果',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: {
+                        type: 'string',
+                        description: 'The search query'
+                    },
+                    search_depth: {
+                        type: 'string',
+                        enum: ['basic', 'advanced'],
+                        description: 'Advanced search is tailored to retrieve the most relevant sources, basic search provides generic content snippets. A basic search costs 1 API Credit, while an advanced search costs 2 API Credits. Default basic',
+                    },
+                    include_answer: {
+                        type: 'string',
+                        description: 'Include an LLM-generated answer to the provided query. Default not included',
+                        enum: ['basic', 'advanced'],
+                    },
+                    max_results: {
+                        type: 'integer',
+                        description: 'The maximum number of search results to return. Default 5.',
+                    },
+                    topic: {
+                        type: 'string',
+                        enum: ['general', 'news'],
+                        description: '搜索主题类型，news 为适用于获取实时更新的事情，general 为更广泛、更通用的搜索，默认为 general'
+                    },
+                    days: {
+                        type: 'integer',
+                        description: 'Number of days back from the current date to include. Available ONLY IF topic is news. Default 7.',
+                        minimum: 1,
+                    },
+                    time_range: {
+                        type: 'string',
+                        description: 'The time range back from the current date to filter results.',
+                        enum: ['day', 'week', 'month', 'year'],
+                    }
+                },
+                required: ['query']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.MODERATE
+    },
+
+    execute: async (args: {
+        query: string,
+        search_depth?: 'basic' | 'advanced',
+        include_answer?: boolean,
+        max_results?: number,
+        topic?: 'general' | 'news'
+    }): Promise<ToolExecuteResult> => {
+        let tavilyApiKey = globalMiscConfigs().tavilyApiKey;
+        if (!tavilyApiKey) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                data: "Tavily API key is not configured"
+            }
+        }
+
+        const result = await tavilySearch(args.query, {
+            search_depth: args.search_depth,
+            include_answer: args.include_answer,
+            max_results: args.max_results,
+            topic: args.topic
+        });
+
+        if (result === null) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                data: { error: "Tavily search failed. API key may be missing or invalid." }
+            };
+        }
+
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: result
+        };
+    }
+};

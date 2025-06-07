@@ -7,6 +7,8 @@
  * @Description  : 
  */
 
+type ScalarType = string | number | boolean;
+
 interface IDockyBlock {
     name: string;
     position: 'RightTop' | 'RightBottom' | 'LeftTop' | 'LeftBottom';

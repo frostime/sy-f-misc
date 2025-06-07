@@ -4,9 +4,9 @@ import { type complete } from "./complete";
 
 /**
  * 用户自定义的预处理器, 可以在发送 complete 请求之前，对消息进行处理
- * 
+ *
  * 例如: 实现 Deepseek V3 0324 的默认温度缩放; 特别模型不支持 frequency_penalty 等参数需要删除等
- * 
+ *
  * @param payload - 选项
  * @param payload.model - 模型
  * @param payload.modelDisplayName - 模型名称; 例如用户配置了重定向，{ [modelDisplayName]: modelName }; 比如 {'Deepseek V3': 'deepseek-ai/deepseek-v3'}
@@ -35,11 +35,17 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
             "content": input
         }];
     } else {
+        const ALLOWED_FIELDS = ['role', 'content', 'tool_call_id', 'tool_calls'];
         // 去掉可能的不需要的字段
-        messages = input.map(item => ({
-            role: item.role,
-            content: item.content
-        }));
+        messages = input.map(item => {
+            const result = {};
+            for (const key in item) {
+                if (ALLOWED_FIELDS.includes(key)) {
+                    result[key] = item[key];
+                }
+            }
+            return result as IMessage;
+        });
     }
 
     if (options) {
@@ -158,20 +164,45 @@ export const adaptResponseReferences = (responseData: any): TReference[] | undef
 }
 
 
-export const adaptChunkMessage = (messageInChoices: Record<string, string>): {
+/**
+ * 处理响应消息，提取内容、推理内容和工具调用
+ * @param message 响应消息
+ * @returns 处理后的消息
+ */
+export const adaptResponseMessage = (message: Record<string, string>): {
     content: string;
     reasoning_content?: string;
+    tool_calls?: IToolCallResponse[];
 } => {
-    const message = {
-        content: messageInChoices['content'] || '',
+    const result: any = {
+        content: message['content'] || '',
         reasoning_content: ''
+    };
+
+    // 处理 reasoning_content
+    if (message['reasoning_content']) {
+        result.reasoning_content = message['reasoning_content'];
+    } else if (message['reasoning']) {
+        result.reasoning_content = message['reasoning'];
     }
 
-    if (messageInChoices['reasoning_content']) {
-        message['reasoning_content'] = messageInChoices['reasoning_content'];
-    } else if (messageInChoices['reasoning']) {
-        message['reasoning_content'] = messageInChoices['reasoning'];
+    // 处理 tool_calls
+    if (message['tool_calls']) {
+        result.tool_calls = message['tool_calls'];
     }
 
-    return message;
+    return result;
+}
+
+/**
+ * 处理流式响应的数据块
+ * @param messageInChoices 响应消息
+ * @returns 处理后的消息
+ */
+export const adaptChunkMessage = (messageInChoices: Record<string, any>): {
+    content: string;
+    reasoning_content?: string;
+    tool_calls?: IToolCallResponse[];
+} => {
+    return adaptResponseMessage(messageInChoices);
 }
