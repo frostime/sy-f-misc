@@ -56,6 +56,18 @@
         cursor: pointer;
         user-select: none;
         color: var(--b3-theme-on-surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        svg.icon-arrow {
+            width: 1em;
+            height: 1em;
+            transition: transform 0.2s ease-in-out;
+            fill: currentColor;
+            &.collapsed {
+                transform: rotate(90deg);
+            }
+        }
     }
 
     .tools-manager-tools {

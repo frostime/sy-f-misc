@@ -71,7 +71,7 @@ export const SessionToolsManager: Component<{
                                 <div
                                     class="tools-manager-group-expand"
                                 >
-                                    {collapsedGroups()[groupName] ? '◄' : '▼'}
+                                    <svg class={`icon-arrow ${collapsedGroups()[groupName] ? 'collapsed' : ''}`}><use href="#iconDown"></use></svg>
                                 </div>
                             </div>
 
