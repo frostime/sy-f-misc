@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2024-06-10 14:55:35
  * @FilePath     : /src/func/doc-context.tsx
- * @LastEditTime : 2025-01-02 18:00:27
+ * @LastEditTime : 2025-06-07 17:48:25
  * @Description  : 
  */
-import { createSignal, For, JSXElement, onMount, Show } from 'solid-js';
+import { createSignal, For, JSXElement, Match, onMount, Show, Switch } from 'solid-js';
 import { render } from 'solid-js/web';
 import { simpleDialog } from "@frostime/siyuan-plugin-kits";
 
@@ -66,10 +66,12 @@ const getSibling = async (path: string, box: string) => {
     return siblings;
 }
 
-const createContext = async () => {
-    let docId = getActiveDoc();
+const createContext = async (docId?: string) => {
     if (!docId) {
-        return null;
+        docId = getActiveDoc();
+        if (!docId) {
+            return null;
+        }
     }
     let doc = await getBlockByID(docId);
     let parent = await getParentDocument(doc.path);
@@ -98,9 +100,16 @@ const createContext = async () => {
 }
 
 
-const A = (props: { id: string, hightlight?: boolean, children: any, dialog: Dialog, actions?: any }) => {
+const A = (props: { id: string, hightlight?: boolean, children: any, dialog: Dialog, actions?: any, updateDoc?: (docId: string) => void }) => {
 
-    const open = () => {
+    const open = (e: MouseEvent) => {
+        // 如果按下了 Alt 键，则不跳转，而是更新当前面板的内容
+        if (e.altKey && props.updateDoc) {
+            e.preventDefault();
+            props.updateDoc(props.id);
+            return;
+        }
+
         openTab({
             app: plugin_?.app,
             doc: {
@@ -117,7 +126,7 @@ const A = (props: { id: string, hightlight?: boolean, children: any, dialog: Dia
 
     return (
         <>
-            <span class="anchor" data-id={props.id} onClick={open} style={{
+            <span class="anchor" data-id={props.id} onClick={(e) => open(e)} style={{
                 outline: props?.hightlight ? 'solid var(--b3-theme-primary-light)' : 0,
                 'font-weight': props?.hightlight ? 'bold' : 'inherit',
             }}>
@@ -127,7 +136,7 @@ const A = (props: { id: string, hightlight?: boolean, children: any, dialog: Dia
     )
 }
 
-const OutlineComponent = (props: { docId: string, dialog: Dialog }) => {
+const OutlineComponent = (props: { docId: string, dialog: Dialog, updateDoc?: (docId: string) => void }) => {
     const [outline, setOutline] = createSignal([]);
 
     // 转换数据结构，保留层级关系
@@ -148,7 +157,7 @@ const OutlineComponent = (props: { docId: string, dialog: Dialog }) => {
                 <For each={propsRi.items}>
                     {(item) => (
                         <li>
-                            <A id={item.id} dialog={props.dialog}>
+                            <A id={item.id} dialog={props.dialog} updateDoc={(docId) => props.updateDoc?.(docId)}>
                                 <span innerHTML={item.name} />
                             </A>
                             <Show when={item.children.length > 0}>
@@ -181,10 +190,69 @@ const OutlineComponent = (props: { docId: string, dialog: Dialog }) => {
 }
 
 
+// 导航栏组件，用于显示当前文档和返回按钮
+const NavBar = (props: { initialDocId: string, currentDocId: string, onBack: () => void }) => {
+    return (
+        <div style={{
+            display: 'flex',
+            'align-items': 'center',
+            'justify-content': 'space-between',
+            'margin-bottom': '10px',
+            'padding': '5px',
+            'background-color': 'var(--b3-theme-background-light)',
+            'border-radius': '4px'
+        }}>
+            <div>
+                <Switch>
+                    <Match when={props.initialDocId !== props.currentDocId}>
+                        <span style={{
+                            'color': 'var(--b3-theme-on-surface)',
+                            'font-size': '14px'
+                        }}>查看其他文档的上下文</span>
+                    </Match>
+                    <Match when={props.initialDocId === props.currentDocId}>
+                        <span style={{
+                            'color': 'var(--b3-theme-on-surface)',
+                            'font-size': '14px'
+                        }}>Alt+点击文档链接, 查看其他文档的上下文</span>
+                    </Match>
+                </Switch>
+            </div>
+            {props.initialDocId !== props.currentDocId && (
+                <button
+                    class="b3-button b3-button--outline"
+                    onClick={props.onBack}
+                    style={{
+                        'padding': '4px 8px',
+                        'font-size': '12px'
+                    }}
+                >
+                    <svg class="b3-button__icon" style={{
+                        "margin-right": "4px"
+                    }}>
+                        <use href="#iconLeft"></use>
+                    </svg>
+                    返回初始文档
+                </button>
+            )}
+        </div>
+    );
+};
+
 const DocContextComponent = (props: {
     doc: Block, parent: Block, children: Block[], siblings: Block[], docPaths: any[], dialog: Dialog
 }) => {
-    const { doc, parent, children, siblings, docPaths } = props;
+    // 保存初始文档ID
+    const [initialDocId] = createSignal(props.doc.id);
+    const [currentContext, setCurrentContext] = createSignal({
+        doc: props.doc,
+        parent: props.parent,
+        children: props.children,
+        siblings: props.siblings,
+        docPaths: props.docPaths
+    });
+
+    // 不使用解构赋值，直接通过信号函数访问属性以保持响应性
 
     const focus = () => {
         let dock = document.querySelector(`.dock__items>span[data-type="file"]`) as HTMLElement;
@@ -201,7 +269,7 @@ const DocContextComponent = (props: {
 
     const newDoc = (hpath: string) => {
         confirm('确定?', `新建文档: ${hpath}`, async () => {
-            let docId = await createDocWithMd(doc.box, hpath, '');
+            let docId = await createDocWithMd(currentContext().doc.box, hpath, '');
             openTab({
                 app: plugin_?.app,
                 doc: {
@@ -213,13 +281,13 @@ const DocContextComponent = (props: {
     }
 
     const newChild = () => {
-        let newPath = `${doc.hpath}/Untitled`;
+        let newPath = `${currentContext().doc.hpath}/Untitled`;
         console.log(newPath);
         newDoc(newPath);
     }
 
     const newSibling = () => {
-        let newPath = `${parent.hpath}/Untitled`;
+        let newPath = `${currentContext().parent.hpath}/Untitled`;
         console.log(newPath);
         newDoc(newPath);
     }
@@ -237,10 +305,10 @@ const DocContextComponent = (props: {
             <ol>
                 <For each={p.docs}>
                     {(item) => {
-                        let hightlight = item.id === doc.id;
+                        let hightlight = item.id === currentContext().doc.id;
                         return (
                             <li>
-                                <A hightlight={hightlight} id={item.id} dialog={props.dialog}>
+                                <A hightlight={hightlight} id={item.id} dialog={props.dialog} updateDoc={updateDoc}>
                                     {item.name.replace('.sy', '')}
                                 </A>
                             </li>
@@ -271,12 +339,33 @@ const DocContextComponent = (props: {
         </div>
     );
 
+    // 更新文档上下文的函数
+    const updateDoc = async (docId: string) => {
+        const newContext = await createContext(docId);
+        if (newContext) {
+            setCurrentContext(newContext);
+        }
+    };
+
+    // 返回初始文档的函数
+    const backToInitialDoc = async () => {
+        const initialContext = await createContext(initialDocId());
+        if (initialContext) {
+            setCurrentContext(initialContext);
+        }
+    };
+
     return (
         <section class="doc-context item__readme b3-typography fn__flex-1" style="margin: 1em;">
+            <NavBar
+                initialDocId={initialDocId()}
+                currentDocId={currentContext().doc.id}
+                onBack={backToInitialDoc}
+            />
             <p>🍞
-                [{getNotebook(doc.box).name}]
-                {docPaths.map((d) => {
-                    return (<> / <A id={d.id.replace('.sy', '')} dialog={props.dialog}>{d.title}</A></>);
+                [{getNotebook(currentContext().doc.box).name}]
+                {currentContext().docPaths.map((d) => {
+                    return (<> / <A id={d.id.replace('.sy', '')} dialog={props.dialog} updateDoc={updateDoc}>{d.title}</A></>);
                 })}
             </p>
             <p class="btn-focus" onClick={focus}>
@@ -288,8 +377,8 @@ const DocContextComponent = (props: {
             <div style={{ display: 'flex', 'align-items': 'center' }}>
                 <h4 style={{ flex: 2 }}>⬆️ {I18n.parent}</h4>
                 <div style={{ flex: 1, 'margin-left': '10px' }}>
-                    <Show when={parent} fallback={<p>{I18n.no}</p>}>
-                        <p><A id={parent.id} dialog={props.dialog}>{parent.content}</A></p>
+                    <Show when={currentContext().parent} fallback={<p>{I18n.no}</p>}>
+                        <p><A id={currentContext().parent.id} dialog={props.dialog} updateDoc={updateDoc}>{currentContext().parent.content}</A></p>
                     </Show>
                 </div>
             </div>
@@ -300,7 +389,7 @@ const DocContextComponent = (props: {
                 <h4 style={{ flex: 2 }}>↔️ {I18n.siblings}</h4>
                 <NewDocBtn onClick={newSibling}>📬 新建文档</NewDocBtn>
             </div>
-            <DocList docs={siblings} />
+            <DocList docs={currentContext().siblings} />
 
             <HR />
 
@@ -308,12 +397,12 @@ const DocContextComponent = (props: {
                 <h4 style={{ flex: 2 }}>⬇️ {I18n.children}</h4>
                 <NewDocBtn onClick={newChild}>📬 新建文档</NewDocBtn>
             </div>
-            <DocList docs={children} />
+            <DocList docs={currentContext().children} />
 
             <div style={{ display: 'flex', 'align-items': 'center' }}>
                 <h4>📇 标题大纲</h4>
             </div>
-            <OutlineComponent docId={doc.id} dialog={props.dialog} />
+            <OutlineComponent docId={currentContext().doc.id} dialog={props.dialog} updateDoc={updateDoc} />
 
         </section>
     );
