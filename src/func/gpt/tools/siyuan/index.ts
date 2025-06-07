@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-06-06 21:57:14
+ * @LastEditTime : 2025-06-07 18:37:00
  * @Description  : 思源笔记工具导出文件
  */
 
@@ -57,6 +57,8 @@ export const siyuanTool = {
 - **日记(DailyNote)**：一种特殊的文档，每个笔记本下按特定模板按照特定 hpath 模式创建
   - 使用 GO 模板语法设置 hpath 路径模板
   - 例如 "/daily note/{{now | date "2006/01"}}/{{now | date "2006-01-02"}}"; 可能会在 2025-12-15 这天渲染得到一篇 hpath 为 "/daily note/2025/12/2025-12-15" 的文档
+  - 日记文档有特殊属性："custom-dailynote-<yyyyMMdd>=<yyyyMMdd>"
+  - 例如 custom-dailynote-20240101=20240101 的文档，被视为 2024-01-01 这天的 daily note 文档
 
 ### ID 规则
 每个块、文档、笔记本都有一个唯一的 ID
@@ -78,6 +80,53 @@ export const siyuanTool = {
 - 嵌入块/查询块: {{<SQL>}}; 思源支持SQL动态查询，SQL 语句需要用 _esc_newline_ 转义换行, 例如:
     {{select * from blocks where type='d' _esc_newline_ order by updated desc;}}
 - 标签: \`#标签名#\`
+
+### SQL 相关简单说明
+querySQL 工具提供了 SQL 查询功能，是思源笔记的核心高级功能
+
+- 完整SQL表结构文档: https://docs.siyuan-note.club/zh-Hans/reference/database/table.html
+- SQL 查询 CheatSheet: https://ld246.com/article/1739546865001
+
+常用表为 blocks 表, refs 表, attributes 表
+
+**blocks 表核心部分说明**
+- id: 块id
+- type: d: 文档, h: 标题, m: 数学公式, c: 代码块, t: 表格块, l: 列表块, b: 引述块, s: 超级块，p：段落块，av：属性视图（俗称数据库，注意区分，这只是一个内容块的叫法）
+- subtype: 特定类型的内容块还存在子类型, 标题块的 h1 到 h6; 列表块的 u (无序), t (任务), o (有序)
+- markdown/content: 原始 markdown 内容和无格式内容
+  - 对文档块而言, content 为文档标题
+  - 对其他内容块而言, 为块的内容
+- created/updated
+- box: 所在笔记本
+- root_id/path/hpath: 所在文档
+
+例: \`select * from blocks where type='d'\`
+
+**refs 表核心部分说明**(记录块引用/反链)
+- block_id: 引用所在内容块 ID
+- def_block_id: 被引用块的块 ID
+
+例: 查询反链
+\`\`\`
+select * from blocks where id in (
+select block_id from refs where def_block_id = '<被引用的块ID>'
+) limit 999
+\`\`\`
+
+**attributes 表核心部分说明**(记录块属性)
+- block_id: 属性所在内容块 ID
+- name: 属性键
+  - 思源中的用户自定义属性必须加上 "custom-" 前缀
+- value: 属性值
+
+例: 查询指定范围内日记
+\`\`\`
+select distinct B.* from blocks as B join attributes as A
+on B.id = A.block_id
+where A.name like 'custom-dailynote-%' and B.type='d'
+and A.value >= '20231010' and A.value <= '20231013'
+order by A.value desc;
+\`\`\`
 
 ### 常用工具(不一定完整)
 
@@ -107,33 +156,11 @@ export const siyuanTool = {
 - 学会通过 path/hpath 来推断文档的层级关系
 - 学会通过 ID 来分析文档的时间戳
 - 当涉及到写入文档内容(appendMarkdown, appendDailyNote)的时候，请在你的回答中用[文档](链接)的形式提及写入的文档目标 !IMPORTANT!
-- 查询日记文档时候，如果是当天或者指定单个日期的 dailynote，可以使用 getDailyNoteDocs; 如果是大批量多个日记文档，可以通过获取 notebook 的 dailynotePathTemplate 属性分析日记文档的路径模板，然后用 searchDocument/listSubDocs 等工具来组合分析日记文档所在位置
+- 查询日记文档时候，如果是当天或者指定单个日期的 dailynote，可以使用 getDailyNoteDocs; 如果是大批量多个日记文档，可以: A) 获取 notebook 的 dailynotePathTemplate 属性分析日记文档的路径模板，然后用 searchDocument/listSubDocs 等工具来组合分析日记文档所在位置; 或者 B) 使用 SQL 配合 "custom-dailynote-<yyyyMMdd>=<yyyyMMdd>" 属性查询 
 - 使用 querySQL 工具的时候, 一定要明确指出 limit 限制, 以避免返回大量数据,建议默认32 !IMPORTANT!
 - 不错的社区网站:
   - 思源论文精选: https://ld246.com/tag/siyuan/perfect
   - 思源主题博客: https://siyuannote.com/
 
-### SQL 相关简单说明
-querySQL 工具提供了 SQL 查询功能，是思源笔记的核心高级功能
-
-- 完整SQL表结构文档: https://docs.siyuan-note.club/zh-Hans/reference/database/table.html
-- SQL 查询 CheatSheet: https://ld246.com/article/1739546865001
-
-常用表为 blocks 表, refs 表, attributes 表
-
-**blocks 表核心部分说明**
-- id: 块id
-- type: d: 文档, h: 标题, m: 数学公式, c: 代码块, t: 表格块, l: 列表块, b: 引述块, s: 超级块，p：段落块，av：属性视图（俗称数据库，注意区分，这只是一个内容块的叫法）
-- subtype: 特定类型的内容块还存在子类型, 标题块的 h1 到 h6; 列表块的 u (无序), t (任务), o (有序)
-- markdown/content: 原始 markdown 内容和无格式内容
-  - 对文档块而言, content 为文档标题
-  - 对其他内容块而言, 为块的内容
-- created/updated
-- box: 所在笔记本
-- root_id/path/hpath: 所在文档
-
-**refs 表核心部分说明**(记录块引用/反链)
-- block_id: 引用所在内容块 ID
-- def_block_id: 被引用块的块 ID
 `
 };
