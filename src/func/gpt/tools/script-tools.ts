@@ -22,7 +22,7 @@ const shellTool: Tool = {
         type: 'function',
         function: {
             name: 'Shell',
-            description: `在${platform} 运行 ${platform === 'win32' ? 'PowerShell' : 'Bash'} 命令`,
+            description: `在${platform} 运行 ${platform === 'win32' ? 'PowerShell' : 'Bash'} 指令/脚本`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -46,14 +46,29 @@ const shellTool: Tool = {
         // 确定执行目录
         const cwd = args.directory ? path.resolve(args.directory) : process.cwd();
 
-        // 确定使用的 shell
+        // 创建临时脚本文件
         const isWindows = os.platform() === 'win32';
-        const shell = isWindows ? 'powershell.exe' : 'bash';
-        const shellArgs = isWindows ? ['-Command', args.command] : ['-c', args.command];
+        const tempDir = os.tmpdir();
+        const timestamp = new Date().getTime();
+        const scriptExt = isWindows ? 'ps1' : 'sh';
+        const scriptPath = path.join(tempDir, `shell_script_${timestamp}.${scriptExt}`);
 
-        // 执行命令
+        // 写入脚本内容
+        fs.writeFileSync(scriptPath, args.command, 'utf-8');
+
+        // 确定使用的 shell 和参数
+        const shell = isWindows ? 'powershell.exe' : 'bash';
+        const shellArgs = [scriptPath];
+
+        // 执行脚本
         return new Promise((resolve) => {
             childProcess.execFile(shell, shellArgs, { cwd }, (error, stdout, stderr) => {
+                try {
+                    fs.unlinkSync(scriptPath);
+                } catch (e) {
+                    console.error('Failed to delete temporary shell script:', e);
+                }
+
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
@@ -297,8 +312,8 @@ export const scriptTools: ToolGroup = {
 
 这些工具适用于需要与系统交互或执行复杂运算的场景，以及在处理大量数据、统计分析、固定流程算法等大语言模型不擅长的领域（如数学计算问题）。
 
-- Shell 工具：运行当前系统的 shell 命令。
-  ${platform === 'win32' ? 'PowerShell -Command ...' : 'Bash -c ...'}
+- Shell 工具：运行当前系统的 shell 命令; 通过创建临时脚本文件执行, 所以也可以传入完整的脚本代码。
+  ${platform === 'win32' ? 'PowerShell 脚本' : 'Bash 脚本'}
 - Python 工具：需确保系统已安装 Python。
 - JavaScript 工具：运行在特殊环境中，禁用 document 对象。
 - Pandoc 工具：使用思源自带的 Pandoc 进行文档格式转换，默认转换为 Markdown 格式。适用于读取外部 docx 等文件内容。

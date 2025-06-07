@@ -1,3 +1,4 @@
+import { createStoreRef, IStoreRef } from '@frostime/solid-signal-ref';
 import {
     Tool,
     ToolPermissionLevel,
@@ -31,9 +32,18 @@ export class ToolExecutor {
     private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
     public groupRegistry: Record<string, ToolGroup> = {};
-    public groupEnabled: Record<string, boolean> = {};
     public groupRules: Record<string, string> = {};
-    private toolEnabled: Record<string, boolean> = {};
+
+    // public groupEnabled: Record<string, boolean> = {};
+    // private toolEnabled: Record<string, boolean> = {};
+
+    public enablingStore: IStoreRef<{
+        group: Record<string, boolean>;
+        tool: Record<string, boolean>;
+    }> = createStoreRef({
+        group: {},
+        tool: {}
+    });
 
     toolRules() {
         if (!this.hasEnabledTools()) return '';
@@ -65,18 +75,22 @@ export class ToolExecutor {
     }
 
     hasEnabledTools() {
-        return Object.values(this.groupEnabled).some(enabled => enabled);
+        // return Object.values(this.groupEnabled).some(enabled => enabled);
+        return Object.values(this.enablingStore()['group']).some(enabled => enabled);
     }
 
     isGroupEnabled(groupName: string) {
-        return this.groupEnabled[groupName] ?? false;
+        // return this.groupEnabled[groupName] ?? false;
+        return this.enablingStore()['group'][groupName] ?? false;
     }
 
     toggleGroupEnabled(groupName: string, enabled?: boolean) {
         if (enabled === undefined) {
-            enabled = !this.groupEnabled[groupName];
+            // enabled = !this.groupEnabled[groupName];
+            enabled = !this.isGroupEnabled(groupName);
         }
-        this.groupEnabled[groupName] = enabled;
+        // this.groupEnabled[groupName] = enabled;
+        this.enablingStore.update('group', groupName, enabled);
     }
 
 
@@ -126,7 +140,8 @@ export class ToolExecutor {
 
         this.registry[toolName] = tool;
         // 工具组内的工具默认启用
-        this.toolEnabled[toolName] = true;
+        // this.toolEnabled[toolName] = true;
+        this.enablingStore.update('tool', toolName, true);
     }
 
     registerToolGroup(group: ToolGroup | (() => ToolGroup)): void {
@@ -146,28 +161,29 @@ ${group.rulePrompt.trim()}
 `);
         }
         //工具组默认禁用
-        this.groupEnabled[group.name] = false;
+        // this.groupEnabled[group.name] = false;
+        this.enablingStore.update('group', group.name, false);
     }
 
     /**
      * 设置工具级别的启用状态
      */
     setToolEnabled(toolName: string, enabled: boolean): void {
-        this.toolEnabled[toolName] = enabled;
+        this.enablingStore.update('tool', toolName, enabled);
     }
 
     /**
      * 获取工具级别的启用状态
      */
     isToolEnabled(toolName: string): boolean {
-        return this.toolEnabled[toolName] ?? false;
+        return this.enablingStore()['tool'][toolName] ?? false;
     }
 
     /**
      * 获取启用的工具定义
      */
     getEnabledToolDefinitions(): IToolDefinition[] {
-        return Object.entries(this.groupEnabled)
+        return Object.entries(this.enablingStore()['group'])
             .filter(([groupName, enabled]) => enabled)
             .flatMap(([groupName]) =>
                 this.groupRegistry[groupName].tools

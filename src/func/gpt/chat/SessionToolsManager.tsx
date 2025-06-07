@@ -84,6 +84,7 @@ export const SessionToolsManager: Component<{
                                                     type="checkbox"
                                                     checked={props.toolExecutor.isToolEnabled(tool.definition.function.name)}
                                                     onChange={() => toggleToolEnabled(tool.definition.function.name)}
+                                                    disabled={!props.toolExecutor.isGroupEnabled(groupName)}
                                                 />
                                                 <span class="tools-manager-tool-name">
                                                     {tool.definition.function.name}
