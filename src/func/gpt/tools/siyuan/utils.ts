@@ -40,26 +40,6 @@ export const blockMapper = (block: Block | any) => {
     return ans;
 }
 
-/**
- * 获取日记文档
- */
-export const getDailyNoteDocs = async (opts: {
-    notebookId?: string;
-    date?: string;  //YYYY-MM-DD
-}) => {
-    let date = new Date();
-    if (opts.date) {
-        date = new Date(opts.date);
-        // 去掉时间
-        date.setHours(0, 0, 0, 0);
-    }
-    const docs = await listDailynote({
-        boxId: opts.notebookId,
-        before: date,
-        after: date
-    });
-    return docs.map(documentMapper);
-}
 
 /**
  * 获取文档信息

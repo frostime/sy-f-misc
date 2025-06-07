@@ -6,10 +6,10 @@
  * @Description  : 思源文档相关工具
  */
 
-import { getBlockByID, id2block } from "@frostime/siyuan-plugin-kits";
+import { getBlockByID, id2block, listDailynote } from "@frostime/siyuan-plugin-kits";
 import { listDocsByPath } from "@/api";
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { documentMapper, getDocument, getDailyNoteDocs, listSubDocs } from './utils';
+import { documentMapper, getDocument, listSubDocs } from './utils';
 
 /**
  * 获取活动文档列表工具
@@ -391,17 +391,25 @@ export const getDailyNoteDocsTool: Tool = {
         type: 'function',
         function: {
             name: 'getDailyNoteDocs',
-            description: '获取日记文档',
+            description: '获取日记文档, 可以指定某天/时间范围，可以指定笔记本',
             parameters: {
                 type: 'object',
                 properties: {
+                    atDate: {
+                        type: 'string',
+                        description: '指定单个日期文档，格式为 yyyy-MM-dd；与beforeDate/afterDate互斥'
+                    },
+                    beforeDate: {
+                        type: 'string',
+                        description: '获取此日期（含）之前的日记，格式为yyyy-MM-dd；与atDate互斥，可与afterDate组合使用'
+                    },
+                    afterDate: {
+                        type: 'string',
+                        description: '获取此日期（含）之后的日记，格式为 yyyy-MM-dd；与atDate互斥，可与beforeDate组合使用'
+                    },
                     notebookId: {
                         type: 'string',
-                        description: '笔记本ID'
-                    },
-                    date: {
-                        type: 'string',
-                        description: '日期，格式为YYYY-MM-DD'
+                        description: '笔记本ID, 可选; 默认查询所有笔记本下的日记'
                     }
                 },
                 required: []
@@ -410,18 +418,54 @@ export const getDailyNoteDocsTool: Tool = {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
-    execute: async (args: { notebookId?: string; date?: string }): Promise<ToolExecuteResult> => {
-        try {
-            const docs = await getDailyNoteDocs(args);
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: docs
-            };
-        } catch (error) {
+    execute: async (args: { notebookId?: string; atDate?: string; beforeDate?: string; afterDate?: string }): Promise<ToolExecuteResult> => {
+        // 检查参数互斥性
+        if (args.atDate && (args.beforeDate || args.afterDate)) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `获取日记文档失败: ${error.message}`
+                error: 'atDate 参数与 beforeDate/afterDate 参数互斥，请只使用其中一种方式指定日期范围'
             };
         }
+
+        let before: Date | undefined;
+        let after: Date | undefined;
+
+        // 处理单日查询
+        if (args.atDate) {
+            const date = new Date(args.atDate);
+            date.setHours(0, 0, 0, 0);
+            before = new Date(date);
+            after = new Date(date);
+        }
+        // 处理日期范围查询
+        else {
+            if (args.beforeDate) {
+                before = new Date(args.beforeDate);
+                before.setHours(23, 59, 59, 999); // 设置为当天结束时间
+            }
+
+            if (args.afterDate) {
+                after = new Date(args.afterDate);
+                after.setHours(0, 0, 0, 0); // 设置为当天开始时间
+            }
+
+            // 如果没有指定任何日期，默认为当天
+            if (!before && !after) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                before = new Date(today);
+                after = new Date(today);
+            }
+        }
+
+        const docs = await listDailynote({
+            boxId: args.notebookId,
+            before: before,
+            after: after
+        });
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: docs.map(documentMapper)
+        };
     }
 };

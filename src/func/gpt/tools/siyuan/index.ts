@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-06-07 18:37:00
+ * @LastEditTime : 2025-06-07 19:41:04
  * @Description  : 思源笔记工具导出文件
  */
 
@@ -50,15 +50,13 @@ export const siyuanTool = {
 
 ### 笔记本与文档结构
 
-- **笔记本(Notebook)**：顶层结构; 别名 box
-- **文档(Document)**：嵌套结构(最大深度7)，每个文档包含多个内容块
-- **内容块(Block)**: 以块对内容进行组织，如标题、列表、段落等为不同类型的块; 每个块的 root_id 指向容器文档id
+- 笔记本(Notebook)：顶层结构; 别名 box
+- 文档(Document)：嵌套结构(最大深度7)，每个文档包含多个内容块
+- 内容块(Block): 以块对内容进行组织，如标题、列表、段落等为不同类型的块; 每个块的 root_id 指向容器文档id
 
-- **日记(DailyNote)**：一种特殊的文档，每个笔记本下按特定模板按照特定 hpath 模式创建
-  - 使用 GO 模板语法设置 hpath 路径模板
-  - 例如 "/daily note/{{now | date "2006/01"}}/{{now | date "2006-01-02"}}"; 可能会在 2025-12-15 这天渲染得到一篇 hpath 为 "/daily note/2025/12/2025-12-15" 的文档
-  - 日记文档有特殊属性："custom-dailynote-<yyyyMMdd>=<yyyyMMdd>"
-  - 例如 custom-dailynote-20240101=20240101 的文档，被视为 2024-01-01 这天的 daily note 文档
+- 日记(DailyNote)：一种特殊的文档，每个笔记本下按特定模板按照特定 hpath 模式创建
+  - 使用 GO 模板语法设置 hpath 路径模板; 例如 "/daily note/{{now | date "2006/01"}}/{{now | date "2006-01-02"}}"; 可能会在 2025-12-15 这天解析为 hpath "/daily note/2025/12/2025-12-15" 的文档
+  - 日记文档有特殊属性："custom-dailynote-<yyyyMMdd>=<yyyyMMdd>"; 例如 custom-dailynote-20240101=20240101 (attribute 表)
 
 ### ID 规则
 每个块、文档、笔记本都有一个唯一的 ID
@@ -66,9 +64,9 @@ export const siyuanTool = {
 - 所有"docId/notebookId"的参数都要用 ID 而非名称/路径 !IMPORTANT!
 
 ### 文档级别属性
-- **id**: 唯一标识(块ID)
-- **path**: ID路径，笔记本内唯一，如 /20241020123921-0bdt86h/20240331203024-9vpgge9.sy; "20241020123921-0bdt86h" 是 "20240331203024-9vpgge" 的父文档
-- **hpath**: 名称路径，可能重复，如 /Inbox/独立测试文档; "Inbox" 是 "独立测试文档" 的父文档
+- id: 唯一标识(块ID)
+- path: ID路径，笔记本内唯一，如 /20241020123921-0bdt86h/20240331203024-9vpgge9.sy; "20241020123921-0bdt86h" 是 "20240331203024-9vpgge" 的父文档
+- hpath: 名称路径，可能重复，如 /Inbox/独立测试文档; "Inbox" 是 "独立测试文档" 的父文档
 
 ### 文档/块内容
 
@@ -91,8 +89,8 @@ querySQL 工具提供了 SQL 查询功能，是思源笔记的核心高级功能
 
 **blocks 表核心部分说明**
 - id: 块id
-- type: d: 文档, h: 标题, m: 数学公式, c: 代码块, t: 表格块, l: 列表块, b: 引述块, s: 超级块，p：段落块，av：属性视图（俗称数据库，注意区分，这只是一个内容块的叫法）
-- subtype: 特定类型的内容块还存在子类型, 标题块的 h1 到 h6; 列表块的 u (无序), t (任务), o (有序)
+- type: d: 文档, h: 标题, m: 数学公式, c: 代码块, t: 表格块, l: 列表块, b: 引述块, s: 超级块，p：段落块，av：属性视图（俗称数据库）
+- subtype: 特定类型块的子类型, 标题块的 h1 到 h6; 列表块的 u (无序), t (任务), o (有序)
 - markdown/content: 原始 markdown 内容和无格式内容
   - 对文档块而言, content 为文档标题
   - 对其他内容块而言, 为块的内容
@@ -110,7 +108,7 @@ querySQL 工具提供了 SQL 查询功能，是思源笔记的核心高级功能
 \`\`\`
 select * from blocks where id in (
 select block_id from refs where def_block_id = '<被引用的块ID>'
-) limit 999
+)
 \`\`\`
 
 **attributes 表核心部分说明**(记录块属性)
@@ -151,16 +149,15 @@ order by A.value desc;
 
 ### 经验
 
-- 如果用户没有任何上下文就提及了某个文档，并默认你应该知道，尝试 listActiveDocs 查看是否是当前活动文档
-- 日记文档每个笔记本内各自独立; 所以涉及日记文档操作时，和用户确定使用哪个笔记本
+- 如果用户没有任何上下文就提及了某笔记文档，尝试 listActiveDocs 查看是否是当前活动文档
 - 学会通过 path/hpath 来推断文档的层级关系
 - 学会通过 ID 来分析文档的时间戳
-- 当涉及到写入文档内容(appendMarkdown, appendDailyNote)的时候，请在你的回答中用[文档](链接)的形式提及写入的文档目标 !IMPORTANT!
-- 查询日记文档时候，如果是当天或者指定单个日期的 dailynote，可以使用 getDailyNoteDocs; 如果是大批量多个日记文档，可以: A) 获取 notebook 的 dailynotePathTemplate 属性分析日记文档的路径模板，然后用 searchDocument/listSubDocs 等工具来组合分析日记文档所在位置; 或者 B) 使用 SQL 配合 "custom-dailynote-<yyyyMMdd>=<yyyyMMdd>" 属性查询 
-- 使用 querySQL 工具的时候, 一定要明确指出 limit 限制, 以避免返回大量数据,建议默认32 !IMPORTANT!
+- 当涉及到写入文档内容(appendMarkdown,appendDailyNote)的时候，请在你的回答中用[文档](链接)的形式提及写入的文档目标 !IMPORTANT!
+- 日记文档每个笔记本内各自独立; 所以涉及日记文档操作时，和用户确定使用哪个笔记本
+- 查询日记文档时候请灵活使用 getDailyNoteDocs, 日期格式例如 2025-06-07; 如果对日记文档的批量统计或复杂查询, 可以考虑使用 SQL 配合 custom-dailynote-<yyyyMMdd> 属性
+- 使用 querySQL 工具的时候, 一定要明确指出 limit 限制,建议默认32 !IMPORTANT!
 - 不错的社区网站:
   - 思源论文精选: https://ld246.com/tag/siyuan/perfect
   - 思源主题博客: https://siyuannote.com/
-
 `
 };
