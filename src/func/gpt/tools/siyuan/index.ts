@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-06-07 19:41:04
+ * @LastEditTime : 2025-06-07 21:08:19
  * @Description  : 思源笔记工具导出文件
  */
 
@@ -156,6 +156,7 @@ order by A.value desc;
 - 日记文档每个笔记本内各自独立; 所以涉及日记文档操作时，和用户确定使用哪个笔记本
 - 查询日记文档时候请灵活使用 getDailyNoteDocs, 日期格式例如 2025-06-07; 如果对日记文档的批量统计或复杂查询, 可以考虑使用 SQL 配合 custom-dailynote-<yyyyMMdd> 属性
 - 使用 querySQL 工具的时候, 一定要明确指出 limit 限制,建议默认32 !IMPORTANT!
+- 当基于思源块内容进行回答时, 可以附上 [锚文本](siyuan链接) 方便用户溯源
 - 不错的社区网站:
   - 思源论文精选: https://ld246.com/tag/siyuan/perfect
   - 思源主题博客: https://siyuannote.com/

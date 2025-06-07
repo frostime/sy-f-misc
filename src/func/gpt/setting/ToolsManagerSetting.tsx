@@ -59,6 +59,7 @@ export const ToolsManagerSetting: Component = () => {
             <div class="b3-card" style={{ margin: '0 0 8px 0', padding: '8px 16px', display: 'block' }}>
                 请按需开启工具，每个开启的工具会增加 token 消耗。
                 部分工具存在风险/隐私问题，需用户审核后才能执行。
+                无编程经验者慎重使用脚本工具组(特别是 shell 工具)。
             </div>
             <div class="tools-manager-groups">
                 <For each={Object.entries(tempExecutor.groupRegistry)}>

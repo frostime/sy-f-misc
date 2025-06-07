@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 20:11:55
  * @FilePath     : /src/func/gpt/tools/web/webpage.ts
- * @LastEditTime : 2025-06-04 11:59:34
+ * @LastEditTime : 2025-06-07 21:03:59
  * @Description  : 
  */
 import URLProvider from "../../context-provider/URLProvider";
@@ -36,7 +36,8 @@ export const webPageContentTool: Tool = {
                 }
             }
         },
-        permissionLevel: ToolPermissionLevel.MODERATE
+        permissionLevel: ToolPermissionLevel.MODERATE,
+        requireResultApproval: true
     },
 
     execute: async (args: { url?: string, urlList?: string[], limit?: number }): Promise<ToolExecuteResult> => {

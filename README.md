@@ -36,6 +36,8 @@
   - LLM 模型 (Chat API)、Prompt 管理
   - 对话记录保存、管理、多端同步
   - Tool Call 功能(> 6.0.0)
+
+    - 支持网络搜索、本地文件系统操作、思源集成等多种工具
   - 和思源笔记结合
 
     - 笔记 Context Provder; 将笔记相关内容加入对话中
@@ -67,9 +69,7 @@
       ```js
       Zotero.Prefs.set("extensions.zotero.debug-bridge.token","CTT",true);
       ```
-  - 引用选中的 Zotero 论文条目
-
-    - ​`/cite`​ 触发
+  - 引用选中的 Zotero 论文条目；`/cite`​ 触发
   - 将选定论文的笔记导入到思源中
 
     - 注意，zotero 笔记中的图片默认只会以 `file:///`​ 链接的形式插入到笔记中；你可以在思源文档中自行将「网络资源图片转换到本地」，来将这些图片导入到思源当中
@@ -109,10 +109,6 @@
   - 定期将 Toggl 的 Time Entries 插入到 Daily Note 中
   - 需要绑定 Toggl 账号的 API Token 使用
 - 推送文档发布远端：将本地的思源文档、文档树直接通过网络发送到另一个工作空间内（包括引用的图片）
-- 中间小窗 (已拆分上架)
-- 文档上下文 (已拆分上架)
-- Insert Time  (已拆分上架)
-- Titled Link（已拆分上架）
 
 其他还有一些不那么重要的功能，不再一一赘述。
 
