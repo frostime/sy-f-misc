@@ -62,7 +62,11 @@ export default userConstants;
 
 // Default constants that will be merged with user constants
 export const defaultConstants = {
-    promptSummarize: ``
+    promptSummarize: ``,
+    quickDraftWinSize: {
+        width: 1000,
+        height: 600
+    }
 };
 
 // The merged constants that will be used throughout the application

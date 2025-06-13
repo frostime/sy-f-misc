@@ -3,12 +3,13 @@
  * @Author       : frostime
  * @Date         : 2025-04-17 15:20:21
  * @FilePath     : /src/func/private-func/index.ts
- * @LastEditTime : 2025-05-12 22:37:32
+ * @LastEditTime : 2025-06-13 12:11:56
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
 import { toggleDisable, toggleEnable } from "./auto-sync";
-import { showMessage } from "siyuan";
+import * as toQuickDn from "./to-quick-dn";
+// import { showMessage } from "siyuan";
 
 import { config } from './config';
 export { declareModuleConfig } from './config';
@@ -59,6 +60,8 @@ export const load = (plugin_: FMiscPlugin) => {
     if (config.AutoSyncAfterLongWait) {
         toggleEnable();
     }
+
+    toQuickDn.load();
 };
 
 export const unload = (_plugin: FMiscPlugin) => {
@@ -70,4 +73,6 @@ export const unload = (_plugin: FMiscPlugin) => {
 
     toggleDisable();
     plugin = null;
+
+    toQuickDn.unload();
 };

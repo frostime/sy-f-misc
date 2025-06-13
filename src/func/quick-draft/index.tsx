@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 10:46:11
  * @FilePath     : /src/func/quick-draft/index.tsx
- * @LastEditTime : 2025-02-10 17:19:33
+ * @LastEditTime : 2025-06-13 12:53:35
  * @Description  : 
  */
 import { onCleanup, onMount } from "solid-js";
@@ -17,6 +17,7 @@ import { render } from "solid-js/web";
 import { createDocWithMd, getBlockByID, removeDocByID, renameDocByID } from "@frostime/siyuan-plugin-kits/api";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import FMiscPlugin from "@/index";
+import { defaultConstants } from "../shared-configs";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -26,7 +27,7 @@ const InMiniWindow = () => {
 }
 
 function ProtyleComponent(props: {
-    blockId: string, autoDelete: boolean
+    blockId: string, autoDelete: boolean, zenMode: boolean
 }) {
     let divProtyle: HTMLDivElement | undefined;
     let protyle: Protyle | undefined;
@@ -54,7 +55,12 @@ function ProtyleComponent(props: {
 
         // 监听 alt+y 快捷键来切换全屏
         document.addEventListener('keydown', handleKeyDown);
-        toggleFullScreen(true);
+
+        if (props.zenMode === true) {
+            toggleFullScreen(true);
+        } else {
+            toggleFullScreen(false);
+        }
         // 在 id="status" 元素中添加一个 checkbox，决定是否在关闭的时候删除文档
         const status = document.getElementById('status');
         if (status) {
@@ -165,12 +171,14 @@ const NEW_CARD_WINDOW_TYPE = "new-card-window";
 let isWindow = getFrontend() === "desktop-window";
 let DEFAULT_BOX = '';
 let DEFAULT_AUTO_DELETE = true;
+let DEFAULT_ZEN_MODE = true;
 
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'quick-draft',
-    load: (data: { box: string, autoDelete: boolean }) => {
+    load: (data: { box: string, autoDelete: boolean, zenMode: boolean }) => {
         data.box && (DEFAULT_BOX = data.box);
-        data.autoDelete && (DEFAULT_AUTO_DELETE = data.autoDelete);
+        data.autoDelete !== undefined && (DEFAULT_AUTO_DELETE = data.autoDelete);
+        data.zenMode !== undefined && (DEFAULT_ZEN_MODE = data.zenMode);
     },
     items: [
         {
@@ -191,6 +199,16 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             get: () => DEFAULT_AUTO_DELETE,
             set: (value: boolean) => {
                 DEFAULT_AUTO_DELETE = value;
+            }
+        },
+        {
+            key: 'zenMode',
+            title: '默认 Zen 模式',
+            description: 'Quick Draft 打开时是否进入 Zen 模式',
+            type: 'checkbox',
+            get: () => DEFAULT_ZEN_MODE,
+            set: (value: boolean) => {
+                DEFAULT_ZEN_MODE = value;
             }
         }
     ]
@@ -228,7 +246,8 @@ export const openQuickDraft = async (title?: string) => {
         title: docTitle,
         data: {
             blockId: newDocId,
-            autoDelete: title ? false : DEFAULT_AUTO_DELETE
+            autoDelete: title ? false : DEFAULT_AUTO_DELETE,
+            zenMode: DEFAULT_ZEN_MODE
         },
         id: plugin.name + NEW_CARD_WINDOW_TYPE
     };
@@ -236,12 +255,11 @@ export const openQuickDraft = async (title?: string) => {
         app: app,
         custom: tabOption,
         removeCurrentTab: false,
-    })
-    // const screenWidth = window.screen.availWidth;
-    // const screenHeight = window.screen.availHeight;
+    });
+
     openWindow({
-        height: 420,
-        width: 800,
+        height: defaultConstants?.quickDraftWinSize?.height || 600,
+        width: defaultConstants?.quickDraftWinSize?.width || 1000,
         tab: await tab
     });
 }
@@ -263,7 +281,7 @@ export const load = (plugin: FMiscPlugin) => {
             if (!isWindow) return
             let blockId = this.data.blockId;
             disposer = render(
-                () => <ProtyleComponent blockId={blockId} autoDelete={this.data.autoDelete} />,
+                () => <ProtyleComponent blockId={blockId} autoDelete={this.data.autoDelete} zenMode={this.data.zenMode} />,
                 this.element
             );
         },
