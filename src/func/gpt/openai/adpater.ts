@@ -76,21 +76,24 @@ export const adaptChatOptions = (target: {
 }) => {
     let { model, apiUrl, chatOption } = target;
 
+    const deleteZeroKey = (target: Record<string, any>, key: string) => {
+        if (target[key] === 0) {
+            delete target[key];
+        }
+    }
+
     chatOption = structuredClone(chatOption);
     for (const key in chatOption) {
         if (chatOption[key] === null || chatOption[key] === undefined) {
             delete chatOption[key];
         }
-
-        //有些模型不支持这两个参数, 反正不填默认就是 0，那干脆可以闪电
-        if (key === 'frequency_penalty' && chatOption[key] === 0) {
-            delete chatOption[key];
-        }
-
-        if (key === 'presence_penalty' && chatOption[key] === 0) {
-            delete chatOption[key];
-        }
     }
+
+    //有些模型不支持这两个参数, 反正不填默认就是 0，那干脆可以闪电
+    deleteZeroKey(chatOption, 'frequency_penalty');
+    deleteZeroKey(chatOption, 'presence_penalty');
+
+    deleteZeroKey(chatOption, 'max_tokens');
 
 
     model = model.toLocaleLowerCase();
@@ -102,13 +105,6 @@ export const adaptChatOptions = (target: {
             chatOption.temperature = 1;
         }
     }
-
-    // SB 硅基流动只允许 max_tokens 小于 4096
-    // if (apiUrl.startsWith('https://api.siliconflow.cn/') && model.endsWith('deepseek-ai/deepseek-v3')) {
-    //     if (chatOption?.max_tokens > 4096) {
-    //         chatOption.max_tokens = 4096;
-    //     }
-    // }
 
     return chatOption;
 }
