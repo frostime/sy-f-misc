@@ -182,7 +182,6 @@ export const getParentDocTool: Tool = {
     },
 
     execute: async (args: { docId: string }): Promise<ToolExecuteResult> => {
-        debugger
         const doc = await getDocument({ docId: args.docId });
         if (!doc) {
             return {

@@ -12,7 +12,7 @@ const path = window?.require?.('path');
 const childProcess = window?.require?.('child_process');
 const os = window?.require?.('os');
 
-const platform = os.platform();
+const platform = os?.platform();
 
 /**
  * 执行 Shell 命令工具

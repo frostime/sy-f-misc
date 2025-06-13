@@ -1,11 +1,12 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { forwardProxy } from "@/api";
 
 /*
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
- * @LastEditTime : 2025-06-05 12:12:40
+ * @LastEditTime : 2025-06-12 20:05:23
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
@@ -51,15 +52,31 @@ function extractSearchResults(dom: Document): { title: string; link: string; des
 export async function bingSearch(query: string, pageIdx: number = 1): Promise<{ title: string; link: string; description: string }[]> {
     const first = (pageIdx - 1) * 10 + 1;
     const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&first=${first}&FORM=PERE`;
+
     try {
-        const response = await fetch(url);
-        const html = await response.text();
+        // 使用 forwardProxy 函数发送请求，避免跨域问题
+        const response = await forwardProxy(
+            url,
+            'GET',
+            null,
+            [{ 'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36" }],
+            7000,
+            'text/html'
+        );
+
+        if (!response || (response.status / 100) !== 2) {
+            console.error('Bing search failed with status:', response?.status);
+            throw new Error(`Bing search failed with status: ${response?.status}`);
+        }
+
+        // 处理返回的 HTML 内容
+        const html = response.body;
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         return extractSearchResults(doc);
     } catch (error) {
-        console.error('Bing search error:', error);
-        return [];
+        console.error('Error using forwardProxy for Bing search:', error);
+        throw error;
     }
 }
 
@@ -84,10 +101,18 @@ export const bingSearchTool: Tool = {
     },
 
     execute: async (args: { query: string }): Promise<ToolExecuteResult> => {
-        const result = await bingSearch(args.query);
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: result
-        };
+        try {
+            const result = await bingSearch(args.query);
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: result
+            };
+        } catch (error) {
+            console.error('Bing search error:', error);
+            return {
+                status: ToolExecuteStatus.ERROR,
+                data: error
+            };
+        }
     }
 };
