@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-31 14:51:57
  * @FilePath     : /src/func/gpt/tools/web/index.ts
- * @LastEditTime : 2025-06-07 21:05:37
+ * @LastEditTime : 2025-06-14 16:15:50
  * @Description  : 
  */
 import { ToolGroup } from "../types";
@@ -39,13 +39,14 @@ export const toolGroupWeb = (): ToolGroup => {
 
 如果用户未指定偏好，请根据需求自行选择适当的搜索工具。此外 Tavily/Bocha 工具不一定对 ASSISTANT 可用。
 
-建议: 使用 Bing 时仔细设计 query 以获得更准确的结果(Bing不具备其他检索工具的自然语言理解能力)
+Bing: 使用 Bing 时仔细设计 query, 多利用关键词组合, 复杂的 OR AND NOT () site: language: 等运算符
+Tavily/Bocha: 支持复杂的参数, 请根据用户理解仔细思考查询需求并配置参数
 
 **网页内容获取工具**：
 - WebPageContent：获取给定 URL 网页的内容。
 
 **使用指导**：
-- 如果用户的提问对时效性有要求，应当使用搜索工具。
+- 如果用户的提问对时效性有要求，应当使用搜索工具。并且关注当前的日期时间以确保事实性。
 - 简单检索需求: 直接调用搜索工具即可。
 - 复杂检索需求: 可以使用搜索工具检索相关URL，然后获取特定网页的内容。
 

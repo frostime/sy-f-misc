@@ -366,7 +366,7 @@ const useGptCommunication = (params: {
     }
 
     const currentSystemPrompt = () => {
-        let ptime = `当前时间: ${new Date().toLocaleString()}`;
+        let ptime = `It's: ${new Date().toString()}`;
         let prompt = systemPrompt().trim() || '';
         if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
             prompt += params.toolExecutor.toolRules();

@@ -6,7 +6,7 @@ import { forwardProxy } from "@/api";
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
- * @LastEditTime : 2025-06-12 20:05:23
+ * @LastEditTime : 2025-06-14 16:07:26
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
