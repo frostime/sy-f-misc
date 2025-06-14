@@ -201,6 +201,40 @@ $chat-very-narrow-container: 400px;
         width: 100%;
         padding: 0px;
 
+        &.dropTarget {
+            position: relative;
+
+            &::after {
+                content: 'Drop To Add Context';
+                text-align: center;
+                font-weight: bold;
+                padding-top: 1em;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                border: 2px dashed var(--b3-theme-primary);
+                border-radius: 8px;
+                background-color: var(--b3-theme-primary-lightest);
+                pointer-events: none;
+                z-index: 1;
+                animation: pulse 1.5s infinite;
+            }
+
+            @keyframes pulse {
+                0% {
+                    opacity: 0.6;
+                }
+                50% {
+                    opacity: 0.8;
+                }
+                100% {
+                    opacity: 0.6;
+                }
+            }
+        }
+
         textarea.input {
             flex: 1;
             padding: 10px;

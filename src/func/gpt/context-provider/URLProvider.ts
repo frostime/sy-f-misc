@@ -53,7 +53,8 @@ const DOMAIN_SPECIFIC_REMOVE = {
     'ld246\.com/article/': [
         '.wrapper>.side', '.content>.module:not(#comments)',
         '#comments>.module-header,.fn__flex-inline', '.welcome', '.article-tail'
-    ]
+    ],
+    'kexue\.fm/': ['#Header', '#MainMenu', '#MainMenuiPad', '#SideBar', '#Footer']
 } as { [url: string]: string[] };
 
 const REGEX = Object.fromEntries(Object.entries(DOMAIN_SPECIFIC_REMOVE).map(([key, value]) => [key, new RegExp(key)]));

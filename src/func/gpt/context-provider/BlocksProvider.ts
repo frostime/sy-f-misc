@@ -46,8 +46,8 @@ const BlocksProvider: CustomContextProvider = {
                 content = await getMarkdown(id);
             }
             return {
-                name: `来自块: ${id}`,
-                description: `${BlockTypeName[block.type]}，来自文档 ${block.hpath}`,
+                name: `块: ${id}`,
+                description: `${BlockTypeName[block.type]}; 文档: ${block.hpath}`,
                 content: content,
             };
         }));

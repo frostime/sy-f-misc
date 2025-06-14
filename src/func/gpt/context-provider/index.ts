@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-05-31 15:52:05
+ * @LastEditTime : 2025-06-13 23:04:00
  * @Description  : 
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -246,4 +246,56 @@ function context2prompt(context: IProvidedContext): string {
     return prompt;
 }
 
-export { executeContextProvider, assembleContext2Prompt, handlePrivacy, getContextProviders };
+/**
+ * 直接执行上下文提供器，不需要用户交互
+ * @param provider 上下文提供器
+ * @param providerOptions 提供给上下文提供器的选项，包含query和selected等参数
+ * @param options 执行选项
+ * @returns 提供的上下文
+ */
+const executeContextProviderDirect = async (
+    provider: CustomContextProvider,
+    providerOptions: Parameters<CustomContextProvider['getContextItems']>[0],
+    options?: {
+        verbose?: boolean
+    }
+): Promise<IProvidedContext> => {
+    const { verbose = false } = options || {};
+
+    let id = window.Lute.NewNodeID();
+    if (provider.name == FocusDocProvider.name) {
+        id = provider.name;
+    }
+
+    // 直接使用传入的参数调用getContextItems
+    const contextItems = await provider.getContextItems(providerOptions);
+
+    if ((!contextItems || contextItems.length === 0) && verbose) {
+        showMessage(`没有获取到 ${provider.name} 相关的数据`, 3000);
+        return;
+    }
+
+    let providerMetaInfo = {
+        name: provider.name,
+        displayTitle: provider.displayTitle,
+        description: provider.description
+    }
+    let metaInfo = provider?.contextMetaInfo ? provider.contextMetaInfo({
+        input: providerOptions,
+        items: contextItems
+    }) : providerMetaInfo;
+    metaInfo = { ...providerMetaInfo, ...metaInfo };
+
+    let context = ({
+        id: id,
+        ...metaInfo,
+        contextItems: contextItems,
+    });
+
+    // 处理隐私信息
+    context = handleContextPrivacy(context);
+
+    return context;
+}
+
+export { executeContextProvider, executeContextProviderDirect, assembleContext2Prompt, handlePrivacy, getContextProviders };

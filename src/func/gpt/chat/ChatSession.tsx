@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/ChatSession.tsx
- * @LastEditTime : 2025-06-05 22:23:24
+ * @LastEditTime : 2025-06-14 16:01:34
  * @Description  :
  */
 // External libraries
@@ -15,7 +15,7 @@ import {
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { Menu, Protyle, showMessage } from 'siyuan';
+import { Constants, Menu, Protyle, showMessage } from 'siyuan';
 import { getMarkdown, inputDialog, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
 
 // UI Components
@@ -41,12 +41,13 @@ import {
 } from '@gpt/setting/store';
 import * as persist from '@gpt/persistence';
 import * as syDoc from '@gpt/persistence/sy-doc';
-import { getContextProviders, executeContextProvider } from '@gpt/context-provider';
+import { getContextProviders, executeContextProvider, executeContextProviderDirect } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import {
     adaptIMessageContent,
     isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
+import BlocksProvider from '../context-provider/BlocksProvider';
 
 // Import removed: Rows was unused
 
@@ -1208,7 +1209,7 @@ const ChatSession: Component<{
                             const { container } = solidDialog({
                                 title: '可用工具',
                                 loader: () => (
-                                    <SessionToolsManager 
+                                    <SessionToolsManager
                                         toolExecutor={session.toolExecutor}
                                         onToggleGroup={(_groupName, _enabled) => {
                                             // 工具组状态已在组件内部更新，这里可以添加额外逻辑
@@ -1271,7 +1272,46 @@ const ChatSession: Component<{
                         <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>
                 </div>
-                <div class={styles.inputWrapper}>
+                <div class={styles.inputWrapper}
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.classList.add(styles.dropTarget);
+                    }}
+                    onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.classList.remove(styles.dropTarget);
+                    }}
+                    onDrop={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.classList.remove(styles.dropTarget);
+
+                        if (!e.dataTransfer.types.length) return;
+
+                        const type = e.dataTransfer.types[0];
+                        if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
+                            const context = await executeContextProviderDirect(SelectedTextProvider, {
+                                query: ''
+                            });
+                            session.setContext(context);
+                        } else if (e.dataTransfer.types.includes(Constants.SIYUAN_DROP_TAB)) {
+                            const data = e.dataTransfer.getData(Constants.SIYUAN_DROP_TAB)
+                            const payload = JSON.parse(data);
+                            const rootId = payload?.children?.rootId;
+                            if (rootId) {
+                                const context = await executeContextProviderDirect(BlocksProvider, {
+                                    query: rootId
+                                });
+                                session.setContext(context);
+                            }
+                            const tab = document.querySelector(`li[data-type="tab-header"][data-id="${payload.id}"]`) as HTMLElement;
+                            if (tab) {
+                                tab.style.opacity = 'unset';
+                            }
+                        }
+                    }}>
                     <textarea
                         ref={textareaRef}
                         value={input()}
@@ -1296,6 +1336,13 @@ const ChatSession: Component<{
                         placeholder="输入消息..."
                         class={`${styles.input}`}
                         onKeyDown={onKeyDown}
+                        onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            // Add visual feedback for drag over textarea
+                            const wrapper = e.currentTarget.closest(`.${styles.inputWrapper}`);
+                            if (wrapper) wrapper.classList.add(styles.dropTarget);
+                        }}
                     />
                     <div style={{
                         position: 'absolute',
