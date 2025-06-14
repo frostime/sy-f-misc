@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-06-06 22:18:58
+ * @LastEditTime : 2025-06-14 22:18:18
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
@@ -27,10 +27,6 @@ import { showMessageLog } from "./MessageLogger";
 
 import * as openai from './openai';
 import * as chatInDoc from './chat-in-doc';
-
-//#if [DEV]
-// import * as workflow from './workflow';
-//#endif
 
 export { openai };
 

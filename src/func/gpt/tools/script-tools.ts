@@ -14,6 +14,18 @@ const os = window?.require?.('os');
 
 const platform = os?.platform();
 
+
+const testHasCommand = async (command: string) => {
+    try {
+        childProcess.execSync(`where ${command}`, { stdio: 'ignore' });
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+let hasPwsh = null;
+
 /**
  * 执行 Shell 命令工具
  */
@@ -57,7 +69,16 @@ const shellTool: Tool = {
         fs.writeFileSync(scriptPath, args.command, 'utf-8');
 
         // 确定使用的 shell 和参数
-        const shell = isWindows ? 'powershell.exe' : 'bash';
+        let shell: string;
+        if (isWindows) {
+            // 优先使用 PowerShell Core (pwsh) 如果存在，否则退回到 powershell.exe
+            if (hasPwsh === null) {
+                hasPwsh = await testHasCommand('pwsh');
+            }
+            shell = hasPwsh ? 'pwsh' : 'powershell.exe';
+        } else {
+            shell = 'bash';
+        }
         const shellArgs = [scriptPath];
 
         // 执行脚本
@@ -102,9 +123,9 @@ const pythonTool: Tool = {
                         type: 'string',
                         description: '要执行的 Python 代码'
                     },
-                    location: {
+                    directory: {
                         type: 'string',
-                        description: '脚本文件保存位置，默认为临时目录'
+                        description: '脚本文件保存位置，默认为自动配置的临时目录'
                     },
                     keepFile: {
                         type: 'boolean',
@@ -118,9 +139,9 @@ const pythonTool: Tool = {
         requireResultApproval: true
     },
 
-    execute: async (args: { code: string; location?: string; keepFile?: boolean }): Promise<ToolExecuteResult> => {
+    execute: async (args: { code: string; directory?: string; keepFile?: boolean }): Promise<ToolExecuteResult> => {
         // 创建临时文件
-        const tempDir = args.location || os.tmpdir();
+        const tempDir = args.directory || os.tmpdir();
         const timestamp = new Date().getTime();
         const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
 
