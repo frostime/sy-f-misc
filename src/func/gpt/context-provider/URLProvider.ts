@@ -6,196 +6,10 @@
  * @Description  : URL Content Provider
  */
 
-// import { request } from "@frostime/siyuan-plugin-kits/api";
 import { showMessage } from "siyuan";
-import { addScript } from "../utils";
+import { fetchWebContent, webUtils } from "../tools/web/webpage";
 
-const isValidUrl = (url: string): boolean => {
-    // 空字符串或空白字符串
-    if (!url.trim()) {
-        return false;
-    }
-
-    // 相对路径（以 / 开头）
-    if (url.startsWith('/')) {
-        return true;
-    }
-
-    // 以 assets/ public/ 为开头
-    if (url.startsWith('assets/') || url.startsWith('public/')) {
-        return true;
-    }
-
-    // 协议相对路径（以 // 开头）
-    if (url.startsWith('//')) {
-        return true;
-    }
-
-    // 绝对路径（包含协议）
-    try {
-        new URL(url);
-        return true;
-    } catch {
-        return false;
-    }
-};
-
-interface ParsedHtmlContent {
-    title: string;
-    description: string;
-    keywords: string;
-    author: string;
-    mainContent: string;
-}
-
-const DOMAIN_SPECIFIC_REMOVE = {
-    'sina\.com\.cn/.+shtml': ['#sina-header', '.article-content-right', '.page-tools'],
-    'ld246\.com/article/': [
-        '.wrapper>.side', '.content>.module:not(#comments)',
-        '#comments>.module-header,.fn__flex-inline', '.welcome', '.article-tail'
-    ],
-    'kexue\.fm/': ['#Header', '#MainMenu', '#MainMenuiPad', '#SideBar', '#Footer']
-} as { [url: string]: string[] };
-
-const REGEX = Object.fromEntries(Object.entries(DOMAIN_SPECIFIC_REMOVE).map(([key, value]) => [key, new RegExp(key)]));
-
-export const parseHtmlContent = (doc: Document): ParsedHtmlContent => {
-    const result: ParsedHtmlContent = {
-        title: '',
-        description: '',
-        keywords: '',
-        author: '',
-        mainContent: ''
-    };
-
-    // 解析 head 信息
-    const head = doc.head;
-    if (head) {
-        // 获取标题
-        result.title = head.querySelector('title')?.textContent?.trim() || '';
-
-        // 获取 meta 信息
-        const metas = head.getElementsByTagName('meta');
-        for (const meta of Array.from(metas)) {
-            const name = meta.getAttribute('name')?.toLowerCase();
-            const content = meta.getAttribute('content');
-            if (!content) continue;
-
-            switch (name) {
-                case 'description':
-                    result.description = content;
-                    break;
-                case 'keywords':
-                    result.keywords = content;
-                    break;
-                case 'author':
-                    result.author = content;
-                    break;
-            }
-        }
-    }
-
-    // 解析 body 内容
-    const body = doc.body;
-    if (body) {
-        // 移除不需要的元素
-        const removeSelectors = [
-            'script', 'style', 'iframe', 'noscript', 'svg',
-            'header:not(article header)', 'footer:not(article footer)', 'nav',
-            '.ad', '.ads', '.advertisement',
-            'aside:not(article aside)',
-            '.popup, .modal, .cookie, .banner',
-            'button, input, select, textarea'
-        ];
-
-        // 创建body的克隆以避免修改原始DOM
-        const bodyClone = body.cloneNode(true) as HTMLElement;
-
-        // 移除不需要的元素
-        removeSelectors.forEach(selector => {
-            try {
-                const elements = bodyClone.querySelectorAll(selector);
-                elements.forEach(el => el.remove());
-            } catch (e) {
-                // 忽略选择器语法错误
-            }
-        });
-
-        //@ts-ignore
-        let turndownService = globalThis.TurndownService?.({
-            headingStyle: 'atx',
-            hr: '---',
-            bulletListMarker: '-',
-            codeBlockStyle: 'fenced',
-            linkStyle: 'inlined',
-            blankReplacement: (content, node) => {
-                // 保留换行符
-                return node.isBlock ? '\n\n' : '';
-            }
-        }) as {
-            turndown(dom: HTMLElement): string,
-            keep(input: string | string[]): void,
-            addRule(name: string, rule: any): void
-        };
-
-        if (turndownService && turndownService.turndown) {
-            turndownService.keep(['del', 'ins']);
-            turndownService.addRule('inlineParagraphInLink', {
-                filter: (node: Node) => node.nodeName === 'A',
-                replacement: (content: string, node: Element) => {
-                    const text = (node as HTMLElement).innerText.replace(/\n+/g, ' ').trim();
-                    const href = node.getAttribute('href') || '';
-                    return '[' + text + '](' + href + ')';
-                }
-            });
-            const markdown = turndownService.turndown(bodyClone);
-            result.mainContent = markdown;
-        } else {
-            console.warn('Turndown.js 未能正常加载，使用替代方案解析 HTML 内容');
-            let mainContent = '';
-            const mainElement = bodyClone.querySelector('article, main');
-            if (mainElement) {
-                mainContent = mainElement.textContent || '';
-            } else {
-                // 如果没有特定的内容标签，获取所有文本
-                mainContent = bodyClone.textContent || '';
-            }
-
-            // 清理文本
-            result.mainContent = mainContent
-                .replace(/\s+/g, ' ')  // 合并空白字符
-                .replace(/\n+/g, '\n\n') // 合并换行
-                .trim();
-        }
-    }
-
-    return result;
-};
-
-export const html2Document = (text: string, url?: string): Document => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(text, 'text/html');
-
-    if (!url) {
-        return doc;
-    }
-    // 处理特殊的URL
-    const domain = new URL(url).hostname;
-    const path = new URL(url).pathname;
-
-    // 应用特殊删除规则
-    for (const [pattern, selectors] of Object.entries(DOMAIN_SPECIFIC_REMOVE)) {
-        const reg = REGEX[pattern];
-        const ans = reg.test(`${domain}${path}`);
-        if (ans) {
-            for (let selector of selectors) {
-                const elements = doc.querySelectorAll(selector);
-                elements.forEach(el => el.remove());
-            }
-        }
-    }
-    return doc;
-}
+const { isValidUrl } = webUtils;
 
 const URLProvider: CustomContextProvider = {
     type: "input-area",
@@ -223,54 +37,22 @@ const URLProvider: CustomContextProvider = {
         // 处理每个URL
         for (const url of urls) {
             try {
-                const response = await fetch(url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-                    }
+                // 使用 fetchWebContent 获取网页内容
+                const result = await fetchWebContent(url);
+
+                // 格式化内容
+                const parts = [`URL: ${url}`];
+                if (result.title) parts.push(`标题: ${result.title}`);
+                if (result.description) parts.push(`描述: ${result.description}`);
+                parts.push(`\n${result.content}`);
+
+                const content = parts.join('\n');
+
+                results.push({
+                    name: `URL内容: ${url.substring(0, 30)}${url.length > 30 ? '...' : ''}`,
+                    description: `访问: ${url}; 结果类型为 ${result.contentType || '未知'}`,
+                    content: content,
                 });
-                const contentType = response.headers.get('content-type');
-
-                // 如果是二进制内容，跳过
-                if (contentType && !contentType.includes('text') && !contentType.includes('json') && !contentType.includes('html')) {
-                    continue;
-                }
-
-                let content = '';
-                if (contentType && contentType.includes('json')) {
-                    // JSON内容
-                    const jsonData = await response.json();
-                    content = JSON.stringify(jsonData, null, 2);
-                } else if (contentType && (contentType.includes('html') || contentType.includes('text'))) {
-                    // HTML或文本内容
-                    const text = await response.text();
-                    if (contentType.includes('html')) {
-                        if (!globalThis.TurndownService) {
-                            await addScript('/plugins/sy-f-misc/scripts/turndown.js', 'turndown-js');
-                        }
-
-                        const doc = html2Document(text, url);
-
-                        const parsedContent = parseHtmlContent(doc);
-
-                        // 组装格式化的内容
-                        const parts = [`URL: ${url}`];
-                        if (parsedContent.title) parts.push(`标题: ${parsedContent.title}`);
-                        if (parsedContent.description.trim()) parts.push(`描述: ${parsedContent.description}`);
-                        if (parsedContent.mainContent) parts.push(`\n正文内容 (完整字符数: ${parsedContent.mainContent.length}):\n\n${parsedContent.mainContent}`);
-
-                        content = parts.join('\n');
-                    } else {
-                        content = text;
-                    }
-                }
-
-                if (content) {
-                    results.push({
-                        name: `URL内容: ${url.substring(0, 30)}${url.length > 30 ? '...' : ''}`,
-                        description: `访问: ${url}; 结果类型为 ${contentType}`,
-                        content: content,
-                    });
-                }
             } catch (error) {
                 showMessage(`获取URL内容失败 (${url}): ${error.message}`, 4000, "error");
                 // 继续处理其他URL，不中断

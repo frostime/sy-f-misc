@@ -1,3 +1,4 @@
+import { getFrontend } from "siyuan";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { forwardProxy } from "@/api";
 
@@ -6,7 +7,7 @@ import { forwardProxy } from "@/api";
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
- * @LastEditTime : 2025-06-14 16:07:26
+ * @LastEditTime : 2025-06-14 22:13:44
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
@@ -49,33 +50,63 @@ function extractSearchResults(dom: Document): { title: string; link: string; des
     return searchResults;
 }
 
+const isBrowser = getFrontend().startsWith('browser');
+
+const fetchWeb = async (url: string) => {
+    if (!isBrowser) {
+        const response =await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+        });
+        if (response.ok) {
+            const text = await response.text();
+            return {
+                ok: true,
+                content: text
+            }
+        }
+    } else {
+        const response = await forwardProxy(url, 'GET', null, [
+            {
+                'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
+            }
+        ], 7000, 'text/html');
+        if (response && (response.status / 100) === 2) {
+            const text = response.body;
+            return {
+                ok: true,
+                content: text
+            }
+        }
+    }
+
+    return {
+        ok: false,
+        content: ''
+    }
+}
+
 export async function bingSearch(query: string, pageIdx: number = 1): Promise<{ title: string; link: string; description: string }[]> {
+    query = query.replace(/\s+/g, '+');
     const first = (pageIdx - 1) * 10 + 1;
     const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&first=${first}&FORM=PERE`;
 
     try {
         // 使用 forwardProxy 函数发送请求，避免跨域问题
-        const response = await forwardProxy(
-            url,
-            'GET',
-            null,
-            [{ 'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36" }],
-            7000,
-            'text/html'
-        );
+        const result = await fetchWeb(url);
 
-        if (!response || (response.status / 100) !== 2) {
-            console.error('Bing search failed with status:', response?.status);
-            throw new Error(`Bing search failed with status: ${response?.status}`);
+        if (!result.ok) {
+            console.warn('Bing search failed');
+            throw new Error(`Bing search failed`);
         }
 
         // 处理返回的 HTML 内容
-        const html = response.body;
+        const html = result.content;
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         return extractSearchResults(doc);
     } catch (error) {
-        console.error('Error using forwardProxy for Bing search:', error);
         throw error;
     }
 }

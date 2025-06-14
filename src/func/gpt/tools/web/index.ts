@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-31 14:51:57
  * @FilePath     : /src/func/gpt/tools/web/index.ts
- * @LastEditTime : 2025-06-14 16:15:50
+ * @LastEditTime : 2025-06-14 21:27:43
  * @Description  : 
  */
 import { ToolGroup } from "../types";
@@ -42,8 +42,9 @@ export const toolGroupWeb = (): ToolGroup => {
 Bing: 使用 Bing 时仔细设计 query, 多利用关键词组合, 复杂的 OR AND NOT () site: language: 等运算符
 Tavily/Bocha: 支持复杂的参数, 请根据用户理解仔细思考查询需求并配置参数
 
-**网页内容获取工具**：
-- WebPageContent：获取给定 URL 网页的内容。
+**网页内容获取工具**：WebPageContent 一个强大的网络链接内容解析工具。
+- 适配网页、返回 JSON 等纯文本情况; 默认会将 HTML 内容解析为 Markdown
+- 默认去掉所有 URL 外链和图片，如果有基于网页进行爬虫式抓取的需求，可设 keepLink=true
 
 **使用指导**：
 - 如果用户的提问对时效性有要求，应当使用搜索工具。并且关注当前的日期时间以确保事实性。

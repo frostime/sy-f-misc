@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-05-28 15:59:50
+ * @LastEditTime : 2025-06-14 21:20:36
  * @Description  : 
  */
 
@@ -11,7 +11,8 @@ import { getLute, html2ele, id2block, inputDialog, simpleDialog } from "@frostim
 import { thisPlugin, getBlockByID } from "@frostime/siyuan-plugin-kits";
 import { request, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
 import { Protyle, showMessage } from "siyuan";
-import URLProvider, { html2Document, parseHtmlContent } from "./gpt/context-provider/URLProvider";
+// import URLProvider, { html2Document, parseHtmlContent } from "./gpt/context-provider/URLProvider";
+import { html2Document, parseHtmlContent, fetchWebContent } from "./gpt/tools/web/webpage";
 import FMiscPlugin from "..";
 import { addScript } from "./gpt/utils";
 
@@ -74,17 +75,23 @@ async function onOpenMenuLink({ detail }) {
         label: '解析网页内容',
         click: async () => {
             let dataHref = hrefSpan.getAttribute("data-href");
-            const items = await URLProvider.getContextItems({
-                query: dataHref
-            })
-            if (items.length === 0) {
+            let result;
+            try {
+                result = await fetchWebContent(dataHref, {
+                    keepLink: true,
+                    keepImg: true,
+                });
+            } catch {
                 showMessage('未能解析到内容', 3000, 'error');
                 return;
             }
-            let item = items[0];
+            if (!result) {
+                showMessage('未能解析到内容', 3000, 'error');
+                return;
+            }
             inputDialog({
                 title: dataHref,
-                defaultText: item.content,
+                defaultText: result.content,
                 type: 'textarea',
                 width: '1000px',
                 height: '800px',
@@ -251,7 +258,10 @@ Col 2
                             await addScript('/plugins/sy-f-misc/scripts/turndown.js', 'turndown-js');
                         }
                         const doc = html2Document(text);
-                        const parsedContent = parseHtmlContent(doc);
+                        const parsedContent = parseHtmlContent(doc,{
+                            keepLink: true,
+                            keepImg: true,
+                        });
                         inputDialog({
                             title: parsedContent.title,
                             defaultText: parsedContent.mainContent,
