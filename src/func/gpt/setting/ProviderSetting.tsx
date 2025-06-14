@@ -2,11 +2,11 @@ import { Accessor, Component, For, createSignal, onCleanup } from "solid-js";
 import Form from "@/libs/components/Form";
 import { providers } from "./store";
 import Heading from "./Heading";
-
-import { createSimpleContext } from "@/libs/simple-context";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
+import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
 import { SvgSymbol } from "../chat/Elements";
+import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { showMessage } from "siyuan";
 
@@ -184,24 +184,36 @@ const ProviderListItem = (props: {
         <div
             draggable={true}
             onDragStart={(e: DragEvent) => props.dragHandle(e, props.index())}
-            style={{
-                display: 'flex',
-                gap: '7px',
-                'align-items': 'center',
-                padding: '10px 16px',
-                margin: '4px 22px',
-                border: '1px solid var(--b3-border-color)',
-                'border-radius': '4px',
-                'box-shadow': '0 2px 4px var(--b3-theme-surface-light)',
-                'user-select': 'none'
-            }}
+            class={styles.listItem}
         >
-            <span style={{ flex: 1, "font-weight": "bold" }}>
+            <span class={styles.listItemTitle}>
                 {providers()[props.index()].name}
             </span>
             {providers()[props.index()].disabled && (
                 <SvgSymbol size="15px">iconEyeoff</SvgSymbol>
             )}
+            {/* <button class="b3-button b3-button--text" onclick={() => {
+                // 将当前项移动到顶部
+                providers.update(prev => {
+                    const items = [...prev];
+                    const [item] = items.splice(props.index(), 1);
+                    items.unshift(item);
+                    return items;
+                });
+            }}>
+                <SvgSymbol size="15px">iconUp</SvgSymbol>
+            </button>
+            <button class="b3-button b3-button--text" onclick={() => {
+                // 将当前项移动到底部
+                providers.update(prev => {
+                    const items = [...prev];
+                    const [item] = items.splice(props.index(), 1);
+                    items.push(item);
+                    return items;
+                });
+            }}>
+                <SvgSymbol size="15px">iconDown</SvgSymbol>
+            </button> */}
             <button class="b3-button b3-button--text" onclick={() => onEdit()}>
                 <SvgSymbol size="15px">iconEdit</SvgSymbol>
             </button>
@@ -262,6 +274,20 @@ const ProviderSetting = () => {
                     apiKey: '',
                     models: []
                 }, ...prev]);
+
+                // 直接打开编辑对话框
+                setTimeout(() => {
+                    solidDialog({
+                        title: '编辑 Provider',
+                        loader: () => (
+                            <SimpleProvider state={{ updateProvider, removeProvider }}>
+                                <ProviderEditForm index={() => 0} />
+                            </SimpleProvider>
+                        ),
+                        width: '750px',
+                        height: '600px'
+                    });
+                }, 10);
             },
         });
     };
@@ -290,12 +316,8 @@ const ProviderSetting = () => {
         <SimpleProvider state={{ updateProvider, removeProvider }}>
             <div>
                 <Heading>
-                    <div style={{
-                        display: 'flex',
-                        gap: '5px',
-                        "align-items": "center",
-                    }}>
-                        <div class="fn__flex-1">
+                    <div class={styles.headerContainer}>
+                        <div class={`fn__flex-1 ${styles.headerTitle}`}>
                             Provider 配置
                         </div>
 
@@ -308,11 +330,7 @@ const ProviderSetting = () => {
                     </div>
                 </Heading>
 
-                <div class="fn__flex-1" style={{
-                    display: 'flex',
-                    'flex-direction': 'column',
-                    gap: '3px'
-                }}>
+                <div class={`fn__flex-1 ${styles.listContainer}`}>
                     <For each={providers()}>
                         {(_, index) => (
                             <div

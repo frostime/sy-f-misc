@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/ChatSession.tsx
- * @LastEditTime : 2025-06-14 16:01:34
+ * @LastEditTime : 2025-06-14 17:45:23
  * @Description  :
  */
 // External libraries
@@ -400,8 +400,9 @@ const ChatSession: Component<{
                 icon: null,
                 label: prompt.name,
                 click: () => {
-                    input.value = (prompt.content + '\n\n' + input.value).trim();
-                    let pos = prompt.content.length + 2;
+                    // const oldLen = input().length;
+                    input.value = (input.value + '\n' + prompt.content).trim();
+                    let pos = -1;
                     textareaRef.focus();
                     textareaRef.setSelectionRange(pos, pos);
                     adjustTextareaHeight();

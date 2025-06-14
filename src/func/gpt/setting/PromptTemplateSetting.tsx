@@ -1,5 +1,5 @@
 // h:\SrcCode\SiYuanDevelopment\sy-f-misc\src\func\gpt\setting\PromptTemplateSetting.tsx
-import { Accessor, Component, For, createSignal } from "solid-js";
+import { Accessor, Component, For, createSignal, createMemo } from "solid-js";
 import Form from "@/libs/components/Form";
 import { globalMiscConfigs, promptTemplates } from "./store";
 import Heading from "./Heading";
@@ -7,6 +7,7 @@ import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
 import { SvgSymbol } from "../chat/Elements";
+import styles from "./SettingListStyles.module.scss";
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<{
     updateTemplate: (index: number, key: keyof IPromptTemplate, value: any) => void;
@@ -108,24 +109,63 @@ const PromptTemplateListItem = (props: {
         <div
             draggable={true}
             onDragStart={(e: DragEvent) => props.dragHandle(e, props.index())}
-            style={{
-                display: 'flex',
-                gap: '7px',
-                'align-items': 'center',
-                padding: '10px 16px',
-                margin: '4px 22px',
-                border: '1px solid var(--b3-border-color)',
-                'border-radius': '4px',
-                'box-shadow': '0 2px 4px var(--b3-theme-surface-light)',
-                'user-select': 'none'
-            }}
+            class={styles.listItem}
         >
-            <span style={{ flex: 1, "font-weight": "bold" }}>
+            <span class={styles.listItemTitle}>
                 {promptTemplates()[props.index()].name}
             </span>
             <span class="counter">
                 {promptTemplates()[props.index()].type}
             </span>
+            <button class="b3-button b3-button--text" onclick={() => {
+                // 将当前项移动到同类型组的顶部
+                const currentIndex = props.index();
+                const currentType = promptTemplates()[currentIndex].type;
+
+                promptTemplates.update(prev => {
+                    const items = [...prev];
+                    const [item] = items.splice(currentIndex, 1);
+
+                    // 找到同类型的第一个项的索引
+                    const firstSameTypeIndex = items.findIndex(p => p.type === currentType);
+
+                    // 如果找到了同类型的项，插入到它前面；否则插入到数组开头
+                    if (firstSameTypeIndex !== -1) {
+                        items.splice(firstSameTypeIndex, 0, item);
+                    } else {
+                        items.unshift(item);
+                    }
+
+                    return items;
+                });
+            }}>
+                <SvgSymbol size="15px">iconUp</SvgSymbol>
+            </button>
+            <button class="b3-button b3-button--text" onclick={() => {
+                // 将当前项移动到同类型组的底部
+                const currentIndex = props.index();
+                const currentType = promptTemplates()[currentIndex].type;
+
+                promptTemplates.update(prev => {
+                    const items = [...prev];
+                    const [item] = items.splice(currentIndex, 1);
+
+                    // 找到同类型的最后一个项的索引
+                    const lastSameTypeIndex = [...items].reverse().findIndex(p => p.type === currentType);
+
+                    // 如果找到了同类型的项，插入到它后面；否则插入到数组末尾
+                    if (lastSameTypeIndex !== -1) {
+                        const actualIndex = items.length - 1 - lastSameTypeIndex;
+                        items.splice(actualIndex + 1, 0, item);
+                    } else {
+                        items.push(item);
+                    }
+
+                    return items;
+                });
+            }}>
+                <SvgSymbol size="15px">iconDown</SvgSymbol>
+            </button>
             <button class="b3-button b3-button--text" onclick={() => onEdit()}>
                 <SvgSymbol size="15px">iconEdit</SvgSymbol>
             </button>
@@ -157,14 +197,20 @@ const useDndReorder = () => {
         const _draggedIndex = draggedIndex();
         const _targetIndex = targetIndex();
         if (_draggedIndex !== null && _targetIndex !== null && _draggedIndex !== _targetIndex) {
-            promptTemplates.update(prev => {
-                const items = [...prev];
-                // 将 draggedIndex 移动到 targetIndex 的位置，其余的保持不变
-                const draggedItem = items[_draggedIndex];
-                items.splice(_draggedIndex, 1);
-                items.splice(_targetIndex, 0, draggedItem);
-                return items;
-            });
+            // 确保只在同类型提示词之间拖拽
+            const draggedType = promptTemplates()[_draggedIndex].type;
+            const targetType = promptTemplates()[_targetIndex].type;
+
+            if (draggedType === targetType) {
+                promptTemplates.update(prev => {
+                    const items = [...prev];
+                    // 将 draggedIndex 移动到 targetIndex 的位置，其余的保持不变
+                    const draggedItem = items[_draggedIndex];
+                    items.splice(_draggedIndex, 1);
+                    items.splice(_targetIndex, 0, draggedItem);
+                    return items;
+                });
+            }
         }
         setDraggedIndex(null);
         setTargetIndex(null);
@@ -176,16 +222,42 @@ const useDndReorder = () => {
 
 
 const PromptTemplateSetting = () => {
-    const addTemplate = () => {
+    // 创建派生信号，分别过滤系统提示词和用户提示词
+    const systemPrompts = createMemo(() =>
+        promptTemplates().map((p, i) => ({ ...p, originalIndex: i }))
+            .filter(p => p.type === 'system')
+    );
+
+    const userPrompts = createMemo(() =>
+        promptTemplates().map((p, i) => ({ ...p, originalIndex: i }))
+            .filter(p => p.type === 'user')
+    );
+
+    const addTemplate = (type: 'system' | 'user') => {
         inputDialog({
-            title: "新建 Prompt Template",
+            title: `新建${type === 'system' ? '系统' : '用户'}提示词模板`,
             confirm: (name) => {
                 if (name) {
+                    // 更新模板列表
                     promptTemplates.update(prev => [{
                         name: name,
                         content: '',
-                        type: 'system'
+                        type: type
                     }, ...prev]);
+
+                    // 直接打开编辑对话框
+                    setTimeout(() => {
+                        solidDialog({
+                            title: '编辑 Prompt Template',
+                            loader: () => (
+                                <SimpleProvider state={{ updateTemplate, removeTemplate }}>
+                                    <PromptTemplateEditForm index={() => 0} />
+                                </SimpleProvider>
+                            ),
+                            width: '750px',
+                            height: '600px'
+                        });
+                    }, 10);
                 }
             }
         });
@@ -211,13 +283,6 @@ const PromptTemplateSetting = () => {
 
     const { handleDragStart, handleDragOver, handleDrop } = useDndReorder();
 
-    // const storage = sessionStorage.getItem('PromptTemplateSetting.isListOpen');
-    // const isListOpen = useSignalRef(storage ? JSON.parse(storage) : true);
-    // const toggleList = () => {
-    //     isListOpen.value = !isListOpen.value;
-    //     sessionStorage.setItem('PromptTemplateSetting.isListOpen', JSON.stringify(isListOpen.value));
-    // };
-
     return (
         <SimpleProvider state={{ updateTemplate, removeTemplate }}>
             <div>
@@ -236,42 +301,89 @@ const PromptTemplateSetting = () => {
                         }}
                     />
                 </Form.Wrap>
-                <Heading>
-                    <div style={{
-                        display: 'flex',
-                        gap: '5px',
-                        "align-items": "center",
-                    }}>
-                        <div class="fn__flex-1">
-                            预设提示词配置
-                        </div>
 
-                        <button
-                            class="b3-button b3-button--text"
-                            onClick={addTemplate}
-                        >
-                            <SvgSymbol size="20px">iconAdd</SvgSymbol>
-                        </button>
-                    </div>
-                </Heading>
-
-                <div class="fn__flex-1" style={{
-                    display: 'flex',
-                    'flex-direction': 'column',
-                    gap: '3px'
-                }}>
-                    <For each={promptTemplates()}>
-                        {(_, index) => (
-                            <div
-                                onDragOver={(e) => handleDragOver(e, index())}
-                                onDrop={handleDrop} style={{
-                                    display: 'contents'
-                                }}
-                            >
-                                <PromptTemplateListItem index={index} dragHandle={handleDragStart} />
+                {/* 系统提示词部分 */}
+                <div class={styles.sectionContainer}>
+                    <Heading>
+                        <div class={styles.headerContainer}>
+                            <div class={`fn__flex-1 ${styles.headerTitle}`}>
+                                系统提示词模板
                             </div>
+
+                            <button
+                                class="b3-button b3-button--text"
+                                onClick={() => addTemplate('system')}
+                            >
+                                <SvgSymbol size="20px">iconAdd</SvgSymbol>
+                            </button>
+                        </div>
+                    </Heading>
+
+                    <div class={`fn__flex-1 ${styles.listContainer}`}>
+                        {systemPrompts().length === 0 ? (
+                            <div class={styles.emptyMessage}>
+                                暂无系统提示词模板
+                            </div>
+                        ) : (
+                            <For each={systemPrompts()}>
+                                {(item) => (
+                                    <div
+                                        onDragOver={(e) => handleDragOver(e, item.originalIndex)}
+                                        onDrop={handleDrop} style={{
+                                            display: 'contents'
+                                        }}
+                                    >
+                                        <PromptTemplateListItem
+                                            index={() => item.originalIndex}
+                                            dragHandle={handleDragStart}
+                                        />
+                                    </div>
+                                )}
+                            </For>
                         )}
-                    </For>
+                    </div>
+                </div>
+
+                {/* 用户提示词部分 */}
+                <div class={styles.sectionContainer}>
+                    <Heading>
+                        <div class={styles.headerContainer}>
+                            <div class={`fn__flex-1 ${styles.headerTitle}`}>
+                                用户提示词模板
+                            </div>
+
+                            <button
+                                class="b3-button b3-button--text"
+                                onClick={() => addTemplate('user')}
+                            >
+                                <SvgSymbol size="20px">iconAdd</SvgSymbol>
+                            </button>
+                        </div>
+                    </Heading>
+
+                    <div class={`fn__flex-1 ${styles.listContainer}`}>
+                        {userPrompts().length === 0 ? (
+                            <div class={styles.emptyMessage}>
+                                暂无用户提示词模板
+                            </div>
+                        ) : (
+                            <For each={userPrompts()}>
+                                {(item) => (
+                                    <div
+                                        onDragOver={(e) => handleDragOver(e, item.originalIndex)}
+                                        onDrop={handleDrop} style={{
+                                            display: 'contents'
+                                        }}
+                                    >
+                                        <PromptTemplateListItem
+                                            index={() => item.originalIndex}
+                                            dragHandle={handleDragStart}
+                                        />
+                                    </div>
+                                )}
+                            </For>
+                        )}
+                    </div>
                 </div>
             </div>
         </SimpleProvider>
