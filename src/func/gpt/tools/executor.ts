@@ -50,22 +50,26 @@ export class ToolExecutor {
         let prompt = `<tool-rules>
 在当前对话中，如果发现有必要，请使用提供的工具(tools)。以下是使用工具的指导原则：
 
-**工具调用记录**：
-- 为了节省资源，工具调用的中间过程消息不会显示给USER。
-- SYSTEM 会生成工具调用记录 <tool-trace>...</tool-trace> 并插入到消息里，这部分内容不会显示给 USER 看，也不由 ASSISTANT 生成。
-- ASSISTANT(你) **不得自行提及或生成** <tool-trace> 标签; 否则可能严重误导后续工具调用 !!IMPORTANT!!
-
-**工具结果呈现**：
-- 如果USER希望手动调用工具并查看结果（例如网络搜索等），请将工具结果**完整**呈现给USER，不要仅提供总结或选择性提供而导致信息丢失。
-
-**进入 Tool Call 流程后**：
-- 持续进行直到USER的问题完全解决，确保在结束 ASSISTANT 的回合并返回给USER之前，问题已经得到解决。
-- 只有在确定问题已解决时，才终止 ASSISTANT 的回合。
-
-**工具调用策略**：
+**工作规范**
 - 在每次工具调用之前，必须进行详细的规划。
 - 在每次工具调用之后，必须对结果进行深入的反思。
 - 不要仅仅给出工具调用的请求而不输出中间的思考和规划来——否则这可能严重影响 ASSISTANT 解决问题的能力和深入思考的能力。这一点非常重要！
+
+**进入 Tool Call 流程后**
+- 持续进行直到USER的问题完全解决，确保在结束 ASSISTANT 的回合并返回给USER之前，问题已经得到解决。
+- 只有在确定问题已解决时，才终止 ASSISTANT 的回合。
+
+**用户审核**
+- 部分工具在调用的时候会给用户审核，用户可能拒绝调用。
+- 如果用户在拒绝的时候提供了原因，请**一定要仔细参考用户给出的原因并适当调整你的方案**
+
+**工具结果呈现**
+- 如果USER希望手动调用工具并查看结果（例如网络搜索等），请将工具结果**完整**呈现给USER，不要仅提供总结或选择性提供而导致信息丢失。
+
+**工具调用记录**
+- 为了节省资源，工具调用的中间过程消息不会显示给USER。
+- SYSTEM 会生成工具调用记录 <tool-trace>...</tool-trace> 并插入到消息里，这部分内容不会显示给 USER 看，也不由 ASSISTANT 生成。
+- ASSISTANT(你) **不得自行提及或生成** <tool-trace> 标签; 否则可能严重误导后续工具调用 !!IMPORTANT!!
 </tool-rules>`;
         for (const [name, rule] of Object.entries(this.groupRules)) {
             if (!this.isGroupEnabled(name)) continue;
@@ -154,7 +158,7 @@ export class ToolExecutor {
         if (group.rulePrompt?.trim()) {
             this.groupRules[group.name] = (`
 <tool-group-rule group="${group.name}">
-This group contains the following tools: ${group.tools.map(tool => tool.definition.function.name).join(', ')}.
+Group "${group.name}" contains following tools: ${group.tools.map(tool => tool.definition.function.name).join(', ')}.
 
 ${group.rulePrompt.trim()}
 </tool-group-rule>

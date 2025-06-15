@@ -122,7 +122,7 @@ export const bingSearchTool: Tool = {
                 properties: {
                     query: {
                         type: 'string',
-                        description: '搜索语句'
+                        description: '搜索语句; 支持逻辑语法; 复杂查询逻辑请使用 () 区分优先级'
                     },
                 },
                 required: ['query']

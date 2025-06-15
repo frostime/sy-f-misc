@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
- * @LastEditTime : 2025-05-31 17:27:35
+ * @LastEditTime : 2025-06-15 19:06:47
  * @Description  : 
  */
 import {
@@ -59,6 +59,8 @@ const datetimeTool: Tool = {
         }
     }
 };
+
+// calculate
 
 // 导出工具列表
 export const basicTool = {
