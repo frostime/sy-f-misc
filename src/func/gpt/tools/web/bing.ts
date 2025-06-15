@@ -7,7 +7,7 @@ import { forwardProxy } from "@/api";
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
- * @LastEditTime : 2025-06-14 22:13:44
+ * @LastEditTime : 2025-06-15 19:54:12
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
@@ -54,7 +54,7 @@ const isBrowser = getFrontend().startsWith('browser');
 
 const fetchWeb = async (url: string) => {
     if (!isBrowser) {
-        const response =await fetch(url, {
+        const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
             }
@@ -109,6 +109,44 @@ export async function bingSearch(query: string, pageIdx: number = 1): Promise<{ 
     } catch (error) {
         throw error;
     }
+}
+
+export interface BingSearchReportInput {
+    query: string;
+    searchResults: { title: string; link: string; description: string }[];
+}
+
+/**
+ * Formats Bing search results to a markdown string for chat
+ * @param data The search query and results
+ * @returns Formatted markdown string
+ */
+export function formatBingResultsToReport(data: BingSearchReportInput): string {
+    const { query, searchResults } = data;
+    if (!searchResults || searchResults.length === 0) {
+        return `**No search results found for: "${query}"**`;
+    }
+
+    let markdown = `## Search Results for: "${query}"\n\n`;
+    let regularResultsCount = 0;
+
+    searchResults.forEach((result) => {
+        if (result.title === 'Bing 直接回答' && !result.link) {
+            markdown += `### Bing Answer\n`;
+            markdown += `${result.description}\n\n---\n\n`;
+        } else {
+            regularResultsCount++;
+            markdown += `### ${regularResultsCount}. ${result.link ? `[${result.title}](${result.link})` : result.title}\n`;
+            markdown += `${result.description}\n\n`;
+        }
+    });
+
+    if (regularResultsCount > 0) {
+        markdown += `---\n`;
+    }
+    markdown += `*Search performed via Bing*\n`;
+
+    return markdown;
 }
 
 export const bingSearchTool: Tool = {

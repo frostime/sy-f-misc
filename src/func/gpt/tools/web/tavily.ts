@@ -164,7 +164,7 @@ export function formatTavilyResults(results: TavilySearchResponse): string {
 
     results.results.forEach((result, index) => {
         markdown += `### ${index + 1}. [${result.title}](${result.url})\n`;
-        markdown += `${result.content.substring(0, 200)}...\n\n`;
+        markdown += `${result.content}\n\n`;
     });
 
     if (results.images && results.images.length > 0) {
