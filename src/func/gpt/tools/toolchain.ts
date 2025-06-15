@@ -9,6 +9,15 @@ import { complete } from '../openai/complete';
 import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '.';
 
 /**
+ * 检查响应内容是否为空或仅包含空白字符
+ * @param content 响应内容
+ * @returns 如果内容为空或仅包含空白字符则返回 true
+ */
+const isEmptyResponse = (content: string): boolean => {
+    return !content || content.trim().length === 0;
+};
+
+/**
  * 工具调用链配置选项
  */
 export interface ToolChainOptions {
@@ -128,7 +137,8 @@ export async function executeToolChain(
         allMessages: [...(options.contextMessages || [])],
         toolCallHistory: [],
         startTime: Date.now(),
-        status: 'running' as 'running' | 'completed' | 'aborted' | 'error' | 'timeout'
+        status: 'running' as 'running' | 'completed' | 'aborted' | 'error' | 'timeout',
+        usage: llmResponseWithToolCalls.usage // 添加 usage 属性以跟踪令牌使用情况
     };
 
     // 设置默认值
@@ -337,6 +347,44 @@ export async function executeToolChain(
         // 设置完成状态
         if (state.status === 'running') {
             state.status = 'completed';
+
+            // 检查最终响应是否为空，如果为空则请求后续响应
+            if (isEmptyResponse(currentResponse.content)) {
+                console.debug('Final LLM response is empty, requesting follow-up');
+
+                // 创建后续请求消息
+                const followUpMessage = {
+                    role: 'user' as const,
+                    content: 'system: Tool call procedure completed. Now please review and provider final response to meat the USER\'s requirement.'
+                };
+
+                state.allMessages.push(followUpMessage);
+
+                const followUpResponse = await complete(state.allMessages, {
+                    model: options.model,
+                    systemPrompt: options.systemPrompt,
+                    stream: !!callbacks.onLLMResponseUpdate,
+                    streamMsg: callbacks.onLLMResponseUpdate,
+                    abortControler: options.abortController,
+                    option: options.chatOption
+                });
+
+                currentResponse = followUpResponse;
+
+                callbacks.onLLMResponseComplete?.(followUpResponse);
+
+                const finalAssistantMessage = {
+                    role: 'assistant' as const,
+                    content: followUpResponse.content,
+                    reasoning_content: followUpResponse.reasoning_content,
+                    tool_calls: followUpResponse.tool_calls,
+                    usage: followUpResponse.usage
+                };
+
+                // 添加后续响应到消息历史
+                state.toolChainMessages.push(finalAssistantMessage);
+                state.allMessages.push(finalAssistantMessage);
+            }
         }
     } catch (error) {
         state.status = 'error';
