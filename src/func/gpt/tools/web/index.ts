@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-31 14:51:57
  * @FilePath     : /src/func/gpt/tools/web/index.ts
- * @LastEditTime : 2025-06-14 21:27:43
+ * @LastEditTime : 2025-06-15 17:08:42
  * @Description  : 
  */
 import { ToolGroup } from "../types";
@@ -37,10 +37,10 @@ export const toolGroupWeb = (): ToolGroup => {
 - TavilySearch：每月有一定免费额度，检索质量较高，更倾向于英文网页搜索。
 - BochaSearch：每次检索均需付费，开销较大，检索质量较高，可能更适应中国国内的检索。
 
-如果用户未指定偏好，请根据需求自行选择适当的搜索工具。此外 Tavily/Bocha 工具不一定对 ASSISTANT 可用。
+如果用户未指定偏好，请根据需求自行选择适当的搜索工具。
 
-Bing: 使用 Bing 时仔细设计 query, 多利用关键词组合, 复杂的 OR AND NOT () site: language: 等运算符
-Tavily/Bocha: 支持复杂的参数, 请根据用户理解仔细思考查询需求并配置参数
+Bing: 使用 Bing 时仔细设计 query, 多利用关键词组合, 复杂的 OR AND NOT () site: language: 等运算符; 但过于复杂的组合可能导致检索失败
+Tavily/Bocha: 支持复杂的参数, 请根据用户理解仔细思考查询需求并配置参数; 适合比较复杂的检索需求
 
 **网页内容获取工具**：WebPageContent 一个强大的网络链接内容解析工具。
 - 适配网页、返回 JSON 等纯文本情况; 默认会将 HTML 内容解析为 Markdown

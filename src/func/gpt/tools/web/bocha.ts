@@ -71,7 +71,7 @@ export const bochaSearchTool: Tool = {
                     },
                     summary: {
                         type: 'boolean',
-                        description: '是否返回搜索结果的摘要，默认为 false',
+                        description: '是否返回搜索结果的摘要，默认为 true',
                     },
                     count: {
                         type: 'integer',
@@ -90,8 +90,8 @@ export const bochaSearchTool: Tool = {
         query: string,
         [key: string]: any
     }): Promise<ToolExecuteResult> => {
-        let tavilyApiKey = globalMiscConfigs().tavilyApiKey;
-        if (!tavilyApiKey) {
+        let bochaApiKey = globalMiscConfigs().bochaApiKey;
+        if (!bochaApiKey) {
             return {
                 status: ToolExecuteStatus.ERROR,
                 data: "Bocha API key is not configured"
@@ -100,20 +100,38 @@ export const bochaSearchTool: Tool = {
 
         const result = await webSearch(args.query, {
             freshness: args.freshness,
-            summary: args.summary,
-            count: args.count
+            summary: args.summary ?? true,
+            count: args.count ?? 10
         });
 
-        if (result === null) {
+        if (result === null || !result['data']) {
             return {
                 status: ToolExecuteStatus.ERROR,
                 data: { error: "Search failed." }
             };
         }
 
+        if (result['data']?.['images']) {
+            delete result['data']['images'];
+        }
+
+        const data = {
+            code: result['code'],
+            queryContext: result['data']['queryContext'],
+            webPages: result['data']['webPages']['value'].map((webPage: any) => {
+                return {
+                    datePublished: webPage['datePublished'],
+                    name: webPage['name'],
+                    url: webPage['url'],
+                    abstract: webPage['summary'] ?? webPage['snippet'],
+                    siteName: webPage['siteName']
+                }
+            })
+        }
+
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: result
+            data: data
         };
     }
 };

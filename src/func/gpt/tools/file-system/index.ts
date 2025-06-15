@@ -9,6 +9,9 @@ import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 
+// additional file operation tools
+import { mkdirTool, moveFileTool, copyFileTool } from "./shutil";
+
 const fileSize = (size: number) => {
     //注意保留两位小数
     if (size < 1024) {
@@ -255,7 +258,15 @@ const fileStateTool: Tool = {
  */
 export const fileSystemTools = {
     name: '文件系统工具组',
-    tools: fs ? [listDirTool, readFileTool, createFileTool, fileStateTool] : [],
+    tools: fs ? [
+        listDirTool,
+        readFileTool,
+        createFileTool,
+        fileStateTool,
+        mkdirTool,
+        moveFileTool,
+        copyFileTool
+    ] : [],
     rulePrompt: ''
 };
 
@@ -303,5 +314,8 @@ ${drivesStr}
 - FileState: 获取特定文件元信息
 - ReadFile: 读取文本文件内容
 - CreateFile: 创建文本文件
+- Mkdir: 创建目录 (支持 recursive 类似 -p)
+- MoveFile: 移动文件或目录
+- CopyFile: 复制文件或目录
 `.trim();
 }
