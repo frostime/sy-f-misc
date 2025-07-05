@@ -107,6 +107,42 @@ export const initKatex = async () => {
     return window.katex !== undefined && window.katex !== null;
 }
 
+
+export const initMermaid = async () => {
+    if (window.mermaid) return;
+    const CDN = Constants.PROTYLE_CDN;
+    console.debug('Initializing mermaid...');
+    //https://github.com/siyuan-note/siyuan/blob/master/app/src/protyle/render/mermaidRender.ts
+    const flag = await addScript(`${CDN}/js/mermaid/mermaid.min.js`, "protyleMermaidScript");
+    if (!flag) return;
+    const config: any = {
+        securityLevel: "loose", // 升级后无 https://github.com/siyuan-note/siyuan/issues/3587，可使用该选项
+        altFontFamily: "sans-serif",
+        fontFamily: "sans-serif",
+        startOnLoad: false,
+        flowchart: {
+            htmlLabels: true,
+            useMaxWidth: !0
+        },
+        sequence: {
+            useMaxWidth: true,
+            diagramMarginX: 8,
+            diagramMarginY: 8,
+            boxMargin: 8,
+            showSequenceNumbers: true // Mermaid 时序图增加序号 https://github.com/siyuan-note/siyuan/pull/6992 https://mermaid.js.org/syntax/sequenceDiagram.html#sequencenumbers
+        },
+        gantt: {
+            leftPadding: 75,
+            rightPadding: 20
+        }
+    };
+    if (window.siyuan.config.appearance.mode === 1) {
+        config.theme = "dark";
+    }
+    window.mermaid.initialize(config);
+}
+
+
 export const renderCodeblock = (ele: HTMLElement) => {
     const language = ele.className.replace('language-', '').trim();
 
@@ -204,6 +240,45 @@ export function createMarkdownRenderer() {
             }
             mathElements.forEach((element) => {
                 renderMathBlock(element);
+            });
+        }
+
+        // .language-mermaid
+        const mermaidElements: HTMLElement[] = Array.from(contentRef.querySelectorAll('.language-mermaid'));
+        if (mermaidElements.length > 0) {
+            if (!window.mermaid) {
+                await initMermaid();
+            }
+            mermaidElements.forEach(async (element) => {
+                const code = element.textContent || '';
+                const id = "mermaid" + window.Lute.NewNodeID();
+
+                if (!code.trim()) {
+                    return;
+                }
+                try {
+                    const mermaidData = await window.mermaid.render(id, code);
+                    element.innerHTML = mermaidData.svg;
+                } catch (error) {
+                    console.groupCollapsed('Mermaid failed to render code:');
+                    console.warn(error);
+                    console.warn(code);
+                    console.groupEnd();
+                    const ele: HTMLElement = document.querySelector(`body>div#d${id}`);
+                    if (ele) {
+                        ele.style.position = 'absolute';
+                        ele.style.bottom = '0';
+                        ele.style.opacity = '0';
+                        ele.style.transform = 'translateY(50px)';
+                        ele.style.transition = 'opacity 0.5s ease-in-out, transform 0.5s ease-in-out';
+                        element.innerHTML += `<div style="color: var(--b3-theme-error); text-align: center;">Mermaid 渲染失败，请检查代码正确性</div>`;
+                        element.style.outline = '1px solid var(--b3-border-color)';
+                        // 延时移除元素
+                        setTimeout(() => {
+                            ele.remove();
+                        }, 500);
+                    }
+                }
             });
         }
     };
