@@ -9,7 +9,7 @@ import { adaptIMessageContent, mergeMultiVesion } from '@gpt/data-utils';
 import { UIConfig } from '@gpt/setting/store';
 
 import styles from './MessageItem.module.scss';
-import { type useSession } from './ChatSession.helper';
+import { type useSession } from './ChatSession/ChatSession.helper';
 import { showMessage } from 'siyuan';
 
 const MessageVersionView: Component<{

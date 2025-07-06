@@ -11,7 +11,7 @@ import { defaultConfig } from '@gpt/setting/store';
 
 import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
-import { useSimpleContext } from './ChatSession.helper';
+import { useSimpleContext } from './ChatSession/ChatSession.helper';
 import MessageVersionView from './MessageVersionView';
 
 import { createMarkdownRenderer } from './MessageItem.helper';

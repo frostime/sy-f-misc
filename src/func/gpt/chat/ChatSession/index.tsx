@@ -15,8 +15,8 @@ import {
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { Constants, Menu, Protyle, showMessage } from 'siyuan';
-import { getMarkdown, inputDialog, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
+import { Constants, Menu, showMessage } from 'siyuan';
+import { inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits';
 
 // UI Components
 import Form from '@/libs/components/Form';
@@ -24,15 +24,18 @@ import { SliderInput } from '@/libs/components/Elements';
 import { solidDialog } from '@/libs/dialog';
 
 // Local components
+import MessageItem from '../MessageItem';
+import AttachmentList from '../AttachmentList';
+import TitleTagEditor from '../TitleTagEditor';
+import HistoryList from '../HistoryList';
+import { SvgSymbol } from '../Elements';
+import SessionItemsManager from '../SessionItemsManager';
+import { SessionToolsManager } from '../SessionToolsManager';
+
+import { useSession, SimpleProvider } from './ChatSession.helper';
+import { useSessionSetting } from './ChatSessionSetting';
+import { useSiYuanEditor } from './utils';
 import styles from './ChatSession.module.scss';
-import MessageItem from './MessageItem';
-import AttachmentList from './AttachmentList';
-import TitleTagEditor from './TitleTagEditor';
-import HistoryList from './HistoryList';
-import { SvgSymbol } from './Elements';
-import SessionItemsManager from './SessionItemsManager';
-import { SessionToolsManager } from './SessionToolsManager';
-import { useSession, useSessionSetting, SimpleProvider } from './ChatSession.helper';
 
 // GPT and settings related
 import {
@@ -40,178 +43,13 @@ import {
     listAvialableModels, promptTemplates, visualModel, globalMiscConfigs
 } from '@gpt/setting/store';
 import * as persist from '@gpt/persistence';
-import * as syDoc from '@gpt/persistence/sy-doc';
 import { getContextProviders, executeContextProvider, executeContextProviderDirect } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import {
     adaptIMessageContent,
     isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
-import BlocksProvider from '../context-provider/BlocksProvider';
-
-// Import removed: Rows was unused
-
-const useSiYuanEditor = (props: {
-    id: string;
-    input: ReturnType<typeof useSignalRef<string>>;
-    fontSize?: string;
-    title?: () => string;
-    useTextarea: () => HTMLTextAreaElement;
-    submit: () => void;
-}) => {
-    let document: Awaited<ReturnType<typeof useDocumentWithAttr>> = null;
-    const prepareDocument = async () => {
-        if (document) return;
-        const root = await syDoc.ensureRootDocument('GPT 导出文档');
-        let configs = {};
-        if (root) {
-            configs = {
-                notebook: root.box,
-                dir: root.hpath,
-            }
-        }
-        const textarea = props.useTextarea();
-        document = await useDocumentWithAttr({
-            name: 'custom-gpt-input-dialog',
-            value: props.id,
-            createOptions: {
-                content: textarea?.value ?? props.input(),
-                title: props.title ? 'Input-' + props.title() : `gpt-input-${props.id}`,
-                ...configs
-            }
-        });
-        // document.setAttrs({
-        //     'custom-hidden': 'true'
-        // });
-    }
-    const getText = async () => {
-        const content = await getMarkdown(document.id);
-        let lines = content.trim().split('\n');
-        if (lines.length === 0) return '';
-
-        // 去除 YAML frontmatter
-        if (lines[0] === '---') {
-            const endIndex = lines.slice(1).indexOf('---') + 1;
-            if (endIndex > 0) {
-                lines = lines.slice(endIndex + 1);
-            }
-        }
-
-        lines = lines.join('\n').trim().split('\n');
-
-        // 去除开头的标题
-        if (lines[0].startsWith('# ')) {
-            lines.shift();
-        }
-
-        return lines.join('\n').trim();
-    }
-
-    const InputDialog = (p: { close: () => void }) => {
-        let ref: HTMLDivElement = null;
-        onMount(() => {
-            new Protyle(
-                thisPlugin().app,
-                ref,
-                {
-                    rootId: document.id,
-                    blockId: document.id,
-                    render: {
-                        background: false,
-                        title: false,
-                        breadcrumb: false,
-                    }
-                }
-            );
-
-            if (props.fontSize) {
-                const wysiwygElement: HTMLElement = ref.querySelector('.protyle-wysiwyg');
-                setTimeout(() => {
-                    wysiwygElement.style.fontSize = `var(--input-font-size) !important;`;
-                }, 250);
-            }
-        });
-        onCleanup(() => {
-            if (!document) return;
-            document?.setContent('');
-        });
-        return (
-            <div style={{
-                display: 'flex',
-                "flex-direction": 'column',
-                flex: 1,
-                background: 'var(--b3-theme-background)'
-            }}>
-                <div style={{
-                    display: 'flex',
-                    "justify-content": 'space-between',
-                    margin: '10px 12px',
-                    gap: '10px',
-                    position: 'sticky',
-                    top: 0,
-                    background: 'var(--b3-theme-background)',
-                    'z-index': 1
-                }}>
-                    <div style={{
-                        flex: 1,
-                    }} />
-                    <button class="b3-button b3-button--outline" onclick={async () => {
-                        const content = await getText();
-                        // const textarea = props.useTextarea();
-                        // textarea.value = content;
-                        props.input(content);
-                    }}>
-                        填充
-                    </button>
-                    <button class="b3-button" onclick={async () => {
-                        const content = await getText();
-                        props.input(content);
-                        // const textarea = props.useTextarea();
-                        // textarea.value = content;
-                        if (props.title) {
-                            document.setTitle(props.title());
-                        }
-                        document.setContent('');
-                        props.submit();
-                        p.close();
-                    }}>
-                        Submit
-                    </button>
-                </div>
-                <div class={styles['protyle-container']} ref={ref} style={{
-                    flex: 1,
-                    '--input-font-size': props.fontSize
-                }} />
-            </div>
-        )
-    }
-
-    const showDialog = async () => {
-        if (!document) {
-            await prepareDocument();
-        } else {
-            await document.setContent(props.input().trim());
-        }
-        const { close } = solidDialog({
-            title: '高级编辑',
-            loader: () => (
-                <InputDialog close={() => close()} />
-            ),
-            width: '720px',
-            maxWidth: '80%',
-            maxHeight: '80%',
-        });
-    }
-
-    return {
-        showDialog,
-        cleanUp: async () => {
-            if (!document) return;
-            await document.delete();
-            document = null;
-        }
-    }
-}
+import BlocksProvider from '@gpt/context-provider/BlocksProvider';
 
 
 const ChatSession: Component<{

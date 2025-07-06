@@ -2,16 +2,14 @@
 import { showMessage } from 'siyuan';
 import { Accessor, batch, createMemo } from 'solid-js';
 import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { ToolChainResult } from '../tools/toolchain';
+import { ToolChainResult } from '@gpt/tools/toolchain';
 
 // Local components and utilities
-import Form from '@/libs/components/Form';
 import { createSimpleContext } from '@/libs/simple-context';
 
 // GPT-related imports
 import * as gpt from '@gpt/openai';
-import { ChatSetting } from '@gpt/setting';
-import { UIConfig, globalMiscConfigs, promptTemplates, useModel } from '@gpt/setting/store';
+import { globalMiscConfigs, useModel } from '@gpt/setting/store';
 import {
     adaptIMessageContent,
     mergeInputWithContext,
@@ -20,7 +18,7 @@ import {
     convertImgsToBase64Url
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
-import { ToolExecutor, toolExecutorFactory } from '../tools';
+import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
 
 interface ISimpleContext {
@@ -229,6 +227,17 @@ const useMessageManagement = (params: {
         messages.update(index, 'hidden', value ?? !targetMsg.hidden);
     }
 
+    const addMsgItemVersion = (itemId: string, content: string) => {
+        const index = messages().findIndex(item => item.id === itemId);
+        if (index === -1) return;
+        messages.update(index, (prev: IChatSessionMsgItem) => {
+            const copied = structuredClone(prev);
+            stageMsgItemVersion(copied);
+            copied.message.content = content;
+            return copied;
+        })
+    }
+
     const switchMsgItemVersion = (itemId: string, version: string) => {
         const index = messages().findIndex(item => item.id === itemId);
         if (index === -1) return;
@@ -290,6 +299,7 @@ const useMessageManagement = (params: {
         toggleSeperator,
         toggleSeperatorAt,
         toggleHidden,
+        addMsgItemVersion,
         switchMsgItemVersion,
         delMsgItemVersion
     };
@@ -903,6 +913,7 @@ export const useSession = (props: {
         toggleSeperator,
         toggleSeperatorAt,
         toggleHidden,
+        addMsgItemVersion,
         switchMsgItemVersion,
         delMsgItemVersion
     } = useMessageManagement({
@@ -1089,6 +1100,10 @@ export const useSession = (props: {
         sessionHistory,
         applyHistory,
         newSession,
+        addMsgItemVersion: (itemId: string, content: string) => {
+            addMsgItemVersion(itemId, content);
+            renewUpdatedTimestamp();
+        },
         switchMsgItemVersion: (itemId: string, version: string) => {
             switchMsgItemVersion(itemId, version);
             renewUpdatedTimestamp();
@@ -1099,56 +1114,4 @@ export const useSession = (props: {
         }
     }
     return hooks;
-}
-
-
-export const useSessionSetting = () => {
-    let context = useSimpleContext();
-    let { config, session } = context;
-
-    const availableSystemPrompts = (): Record<string, string> => {
-        const systemPrompts = promptTemplates().filter(item => item.type === 'system');
-        return systemPrompts.reduce((acc, cur) => {
-            acc[cur.content] = cur.name;
-            return acc;
-        }, { '': 'No Prompt' });
-    }
-
-    return (
-        <div class="fn__flex-1">
-            <Form.Wrap
-                title="System Prompt"
-                description="附带的系统级提示消息"
-                direction="row"
-                action={
-                    <Form.Input
-                        type="select"
-                        value={""}
-                        changed={(v) => {
-                            v = v.trim();
-                            if (v) {
-                                session.systemPrompt(v);
-                            }
-                        }}
-                        options={availableSystemPrompts()}
-                    />
-                }
-            >
-                <Form.Input
-                    type="textarea"
-                    value={session.systemPrompt()}
-                    changed={(v) => {
-                        session.systemPrompt(v);
-                    }}
-                    style={{
-                        height: '7em',
-                        "font-size": UIConfig().inputFontsize + "px",
-                        "line-height": "1.35"
-                    }}
-                />
-            </Form.Wrap>
-            <ChatSetting config={config} />
-        </div>
-    )
-
 }
