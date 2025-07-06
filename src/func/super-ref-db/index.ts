@@ -48,6 +48,9 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
         if (values.orphanOfDynamicDb !== undefined) {
             configs.orphanOfDynamicDb = values.orphanOfDynamicDb;
         }
+        if (values.useVarInDynamicDb !== undefined) {
+            configs.useVarInDynamicDb = Boolean(values.useVarInDynamicDb);
+        }
     },
     dump: () => {
         return configs;
@@ -114,6 +117,16 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
                 ask: '询问用户',
                 remove: '直接移除',
                 no: '保留'
+            }
+        },
+        {
+            key: 'useVarInDynamicDb',
+            type: 'checkbox',
+            title: '动态数据库中使用变量插值',
+            description: '若开启，可以在动态数据库的代码中使用 {{CurDocId}} 来指代所在文档的 ID',
+            get: () => configs.useVarInDynamicDb,
+            set: (value: boolean) => {
+                configs.useVarInDynamicDb = value;
             }
         },
     ],

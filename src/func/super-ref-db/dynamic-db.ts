@@ -63,6 +63,19 @@ const validateInput = (sqlCode: string): boolean => {
     return pat.test(sqlCode);
 };
 
+
+const renderVars = (code: string, vars: Record<string, string>): string => {
+    for (const [key, value] of Object.entries(vars)) {
+        if (value === undefined || value === null) {
+            console.warn(`Variable ${key} is undefined or null, skipping replacement.`);
+            continue;
+        }
+        // Replace {{key}} with value
+        const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+        code = code.replace(regex, value);
+    }
+    return code;
+}
 /**
  * Execute a query that can be either SQL or JavaScript
  * 
@@ -123,6 +136,9 @@ export const showDynamicDatabaseDialog = async (blockId: BlockId) => {
 const blocks = await sql("SELECT * FROM blocks WHERE content LIKE '%关键词%'");
 return blocks.map(b => b.id);
 </pre>
+${configs.useVarInDynamicDb === true ? `
+<p>当前开启了变量插值, 可以使用 {{CurDocId}} 来指代当前文档的 ID</p>
+` : ''}
         `,
         initialText: query,
         confirm: (text) => {
@@ -156,7 +172,14 @@ export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId): Pr
             return false;
         }
 
-        const query = attrs[DYNAMIC_DB_ATTR];
+        let query = attrs[DYNAMIC_DB_ATTR];
+
+        if (configs.useVarInDynamicDb === true) {
+            const avBlock = await getBlockByID(blockId);
+            query = renderVars(query, {
+                CurDocId: avBlock.root_id
+            });
+        }
 
         // Execute the query
         const blocks = await executeQuery(query);
@@ -233,6 +256,9 @@ const blocks = await sql("SELECT * FROM blocks WHERE content LIKE '%关键词%'"
 return blocks.map(b => b.id);
 </pre>
             <b>注: 同动态数据库不同，本操作是一次性的，查询代码不会绑定到数据库中。</b>
+${configs.useVarInDynamicDb === true ? `
+<p>当前开启了变量插值, 可以使用 {{CurDocId}} 来指代当前文档的 ID</p>
+` : ''}
             `,
             initialText: '',
             confirm: async (query) => {
@@ -244,6 +270,12 @@ return blocks.map(b => b.id);
                 if (!query.startsWith('//!js') && !validateInput(query)) {
                     showMessage('无效的SQL查询语句', 3000, 'error');
                     return;
+                }
+
+                if (configs.useVarInDynamicDb === true) {
+                    query = renderVars(query, {
+                        CurDocId: avBlock.root_id
+                    });
                 }
 
                 try {

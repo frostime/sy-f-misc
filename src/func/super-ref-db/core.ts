@@ -14,7 +14,8 @@ export const configs = {
     autoRefreshSuperRef: false,
     autoRefreshDynamicDb: false,
     orphanOfSuperRef: 'ask' as OrphanRowStrategy,
-    orphanOfDynamicDb: 'ask' as OrphanRowStrategy
+    orphanOfDynamicDb: 'ask' as OrphanRowStrategy,
+    useVarInDynamicDb: false
 }
 
 /**
