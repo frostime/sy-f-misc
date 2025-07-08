@@ -846,7 +846,8 @@ const ChatSession: Component<{
                                     messageItem={item}
                                     loading={item.loading === true} // 使用 loading 参数替代 markdown
                                     updateIt={(message) => {
-                                        if (session.loading()) return;
+                                        // Loading 期间依然允许编辑
+                                        // if (session.loading()) return;
                                         const content = session.messages()[index()].message.content;
                                         let { text } = adaptIMessageContent(content);
                                         let userText = text;
@@ -1254,7 +1255,7 @@ const ChatSession: Component<{
             <SimpleProvider state={{
                 model,
                 config,
-                session
+                session,
             }}>
                 <ChatContainer />
             </SimpleProvider>
