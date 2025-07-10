@@ -31,3 +31,6 @@ export * from "./sy-doc";
 export * from "./json-files";
 export * from "./local-storage";
 export * from "./import-platform";
+
+// 导出 snapshot 相关功能
+export { rebuildHistorySnapshot } from "./json-files";

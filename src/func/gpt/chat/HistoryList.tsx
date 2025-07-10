@@ -466,11 +466,22 @@ const HistoryList = (props: {
 
 
     const contentShotCut = (history: IChatSessionHistory) => {
-        let items = history.items.slice(0, 2);
-        let content = items.map(item => {
-            let { text } = adaptIMessageContent(item.message.content)
-            return item.author + ": " + text.replace(/\n/g, " ");
+        // 如果有预览数据，直接使用
+        if ((history as any)._preview) {
+            return (history as any)._preview;
+        }
+        
+        // 否则使用原来的逻辑（用于完整加载的历史记录）
+        const messageItems = history.items.filter(item => 
+            item.type === 'message' && item.message?.content
+        );
+        
+        const items = messageItems.slice(0, 2);
+        const content = items.map(item => {
+            const { text } = adaptIMessageContent(item.message.content);
+            return (item.author || 'unknown') + ": " + text.replace(/\n/g, " ");
         }).join("\n");
+        
         return content;
     }
 

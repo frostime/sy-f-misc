@@ -265,6 +265,31 @@ interface IChatSessionHistory {
     tags?: string[];
 }
 
+/**
+ * 聊天会话的快照数据，用于性能优化的历史记录列表显示
+ */
+interface IChatSessionSnapshot {
+    id: string;
+    title: string;
+    timestamp: number;
+    updated?: number;
+    tags?: string[];
+    preview: string; // 前500字的内容预览
+    messageCount: number; // 消息数量
+    lastMessageAuthor: string; // 最后一条消息的作者
+    lastMessageTime: number; // 最后一条消息的时间
+    systemPrompt?: string; // 系统提示（可选，用于搜索）
+}
+
+/**
+ * 历史记录快照文件的数据结构
+ */
+interface IHistorySnapshot {
+    version: string; // snapshot版本号，用于兼容性检查
+    lastUpdated: number; // snapshot最后更新时间
+    sessions: IChatSessionSnapshot[]; // 会话快照数组
+}
+
 interface IChatSessionConfig {
     attachedHistory: number;
     //GPT 常常使用 \( \) 语法，但是 md 习惯使用 $ $ 语法，需要转换
