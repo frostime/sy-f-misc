@@ -204,7 +204,12 @@ const SessionItemsManager: Component<{
     const MessageItemCard = (subProps: { item: IChatSessionMsgItem, index: Accessor<number> }) => {
         const textContent = (() => {
             const { text } = adaptIMessageContent(subProps.item.message.content);
-            return text.length > MAX_PREVIEW_LENGTH ? text.substring(0, MAX_PREVIEW_LENGTH) + '...' : text;
+            const snapshot = text.length > MAX_PREVIEW_LENGTH ? text.substring(0, MAX_PREVIEW_LENGTH) + '...' : text;
+            const length = text.length;
+            return {
+                text: snapshot,
+                length: length
+            }
         });
         return (
             <div
@@ -269,12 +274,13 @@ const SessionItemsManager: Component<{
                         [styles.messagePreview]: true,
                         "ariaLabel": true
                     }}
-                    aria-label={textContent()}
+                    aria-label={textContent().text}
                 >
-                    {textContent()}
+                    {textContent().text}
                 </div>
                 <div class={styles.messageFooter}>
                     <span>{formatDateTime(null, new Date(subProps.item.timestamp))}</span>
+                    <span>{textContent().length}字</span>
                     {subProps.item.message.reasoning_content && (
                         <span class={styles.reasoningBadge}>包含推理</span>
                     )}

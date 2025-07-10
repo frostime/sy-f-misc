@@ -34,7 +34,7 @@ import { SessionToolsManager } from '../SessionToolsManager';
 
 import { useSession, SimpleProvider } from './ChatSession.helper';
 import { useSessionSetting } from './ChatSessionSetting';
-import { useSiYuanEditor } from './utils';
+import { floatSiYuanTextEditor } from './utils';
 import styles from './ChatSession.module.scss';
 
 // GPT and settings related
@@ -82,16 +82,38 @@ const ChatSession: Component<{
 
     const hasToolEnabled = createSignalRef(session.toolExecutor.hasEnabledTools());
 
-    const siyuanEditor = useSiYuanEditor({
-        id: session.sessionId(),
-        input,
-        fontSize: `${UIConfig().inputFontsize}px`,
-        title: () => session.title(),
-        useTextarea: () => textareaRef,
-        submit: () => {
-            handleSubmit(new Event('submit'));
-        }
-    });
+    // 移除 useSiYuanEditor，改用 floatSiYuanTextEditor
+    // const siyuanEditor = useSiYuanEditor({
+    //     id: session.sessionId(),
+    //     input,
+    //     fontSize: `${UIConfig().inputFontsize}px`,
+    //     title: () => session.title(),
+    //     useTextarea: () => textareaRef,
+    //     submit: () => {
+    //         handleSubmit(new Event('submit'));
+    //     }
+    // });
+
+    const openFloatEditor = () => {
+        floatSiYuanTextEditor({
+            initialText: input(),
+            fontSize: `${UIConfig().inputFontsize}px`,
+            customButtons: {
+                '填充': (text: string) => {
+                    input(text);
+                    adjustTextareaHeight();
+                }
+            },
+            onConfirm: (text: string) => {
+                input(text);
+                adjustTextareaHeight();
+                handleSubmit(new Event('submit'));
+            },
+            onClose: () => {
+                // 清理逻辑如果需要的话
+            }
+        });
+    };
 
     const handleScroll = () => {
         if (!messageListRef) return;
@@ -185,7 +207,7 @@ const ChatSession: Component<{
     });
 
     onCleanup(() => {
-        siyuanEditor.cleanUp();
+        // 移除 siyuanEditor.cleanUp()，因为 floatSiYuanTextEditor 会自动清理
         if (session.messages().length > 0 && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
@@ -1200,7 +1222,7 @@ const ChatSession: Component<{
                             aria-label="高级编辑"
                             disabled={session.loading()}
                             onclick={() => {
-                                siyuanEditor.showDialog();
+                                openFloatEditor();
                             }}
                         >
                             <SvgSymbol>iconEdit</SvgSymbol>

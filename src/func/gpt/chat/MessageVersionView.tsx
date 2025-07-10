@@ -167,9 +167,12 @@ const MessageVersionView: Component<{
             <div class="fn__flex" style={{
                 'align-items': 'center',
                 "justify-content": 'flex-end',
-                gap: '3px',
+                gap: '5px',
                 padding: '4px 12px'
             }}>
+                <span>
+                    {previewContent()?.text.length}字
+                </span>
                 <div style={{
                     display: 'flex',
                     "align-items": 'center'

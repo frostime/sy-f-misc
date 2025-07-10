@@ -1,15 +1,15 @@
 import {
     onMount, onCleanup,
 } from 'solid-js';
-import { useSignalRef } from '@frostime/solid-signal-ref';
+// import { useSignalRef } from '@frostime/solid-signal-ref';
 import { Protyle } from 'siyuan';
 import { getMarkdown, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
 import * as syDoc from '@gpt/persistence/sy-doc';
 import styles from './ChatSession.module.scss';
-import { solidDialog } from '@/libs/dialog';
+// import { solidDialog } from '@/libs/dialog';
 import { floatingContainer } from '@/libs/components/floating-container';
 
-
+/*
 export const useSiYuanEditor = (props: {
     id: string;
     input: ReturnType<typeof useSignalRef<string>>;
@@ -173,7 +173,7 @@ export const useSiYuanEditor = (props: {
         }
     }
 }
-
+*/
 
 const SiYuanTextEditor = (props: {
     id: string;
@@ -181,6 +181,7 @@ const SiYuanTextEditor = (props: {
     fontSize?: string;
     onConfirm: (text: string) => void;
     onClose: () => void;
+    customButtons?: Record<string, (text: string) => void>;
 }) => {
     let document: Awaited<ReturnType<typeof useDocumentWithAttr>> = null;
     let ref: HTMLDivElement = null;
@@ -228,10 +229,12 @@ const SiYuanTextEditor = (props: {
             {
                 rootId: document.id,
                 blockId: document.id,
+                action: ['cb-get-all'],
                 render: {
                     background: false,
                     title: false,
                     breadcrumb: false,
+                    scroll: true
                 }
             }
         );
@@ -269,6 +272,16 @@ const SiYuanTextEditor = (props: {
                 <div style={{
                     flex: 1,
                 }} />
+                {/* 自定义按钮放在左侧 */}
+                {props.customButtons && Object.entries(props.customButtons).map(([label, callback]) => (
+                    <button class="b3-button b3-button--outline" onclick={async () => {
+                        const content = await getText();
+                        callback(content);
+                    }}>
+                        {label}
+                    </button>
+                ))}
+                {/* 默认的 Submit 按钮 */}
                 <button class="b3-button" onclick={async () => {
                     const content = await getText();
                     props.onConfirm(content);
@@ -311,6 +324,7 @@ export const floatSiYuanTextEditor = (args: Omit<Parameters<typeof SiYuanTextEdi
                     container.dispose();
                 }}
                 fontSize={args?.fontSize}
+                customButtons={args.customButtons}
                 id={id}
             />
         ),

@@ -189,7 +189,8 @@ export const FloatingContainer: Component<{
                     'cursor': 'move',
                     'padding-bottom': '4px',
                     'margin-bottom': '4px',
-                    'border-bottom': '1px solid var(--b3-border-color)'
+                    'border-bottom': '1px solid var(--b3-border-color)',
+                    'flex-shrink': 0
                 }}
                 onMouseDown={handleMouseDown}
             >
@@ -228,7 +229,11 @@ export const FloatingContainer: Component<{
                     </svg>
                 </div>
             </div>
-            <div class="floating-container-body" style={{ 'flex': '1' }}>
+            <div class="floating-container-body" style={{
+                'flex': '1 1 0%',
+                'overflow': 'auto', // 只让 body 滚动
+                'min-height': 0  // 让flex布局下body能收缩，避免header被挤走
+            }}>
                 {props.children}
             </div>
         </div>
