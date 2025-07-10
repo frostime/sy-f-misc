@@ -7,10 +7,15 @@
  * @Description  : 
  */
 import { Plugin } from 'siyuan';
+import { forwardProxy } from "@/api";
 
 interface IMessage {
     command: string;
     body: string | Record<string, any>;
+    /**
+     * 可选，回调地址，字段名 callbackURL，大小写不敏感
+     */
+    callbackURL?: string;
 }
 
 interface IWsConfig {
@@ -83,14 +88,24 @@ export default class WebSocketManager {
 
     private parseRequest(msg: string): IMessage | null {
         try {
-            // Check if msg matches the format [[method]][[payload]]
             const data = JSON.parse(msg);
             if (!data) {
                 return null;
             }
-
+            // 兼容 callbackURL 字段大小写不敏感
+            let callbackURL = undefined;
+            for (const key of Object.keys(data)) {
+                if (key.toLowerCase() === 'callbackurl') {
+                    callbackURL = data[key];
+                    break;
+                }
+            }
             if (data.command && data.body !== undefined) {
-                return data;
+                return {
+                    command: data.command,
+                    body: data.body,
+                    ...(callbackURL ? { callbackURL } : {})
+                };
             }
         } catch (error) {
             // console.error('Failed to parse message:', error);
@@ -173,11 +188,44 @@ export default class WebSocketManager {
         console.error('[WebSocket] error:', error);
     }
 
-    private handleMessage(message: IMessage) {
-        console.log(`[WebSocket] handler: ${message}`);
+    private async handleMessage(message: IMessage) {
+        console.log(`[WebSocket] handler: ${JSON.stringify(message)}`);
         const handler = this.messageHandlers[message.command];
         if (handler) {
-            handler(message.body);
+            let result;
+            try {
+                result = handler(message.body);
+                if (result === undefined || result === null) {
+                    return;
+                }
+                if (result instanceof Promise) {
+                    result = await result;
+                }
+            } catch (err) {
+                console.warn(`[WebSocket] handler error:`, err);
+                result = { error: String(err) };
+            }
+            // 如果有 callbackURL，且是合法 http(s) 地址或 localhost/IP，则 POST 结果
+            if (
+                message.callbackURL &&
+                (/^https?:\/\//i.test(message.callbackURL) || /^(localhost|\d{1,3}(\.\d{1,3}){3})(:\d+)?(\/.*)?$/i.test(message.callbackURL))
+            ) {
+                try {
+                    const proxyResp = await forwardProxy(
+                        message.callbackURL.startsWith('http') ? message.callbackURL : `http://${message.callbackURL}`,
+                        'POST',
+                        result,
+                        [{ 'Content-Type': 'application/json' }],
+                        7000,
+                        'application/json'
+                    );
+                    if (!proxyResp || (proxyResp.status / 100) !== 2) {
+                        console.warn(`[WebSocket] callbackURL proxy failed, status: ${proxyResp?.status}`);
+                    }
+                } catch (e) {
+                    console.warn(`[WebSocket] callbackURL POST failed:`, e);
+                }
+            }
         } else {
             console.warn(`[WebSocket] no handler found for method: ${message.command}`);
         }
