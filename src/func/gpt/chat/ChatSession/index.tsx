@@ -1151,14 +1151,25 @@ const ChatSession: Component<{
                         e.currentTarget.classList.remove(styles.dropTarget);
 
                         if (!e.dataTransfer.types.length) return;
-
+                        debugger
                         const type = e.dataTransfer.types[0];
                         if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
-                            // #TODO 适配标题块的情况
-                            const context = await executeContextProviderDirect(SelectedTextProvider, {
-                                query: ''
-                            });
-                            session.setContext(context);
+                            let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, '');
+                            const info = meta.split(Constants.ZWSP);
+                            const nodeIds = info[2].split(',');
+                            if (nodeIds.length > 1) {
+                                const context = await executeContextProviderDirect(SelectedTextProvider, {
+                                    query: ''
+                                });
+                                session.setContext(context);
+                            } else if (nodeIds.length === 1) {
+                                const id = nodeIds[0];
+                                const context = await executeContextProviderDirect(BlocksProvider, {
+                                    query: id
+                                });
+                                session.setContext(context);
+                            }
+
                         } else if (e.dataTransfer.types.includes(Constants.SIYUAN_DROP_TAB)) {
                             const data = e.dataTransfer.getData(Constants.SIYUAN_DROP_TAB)
                             const payload = JSON.parse(data);
