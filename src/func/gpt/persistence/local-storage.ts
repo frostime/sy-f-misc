@@ -72,13 +72,19 @@ export const restoreCache = async () => {
  * 临时保存在 localStorage 中, key 为 ID
  */
 export const saveToLocalStorage = (history: IChatSessionHistory) => {
+    // 确保类型标识
+    const historyWithType = { ...history, type: 'history' as const };
     const key = `gpt-chat-${history.id}`;
-    localStorage.setItem(key, JSON.stringify(history));
+    localStorage.setItem(key, JSON.stringify(historyWithType));
 }
 
 export const listFromLocalStorage = (): IChatSessionHistory[] => {
     const keys = Object.keys(localStorage).filter(key => key.startsWith('gpt-chat-'));
-    return keys.map(key => JSON.parse(localStorage.getItem(key)));
+    return keys.map(key => {
+        const data = JSON.parse(localStorage.getItem(key));
+        // 确保类型标识
+        return { ...data, type: 'history' as const };
+    });
 }
 
 export const removeFromLocalStorage = (id: string) => {

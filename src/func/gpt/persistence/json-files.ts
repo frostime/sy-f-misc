@@ -12,16 +12,18 @@ import { adaptIMessageContent } from "@gpt/data-utils";
 const rootName = 'chat-history';
 
 // Snapshot 相关常量
-const SNAPSHOT_FILE = 'history-snapshot.json';
-const SNAPSHOT_VERSION = '1.0';
+const SNAPSHOT_FILE = 'chat-history-snapshot.json';
+const SNAPSHOT_SCHEMA = '1.0';
 const PREVIEW_LENGTH = 500;
+
+// #TODO 考虑 snapshot 太大要怎么办
 
 export const saveToJson = async (history: IChatSessionHistory) => {
     const plugin = thisPlugin();
 
     const filepath = `${rootName}/${history.id}.json`;
     await plugin.saveData(filepath, { ...history });
-    
+
     // 同步更新snapshot
     await updateSessionInSnapshot(history);
 }
@@ -46,28 +48,24 @@ export const tryRecoverFromJson = async (filePath: string) => {
 }
 
 
-export const listFromJson = async (): Promise<IChatSessionHistory[]> => {
+export const listFromJsonSnapshot = async (): Promise<IChatSessionSnapshot[]> => {
     let snapshot = await readSnapshot();
-    
+
+    debugger;
     // 检查是否需要重建snapshot
-    if (!snapshot || snapshot.version !== SNAPSHOT_VERSION) {
-        snapshot = await rebuildSnapshot();
+    if (!snapshot || snapshot.schema !== SNAPSHOT_SCHEMA) {
+        snapshot = await rebuildHistorySnapshot();
     }
-    
-    // 将snapshot数据转换为IChatSessionHistory格式（仅包含基本信息）
-    return snapshot.sessions.map(session => ({
-        id: session.id,
-        title: session.title,
-        timestamp: session.timestamp,
-        updated: session.updated,
-        tags: session.tags,
-        items: [], // 不加载完整消息，需要时再加载
-        sysPrompt: session.systemPrompt || '', // 不加载系统提示
-        // 添加一些额外的预览信息
-        _preview: session.preview,
-        _messageCount: session.messageCount,
-        _lastMessageAuthor: session.lastMessageAuthor
-    } as IChatSessionHistory & { _preview?: string; _messageCount?: number; _lastMessageAuthor?: string }));
+
+    // 直接返回snapshot数组
+    return snapshot.sessions;
+};
+
+/**
+ * 保留原有的完整加载功能（用于需要完整数据的场景）
+ */
+export const listFromJsonFull = async (): Promise<IChatSessionHistory[]> => {
+    return await listFromJsonLegacy();
 };
 
 export const getFromJson = async (id: string): Promise<IChatSessionHistory> => {
@@ -82,7 +80,7 @@ export const removeFromJson = async (id: string) => {
     const plugin = thisPlugin();
     const filepath = `${rootName}/${id}.json`;
     await plugin.removeData(filepath);
-    
+
     // 同步更新snapshot
     await removeSessionFromSnapshot(id);
 }
@@ -92,19 +90,19 @@ export const removeFromJson = async (id: string) => {
  */
 const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnapshot => {
     // 过滤出真正的消息项
-    const messageItems = history.items.filter(item => 
+    const messageItems = history.items.filter(item =>
         item.type === 'message' && item.message?.content
     );
-    
+
     // 提取预览内容
     const previewParts: string[] = [];
     let totalLength = 0;
-    
+
     for (const item of messageItems.slice(0, 3)) { // 只取前3条消息
         const { text } = adaptIMessageContent(item.message.content);
         const authorPrefix = `${item.author || 'unknown'}: `;
         const contentToAdd = authorPrefix + text.replace(/\n/g, ' ').trim();
-        
+
         if (totalLength + contentToAdd.length > PREVIEW_LENGTH) {
             const remainingLength = PREVIEW_LENGTH - totalLength;
             if (remainingLength > authorPrefix.length) {
@@ -112,15 +110,16 @@ const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnap
             }
             break;
         }
-        
+
         previewParts.push(contentToAdd);
         totalLength += contentToAdd.length;
     }
-    
+
     // 获取最后一条消息信息
     const lastMessage = messageItems[messageItems.length - 1];
-    
+
     return {
+        type: 'snapshot',
         id: history.id,
         title: history.title,
         timestamp: history.timestamp,
@@ -159,14 +158,14 @@ const writeSnapshot = async (snapshot: IHistorySnapshot) => {
 /**
  * 从现有JSON文件重建snapshot
  */
-const rebuildSnapshot = async (): Promise<IHistorySnapshot> => {
+export const rebuildHistorySnapshot = async (): Promise<IHistorySnapshot> => {
     console.log('Rebuilding history snapshot...');
     const histories = await listFromJsonLegacy();
-    
+
     const sessions = histories.map(generateSessionSnapshot);
-    
+
     const snapshot: IHistorySnapshot = {
-        version: SNAPSHOT_VERSION,
+        schema: SNAPSHOT_SCHEMA,
         lastUpdated: Date.now(),
         sessions: sessions.sort((a, b) => {
             const aTime = a.updated || a.timestamp;
@@ -174,7 +173,7 @@ const rebuildSnapshot = async (): Promise<IHistorySnapshot> => {
             return bTime - aTime;
         })
     };
-    
+
     await writeSnapshot(snapshot);
     return snapshot;
 };
@@ -182,32 +181,62 @@ const rebuildSnapshot = async (): Promise<IHistorySnapshot> => {
 /**
  * 更新snapshot中的单个会话
  */
-const updateSessionInSnapshot = async (history: IChatSessionHistory) => {
+export const updateSessionInSnapshot = async (history: IChatSessionHistory) => {
     let snapshot = await readSnapshot();
-    
+
     if (!snapshot) {
         // 如果snapshot不存在，重建它
-        snapshot = await rebuildSnapshot();
+        snapshot = await rebuildHistorySnapshot();
         return;
     }
-    
+
     const sessionSnapshot = generateSessionSnapshot(history);
     const existingIndex = snapshot.sessions.findIndex(s => s.id === history.id);
-    
+
     if (existingIndex >= 0) {
         snapshot.sessions[existingIndex] = sessionSnapshot;
     } else {
         snapshot.sessions.unshift(sessionSnapshot); // 新会话添加到开头
     }
-    
+
     // 重新排序
     snapshot.sessions.sort((a, b) => {
         const aTime = a.updated || a.timestamp;
         const bTime = b.updated || b.timestamp;
         return bTime - aTime;
     });
-    
+
     snapshot.lastUpdated = Date.now();
+    await writeSnapshot(snapshot);
+};
+
+/**
+ * 直接更新 snapshot 中的会话记录
+ */
+export const updateSnapshotSession = async (sessionSnapshot: IChatSessionSnapshot) => {
+    let snapshot = await readSnapshot();
+
+    if (!snapshot) {
+        // 如果snapshot不存在，重建它
+        snapshot = await rebuildHistorySnapshot();
+        return;
+    }
+
+    const existingIndex = snapshot.sessions.findIndex(s => s.id === sessionSnapshot.id);
+
+    if (existingIndex >= 0) {
+        snapshot.sessions[existingIndex] = sessionSnapshot;
+    } else {
+        snapshot.sessions.unshift(sessionSnapshot); // 新会话添加到开头
+    }
+
+    // 重新排序
+    snapshot.sessions.sort((a, b) => {
+        const aTime = b.updated || b.timestamp;
+        const bTime = a.updated || a.timestamp;
+        return bTime - aTime;
+    });
+
     await writeSnapshot(snapshot);
 };
 
@@ -217,7 +246,7 @@ const updateSessionInSnapshot = async (history: IChatSessionHistory) => {
 const removeSessionFromSnapshot = async (sessionId: string) => {
     const snapshot = await readSnapshot();
     if (!snapshot) return;
-    
+
     snapshot.sessions = snapshot.sessions.filter(s => s.id !== sessionId);
     snapshot.lastUpdated = Date.now();
     await writeSnapshot(snapshot);
@@ -250,6 +279,4 @@ const listFromJsonLegacy = async (): Promise<IChatSessionHistory[]> => {
 /**
  * 手动重建snapshot的公共函数
  */
-export const rebuildHistorySnapshot = async () => {
-    return await rebuildSnapshot();
-};
+// export const rebuildHistorySnapshot = rebuildSnapshot;  // Alias

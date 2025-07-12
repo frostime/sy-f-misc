@@ -33,4 +33,4 @@ export * from "./local-storage";
 export * from "./import-platform";
 
 // 导出 snapshot 相关功能
-export { rebuildHistorySnapshot } from "./json-files";
+export { rebuildHistorySnapshot, listFromJsonSnapshot, listFromJsonFull, updateSessionInSnapshot, updateSnapshotSession } from "./json-files";

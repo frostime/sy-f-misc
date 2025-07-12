@@ -372,7 +372,8 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
         id: id,
         title: `Chat ${formatDateTime(null, new Date(now))}`,
         timestamp: now,
-        updated: now
+        updated: now,
+        type: 'history'
     };
 }
 

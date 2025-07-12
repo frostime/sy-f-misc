@@ -40,6 +40,7 @@ const loadTagsFromStorage = async () => {
         // 从本地存储获取历史记录
         const localHistories = await persist.listFromLocalStorage();
         // 从 JSON 文件获取历史记录
+        // #TODO 适配新的 snapshot 机制
         const jsonHistories = await persist.listFromJson();
 
         // 合并所有历史记录

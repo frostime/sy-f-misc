@@ -256,6 +256,7 @@ interface IChatSessionMsgItem {
 }
 
 interface IChatSessionHistory {
+    type?: 'history'; // 类型标识; 将 History 和 Snapshot 区分开来; 可选; 默认就为 history
     id: string;
     title: string;
     timestamp: number;
@@ -269,6 +270,7 @@ interface IChatSessionHistory {
  * 聊天会话的快照数据，用于性能优化的历史记录列表显示
  */
 interface IChatSessionSnapshot {
+    type: 'snapshot'; // 类型标识; 将 History 和 Snapshot 区分开来
     id: string;
     title: string;
     timestamp: number;
@@ -285,7 +287,7 @@ interface IChatSessionSnapshot {
  * 历史记录快照文件的数据结构
  */
 interface IHistorySnapshot {
-    version: string; // snapshot版本号，用于兼容性检查
+    schema: string; // snapshot数据结构版本，用于兼容性检查
     lastUpdated: number; // snapshot最后更新时间
     sessions: IChatSessionSnapshot[]; // 会话快照数组
 }
