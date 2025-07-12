@@ -86,7 +86,7 @@
     white-space: pre-line;
 }
 
-.historyTimeContainer {
+.historyMetaContainer {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -95,12 +95,12 @@
     white-space: nowrap;
 }
 
-.historyTimeLabel {
+.historyMetaLabel {
     font-weight: 500;
     color: var(--b3-theme-on-surface-light);
 }
 
-.historyTime {
+.historyMetaVal {
     color: var(--b3-theme-on-surface-light);
     margin-right: 8px;
 }

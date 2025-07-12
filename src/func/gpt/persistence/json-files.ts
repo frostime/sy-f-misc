@@ -18,14 +18,39 @@ const PREVIEW_LENGTH = 500;
 
 // #TODO 考虑 snapshot 太大要怎么办
 
-export const saveToJson = async (history: IChatSessionHistory) => {
+export const updateHistoryFileMetadata = async (
+    id: IChatSessionHistory['id'],
+    metadata: Partial<Pick<IChatSessionHistory, 'title' | 'tags' | 'timestamp' | 'updated'>>,
+    updateSnapshot: boolean = true
+) => {
+    const ALLOWED_KEYS = ['title', 'tags', 'timestamp', 'updated'];
+    const history = await getFromJson(id);
+    if (!history) {
+        console.warn(`History with ID ${id} not found.`);
+        return;
+    }
+    // 更新允许的字段
+    for (const key of Object.keys(metadata)) {
+        if (ALLOWED_KEYS.includes(key)) {
+            history[key] = metadata[key];
+        } else {
+            console.warn(`Key ${key} is not allowed to update.`);
+        }
+    }
+    // 保存更新后的历史记录
+    await saveToJson(history, updateSnapshot);
+}
+
+export const saveToJson = async (history: IChatSessionHistory, updateSnapshot: boolean = true) => {
     const plugin = thisPlugin();
 
     const filepath = `${rootName}/${history.id}.json`;
     await plugin.saveData(filepath, { ...history });
 
     // 同步更新snapshot
-    await updateSessionInSnapshot(history);
+    if (updateSnapshot) {
+        await updateSessionInSnapshot(history);
+    }
 }
 
 
@@ -51,7 +76,7 @@ export const tryRecoverFromJson = async (filePath: string) => {
 export const listFromJsonSnapshot = async (): Promise<IChatSessionSnapshot[]> => {
     let snapshot = await readSnapshot();
 
-    debugger;
+    // debugger;
     // 检查是否需要重建snapshot
     if (!snapshot || snapshot.schema !== SNAPSHOT_SCHEMA) {
         snapshot = await rebuildHistorySnapshot();

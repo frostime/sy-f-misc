@@ -192,7 +192,13 @@ const HistoryList = (props: {
                                 } else {
                                     // permanent 模式下的数据是 IChatSessionSnapshot 类型
                                     persist.updateSnapshotSession(updatedItem as IChatSessionSnapshot);
-                                    // #TODO 可能还需要更新 json file 本身
+                                    // 更新 json file 本身
+                                    // persist.saveToJson(updatedItem as IChatSessionHistory);
+                                    persist.updateHistoryFileMetadata(updatedItem.id, {
+                                        title: updatedItem.title,
+                                        tags: updatedItem.tags,
+                                        updated: updatedItem.updated
+                                    }, false);
                                 }
                             });
 
@@ -235,9 +241,9 @@ const HistoryList = (props: {
                 batch(async () => {
                     for (const history of selectedHistories) {
                         // temporary 模式下的数据必定是 IChatSessionHistory 类型
-                        await persist.saveToJson(history as IChatSessionHistory);
-                        // // 从本地存储中删除
-                        // persist.removeFromLocalStorage(history.id);
+                        if (history?.type !== 'snapshot') {
+                            await persist.saveToJson(history as IChatSessionHistory);
+                        }
                     }
 
                     // 重新加载历史记录
@@ -251,14 +257,19 @@ const HistoryList = (props: {
         });
     };
 
-    const onclick = (history: HistoryItem) => {
+    const onclick = async (history: HistoryItem) => {
         // 只有完整的历史记录才能点击进入聊天
         if (history.type === 'history') {
             props.onclick?.(history);
             props.close?.();
         } else {
-            // 对于 snapshot，可以考虑提示用户需要加载完整记录
-            // 这里暂时不处理，或者可以显示提示信息 #TODO
+            const fullHistory = await persist.getFromJson(history.id);
+            if (!fullHistory) {
+                showMessage("无法加载完整历史记录，文件可能已丢失或损坏。");
+                return;
+            }
+            props.onclick?.(fullHistory);
+            props.close?.();
         }
     }
 
@@ -297,11 +308,14 @@ const HistoryList = (props: {
                     tags={item.tags || []}
                     onSave={(title, tags) => {
                         // 更新标题和标签
-                        const updatedItem = {
-                            ...item,
+                        const meta = {
                             title,
                             tags,
                             updated: Date.now()
+                        };
+                        const updatedItem = {
+                            ...item,
+                            ...meta
                         };
 
                         // 保存更新 - 根据数据源类型进行不同的处理
@@ -312,7 +326,8 @@ const HistoryList = (props: {
                             // permanent 模式下的数据是 IChatSessionSnapshot 类型
                             // 需要更新 snapshot 文件
                             persist.updateSnapshotSession(updatedItem as IChatSessionSnapshot);
-                            // #TODO 可能还需要更新 json file 本身
+                            // 更新 json file 本身
+                            persist.updateHistoryFileMetadata(updatedItem.id, meta, false);
                         }
 
                         // 更新列表中的项
@@ -452,7 +467,7 @@ const HistoryList = (props: {
 
             // 搜索内容 - 根据类型处理
             if (item.type === 'snapshot') {
-                // #TODO 标题中检索
+                if (item.title.toLowerCase().includes(query)) return true;
                 // 在snapshot的预览中搜索
                 if (item.preview.toLowerCase().includes(query)) return true;
                 // 在系统提示中搜索
@@ -592,6 +607,17 @@ const HistoryList = (props: {
                         全部清空
                     </button>
                 </Show>
+                <Show when={sourceType() === 'permanent' && !batchMode()}>
+                    <button class="b3-button b3-button--text"
+                        onClick={async () => {
+                            await persist.rebuildHistorySnapshot();
+                            await fetchHistory(sourceType());
+                            showMessage('已重新索引归档记录');
+                        }}
+                    >
+                        重新索引
+                    </button>
+                </Show>
                 <div class="fn__flex-1" />
                 {/* Search box */}
                 {/* 标签过滤器 */}
@@ -688,18 +714,19 @@ const HistoryList = (props: {
                     </div>
                 </Show>
 
-                <div class={styles.historyTimeContainer}>
+                <div class={styles.historyMetaContainer}>
+                    <div class={styles.historyMetaVal}>ID: {item.id}</div>
                     {item.updated && item.updated !== item.timestamp ? (
                         <>
-                            <div class={styles.historyTimeLabel}>创建:</div>
-                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
-                            <div class={styles.historyTimeLabel}>更新:</div>
-                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.updated))}</div>
+                            <div class={styles.historyMetaLabel}>创建:</div>
+                            <div class={styles.historyMetaVal}>{formatDateTime(null, new Date(item.timestamp))}</div>
+                            <div class={styles.historyMetaLabel}>更新:</div>
+                            <div class={styles.historyMetaVal}>{formatDateTime(null, new Date(item.updated))}</div>
                         </>
                     ) : (
                         <>
-                            <div class={styles.historyTimeLabel}>创建:</div>
-                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
+                            <div class={styles.historyMetaLabel}>创建:</div>
+                            <div class={styles.historyMetaVal}>{formatDateTime(null, new Date(item.timestamp))}</div>
                         </>
                     )}
                 </div>
