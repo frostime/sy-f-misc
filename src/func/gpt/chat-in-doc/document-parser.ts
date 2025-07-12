@@ -10,7 +10,7 @@ import { formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { appendBlock } from "@frostime/siyuan-plugin-kits/api";
 import { formatSingleItem, parseMarkdownToChatHistory } from "../persistence/sy-doc";
 import { defaultModelId } from "../setting";
-import { type CompletionResponse } from "../openai/complete";
+// import { type CompletionResponse } from "../openai/complete";
 
 /**
  * 解析文档内容为聊天历史

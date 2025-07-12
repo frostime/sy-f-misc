@@ -39,11 +39,11 @@ const loadTagsFromStorage = async () => {
     try {
         // 从本地存储获取历史记录
         const localHistories = await persist.listFromLocalStorage();
-        // 从 JSON 文件获取历史记录
-        const jsonHistories = await persist.listFromJson();
+        // 从 JSON 快照文件获取历史记录
+        const jsonSnapshots = await persist.listFromJsonSnapshot();
 
-        // 合并所有历史记录
-        const allHistories = [...localHistories, ...jsonHistories];
+        // 合并所有历史记录（联合类型：IChatSessionHistory | IChatSessionSnapshot）
+        const allHistories = [...localHistories, ...jsonSnapshots];
 
         // 收集所有标签
         const tagSet = new Set<string>();

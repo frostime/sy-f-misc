@@ -71,6 +71,9 @@ const HistoryList = (props: {
     const batchMode = useSignalRef<boolean>(false);
     const selectedItems = useSignalRef<Set<string>>(new Set());
 
+    // 联合类型用于处理两种数据源
+    type HistoryItem = IChatSessionHistory | IChatSessionSnapshot;
+
     // 切换批量模式
     const toggleBatchMode = () => {
         batchMode.value = !batchMode();
@@ -178,14 +181,24 @@ const HistoryList = (props: {
                             selectedHistories.forEach(history => {
                                 const updatedItem = {
                                     ...history,
-                                    tags
+                                    tags,
+                                    updated: Date.now()
                                 };
 
-                                // 保存更新
+                                // 保存更新 - 根据数据源类型进行不同的处理
                                 if (sourceType() === 'temporary') {
-                                    persist.saveToLocalStorage(updatedItem);
+                                    // temporary 模式下的数据必定是 IChatSessionHistory 类型
+                                    persist.saveToLocalStorage(updatedItem as IChatSessionHistory);
                                 } else {
-                                    persist.saveToJson(updatedItem);
+                                    // permanent 模式下的数据是 IChatSessionSnapshot 类型
+                                    persist.updateSnapshotSession(updatedItem as IChatSessionSnapshot);
+                                    // 更新 json file 本身
+                                    // persist.saveToJson(updatedItem as IChatSessionHistory);
+                                    persist.updateHistoryFileMetadata(updatedItem.id, {
+                                        title: updatedItem.title,
+                                        tags: updatedItem.tags,
+                                        updated: updatedItem.updated
+                                    }, false);
                                 }
                             });
 
@@ -227,10 +240,10 @@ const HistoryList = (props: {
                 // 批量持久化
                 batch(async () => {
                     for (const history of selectedHistories) {
-                        // 保存到 JSON 文件
-                        await persist.saveToJson(history);
-                        // // 从本地存储中删除
-                        // persist.removeFromLocalStorage(history.id);
+                        // temporary 模式下的数据必定是 IChatSessionHistory 类型
+                        if (history?.type !== 'snapshot') {
+                            await persist.saveToJson(history as IChatSessionHistory);
+                        }
                     }
 
                     // 重新加载历史记录
@@ -244,13 +257,24 @@ const HistoryList = (props: {
         });
     };
 
-    const onclick = (history: IChatSessionHistory) => {
-        props.onclick?.(history);
-        props.close?.();
+    const onclick = async (history: HistoryItem) => {
+        // 只有完整的历史记录才能点击进入聊天
+        if (history.type === 'history') {
+            props.onclick?.(history);
+            props.close?.();
+        } else {
+            const fullHistory = await persist.getFromJson(history.id);
+            if (!fullHistory) {
+                showMessage("无法加载完整历史记录，文件可能已丢失或损坏。");
+                return;
+            }
+            props.onclick?.(fullHistory);
+            props.close?.();
+        }
     }
 
     // 显示历史记录项的右键菜单
-    const showHistoryItemMenu = (e: MouseEvent, item: IChatSessionHistory) => {
+    const showHistoryItemMenu = (e: MouseEvent, item: HistoryItem) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -274,7 +298,7 @@ const HistoryList = (props: {
     };
 
     // 打开编辑对话框
-    const openEditDialog = (item: IChatSessionHistory) => {
+    const openEditDialog = (item: HistoryItem) => {
         const { close } = solidDialog({
             title: '编辑会话信息',
             width: '750px',
@@ -284,18 +308,26 @@ const HistoryList = (props: {
                     tags={item.tags || []}
                     onSave={(title, tags) => {
                         // 更新标题和标签
-                        const updatedItem = {
-                            ...item,
+                        const meta = {
                             title,
                             tags,
                             updated: Date.now()
                         };
+                        const updatedItem = {
+                            ...item,
+                            ...meta
+                        };
 
-                        // 保存更新
+                        // 保存更新 - 根据数据源类型进行不同的处理
                         if (sourceType() === 'temporary') {
-                            persist.saveToLocalStorage(updatedItem);
+                            // temporary 模式下的数据必定是 IChatSessionHistory 类型
+                            persist.saveToLocalStorage(updatedItem as IChatSessionHistory);
                         } else {
-                            persist.saveToJson(updatedItem);
+                            // permanent 模式下的数据是 IChatSessionSnapshot 类型
+                            // 需要更新 snapshot 文件
+                            persist.updateSnapshotSession(updatedItem as IChatSessionSnapshot);
+                            // 更新 json file 本身
+                            persist.updateHistoryFileMetadata(updatedItem.id, meta, false);
                         }
 
                         // 更新列表中的项
@@ -358,12 +390,12 @@ const HistoryList = (props: {
     }
 
 
-    const historyRef = useSignalRef<IChatSessionHistory[]>([]);
+    const historyRef = useSignalRef<HistoryItem[]>([]);
     const fetchHistory = async (type: 'temporary' | 'permanent' = 'temporary') => {
         if (type === 'temporary') {
-            historyRef.value = persist.listFromLocalStorage();
+            historyRef.value = persist.listFromLocalStorage(); // IChatSessionHistory[]
         } else {
-            historyRef.value = await persist.listFromJson();
+            historyRef.value = await persist.listFromJsonSnapshot(); // IChatSessionSnapshot[]
         }
     }
 
@@ -433,12 +465,21 @@ const HistoryList = (props: {
             // 搜索标签
             if (item.tags && item.tags.some(t => t.toLowerCase().includes(query))) return true;
 
-            // 搜索内容
-            for (const messageItem of item.items) {
-                if (messageItem.type !== 'message' || !messageItem.message?.content) continue;
-                const { text } = adaptIMessageContent(messageItem.message.content);
-                if (text.toLowerCase().includes(query)) return true;
-                if (messageItem.author.toLowerCase().includes(query)) return true;
+            // 搜索内容 - 根据类型处理
+            if (item.type === 'snapshot') {
+                if (item.title.toLowerCase().includes(query)) return true;
+                // 在snapshot的预览中搜索
+                if (item.preview.toLowerCase().includes(query)) return true;
+                // 在系统提示中搜索
+                if (item.systemPrompt && item.systemPrompt.toLowerCase().includes(query)) return true;
+            } else {
+                // 在完整消息中搜索
+                for (const messageItem of item.items) {
+                    if (messageItem.type !== 'message' || !messageItem.message?.content) continue;
+                    const { text } = adaptIMessageContent(messageItem.message.content);
+                    if (text.toLowerCase().includes(query)) return true;
+                    if (messageItem.author && messageItem.author.toLowerCase().includes(query)) return true;
+                }
             }
 
             return false;
@@ -447,7 +488,7 @@ const HistoryList = (props: {
 
     // Group history items by time
     const groupedHistory = createMemo(() => {
-        const groups: Record<string, IChatSessionHistory[]> = {
+        const groups: Record<string, HistoryItem[]> = {
             today: [],
             thisWeek: [],
             thisMonth: [],
@@ -465,13 +506,23 @@ const HistoryList = (props: {
     });
 
 
-    const contentShotCut = (history: IChatSessionHistory) => {
-        let items = history.items.slice(0, 2);
-        let content = items.map(item => {
-            let { text } = adaptIMessageContent(item.message.content)
-            return item.author + ": " + text.replace(/\n/g, " ");
-        }).join("\n");
-        return content;
+    const contentShotCut = (history: HistoryItem) => {
+        if (history.type === 'snapshot') {
+            return history.preview; // 直接使用预览
+        } else {
+            // 原有的完整处理逻辑
+            const messageItems = history.items.filter(item =>
+                item.type === 'message' && item.message?.content
+            );
+
+            const items = messageItems.slice(0, 2);
+            const content = items.map(item => {
+                const { text } = adaptIMessageContent(item.message.content);
+                return (item.author || 'unknown') + ": " + text.replace(/\n/g, " ");
+            }).join("\n");
+
+            return content;
+        }
     }
 
     const Toolbar = () => (
@@ -556,6 +607,17 @@ const HistoryList = (props: {
                         全部清空
                     </button>
                 </Show>
+                <Show when={sourceType() === 'permanent' && !batchMode()}>
+                    <button class="b3-button b3-button--text"
+                        onClick={async () => {
+                            await persist.rebuildHistorySnapshot();
+                            await fetchHistory(sourceType());
+                            showMessage('已重新索引归档记录');
+                        }}
+                    >
+                        重新索引
+                    </button>
+                </Show>
                 <div class="fn__flex-1" />
                 {/* Search box */}
                 {/* 标签过滤器 */}
@@ -606,7 +668,7 @@ const HistoryList = (props: {
         </div>
     );
 
-    const HistoryItem = (item: IChatSessionHistory) => (
+    const HistoryItem = (item: HistoryItem) => (
         <div class={styles.historyItem} data-key={item.id}
             onClick={() => batchMode() ? null : onclick(item)}
             onContextMenu={(e) => showHistoryItemMenu(e, item)}
@@ -652,18 +714,19 @@ const HistoryList = (props: {
                     </div>
                 </Show>
 
-                <div class={styles.historyTimeContainer}>
+                <div class={styles.historyMetaContainer}>
+                    <div class={styles.historyMetaVal}>ID: {item.id}</div>
                     {item.updated && item.updated !== item.timestamp ? (
                         <>
-                            <div class={styles.historyTimeLabel}>创建:</div>
-                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
-                            <div class={styles.historyTimeLabel}>更新:</div>
-                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.updated))}</div>
+                            <div class={styles.historyMetaLabel}>创建:</div>
+                            <div class={styles.historyMetaVal}>{formatDateTime(null, new Date(item.timestamp))}</div>
+                            <div class={styles.historyMetaLabel}>更新:</div>
+                            <div class={styles.historyMetaVal}>{formatDateTime(null, new Date(item.updated))}</div>
                         </>
                     ) : (
                         <>
-                            <div class={styles.historyTimeLabel}>创建:</div>
-                            <div class={styles.historyTime}>{formatDateTime(null, new Date(item.timestamp))}</div>
+                            <div class={styles.historyMetaLabel}>创建:</div>
+                            <div class={styles.historyMetaVal}>{formatDateTime(null, new Date(item.timestamp))}</div>
                         </>
                     )}
                 </div>

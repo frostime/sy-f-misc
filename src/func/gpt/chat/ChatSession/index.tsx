@@ -1154,6 +1154,7 @@ const ChatSession: Component<{
 
                         const type = e.dataTransfer.types[0];
                         if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
+                            // #TODO 适配标题块的情况
                             const context = await executeContextProviderDirect(SelectedTextProvider, {
                                 query: ''
                             });
