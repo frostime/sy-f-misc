@@ -354,6 +354,42 @@ const MessageItem: Component<{
                 });
             }
         });
+        menu.addItem({
+            icon: 'iconAdd',
+            label: '添加消息版本',
+            click: (_, e) => {
+                floatingEditor({
+                    initialText: textContent(),
+                    onConfirm: (text) => {
+                        const originalText = textContent().trim();
+                        const newText = text.trim();
+                        if (!text || !text.trim()) {
+                            showMessage('新版本内容不能为空');
+                            return;
+                        }
+                        if (originalText === newText) {
+                            showMessage('新版本内容与原内容相同，未添加新版本');
+                            return;
+                        }
+                        session.addMsgItemVersion(props.messageItem.id, text.trim());
+                        showMessage('已添加新的消息版本');
+                    },
+                    onCancel: () => {
+                        // console.log('取消添加版本');
+                    },
+                    title: '添加消息版本',
+                    placeholder: '请输入新版本的消息内容',
+                    initialPosition: {
+                        x: e.clientX,
+                        y: e.clientY
+                    },
+                    style: {
+                        width: '450px',
+                        height: '320px'
+                    }
+                });
+            }
+        });
         if (VersionHooks.hasMultiVersion()) {
             menu.addItem({
                 icon: 'iconHistory',

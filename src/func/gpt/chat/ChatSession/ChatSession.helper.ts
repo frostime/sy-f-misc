@@ -15,7 +15,8 @@ import {
     mergeInputWithContext,
     applyMsgItemVersion,
     stageMsgItemVersion,
-    convertImgsToBase64Url
+    convertImgsToBase64Url,
+    setIMessageContent
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
@@ -232,9 +233,29 @@ const useMessageManagement = (params: {
         if (index === -1) return;
         messages.update(index, (prev: IChatSessionMsgItem) => {
             const copied = structuredClone(prev);
-            stageMsgItemVersion(copied);
-            copied.message.content = content;
-            return copied;
+            // 首先确保当前的 message 已经被保存为一个版本
+            const stagedItem = stageMsgItemVersion(copied);
+            // 然后为新内容创建一个新版本
+            const newVersionId = new Date().getTime().toString();
+            // 确保 versions 存在
+            stagedItem.versions = stagedItem.versions || {};
+            // 添加新版本
+            stagedItem.versions[newVersionId] = {
+                content: content,
+                reasoning_content: '',
+                author: 'User',
+                timestamp: new Date().getTime(),
+                token: null,
+                time: null
+            };
+            // 更新当前消息为新版本
+            // stagedItem.message.content = content;
+            stagedItem.message.content = setIMessageContent(stagedItem.message.content, content);
+            stagedItem.author = 'User';
+            stagedItem.timestamp = new Date().getTime();
+            stagedItem.currentVersion = newVersionId;
+
+            return stagedItem;
         })
     }
 

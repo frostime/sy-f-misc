@@ -30,6 +30,28 @@ export const adaptIMessageContent = (content: IMessage['content']) => {
 }
 
 
+export const setIMessageContent = (content: IMessage['content'], text: string) => {
+    if (typeof content === 'string') {
+        return text;
+    }
+
+    const newContent: IMessage['content'] = content.map((item) => {
+        if (item.type === 'text') {
+            return { ...item, text: text };
+        }
+        return item;
+    });
+
+    // 如果没有 text 类型的内容，则添加一个新的
+    if (!newContent.some(item => item.type === 'text')) {
+        newContent.push({ type: 'text', text: text });
+    }
+
+    return newContent;
+}
+
+
+
 export const convertImgsToBase64Url = async (images: Blob[]): Promise<IMessageContent[]> => {
     return await Promise.all(images.map(async (image) => {
         const base64data = await new Promise<string>((resolve, reject) => {
