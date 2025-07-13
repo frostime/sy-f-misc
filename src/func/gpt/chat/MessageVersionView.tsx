@@ -5,7 +5,7 @@ import { createSignalRef } from '@frostime/solid-signal-ref';
 import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 
-import { adaptIMessageContent, mergeMultiVesion } from '@gpt/data-utils';
+import { adaptIMessageContentGetter, mergeMultiVesion } from '@gpt/data-utils';
 import { UIConfig } from '@gpt/setting/store';
 
 import styles from './MessageItem.module.scss';
@@ -39,7 +39,7 @@ const MessageVersionView: Component<{
         if (!item) return null;
         const content = item.versions[version];
         if (!content) return null;
-        const { text } = adaptIMessageContent(content.content);
+        const { text } = adaptIMessageContentGetter(content.content);
         return {
             text,
             reasoning: content.reasoning_content

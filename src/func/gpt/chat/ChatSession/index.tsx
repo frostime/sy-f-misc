@@ -46,7 +46,7 @@ import * as persist from '@gpt/persistence';
 import { getContextProviders, executeContextProvider, executeContextProviderDirect } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import {
-    adaptIMessageContent,
+    adaptIMessageContentGetter,
     isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
 import BlocksProvider from '@gpt/context-provider/BlocksProvider';
@@ -871,7 +871,7 @@ const ChatSession: Component<{
                                         // Loading 期间依然允许编辑
                                         // if (session.loading()) return;
                                         const content = session.messages()[index()].message.content;
-                                        let { text } = adaptIMessageContent(content);
+                                        let { text } = adaptIMessageContentGetter(content);
                                         let userText = text;
                                         let contextText = '';
                                         if (session.messages()[index()].userPromptSlice) {

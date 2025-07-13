@@ -7,7 +7,7 @@
  * @Description  : 
  */
 import { thisPlugin, api, matchIDFormat } from "@frostime/siyuan-plugin-kits";
-import { adaptIMessageContent } from "@gpt/data-utils";
+import { adaptIMessageContentGetter } from "@gpt/data-utils";
 
 const rootName = 'chat-history';
 
@@ -124,7 +124,7 @@ const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnap
     let totalLength = 0;
 
     for (const item of messageItems.slice(0, 3)) { // 只取前3条消息
-        const { text } = adaptIMessageContent(item.message.content);
+        const { text } = adaptIMessageContentGetter(item.message.content);
         const authorPrefix = `${item.author || 'unknown'}: `;
         const contentToAdd = authorPrefix + text.replace(/\n/g, ' ').trim();
 

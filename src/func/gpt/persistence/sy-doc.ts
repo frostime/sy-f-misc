@@ -9,7 +9,7 @@
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
 import { convertMathFormulas, id2block } from "../utils";
-import { adaptIMessageContent } from '../data-utils';
+import { adaptIMessageContentGetter } from '../data-utils';
 
 import { showMessage } from "siyuan";
 import { defaultConfig, globalMiscConfigs } from "../setting";
@@ -80,7 +80,7 @@ ${SEPERATOR_LINE}
     if (item.message.role === 'assistant') {
         author = item.author;
     }
-    let { text, images } = adaptIMessageContent(item.message.content);
+    let { text, images } = adaptIMessageContentGetter(item.message.content);
     if (defaultConfig().convertMathSyntax) {
         text = convertMathFormulas(text);
     }

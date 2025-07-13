@@ -11,12 +11,12 @@ import { createSimpleContext } from '@/libs/simple-context';
 import * as gpt from '@gpt/openai';
 import { globalMiscConfigs, useModel } from '@gpt/setting/store';
 import {
-    adaptIMessageContent,
+    adaptIMessageContentGetter,
     mergeInputWithContext,
     applyMsgItemVersion,
     stageMsgItemVersion,
     convertImgsToBase64Url,
-    setIMessageContent
+    adaptIMessageContentSetter
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
@@ -250,7 +250,7 @@ const useMessageManagement = (params: {
             };
             // 更新当前消息为新版本
             // stagedItem.message.content = content;
-            stagedItem.message.content = setIMessageContent(stagedItem.message.content, content);
+            stagedItem.message.content = adaptIMessageContentSetter(stagedItem.message.content, content);
             stagedItem.author = 'User';
             stagedItem.timestamp = new Date().getTime();
             stagedItem.currentVersion = newVersionId;
@@ -436,7 +436,7 @@ const useGptCommunication = (params: {
         let averageLimit = Math.floor(sizeLimit / histories.length);
 
         let inputContent = histories.map(item => {
-            let { text } = adaptIMessageContent(item.content);
+            let { text } = adaptIMessageContentGetter(item.content);
             let clippedContent = text.substring(0, averageLimit);
             if (clippedContent.length < text.length) {
                 clippedContent += '...(clipped as too long)'

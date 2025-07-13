@@ -15,7 +15,7 @@ import { formatSingleItem } from "./persistence";
  * @param content 
  * @returns 
  */
-export const adaptIMessageContent = (content: IMessage['content']) => {
+export const adaptIMessageContentGetter = (content: IMessage['content']) => {
     if (typeof content === 'string') {
         return {
             'text': content,
@@ -30,7 +30,7 @@ export const adaptIMessageContent = (content: IMessage['content']) => {
 }
 
 
-export const setIMessageContent = (content: IMessage['content'], text: string) => {
+export const adaptIMessageContentSetter = (content: IMessage['content'], text: string) => {
     if (typeof content === 'string') {
         return text;
     }
@@ -75,13 +75,13 @@ export const convertImgsToBase64Url = async (images: Blob[]): Promise<IMessageCo
 
 export const mergeMultiVesion = (item: IChatSessionMsgItem) => {
     const allVersions = Object.values(item.versions || {});
-    if (!allVersions.length) return adaptIMessageContent(item.message.content).text;
+    if (!allVersions.length) return adaptIMessageContentGetter(item.message.content).text;
     let mergedContent = '以下是对同一个问题的不同回复:\n\n';
     allVersions.forEach((v, index) => {
         if (v.content) {
             mergedContent += formatSingleItem(
                 item.message.role.toUpperCase(),
-                adaptIMessageContent(v.content).text, {
+                adaptIMessageContentGetter(v.content).text, {
                 version: (index + 1).toString(),
                 author: v.author
             }

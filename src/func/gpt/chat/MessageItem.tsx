@@ -6,7 +6,7 @@ import { solidDialog } from '@/libs/dialog';
 import { floatingEditor } from '@/libs/components/floating-editor';
 
 import { convertMathFormulas } from '@gpt/utils';
-import { adaptIMessageContent } from '@gpt/data-utils';
+import { adaptIMessageContentGetter } from '@gpt/data-utils';
 import { defaultConfig } from '@gpt/setting/store';
 
 import styles from './MessageItem.module.scss';
@@ -42,7 +42,7 @@ const MessageItem: Component<{
     const markdownRenderer = createMarkdownRenderer();
 
     const textContent = createMemo(() => {
-        let { text } = adaptIMessageContent(props.messageItem.message.content);
+        let { text } = adaptIMessageContentGetter(props.messageItem.message.content);
         if (props.messageItem.userPromptSlice) {
             //隐藏 context prompt，现在 context 在用户输入前面
             text = text.slice(props.messageItem.userPromptSlice[0], props.messageItem.userPromptSlice[1]);
@@ -55,7 +55,7 @@ const MessageItem: Component<{
     });
 
     const imageUrls = createMemo(() => {
-        let { images } = adaptIMessageContent(props.messageItem.message.content);
+        let { images } = adaptIMessageContentGetter(props.messageItem.message.content);
         images = images || [];
         images = images.map(image => {
             if (image.startsWith('data:image')) {
@@ -89,7 +89,7 @@ const MessageItem: Component<{
     });
 
     const msgLength = createMemo(() => {
-        let { text } = adaptIMessageContent(props.messageItem.message.content);
+        let { text } = adaptIMessageContentGetter(props.messageItem.message.content);
         return text.length;
     });
 
@@ -403,7 +403,7 @@ const MessageItem: Component<{
             icon: 'iconPreview',
             label: '查看原始 Prompt',
             click: () => {
-                const { text } = adaptIMessageContent(props.messageItem.message.content);
+                const { text } = adaptIMessageContentGetter(props.messageItem.message.content);
                 inputDialog({
                     title: '原始 Prompt',
                     defaultText: text,
