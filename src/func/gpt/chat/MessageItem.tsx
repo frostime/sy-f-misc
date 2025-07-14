@@ -150,9 +150,7 @@ const MessageItem: Component<{
                 loader: () => (
                     <MessageVersionView
                         session={session}
-                        messageItemId={props.messageItem.id}
-                        versions={props.messageItem.versions ?? {}}
-                        currentVersion={props.messageItem.currentVersion ?? ''}
+                        messageItem={props.messageItem}
                         onClose={() => {
                             dialog.destroy();
                         }}
@@ -305,18 +303,15 @@ const MessageItem: Component<{
             label: '下方添加分隔',
             click: () => props.toggleSeperator?.()
         });
-        menu.addItem({
-            icon: 'iconAdd',
-            label: '下方添加空白消息',
-            click: () => {
-                const timestamp = new Date().getTime();
+        const addBlank = (type: 'user' | 'assistant') => {
+            const timestamp = new Date().getTime();
                 const newMessage: IChatSessionMsgItem = {
                     type: 'message',
                     id: window.Lute.NewNodeID(),
                     timestamp: timestamp,
                     author: 'user',
                     message: {
-                        role: 'user',
+                        role: type,
                         content: ''
                     },
                     currentVersion: timestamp.toString(),
@@ -329,7 +324,25 @@ const MessageItem: Component<{
                     newList.splice(index + 1, 0, newMessage);
                     return newList;
                 });
-            }
+        }
+        menu.addItem({
+            icon: 'iconAdd',
+            label: '下方添加空白消息',
+            click: () => {
+                addBlank('user');
+            },
+            submenu: [
+                {
+                    icon: 'iconUser',
+                    label: '添加用户消息',
+                    click: () => addBlank('user')
+                },
+                {
+                    icon: 'iconAssistant',
+                    label: '添加助手消息',
+                    click: () => addBlank('assistant')
+                }
+            ]
         });
         menu.addItem({
             icon: props.messageItem.hidden ? 'iconEyeoff' : 'iconEye',

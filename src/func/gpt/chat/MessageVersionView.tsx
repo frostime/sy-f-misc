@@ -14,9 +14,7 @@ import { showMessage } from 'siyuan';
 
 const MessageVersionView: Component<{
     session: ReturnType<typeof useSession>;
-    messageItemId: string;
-    versions: Record<string, any>;
-    currentVersion: string;
+    messageItem: IChatSessionMsgItem;
     onClose: () => void;
 }> = (props) => {
 
@@ -28,16 +26,10 @@ const MessageVersionView: Component<{
 
     const fontSize = createSignalRef(UIConfig().inputFontsize);
 
-    const msgItem = createMemo(() => {
-        const idx = props.session.messages().findIndex((item) => item.id === props.messageItemId);
-        if (idx === -1) return null;
-        return props.session.messages()[idx];
-    });
-
     const versionContent = (version: string) => {
-        let item = msgItem();
-        if (!item) return null;
-        const content = item.versions[version];
+        console.debug('Getting version content for:', version);
+        if (!props.messageItem.versions) return null;
+        const content = props.messageItem.versions[version];
         if (!content) return null;
         const { text } = adaptIMessageContentGetter(content.content);
         return {
@@ -47,14 +39,14 @@ const MessageVersionView: Component<{
     }
 
     const [versionItems, setVersionItems] = createSignal<VersionItem[]>(
-        Object.keys(props.versions).map((version) => ({
+        Object.keys(props.messageItem.versions || {}).map((version) => ({
             version,
             selected: false,
-            ref: props.versions[version]
+            ref: props.messageItem.versions[version]
         }))
     );
 
-    const previewVersion = createSignalRef<string>(props.currentVersion);
+    const previewVersion = createSignalRef<string>(props.messageItem.currentVersion || '');
     const previewContent = createMemo(() => (versionContent(previewVersion())));
 
     const toggleSelect = (version: string) => {
@@ -71,7 +63,7 @@ const MessageVersionView: Component<{
             .map((item) => item.version);
 
         selectedVersions.forEach((version) => {
-            props.session.delMsgItemVersion(props.messageItemId, version);
+            props.session.delMsgItemVersion(props.messageItem.id, version);
         });
 
         // 更新版本列表
@@ -86,9 +78,14 @@ const MessageVersionView: Component<{
         }}>
             {versionItems().map((item) => (
                 <div
-                    class={styles.historyItem} style={{
+                    class={styles.historyItem}
+                    style={{
                         border: '2px solid transparent',
                         'border-color': previewVersion() === item.version ? 'var(--b3-theme-primary)' : 'transparent'
+                    }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        previewVersion(item.version);
                     }}
                 >
                     <div class={styles.historyTitleLine}>
@@ -96,28 +93,33 @@ const MessageVersionView: Component<{
                             display: 'flex',
                             "justify-content": 'space-between'
                         }}>
-                            <span>{`v${Object.keys(props.versions).indexOf(item.version) + 1}`}@{item.version}</span>
+                            <span>{`v${Object.keys(props.messageItem.versions || {}).indexOf(item.version) + 1}`}@{item.version}</span>
                             {item.ref.author}
                         </div>
 
-                        <div style={{ display: 'flex', "align-items": 'center', gap: '5px' }}>
+                        <div
+                            style={{ display: 'flex', "align-items": 'center', gap: '5px' }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
                             <input
                                 class="b3-switch"
                                 type="checkbox"
                                 checked={item.selected}
                                 onchange={[toggleSelect, item.version]}
-                                disabled={item.version === props.currentVersion}
+                                disabled={item.version === props.messageItem.currentVersion}
                             />
                             <button
                                 class="b3-button b3-button--text"
                                 onClick={() => {
-                                    props.session.delMsgItemVersion(props.messageItemId, item.version, false);
+                                    props.session.delMsgItemVersion(props.messageItem.id, item.version, false);
                                     setVersionItems((prev) => {
                                         prev = prev.filter((i) => i.version !== item.version);
                                         return prev;
                                     });
                                 }}
-                                disabled={item.version === props.currentVersion}
+                                disabled={item.version === props.messageItem.currentVersion}
                             >
                                 <svg><use href="#iconTrashcan"></use></svg>
                             </button>
@@ -133,10 +135,10 @@ const MessageVersionView: Component<{
                             <button
                                 class="b3-button b3-button--text"
                                 onclick={() => {
-                                    props.session.switchMsgItemVersion(props.messageItemId, item.version);
+                                    props.session.switchMsgItemVersion(props.messageItem.id, item.version);
                                     props.onClose();
                                 }}
-                                disabled={item.version === props.currentVersion}
+                                disabled={item.version === props.messageItem.currentVersion}
                             >
                                 <svg><use href="#iconSelect"></use></svg>
                             </button>
@@ -147,9 +149,6 @@ const MessageVersionView: Component<{
                             'font-size': '15px',
                             'line-height': '20px',
                             'white-space': 'normal'
-                        }} onClick={(e) => {
-                            e.stopPropagation();
-                            previewVersion(item.version);
                         }}
                     >
                         <Show when={item.ref.reasoning_content}>
@@ -188,7 +187,7 @@ const MessageVersionView: Component<{
                 <button
                     class="b3-button b3-button--outline"
                     onClick={() => {
-                        const mergedContent = mergeMultiVesion(msgItem());
+                        const mergedContent = mergeMultiVesion(props.messageItem);
 
                         inputDialog({
                             title: '合并的多版本消息',
