@@ -280,7 +280,7 @@ interface IChatSessionSnapshot {
     messageCount: number; // 消息数量
     lastMessageAuthor: string; // 最后一条消息的作者
     lastMessageTime: number; // 最后一条消息的时间
-    systemPrompt?: string; // 系统提示（可选，用于搜索）
+    // systemPrompt?: string;
 }
 
 /**

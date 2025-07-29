@@ -470,8 +470,6 @@ const HistoryList = (props: {
                 if (item.title.toLowerCase().includes(query)) return true;
                 // 在snapshot的预览中搜索
                 if (item.preview.toLowerCase().includes(query)) return true;
-                // 在系统提示中搜索
-                if (item.systemPrompt && item.systemPrompt.toLowerCase().includes(query)) return true;
             } else {
                 // 在完整消息中搜索
                 for (const messageItem of item.items) {

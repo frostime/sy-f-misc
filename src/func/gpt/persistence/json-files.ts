@@ -153,8 +153,7 @@ const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnap
         preview: previewParts.join('\n'),
         messageCount: messageItems.length,
         lastMessageAuthor: lastMessage?.author || 'unknown',
-        lastMessageTime: lastMessage?.timestamp || history.timestamp,
-        systemPrompt: history.sysPrompt // 保存系统提示以供搜索
+        lastMessageTime: lastMessage?.timestamp || history.timestamp
     };
 };
 
