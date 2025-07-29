@@ -6,7 +6,7 @@
  * @LastEditTime : 2024-12-26 00:41:20
  * @Description  : 
  */
-import { thisPlugin, api, matchIDFormat } from "@frostime/siyuan-plugin-kits";
+import { thisPlugin, api, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { adaptIMessageContentGetter } from "@gpt/data-utils";
 
 const rootName = 'chat-history';
@@ -41,7 +41,78 @@ export const updateHistoryFileMetadata = async (
     await saveToJson(history, updateSnapshot);
 }
 
+/**
+ * 版本冲突检查结果
+ */
+interface IVersionCheckResult {
+    hasConflict: boolean;
+    currentVersion?: number;
+    snapshotVersion?: number;
+}
+
+/**
+ * 检查版本冲突
+ */
+const checkVersionConflict = async (
+    sessionId: string,
+    currentUpdated?: number
+): Promise<IVersionCheckResult> => {
+    // 只从snapshot中获取版本信息
+    const snapshot = await readSnapshot();
+    const snapshotSession = snapshot?.sessions.find(s => s.id === sessionId);
+
+    const snapshotUpdated = snapshotSession?.updated;
+
+    // 如果当前版本比snapshot中的版本要旧，则有冲突
+    if (currentUpdated && snapshotUpdated && currentUpdated < snapshotUpdated) {
+        return {
+            hasConflict: true,
+            currentVersion: currentUpdated,
+            snapshotVersion: snapshotUpdated
+        };
+    }
+
+    return { hasConflict: false };
+}
+
+/**
+ * 显示版本冲突确认对话框
+ */
+const showVersionConflictDialog = async (
+    conflictInfo: IVersionCheckResult
+): Promise<boolean> => {
+    return new Promise((resolve) => {
+        confirmDialog({
+            title: "版本冲突警告",
+            content: `
+检测到版本冲突：
+
+当前要保存的版本：${formatDateTime('yyyy-MM-dd HH:mm:ss', new Date(conflictInfo.currentVersion))}
+已存档的版本：${formatDateTime('yyyy-MM-dd HH:mm:ss', new Date(conflictInfo.snapshotVersion))}
+
+当前版本比已存档版本要旧，保存可能会覆盖较新的数据。
+
+是否确认保存？
+            `.trim(),
+            confirm: () => resolve(true),
+            cancel: () => resolve(false)
+        });
+    });
+}
+
 export const saveToJson = async (history: IChatSessionHistory, updateSnapshot: boolean = true) => {
+    // 版本冲突检查
+    if (history.updated) {
+        const versionCheckResult = await checkVersionConflict(history.id, history.updated);
+        if (versionCheckResult.hasConflict) {
+            const userConfirmed = await showVersionConflictDialog(versionCheckResult);
+            if (!userConfirmed) {
+                // 用户取消保存，直接返回
+                return;
+            }
+        }
+    }
+
     const plugin = thisPlugin();
 
     const filepath = `${rootName}/${history.id}.json`;
