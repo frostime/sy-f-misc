@@ -10,7 +10,7 @@ import type { Plugin } from "siyuan";
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 
 import { createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { toolExecutorFactory } from "../tools";
+// import { toolExecutorFactory } from "../tools";
 import { userCustomizedPreprocessor } from "../openai/adpater";
 
 
@@ -69,12 +69,15 @@ export const toolsManager = useStoreRef<{
   toolDefaults: {}
 });
 
+const CURRENT_SCHEMA = '1.0';
+
 /**
  * 返回可以用于保存为 json 的配置信息
  * @returns
  */
 const asStorage = () => {
     return {
+        schema: CURRENT_SCHEMA,
         defaultModel: defaultModelId.unwrap(),
         visualModel: visualModel.unwrap(),
         config: { ...defaultConfig.unwrap() },

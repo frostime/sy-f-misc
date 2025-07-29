@@ -76,8 +76,8 @@ export const adaptChatOptions = (target: {
 }) => {
     let { model, apiUrl, chatOption } = target;
 
-    const deleteZeroKey = (target: Record<string, any>, key: string) => {
-        if (target[key] === 0) {
+    const deleteIfEqual = (target: Record<string, any>, key: string, value = 0) => {
+        if (target[key] === value) {
             delete target[key];
         }
     }
@@ -90,10 +90,12 @@ export const adaptChatOptions = (target: {
     }
 
     //有些模型不支持这两个参数, 反正不填默认就是 0，那干脆可以闪电
-    deleteZeroKey(chatOption, 'frequency_penalty');
-    deleteZeroKey(chatOption, 'presence_penalty');
+    deleteIfEqual(chatOption, 'frequency_penalty', 0);
+    deleteIfEqual(chatOption, 'presence_penalty', 0);
 
-    deleteZeroKey(chatOption, 'max_tokens');
+    deleteIfEqual(chatOption, 'max_tokens', 0);
+
+    deleteIfEqual(chatOption, 'top_p', 1);
 
 
     model = model.toLocaleLowerCase();
