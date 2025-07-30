@@ -15,7 +15,7 @@
     "build": "pnpm run build:publish",
     "build:publish": "cross-env NODE_ENV=production vite build",
     "build:private": "cross-env NODE_ENV=production PRIVATE_ADD=true PRIVATE_REMOVE=true vite build",
-    "build:no-minify": "cross-env NODE_ENV=production NO_MINIFY=true vite build",
+    "build:no-minify": "cross-env NODE_ENV=production PRIVATE_ADD=true PRIVATE_REMOVE=true  NO_MINIFY=true vite build",
     "build:analyze": "cross-env ANALYZE_BUNDLE=true NODE_ENV=production vite build",
     "build:analyze-private": "cross-env ANALYZE_BUNDLE=true NODE_ENV=production PRIVATE_ADD=true PRIVATE_REMOVE=true vite build",
     "make-link": "npx make-link-win",

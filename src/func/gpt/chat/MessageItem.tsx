@@ -244,7 +244,7 @@ const MessageItem: Component<{
 
         confirm('确认?', '保留以上记录，创建一个新的对话分支', () => {
             const branchMessages = messages.slice(0, currentIndex + 1);
-            const newSession = {
+            const newSession: Partial<IChatSessionHistory> = {
                 title: session.title() + ' - 新的分支',
                 items: branchMessages,
                 sysPrompt: session.systemPrompt()

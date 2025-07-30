@@ -7,6 +7,7 @@
  * @Description  : 
  */
 import { thisPlugin, api, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
+import { createSignalRef } from "@frostime/solid-signal-ref";
 import { adaptIMessageContentGetter } from "@gpt/data-utils";
 
 const rootName = 'chat-history';
@@ -228,6 +229,9 @@ const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnap
     };
 };
 
+
+export const snapshotSignal = createSignalRef<IHistorySnapshot | null>(null);
+
 /**
  * 读取snapshot文件
  */
@@ -235,6 +239,7 @@ const readSnapshot = async (): Promise<IHistorySnapshot | null> => {
     try {
         const dir = `data/storage/petal/${thisPlugin().name}/`;
         const content = await tryRecoverFromJson(`${dir}${SNAPSHOT_FILE}`);
+        snapshotSignal.value = content as IHistorySnapshot;
         return content as IHistorySnapshot;
     } catch (e) {
         console.warn('Failed to read snapshot file:', e);
@@ -246,6 +251,7 @@ const readSnapshot = async (): Promise<IHistorySnapshot | null> => {
  * 写入snapshot文件
  */
 const writeSnapshot = async (snapshot: IHistorySnapshot) => {
+    snapshotSignal.value = snapshot;
     const plugin = thisPlugin();
     await plugin.saveData(SNAPSHOT_FILE, snapshot);
 };

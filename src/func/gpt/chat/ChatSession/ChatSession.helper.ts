@@ -21,6 +21,7 @@ import {
 import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
+import { snapshotSignal } from '../../persistence/json-files';
 
 interface ISimpleContext {
     model: Accessor<IGPTModel>;
@@ -1084,7 +1085,7 @@ export const useSession = (props: {
         // systemPrompt.update('');
         systemPrompt.value = globalMiscConfigs().defaultSystemPrompt || '';
         timestamp = new Date().getTime();
-        updated = timestamp; // Reset updated time to match creation time
+        updated = timestamp + 1;
         title.update('新的对话');
         messages.update([]);
         sessionTags.update([]);
@@ -1103,7 +1104,13 @@ export const useSession = (props: {
         toolExecutor,
         sessionTags,
         hasUpdated: () => {
-            return updated > timestamp;
+            const persisted = snapshotSignal();
+            const found = persisted?.sessions.find(session => session.id === sessionId());
+            if (found) {
+                return updated > timestamp;
+            } else {
+                return true;  //说明是一个新的
+            }
         },
         msgId2Index,
         addAttachment,

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 14:55:08
  * @FilePath     : /src/func/gpt/persistence/import-platform.ts
- * @LastEditTime : 2025-03-21 19:07:16
+ * @LastEditTime : 2025-07-30 16:24:15
  * @Description  : 
  */
 import { showMessage } from "siyuan";
@@ -58,6 +58,9 @@ const importDialog = (title: string, markdown: string) => {
             showMessage('格式不符合解析标准，无法打开', 3000, 'error');
         } else {
             history.title = title || history.title;
+            // 确保 udpated > timestamp; 不然打开对话之后不会被自动缓存
+            // 参考 ChatSession.helper.ts hasUpdated() 函数
+            history.updated = history.timestamp + 10;
             openChatTab(false, history);
             dialog.close();
         }
@@ -207,15 +210,16 @@ const parseGoogleAIStudioFile = (content: string): { name: string; content: stri
 
     // 生成 Markdown 文本
     let markdownText = '';
-    if (prompts.systemInstruction) {
+    if (prompts.systemInstruction?.text) {
         markdownText += `> ---\n> <SYSTEM/>\n`;
-        markdownText += `\`\`\`json\n${JSON.stringify(prompts.systemInstruction, null, 2)}\n\`\`\`\n\n`;
+        markdownText += `${prompts.systemInstruction.text}\n\n`;
     }
     // markdownText += `> model: ${prompts.runSettings.model}\n\n`;
 
     const chunks = prompts.chunkedPrompt.chunks;
     chunks.forEach((chunk, index) => {
-        if (chunk.text) {
+        // #TODO 后面考虑怎么处理 think 部分
+        if (chunk.text && chunk?.isThought !== true) {
             let role = chunk.role;
             if (role === 'model') {
                 role = 'ASSISTANT';
@@ -223,6 +227,8 @@ const parseGoogleAIStudioFile = (content: string): { name: string; content: stri
                 role = 'USER';
             } else if (role === 'system') {
                 role = 'SYSTEM';
+            } else {
+                return
             }
             const attr = { index: index.toString() };
             if (role === 'ASSISTANT') {
