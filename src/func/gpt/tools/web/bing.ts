@@ -7,7 +7,7 @@ import { forwardProxy } from "@/api";
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
- * @LastEditTime : 2025-06-15 19:54:12
+ * @LastEditTime : 2025-08-03 22:58:12
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
@@ -52,12 +52,24 @@ function extractSearchResults(dom: Document): { title: string; link: string; des
 
 const isBrowser = getFrontend().startsWith('browser');
 
+const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    // 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+    // 'Cookie': 'SRCHHPGUSR=SRCHLANG=zh-Hans; _EDGE_S=ui=zh-cn; _EDGE_V=1'
+};
+
 const fetchWeb = async (url: string) => {
     if (!isBrowser) {
         const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-            }
+            headers
         });
         if (response.ok) {
             const text = await response.text();
@@ -68,9 +80,7 @@ const fetchWeb = async (url: string) => {
         }
     } else {
         const response = await forwardProxy(url, 'GET', null, [
-            {
-                'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36"
-            }
+            headers
         ], 7000, 'text/html');
         if (response && (response.status / 100) === 2) {
             const text = response.body;
@@ -87,10 +97,40 @@ const fetchWeb = async (url: string) => {
     }
 }
 
-export async function bingSearch(query: string, pageIdx: number = 1): Promise<{ title: string; link: string; description: string }[]> {
-    query = query.replace(/\s+/g, '+');
+export async function bingSearch(query: string, pageIdx: number = 1, site?: string, filetype?: string, dateFilter?: 'day' | 'week' | 'month'): Promise<{ title: string; link: string; description: string }[]> {
+    // 构建查询字符串
+    let searchQuery = query.trim();
+
+    searchQuery = searchQuery.replace(/\s+/g, '+');
+
+    const encodedQuery = encodeURIComponent(searchQuery);
+
+    // 注意这些过滤语法中分割空格不能被替换成 +,不然会无法正常生效而被视为关键词 !IMPORTANT!
+    let filter = ''
+    // 添加 site 过滤
+    if (site) {
+        const cleanSite = site.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        filter += `+site%3A${cleanSite}`;
+    }
+
+    // 添加 filetype 过滤
+    if (filetype) {
+        const cleanFiletype = filetype.replace(/^\./g, ''); // 移除开头的点
+        filter += `+filetype%3A${cleanFiletype}`;
+    }
+
     const first = (pageIdx - 1) * 10 + 1;
-    const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&first=${first}&FORM=PERE`;
+    let url = `https://www.bing.com/search?q=${encodedQuery}${filter}&first=${first}&FORM=PERE`;
+
+    // 添加日期过滤
+    if (dateFilter) {
+        const dateFilterMap = {
+            'day': 'ex1%3a%22ez1%22',     // 过24小时
+            'week': 'ex1%3a%22ez2%22',    // 过一周
+            'month': 'ex1%3a%22ez3%22'    // 过一个月
+        };
+        url += `&filters=${dateFilterMap[dateFilter]}`;
+    }
 
     try {
         // 使用 forwardProxy 函数发送请求，避免跨域问题
@@ -160,8 +200,25 @@ export const bingSearchTool: Tool = {
                 properties: {
                     query: {
                         type: 'string',
-                        description: '搜索语句; 支持逻辑语法; 复杂查询逻辑请使用 () 区分优先级'
+                        description: '搜索关键词; 多关键词搜索请用+组合; 不支持 site: 等高级过滤语法'
                     },
+                    site: {
+                        type: 'string',
+                        description: '可选: 等效于 bing 的 site:选项; 请填写domain如 "github.com" 或 "stackoverflow.com"'
+                    },
+                    filetype: {
+                        type: 'string',
+                        description: '可选: 等效于 bing 的 filetype:选项; 请填写文件类型如 "pdf", "doc", "ppt", "xls" 等'
+                    },
+                    dateFilter: {
+                        type: 'string',
+                        enum: ['day', 'week', 'month'],
+                        description: '可选: 日期过滤，限制搜索结果的时间范围 - day:过去24小时, week:过去一周, month:过去一个月'
+                    },
+                    pageIdx: {
+                        type: 'integer',
+                        description: '可选: 页码，从1开始'
+                    }
                 },
                 required: ['query']
             }
@@ -169,9 +226,9 @@ export const bingSearchTool: Tool = {
         permissionLevel: ToolPermissionLevel.MODERATE
     },
 
-    execute: async (args: { query: string }): Promise<ToolExecuteResult> => {
+    execute: async (args: { query: string; site?: string; filetype?: string; dateFilter?: 'day' | 'week' | 'month'; pageIdx?: number }): Promise<ToolExecuteResult> => {
         try {
-            const result = await bingSearch(args.query);
+            const result = await bingSearch(args.query, args.pageIdx || 1, args.site, args.filetype, args.dateFilter);
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: result

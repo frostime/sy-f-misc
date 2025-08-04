@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 20:11:55
  * @FilePath     : /src/func/gpt/tools/web/webpage.ts
- * @LastEditTime : 2025-06-14 21:24:13
+ * @LastEditTime : 2025-08-03 21:28:32
  * @Description  : 网页内容获取工具
  */
 import { addScript } from "../../utils";
@@ -101,15 +101,79 @@ export const html2Document = (text: string, url?: string): Document => {
  */
 interface FetchWebContentOptions {
     /**
-     * 是否保留链接的URL（默认为false）
-     * 如果为false，则只保留锚文本部分
+     * 是否保留链接
      */
     keepLink?: boolean;
     /**
-     * 是否保留图片（默认为false）
-     * 如果为false，则移除所有图片
+     * 是否保留图片
      */
     keepImg?: boolean;
+}
+
+/**
+ * 关键词查找选项
+ */
+interface KeywordSearchOptions {
+    /**
+     * 要查找的关键词数组
+     */
+    findKeywords: string[];
+    /**
+     * 关键词连接方式
+     */
+    joinKeywords: 'AND' | 'OR';
+}
+
+/**
+ * 关键词匹配结果
+ */
+interface KeywordMatch {
+    /**
+     * 匹配的段落/元素索引
+     */
+    index: number;
+    /**
+     * 匹配的内容
+     */
+    content: string;
+    /**
+     * 匹配的关键词
+     */
+    matchedKeywords: string[];
+    /**
+     * 匹配段落在原始文本中的开始位置（仅markdown模式）
+     */
+    startPosition?: number;
+    /**
+     * 匹配段落在原始文本中的结束位置（仅markdown模式）
+     */
+    endPosition?: number;
+}
+
+/**
+ * 关键词查找统计结果
+ */
+interface KeywordSearchResult {
+    /**
+     * 查找的关键词
+     */
+    keywords: string[];
+    /**
+     * 连接方式
+     */
+    joinType: 'AND' | 'OR';
+    /**
+     * 匹配的数量
+     */
+    matchCount: number;
+    /**
+     * 总数量
+     */
+    totalCount: number;
+    /**
+     * 匹配的内容块
+     */
+    matches: KeywordMatch[];
 }
 
 /**
@@ -290,6 +354,203 @@ async function handleJsonResponse(response: Response, url: string): Promise<WebP
 }
 
 /**
+ * 处理 HTML 响应 - Raw 模式
+ */
+async function handleHtmlResponseRaw(response: Response, url: string, querySelector: string = 'body'): Promise<WebPageContent> {
+    const text = await response.text();
+    const doc = html2Document(text, url);
+
+    // 获取页面标题作为元信息
+    const title = doc.head?.querySelector('title')?.textContent?.trim() || `Raw HTML: ${url}`;
+
+    // 使用 querySelector 获取元素
+    const elements = doc.querySelectorAll(querySelector);
+
+    if (elements.length === 0) {
+        return {
+            title,
+            description: `未找到匹配选择器 "${querySelector}" 的元素`,
+            content: '',
+            url,
+            contentType: response.headers.get('content-type')
+        };
+    }
+
+    // 将所有匹配的元素的 HTML 拼接起来
+    const htmlParts: string[] = [];
+    elements.forEach((element, index) => {
+        if (elements.length > 1) {
+            htmlParts.push(`<!-- Element ${index + 1} -->`);
+        }
+        htmlParts.push(element.outerHTML);
+    });
+
+    const content = htmlParts.join('\n\n');
+
+    return {
+        title,
+        description: `Raw HTML 内容，选择器: "${querySelector}"，找到 ${elements.length} 个元素`,
+        content,
+        url,
+        contentType: response.headers.get('content-type')
+    };
+}
+
+/**
+ * 检查文本中是否包含关键词
+ */
+function checkKeywordMatch(text: string, keywords: string[], joinType: 'AND' | 'OR'): { matched: boolean; matchedKeywords: string[] } {
+    const lowerText = text.toLowerCase();
+    const matchedKeywords: string[] = [];
+
+    for (const keyword of keywords) {
+        const lowerKeyword = keyword.toLowerCase();
+        if (lowerText.includes(lowerKeyword)) {
+            matchedKeywords.push(keyword);
+        }
+    }
+
+    const matched = joinType === 'AND'
+        ? matchedKeywords.length === keywords.length
+        : matchedKeywords.length > 0;
+
+    return { matched, matchedKeywords };
+}
+
+/**
+ * 在 Markdown 内容中查找关键词
+ */
+function searchKeywordsInMarkdown(content: string, options: KeywordSearchOptions): KeywordSearchResult {
+    // 按双换行符分割段落
+    const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+    const matches: KeywordMatch[] = [];
+
+    // 计算每个段落在原始文本中的位置
+    const paragraphPositions: { start: number; end: number }[] = [];
+    let currentPos = 0;
+
+    for (const paragraph of paragraphs) {
+        const startPos = content.indexOf(paragraph, currentPos);
+        const endPos = startPos + paragraph.length;
+        paragraphPositions.push({ start: startPos, end: endPos });
+        currentPos = endPos;
+    }
+
+    for (let i = 0; i < paragraphs.length; i++) {
+        const paragraph = paragraphs[i];
+        const { matched, matchedKeywords } = checkKeywordMatch(paragraph, options.findKeywords, options.joinKeywords);
+
+        if (matched) {
+            // 获取上下文（前一段 + 当前段 + 后一段）
+            const contextParts: string[] = [];
+
+            // 前一段
+            if (i > 0) {
+                contextParts.push(paragraphs[i - 1]);
+            }
+
+            // 当前段
+            contextParts.push(paragraph);
+
+            // 后一段
+            if (i < paragraphs.length - 1) {
+                contextParts.push(paragraphs[i + 1]);
+            }
+
+            matches.push({
+                index: i,
+                content: contextParts.join('\n\n'),
+                matchedKeywords,
+                startPosition: paragraphPositions[i].start,
+                endPosition: paragraphPositions[i].end
+            });
+        }
+    }
+
+    return {
+        keywords: options.findKeywords,
+        joinType: options.joinKeywords,
+        matchCount: matches.length,
+        totalCount: paragraphs.length,
+        matches
+    };
+}
+
+/**
+ * 在 Raw HTML 内容中查找关键词
+ */
+function searchKeywordsInRawHtml(content: string, options: KeywordSearchOptions): KeywordSearchResult {
+    // 解析 HTML 内容
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, 'text/html');
+    const elements = Array.from(doc.body?.children || []);
+    const matches: KeywordMatch[] = [];
+
+    for (let i = 0; i < elements.length; i++) {
+        const element = elements[i];
+        const text = element.textContent || '';
+        const { matched, matchedKeywords } = checkKeywordMatch(text, options.findKeywords, options.joinKeywords);
+
+        if (matched) {
+            matches.push({
+                index: i,
+                content: element.outerHTML,
+                matchedKeywords
+            });
+        }
+    }
+
+    return {
+        keywords: options.findKeywords,
+        joinType: options.joinKeywords,
+        matchCount: matches.length,
+        totalCount: elements.length,
+        matches
+    };
+}
+
+/**
+ * 格式化关键词查找结果
+ */
+function formatKeywordSearchResult(searchResult: KeywordSearchResult, mode: 'markdown' | 'raw'): string {
+    const { keywords, joinType, matchCount, totalCount, matches } = searchResult;
+
+    const result: string[] = [];
+
+    // 统计信息
+    result.push('# 关键词查找统计');
+    result.push(`- 查找关键词: [${keywords.join(', ')}]`);
+    result.push(`- 连接方式: ${joinType}`);
+    result.push(`- 匹配${mode === 'markdown' ? '段落' : '元素'}数: ${matchCount}`);
+    result.push(`- 总${mode === 'markdown' ? '段落' : '元素'}数: ${totalCount}`);
+    result.push('');
+
+    if (matches.length === 0) {
+        result.push('未找到匹配的内容。');
+        return result.join('\n');
+    }
+
+    // 匹配内容
+    result.push('# 匹配内容');
+
+    matches.forEach((match, index) => {
+        result.push(`## 匹配位置 ${index + 1} (${mode === 'markdown' ? '段落' : '元素'} ${match.index + 1})`);
+        result.push(`**匹配关键词**: ${match.matchedKeywords.join(', ')}`);
+
+        // 在 markdown 模式下显示字符位置信息
+        if (mode === 'markdown' && match.startPosition !== undefined && match.endPosition !== undefined) {
+            result.push(`**字符位置**: ${match.startPosition} - ${match.endPosition} (可用于 begin/limit 参数)`);
+        }
+
+        result.push('');
+        result.push(match.content);
+        result.push('');
+    });
+
+    return result.join('\n');
+}
+
+/**
  * 处理 HTML 响应
  */
 async function handleHtmlResponse(response: Response, url: string, options?: FetchWebContentOptions): Promise<WebPageContent> {
@@ -342,7 +603,7 @@ async function handleUnknownResponse(response: Response, url: string): Promise<W
 /**
  * 获取网页内容
  */
-export const fetchWebContent = async (url: string, options?: FetchWebContentOptions): Promise<WebPageContent> => {
+export const fetchWebContent = async (url: string, mode: 'markdown' | 'raw' = 'markdown', options?: FetchWebContentOptions, querySelector?: string): Promise<WebPageContent> => {
     options = {
         keepLink: false,
         keepImg: false,
@@ -365,7 +626,11 @@ export const fetchWebContent = async (url: string, options?: FetchWebContentOpti
         if (contentType && contentType.includes('json')) {
             return handleJsonResponse(response, url);
         } else if (contentType && contentType.includes('html')) {
-            return handleHtmlResponse(response, url, options);
+            if (mode === 'raw') {
+                return handleHtmlResponseRaw(response, url, querySelector);
+            } else {
+                return handleHtmlResponse(response, url, options);
+            }
         } else if (contentType && contentType.includes('text')) {
             return handleTextResponse(response, url);
         } else {
@@ -392,7 +657,7 @@ export const webPageContentTool: Tool = {
         type: 'function',
         function: {
             name: 'WebPageContent',
-            description: '尝试获取给定 URL 链接的网页内容，返回 Markdown 文本; url 和 urlList 只能选择其一',
+            description: '获取给定 URL 链接的网页内容。支持两种模式：markdown模式（默认）返回解析的Markdown文本，raw模式返回原始HTML结构。支持关键词查找功能，可以查找包含特定关键词的内容块并返回统计结果。',
             parameters: {
                 type: 'object',
                 properties: {
@@ -400,12 +665,10 @@ export const webPageContentTool: Tool = {
                         type: 'string',
                         description: '网页 URL'
                     },
-                    urlList: {
-                        type: 'array',
-                        items: {
-                            type: "string",
-                        },
-                        description: '网页 URL 列表, 这意味着将会尝试获取多个网页内容'
+                    mode: {
+                        type: 'string',
+                        enum: ['markdown', 'raw'],
+                        description: '返回模式：markdown（默认，返回解析的markdown文本）或 raw（返回HTML结构）'
                     },
                     begin: {
                         type: 'integer',
@@ -417,15 +680,30 @@ export const webPageContentTool: Tool = {
                     },
                     keepLink: {
                         type: 'boolean',
-                        description: '是否保留链接的URL，默认false（只保留锚文本节省空间）'
+                        description: '（markdown模式）是否保留链接的URL，默认false（只保留锚文本节省空间）; 如果你在文中看到了你想要知道的链接，但是内容为 "(URL链接: anchor-text)"，那么你可以把这设置为 true 看到完整链接'
                     },
                     keepImg: {
                         type: 'boolean',
-                        description: '是否保留图片链接，默认false（移除所有图片）'
+                        description: '（markdown模式）是否保留图片链接，默认false（移除所有图片）'
+                    },
+                    querySelector: {
+                        type: 'string',
+                        description: '（raw模式）CSS选择器，默认为"body"；会执行querySelectorAll获取页面元素'
+                    },
+                    findKeywords: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                        description: '要查找的关键词数组，如果提供此参数，将返回关键词查找结果而非完整内容'
+                    },
+                    joinKeywords: {
+                        type: 'string',
+                        enum: ['AND', 'OR'],
+                        description: '关键词连接方式：AND（所有关键词都必须匹配）或OR（任意一个关键词匹配即可），默认OR'
                     }
                 },
-                // 必须提供 url 或 urlList 之一
-                required: []  // 在运行时手动验证
+                required: ['url']
             }
         },
         permissionLevel: ToolPermissionLevel.MODERATE,
@@ -434,28 +712,31 @@ export const webPageContentTool: Tool = {
 
     execute: async (args: {
         url?: string,
-        urlList?: string[],
+        mode?: 'markdown' | 'raw',
         begin?: number,
         limit?: number,
         keepLink?: boolean,
-        keepImg?: boolean
+        keepImg?: boolean,
+        querySelector?: string,
+        findKeywords?: string[],
+        joinKeywords?: 'AND' | 'OR'
     }): Promise<ToolExecuteResult> => {
         const begin = args.begin ?? 0;
         const limit = args.limit ?? 5000;
+        const mode = args.mode ?? 'markdown';
         const options = {
             keepLink: args.keepLink,
             keepImg: args.keepImg
         };
+        const querySelector = args.querySelector ?? 'body';
         const urls: string[] = [];
 
         if (args.url) {
             urls.push(args.url);
-        } else if (args.urlList && args.urlList.length > 0) {
-            urls.push(...args.urlList);
         } else {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: '必须提供 url 或 urlList 参数'
+                error: '必须提供 url 参数'
             };
         }
 
@@ -468,22 +749,46 @@ export const webPageContentTool: Tool = {
                     continue;
                 }
 
-                const content = await fetchWebContent(url, options);
+                const content = await fetchWebContent(url, mode, options, querySelector);
                 let resultText = content.content;
                 const originalLength = resultText.length;
 
-                // 应用起始位置和长度限制
-                if (begin > 0 || (limit > 0 && originalLength > limit)) {
-                    // 确保 begin 不超过内容长度
-                    const startPos = Math.min(begin, originalLength);
-                    // 如果指定了限制，则截取指定长度；否则截取到末尾
-                    const endPos = limit > 0 ? Math.min(startPos + limit, originalLength) : originalLength;
+                // 关键词查找功能
+                if (args.findKeywords && args.findKeywords.length > 0) {
+                    const keywordOptions: KeywordSearchOptions = {
+                        findKeywords: args.findKeywords,
+                        joinKeywords: args.joinKeywords || 'OR'
+                    };
 
-                    resultText = resultText.substring(startPos, endPos);
+                    let searchResult: KeywordSearchResult;
+                    if (mode === 'markdown') {
+                        searchResult = searchKeywordsInMarkdown(resultText, keywordOptions);
+                    } else {
+                        searchResult = searchKeywordsInRawHtml(resultText, keywordOptions);
+                    }
 
-                    // 添加截断信息
-                    if (endPos < originalLength || startPos > 0) {
-                        resultText += `\n\n[原始内容长度: ${originalLength} 字符, 显示范围: ${startPos} - ${endPos}]`;
+                    // 格式化关键词查找结果
+                    resultText = formatKeywordSearchResult(searchResult, mode);
+                    
+                    // 对关键词查找结果也应用字数限制
+                    if (limit > 0 && resultText.length > limit) {
+                        const truncatedText = resultText.substring(0, limit);
+                        resultText = truncatedText + `\n\n[关键词查找结果被截断: 原始长度 ${resultText.length} 字符, 显示 ${limit} 字符]`;
+                    }
+                } else {
+                    // 应用起始位置和长度限制（仅在非关键词查找模式下）
+                    if (begin > 0 || (limit > 0 && originalLength > limit)) {
+                        // 确保 begin 不超过内容长度
+                        const startPos = Math.min(begin, originalLength);
+                        // 如果指定了限制，则截取指定长度；否则截取到末尾
+                        const endPos = limit > 0 ? Math.min(startPos + limit, originalLength) : originalLength;
+
+                        resultText = resultText.substring(startPos, endPos);
+
+                        // 添加截断信息
+                        if (endPos < originalLength || startPos > 0) {
+                            resultText += `\n\n[原始内容长度: ${originalLength} 字符, 显示范围: ${startPos} - ${endPos}]`;
+                        }
                     }
                 }
 

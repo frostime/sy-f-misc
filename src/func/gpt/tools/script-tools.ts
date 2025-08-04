@@ -323,6 +323,8 @@ const pandocTool: Tool = {
     }
 };
 
+const scriptName = platform === 'win32' ? 'PowerShell' : 'Bash';
+
 /**
  * 脚本工具组
  */
@@ -333,8 +335,7 @@ export const scriptTools: ToolGroup = {
 
 这些工具适用于需要与系统交互或执行复杂运算的场景，以及在处理大量数据、数学计算、 统计分析、固定流程算法等大语言模型不擅长的领域（如数学计算问题）。
 
-- Shell 工具：运行当前系统的 shell 命令; 通过创建临时脚本文件执行, 所以也可以传入完整的脚本代码。
-  ${platform === 'win32' ? 'PowerShell 脚本' : 'Bash 脚本'}
+- Shell 工具：运行当前系统的 ${scriptName} 命令; 通过创建临时脚本文件执行, 请传入完整的脚本代码或者命令代码
 - Python 工具：需确保系统已安装 Python; 返回结果为 python 的标准流输出
 - JavaScript 工具：运行在特殊环境中，禁用 document 对象; 返回结果为 JavaScript console.log 等 api 输出
 - Pandoc 工具：使用思源自带的 Pandoc 进行文档格式转换，默认转换为 Markdown 格式。适用于读取外部 docx 等文件内容。
