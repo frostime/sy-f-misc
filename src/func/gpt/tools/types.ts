@@ -113,6 +113,13 @@ export type ToolExecuteFunction = (
 export interface Tool {
     definition: ToolDefinitionWithPermission;
     execute: ToolExecuteFunction;
+
+    // 可选的参数压缩函数，用于在工具链日志中显示简化的参数信息
+    compressArgs?: (args: Record<string, any>) => string;
+
+    // 可选的结果压缩函数，用于在工具链日志中显示简化的结果信息
+    compressResult?: (result: ToolExecuteResult) => string;
+
     // group?: 'web' | 'siyuan' | 'file-system';
 }
 

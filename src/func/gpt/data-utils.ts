@@ -50,7 +50,26 @@ export const adaptIMessageContentSetter = (content: IMessage['content'], text: s
     return newContent;
 }
 
+/**
+ * 向 IMessage content 追加文本内容
+ * @param content 原始内容
+ * @param appendText 要追加的文本
+ * @returns 追加后的内容
+ */
+export const adaptIMessageContentAppender = (content: IMessage['content'], appendText: string): IMessage['content'] => {
+    if (typeof content === 'string') {
+        return content + appendText;
+    }
 
+    // 如果是数组，添加新的 text 块
+    return [
+        ...content,
+        {
+            type: 'text' as const,
+            text: appendText
+        }
+    ];
+}
 
 export const convertImgsToBase64Url = async (images: Blob[]): Promise<IMessageContent[]> => {
     return await Promise.all(images.map(async (image) => {

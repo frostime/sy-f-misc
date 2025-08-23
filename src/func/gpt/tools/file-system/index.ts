@@ -107,7 +107,8 @@ const readFileTool: Tool = {
                 required: ['path']
             }
         },
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        permissionLevel: ToolPermissionLevel.SENSITIVE,
+        requireResultApproval: true
     },
 
     execute: async (args: { path: string; begin?: number; end?: number; limit?: number }): Promise<ToolExecuteResult> => {
