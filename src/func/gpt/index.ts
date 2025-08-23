@@ -3,11 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-06-14 22:18:18
+ * @LastEditTime : 2025-08-23 15:42:57
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
 
+import { openTab, openWindow, showMessage, getFrontend } from "siyuan";
 import { inputDialog, openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { render } from "solid-js/web";
@@ -19,7 +20,6 @@ import { ISignalRef, useSignalRef } from "@frostime/solid-signal-ref";
 import { id2block } from "./utils";
 
 import * as persist from './persistence';
-import { showMessage } from "siyuan";
 import { solidDialog } from "@/libs/dialog";
 import HistoryList from "./chat/HistoryList";
 import { globalMiscConfigs } from "./setting/store";
@@ -153,6 +153,70 @@ export const openChatTab = async (reuse: boolean = true, history?: IChatSessionH
     }, 100);
 }
 
+// Window
+
+const GPT_WINDOW_TYPE = "gpt-chat-window";
+
+/**
+ * 注册一个全局的 Tab 类型，用于在新窗口中打开
+ * @param plugin 插件实例
+ */
+const registerGlobalChat = (plugin: FMiscPlugin) => {
+    plugin.addTab({
+        type: GPT_WINDOW_TYPE,
+        init() {
+            // 只在独立的 window 环境中渲染
+            if (getFrontend() !== "desktop-window") {
+                return;
+            }
+            const disposer = render(() => ChatSession({
+                history: this.data.history,
+                updateTitleCallback: (title: string) => {
+                    // 在新窗口中更新标题较为复杂，可以暂时留空或后续实现
+                },
+                uiStyle: {
+                    maxWidth: '95%'
+                }
+            }), this.element);
+
+            Object.assign((this.element as HTMLElement).style, {
+                overflowY: 'clip',
+                background: 'var(--chat-bg-color)',
+                containerType: 'inline-size',
+            });
+            this.data.disposer = disposer;
+        },
+        destroy() {
+            this.data.disposer?.();
+        }
+    });
+};
+
+/**
+ * 在一个新窗口中打开 GPT 对话
+ * @param history 对话历史
+ */
+export const openGptWindow = async (history?: IChatSessionHistory) => {
+    const plugin = thisPlugin();
+    const tab = openTab({
+        app: plugin.app,
+        custom: {
+            icon: 'iconGithub',
+            title: history?.title || 'GPT 对话',
+            id: `${plugin.name}${GPT_WINDOW_TYPE}`,
+            data: {
+                history: history
+            }
+        },
+    });
+
+    openWindow({
+        height: 720,
+        width: 680,
+        tab: await tab,
+    });
+};
+
 
 /**
  * 点击文档图标时触发的事件，用于打开绑定的 GPT 记录
@@ -259,13 +323,24 @@ const addDock = (plugin: FMiscPlugin) => {
 export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
+
+    registerGlobalChat(plugin);
+
     plugin.registerMenuTopMenu('gpt', [{
         label: '新建 GPT 对话',
         icon: 'iconGithub',
         click: () => {
             openChatTab(false);
         }
-    }, {
+    },
+    {
+        label: '打开 GPT 窗口',
+        icon: 'iconGithub',
+        click: () => {
+            openGptWindow();
+        }
+    },
+    {
         label: 'GPT 对话记录',
         icon: 'iconGithub',
         click: () => {
@@ -349,6 +424,14 @@ export const load = async (plugin: FMiscPlugin) => {
         hotkey: translateHotkey('Ctrl+Shift+L'),
         callback: () => {
             openChatTab(true);
+        }
+    });
+    plugin.addCommand({
+        langKey: 'open-gpt-chat-window',
+        langText: '打开独立的GPT对话窗口',
+        hotkey: translateHotkey('Shift+Alt+C'),
+        globalCallback: () => {
+            openGptWindow();
         }
     });
     setting.load(plugin).then(() => {

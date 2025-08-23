@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
- * @FilePath     : /src/func/gpt/chat/ChatSession.tsx
- * @LastEditTime : 2025-06-14 17:45:23
+ * @FilePath     : /src/func/gpt/chat/ChatSession/index.tsx
+ * @LastEditTime : 2025-08-23 15:32:16
  * @Description  :
  */
 // External libraries
@@ -56,12 +56,17 @@ const ChatSession: Component<{
     input?: ReturnType<typeof useSignalRef<string>>;
     systemPrompt?: string;
     history?: IChatSessionHistory;
+    config?: IChatSessionConfig;
+    uiStyle?: {
+        maxWidth?: string;
+    };
     updateTitleCallback?: (title: string) => void;
 }> = (props) => {
     const modelId = useSignalRef(defaultModelId());
     const model = createMemo(() => useModel(modelId()));
     //Detach from the solidjs store's reactive system
     let defaultConfigVal = JSON.parse(JSON.stringify(defaultConfig.unwrap()));
+    defaultConfigVal = { ...defaultConfigVal, ...props.config };
     const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
     const multiSelect = useSignalRef(false);
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
@@ -491,7 +496,7 @@ const ChatSession: Component<{
         return {
             '--chat-input-font-size': `${UIConfig().inputFontsize}px`,
             '--chat-message-font-size': `${UIConfig().msgFontsize}px`,
-            '--chat-max-width': `${UIConfig().maxWidth}px`,
+            '--chat-max-width': props.uiStyle?.maxWidth || `${UIConfig().maxWidth}px`,
         };
     };
 
