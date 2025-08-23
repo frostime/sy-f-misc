@@ -3,12 +3,12 @@
  * @Author       : frostime
  * @Date         : 2024-06-10 14:55:35
  * @FilePath     : /src/func/doc-context.tsx
- * @LastEditTime : 2025-06-07 17:48:25
+ * @LastEditTime : 2025-08-23 15:08:34
  * @Description  : 
  */
 import { createSignal, For, JSXElement, Match, onMount, Show, Switch } from 'solid-js';
 import { render } from 'solid-js/web';
-import { simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { deepMerge, simpleDialog } from "@frostime/siyuan-plugin-kits";
 
 import { type Dialog, openTab, showMessage, confirm } from "siyuan";
 import { createDocWithMd, getBlockByID, listDocsByPath, request } from "@/api";
@@ -30,8 +30,52 @@ export let enabled = false;
 
 export const declareToggleEnabled = {
     title: '📑 文档上下文',
-    description: '启用文档上下文功能',
+    description: '启用文档上下文功能<br/>⚠️ 注意本功能可能会覆盖思源默认的 Ctrl+上下键的快捷键，你可以选择独立插件“文档上下文”来实现更加精细的控制',
     defaultEnabled: true
+};
+
+let config = {
+    parentChildCommand: true,
+    overwriteCtrlUpDownKey: true
+}
+
+export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
+    key: "doc-context",
+    title: "文档上下文",
+    load: (itemValues: any) => {
+        if (itemValues) {
+            config = { ...config, ...itemValues };
+        }
+    },
+    dump: () => {
+        return structuredClone(config);
+    },
+    items: [
+        {
+            key: 'parentChildCommand',
+            type: 'checkbox' as const,
+            title: '启用切换父子文档快捷键',
+            description: `开启后，使用快捷键 Ctrl+↑ 跳转到父文档，Ctrl+↓ 跳转到子文档</br>默认会屏蔽这两个快捷键在思源中的默认功能，如果你想要换成别的快捷键，请关闭下方的选项然后在思源「快捷键」设置中自行更改`,
+            // direction: 'row',
+            get: () => config.parentChildCommand,
+            set: (value: boolean) => {
+                config.parentChildCommand = value;
+            }
+        },
+        {
+            key: 'overwriteCtrlArrow',
+            type: 'checkbox' as const,
+            title: '⚠️ 覆盖默认 Ctrl+↑ 和 Ctrl+↓',
+            description: `
+            默认的 Ctrl+↑ 和 Ctrl+↓ 为思源内置快捷键（展开和折叠），插件提供的切换父子文档功能想要生效，会强制覆盖思源的默认快捷键。<br/>如果你依赖于这两个快捷键的默认功能，可以: 1) 关掉这个选项; 2) 在思源的快捷键配置中自行更改 "文档上下文" 中 "父文档" 和 "子文档" 快捷键。
+            `,
+            // direction: 'row',
+            get: () => config.overwriteCtrlUpDownKey,
+            set: (value: boolean) => {
+                config.overwriteCtrlUpDownKey = value;
+            }
+        }
+    ],
 };
 
 async function getParentDocument(path: string) {
@@ -539,20 +583,28 @@ export const load = (plugin: FMiscPlugin) => {
         hotkey: '⌘→',
         callback: async () => goToSibling(1)
     });
-    plugin.addCommand({
-        langKey: 'fmisc::parent-doc',
-        langText: '父文档',
-        hotkey: '⌘↑',
-        callback: async () => goToParent()
-    });
-    plugin.addCommand({
-        langKey: 'fmisc::child-doc',
-        langText: '子文档',
-        hotkey: '⌘↓',
-        callback: async () => goToChild()
-    });
-    KeymapConfig.editor.general.collapse.custom = '';
-    KeymapConfig.editor.general.expand.custom = '';
+
+    // 🔥 根据配置决定是否添加父子文档命令
+    if (config.parentChildCommand) {
+        plugin.addCommand({
+            langKey: 'fmisc::parent-doc',
+            langText: '父文档',
+            hotkey: '⌘↑',
+            callback: async () => goToParent()
+        });
+        plugin.addCommand({
+            langKey: 'fmisc::child-doc',
+            langText: '子文档',
+            hotkey: '⌘↓',
+            callback: async () => goToChild()
+        });
+
+        // 🔥 根据配置决定是否覆盖默认快捷键
+        if (config.overwriteCtrlUpDownKey) {
+            KeymapConfig.editor.general.collapse.custom = '';
+            KeymapConfig.editor.general.expand.custom = '';
+        }
+    }
 }
 
 export const unload = (plugin: FMiscPlugin) => {
@@ -560,10 +612,15 @@ export const unload = (plugin: FMiscPlugin) => {
     enabled = false;
     plugin_ = null;
 
-    plugin.delCommand('fmisc::DocContext')
-    plugin.delCommand('fmisc::last-doc')
-    plugin.delCommand('fmisc::next-doc')
+    plugin.delCommand('fmisc::DocContext');
+    plugin.delCommand('fmisc::last-doc');
+    plugin.delCommand('fmisc::next-doc');
+    plugin.delCommand('fmisc::parent-doc');
+    plugin.delCommand('fmisc::child-doc');
 
-    KeymapConfig.editor.general.collapse.custom = KeymapConfig.editor.general.collapse.default;
-    KeymapConfig.editor.general.expand.custom = KeymapConfig.editor.general.expand.default;
+    // 🔥 根据配置决定是否覆盖默认快捷键
+    if (config.overwriteCtrlUpDownKey) {
+        KeymapConfig.editor.general.collapse.custom = KeymapConfig.editor.general.collapse.default;
+        KeymapConfig.editor.general.expand.custom = KeymapConfig.editor.general.expand.default;
+    }
 }

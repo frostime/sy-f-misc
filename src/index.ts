@@ -11,7 +11,8 @@ import {
     Menu,
     Plugin,
     getFrontend,
-    showMessage
+    showMessage,
+    ICommand
 } from "siyuan";
 
 import { load, unload } from "./func";
@@ -305,6 +306,16 @@ export default class FMiscPlugin extends Plugin {
 
     delProtyleSlash(id: BlockId) {
         this.protyleSlash = this.protyleSlash.filter(slash => slash.id !== id);
+    }
+
+    /**
+     * 添加命令; 与 addCommand 不同的是，addCommandV2 会自动处理重复命令的检查
+     */
+    addCommandV2(options: ICommand): void {
+        if (this.commands.find(command => command.langKey === options.langKey)) {
+            return;
+        }
+        this.addCommand(options);
     }
 
     delCommand(id: string) {
