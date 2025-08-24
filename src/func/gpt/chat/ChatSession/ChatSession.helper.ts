@@ -22,7 +22,7 @@ import {
 import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
-import { useUndoDelete, type ISessionMethods } from './UndoDelete';
+import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
 
 interface ISimpleContext {
@@ -856,8 +856,8 @@ export const useSession = (props: {
     const loading = useSignalRef<boolean>(false);
     // const streamingReply = useSignalRef<string>('');
 
-    // 集成撤销删除功能
-    const undoDelete = useUndoDelete();
+    // 集成删除历史记录功能
+    const deleteHistory = useDeleteHistory();
 
     const renewUpdatedTimestamp = () => {
         updated = new Date().getTime();
@@ -1087,8 +1087,8 @@ export const useSession = (props: {
         history.sysPrompt && (systemPrompt.update(history.sysPrompt));
         history.tags && (sessionTags.update(history.tags));
 
-        // 清空撤销栈（加载新历史记录时）
-        undoDelete.clearUndoStack();
+        // 清空删除历史（加载新历史记录时）
+        deleteHistory.clearRecords();
     }
 
     // 定义 newSession 函数
@@ -1104,8 +1104,8 @@ export const useSession = (props: {
         loading.update(false);
         hasStarted = false;
 
-        // 清空撤销栈（新建会话时）
-        undoDelete.clearUndoStack();
+        // 清空删除历史（新建会话时）
+        deleteHistory.clearRecords();
     }
 
     const hooks = {
@@ -1156,27 +1156,43 @@ export const useSession = (props: {
             if (index === -1) return;
             const msgItem = messages()[index];
 
-            // 在删除前记录到撤销栈
+            // 记录版本删除到历史
             if (msgItem.versions?.[version]) {
-                let switchedToVersion: string | undefined;
-                if (msgItem.currentVersion === version && autoSwitch) {
-                    const versionLists = Object.keys(msgItem.versions);
-                    if (versionLists.length > 1) {
-                        const idx = versionLists.indexOf(version);
-                        const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
-                        switchedToVersion = versionLists[newIdx];
-                    }
-                }
+                const versionContent = msgItem.versions[version];
+                const content = typeof versionContent.content === 'string'
+                    ? versionContent.content
+                    : versionContent.content[0]?.text || '多媒体内容';
 
-                undoDelete.recordDeleteVersion(
-                    itemId,
-                    version,
-                    msgItem.versions[version],
-                    {
-                        wasCurrentVersion: msgItem.currentVersion === version,
-                        switchedToVersion
+                deleteHistory.addRecord({
+                    type: 'version',
+                    sessionId: sessionId(),
+                    sessionTitle: title(),
+                    content: content,
+                    timestamp: versionContent.timestamp || Date.now(),
+                    author: versionContent.author,
+                    versionId: version,
+                    originalItem: {
+                        id: msgItem.id,
+                        message: msgItem.message,
+                        currentVersion: msgItem.currentVersion,
+                        versions: msgItem.versions,
+                        context: msgItem.context,
+                        userPromptSlice: msgItem.userPromptSlice,
+                        token: msgItem.token,
+                        usage: msgItem.usage,
+                        time: msgItem.time,
+                        author: msgItem.author,
+                        timestamp: msgItem.timestamp,
+                        title: msgItem.title,
+                        attachedItems: msgItem.attachedItems,
+                        attachedChars: msgItem.attachedChars
+                    },
+                    extra: {
+                        messageId: itemId,
+                        versionId: version,
+                        author: versionContent.author
                     }
-                );
+                });
             }
 
             delMsgItemVersion(itemId, version, autoSwitch);
@@ -1238,8 +1254,40 @@ export const useSession = (props: {
             const item = messages()[index];
             if (item.type !== 'message') return;
 
-            // 记录删除操作到撤销栈
-            undoDelete.recordDeleteMessage(item, index);
+            // 记录消息删除到历史
+            const content = typeof item.message.content === 'string'
+                ? item.message.content
+                : item.message.content[0]?.text || '多媒体消息';
+
+            deleteHistory.addRecord({
+                type: 'message',
+                sessionId: sessionId(),
+                sessionTitle: title(),
+                content: content,
+                timestamp: item.timestamp || Date.now(),
+                author: item.author,
+                totalVersions: item.versions ? Object.keys(item.versions).length : 1,
+                originalItem: {
+                    id: item.id,
+                    message: item.message,
+                    currentVersion: item.currentVersion,
+                    versions: item.versions,
+                    context: item.context,
+                    userPromptSlice: item.userPromptSlice,
+                    token: item.token,
+                    usage: item.usage,
+                    time: item.time,
+                    author: item.author,
+                    timestamp: item.timestamp,
+                    title: item.title,
+                    attachedItems: item.attachedItems,
+                    attachedChars: item.attachedChars
+                },
+                extra: {
+                    messageId: item.id,
+                    author: item.author
+                }
+            });
 
             // 执行删除操作
             messages.update((oldList: IChatSessionMsgItem[]) => {
@@ -1249,8 +1297,8 @@ export const useSession = (props: {
             renewUpdatedTimestamp();
         },
 
-        // 暴露撤销删除功能
-        undoDelete
+        // 暴露删除历史功能
+        deleteHistory
     }
     return hooks;
 }

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/ChatSession/index.tsx
- * @LastEditTime : 2025-08-23 15:32:16
+ * @LastEditTime : 2025-08-24 16:52:55
  * @Description  :
  */
 // External libraries
@@ -28,7 +28,7 @@ import MessageItem from '../MessageItem';
 import AttachmentList from '../AttachmentList';
 import TitleTagEditor from '../TitleTagEditor';
 import HistoryList from '../HistoryList';
-import { UndoPanel } from './UndoDelete';
+import { DeleteHistoryPanel } from './DeleteHistory';
 import { SvgSymbol } from '../Elements';
 import SessionItemsManager from '../SessionItemsManager';
 import { SessionToolsManager } from '../SessionToolsManager';
@@ -72,9 +72,9 @@ const ChatSession: Component<{
     const multiSelect = useSignalRef(false);
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
     // const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
-    
-    // 撤销面板状态管理
-    const showUndoPanel = useSignalRef(false);
+
+    // 删除历史面板状态管理
+    const showDeleteHistoryPanel = useSignalRef(false);
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -560,13 +560,27 @@ const ChatSession: Component<{
             //     checked: multiSelect()
             // });
 
-            // 撤销删除选项
+            // 删除历史选项
             menu.addItem({
-                icon: 'iconUndo',
-                label: `撤销删除 (${session.undoDelete.undoCount()})`,
-                disabled: !session.undoDelete.canUndo(),
+                icon: 'iconHistory',
+                label: `删除历史 (${session.deleteHistory.count()})`,
                 click: () => {
-                    showUndoPanel.update(true);
+                    solidDialog({
+                        title: '删除历史记录',
+                        width: '720px',
+                        height: '640px',
+                        loader: () => (
+                            <DeleteHistoryPanel
+                                records={session.deleteHistory.records()}
+                                onClearHistory={() => {
+                                    session.deleteHistory.clearRecords();
+                                }}
+                                onRemoveRecord={(recordId: string) => {
+                                    session.deleteHistory.removeRecord(recordId);
+                                }}
+                            />
+                        )
+                    });
                 }
             });
 
@@ -1269,19 +1283,7 @@ const ChatSession: Component<{
                 session,
             }}>
                 <ChatContainer />
-                
-                {/* 撤销删除面板 */}
-                <Show when={showUndoPanel()}>
-                    <UndoPanel 
-                        undoStack={session.undoDelete.undoStack()} 
-                        onUndo={(sessionMethods) => session.undoDelete.undoLastOperation(sessionMethods)}
-                        onClose={() => showUndoPanel.update(false)}
-                        sessionMethods={{
-                            messages: session.messages,
-                            switchMsgItemVersion: session.switchMsgItemVersion
-                        }}
-                    />
-                </Show>
+
             </SimpleProvider>
         </div>
     );
