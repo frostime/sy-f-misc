@@ -81,7 +81,7 @@ export const useUndoDelete = (config: Partial<IUndoStackConfig> = {}): IUndoDele
             timestamp: Date.now(),
             description: `删除消息: ${getMessagePreview(messageItem)}`,
             messageData: {
-                item: structuredClone(messageItem), // 深拷贝避免引用问题
+                item: JSON.parse(JSON.stringify(messageItem)), // 使用JSON序列化进行深拷贝
                 index
             }
         };
@@ -109,7 +109,7 @@ export const useUndoDelete = (config: Partial<IUndoStackConfig> = {}): IUndoDele
             versionData: {
                 messageId,
                 version,
-                versionContent: structuredClone(versionData), // 深拷贝
+                versionContent: JSON.parse(JSON.stringify(versionData)), // 使用JSON序列化进行深拷贝
                 wasCurrentVersion: context.wasCurrentVersion,
                 switchedToVersion: context.switchedToVersion
             }

@@ -16,7 +16,8 @@ import {
     applyMsgItemVersion,
     stageMsgItemVersion,
     convertImgsToBase64Url,
-    adaptIMessageContentSetter
+    adaptIMessageContentSetter,
+    isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
@@ -1085,7 +1086,7 @@ export const useSession = (props: {
         history.items && (messages.update(history.items));
         history.sysPrompt && (systemPrompt.update(history.sysPrompt));
         history.tags && (sessionTags.update(history.tags));
-        
+
         // 清空撤销栈（加载新历史记录时）
         undoDelete.clearUndoStack();
     }
@@ -1102,7 +1103,7 @@ export const useSession = (props: {
         sessionTags.update([]);
         loading.update(false);
         hasStarted = false;
-        
+
         // 清空撤销栈（新建会话时）
         undoDelete.clearUndoStack();
     }
@@ -1154,7 +1155,7 @@ export const useSession = (props: {
             const index = messages().findIndex(item => item.id === itemId);
             if (index === -1) return;
             const msgItem = messages()[index];
-            
+
             // 在删除前记录到撤销栈
             if (msgItem.versions?.[version]) {
                 let switchedToVersion: string | undefined;
@@ -1166,10 +1167,10 @@ export const useSession = (props: {
                         switchedToVersion = versionLists[newIdx];
                     }
                 }
-                
+
                 undoDelete.recordDeleteVersion(
-                    itemId, 
-                    version, 
+                    itemId,
+                    version,
                     msgItem.versions[version],
                     {
                         wasCurrentVersion: msgItem.currentVersion === version,
@@ -1177,11 +1178,77 @@ export const useSession = (props: {
                     }
                 );
             }
-            
+
             delMsgItemVersion(itemId, version, autoSwitch);
             renewUpdatedTimestamp();
         },
-        
+
+        // 消息更新函数
+        updateMessage: (index: number, newContent: string) => {
+            if (index < 0 || index >= messages().length) return;
+            const item = messages()[index];
+            if (item.type !== 'message') return;
+
+            const content = item.message.content;
+            let { text } = adaptIMessageContentGetter(content);
+            let contextText = '';
+
+            // 处理上下文切片
+            if (item.userPromptSlice) {
+                const [beg] = item.userPromptSlice;
+                contextText = text.slice(0, beg);
+            }
+
+            const newText = contextText + newContent;
+
+            batch(() => {
+                if (Array.isArray(content)) {
+                    // 处理数组类型内容（包含图片等）
+                    const idx = content.findIndex(item => item.type === 'text');
+                    if (idx !== -1) {
+                        const updatedContent = [...content];
+                        updatedContent[idx] = { ...updatedContent[idx], text: newText };
+                        messages.update(index, 'message', 'content', updatedContent);
+                    }
+                } else if (typeof content === 'string') {
+                    // 处理字符串类型内容
+                    messages.update(index, 'message', 'content', newText);
+                }
+
+                // 更新 userPromptSlice
+                if (contextText && contextText.length > 0) {
+                    const contextLength = contextText.length;
+                    messages.update(index, 'userPromptSlice', [contextLength, contextLength + newContent.length]);
+                }
+
+                // 如果是多版本消息，同时更新当前版本
+                if (isMsgItemWithMultiVersion(item)) {
+                    messages.update(index, 'versions', item.currentVersion, 'content', newText);
+                }
+            });
+
+            renewUpdatedTimestamp();
+        },
+
+        // 消息删除函数
+        deleteMessage: (index: number) => {
+            if (index < 0 || index >= messages().length) return;
+            if (loading()) return;
+
+            const item = messages()[index];
+            if (item.type !== 'message') return;
+
+            // 记录删除操作到撤销栈
+            undoDelete.recordDeleteMessage(item, index);
+
+            // 执行删除操作
+            messages.update((oldList: IChatSessionMsgItem[]) => {
+                return oldList.filter((i) => i.id !== item.id);
+            });
+
+            renewUpdatedTimestamp();
+        },
+
         // 暴露撤销删除功能
         undoDelete
     }

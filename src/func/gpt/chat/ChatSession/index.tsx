@@ -887,57 +887,10 @@ const ChatSession: Component<{
                                     messageItem={item}
                                     loading={item.loading === true} // 使用 loading 参数替代 markdown
                                     updateIt={(message) => {
-                                        // Loading 期间依然允许编辑
-                                        // if (session.loading()) return;
-                                        const content = session.messages()[index()].message.content;
-                                        let { text } = adaptIMessageContentGetter(content);
-                                        let userText = text;
-                                        let contextText = '';
-                                        if (session.messages()[index()].userPromptSlice) {
-                                            const [beg, end] = session.messages()[index()].userPromptSlice;
-                                            contextText = text.slice(0, beg); // Changed: context is now before user text
-                                            userText = text.slice(beg, end);
-                                        }
-                                        const newText = contextText + message;
-                                        if (Array.isArray(content)) {
-                                            // 找到 item.type === 'text'
-                                            const idx = content.findIndex(item => item.type === 'text');
-                                            if (idx !== -1) {
-                                                content[idx].text = newText;
-                                                batch(() => {
-                                                    session.messages.update(index(), 'message', 'content', content);
-                                                    if (contextText && contextText.length > 0) {
-                                                        // 更新 userPromptSlice，使其指向 context 后面的用户输入部分
-                                                        const contextLength = contextText.length;
-                                                        session.messages.update(index(), 'userPromptSlice', [contextLength, contextLength + message.length]);
-                                                    }
-                                                });
-                                            }
-                                        } else if (typeof content === 'string') {
-                                            //is string
-                                            batch(() => {
-                                                session.messages.update(index(), 'message', 'content', newText);
-                                                if (contextText && contextText.length > 0) {
-                                                    // 更新 userPromptSlice，使其指向 context 后面的用户输入部分
-                                                    const contextLength = contextText.length;
-                                                    session.messages.update(index(), 'userPromptSlice', [contextLength, contextLength + message.length]);
-                                                }
-                                            });
-                                        }
-                                        if (isMsgItemWithMultiVersion(item)) {
-                                            session.messages.update(index(), 'versions', item.currentVersion, 'content', newText);
-                                        }
+                                        session.updateMessage(index(), message);
                                     }}
                                     deleteIt={() => {
-                                        if (session.loading()) return;
-                                        
-                                        // 记录删除操作到撤销栈
-                                        session.undoDelete.recordDeleteMessage(item, index());
-                                        
-                                        // 执行删除操作
-                                        session.messages.update((oldList: IChatSessionMsgItem[]) => {
-                                            return oldList.filter((i) => i.id !== item.id);
-                                        })
+                                        session.deleteMessage(index());
                                     }}
                                     rerunIt={() => {
                                         if (session.loading()) return;
