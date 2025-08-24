@@ -28,6 +28,7 @@ import MessageItem from '../MessageItem';
 import AttachmentList from '../AttachmentList';
 import TitleTagEditor from '../TitleTagEditor';
 import HistoryList from '../HistoryList';
+import { UndoPanel } from './UndoDelete';
 import { SvgSymbol } from '../Elements';
 import SessionItemsManager from '../SessionItemsManager';
 import { SessionToolsManager } from '../SessionToolsManager';
@@ -71,6 +72,9 @@ const ChatSession: Component<{
     const multiSelect = useSignalRef(false);
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
     // const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
+    
+    // 撤销面板状态管理
+    const showUndoPanel = useSignalRef(false);
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -556,6 +560,16 @@ const ChatSession: Component<{
             //     checked: multiSelect()
             // });
 
+            // 撤销删除选项
+            menu.addItem({
+                icon: 'iconUndo',
+                label: `撤销删除 (${session.undoDelete.undoCount()})`,
+                disabled: !session.undoDelete.canUndo(),
+                click: () => {
+                    showUndoPanel.update(true);
+                }
+            });
+
             // 自动生成标题选项
             menu.addItem({
                 icon: 'iconH1',
@@ -916,6 +930,11 @@ const ChatSession: Component<{
                                     }}
                                     deleteIt={() => {
                                         if (session.loading()) return;
+                                        
+                                        // 记录删除操作到撤销栈
+                                        session.undoDelete.recordDeleteMessage(item, index());
+                                        
+                                        // 执行删除操作
                                         session.messages.update((oldList: IChatSessionMsgItem[]) => {
                                             return oldList.filter((i) => i.id !== item.id);
                                         })
@@ -1297,6 +1316,19 @@ const ChatSession: Component<{
                 session,
             }}>
                 <ChatContainer />
+                
+                {/* 撤销删除面板 */}
+                <Show when={showUndoPanel()}>
+                    <UndoPanel 
+                        undoStack={session.undoDelete.undoStack()} 
+                        onUndo={(sessionMethods) => session.undoDelete.undoLastOperation(sessionMethods)}
+                        onClose={() => showUndoPanel.update(false)}
+                        sessionMethods={{
+                            messages: session.messages,
+                            switchMsgItemVersion: session.switchMsgItemVersion
+                        }}
+                    />
+                </Show>
             </SimpleProvider>
         </div>
     );

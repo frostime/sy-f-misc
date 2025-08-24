@@ -21,6 +21,7 @@ import {
 import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
+import { useUndoDelete, type ISessionMethods } from './UndoDelete';
 import { snapshotSignal } from '../../persistence/json-files';
 
 interface ISimpleContext {
@@ -281,6 +282,7 @@ const useMessageManagement = (params: {
         if (index === -1) return;
         const msgItem = messages()[index];
         let switchFun = () => { };
+        let switchedToVersion: string | undefined;
         if (!msgItem.versions || msgItem.versions[version] === undefined) {
             showMessage('此版本不存在');
             return;
@@ -293,9 +295,12 @@ const useMessageManagement = (params: {
             } else if (autoSwitch) {
                 const idx = versionLists.indexOf(version);
                 const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
-                switchFun = () => switchMsgItemVersion(itemId, versionLists[newIdx]);
+                switchedToVersion = versionLists[newIdx];
+                switchFun = () => switchMsgItemVersion(itemId, switchedToVersion!);
             }
         }
+
+        // TODO: 记录删除操作到撤销栈（稍后在函数重新定义时添加）
 
         let updatedTimestamp;
         batch(() => {
@@ -850,6 +855,9 @@ export const useSession = (props: {
     const loading = useSignalRef<boolean>(false);
     // const streamingReply = useSignalRef<string>('');
 
+    // 集成撤销删除功能
+    const undoDelete = useUndoDelete();
+
     const renewUpdatedTimestamp = () => {
         updated = new Date().getTime();
     }
@@ -1077,6 +1085,9 @@ export const useSession = (props: {
         history.items && (messages.update(history.items));
         history.sysPrompt && (systemPrompt.update(history.sysPrompt));
         history.tags && (sessionTags.update(history.tags));
+        
+        // 清空撤销栈（加载新历史记录时）
+        undoDelete.clearUndoStack();
     }
 
     // 定义 newSession 函数
@@ -1091,6 +1102,9 @@ export const useSession = (props: {
         sessionTags.update([]);
         loading.update(false);
         hasStarted = false;
+        
+        // 清空撤销栈（新建会话时）
+        undoDelete.clearUndoStack();
     }
 
     const hooks = {
@@ -1137,9 +1151,39 @@ export const useSession = (props: {
             renewUpdatedTimestamp();
         },
         delMsgItemVersion: (itemId: string, version: string, autoSwitch = true) => {
+            const index = messages().findIndex(item => item.id === itemId);
+            if (index === -1) return;
+            const msgItem = messages()[index];
+            
+            // 在删除前记录到撤销栈
+            if (msgItem.versions?.[version]) {
+                let switchedToVersion: string | undefined;
+                if (msgItem.currentVersion === version && autoSwitch) {
+                    const versionLists = Object.keys(msgItem.versions);
+                    if (versionLists.length > 1) {
+                        const idx = versionLists.indexOf(version);
+                        const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
+                        switchedToVersion = versionLists[newIdx];
+                    }
+                }
+                
+                undoDelete.recordDeleteVersion(
+                    itemId, 
+                    version, 
+                    msgItem.versions[version],
+                    {
+                        wasCurrentVersion: msgItem.currentVersion === version,
+                        switchedToVersion
+                    }
+                );
+            }
+            
             delMsgItemVersion(itemId, version, autoSwitch);
             renewUpdatedTimestamp();
-        }
+        },
+        
+        // 暴露撤销删除功能
+        undoDelete
     }
     return hooks;
 }
