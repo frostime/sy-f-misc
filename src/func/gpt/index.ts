@@ -331,14 +331,16 @@ export const load = async (plugin: FMiscPlugin) => {
         icon: 'iconGithub',
         click: () => {
             openChatTab(false);
-        }
-    },
-    {
-        label: '打开 GPT 窗口',
-        icon: 'iconGithub',
-        click: () => {
-            openGptWindow();
-        }
+        },
+        submenu: [
+            {
+                label: '打开 GPT 窗口',
+                icon: 'iconGithub',
+                click: () => {
+                    openGptWindow();
+                }
+            },
+        ]
     },
     {
         label: 'GPT 对话记录',
