@@ -9,6 +9,7 @@
 import type FMiscPlugin from "@/index";
 import { toggleDisable, toggleEnable } from "./auto-sync";
 import * as toQuickDn from "./to-quick-dn";
+import * as htmlPages from "./html-pages";
 // import { showMessage } from "siyuan";
 
 import { config } from './config';
@@ -62,6 +63,7 @@ export const load = (plugin_: FMiscPlugin) => {
     }
 
     toQuickDn.load();
+    htmlPages.load(plugin_);
 };
 
 export const unload = (_plugin: FMiscPlugin) => {

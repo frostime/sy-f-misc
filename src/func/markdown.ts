@@ -8,8 +8,8 @@
  */
 
 import { getLute, html2ele, id2block, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
-import { thisPlugin, getBlockByID } from "@frostime/siyuan-plugin-kits";
-import { request, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
+import { thisPlugin, getBlockByID, getMarkdown } from "@frostime/siyuan-plugin-kits";
+import { request } from "@frostime/siyuan-plugin-kits/api";
 import { Protyle, showMessage } from "siyuan";
 // import URLProvider, { html2Document, parseHtmlContent } from "./gpt/context-provider/URLProvider";
 import { html2Document, parseHtmlContent, fetchWebContent } from "./gpt/tools/web/webpage";
@@ -77,7 +77,7 @@ async function onOpenMenuLink({ detail }) {
             let dataHref = hrefSpan.getAttribute("data-href");
             let result;
             try {
-                result = await fetchWebContent(dataHref, {
+                result = await fetchWebContent(dataHref, 'markdown', {
                     keepLink: true,
                     keepImg: true,
                 });
@@ -117,10 +117,12 @@ export const load = () => {
             label: '查看 Markdown',
             icon: 'iconMarkdown',
             click: async () => {
-                let md = await exportMdContent(root_id, {
-                    yfm: false
-                });
-                exportDialog(md.content, md.hPath.split('/').pop() || 'Markdown');
+                // let md = await exportMdContent(root_id, {
+                //     yfm: false
+                // });
+                const docBlock = await getBlockByID(root_id);
+                let md = await getMarkdown(root_id);
+                exportDialog(md, docBlock.hpath.split('/').pop() || 'Markdown');
             }
         });
     });

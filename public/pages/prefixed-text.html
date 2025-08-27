@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>长文本前缀树拆分工具</title>
+    <style>
+        :root {
+            --border-color: #eef2f7;
+        }
+
+        body {
+            font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft Yahei", "Hiragino Sans GB", "Source Han Sans SC", sans-serif, emojis;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f9;
+            color: #333;
+            display: flex;
+            height: calc(100vh - 40px);
+            gap: 20px;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            gap: 20px;
+        }
+
+        .panel {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .left-panel {
+            flex: 1;
+        }
+
+        .center-panel {
+            flex: 2;
+            overflow-y: auto;
+        }
+
+        .right-panel {
+            flex: 1.5;
+            background-color: #fdfdff;
+            padding: 0;
+        }
+
+        h2,
+        h3 {
+            margin-top: 0;
+            color: #1a2b4d;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            padding: 20px 20px 10px 20px;
+            margin: 0;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button,
+        input[type="file"] {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button.secondary {
+            background-color: #6c757d;
+        }
+
+        button.secondary:hover {
+            background-color: #5a6268;
+        }
+
+        button.danger {
+            background-color: #dc3545;
+        }
+
+        button.danger:hover {
+            background-color: #c82333;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* Tree Styles */
+        .tree ul {
+            padding-left: 20px;
+            position: relative;
+            margin: 0;
+        }
+
+        .tree li {
+            list-style-type: none;
+            position: relative;
+            padding: 5px 0 5px 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tree li::before,
+        .tree li::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            border-color: #999;
+        }
+
+        .tree li::before {
+            border-top: 1px solid;
+            top: 18px;
+            width: 15px;
+            height: 0;
+        }
+
+        .tree li::after {
+            border-left: 1px solid;
+            height: 100%;
+            width: 0;
+            top: 0;
+        }
+
+        .tree>ul>li:first-child::after {
+            top: 18px;
+        }
+
+        .tree li:last-child::after {
+            height: 18px;
+        }
+
+        .node-wrapper {
+            display: flex;
+            align-items: center;
+        }
+
+        .node-content {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: inline-block;
+            cursor: pointer;
+            background-color: #f9f9f9;
+            transition: background-color 0.2s, border-color 0.2s;
+            max-width: 90%;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .node-char-count {
+            font-size: 11px;
+            color: #888;
+            margin-left: 8px;
+            font-style: italic;
+            white-space: nowrap;
+        }
+
+        .node-content.is-end::after {
+            content: ' 🔚';
+            color: #28a745;
+            font-size: 12px;
+        }
+
+        .node-content:hover {
+            background-color: #e9ecef;
+        }
+
+        .node-content.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+
+        /* Right Panel Details Styles */
+        .node-details {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .detail-block {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 0 20px 10px 20px;
+        }
+
+        #chunk-block {
+            flex: 1;
+        }
+
+        #fullpath-block {
+            flex: 2;
+            margin-top: 10px;
+        }
+
+        .detail-block h3 {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .details-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        #copy-btn {
+            padding: 5px 10px;
+            font-size: 12px;
+            background-color: #28a745;
+        }
+
+        #copy-btn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="panel left-panel">
+            <h2>1. 输入与控制</h2>
+            <textarea id="text-input" placeholder="请在此处粘贴一个完整的长文本（如一段完整的对话记录）。"></textarea>
+            <div class="button-group">
+                <button id="add-btn">添加文本到树</button>
+                <button id="clear-btn" class="secondary">清空所有</button>
+            </div>
+            <h3>2. 导入/导出</h3>
+            <div class="button-group">
+                <button id="save-btn">保存树 (JSON)</button>
+                <input type="file" id="file-input" accept=".json">
+                <button id="load-btn">加载树 (JSON)</button>
+            </div>
+            <p style="font-size: 12px; color: #666;">
+                <strong>使用说明 (v3):</strong><br>
+                1. 粘贴一段完整文本后点击“添加”。<br>
+                2. 树会自动识别公共部分并拆分，节点后显示字数。<br>
+                3. 点击树节点，在右侧查看详情。<br>
+                4. 在详情面板可“删除”该节点及所有子节点。<br>
+                5. `🔚` 标记代表一个完整输入的结尾。
+            </p>
+        </div>
+
+        <div class="panel center-panel">
+            <h2>可视化前缀树</h2>
+            <div id="tree-container" class="tree"></div>
+        </div>
+
+        <div class="panel right-panel">
+            <h2 id="details-title">节点详情</h2>
+            <div class="node-details">
+                <div id="chunk-block" class="detail-block">
+                    <h3>
+                        <span>当前节点片段</span>
+                        <button id="delete-btn" class="danger" style="display: none;">删除此节点及子树</button>
+                    </h3>
+                    <div id="node-chunk" class="details-content">(请点击左侧树中的一个节点)</div>
+                </div>
+
+                <div id="fullpath-block" class="detail-block">
+                    <h3>
+                        <span>从根到此节点的完整路径</span>
+                        <button id="copy-btn" style="display: none;">复制</button>
+                    </h3>
+                    <div id="node-full-path" class="details-content">(无)</div>
+                </div>
+<!-- 
+                <div class="detail-block" style="flex: 0 0 auto; padding-top: 10px;">
+                    <button id="delete-btn" class="danger" style="display: none; width: 100%;">删除此节点及子树</button>
+                </div> -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const textInput = document.getElementById('text-input');
+            const addBtn = document.getElementById('add-btn');
+            const clearBtn = document.getElementById('clear-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const loadBtn = document.getElementById('load-btn');
+            const fileInput = document.getElementById('file-input');
+            const treeContainer = document.getElementById('tree-container');
+            const nodeChunkDiv = document.getElementById('node-chunk');
+            const nodeFullPathDiv = document.getElementById('node-full-path');
+            const copyBtn = document.getElementById('copy-btn');
+            const deleteBtn = document.getElementById('delete-btn');
+
+            let trieRoot = createNode('');
+
+            function createNode(content = '', isEnd = false) {
+                return { content, children: {}, isEnd };
+            }
+
+            function findLongestCommonPrefix(str1, str2) {
+                let i = 0;
+                while (i < str1.length && i < str2.length && str1[i] === str2[i]) { i++; }
+                return str1.substring(0, i);
+            }
+
+            function insert(node, text) {
+                if (text === '') {
+                    node.isEnd = true;
+                    return;
+                }
+                for (const childKey in node.children) {
+                    const childNode = node.children[childKey];
+                    const commonPrefix = findLongestCommonPrefix(text, childNode.content);
+                    if (commonPrefix.length > 0) {
+                        if (commonPrefix.length < childNode.content.length) {
+                            const originalChildContent = childNode.content;
+                            const newSharedNode = createNode(commonPrefix, commonPrefix.length === text.length);
+                            const oldChildRemainder = originalChildContent.substring(commonPrefix.length);
+                            childNode.content = oldChildRemainder;
+                            newSharedNode.children[oldChildRemainder] = childNode;
+                            delete node.children[originalChildContent];
+                            node.children[commonPrefix] = newSharedNode;
+                            const newTextRemainder = text.substring(commonPrefix.length);
+                            if (newTextRemainder.length > 0) {
+                                newSharedNode.children[newTextRemainder] = createNode(newTextRemainder, true);
+                            }
+                            return;
+                        }
+                        if (commonPrefix.length === childNode.content.length) {
+                            const remainder = text.substring(commonPrefix.length);
+                            if (remainder.length === 0) childNode.isEnd = true;
+                            else insert(childNode, remainder);
+                            return;
+                        }
+                    }
+                }
+                node.children[text] = createNode(text, true);
+            }
+
+            function findAndRemoveNode(startNode, fullPath) {
+                let currentNode = startNode;
+                let path = fullPath;
+
+                while (path.length > 0) {
+                    let foundChild = false;
+                    for (const childKey in currentNode.children) {
+                        if (path.startsWith(childKey)) {
+                            const childNode = currentNode.children[childKey];
+                            const remainingPath = path.substring(childKey.length);
+                            if (remainingPath.length === 0) {
+                                // This is the node to delete
+                                delete currentNode.children[childKey];
+                                return true;
+                            }
+                            // Traverse deeper
+                            currentNode = childNode;
+                            path = remainingPath;
+                            foundChild = true;
+                            break;
+                        }
+                    }
+                    if (!foundChild) return false; // Path not found in tree
+                }
+                return false;
+            }
+
+
+            function renderTree() {
+                treeContainer.innerHTML = '';
+                if (Object.keys(trieRoot.children).length > 0) {
+                    const rootUl = document.createElement('ul');
+                    treeContainer.appendChild(rootUl);
+                    renderNode(trieRoot, rootUl, '');
+                } else {
+                    treeContainer.innerHTML = '<p style="color: #888;">树为空，请添加文本。</p>';
+                }
+            }
+
+            function renderNode(node, parentUl, currentPath) {
+                const sortedChildrenKeys = Object.keys(node.children).sort();
+                for (const key of sortedChildrenKeys) {
+                    const childNode = node.children[key];
+                    const li = document.createElement('li');
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'node-wrapper';
+
+                    const span = document.createElement('span');
+                    span.className = 'node-content';
+                    if (childNode.isEnd) { span.classList.add('is-end'); }
+
+                    let displayContent = childNode.content;
+                    if (displayContent.length > 150) {
+                        displayContent = displayContent.substring(0, 70) + '...' + displayContent.substring(displayContent.length - 70);
+                    }
+                    span.textContent = displayContent.replace(/\n/g, '↵ ').replace(/ /g, '·');
+
+                    const charCountSpan = document.createElement('span');
+                    charCountSpan.className = 'node-char-count';
+                    charCountSpan.textContent = `[${childNode.content.length}字]`;
+
+                    wrapper.appendChild(span);
+                    wrapper.appendChild(charCountSpan);
+
+                    const newPath = currentPath + childNode.content;
+                    span.dataset.fullPath = newPath;
+                    span.dataset.chunk = childNode.content;
+
+                    span.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        document.querySelectorAll('.node-content.active').forEach(el => el.classList.remove('active'));
+                        span.classList.add('active');
+                        nodeChunkDiv.textContent = span.dataset.chunk;
+                        nodeFullPathDiv.textContent = span.dataset.fullPath;
+                        copyBtn.style.display = 'inline-block';
+                        deleteBtn.style.display = 'inline-block';
+                    });
+
+                    li.appendChild(wrapper);
+                    parentUl.appendChild(li);
+
+                    if (Object.keys(childNode.children).length > 0) {
+                        const newUl = document.createElement('ul');
+                        li.appendChild(newUl);
+                        renderNode(childNode, newUl, newPath);
+                    }
+                }
+            }
+
+            function clearDetailsPanel() {
+                nodeChunkDiv.textContent = '(请点击左侧树中的一个节点)';
+                nodeFullPathDiv.textContent = '(无)';
+                copyBtn.style.display = 'none';
+                deleteBtn.style.display = 'none';
+                document.querySelectorAll('.node-content.active').forEach(el => el.classList.remove('active'));
+            }
+
+            addBtn.addEventListener('click', () => {
+                const text = textInput.value.trim();
+                if (text === '') { alert('输入内容不能为空。'); return; }
+                insert(trieRoot, text);
+                textInput.value = '';
+                renderTree();
+                clearDetailsPanel();
+            });
+
+            clearBtn.addEventListener('click', () => {
+                if (confirm('确定要清空当前的树结构吗？此操作不可撤销。')) {
+                    trieRoot = createNode('');
+                    renderTree();
+                    clearDetailsPanel();
+                }
+            });
+
+            deleteBtn.addEventListener('click', () => {
+                const fullPath = nodeFullPathDiv.textContent;
+                if (!fullPath || fullPath === '(无)') return;
+
+                if (confirm('确定要删除此节点及其所有子节点吗？\n此操作不可恢复！')) {
+                    if (findAndRemoveNode(trieRoot, fullPath)) {
+                        renderTree();
+                        clearDetailsPanel();
+                    } else {
+                        alert('删除失败：未在树中找到该节点。可能是数据状态不同步，请尝试重新选择节点。');
+                    }
+                }
+            });
+
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(nodeFullPathDiv.textContent).then(() => {
+                    copyBtn.textContent = '已复制!';
+                    setTimeout(() => { copyBtn.textContent = '复制'; }, 2000);
+                }).catch(err => alert('复制失败: ' + err));
+            });
+
+            saveBtn.addEventListener('click', () => {
+                try {
+                    const jsonString = JSON.stringify(trieRoot, null, 2);
+                    const blob = new Blob([jsonString], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `prefix_tree_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } catch (error) {
+                    alert('保存失败: ' + error.message);
+                }
+            });
+
+            loadBtn.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const loadedRoot = JSON.parse(e.target.result);
+                        if (typeof loadedRoot === 'object' && 'content' in loadedRoot && 'children' in loadedRoot) {
+                            trieRoot = loadedRoot;
+                            renderTree();
+                            clearDetailsPanel();
+                        } else {
+                            alert('文件格式无效，不是一个有效的树结构。');
+                        }
+                    } catch (error) {
+                        alert('加载文件失败，请确保文件是正确的 JSON 格式。\n错误: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            });
+
+            renderTree(); // Initial Render
+        });
+    </script>
+
+</body>
+
+</html>
