@@ -8,8 +8,8 @@
  */
 
 import { getLute, html2ele, id2block, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
-import { thisPlugin, getBlockByID } from "@frostime/siyuan-plugin-kits";
-import { request, exportMdContent } from "@frostime/siyuan-plugin-kits/api";
+import { thisPlugin, getBlockByID, getMarkdown } from "@frostime/siyuan-plugin-kits";
+import { request, updateBlock } from "@frostime/siyuan-plugin-kits/api";
 import { Protyle, showMessage } from "siyuan";
 // import URLProvider, { html2Document, parseHtmlContent } from "./gpt/context-provider/URLProvider";
 import { html2Document, parseHtmlContent, fetchWebContent } from "./gpt/tools/web/webpage";
@@ -77,7 +77,7 @@ async function onOpenMenuLink({ detail }) {
             let dataHref = hrefSpan.getAttribute("data-href");
             let result;
             try {
-                result = await fetchWebContent(dataHref, {
+                result = await fetchWebContent(dataHref, 'markdown', {
                     keepLink: true,
                     keepImg: true,
                 });
@@ -117,10 +117,12 @@ export const load = () => {
             label: '查看 Markdown',
             icon: 'iconMarkdown',
             click: async () => {
-                let md = await exportMdContent(root_id, {
-                    yfm: false
-                });
-                exportDialog(md.content, md.hPath.split('/').pop() || 'Markdown');
+                // let md = await exportMdContent(root_id, {
+                //     yfm: false
+                // });
+                const docBlock = await getBlockByID(root_id);
+                let md = await getMarkdown(root_id);
+                exportDialog(md, docBlock.hpath.split('/').pop() || 'Markdown');
             }
         });
     });
@@ -212,30 +214,16 @@ export const load = () => {
         id: 'superblock-rows',
         filter: ['superblock-rows', 'sb-rows', 'rows'],
         html: '多行超级块',
-        callback: (protyle: Protyle) => {
-            protyle.insert(`{{{row
+        callback: (protyle: Protyle, nodeElement: HTMLElement) => {
+            //             protyle.insert(`{{{row
 
-{: id="${window?.Lute.NewNodeID() || '20250101120606-aaaaaaa'}" }
+            // {: type="p"}
 
-}}}
-`.trim(), true);
-        }
-    });
-    plugin.addProtyleSlash({
-        id: 'superblock-cols',
-        filter: ['cols-2'],
-        html: '双列超级块',
-        callback: (protyle: Protyle) => {
-            protyle.insert(`{{{col
-
-Col 1
-{: id="20250209123606-aaaaaaa" }
-
-Col 2
-{: id="20250209123606-bbbbbbb" }
-
-}}}
-`.trim(), true);
+            // }}}
+            // `.trim(), true);
+            const idSb = window.Lute.NewNodeID();
+            const idPara = window.Lute.NewNodeID();
+            protyle.insert(`<div data-node-id="${idSb}" data-type="NodeSuperBlock" class="sb" updated="${idSb.split('-')[0]}" data-sb-layout="row"><div data-node-id="${idPara}" data-type="NodeParagraph" class="p" type="p" updated="${idPara.split('-')[0]}"><div contenteditable="true" spellcheck="false"></div><div class="protyle-attr" contenteditable="false">​</div></div><div class="protyle-attr" contenteditable="false">​</div></div>`, true);
         }
     });
 
@@ -258,7 +246,7 @@ Col 2
                             await addScript('/plugins/sy-f-misc/scripts/turndown.js', 'turndown-js');
                         }
                         const doc = html2Document(text);
-                        const parsedContent = parseHtmlContent(doc,{
+                        const parsedContent = parseHtmlContent(doc, {
                             keepLink: true,
                             keepImg: true,
                         });

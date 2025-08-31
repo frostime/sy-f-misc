@@ -101,6 +101,7 @@ const App: Component<IArgs> = (props) => {
                                         options={item?.options}
                                         slider={item?.slider}
                                         button={item?.button}
+                                        number={item?.number}
                                         changed={(v) => item.set(v)}
                                         style={item?.direction === 'row' ? { width: '100%' } : null}
                                     />

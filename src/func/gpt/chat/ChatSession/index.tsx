@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/ChatSession/index.tsx
- * @LastEditTime : 2025-08-23 15:32:16
+ * @LastEditTime : 2025-08-24 16:52:55
  * @Description  :
  */
 // External libraries
@@ -28,6 +28,7 @@ import MessageItem from '../MessageItem';
 import AttachmentList from '../AttachmentList';
 import TitleTagEditor from '../TitleTagEditor';
 import HistoryList from '../HistoryList';
+import { DeleteHistoryPanel } from './DeleteHistory';
 import { SvgSymbol } from '../Elements';
 import SessionItemsManager from '../SessionItemsManager';
 import { SessionToolsManager } from '../SessionToolsManager';
@@ -71,6 +72,9 @@ const ChatSession: Component<{
     const multiSelect = useSignalRef(false);
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
     // const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
+
+    // 删除历史面板状态管理
+    const showDeleteHistoryPanel = useSignalRef(false);
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -556,6 +560,30 @@ const ChatSession: Component<{
             //     checked: multiSelect()
             // });
 
+            // 删除历史选项
+            menu.addItem({
+                icon: 'iconHistory',
+                label: `删除历史 (${session.deleteHistory.count()})`,
+                click: () => {
+                    solidDialog({
+                        title: '删除历史记录',
+                        width: '720px',
+                        height: '640px',
+                        loader: () => (
+                            <DeleteHistoryPanel
+                                records={session.deleteHistory.records()}
+                                onClearHistory={() => {
+                                    session.deleteHistory.clearRecords();
+                                }}
+                                onRemoveRecord={(recordId: string) => {
+                                    session.deleteHistory.removeRecord(recordId);
+                                }}
+                            />
+                        )
+                    });
+                }
+            });
+
             // 自动生成标题选项
             menu.addItem({
                 icon: 'iconH1',
@@ -873,52 +901,10 @@ const ChatSession: Component<{
                                     messageItem={item}
                                     loading={item.loading === true} // 使用 loading 参数替代 markdown
                                     updateIt={(message) => {
-                                        // Loading 期间依然允许编辑
-                                        // if (session.loading()) return;
-                                        const content = session.messages()[index()].message.content;
-                                        let { text } = adaptIMessageContentGetter(content);
-                                        let userText = text;
-                                        let contextText = '';
-                                        if (session.messages()[index()].userPromptSlice) {
-                                            const [beg, end] = session.messages()[index()].userPromptSlice;
-                                            contextText = text.slice(0, beg); // Changed: context is now before user text
-                                            userText = text.slice(beg, end);
-                                        }
-                                        const newText = contextText + message;
-                                        if (Array.isArray(content)) {
-                                            // 找到 item.type === 'text'
-                                            const idx = content.findIndex(item => item.type === 'text');
-                                            if (idx !== -1) {
-                                                content[idx].text = newText;
-                                                batch(() => {
-                                                    session.messages.update(index(), 'message', 'content', content);
-                                                    if (contextText && contextText.length > 0) {
-                                                        // 更新 userPromptSlice，使其指向 context 后面的用户输入部分
-                                                        const contextLength = contextText.length;
-                                                        session.messages.update(index(), 'userPromptSlice', [contextLength, contextLength + message.length]);
-                                                    }
-                                                });
-                                            }
-                                        } else if (typeof content === 'string') {
-                                            //is string
-                                            batch(() => {
-                                                session.messages.update(index(), 'message', 'content', newText);
-                                                if (contextText && contextText.length > 0) {
-                                                    // 更新 userPromptSlice，使其指向 context 后面的用户输入部分
-                                                    const contextLength = contextText.length;
-                                                    session.messages.update(index(), 'userPromptSlice', [contextLength, contextLength + message.length]);
-                                                }
-                                            });
-                                        }
-                                        if (isMsgItemWithMultiVersion(item)) {
-                                            session.messages.update(index(), 'versions', item.currentVersion, 'content', newText);
-                                        }
+                                        session.updateMessage(index(), message);
                                     }}
                                     deleteIt={() => {
-                                        if (session.loading()) return;
-                                        session.messages.update((oldList: IChatSessionMsgItem[]) => {
-                                            return oldList.filter((i) => i.id !== item.id);
-                                        })
+                                        session.deleteMessage(index());
                                     }}
                                     rerunIt={() => {
                                         if (session.loading()) return;
@@ -1297,6 +1283,7 @@ const ChatSession: Component<{
                 session,
             }}>
                 <ChatContainer />
+
             </SimpleProvider>
         </div>
     );

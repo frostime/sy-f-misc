@@ -16,11 +16,13 @@ import {
     applyMsgItemVersion,
     stageMsgItemVersion,
     convertImgsToBase64Url,
-    adaptIMessageContentSetter
+    adaptIMessageContentSetter,
+    isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
 import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
+import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
 
 interface ISimpleContext {
@@ -281,6 +283,7 @@ const useMessageManagement = (params: {
         if (index === -1) return;
         const msgItem = messages()[index];
         let switchFun = () => { };
+        let switchedToVersion: string | undefined;
         if (!msgItem.versions || msgItem.versions[version] === undefined) {
             showMessage('此版本不存在');
             return;
@@ -293,9 +296,12 @@ const useMessageManagement = (params: {
             } else if (autoSwitch) {
                 const idx = versionLists.indexOf(version);
                 const newIdx = idx === 0 ? versionLists.length - 1 : idx - 1;
-                switchFun = () => switchMsgItemVersion(itemId, versionLists[newIdx]);
+                switchedToVersion = versionLists[newIdx];
+                switchFun = () => switchMsgItemVersion(itemId, switchedToVersion!);
             }
         }
+
+        // TODO: 记录删除操作到撤销栈（稍后在函数重新定义时添加）
 
         let updatedTimestamp;
         batch(() => {
@@ -850,6 +856,9 @@ export const useSession = (props: {
     const loading = useSignalRef<boolean>(false);
     // const streamingReply = useSignalRef<string>('');
 
+    // 集成删除历史记录功能
+    const deleteHistory = useDeleteHistory();
+
     const renewUpdatedTimestamp = () => {
         updated = new Date().getTime();
     }
@@ -1077,6 +1086,9 @@ export const useSession = (props: {
         history.items && (messages.update(history.items));
         history.sysPrompt && (systemPrompt.update(history.sysPrompt));
         history.tags && (sessionTags.update(history.tags));
+
+        // 清空删除历史（加载新历史记录时）
+        deleteHistory.clearRecords();
     }
 
     // 定义 newSession 函数
@@ -1091,6 +1103,9 @@ export const useSession = (props: {
         sessionTags.update([]);
         loading.update(false);
         hasStarted = false;
+
+        // 清空删除历史（新建会话时）
+        deleteHistory.clearRecords();
     }
 
     const hooks = {
@@ -1137,9 +1152,153 @@ export const useSession = (props: {
             renewUpdatedTimestamp();
         },
         delMsgItemVersion: (itemId: string, version: string, autoSwitch = true) => {
+            const index = messages().findIndex(item => item.id === itemId);
+            if (index === -1) return;
+            const msgItem = messages()[index];
+
+            // 记录版本删除到历史
+            if (msgItem.versions?.[version]) {
+                const versionContent = msgItem.versions[version];
+                const content = typeof versionContent.content === 'string'
+                    ? versionContent.content
+                    : versionContent.content[0]?.text || '多媒体内容';
+
+                deleteHistory.addRecord({
+                    type: 'version',
+                    sessionId: sessionId(),
+                    sessionTitle: title(),
+                    content: content,
+                    timestamp: versionContent.timestamp || Date.now(),
+                    author: versionContent.author,
+                    versionId: version,
+                    originalItem: {
+                        id: msgItem.id,
+                        message: msgItem.message,
+                        currentVersion: msgItem.currentVersion,
+                        versions: msgItem.versions,
+                        context: msgItem.context,
+                        userPromptSlice: msgItem.userPromptSlice,
+                        token: msgItem.token,
+                        usage: msgItem.usage,
+                        time: msgItem.time,
+                        author: msgItem.author,
+                        timestamp: msgItem.timestamp,
+                        title: msgItem.title,
+                        attachedItems: msgItem.attachedItems,
+                        attachedChars: msgItem.attachedChars
+                    },
+                    extra: {
+                        messageId: itemId,
+                        versionId: version,
+                        author: versionContent.author
+                    }
+                });
+            }
+
             delMsgItemVersion(itemId, version, autoSwitch);
             renewUpdatedTimestamp();
-        }
+        },
+
+        // 消息更新函数
+        updateMessage: (index: number, newContent: string) => {
+            if (index < 0 || index >= messages().length) return;
+            const item = messages()[index];
+            if (item.type !== 'message') return;
+
+            const content = item.message.content;
+            let { text } = adaptIMessageContentGetter(content);
+            let contextText = '';
+
+            // 处理上下文切片
+            if (item.userPromptSlice) {
+                const [beg] = item.userPromptSlice;
+                contextText = text.slice(0, beg);
+            }
+
+            const newText = contextText + newContent;
+
+            batch(() => {
+                if (Array.isArray(content)) {
+                    // 处理数组类型内容（包含图片等）
+                    const idx = content.findIndex(item => item.type === 'text');
+                    if (idx !== -1) {
+                        const updatedContent = [...content];
+                        updatedContent[idx] = { ...updatedContent[idx], text: newText };
+                        messages.update(index, 'message', 'content', updatedContent);
+                    }
+                } else if (typeof content === 'string') {
+                    // 处理字符串类型内容
+                    messages.update(index, 'message', 'content', newText);
+                }
+
+                // 更新 userPromptSlice
+                if (contextText && contextText.length > 0) {
+                    const contextLength = contextText.length;
+                    messages.update(index, 'userPromptSlice', [contextLength, contextLength + newContent.length]);
+                }
+
+                // 如果是多版本消息，同时更新当前版本
+                if (isMsgItemWithMultiVersion(item)) {
+                    messages.update(index, 'versions', item.currentVersion, 'content', newText);
+                }
+            });
+
+            renewUpdatedTimestamp();
+        },
+
+        // 消息删除函数
+        deleteMessage: (index: number) => {
+            if (index < 0 || index >= messages().length) return;
+            if (loading()) return;
+
+            const item = messages()[index];
+            if (item.type !== 'message') return;
+
+            // 记录消息删除到历史
+            const content = typeof item.message.content === 'string'
+                ? item.message.content
+                : item.message.content[0]?.text || '多媒体消息';
+
+            deleteHistory.addRecord({
+                type: 'message',
+                sessionId: sessionId(),
+                sessionTitle: title(),
+                content: content,
+                timestamp: item.timestamp || Date.now(),
+                author: item.author,
+                totalVersions: item.versions ? Object.keys(item.versions).length : 1,
+                originalItem: {
+                    id: item.id,
+                    message: item.message,
+                    currentVersion: item.currentVersion,
+                    versions: item.versions,
+                    context: item.context,
+                    userPromptSlice: item.userPromptSlice,
+                    token: item.token,
+                    usage: item.usage,
+                    time: item.time,
+                    author: item.author,
+                    timestamp: item.timestamp,
+                    title: item.title,
+                    attachedItems: item.attachedItems,
+                    attachedChars: item.attachedChars
+                },
+                extra: {
+                    messageId: item.id,
+                    author: item.author
+                }
+            });
+
+            // 执行删除操作
+            messages.update((oldList: IChatSessionMsgItem[]) => {
+                return oldList.filter((i) => i.id !== item.id);
+            });
+
+            renewUpdatedTimestamp();
+        },
+
+        // 暴露删除历史功能
+        deleteHistory
     }
     return hooks;
 }

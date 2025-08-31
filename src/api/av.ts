@@ -146,6 +146,7 @@ export const setAttributeViewBlockAttr = async (
         avID: avID,
         keyID: keyID,
         rowID: rowID,
+        itemID: rowID,  //https://github.com/siyuan-note/siyuan/issues/15727
         value: value
     });
     return result.data;

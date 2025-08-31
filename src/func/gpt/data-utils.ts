@@ -15,7 +15,7 @@ import { formatSingleItem } from "./persistence";
  * @param content 
  * @returns 
  */
-export const adaptIMessageContentGetter = (content: IMessage['content']) => {
+export const adaptIMessageContentGetter = (content: TMessageContent) => {
     if (typeof content === 'string') {
         return {
             'text': content,
@@ -30,12 +30,12 @@ export const adaptIMessageContentGetter = (content: IMessage['content']) => {
 }
 
 
-export const adaptIMessageContentSetter = (content: IMessage['content'], text: string) => {
+export const adaptIMessageContentSetter = (content: TMessageContent, text: string) => {
     if (typeof content === 'string') {
         return text;
     }
 
-    const newContent: IMessage['content'] = content.map((item) => {
+    const newContent: TMessageContent = content.map((item) => {
         if (item.type === 'text') {
             return { ...item, text: text };
         }

@@ -11,7 +11,8 @@ import { toggleDisable, toggleEnable } from "./auto-sync";
 export const config = {
     AutoSyncAfterLongWait: false,
     WAIT_INTERVAL_HOURS: 4,
-    EnableCtrlSFixTab: true
+    EnableCtrlSFixTab: true,
+    zoom: 1
 }
 
 // Optional: Declare simple module config
@@ -53,6 +54,21 @@ export const declareModuleConfig = {
             set: (value: boolean) => {
                 config.EnableCtrlSFixTab = value;
             }
+        },
+        {
+            key: 'IFrameZoom',
+            title: 'IFrame 缩放',
+            description: '设置 IFrame 缩放比例',
+            type: 'number',
+            number: {
+                min: 0.5,
+                max: 3,
+                step: 0.1
+            },
+            get: () => config.zoom,
+            set: (value: number) => {
+                config.zoom = value;
+            }
         }
     ] as IConfigItem<any>[],
     load: (itemValues?: Record<string, any>) => {
@@ -64,6 +80,9 @@ export const declareModuleConfig = {
         }
         if (itemValues?.EnableCtrlSHandler !== undefined) {
             config.EnableCtrlSFixTab = itemValues.EnableCtrlSHandler;
+        }
+        if (itemValues?.IFrameZoom !== undefined) {
+            config.zoom = parseFloat(itemValues.IFrameZoom);
         }
     }
 };

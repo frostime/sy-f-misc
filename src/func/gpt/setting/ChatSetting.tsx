@@ -132,7 +132,7 @@ const ChatSessionSetting = (props: {
                     slider={{
                         min: 0,
                         max: 2,
-                        step: 0.1
+                        step: 0.05
                     }}
                 />
             </Form.Wrap>
@@ -185,7 +185,7 @@ const ChatSessionSetting = (props: {
                     number={{
                         min: -2,
                         max: 2,
-                        step: 0.1
+                        step: 0.05
                     }}
                 />
             </Form.Wrap>
@@ -203,7 +203,7 @@ const ChatSessionSetting = (props: {
                     number={{
                         min: -2,
                         max: 2,
-                        step: 0.1
+                        step: 0.05
                     }}
                 />
             </Form.Wrap>
