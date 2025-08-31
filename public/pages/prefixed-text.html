@@ -8,10 +8,11 @@
     <style>
         :root {
             --border-color: #eef2f7;
+            --font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft Yahei", "Hiragino Sans GB", "Source Han Sans SC", sans-serif, emojis;
         }
 
         body {
-            font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft Yahei", "Hiragino Sans GB", "Source Han Sans SC", sans-serif, emojis;
+            font-family: var(--font-family);
             margin: 0;
             padding: 20px;
             background-color: #f4f7f9;
@@ -76,6 +77,7 @@
             resize: vertical;
             box-sizing: border-box;
             margin-bottom: 10px;
+            font-family: var(--font-family);
         }
 
         .button-group {
@@ -276,7 +278,7 @@
                 <button id="load-btn">加载树 (JSON)</button>
             </div>
             <p style="font-size: 12px; color: #666;">
-                <strong>使用说明 (v3):</strong><br>
+                <strong>使用说明:</strong><br>
                 1. 粘贴一段完整文本后点击“添加”。<br>
                 2. 树会自动识别公共部分并拆分，节点后显示字数。<br>
                 3. 点击树节点，在右侧查看详情。<br>
