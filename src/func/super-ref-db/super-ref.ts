@@ -21,10 +21,10 @@ const queryBacklinks = async (doc: DocumentId, limit: number = 999) => {
     return backlinks.filter(block => block.type !== 'query_embed');
 }
 
-export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
+export const createBlankSuperRefDatabase = async (doc: DocumentId, collectMessage: (text: string, type?: 'info' | 'error') => void = (text: string) => showMessage(text, 3000, 'info')) => {
     const document = await getBlockByID(doc);
     if (!document) {
-        showMessage('无法找到对应文档', 3000, 'error');
+        collectMessage('无法找到对应文档', 'error');
         return;
     }
     const existed = await searchAttr('custom-super-ref-db', doc, '=');
@@ -32,7 +32,7 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId) => {
         if (existed.length == 1) {
             return;
         } else {
-            showMessage('注意! 文档绑定了多个超级引用数据库!', 3000, 'error');
+            collectMessage('注意! 文档绑定了多个超级引用数据库!', 'error');
             return;
         }
     }
@@ -127,6 +127,7 @@ const searchBlocksWithRedirect = async (
  * @param input - 输入参数对象
  * @param input.doc - 文档ID
  * @param input.database - 可选的数据库对象, 包含 block 和 av ID
+ * @param input.collectMessage - 可选的消息收集函数
  * @returns - 无返回值
  */
 export const syncDatabaseFromBacklinks = async (input: {
@@ -137,10 +138,12 @@ export const syncDatabaseFromBacklinks = async (input: {
     },
     redirectStrategy?: 'none' | 'fb2p';
     removeOrphanRows?: 'remove' | 'no' | 'ask';
+    collectMessage?: (text: string, type?: 'info' | 'error') => void;
 }) => {
     const {
         redirectStrategy = 'fb2p',
-        removeOrphanRows = 'ask'
+        removeOrphanRows = 'ask',
+        collectMessage = (text: string) => showMessage(text, 3000, 'info')
     } = input;
 
     // Search for backlinks with redirection
@@ -163,6 +166,7 @@ export const syncDatabaseFromBacklinks = async (input: {
         database,
         newBlocks: refs,
         redirectMap,
-        removeOrphanRows
+        removeOrphanRows,
+        collectMessage
     });
 }

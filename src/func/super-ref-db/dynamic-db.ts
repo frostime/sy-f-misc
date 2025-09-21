@@ -161,14 +161,15 @@ ${configs.useVarInDynamicDb === true ? `
  * 
  * @param blockId - ID of the database block
  * @param avId - ID of the attribute view
+ * @param collectMessage - Optional message collector function
  * @returns - Promise resolving to boolean indicating success
  */
-export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId): Promise<boolean> => {
+export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId, collectMessage: (text: string, type?: 'info' | 'error') => void = (text: string) => showMessage(text, 3000, 'info')): Promise<boolean> => {
     try {
         // Check if this is a dynamic database
         const attrs = await getBlockAttrs(blockId);
         if (!attrs || !attrs[DYNAMIC_DB_ATTR]) {
-            showMessage('不是动态数据库', 3000, 'error');
+            collectMessage('不是动态数据库', 'error');
             return false;
         }
 
@@ -184,7 +185,7 @@ export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId): Pr
         // Execute the query
         const blocks = await executeQuery(query);
         if (!blocks || blocks.length === 0) {
-            showMessage('查询没有返回结果', 3000, 'info');
+            collectMessage('查询没有返回结果');
             return true;
         }
 
@@ -197,10 +198,11 @@ export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId): Pr
             newBlocks: blocks,
             redirectMap,
             removeOrphanRows: configs.orphanOfDynamicDb,
-            askRemovePrompt: '动态数据库'
+            askRemovePrompt: '动态数据库',
+            collectMessage
         });
 
-        showMessage(`更新成功: 找到 ${blocks.length} 个块`, 3000, 'info');
+        collectMessage(`更新成功: 找到 ${blocks.length} 个块`);
         return true;
     } catch (error) {
         console.error('更新动态数据库时出错:', error);

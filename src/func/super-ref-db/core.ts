@@ -112,6 +112,7 @@ const calculateDiff = async (
  * @param input.refs - Block references to sync to the database
  * @param input.redirectMap - Redirection map for blocks
  * @param input.removeOrphanRows - Strategy for handling orphan rows
+ * @param input.collectMessage - Optional message collector function
  * @returns - Void
  */
 export const syncDatabaseFromSearchResults = async (input: {
@@ -122,14 +123,16 @@ export const syncDatabaseFromSearchResults = async (input: {
     newBlocks: Block[] | BlockId[],
     redirectMap?: RedirectMap,
     removeOrphanRows?: OrphanRowStrategy,
-    askRemovePrompt?: 'SuperRef' | '动态数据库'
+    askRemovePrompt?: 'SuperRef' | '动态数据库',
+    collectMessage?: (text: string, type?: 'info' | 'error') => void
 }) => {
     const {
         database,
         newBlocks,
         redirectMap,
         removeOrphanRows = 'ask',
-        askRemovePrompt = 'SuperRef'
+        askRemovePrompt = 'SuperRef',
+        collectMessage = (text: string) => showMessage(text, 3000, 'info')
     } = input;
 
     const data = await getAttributeViewPrimaryKeyValues(database.av);
@@ -170,7 +173,7 @@ export const syncDatabaseFromSearchResults = async (input: {
         if (rowsToRemove.length === 0) return;
 
         if (removeOrphanRows === 'no') {
-            showMessage(`保留了 ${rowsToRemove.length} 个孤立条目`, 3000, 'info');
+            collectMessage(`保留了 ${rowsToRemove.length} 个孤立条目`);
         }
 
         else if (removeOrphanRows === 'ask') {
@@ -195,7 +198,7 @@ ${rowsToRemove.map((row, index) => `${index + 1}. ((${row.blockID} '${row.block.
         }
 
         else if (removeOrphanRows === 'remove') {
-            showMessage(`移除 ${rowsToRemove.length} 个孤立条目`, 3000, 'info');
+            collectMessage(`移除 ${rowsToRemove.length} 个孤立条目`);
             await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
         }
     }

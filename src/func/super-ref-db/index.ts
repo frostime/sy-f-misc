@@ -11,6 +11,7 @@ import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 import { matchIDFormat, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { getAvIdFromBlockId } from "@/api/av";
+import { useCollectedMessages } from "@/libs";
 import { configs } from "./core";
 import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks } from "./super-ref";
 import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR, addRowsToDatabaseFromQuery } from "./dynamic-db";
@@ -262,39 +263,44 @@ export const load = () => {
 
     let d4 = () => { };
     if (configs.autoRefreshSuperRef || configs.autoRefreshDynamicDb) {
-        d4 = plugin.registerEventbusHandler('loaded-protyle-static', (details) => {
+        d4 = plugin.registerEventbusHandler('loaded-protyle-static', async (details) => {
             const { protyle } = details;
+            const hook = useCollectedMessages();
+
+            // 处理 SuperRef 数据库自动更新
             if (configs.autoRefreshSuperRef) {
                 const db = protyle.element.querySelectorAll('[data-type="NodeAttributeView"][custom-super-ref-db]');
                 if (db?.length > 0) {
-                    showMessage('自动更新 SuperRef 数据库...', 3000, 'info');
-                    db.forEach(async (dbElement) => {
+                    hook.collect('自动更新 SuperRef 数据库...');
+                    for (const dbElement of db) {
                         const bindDocId = dbElement.getAttribute('custom-super-ref-db');
-                        if (!bindDocId) return;
+                        if (!bindDocId) continue;
                         await syncDatabaseFromBacklinks({
                             doc: bindDocId,
                             removeOrphanRows: configs.orphanOfSuperRef,
-                            redirectStrategy: redirectStrategy()
+                            redirectStrategy: redirectStrategy(),
+                            collectMessage: hook.collect
                         });
-                    });
+                    }
                 }
             }
+
+            // 处理动态数据库自动更新
             if (configs.autoRefreshDynamicDb) {
                 const db = protyle.element.querySelectorAll(`[data-type="NodeAttributeView"][${DYNAMIC_DB_ATTR}]`);
                 if (db?.length > 0) {
-                    showMessage('自动更新动态数据库...', 3000, 'info');
-                    db.forEach(async (dbElement) => {
+                    hook.collect('自动更新动态数据库...');
+                    for (const dbElement of db) {
                         const id = dbElement.getAttribute('data-node-id');
-                        if (!id) return;
+                        if (!id) continue;
                         const avId = await getAvIdFromBlockId(id);
-                        if (!avId) {
-                            // showMessage('无法找到数据库视图ID', 3000, 'error');
-                            return;
-                        }
-                        await updateDynamicDatabase(id, avId);
-                    });
+                        if (!avId) continue;
+                        await updateDynamicDatabase(id, avId, hook.collect);
+                    }
                 }
             }
+
+            hook.show();
         });
     }
 
