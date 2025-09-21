@@ -34,15 +34,13 @@ const exportDialog = (md: string, title: string) => {
         <span style="font-weight: 500; flex: 1;">${title}</span>
         <button class="b3-button b3-button--text">Download</button>
     </div>
-    <textarea class="b3-text-field fn__block" style="font-size: 18px; resize: none; flex: 1;" spellcheck="false">${md}</textarea>
+    <textarea id="textContent" class="b3-text-field fn__block" style="font-size: 18px; resize: none; flex: 1;" spellcheck="false"></textarea>
     </div>
     `;
-    const ele = html2ele(html);
+    const ele = html2ele(html) as HTMLElement;
 
     const download = () => {
-        let text = ele.querySelector('textarea')?.value;
-        if (!text) return;
-        const blob = new Blob([text], { type: 'text/markdown' });
+        const blob = new Blob([md], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -52,6 +50,8 @@ const exportDialog = (md: string, title: string) => {
     }
 
     ele.querySelector('button')?.addEventListener('click', download);
+    //@ts-ignore
+    ele.querySelector('#textContent')!.value = md;
 
     simpleDialog({
         title: title,
@@ -120,8 +120,9 @@ export const load = () => {
                 // let md = await exportMdContent(root_id, {
                 //     yfm: false
                 // });
-                const docBlock = await getBlockByID(root_id);
                 let md = await getMarkdown(root_id);
+                // console.log(md);
+                const docBlock = await getBlockByID(root_id);
                 exportDialog(md, docBlock.hpath.split('/').pop() || 'Markdown');
             }
         });

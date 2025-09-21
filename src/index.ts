@@ -250,7 +250,8 @@ export default class FMiscPlugin extends Plugin {
                 label: '重载',
                 icon: 'iconRefresh',
                 click: () => {
-                    window.location.reload();
+                    // window.location.reload();
+                    fetch('/api/ui/reloadUI', { method: 'POST' });
                 }
             });
             menu.addItem({
