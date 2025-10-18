@@ -78,12 +78,16 @@ const createEmptyFileObject = (fname: string): File => {
 };
 
 
+let USE_DEFINED_FILES = {};
+
 const useBlankFile = async (fname: string): Promise<File | null> => {
     const blankFiles = {
         'docx': `/public/blank-files/blank-word.docx`,
         'xlsx': `/public/blank-files/blank-excel.xlsx`,
         'pptx': `/public/blank-files/blank-ppt.pptx`,
-    }
+        'prg': `/public/blank-files/blank-prg.prg`,
+        ...USE_DEFINED_FILES
+    };
     const ext = fname.split('.').pop() || '';
     if (!blankFiles[ext]) return null;
 
@@ -153,7 +157,7 @@ const addNewEmptyFile = async (fname: string, addId: boolean = true) => {
     };
 }
 
-let PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'js'];
+let PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'js', ...(Object.keys(USE_DEFINED_FILES))];
 
 let PredefinedPaths = ['Markdown', 'Office'];
 
@@ -674,6 +678,18 @@ let disposers = [];
 
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
+
+    try {
+        const INDEX_FILE = '/public/blank-files/index.json';
+        fetch(INDEX_FILE).then(async (res) => {
+            if (!res.ok) {
+                return;
+            }
+            USE_DEFINED_FILES = await res.json();
+        });
+    } catch (error) {
+        console.warn('加载预定义空白文件索引失败', error);
+    }
 
     const slash = {
         filter: ['ni', '新建', 'new'],

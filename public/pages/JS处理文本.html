@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本与JS代码处理工具</title>
+    <style>
+        body {
+            font-family: "Harmonia Sans SC", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 25px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-family: 'Harmonia Sans SC', Courier, monospace;
+            font-size: 16px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        #text-input {
+            height: 150px;
+        }
+
+        #js-code-input {
+            height: 200px;
+        }
+
+        .code-note {
+            font-size: 12px;
+            color: #777;
+            margin-top: 5px;
+        }
+
+        .run-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #3498db;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .run-button:hover {
+            background-color: #2980b9;
+        }
+
+        .output-container {
+            margin-top: 25px;
+        }
+
+        #output-area {
+            width: 100%;
+            min-height: 100px;
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #bdc3c7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            box-sizing: border-box;
+            font-family: 'Harmonia Sans SC', Courier, monospace;
+            color: #2c3e50;
+        }
+
+        .output-error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .warning {
+            background-color: #fffbe6;
+            border: 1px solid #ffe58f;
+            color: #fa8c16;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>文本与JS代码处理工具</h1>
+
+        <!-- 文本输入区域 -->
+        <div class="input-group">
+            <label for="text-input">输入文本</label>
+            <textarea id="text-input" placeholder="在这里输入需要处理的文本..."></textarea>
+        </div>
+
+        <!-- JS 代码输入区域 -->
+        <div class="input-group">
+            <label for="js-code-input">输入JS代码</label>
+            <textarea id="js-code-input" spellcheck="false" placeholder="// 使用 'textInput' 变量访问上方文本。
+// 使用 print() 或 console.log() 函数输出内容。
+// 示例:
+const lines = textInput.split('\n');
+for (let i = 0; i < lines.length; i++) {
+  if(lines[i].trim() !== '') {
+    print(`第 ${i + 1} 行内容: ${lines[i]}`);
+  }
+}"></textarea>
+            <p class="code-note">在代码中，使用 <code>textInput</code> 变量获取文本，使用 <code>print()</code> 或
+                <code>console.log()</code> 将内容输出到下方结果区。</p>
+        </div>
+
+        <!-- 运行按钮 -->
+        <button id="run-button" class="run-button">运行代码</button>
+
+        <!-- 输出区域 -->
+        <div class="output-container">
+            <label for="output-area">处理结果</label>
+            <pre id="output-area"></pre>
+        </div>
+
+        <!-- 安全警告 -->
+        <div class="warning">
+            <strong>安全警告：</strong>请不要运行任何来源不明或您不理解的代码。恶意代码可能会对您的浏览器造成风险。
+        </div>
+    </div>
+
+    <script>
+        // 获取页面上的 HTML 元素
+        const textInputArea = document.getElementById('text-input');
+        const jsCodeInputArea = document.getElementById('js-code-input');
+        const runButton = document.getElementById('run-button');
+        const outputArea = document.getElementById('output-area');
+
+        // 为“运行代码”按钮添加点击事件监听器
+        runButton.addEventListener('click', () => {
+            const textInputValue = textInputArea.value;
+            const userCode = jsCodeInputArea.value;
+
+            // 清空上一次的输出结果
+            outputArea.textContent = '';
+            outputArea.classList.remove('output-error');
+
+            // 用于收集所有打印内容的数组
+            const outputLines = [];
+
+            // 辅助函数，用于将不同类型的参数格式化为字符串
+            const formatArgument = (arg) => {
+                if (arg === null) return 'null';
+                if (arg === undefined) return 'undefined';
+                if (typeof arg === 'object') {
+                    try {
+                        // 美化输出JSON
+                        return JSON.stringify(arg, null, 2);
+                    } catch (e) {
+                        return '[Object]';
+                    }
+                }
+                return String(arg);
+            };
+
+            // 创建一个自定义的 print 函数
+            const customPrint = (...args) => {
+                const line = args.map(formatArgument).join(' ');
+                outputLines.push(line);
+            };
+
+            // 创建一个自定义的 console 对象，覆盖 log 方法
+            const customConsole = {
+                log: customPrint,
+                // 您也可以覆盖其他 console 方法，如 error, warn 等
+                error: (...args) => {
+                    const line = '[ERROR] ' + args.map(formatArgument).join(' ');
+                    outputLines.push(line);
+                },
+                warn: (...args) => {
+                    const line = '[WARN] ' + args.map(formatArgument).join(' ');
+                    outputLines.push(line);
+                }
+            };
+
+            try {
+                // 创建一个函数，并将我们的自定义 print 和 console作为参数注入进去。
+                // 这样，用户代码中的 'print' 和 'console' 就会指向我们定义好的版本，
+                // 而不会影响全局的 console 对象。
+                const userFunction = new Function('textInput', 'print', 'console', userCode);
+
+                // 执行用户代码
+                userFunction(textInputValue, customPrint, customConsole);
+
+                // 将收集到的所有行合并，并显示在输出区域
+                if (outputLines.length > 0) {
+                    outputArea.textContent = outputLines.join('\n');
+                } else {
+                    outputArea.textContent = '代码执行完毕，没有内容打印到输出区。';
+                }
+
+            } catch (error) {
+                // 捕获并显示代码执行期间的错误
+                console.error('执行用户代码时出错:', error);
+                outputArea.textContent = `运行时错误：\n${error.name}: ${error.message}`;
+                outputArea.classList.add('output-error');
+            }
+        });
+    </script>
+
+</body>
+
+</html>

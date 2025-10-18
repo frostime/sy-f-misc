@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>dblp Multi BibTeX Fetcher</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --card: #f7f8fa;
+            --muted: #5b6470;
+            --fg: #1a1d21;
+            --accent: #2563eb;
+            --ok: #22c55e;
+            --warn: #f59e0b;
+            --err: #ef4444;
+        }
+
+        [data-theme="dark"] {
+            --bg: #0b0d10;
+            --card: #12161b;
+            --muted: #9aa4af;
+            --fg: #e8eef5;
+            --accent: #7aa2f7;
+            --ok: #22c55e;
+            --warn: #f59e0b;
+            --err: #ef4444;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            font: 17px/1.6 "Harmonia Sans SC", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            transition: background .3s, color .3s;
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            font-size: 26px;
+            margin: 0 0 16px;
+            letter-spacing: .2px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .theme-toggle {
+            background: var(--accent);
+            border: none;
+            color: #fff;
+            border-radius: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid #ccc;
+            border-radius: 16px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, .08);
+            padding: 18px;
+            transition: background .3s, border .3s;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 220px;
+            resize: vertical;
+            box-sizing: border-box;
+            background: #fdfdfd;
+            color: var(--fg);
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            padding: 12px 14px;
+            font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        [data-theme="dark"] textarea {
+            background: #0f1318;
+            border-color: #222934;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .row>* {
+            margin-top: 10px;
+        }
+
+        .btn {
+            background: #e5e7eb;
+            color: var(--fg);
+            border: 1px solid #ccc;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            filter: brightness(0.95);
+        }
+
+        [data-theme="dark"] .btn {
+            background: #1a2332;
+            border-color: #2a3445;
+        }
+
+        .btn:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border-color: transparent;
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .progress {
+            height: 10px;
+            background: #e5e7eb;
+            border: 1px solid #ccc;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        [data-theme="dark"] .progress {
+            background: #0f1318;
+            border-color: #222934;
+        }
+
+        .bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--ok));
+            transition: width .25s ease;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .item {
+            background: #fdfdfd;
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        [data-theme="dark"] .item {
+            background: #0f1318;
+            border-color: #1b2230;
+        }
+
+        .item h3 {
+            margin: 0 0 6px;
+            font-size: 14px;
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            display: inline-block;
+            margin-left: 8px;
+            border: 1px solid #ccc;
+        }
+
+        .ok {
+            color: var(--ok);
+            border-color: var(--ok);
+        }
+
+        .warn {
+            color: var(--warn);
+            border-color: var(--warn);
+        }
+
+        .err {
+            color: var(--err);
+            border-color: var(--err);
+        }
+
+        details {
+            margin-top: 8px;
+        }
+
+        pre {
+            background: #f3f4f6;
+            color: var(--fg);
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 10px;
+            overflow: auto;
+            max-height: 260px;
+        }
+
+        [data-theme="dark"] pre {
+            background: #0b0f14;
+            border-color: #1b2230;
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12px;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .right {
+            margin-left: auto;
+        }
+
+        .pill {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #f3f4f6;
+            border: 1px solid #ccc;
+        }
+
+        [data-theme="dark"] .pill {
+            background: #0f1724;
+            border-color: #2a3445;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <h1>dblp Multi BibTeX Fetcher <button class="theme-toggle" id="themeToggle">Switch Theme</button></h1>
+        <div class="card">
+            <p>Paste multiple paper titles or DOIs (one per line). The app will search dblp, pick the best match for
+                each, and
+                fetch BibTeX.</p>
+            <textarea id="input"
+                placeholder="Example:\nAttention Is All You Need\nDeep Residual Learning for Image Recognition\n10.1145/3295222.3295349"></textarea>
+            <div class="row">
+                <label class="pill">Pool size: <input id="limit" type="number" min="1" max="1000" value="10"
+                        style="width:64px; margin-left:6px; background:#fff; border:1px solid #ccc; color:var(--fg); border-radius:8px; padding:4px 6px;" /></label>
+                <label class="pill"><input id="exact" type="checkbox" /> Exact title match required</label>
+                <label class="pill"><input id="customKey" type="checkbox" checked /> Generate readable citekeys</label>
+                <span class="right pill" id="summary">Ready</span>
+            </div>
+            <div class="row">
+                <button id="run" class="btn btn-primary">Fetch BibTeX</button>
+                <button id="copyAll" class="btn" disabled>Copy All</button>
+                <button id="downloadAll" class="btn" disabled>Download .bib</button>
+                <button id="clear" class="btn">Clear Results</button>
+            </div>
+            <div class="progress" style="margin-top:12px;">
+                <div class="bar" id="bar"></div>
+            </div>
+            <div class="grid" id="grid"></div>
+        </div>
+    </div>
+    <script>
+        const themeToggle = document.getElementById('themeToggle');
+        themeToggle.addEventListener('click', () => {
+            const isDark = document.body.dataset.theme === 'dark';
+            document.body.dataset.theme = isDark ? 'light' : 'dark';
+            themeToggle.textContent = isDark ? 'Switch to Dark' : 'Switch to Light';
+        });
+        document.body.dataset.theme = 'light';
+    </script>
+
+    <script>
+        const DBLP_SEARCH = "https://dblp.org/search/publ/api";
+        const DBLP_REC = "https://dblp.org/rec";
+
+        const el = (sel) => document.querySelector(sel);
+        const input = el('#input');
+        const limitEl = el('#limit');
+        const exactEl = el('#exact');
+        const customKeyEl = el('#customKey');
+        const runBtn = el('#run');
+        const copyAllBtn = el('#copyAll');
+        const downloadAllBtn = el('#downloadAll');
+        const clearBtn = el('#clear');
+        const grid = el('#grid');
+        const bar = el('#bar');
+        const summary = el('#summary');
+
+        clearBtn.addEventListener('click', () => { grid.innerHTML = ''; bar.style.width = '0%'; summary.textContent = 'Ready'; updateExportButtons(); });
+
+        runBtn.addEventListener('click', run);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run(); });
+
+        copyAllBtn.addEventListener('click', () => {
+            const all = [...grid.querySelectorAll('pre[data-bib]')].map(p => p.textContent.trim()).filter(Boolean);
+            if (!all.length) return;
+            navigator.clipboard.writeText(all.join('\n\n')).then(() => toast('Copied all BibTeX to clipboard.'));
+        });
+
+        downloadAllBtn.addEventListener('click', () => {
+            const all = [...grid.querySelectorAll('pre[data-bib]')].map(p => p.textContent.trim()).filter(Boolean);
+            if (!all.length) return;
+            const blob = new Blob([all.join('\n\n') + '\n'], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'references.bib';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+
+        function toast(msg) { summary.textContent = msg; }
+        function updateExportButtons() {
+            const any = grid.querySelector('pre[data-bib]');
+            copyAllBtn.disabled = !any; downloadAllBtn.disabled = !any;
+        }
+
+        async function run() {
+            const lines = input.value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+            const unique = [...new Set(lines)];
+            if (!unique.length) { toast('Input is empty.'); return; }
+
+            const h = Math.max(1, Math.min(1000, Number(limitEl.value) || 10));
+            const requireExact = !!exactEl.checked;
+            const useCustomKey = !!customKeyEl.checked;
+
+            runBtn.disabled = true; bar.style.width = '0%'; grid.innerHTML = ''; updateExportButtons();
+
+            const total = unique.length; let done = 0; let okCount = 0, errCount = 0;
+            toast(`Processing ${total} entr${total > 1 ? 'ies' : 'y'}...`);
+
+            for (const q of unique) {
+                renderItem(q);
+            }
+
+            // sequential with small concurrency window to be polite to dblp
+            const CONCURRENCY = 4;
+            const tasks = unique.map(q => () => processOne(q, { h, requireExact, useCustomKey }));
+            await pool(tasks, CONCURRENCY, () => {
+                done++; bar.style.width = ((done / total) * 100).toFixed(1) + '%';
+                summary.textContent = `Done ${done}/${total} • OK ${okCount} • Failed ${errCount}`;
+            });
+
+            function renderItem(q) {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.id = idFor(q);
+                div.innerHTML = `
+        <h3>${escapeHtml(q)}<span class="status warn">waiting</span></h3>
+        <div class="meta">—</div>
+        <details><summary>BibTeX</summary><pre><code>Pending...</code></pre></details>
+      `;
+                grid.appendChild(div);
+            }
+
+            async function processOne(q, opts) {
+                const card = el('#' + CSS.escape(idFor(q)));
+                const status = card.querySelector('.status');
+                const meta = card.querySelector('.meta');
+                const pre = card.querySelector('pre');
+
+                try {
+                    status.textContent = 'searching'; status.className = 'status warn';
+                    const hits = await searchDblp(q, opts.h);
+                    if (!hits.length) { throw new Error('no results'); }
+                    const pick = opts.requireExact ? exactSelector(hits, q) : defaultSelector(hits, q);
+                    if (!pick || !pick.key) { throw new Error('no acceptable match'); }
+
+                    status.textContent = 'fetching bib';
+                    const bib = await fetchBibtexByKey(pick.key);
+
+                    // Generate custom citekey if option is enabled
+                    let processedBib = bib;
+                    if (opts.useCustomKey) {
+                        const customKey = generateCitekey(pick);
+                        processedBib = replaceBibtexKey(bib, customKey);
+                    }
+
+                    meta.innerHTML = renderMeta(pick);
+                    pre.textContent = processedBib; pre.setAttribute('data-bib', '1');
+                    status.textContent = 'ok'; status.className = 'status ok'; okCount++;
+                } catch (err) {
+                    status.textContent = 'error'; status.className = 'status err';
+                    meta.textContent = (err && err.message) ? err.message : 'failed';
+                    pre.textContent = '// error'; errCount++;
+                } finally {
+                    updateExportButtons();
+                }
+            }
+
+            runBtn.disabled = false;
+        }
+
+        // ---------- citekey generation ----------
+        function generateCitekey(hit) {
+            // Format: FirstAuthorLastName + Year + FirstMeaningfulWord
+            // e.g., Zhang2024Beyond
+
+            const firstAuthor = hit.authors?.[0] || 'Unknown';
+            // Extract last name (handle formats like "First Last" or "Last, First")
+            let lastName = firstAuthor.trim();
+            if (lastName.includes(',')) {
+                lastName = lastName.split(',')[0].trim();
+            } else {
+                const parts = lastName.split(/\s+/);
+                lastName = parts[parts.length - 1];
+            }
+            // Remove any non-alphanumeric characters
+            lastName = lastName.replace(/[^a-zA-Z]/g, '');
+
+            const year = hit.year || 'XXXX';
+
+            // Get first meaningful word from title (skip common words)
+            const skipWords = new Set(['a', 'an', 'the', 'on', 'in', 'at', 'for', 'to', 'of', 'with', 'from', 'by', 'and', 'or']);
+            const titleWords = hit.title.split(/\s+/).filter(w => {
+                const clean = w.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                return clean.length > 2 && !skipWords.has(clean);
+            });
+            const firstWord = titleWords[0] ? titleWords[0].replace(/[^a-zA-Z]/g, '') : 'Paper';
+
+            // Capitalize first letter
+            const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
+            return capitalize(lastName) + year + capitalize(firstWord);
+        }
+
+        function replaceBibtexKey(bibtex, newKey) {
+            // Replace the citation key in BibTeX entry
+            // Match pattern like @article{OLDKEY, or @inproceedings{OLDKEY,
+            const regex = /^(@\w+\{)([^,\s]+)(,?\s*)$/m;
+            const match = bibtex.match(regex);
+
+            if (!match) {
+                // Fallback: try to find first line with @type{key,
+                const lines = bibtex.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const m = line.match(/^(@\w+\{)([^,\s]+)(,?\s*)$/);
+                    if (m) {
+                        lines[i] = m[1] + newKey + m[3];
+                        return lines.join('\n');
+                    }
+                }
+                return bibtex; // Cannot parse, return original
+            }
+
+            return bibtex.replace(regex, match[1] + newKey + match[3]);
+        }
+
+        // ---------- dblp helpers ----------
+        async function searchDblp(q, h = 10) {
+            const url = new URL(DBLP_SEARCH);
+            url.searchParams.set('q', q);
+            url.searchParams.set('h', String(h));
+            url.searchParams.set('format', 'json');
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`dblp search failed: ${res.status}`);
+            const json = await res.json();
+            const hits = json?.result?.hits?.hit ?? [];
+            const arr = Array.isArray(hits) ? hits : hits ? [hits] : [];
+            return arr.map(({ info }) => ({
+                key: info?.key || '',
+                title: stripHtml(info?.title || ''),
+                year: info?.year ? Number(info.year) : undefined,
+                authors: toAuthorArray(info),
+                venue: info?.venue || info?.booktitle || info?.journal || '',
+                type: info?.type || '',
+                url: info?.url || '',
+                doi: info?.doi || '',
+            }));
+        }
+
+        async function fetchBibtexByKey(key) {
+            const bibUrl = `${DBLP_REC}/${encodeURI(key)}.bib`;
+            const res = await fetch(bibUrl);
+            if (!res.ok) throw new Error(`dblp bib fetch failed: ${res.status}`);
+            return await res.text();
+        }
+
+        function defaultSelector(hits, q) {
+            const qn = norm(q);
+            let best = null, scoreBest = -Infinity;
+            for (const h of hits) {
+                const tn = norm(h.title);
+                let s = 0;
+                if (tn === qn) s += 100;
+                if (tn.includes(qn) || qn.includes(tn)) s += 60;
+                s += jaccard(tokens(tn), tokens(qn)) * 40;
+                if (h.doi) s += 5;
+                if (h.year) s += Math.min(10, (h.year - 1990) / 4);
+                if (s > scoreBest) { scoreBest = s; best = h; }
+            }
+            return best;
+        }
+
+        function exactSelector(hits, q) {
+            const qn = norm(q);
+            const exact = hits.find(h => norm(h.title) === qn);
+            return exact || null;
+        }
+
+        function toAuthorArray(info) {
+            const a = info?.authors?.author ?? [];
+            const arr = Array.isArray(a) ? a : [a];
+            return arr.map(x => typeof x === 'string' ? x : (x?.text ?? '')).filter(Boolean);
+        }
+
+        function norm(s) { return (s || '').toLowerCase().normalize('NFKC').replace(/\s+/g, ' ').trim(); }
+        function tokens(s) { return new Set(norm(s).split(' ').filter(Boolean)); }
+        function jaccard(aSet, bSet) { const a = [...aSet]; const b = [...bSet]; const inter = a.filter(x => bSet.has(x)).length; const union = new Set([...aSet, ...bSet]).size || 1; return inter / union; }
+        function stripHtml(s) { return (s || '').replace(/<\/?[^>]+>/g, ''); }
+        function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c])); }
+        function idFor(q) { return 'q_' + btoa(unescape(encodeURIComponent(q))).replace(/=+$/, ''); }
+
+        function renderMeta(h) {
+            const parts = [];
+            if (h.year) parts.push(String(h.year));
+            if (h.venue) parts.push(h.venue);
+            if (h.authors?.length) parts.push(h.authors.join(', '));
+            const left = parts.join(' • ');
+            const links = [];
+            if (h.url) links.push(`<a href="${h.url}" target="_blank" rel="noopener">record</a>`);
+            if (h.doi) links.push(`<a href="https://doi.org/${h.doi}" target="_blank" rel="noopener">doi</a>`);
+            return `${left} ${links.length ? (' • ' + links.join(' · ')) : ''}`;
+        }
+
+        async function pool(jobs, concurrency = 4, onOneDone) {
+            const q = jobs.slice(); let active = 0; let i = 0;
+            return new Promise((resolve) => {
+                const next = () => {
+                    if (!q.length && active === 0) return resolve();
+                    while (active < concurrency && q.length) {
+                        const job = q.shift(); active++; const idx = ++i;
+                        Promise.resolve().then(job).catch(() => { }).finally(() => { active--; onOneDone && onOneDone(idx); next(); });
+                    }
+                };
+                next();
+            });
+        }
+    </script>
+</body>
+
+</html>
