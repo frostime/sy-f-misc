@@ -972,7 +972,7 @@ const ChatSession: Component<{
                                     }}
                                     min={0}
                                     max={2}
-                                    step={0.1}
+                                    step={0.05}
                                 />
                                 <span>{config().chatOption.temperature.toFixed(1)}</span>
                             </div>

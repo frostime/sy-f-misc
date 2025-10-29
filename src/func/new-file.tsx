@@ -157,9 +157,9 @@ const addNewEmptyFile = async (fname: string, addId: boolean = true) => {
     };
 }
 
-let PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'js', ...(Object.keys(USE_DEFINED_FILES))];
+let PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'prg', 'js', ...(Object.keys(USE_DEFINED_FILES))];
 
-let PredefinedPaths = ['Markdown', 'Office'];
+let PredefinedPaths = ['Markdown', 'Office', 'Chart'];
 
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: "new-file",

@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>dblp Multi BibTeX Fetcher</title>
+    <title>Crossref Multi BibTeX Fetcher</title>
     <style>
         :root {
             --bg: #ffffff;
@@ -172,6 +172,7 @@
             border: 1px solid #ccc;
             border-radius: 12px;
             padding: 12px;
+            overflow: hidden;
         }
 
         [data-theme="dark"] .item {
@@ -182,11 +183,13 @@
         .item h3 {
             margin: 0 0 6px;
             font-size: 14px;
+            word-break: break-word;
         }
 
         .meta {
             color: var(--muted);
             font-size: 12px;
+            word-break: break-word;
         }
 
         .status {
@@ -225,6 +228,7 @@
             padding: 10px;
             overflow: auto;
             max-height: 260px;
+            word-break: break-all;
         }
 
         [data-theme="dark"] pre {
@@ -267,18 +271,18 @@
 
 <body>
     <div class="wrap">
-        <h1>dblp Multi BibTeX Fetcher <button class="theme-toggle" id="themeToggle">Switch Theme</button></h1>
+        <h1>Crossref Multi BibTeX Fetcher <button class="theme-toggle" id="themeToggle">Switch Theme</button></h1>
         <div class="card">
-            <p>Paste multiple paper titles or DOIs (one per line). The app will search dblp, pick the best match for
+            <p>Paste multiple paper titles or DOIs (one per line). The app will search Crossref, pick the best match for
                 each, and
                 fetch BibTeX.</p>
             <textarea id="input"
                 placeholder="Example:\nAttention Is All You Need\nDeep Residual Learning for Image Recognition\n10.1145/3295222.3295349"></textarea>
             <div class="row">
-                <label class="pill">Pool size: <input id="limit" type="number" min="1" max="1000" value="10"
+                <label class="pill">Search results: <input id="limit" type="number" min="1" max="20" value="5"
                         style="width:64px; margin-left:6px; background:#fff; border:1px solid #ccc; color:var(--fg); border-radius:8px; padding:4px 6px;" /></label>
                 <label class="pill"><input id="exact" type="checkbox" /> Exact title match required</label>
-                <label class="pill"><input id="customKey" type="checkbox" checked /> Generate readable citekeys</label>
+                <label class="pill"><input id="autoCitekey" type="checkbox" checked /> Auto-generate citekey</label>
                 <span class="right pill" id="summary">Ready</span>
             </div>
             <div class="row">
@@ -304,14 +308,14 @@
     </script>
 
     <script>
-        const DBLP_SEARCH = "https://dblp.org/search/publ/api";
-        const DBLP_REC = "https://dblp.org/rec";
+        // --- API endpoint changed from dblp to Crossref ---
+        const CROSSREF_API = "https://api.crossref.org/works";
 
         const el = (sel) => document.querySelector(sel);
         const input = el('#input');
         const limitEl = el('#limit');
         const exactEl = el('#exact');
-        const customKeyEl = el('#customKey');
+        const autoCitekeyEl = el('#autoCitekey');
         const runBtn = el('#run');
         const copyAllBtn = el('#copyAll');
         const downloadAllBtn = el('#downloadAll');
@@ -353,9 +357,9 @@
             const unique = [...new Set(lines)];
             if (!unique.length) { toast('Input is empty.'); return; }
 
-            const h = Math.max(1, Math.min(1000, Number(limitEl.value) || 10));
+            const h = Math.max(1, Math.min(20, Number(limitEl.value) || 5));
             const requireExact = !!exactEl.checked;
-            const useCustomKey = !!customKeyEl.checked;
+            const autoGenCitekey = !!autoCitekeyEl.checked;
 
             runBtn.disabled = true; bar.style.width = '0%'; grid.innerHTML = ''; updateExportButtons();
 
@@ -366,9 +370,8 @@
                 renderItem(q);
             }
 
-            // sequential with small concurrency window to be polite to dblp
             const CONCURRENCY = 4;
-            const tasks = unique.map(q => () => processOne(q, { h, requireExact, useCustomKey }));
+            const tasks = unique.map(q => () => processOne(q, { h, requireExact, autoGenCitekey }));
             await pool(tasks, CONCURRENCY, () => {
                 done++; bar.style.width = ((done / total) * 100).toFixed(1) + '%';
                 summary.textContent = `Done ${done}/${total} • OK ${okCount} • Failed ${errCount}`;
@@ -379,10 +382,10 @@
                 div.className = 'item';
                 div.id = idFor(q);
                 div.innerHTML = `
-        <h3>${escapeHtml(q)}<span class="status warn">waiting</span></h3>
-        <div class="meta">—</div>
-        <details><summary>BibTeX</summary><pre><code>Pending...</code></pre></details>
-      `;
+                    <h3>${escapeHtml(q)}<span class="status warn">waiting</span></h3>
+                    <div class="meta">—</div>
+                    <details open><summary>BibTeX</summary><pre><code>Pending...</code></pre></details>
+                `;
                 grid.appendChild(div);
             }
 
@@ -394,23 +397,25 @@
 
                 try {
                     status.textContent = 'searching'; status.className = 'status warn';
-                    const hits = await searchDblp(q, opts.h);
-                    if (!hits.length) { throw new Error('no results'); }
+                    const hits = await searchCrossref(q, opts.h);
+                    if (!hits.length) { throw new Error('no results from Crossref'); }
                     const pick = opts.requireExact ? exactSelector(hits, q) : defaultSelector(hits, q);
-                    if (!pick || !pick.key) { throw new Error('no acceptable match'); }
+                    if (!pick || !pick.doi) { throw new Error('no acceptable match found'); }
 
                     status.textContent = 'fetching bib';
-                    const bib = await fetchBibtexByKey(pick.key);
+                    const bibRaw = await fetchBibtexByDoi(pick.doi);
 
-                    // Generate custom citekey if option is enabled
-                    let processedBib = bib;
-                    if (opts.useCustomKey) {
-                        const customKey = generateCitekey(pick);
-                        processedBib = replaceBibtexKey(bib, customKey);
+                    let bib = bibRaw.trim();
+                    if (opts.autoGenCitekey) {
+                        const newKey = generateCiteKey(pick);
+                        bib = bib.replace(/^@\w+\{([^,]+),/, `@${pick.type}{${newKey},`);
                     }
 
+                    // Format BibTeX for better readability
+                    bib = formatBibtex(bib);
+
                     meta.innerHTML = renderMeta(pick);
-                    pre.textContent = processedBib; pre.setAttribute('data-bib', '1');
+                    pre.textContent = bib; pre.setAttribute('data-bib', '1');
                     status.textContent = 'ok'; status.className = 'status ok'; okCount++;
                 } catch (err) {
                     status.textContent = 'error'; status.className = 'status err';
@@ -424,12 +429,99 @@
             runBtn.disabled = false;
         }
 
-        // ---------- citekey generation ----------
-        function generateCitekey(hit) {
+        // ---------- Crossref helpers ----------
+
+        /**
+         * 新的 Crossref 搜索函数
+         * @param {string} q - 查询字符串 (标题或 DOI)
+         * @param {number} rows - 希望返回的结果数量
+         * @returns {Promise<Array>} - 格式化后的结果数组
+         */
+        async function searchCrossref(q, rows = 5) {
+            const url = new URL(CROSSREF_API);
+            url.searchParams.set('query.bibliographic', q);
+            url.searchParams.set('rows', String(rows));
+            // 添加 mailto 参数是 Crossref API 的推荐做法 ("polite" pool)
+            url.searchParams.set('mailto', 'user@example.com');
+
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Crossref search failed: ${res.status}`);
+            const json = await res.json();
+            const items = json?.message?.items ?? [];
+
+            // Crossref 返回的数据结构比较复杂，我们需要将其映射为我们内部使用的简单结构
+            return items.map(item => ({
+                doi: item.DOI || '',
+                title: item.title?.[0] || 'No Title',
+                year: item.created?.['date-parts']?.[0]?.[0] || undefined,
+                authors: toAuthorArray(item.author),
+                venue: item['container-title']?.[0] || '',
+                type: item.type || 'article',
+                url: item.URL || '',
+                score: item.score || 0, // Crossref 直接提供了匹配分数
+            }));
+        }
+
+        /**
+         * 新的通过 DOI 获取 BibTeX 的函数
+         * @param {string} doi - 论文的 DOI
+         * @returns {Promise<string>} - BibTeX 文本
+         */
+        async function fetchBibtexByDoi(doi) {
+            const doiUrl = `https://doi.org/${encodeURIComponent(doi)}`;
+            const res = await fetch(doiUrl, {
+                headers: {
+                    'Accept': 'application/x-bibtex'
+                }
+            });
+            if (!res.ok) throw new Error(`BibTeX fetch failed for DOI ${doi}: ${res.status}`);
+            return await res.text();
+        }
+
+        function defaultSelector(hits, q) {
+            // Crossref API 返回的结果已经按 `score` 排序，第一个通常就是最好的
+            return hits[0] || null;
+        }
+
+        function exactSelector(hits, q) {
+            const qn = norm(q);
+            const exact = hits.find(h => norm(h.title) === qn);
+            return exact || null;
+        }
+
+        function toAuthorArray(authors) {
+            if (!Array.isArray(authors)) return [];
+            return authors.map(a => `${a.given || ''} ${a.family || ''}`.trim()).filter(Boolean);
+        }
+
+        // ---------- General helpers (unchanged) ----------
+
+        function norm(s) { return (s || '').toLowerCase().normalize('NFKC').replace(/\s+/g, ' ').trim(); }
+        function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c])); }
+        function idFor(q) { return 'q_' + btoa(unescape(encodeURIComponent(q))).replace(/=+$/, ''); }
+
+        /**
+         * Format BibTeX text for better readability
+         * Adds newlines and indentation after each field
+         */
+        function formatBibtex(bib) {
+            // Replace comma+space between fields with comma+newline+indent
+            let formatted = bib
+                // Add newline after opening brace
+                .replace(/^(@\w+\{[^,]+,)\s*/, '$1\n  ')
+                // Add newline and indent after each field (field = value,)
+                .replace(/,\s*(\w+\s*=)/g, ',\n  $1')
+                // Ensure closing brace is on its own line
+                .replace(/,?\s*\}$/, '\n}');
+
+            return formatted;
+        }
+
+        function generateCiteKey(h) {
             // Format: FirstAuthorLastName + Year + FirstMeaningfulWord
             // e.g., Zhang2024Beyond
 
-            const firstAuthor = hit.authors?.[0] || 'Unknown';
+            const firstAuthor = h.authors?.[0] || 'Unknown';
             // Extract last name (handle formats like "First Last" or "Last, First")
             let lastName = firstAuthor.trim();
             if (lastName.includes(',')) {
@@ -441,11 +533,11 @@
             // Remove any non-alphanumeric characters
             lastName = lastName.replace(/[^a-zA-Z]/g, '');
 
-            const year = hit.year || 'XXXX';
+            const year = h.year || 'XXXX';
 
             // Get first meaningful word from title (skip common words)
             const skipWords = new Set(['a', 'an', 'the', 'on', 'in', 'at', 'for', 'to', 'of', 'with', 'from', 'by', 'and', 'or']);
-            const titleWords = hit.title.split(/\s+/).filter(w => {
+            const titleWords = h.title.split(/\s+/).filter(w => {
                 const clean = w.replace(/[^a-zA-Z]/g, '').toLowerCase();
                 return clean.length > 2 && !skipWords.has(clean);
             });
@@ -457,94 +549,6 @@
             return capitalize(lastName) + year + capitalize(firstWord);
         }
 
-        function replaceBibtexKey(bibtex, newKey) {
-            // Replace the citation key in BibTeX entry
-            // Match pattern like @article{OLDKEY, or @inproceedings{OLDKEY,
-            const regex = /^(@\w+\{)([^,\s]+)(,?\s*)$/m;
-            const match = bibtex.match(regex);
-
-            if (!match) {
-                // Fallback: try to find first line with @type{key,
-                const lines = bibtex.split('\n');
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    const m = line.match(/^(@\w+\{)([^,\s]+)(,?\s*)$/);
-                    if (m) {
-                        lines[i] = m[1] + newKey + m[3];
-                        return lines.join('\n');
-                    }
-                }
-                return bibtex; // Cannot parse, return original
-            }
-
-            return bibtex.replace(regex, match[1] + newKey + match[3]);
-        }
-
-        // ---------- dblp helpers ----------
-        async function searchDblp(q, h = 10) {
-            const url = new URL(DBLP_SEARCH);
-            url.searchParams.set('q', q);
-            url.searchParams.set('h', String(h));
-            url.searchParams.set('format', 'json');
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`dblp search failed: ${res.status}`);
-            const json = await res.json();
-            const hits = json?.result?.hits?.hit ?? [];
-            const arr = Array.isArray(hits) ? hits : hits ? [hits] : [];
-            return arr.map(({ info }) => ({
-                key: info?.key || '',
-                title: stripHtml(info?.title || ''),
-                year: info?.year ? Number(info.year) : undefined,
-                authors: toAuthorArray(info),
-                venue: info?.venue || info?.booktitle || info?.journal || '',
-                type: info?.type || '',
-                url: info?.url || '',
-                doi: info?.doi || '',
-            }));
-        }
-
-        async function fetchBibtexByKey(key) {
-            const bibUrl = `${DBLP_REC}/${encodeURI(key)}.bib`;
-            const res = await fetch(bibUrl);
-            if (!res.ok) throw new Error(`dblp bib fetch failed: ${res.status}`);
-            return await res.text();
-        }
-
-        function defaultSelector(hits, q) {
-            const qn = norm(q);
-            let best = null, scoreBest = -Infinity;
-            for (const h of hits) {
-                const tn = norm(h.title);
-                let s = 0;
-                if (tn === qn) s += 100;
-                if (tn.includes(qn) || qn.includes(tn)) s += 60;
-                s += jaccard(tokens(tn), tokens(qn)) * 40;
-                if (h.doi) s += 5;
-                if (h.year) s += Math.min(10, (h.year - 1990) / 4);
-                if (s > scoreBest) { scoreBest = s; best = h; }
-            }
-            return best;
-        }
-
-        function exactSelector(hits, q) {
-            const qn = norm(q);
-            const exact = hits.find(h => norm(h.title) === qn);
-            return exact || null;
-        }
-
-        function toAuthorArray(info) {
-            const a = info?.authors?.author ?? [];
-            const arr = Array.isArray(a) ? a : [a];
-            return arr.map(x => typeof x === 'string' ? x : (x?.text ?? '')).filter(Boolean);
-        }
-
-        function norm(s) { return (s || '').toLowerCase().normalize('NFKC').replace(/\s+/g, ' ').trim(); }
-        function tokens(s) { return new Set(norm(s).split(' ').filter(Boolean)); }
-        function jaccard(aSet, bSet) { const a = [...aSet]; const b = [...bSet]; const inter = a.filter(x => bSet.has(x)).length; const union = new Set([...aSet, ...bSet]).size || 1; return inter / union; }
-        function stripHtml(s) { return (s || '').replace(/<\/?[^>]+>/g, ''); }
-        function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c])); }
-        function idFor(q) { return 'q_' + btoa(unescape(encodeURIComponent(q))).replace(/=+$/, ''); }
-
         function renderMeta(h) {
             const parts = [];
             if (h.year) parts.push(String(h.year));
@@ -552,7 +556,7 @@
             if (h.authors?.length) parts.push(h.authors.join(', '));
             const left = parts.join(' • ');
             const links = [];
-            if (h.url) links.push(`<a href="${h.url}" target="_blank" rel="noopener">record</a>`);
+            if (h.url) links.push(`<a href="${h.url}" target="_blank" rel="noopener">publisher</a>`);
             if (h.doi) links.push(`<a href="https://doi.org/${h.doi}" target="_blank" rel="noopener">doi</a>`);
             return `${left} ${links.length ? (' • ' + links.join(' · ')) : ''}`;
         }
