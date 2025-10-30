@@ -24,56 +24,6 @@ const fileSize = (size: number) => {
 }
 
 /**
- * ListDir 工具：列出目录内容
- */
-const listDirTool: Tool = {
-    definition: {
-        type: 'function',
-        function: {
-            name: 'ListDir',
-            description: '列出指定目录下的文件和子目录',
-            parameters: {
-                type: 'object',
-                properties: {
-                    path: {
-                        type: 'string',
-                        description: '目录路径'
-                    }
-                },
-                required: ['path']
-            }
-        },
-        permissionLevel: ToolPermissionLevel.MODERATE,
-        requireResultApproval: true
-    },
-
-    execute: async (args: { path: string }): Promise<ToolExecuteResult> => {
-        // 解析为绝对路径
-        const dirPath = path.resolve(args.path);
-
-        // 读取目录内容
-        const items = fs.readdirSync(dirPath);
-
-        // 区分文件和目录
-        const result = items.map(item => {
-            const itemPath = path.join(dirPath, item);
-            const isDirectory = fs.statSync(itemPath).isDirectory();
-            let size = undefined;
-            if (!isDirectory) {
-                const stats = fs.statSync(itemPath);
-                size = fileSize(stats.size);
-            }
-            return  `${isDirectory ? 'dir' : 'file'}\t${item}\t${size}`;
-        });
-
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: result.join('\n')
-        };
-    }
-};
-
-/**
  * ReadFile 工具：读取文件内容
  */
 const readFileTool: Tool = {
@@ -255,12 +205,127 @@ const fileStateTool: Tool = {
 };
 
 /**
+ * TreeList 工具：树状列出目录内容
+ */
+const treeListTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'TreeList',
+            description: '树状列出目录内容，支持深度和 glob 匹配',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: {
+                        type: 'string',
+                        description: '起始目录路径'
+                    },
+                    depth: {
+                        type: 'number',
+                        description: '遍历深度，默认为 1; 设置为 -1 表示深度搜索（最大 7 层）'
+                    },
+                    globPattern: {
+                        type: 'string',
+                        description: '可选的 glob 模式，用于过滤文件和目录, 例如 *.js 或 **/*.ts'
+                    }
+                },
+                required: ['path']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.MODERATE,
+        requireResultApproval: true
+    },
+    execute: async (args: { path: string; depth?: number; globPattern?: string }): Promise<ToolExecuteResult> => {
+        const { path: startPath, depth = 1, globPattern } = args;
+        const MAX_DEPTH = 7;
+
+        // 处理深度参数：-1 表示深度搜索，使用最大深度限制
+        const effectiveDepth = depth === -1 ? MAX_DEPTH : Math.min(depth, MAX_DEPTH);
+        const resolvedPath = path.resolve(startPath);
+
+        if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `目录不存在或不是一个目录: ${resolvedPath}`
+            };
+        }
+
+        // 简单的 glob 匹配函数
+        const matchGlob = (filePath: string, pattern: string): boolean => {
+            if (!pattern) return true;
+
+            // 将 glob 模式转换为正则表达式
+            const regexPattern = pattern
+                .replace(/\./g, '\\.')  // 转义 .
+                .replace(/\*\*/g, '§§') // 临时替换 **
+                .replace(/\*/g, '[^/\\\\]*')  // * 匹配除路径分隔符外的任意字符
+                .replace(/§§/g, '.*')  // ** 匹配任意字符包括路径分隔符
+                .replace(/\?/g, '[^/\\\\]'); // ? 匹配单个字符
+
+            const regex = new RegExp(`^${regexPattern}$`, 'i');
+            return regex.test(filePath);
+        };
+
+        const listDirRecursive = (dirPath: string, currentDepth: number, prefix: string, relativePath: string = ''): string[] => {
+            if (currentDepth >= effectiveDepth) {
+                return [];
+            }
+
+            let items: string[];
+            try {
+                items = fs.readdirSync(dirPath);
+            } catch (error) {
+                return [`${prefix}└── [读取错误: ${error.message}]`];
+            }
+
+            const output: string[] = [];
+            items.forEach((item, index) => {
+                const itemPath = path.join(dirPath, item);
+                const itemRelativePath = relativePath ? `${relativePath}/${item}` : item;
+                const isLast = index === items.length - 1;
+                const newPrefix = prefix + (isLast ? '    ' : '│   ');
+                const entryPrefix = prefix + (isLast ? '└── ' : '├── ');
+
+                try {
+                    const stats = fs.statSync(itemPath);
+                    const isDirectory = stats.isDirectory();
+
+                    // 如果有 glob 模式，检查是否匹配
+                    const shouldInclude = !globPattern || matchGlob(itemRelativePath, globPattern);
+
+                    if (isDirectory) {
+                        if (shouldInclude || !globPattern) {
+                            output.push(`${entryPrefix}${item}/`);
+                        }
+                        // 继续递归，即使当前目录不匹配（因为子文件可能匹配）
+                        const subOutput = listDirRecursive(itemPath, currentDepth + 1, newPrefix, itemRelativePath);
+                        output.push(...subOutput);
+                    } else {
+                        if (shouldInclude) {
+                            const size = fileSize(stats.size);
+                            output.push(`${entryPrefix}${item} (${size})`);
+                        }
+                    }
+                } catch (error) {
+                    output.push(`${entryPrefix}${item} [访问错误]`);
+                }
+            });
+            return output;
+        };
+
+        const result = listDirRecursive(resolvedPath, 0, '', '');
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: [resolvedPath, ...result].join('\n')
+        };
+    }
+};/**
  * 文件系统工具组
  */
 export const fileSystemTools = {
     name: '文件系统工具组',
     tools: fs ? [
-        listDirTool,
+        treeListTool,
         readFileTool,
         createFileTool,
         fileStateTool,
@@ -311,7 +376,7 @@ if (fs && fileSystemTools.tools.length > 0) {
 ${drivesStr}
 
 ### 工具使用
-- ListDir: 列出目录, 用户提及本机目录结构时使用
+- TreeList: 树状列出目录结构，支持深度和 glob 匹配，显示文件大小
 - FileState: 获取特定文件元信息
 - ReadFile: 读取文本文件内容
 - CreateFile: 创建文本文件

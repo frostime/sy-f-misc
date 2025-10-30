@@ -265,7 +265,7 @@ export async function executeToolChain(
     };
 
     // 设置默认值
-    const maxRounds = options.maxRounds ?? 7;
+    const maxRounds = options.maxRounds ?? 10;
     const maxCalls = options.maxCalls ?? 10;
     const callbacks = options.callbacks || {};
     const checkToolResults = options.checkToolResults ?? false;

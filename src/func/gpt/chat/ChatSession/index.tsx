@@ -974,7 +974,7 @@ const ChatSession: Component<{
                                     max={2}
                                     step={0.05}
                                 />
-                                <span>{config().chatOption.temperature.toFixed(1)}</span>
+                                <span>{config().chatOption.temperature.toFixed(2)}</span>
                             </div>
                         ), temperatureContainer);
 
@@ -1012,7 +1012,7 @@ const ChatSession: Component<{
                         // 温度选项
                         menu.addItem({
                             icon: 'iconLight',
-                            label: '温度: ' + config().chatOption.temperature.toFixed(1),
+                            label: '温度: ' + config().chatOption.temperature.toFixed(2),
                             submenu: [
                                 {
                                     element: temperatureContainer
