@@ -132,13 +132,14 @@ export const syncDatabaseFromSearchResults = async (input: {
         redirectMap,
         removeOrphanRows = 'ask',
         askRemovePrompt = 'SuperRef',
-        collectMessage = (text: string) => showMessage(text, 3000, 'info')
+        collectMessage = (...args) => { }
     } = input;
 
     const data = await getAttributeViewPrimaryKeyValues(database.av);
     const rowBlockIds = data?.rows.values?.map(v => v.blockID) ?? [];
 
     // Calculate differences
+    // #BUG 疑似 diff 计算的 to Add 存在问题
     const diff = await calculateDiff(
         database.block,
         newBlocks,
@@ -147,6 +148,7 @@ export const syncDatabaseFromSearchResults = async (input: {
     );
 
     // Handle additions
+    // #BUG 这里似乎有些问题; 会重复添加??可能是前面的 diff 的问题
     if (diff.toAdd.length > 0) {
         // console.debug(`Add SuperRef:`, diff.toAdd);
         await addAttributeViewBlocks(database.av, database.block, diff.toAdd);

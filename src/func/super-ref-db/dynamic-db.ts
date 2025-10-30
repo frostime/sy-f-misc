@@ -164,7 +164,8 @@ ${configs.useVarInDynamicDb === true ? `
  * @param collectMessage - Optional message collector function
  * @returns - Promise resolving to boolean indicating success
  */
-export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId, collectMessage: (text: string, type?: 'info' | 'error') => void = (text: string) => showMessage(text, 3000, 'info')): Promise<boolean> => {
+export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId, collectMessage?: (text: string, type?: 'info' | 'error') => void): Promise<boolean> => {
+    collectMessage = collectMessage ?? ((...args) => { });
     try {
         // Check if this is a dynamic database
         const attrs = await getBlockAttrs(blockId);

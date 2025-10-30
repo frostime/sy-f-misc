@@ -25,7 +25,7 @@ export const getAvIdFromBlockId = async (blockId: BlockId) => {
     const block = await getBlockByID(blockId);
     // <div data-type="NodeAttributeView" data-av-id="20250208170718-qbemcfc" data-av-type="table"></div>
     const html = block.markdown;
-    console.debug(html);
+    // console.debug(html);
     const avId = html.match(/data-av-id=\"([^\"]+)\"/)?.[1];
     return avId ?? null;
 }

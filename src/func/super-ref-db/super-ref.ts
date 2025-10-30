@@ -8,7 +8,7 @@
  */
 import { searchAttr, searchBacklinks } from "@frostime/siyuan-plugin-kits";
 import { getBlockAttrs, getBlockByID, prependBlock, request, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
-import { showMessage } from "siyuan";
+// import { showMessage } from "siyuan";
 
 import { fb2p } from "@/libs";
 import { updateAttrViewName } from "@/api/av";
@@ -21,10 +21,12 @@ const queryBacklinks = async (doc: DocumentId, limit: number = 999) => {
     return backlinks.filter(block => block.type !== 'query_embed');
 }
 
-export const createBlankSuperRefDatabase = async (doc: DocumentId, collectMessage: (text: string, type?: 'info' | 'error') => void = (text: string) => showMessage(text, 3000, 'info')) => {
+export const createBlankSuperRefDatabase = async (doc: DocumentId, collectMessage: (text: string, type?: 'info' | 'error') => void) => {
     const document = await getBlockByID(doc);
     if (!document) {
-        collectMessage('无法找到对应文档', 'error');
+        if (collectMessage) {
+            collectMessage('无法找到对应文档', 'error');
+        }
         return;
     }
     const existed = await searchAttr('custom-super-ref-db', doc, '=');
@@ -32,7 +34,9 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId, collectMessag
         if (existed.length == 1) {
             return;
         } else {
-            collectMessage('注意! 文档绑定了多个超级引用数据库!', 'error');
+            if (collectMessage) {
+                collectMessage('注意! 文档绑定了多个超级引用数据库!', 'error');
+            }
             return;
         }
     }
@@ -58,7 +62,7 @@ export const createBlankSuperRefDatabase = async (doc: DocumentId, collectMessag
 
     setTimeout(async () => {
         let dbname = document.name ? `SuperRef@${document.name}` : `SuperRef@${document.content}`;
-        await syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId } });
+        await syncDatabaseFromBacklinks({ doc, database: { block: newBlockId, av: newAvId }, collectMessage });
         await updateAttrViewName({ dbName: dbname, dbBlockId: newBlockId, dvAvId: newAvId });
     }, 100);
 
@@ -138,12 +142,12 @@ export const syncDatabaseFromBacklinks = async (input: {
     },
     redirectStrategy?: 'none' | 'fb2p';
     removeOrphanRows?: 'remove' | 'no' | 'ask';
-    collectMessage?: (text: string, type?: 'info' | 'error') => void;
+    collectMessage: (text: string, type?: 'info' | 'error') => void;
 }) => {
     const {
         redirectStrategy = 'fb2p',
         removeOrphanRows = 'ask',
-        collectMessage = (text: string) => showMessage(text, 3000, 'info')
+        collectMessage
     } = input;
 
     // Search for backlinks with redirection

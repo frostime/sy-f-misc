@@ -15,6 +15,7 @@ import { useCollectedMessages } from "@/libs";
 import { configs } from "./core";
 import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks } from "./super-ref";
 import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR, addRowsToDatabaseFromQuery } from "./dynamic-db";
+import { debounce } from "@frostime/siyuan-plugin-kits";
 import "./index.css";
 
 export let name = "SuperRefDB";
@@ -145,8 +146,10 @@ export const load = () => {
         detail.menu.addItem({
             icon: 'iconDatabase',
             label: '创建SuperRef数据库',
-            click: () => {
-                createBlankSuperRefDatabase(detail.root_id);
+            click: async () => {
+                const hook = useCollectedMessages();
+                await createBlankSuperRefDatabase(detail.root_id, hook.collect);
+                hook.show();
             }
         });
         detail.menu.addItem({
@@ -178,12 +181,15 @@ export const load = () => {
             detail.menu.addItem({
                 icon: 'iconDatabase',
                 label: '更新SuperRef数据库',
-                click: () => {
-                    syncDatabaseFromBacklinks({
+                click: async () => {
+                    const hook = useCollectedMessages();
+                    await syncDatabaseFromBacklinks({
                         doc: docId,
                         removeOrphanRows: configs.orphanOfSuperRef,
-                        redirectStrategy: redirectStrategy()
+                        redirectStrategy: redirectStrategy(),
+                        collectMessage: hook.collect
                     });
+                    hook.show();
                 }
             });
             return;
@@ -201,7 +207,9 @@ export const load = () => {
                             showMessage('无法找到数据库视图ID', 3000, 'error');
                             return;
                         }
-                        await updateDynamicDatabase(block.id, avId);
+                        const hook = useCollectedMessages();
+                        await updateDynamicDatabase(block.id, avId, hook.collect);
+                        hook.show();
                     });
                 }
             });
@@ -243,27 +251,30 @@ export const load = () => {
             icon: 'iconDatabase',
             label: '绑定为SuperRef',
             click: async () => {
+                const hook = useCollectedMessages();
                 const block = await getBlockByID(dataId);
                 if (!block) return;
                 if (block.type !== 'd') return;
                 let db = await getSuperRefDb(block.id);
                 if (!db) {
-                    await createBlankSuperRefDatabase(block.id);
+                    await createBlankSuperRefDatabase(block.id, hook.collect);
                 } else {
                     await syncDatabaseFromBacklinks({
                         doc: block.id,
                         database: db,
                         removeOrphanRows: 'no', //特殊情况, 不在数据库所在的页面，就避免触发 ask 模式
-                        redirectStrategy: redirectStrategy()
+                        redirectStrategy: redirectStrategy(),
+                        collectMessage: hook.collect
                     });
                 }
+                hook.show();
             }
         });
     });
 
     let d4 = () => { };
     if (configs.autoRefreshSuperRef || configs.autoRefreshDynamicDb) {
-        d4 = plugin.registerEventbusHandler('loaded-protyle-static', async (details) => {
+        const eventhandler = async (details) => {
             const { protyle } = details;
             const hook = useCollectedMessages();
 
@@ -301,7 +312,9 @@ export const load = () => {
             }
 
             hook.show();
-        });
+        };
+        const debouncedEventHandler = debounce(eventhandler, 200);
+        d4 = plugin.registerEventbusHandler('loaded-protyle-static', debouncedEventHandler);
     }
 
     unRegister = () => {
