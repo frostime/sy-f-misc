@@ -93,7 +93,7 @@ interface IAVCellValue {
     createdAt: number;
     updatedAt: number;
     block?: {
-        id: string;
+        id: string;  // AV 绑定的块 ID
         icon: string;
         content: string;
         created: number;

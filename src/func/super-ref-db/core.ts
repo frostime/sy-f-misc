@@ -4,7 +4,8 @@ import { getBlockAttrs, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 
 import { addAttributeViewBlocks } from "./api";
 import { replaceAttrViewBlock, getAttributeViewPrimaryKeyValues, removeAttributeViewBlocks } from "@/api/av";
-import { showMessage } from "siyuan";
+import { request } from "@/api";
+// import { showMessage } from "siyuan";
 
 
 type OrphanRowStrategy = 'remove' | 'no' | 'ask';
@@ -135,11 +136,19 @@ export const syncDatabaseFromSearchResults = async (input: {
         collectMessage = (...args) => { }
     } = input;
 
-    const data = await getAttributeViewPrimaryKeyValues(database.av);
-    const rowBlockIds = data?.rows.values?.map(v => v.blockID) ?? [];
+    if (newBlocks.length >= 999) {
+        collectMessage(`警告: 当前批次的块数量超过 999，非常不建议动态更新数据库; 建议考虑拆分`, 'error');
+    }
+
+    const data = await getAttributeViewPrimaryKeyValues(database.av, "", 1, 999); //默认限制 16
+    const rowBlockIds = data?.rows.values?.map(v => v.block?.id) ?? [];
+
+    // const test = await request('/api/av/getAttributeViewKeysByAvID', {
+    //     avID: database.av
+    // });
+    // console.log('/api/av/getAttributeViewKeysByAvID', test);
 
     // Calculate differences
-    // #BUG 疑似 diff 计算的 to Add 存在问题
     const diff = await calculateDiff(
         database.block,
         newBlocks,
@@ -148,7 +157,6 @@ export const syncDatabaseFromSearchResults = async (input: {
     );
 
     // Handle additions
-    // #BUG 这里似乎有些问题; 会重复添加??可能是前面的 diff 的问题
     if (diff.toAdd.length > 0) {
         // console.debug(`Add SuperRef:`, diff.toAdd);
         await addAttributeViewBlocks(database.av, database.block, diff.toAdd);
@@ -204,4 +212,5 @@ ${rowsToRemove.map((row, index) => `${index + 1}. ((${row.blockID} '${row.block.
             await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
         }
     }
+    collectMessage(`数据库同步完成: 添加 ${diff.toAdd.length} 个，重定向 ${diff.toRedirect.length} 个，删除 ${diff.toDelete.length} 个`);
 }
