@@ -25,7 +25,7 @@ export const getAvIdFromBlockId = async (blockId: BlockId) => {
     const block = await getBlockByID(blockId);
     // <div data-type="NodeAttributeView" data-av-id="20250208170718-qbemcfc" data-av-type="table"></div>
     const html = block.markdown;
-    console.debug(html);
+    // console.debug(html);
     const avId = html.match(/data-av-id=\"([^\"]+)\"/)?.[1];
     return avId ?? null;
 }
@@ -184,12 +184,46 @@ export const addAttributeViewBlocks = async (
  * Remove blocks from an attribute view
  * @param avId Attribute view ID
  * @param blockIds Array of block IDs to remove
+ * @param dbBlockId Database block ID (for updating timestamp)
  * @returns Promise with the result
  */
-export const removeAttributeViewBlocks = async (avId: AvID, blockIds: BlockId[]) => {
-    return request('/api/av/removeAttributeViewBlocks', {
-        avID: avId,
-        srcIDs: blockIds
+export const removeAttributeViewBlocks = async (
+    avId: AvID,
+    blockIds: BlockId[],
+    dbBlockId?: BlockId
+) => {
+    const time = formatSiYuanTimestamp();
+    const doOperations: any[] = [{
+        action: "removeAttrViewBlock",
+        srcIDs: blockIds,
+        avID: avId
+    }];
+
+    // Update database block timestamp if provided
+    if (dbBlockId) {
+        doOperations.push({
+            action: "doUpdateUpdated",
+            id: dbBlockId,
+            data: time
+        });
+    }
+
+    // Note: Undo operations for removeAttrViewBlock would require 
+    // insertAttrViewBlock with previousID and srcs details,
+    // which we don't have here. For proper undo support, 
+    // consider fetching block details before removal.
+    const undoOperations: any[] = [];
+    if (dbBlockId) {
+        undoOperations.push({
+            action: "doUpdateUpdated",
+            id: dbBlockId,
+            data: time
+        });
+    }
+
+    return requestTransaction({
+        doOperations,
+        undoOperations
     });
 }
 

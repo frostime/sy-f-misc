@@ -24,14 +24,37 @@ export const useCollectedMessages = () => {
             if (messages.length === 0) return;
 
             //拆分 info error
-            const infoMessages = messages.filter(m => m.type === 'info').map(m => `• ${m.text}`);
-            const errorMessages = messages.filter(m => m.type === 'error').map(m => `• ${m.text}`);
+            const infoMessages = messages.filter(m => m.type === 'info').map(m => m.text);
+            const errorMessages = messages.filter(m => m.type === 'error').map(m => m.text);
+            
+            // 组合所有消息，按类型排序：先 info 后 error
+            const allMessages: string[] = [];
             if (infoMessages.length > 0) {
-                showMessage(infoMessages.join('<br/>'), 3000, 'info');
+                allMessages.push(...infoMessages.map(m => `• ${m}`));
             }
             if (errorMessages.length > 0) {
-                showMessage(errorMessages.join('<br/>'), 3000, 'error');
+                if (infoMessages.length > 0) {
+                    allMessages.push(''); // 添加空行分隔
+                }
+                allMessages.push(...errorMessages.map(m => `⚠️ ${m}`));
             }
+
+            // 一次性显示所有消息，根据是否有错误决定消息类型
+            const hasError = errorMessages.length > 0;
+            const messageType = hasError ? 'error' : 'info';
+            const timeout = hasError ? 5000 : 4000; // 有错误时显示更久
+            
+            showMessage(allMessages.join('<br/>'), timeout, messageType);
+        },
+        /**
+         * 获取当前收集的消息数量
+         */
+        count: () => messages.length,
+        /**
+         * 清空收集的消息
+         */
+        clear: () => {
+            messages.length = 0;
         }
     };
 };

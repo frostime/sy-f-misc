@@ -164,7 +164,8 @@ ${configs.useVarInDynamicDb === true ? `
  * @param collectMessage - Optional message collector function
  * @returns - Promise resolving to boolean indicating success
  */
-export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId, collectMessage: (text: string, type?: 'info' | 'error') => void = (text: string) => showMessage(text, 3000, 'info')): Promise<boolean> => {
+export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId, collectMessage?: (text: string, type?: 'info' | 'error') => void): Promise<boolean> => {
+    collectMessage = collectMessage ?? ((...args) => { });
     try {
         // Check if this is a dynamic database
         const attrs = await getBlockAttrs(blockId);
@@ -185,12 +186,15 @@ export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId, col
         // Execute the query
         const blocks = await executeQuery(query);
         if (!blocks || blocks.length === 0) {
-            collectMessage('查询没有返回结果');
+            collectMessage('查询没有返回结果', 'info');
             return true;
         }
 
         // Create a redirect map (no redirections in this case)
         const redirectMap = {};
+
+        // Collect messages during sync
+        collectMessage(`查询返回 ${blocks.length} 个块，开始同步...`);
 
         // Sync database with search results
         await syncDatabaseFromSearchResults({
@@ -202,7 +206,7 @@ export const updateDynamicDatabase = async (blockId: BlockId, avId: BlockId, col
             collectMessage
         });
 
-        collectMessage(`更新成功: 找到 ${blocks.length} 个块`);
+        collectMessage(`✓ 动态数据库更新完成`);
         return true;
     } catch (error) {
         console.error('更新动态数据库时出错:', error);

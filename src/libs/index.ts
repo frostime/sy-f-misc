@@ -70,7 +70,7 @@ export const fb2p = async (inputs: Block[], enable?: { heading?: boolean, doc?: 
         const content = block.content.trim();
         const refPattern = /#(文档引用|DOCREF)#/;
         if (refPattern.test(content)) {
-            console.debug('发现文档引用', block.id);
+            // console.debug('发现文档引用', block.id);
             let resultp = result[result.length - 1];
             resultp.id = block.root_id;
             resultp.type = 'd';
