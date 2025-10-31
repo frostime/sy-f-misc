@@ -13,6 +13,7 @@ import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
 import { useSimpleContext } from './ChatSession/ChatSession.helper';
 import MessageVersionView from './MessageVersionView';
+import ToolChainIndicator from './ToolChainIndicator';
 
 import { createMarkdownRenderer } from './MessageItem.helper';
 import { floatSiYuanTextEditor } from './ChatSession/utils';
@@ -725,6 +726,10 @@ const MessageItem: Component<{
                         contexts={props.messageItem.context}
                         size="small"
                     />
+                </Show>
+                {/* 只在 assistant 消息中显示工具调用指示器 */}
+                <Show when={props.messageItem.message.role === 'assistant'}>
+                    <ToolChainIndicator messageItem={props.messageItem} />
                 </Show>
                 <MessageToolbar />
             </div>

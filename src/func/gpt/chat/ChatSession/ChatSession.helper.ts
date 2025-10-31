@@ -486,7 +486,7 @@ ${inputContent}
         contextMessages: IMessage[],
         targetIndex: number,
         scrollToBottom?: (force?: boolean) => void
-    ): Promise<CompletionResponse & { hintSize?: number }> => {
+    ): Promise<CompletionResponse & { hintSize?: number; toolChainData?: IChatSessionMsgItem['toolChainResult'] }> => {
         if (!params.toolExecutor || !initialResponse.tool_calls?.length) {
             return initialResponse;
         }
@@ -542,7 +542,10 @@ ${inputContent}
      * @param initialResponse 初始响应
      * @returns 处理后的响应
      */
-    const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: CompletionResponse): CompletionResponse => {
+    const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: CompletionResponse): CompletionResponse & { 
+        hintSize?: number;
+        toolChainData?: IChatSessionMsgItem['toolChainResult'];
+    } => {
         // #NOTE: 目前的方案，只会保留最后的一个结果，不会被大量工具调用存放在 history 中
         if (toolChainResult.status === 'completed') {
             return {
@@ -551,7 +554,17 @@ ${inputContent}
                 reasoning_content: initialResponse.reasoning_content,
                 time: initialResponse.time,
                 hintSize: toolChainResult.toolChainContent.length,
-            } as CompletionResponse;
+                // 附加工具调用数据
+                toolChainData: {
+                    toolCallHistory: toolChainResult.toolCallHistory,
+                    stats: toolChainResult.stats,
+                    status: toolChainResult.status,
+                    error: toolChainResult.error
+                }
+            } as CompletionResponse & { 
+                hintSize?: number;
+                toolChainData?: IChatSessionMsgItem['toolChainResult'];
+            };
         } else {
             // 工具调用链失败，返回原始响应
             console.warn('Tool chain failed:', toolChainResult.error);
@@ -676,6 +689,11 @@ ${inputContent}
                     msgItem.userPromptSlice = [finalResponse.hintSize, finalResponse.content.length];
                 }
 
+                // 保存工具调用数据
+                if (finalResponse.toolChainData) {
+                    msgItem.toolChainResult = finalResponse.toolChainData;
+                }
+
                 msgItem = stageMsgItemVersion(msgItem, vid);
                 return msgItem;
             });
@@ -791,6 +809,10 @@ ${inputContent}
                 };
                 if (finalResponse.hintSize) {
                     updated[lastIdx].userPromptSlice = [finalResponse.hintSize, finalResponse.content.length];
+                }
+                // 保存工具调用数据
+                if (finalResponse.toolChainData) {
+                    updated[lastIdx].toolChainResult = finalResponse.toolChainData;
                 }
                 delete updated[lastIdx]['loading'];
                 return updated;

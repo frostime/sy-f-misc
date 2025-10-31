@@ -130,8 +130,8 @@ const createToolSummary = (call: ToolChainResult['toolCallHistory'][number], too
         }
     } else {
         const compressedResult = tool?.compressResult ?
-        tool.compressResult(result) :
-        DataCompressor.compressResult(result);
+            tool.compressResult(result) :
+            DataCompressor.compressResult(result);
         resultPart = `r=${compressedResult}`
     }
 
@@ -221,6 +221,11 @@ export interface ToolChainResult {
         roundIndex: number;
         resultRejected?: boolean;
         resultRejectReason?: string;
+        llmUsage?: {
+            prompt_tokens: number;
+            completion_tokens: number;
+            total_tokens: number;
+        };
     }[];
 
     // 完成状态
@@ -480,6 +485,29 @@ export async function executeToolChain(
                 // 添加 LLM 响应到消息历史
                 state.toolChainMessages.push(llmResponseMessage);
                 state.allMessages.push(llmResponseMessage);
+
+                // 累积 token 使用量
+                if (response.usage) {
+                    if (!state.usage) {
+                        state.usage = { ...response.usage };
+                    } else {
+                        state.usage.prompt_tokens += response.usage.prompt_tokens || 0;
+                        state.usage.completion_tokens += response.usage.completion_tokens || 0;
+                        state.usage.total_tokens += response.usage.total_tokens || 0;
+                    }
+                }
+
+                // 将 LLM usage 附加到本轮的工具调用历史中
+                if (response.usage && roundResults.length > 0) {
+                    // 将 usage 平均分配给本轮的所有工具调用
+                    // 或者只记录在第一个工具调用上
+                    roundResults.forEach(entry => {
+                        const historyIndex = state.toolCallHistory.findIndex(h => h.callId === entry.callId);
+                        if (historyIndex !== -1) {
+                            state.toolCallHistory[historyIndex].llmUsage = response.usage;
+                        }
+                    });
+                }
             } catch (error) {
                 state.status = 'error';
                 callbacks.onError?.(error, 'llm_response');
@@ -549,6 +577,17 @@ export async function executeToolChain(
                 state.toolChainMessages.push(finalAssistantMessage);
                 state.allMessages.push(finalAssistantMessage);
 
+                // 累积 follow-up response 的 token 使用量
+                if (followUpResponse.usage) {
+                    if (!state.usage) {
+                        state.usage = { ...followUpResponse.usage };
+                    } else {
+                        state.usage.prompt_tokens += followUpResponse.usage.prompt_tokens || 0;
+                        state.usage.completion_tokens += followUpResponse.usage.completion_tokens || 0;
+                        state.usage.total_tokens += followUpResponse.usage.total_tokens || 0;
+                    }
+                }
+
                 // 如果 follow-up response 包含 tool_calls，添加占位符响应以保持消息序列完整性
                 if (followUpResponse.tool_calls?.length > 0) {
                     delete finalAssistantMessage.tool_calls;
@@ -569,7 +608,7 @@ export async function executeToolChain(
     const result: ToolChainResult = {
         toolChainContent: hint,
         responseContent: currentResponse.content,
-        usage: currentResponse.usage,
+        usage: state.usage, // 使用累积的 token 统计
         messages: {
             context: state.contextMessages,
             toolChain: state.toolChainMessages,

@@ -1,0 +1,68 @@
+.toolChainIndicator {
+    margin-top: 12px;
+    margin-bottom: 8px;
+}
+
+.toggleButton {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--b3-border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
+    color: var(--b3-theme-on-surface);
+    width: fit-content;
+
+    &:hover {
+        background: var(--b3-theme-surface);
+        border-color: var(--b3-theme-primary);
+
+        .icon {
+            color: var(--b3-theme-primary);
+        }
+    }
+
+    .icon {
+        width: 14px;
+        height: 14px;
+        color: var(--b3-theme-on-surface-light);
+        transition: color 0.2s;
+    }
+
+    .arrow {
+        width: 10px;
+        height: 10px;
+        margin-left: 4px;
+        transition: transform 0.2s;
+        color: var(--b3-theme-on-surface-light);
+
+        &.expanded {
+            transform: rotate(180deg);
+        }
+    }
+}
+
+.toolChainDetails {
+    margin-top: 8px;
+    padding: 12px;
+    background: var(--b3-theme-background);
+    border: 1px solid var(--b3-border-color);
+    border-radius: 4px;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
