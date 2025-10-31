@@ -278,11 +278,14 @@ export const load = () => {
             const { protyle } = details;
             const hook = useCollectedMessages();
 
+            let hasAutoRefresh = false;
+
             // 处理 SuperRef 数据库自动更新
             if (configs.autoRefreshSuperRef) {
                 const db = protyle.element.querySelectorAll('[data-type="NodeAttributeView"][custom-super-ref-db]');
                 if (db?.length > 0) {
-                    hook.collect('自动更新 SuperRef 数据库...');
+                    hasAutoRefresh = true;
+                    // hook.collect(`🔄 检测到 ${db.length} 个 SuperRef 数据库`);
                     for (const dbElement of db) {
                         const bindDocId = dbElement.getAttribute('custom-super-ref-db');
                         if (!bindDocId) continue;
@@ -300,7 +303,8 @@ export const load = () => {
             if (configs.autoRefreshDynamicDb) {
                 const db = protyle.element.querySelectorAll(`[data-type="NodeAttributeView"][${DYNAMIC_DB_ATTR}]`);
                 if (db?.length > 0) {
-                    hook.collect('自动更新动态数据库...');
+                    hasAutoRefresh = true;
+                    // hook.collect(`🔄 检测到 ${db.length} 个动态数据库`);
                     for (const dbElement of db) {
                         const id = dbElement.getAttribute('data-node-id');
                         if (!id) continue;
@@ -311,7 +315,10 @@ export const load = () => {
                 }
             }
 
-            hook.show();
+            // 只有在确实执行了自动刷新时才显示消息
+            if (hasAutoRefresh) {
+                hook.show();
+            }
         };
         const debouncedEventHandler = debounce(eventhandler, 200);
         d4 = plugin.registerEventbusHandler('loaded-protyle-static', debouncedEventHandler);

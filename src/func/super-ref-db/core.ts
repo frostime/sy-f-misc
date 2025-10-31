@@ -5,7 +5,7 @@ import { getBlockAttrs, setBlockAttrs } from "@frostime/siyuan-plugin-kits/api";
 import { addAttributeViewBlocks } from "./api";
 import { replaceAttrViewBlock, getAttributeViewPrimaryKeyValues, removeAttributeViewBlocks } from "@/api/av";
 import { request } from "@/api";
-// import { showMessage } from "siyuan";
+import { showMessage } from "siyuan";
 
 
 type OrphanRowStrategy = 'remove' | 'no' | 'ask';
@@ -158,12 +158,14 @@ export const syncDatabaseFromSearchResults = async (input: {
 
     // Handle additions
     if (diff.toAdd.length > 0) {
+        collectMessage(`  - 添加 ${diff.toAdd.length} 个新条目`);
         // console.debug(`Add SuperRef:`, diff.toAdd);
         await addAttributeViewBlocks(database.av, database.block, diff.toAdd);
     }
 
     // Handle redirections
     if (diff.toRedirect.length > 0) {
+        collectMessage(`  - 重定向 ${diff.toRedirect.length} 个条目`);
         // console.debug(`Redirect SuperRef:`, diff.toRedirect);
         for (const { from, to } of diff.toRedirect) {
             await replaceAttrViewBlock({
@@ -179,14 +181,16 @@ export const syncDatabaseFromSearchResults = async (input: {
     if (diff.toDelete.length > 0) {
         // await removeAttributeViewBlocks(database.av, diff.toDelete);
         const orphanRowIds = diff.toDelete;
-        const rowsToRemove = data.rows.values?.filter(row => orphanRowIds.includes(row.blockID)) ?? [];
+        // const rowsToRemove = data.rows.values?.filter(row => orphanRowIds.includes(row.blockID)) ?? [];
+        const rowsToRemove = data.rows.values?.filter(row => orphanRowIds.includes(row.block.id)) ?? [];
         if (rowsToRemove.length === 0) return;
 
         if (removeOrphanRows === 'no') {
-            collectMessage(`保留了 ${rowsToRemove.length} 个孤立条目`);
+            collectMessage(`  - 保留了 ${rowsToRemove.length} 个孤立条目`);
         }
 
         else if (removeOrphanRows === 'ask') {
+            collectMessage(`  - 发现 ${rowsToRemove.length} 个孤立条目，等待用户确认...`);
             const markdownComment = `**${askRemovePrompt}: 是否删除无用行?**
 
 更新数据库状态的过程中发现: 部分内容块原本在数据库中，但已经不在新的查询结果中，是否需要从数据库中删除他们?
@@ -201,16 +205,20 @@ ${rowsToRemove.map((row, index) => `${index + 1}. ((${row.blockID} '${row.block.
             confirmDialog({
                 title: askRemovePrompt + '数据库状态更新中',
                 content: element,
+                maxHeight: '85%',
                 confirm: async () => {
                     await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
+                    showMessage(`已删除 ${rowsToRemove.length} 个孤立条目`, 3000, 'info');
+                },
+                cancel: () => {
+                    showMessage('已取消删除操作', 2000, 'info');
                 }
             });
         }
 
         else if (removeOrphanRows === 'remove') {
-            collectMessage(`移除 ${rowsToRemove.length} 个孤立条目`);
+            collectMessage(`  - 移除 ${rowsToRemove.length} 个孤立条目`);
             await removeAttributeViewBlocks(database.av, rowsToRemove.map(row => row.blockID));
         }
     }
-    collectMessage(`数据库同步完成: 添加 ${diff.toAdd.length} 个，重定向 ${diff.toRedirect.length} 个，删除 ${diff.toDelete.length} 个`);
 }

@@ -150,17 +150,24 @@ export const syncDatabaseFromBacklinks = async (input: {
         collectMessage
     } = input;
 
+    collectMessage(`开始同步 SuperRef 数据库...`);
+
     // Search for backlinks with redirection
     const { refs, redirectMap } = await searchBlocksWithRedirect(
         () => queryBacklinks(input.doc),
         redirectStrategy
     );
 
+    collectMessage(`找到 ${refs.length} 个反向链接`);
+
     // Get database info if not provided
     let database = input.database;
     if (!database) {
         const data = await getSuperRefDb(input.doc);
-        if (!data) return;
+        if (!data) {
+            collectMessage('无法找到 SuperRef 数据库', 'error');
+            return;
+        }
         const { block, av } = data;
         database = { block, av };
     }
@@ -173,4 +180,6 @@ export const syncDatabaseFromBacklinks = async (input: {
         removeOrphanRows,
         collectMessage
     });
+
+    collectMessage(`✓ SuperRef 数据库同步完成`);
 }
