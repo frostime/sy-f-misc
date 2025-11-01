@@ -8,6 +8,7 @@ import {
     ResultApprovalCallback,
     ToolGroup
 } from './types';
+import { toolsManager } from '../setting/store';
 
 
 /**
@@ -188,7 +189,7 @@ ${group.rulePrompt.trim()}
      */
     getEnabledToolDefinitions(): IToolDefinition[] {
         return Object.entries(this.enablingStore()['group'])
-            .filter(([groupName, enabled]) => enabled)
+            .filter(([_groupName, enabled]) => enabled)
             .flatMap(([groupName]) =>
                 this.groupRegistry[groupName].tools
                     .filter(tool => this.isToolEnabled(tool.definition.function.name))
@@ -214,6 +215,42 @@ ${group.rulePrompt.trim()}
     // ==================== Approval ====================
 
     /**
+     * 获取工具的有效权限配置（合并用户覆盖和工具默认值）
+     */
+    private getEffectivePermissionConfig(toolName: string): {
+        permissionLevel: ToolPermissionLevel;
+        requireExecutionApproval: boolean;
+        requireResultApproval: boolean;
+    } | null {
+        const tool = this.registry[toolName];
+        if (!tool) return null;
+
+        const override = toolsManager().toolPermissionOverrides[toolName];
+
+        // 转换字符串形式的权限级别到枚举
+        let effectivePermissionLevel = tool.definition.permissionLevel ?? ToolPermissionLevel.PUBLIC;
+        if (override?.permissionLevel) {
+            switch (override.permissionLevel) {
+                case 'public':
+                    effectivePermissionLevel = ToolPermissionLevel.PUBLIC;
+                    break;
+                case 'moderate':
+                    effectivePermissionLevel = ToolPermissionLevel.MODERATE;
+                    break;
+                case 'sensitive':
+                    effectivePermissionLevel = ToolPermissionLevel.SENSITIVE;
+                    break;
+            }
+        }
+
+        return {
+            permissionLevel: effectivePermissionLevel,
+            requireExecutionApproval: override?.requireExecutionApproval ?? tool.definition.requireExecutionApproval ?? true,
+            requireResultApproval: override?.requireResultApproval ?? tool.definition.requireResultApproval ?? false
+        };
+    }
+
+    /**
      * 生成工具调用的唯一键
      * @param toolName 工具名称
      * @param args 参数
@@ -233,16 +270,16 @@ ${group.rulePrompt.trim()}
         approved: boolean;
         rejectReason?: string;
     }> {
-        const tool = this.registry[toolName];
+        const config = this.getEffectivePermissionConfig(toolName);
 
-        if (!tool) {
+        if (!config) {
             return {
                 approved: false,
                 rejectReason: `Tool ${toolName} not found`
             };
         }
 
-        const { permissionLevel, requireExecutionApproval } = tool.definition;
+        const { permissionLevel, requireExecutionApproval } = config;
 
         // 公开工具，无需审核
         if (permissionLevel === ToolPermissionLevel.PUBLIC || requireExecutionApproval === false) {
@@ -267,6 +304,7 @@ ${group.rulePrompt.trim()}
             };
         }
 
+        const tool = this.registry[toolName];
         const result = await this.executionApprovalCallback(
             toolName,
             tool.definition.function.description || '',
@@ -333,9 +371,17 @@ ${group.rulePrompt.trim()}
             };
         }
 
+        const config = this.getEffectivePermissionConfig(toolName);
+        if (!config) {
+            return {
+                status: ToolExecuteStatus.NOT_FOUND,
+                error: `Tool ${toolName} configuration not found`
+            };
+        }
+
         // 执行前审批检查
         const shouldCheckExecution = !options?.skipExecutionApproval &&
-            (tool.definition.requireExecutionApproval !== false);
+            config.requireExecutionApproval !== false;
 
         if (shouldCheckExecution) {
             const approval = await this.checkExecutionApproval(toolName, args);
@@ -367,7 +413,7 @@ ${group.rulePrompt.trim()}
         // 结果审批检查
         const shouldCheckResult =
             !options?.skipResultApproval &&
-            (tool.definition.requireResultApproval === true);
+            config.requireResultApproval === true;
 
         if (shouldCheckResult) {
             const approval = await this.checkResultApproval(toolName, args, result);

@@ -35,6 +35,10 @@
 
         &:hover {
             background-color: var(--b3-theme-surface-light);
+            
+            .b3-button {
+                opacity: 1 !important;
+            }
         }
     }
 
@@ -83,21 +87,33 @@
         align-items: center;
         padding: 6px 0;
         margin-left: 24px;
+        gap: 8px;
 
         input[type="checkbox"] {
-            margin: 0 8px 0 0;
+            margin: 0;
+        }
+
+        .tools-manager-tool-config-btn {
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+
+            &:hover {
+                opacity: 1;
+            }
         }
     }
 
     .tools-manager-tool-name {
         font-weight: 500;
-        margin-right: 8px;
         min-width: 120px;
+        display: flex;
+        align-items: center;
     }
 
     .tools-manager-tool-description {
         color: var(--b3-theme-on-surface);
         font-size: 0.9em;
         opacity: 0.8;
+        flex: 1;
     }
 }

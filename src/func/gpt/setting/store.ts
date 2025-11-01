@@ -64,9 +64,16 @@ export const toolsManager = useStoreRef<{
   groupDefaults: Record<string, boolean>;
   // 工具级别的启用状态（按工具名称）
   toolDefaults: Record<string, boolean>;
+  // 工具权限覆盖配置
+  toolPermissionOverrides: Record<string, {
+    permissionLevel?: 'public' | 'moderate' | 'sensitive';
+    requireExecutionApproval?: boolean;
+    requireResultApproval?: boolean;
+  }>;
 }>({
   groupDefaults: {},
-  toolDefaults: {}
+  toolDefaults: {},
+  toolPermissionOverrides: {}
 });
 
 const CURRENT_SCHEMA = '1.0';
@@ -295,7 +302,13 @@ export const load = async (plugin?: Plugin) => {
         current.ui && UIConfig(current.ui)
         current.promptTemplates && promptTemplates(current.promptTemplates)
         console.debug('Load GPT config:', current);
-        current.toolsManager && toolsManager(current.toolsManager);
+        if (current.toolsManager) {
+            // 向后兼容：确保 toolPermissionOverrides 字段存在
+            if (!current.toolsManager.toolPermissionOverrides) {
+                current.toolsManager.toolPermissionOverrides = {};
+            }
+            toolsManager(current.toolsManager);
+        }
         console.debug('Load GPT config:', current);
     }
 
