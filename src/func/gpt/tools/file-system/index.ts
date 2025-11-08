@@ -11,6 +11,7 @@ const path = window?.require?.('path');
 
 // additional file operation tools
 import { mkdirTool, moveFileTool, copyFileTool } from "./shutil";
+import { markitdownTool } from "./markitdown";
 
 const fileSize = (size: number) => {
     //注意保留两位小数
@@ -31,7 +32,7 @@ const readFileTool: Tool = {
         type: 'function',
         function: {
             name: 'ReadFile',
-            description: '读取文件内容，可指定起始行 [begin, end] 闭区间',
+            description: '读取文件内容，可指定起始行 [beginLine, endLine] 闭区间',
             parameters: {
                 type: 'object',
                 properties: {
@@ -39,14 +40,14 @@ const readFileTool: Tool = {
                         type: 'string',
                         description: '文件路径'
                     },
-                    begin: {
+                    beginLine: {
                         type: 'number',
-                        description: '起始行号（从0开始计数，闭区间）; 如果仅指定 begin，表示从 begin 开始读取末尾',
+                        description: '起始行号（从0开始计数，闭区间）; 如果仅指定 beginLine，表示从 beginLine 开始读取末尾',
                         minimum: 0
                     },
-                    end: {
+                    endLine: {
                         type: 'number',
-                        description: '结束行号（从0开始计数，闭区间）; 如果仅指定 end，表示从开头读取到 end',
+                        description: '结束行号（从0开始计数，闭区间）; 如果仅指定 endLine，表示从开头读取到 endLine',
                         minimum: 0
                     },
                     limit: {
@@ -61,7 +62,7 @@ const readFileTool: Tool = {
         requireResultApproval: true
     },
 
-    execute: async (args: { path: string; begin?: number; end?: number; limit?: number }): Promise<ToolExecuteResult> => {
+    execute: async (args: { path: string; beginLine?: number; endLine?: number; limit?: number }): Promise<ToolExecuteResult> => {
         const limit = args.limit ?? 7000;
         const filePath = path.resolve(args.path);
 
@@ -69,13 +70,13 @@ const readFileTool: Tool = {
         const content = fs.readFileSync(filePath, 'utf-8');
 
         // 处理行范围
-        if (args.begin !== undefined || args.end !== undefined) {
+        if (args.beginLine !== undefined || args.endLine !== undefined) {
             const lines = content.split('\n');
             const totalLines = lines.length;
 
             // 确定起始行和结束行（闭区间）
-            const startLine = args.begin !== undefined ? Math.max(0, args.begin) : 0;
-            const endLine = args.end !== undefined ? Math.min(totalLines - 1, args.end) : totalLines - 1;
+            const startLine = args.beginLine !== undefined ? Math.max(0, args.beginLine) : 0;
+            const endLine = args.endLine !== undefined ? Math.min(totalLines - 1, args.endLine) : totalLines - 1;
 
             // 验证行范围
             if (startLine > endLine) {
@@ -212,7 +213,7 @@ const treeListTool: Tool = {
         type: 'function',
         function: {
             name: 'TreeList',
-            description: '树状列出目录内容，支持深度和 glob 匹配',
+            description: '树状列出目录内容，支持深度和正则表达式匹配',
             parameters: {
                 type: 'object',
                 properties: {
@@ -224,9 +225,9 @@ const treeListTool: Tool = {
                         type: 'number',
                         description: '遍历深度，默认为 1; 设置为 -1 表示深度搜索（最大 7 层）'
                     },
-                    globPattern: {
+                    regexPattern: {
                         type: 'string',
-                        description: '可选的 glob 模式，用于过滤文件和目录, 例如 *.js 或 **/*.ts'
+                        description: '可选的正则表达式模式，用于过滤文件和目录（匹配相对路径），例如 \\.js$ 或 src/.*\\.ts$'
                     }
                 },
                 required: ['path']
@@ -235,8 +236,8 @@ const treeListTool: Tool = {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },
-    execute: async (args: { path: string; depth?: number; globPattern?: string }): Promise<ToolExecuteResult> => {
-        const { path: startPath, depth = 1, globPattern } = args;
+    execute: async (args: { path: string; depth?: number; regexPattern?: string }): Promise<ToolExecuteResult> => {
+        const { path: startPath, depth = 1, regexPattern } = args;
         const MAX_DEPTH = 7;
 
         // 处理深度参数：-1 表示深度搜索，使用最大深度限制
@@ -250,21 +251,18 @@ const treeListTool: Tool = {
             };
         }
 
-        // 简单的 glob 匹配函数
-        const matchGlob = (filePath: string, pattern: string): boolean => {
-            if (!pattern) return true;
-
-            // 将 glob 模式转换为正则表达式
-            const regexPattern = pattern
-                .replace(/\./g, '\\.')  // 转义 .
-                .replace(/\*\*/g, '§§') // 临时替换 **
-                .replace(/\*/g, '[^/\\\\]*')  // * 匹配除路径分隔符外的任意字符
-                .replace(/§§/g, '.*')  // ** 匹配任意字符包括路径分隔符
-                .replace(/\?/g, '[^/\\\\]'); // ? 匹配单个字符
-
-            const regex = new RegExp(`^${regexPattern}$`, 'i');
-            return regex.test(filePath);
-        };
+        // 编译正则表达式（如果提供）
+        let regex: RegExp | null = null;
+        if (regexPattern) {
+            try {
+                regex = new RegExp(regexPattern, 'i');
+            } catch (error) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `无效的正则表达式: ${error.message}`
+                };
+            }
+        }
 
         const listDirRecursive = (dirPath: string, currentDepth: number, prefix: string, relativePath: string = ''): string[] => {
             if (currentDepth >= effectiveDepth) {
@@ -290,11 +288,11 @@ const treeListTool: Tool = {
                     const stats = fs.statSync(itemPath);
                     const isDirectory = stats.isDirectory();
 
-                    // 如果有 glob 模式，检查是否匹配
-                    const shouldInclude = !globPattern || matchGlob(itemRelativePath, globPattern);
+                    // 如果有正则表达式，检查是否匹配相对路径
+                    const shouldInclude = !regex || regex.test(itemRelativePath);
 
                     if (isDirectory) {
-                        if (shouldInclude || !globPattern) {
+                        if (shouldInclude || !regex) {
                             output.push(`${entryPrefix}${item}/`);
                         }
                         // 继续递归，即使当前目录不匹配（因为子文件可能匹配）
@@ -331,7 +329,8 @@ export const fileSystemTools = {
         fileStateTool,
         mkdirTool,
         moveFileTool,
-        copyFileTool
+        copyFileTool,
+        markitdownTool
     ] : [],
     rulePrompt: ''
 };
@@ -383,5 +382,6 @@ ${drivesStr}
 - Mkdir: 创建目录 (支持 recursive 类似 -p)
 - MoveFile: 移动文件或目录
 - CopyFile: 复制文件或目录
+- MarkitdownRead: 读取 Word (.docx), PDF (.pdf) 等文件，转换为 Markdown 格式（需要安装 markitdown 工具）
 `.trim();
 }

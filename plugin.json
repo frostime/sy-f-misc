@@ -2,7 +2,7 @@
   "name": "sy-f-misc",
   "author": "frostime",
   "url": "https://github.com/frostime/sy-f-misc",
-  "version": "7.0.0",
+  "version": "7.1.0",
   "minAppVersion": "3.1.20",
   "backends": [
     "all"

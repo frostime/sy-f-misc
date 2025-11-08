@@ -439,7 +439,7 @@ export async function executeToolChain(
                 // 找到最后一个 tool 消息并添加警告信息
                 for (let i = messagesToSend.length - 1; i >= 0; i--) {
                     if (messagesToSend[i].role === 'tool') {
-                        const warningText = `\n\n[SYSTEM WARNING] Tool chain approaching limits. Rounds left: ${roundsLeft}, Calls left: ${callsLeft}. Please wrap up and provide final response in next turn.`;
+                        const warningText = `\n\n[SYSTEM WARNING] Tool chain approaching limits. Please wrap up and provide final response in next turn. DO NOT INITIATE NEW TOOL CALLS! ONLY PROVIDE FINAL ANSWER TO USER REQUEST UNDER CURRENT CONTEXT.`;
 
                         messagesToSend[i] = {
                             ...messagesToSend[i],
