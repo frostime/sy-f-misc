@@ -65,8 +65,18 @@ const shellTool: Tool = {
         const scriptExt = isWindows ? 'ps1' : 'sh';
         const scriptPath = path.join(tempDir, `shell_script_${timestamp}.${scriptExt}`);
 
+        let shellCode = args.command;
+        if (isWindows) {
+            // PowerShell 脚本头，防止中文乱码
+            shellCode = `# Set UTF-8 encoding for output
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# 用户命令开始
+${args.command}
+            `.trim();
+        }
+
         // 写入脚本内容
-        fs.writeFileSync(scriptPath, args.command, 'utf-8');
+        fs.writeFileSync(scriptPath, shellCode, 'utf-8');
 
         // 确定使用的 shell 和参数
         let shell: string;
@@ -145,8 +155,22 @@ const pythonTool: Tool = {
         const timestamp = new Date().getTime();
         const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
 
+        // 在 Python 代码前添加编码设置，防止中文乱码
+        const fixedCode = `
+# -*- coding: utf-8 -*-
+import sys
+import io
+
+# 设置标准输出的编码为UTF-8，避免中文乱码
+if hasattr(sys.stdout, 'buffer') and sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+
+# 用户代码开始
+${args.code}
+        `.trim();
+
         // 写入 Python 代码
-        fs.writeFileSync(scriptPath, args.code, 'utf-8');
+        fs.writeFileSync(scriptPath, fixedCode, 'utf-8');
 
         // 执行 Python 脚本
         return new Promise((resolve) => {

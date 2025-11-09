@@ -119,13 +119,13 @@ const createFileTool: Tool = {
         type: 'function',
         function: {
             name: 'CreateFile',
-            description: '指定路径和内容创建文本文件，如果文件已存在则报错',
+            description: '指定路径和内容创建文本文件，如果文件已存在则报错。如果不指定完整路径（相对路径），文件将会被创建到系统临时目录的 siyuan_temp 子目录下',
             parameters: {
                 type: 'object',
                 properties: {
                     path: {
                         type: 'string',
-                        description: '文件路径'
+                        description: '文件路径（支持绝对路径和相对路径，相对路径将写入到临时目录）'
                     },
                     content: {
                         type: 'string',
@@ -139,7 +139,21 @@ const createFileTool: Tool = {
     },
 
     execute: async (args: { path: string; content: string }): Promise<ToolExecuteResult> => {
-        const filePath = path.resolve(args.path);
+        const os = window?.require?.('os');
+        let filePath: string;
+
+        // 检查是否为绝对路径
+        if (path.isAbsolute(args.path)) {
+            filePath = args.path;
+        } else {
+            // 相对路径，写入到临时目录
+            const tempDir = path.join(os.tmpdir(), 'siyuan_temp');
+            // 确保临时目录存在
+            if (!fs.existsSync(tempDir)) {
+                fs.mkdirSync(tempDir, { recursive: true });
+            }
+            filePath = path.join(tempDir, args.path);
+        }
 
         // 检查文件是否已存在
         if (fs.existsSync(filePath)) {
@@ -147,6 +161,12 @@ const createFileTool: Tool = {
                 status: ToolExecuteStatus.ERROR,
                 error: `文件已存在: ${filePath}`
             };
+        }
+
+        // 确保文件所在目录存在
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
         }
 
         // 创建文件并写入内容

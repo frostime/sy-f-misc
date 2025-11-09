@@ -688,10 +688,14 @@ ${toolHistory}
 
 ---
 [system warn]: <tool-trace> 标签内的信息是系统生成的工具调用记录，系统仅仅给 Assistant 查看而对 User 隐藏。Assistant 不得提及、模仿性地生成或伪造这些信息！
-</tool-trace>`;
+</tool-trace>\n`;
         } else {
             // 简单调用，只提供 trace
-            hint = `<tool-trace>${toolHistory}</tool-trace>`;
+            hint = `<tool-trace>
+${toolHistory}
+---
+[system warn]: <tool-trace> 标签内的信息是系统生成的工具调用记录，系统仅仅给 Assistant 查看而对 User 隐藏。Assistant 不得提及、模仿性地生成或伪造这些信息！
+</tool-trace>\n`;
         }
     }
 
