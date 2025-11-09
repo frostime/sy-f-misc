@@ -77,7 +77,7 @@ const readFileTool: Tool = {
 
             // 确定起始行和结束行（闭区间）
             const startLine = args.beginLine !== undefined ? Math.max(0, args.beginLine) : 0;
-            const endLine = args.endLine !== undefined ? Math.min(totalLines - 1, args.endLine) : totalLines - 1;
+            let endLine = args.endLine !== undefined ? Math.min(totalLines - 1, args.endLine) : totalLines - 1;
 
             // 验证行范围
             if (startLine > endLine) {
@@ -89,25 +89,39 @@ const readFileTool: Tool = {
 
             // 提取指定行范围（闭区间）
             let resultContent = lines.slice(startLine, endLine + 1).join('\n');
+            let warning = '';
             if (limit > 0 && resultContent.length > limit) {
-                const len = resultContent.length;
+                const originalLen = resultContent.length;
+                const originalLineCount = endLine - startLine + 1;
                 resultContent = resultContent.substring(0, limit);
-                resultContent += `\n\n原始内容过长 (${len} 字符), 已省略; 只保留前 ${limit} 字符`;
+                const truncatedLineCount = resultContent.split('\n').length;
+                endLine = startLine + truncatedLineCount - 1;
+                warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)\n\n`;
             }
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: `
-\`\`\`${filePath} [${startLine}-${endLine}]
+${warning}\`\`\`${filePath} [${startLine}-${endLine}]
 ${resultContent}
 \`\`\`
 `.trim(),
             };
         }
 
-        // 没有指定行范围，返回全部内容
+        // 没有指定行范围，返回全部内容（需应用 limit 限制）
+        let resultContent = content;
+        let warning = '';
+        if (limit > 0 && resultContent.length > limit) {
+            const originalLen = resultContent.length;
+            const originalLineCount = content.split('\n').length;
+            resultContent = resultContent.substring(0, limit);
+            const truncatedLineCount = resultContent.split('\n').length;
+            warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)\n\n`;
+        }
+
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: content
+            data: `${warning}${resultContent}`
         };
     }
 };
@@ -184,14 +198,14 @@ const createFileTool: Tool = {
  * FileState 工具：查看文件详细信息
  */
 const TEXT_FILE = [
-  // 通用与文档
-  'txt', 'md', 'markdown',
-  // 配置
-  'yml', 'yaml', 'ini', 'toml', 'json', 'conf', 'cfg',
-  // 代码
-  'js', 'ts', 'py', 'cpp', 'java', 'html', 'xml', 'css',
-  // 数据与日志
-  'csv', 'log'
+    // 通用与文档
+    'txt', 'md', 'markdown',
+    // 配置
+    'yml', 'yaml', 'ini', 'toml', 'json', 'conf', 'cfg',
+    // 代码
+    'js', 'ts', 'py', 'cpp', 'java', 'html', 'xml', 'css',
+    // 数据与日志
+    'csv', 'log'
 ];
 const fileStateTool: Tool = {
     definition: {

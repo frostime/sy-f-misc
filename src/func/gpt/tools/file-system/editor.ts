@@ -75,14 +75,15 @@ export const replaceLinesTool: Tool = {
                 required: ['path', 'beginLine', 'endLine', 'newContent']
             }
         },
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        permissionLevel: ToolPermissionLevel.SENSITIVE,
+        requireResultApproval: true
     },
 
-    execute: async (args: { 
-        path: string; 
-        beginLine: number; 
-        endLine: number; 
-        newContent: string 
+    execute: async (args: {
+        path: string;
+        beginLine: number;
+        endLine: number;
+        newContent: string
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
@@ -130,7 +131,7 @@ export const replaceLinesTool: Tool = {
             // 构建结果信息
             const replacedCount = args.endLine - args.beginLine + 1;
             const newCount = newLines.length;
-            
+
             let resultMsg = `✓ 成功替换 ${path.basename(filePath)} 的第 ${args.beginLine}-${args.endLine} 行\n`;
             resultMsg += `  原始: ${replacedCount} 行 → 新内容: ${newCount} 行\n\n`;
             resultMsg += `--- 原始内容 ---\n${originalLines.join('\n')}\n\n`;
@@ -184,14 +185,15 @@ export const insertLinesTool: Tool = {
                 required: ['path', 'line', 'position', 'content']
             }
         },
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        permissionLevel: ToolPermissionLevel.SENSITIVE,
+        requireResultApproval: true
     },
 
-    execute: async (args: { 
-        path: string; 
-        line: number; 
-        position: 'before' | 'after'; 
-        content: string 
+    execute: async (args: {
+        path: string;
+        line: number;
+        position: 'before' | 'after';
+        content: string
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
@@ -231,11 +233,11 @@ export const insertLinesTool: Tool = {
             // 构建结果信息
             let resultMsg = `✓ 成功在 ${path.basename(filePath)} 的第 ${args.line} 行${args.position === 'before' ? '前' : '后'}插入 ${newLines.length} 行内容\n\n`;
             resultMsg += `--- 插入位置上下文 ---\n`;
-            
+
             const contextStart = Math.max(0, args.line - 2);
             const contextEnd = Math.min(totalLines - 1, args.line + 2);
             resultMsg += formatLineRange(lines.slice(0, totalLines), contextStart, contextEnd, args.line);
-            
+
             resultMsg += `\n\n--- 插入的内容 ---\n${args.content}`;
 
             return {
@@ -282,13 +284,15 @@ export const deleteLinesTool: Tool = {
                 required: ['path', 'beginLine', 'endLine']
             }
         },
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        permissionLevel: ToolPermissionLevel.SENSITIVE,
+        requireResultApproval: true
+
     },
 
-    execute: async (args: { 
-        path: string; 
-        beginLine: number; 
-        endLine: number 
+    execute: async (args: {
+        path: string;
+        beginLine: number;
+        endLine: number
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
@@ -386,15 +390,17 @@ export const replaceStringTool: Tool = {
                 required: ['path', 'search', 'replace']
             }
         },
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        permissionLevel: ToolPermissionLevel.SENSITIVE,
+        requireResultApproval: true
+
     },
 
-    execute: async (args: { 
-        path: string; 
-        search: string; 
-        replace: string; 
-        regex?: boolean; 
-        replaceAll?: boolean 
+    execute: async (args: {
+        path: string;
+        search: string;
+        replace: string;
+        regex?: boolean;
+        replaceAll?: boolean
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
@@ -422,11 +428,11 @@ export const replaceStringTool: Tool = {
                 try {
                     const flags = replaceAll ? 'g' : '';
                     const regex = new RegExp(args.search, flags);
-                    
+
                     // 统计匹配次数
                     const matches = content.match(new RegExp(args.search, 'g'));
                     matchCount = matches ? matches.length : 0;
-                    
+
                     newContent = content.replace(regex, args.replace);
                 } catch (error: any) {
                     return {
@@ -513,14 +519,16 @@ export const searchInFileTool: Tool = {
                 required: ['path', 'pattern']
             }
         },
-        permissionLevel: ToolPermissionLevel.MODERATE
+        permissionLevel: ToolPermissionLevel.MODERATE,
+        requireResultApproval: true
+
     },
 
-    execute: async (args: { 
-        path: string; 
-        pattern: string; 
-        regex?: boolean; 
-        contextLines?: number 
+    execute: async (args: {
+        path: string;
+        pattern: string;
+        regex?: boolean;
+        contextLines?: number
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
@@ -634,15 +642,17 @@ export const searchInDirectoryTool: Tool = {
                 required: ['path', 'pattern']
             }
         },
-        permissionLevel: ToolPermissionLevel.MODERATE
+        permissionLevel: ToolPermissionLevel.MODERATE,
+        requireResultApproval: true
+
     },
 
-    execute: async (args: { 
-        path: string; 
-        pattern: string; 
-        filePattern?: string; 
-        regex?: boolean; 
-        maxResults?: number 
+    execute: async (args: {
+        path: string;
+        pattern: string;
+        filePattern?: string;
+        regex?: boolean;
+        maxResults?: number
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
@@ -689,7 +699,7 @@ export const searchInDirectoryTool: Tool = {
 
             // 递归搜索文件
             const results: Array<{ file: string; matches: number }> = [];
-            
+
             const searchDir = (currentPath: string, depth: number = 0) => {
                 if (depth > 5 || results.length >= maxResults) return; // 限制深度和结果数
 
@@ -699,7 +709,7 @@ export const searchInDirectoryTool: Tool = {
                     if (results.length >= maxResults) break;
 
                     const itemPath = path.join(currentPath, item);
-                    
+
                     try {
                         const stats = fs.statSync(itemPath);
 
@@ -719,7 +729,7 @@ export const searchInDirectoryTool: Tool = {
                             try {
                                 const content = fs.readFileSync(itemPath, 'utf-8');
                                 const matches = content.match(new RegExp(searchRegex, 'g'));
-                                
+
                                 if (matches && matches.length > 0) {
                                     results.push({
                                         file: path.relative(dirPath, itemPath),
@@ -799,7 +809,8 @@ export const editorTools = {
 - SearchInDirectory: 在目录中搜索包含特定内容的文件
 
 **使用建议**:
-1. 编辑前先用 ReadFile 查看文件内容，确定准确的行号
+0. 可以使用 fileState 查看文件的大小、行数
+1. 编辑前先用 ReadFile 查看文件内容; 每次读取建议指定行号
 2. 使用 SearchInFile 定位需要修改的具体位置
 3. 行号统一从 0 开始计数
 4. 复杂修改建议分步进行，每次修改后验证结果

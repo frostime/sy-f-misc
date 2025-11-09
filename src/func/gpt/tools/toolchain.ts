@@ -271,7 +271,7 @@ export async function executeToolChain(
 
     // 设置默认值
     const maxRounds = options.maxRounds ?? 10;
-    const maxCalls = options.maxCalls ?? 10;
+    const maxCalls = options.maxCalls ?? 12;
     const callbacks = options.callbacks || {};
     const checkToolResults = options.checkToolResults ?? false;
 
@@ -306,7 +306,7 @@ export async function executeToolChain(
             // 处理所有工具调用
             for (const toolCall of currentResponse.tool_calls) {
                 // 检查是否达到最大调用次数
-                if (state.callCount >= maxCalls) break;
+                // if (state.callCount >= maxCalls) break;
 
                 // 增加调用次数
                 state.callCount++;
@@ -433,7 +433,7 @@ export async function executeToolChain(
             // 检查是否接近限制，在最后一个 tool 消息中添加警告
             const roundsLeft = maxRounds - state.roundIndex;
             const callsLeft = maxCalls - state.callCount;
-            const isNearLimit = roundsLeft <= 1 || callsLeft <= 2;
+            const isNearLimit = roundsLeft <= 1 || callsLeft <= 1;
 
             if (isNearLimit && messagesToSend.length > 0) {
                 // 找到最后一个 tool 消息并添加警告信息
@@ -603,7 +603,7 @@ export async function executeToolChain(
     // 只在工具调用足够复杂时生成总结（避免简单调用的额外开销）
     let summaryContent = '';
     const shouldGenerateSummary = 
-        state.toolCallHistory.length >= 3 || state.roundIndex >= 2;
+        state.toolCallHistory.length >= 3 || state.roundIndex >= 3;
 
     if (shouldGenerateSummary) {
         try {
@@ -613,18 +613,27 @@ export async function executeToolChain(
             // );
 
             // 根据成功/失败情况使用不同的 prompt
-            const prompt = `[system] 工具调用链完成。生成简洁的经验总结，供后续对话中 LLM 助手的 Memory; 例如:
-- **总结**：设计调用顺序，从何考虑
-- **关键发现**：获得了什么重要信息或结果
-- **失败情况**: 工具调用不顺利或失败, 或者返回结果无用(比如检索失败、信息无关等)
-- **可复用经验**：学到的经验/策略/技巧
-- **优化建议**：如果下次遇到类似需求，有什么更好的方法
-- **后续建议**: 后面用户如果有进一步调研需求，可以如何提高效率等
+            const prompt = `[system] 工具调用链完成。请生成**工具使用经验总结**（关注工具调用应用在任务上）；可以关注这些：
+
+-  **总结**：设计调用逻辑是怎么涉及的
+-  **工具失败经验**: 哪些数据源/网站/参数设置无效或有问题？（如"知乎反爬严重，web_search无法获取内容"）
+-  **调用策略**: 什么样的工具组合或调用顺序更高效？（如"先list_notes确认ID，再get_note获取内容"）
+-  **参数技巧**: 哪些参数设置影响结果质量？（如"web_search关键词需要中英混合"）
+-  **失败模式**: 工具返回错误或空结果的典型原因？（如"tavily检索失败可能是关键词过于具体"）
+-  **有用的技巧**: 本次发现了什么操作，下次可直接学习，避免绕弯路
 - etc. (注：请根据实际调用情况调整，不必须也不局限于示例)
 
-要求：高信息密度高信噪比；Memory 是给 LLM 看的，不必提供已经包含在最终回答中的消息；最多 500 字符；
-注意：不要重复列举工具调用序列顺序（系统会做 trace），聚焦于可复用的经验`;
+要求：
+- 聚焦工具调用技术细节，不要总结对话内容(对话里已经体现的冗余信息不用重复生成)
+- 记录可复用的操作经验（下次遇到类似工具使用场景时有用）
+- 如果工具调用非常顺利无特殊经验，简短说明即可; 不生成无用的废话
+- 不要重复列举工具调用序列顺序（系统会做 trace），聚焦于可复用的经验
+- 不用重复记录之前已经记录过的经验信息
+- 生成的经验通常 500 字内，最多700字；高信息密度信噪比 !IMPORTANT!
 
+示例：
+✅ "WebPage获取遇到知乎链接时建议跳过（反爬严重）；XX 目录下的 README 前 200 行都是废话，可以跳过不看" -> 对Assistant调用工具的建议
+❌ "经过调研后发现原型学习天然适合few-shot学习和跨域问题" -> 对User有用，但是对调用工具没用`;
             // 清理消息：移除可能导致 API 错误的字段
             const cleanedMessages = state.allMessages.map(msg => {
                 const cleaned = { ...msg };
@@ -679,23 +688,29 @@ export async function executeToolChain(
     if (toolHistory) {
         if (summaryContent) {
             // 有总结时，提供结构化的信息
-            hint = `<tool-trace>
+            hint = `<tool-trace readonly>
 Summary:
 ${summaryContent}
 
 Trace:
 ${toolHistory}
 
+</tool-trace>
+[system warn]: <tool-trace> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
+
+以下是给User的回答:
 ---
-[system warn]: <tool-trace> 标签内的信息是系统生成的工具调用记录，系统仅仅给 Assistant 查看而对 User 隐藏。Assistant 不得提及、模仿性地生成或伪造这些信息！
-</tool-trace>\n`;
+`;
         } else {
             // 简单调用，只提供 trace
-            hint = `<tool-trace>
+            hint = `<tool-trace readonly>
 ${toolHistory}
+</tool-trace>
+[system warn]: <tool-trace> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
+
+以下是给User的回答:
 ---
-[system warn]: <tool-trace> 标签内的信息是系统生成的工具调用记录，系统仅仅给 Assistant 查看而对 User 隐藏。Assistant 不得提及、模仿性地生成或伪造这些信息！
-</tool-trace>\n`;
+`;
         }
     }
 

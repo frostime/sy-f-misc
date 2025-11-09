@@ -769,7 +769,7 @@ export const webPageContentTool: Tool = {
 
                     // 格式化关键词查找结果
                     resultText = formatKeywordSearchResult(searchResult, mode);
-                    
+
                     // 对关键词查找结果也应用字数限制
                     if (limit > 0 && resultText.length > limit) {
                         const truncatedText = resultText.substring(0, limit);

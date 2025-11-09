@@ -495,8 +495,8 @@ ${inputContent}
             // 执行工具调用链
             const toolChainResult = await executeToolChain(params.toolExecutor, initialResponse, {
                 contextMessages,
-                maxRounds: 5,
-                maxCalls: 10,
+                // maxRounds: 5,
+                // maxCalls: 10,
                 abortController: controller,
                 model: model(),
                 systemPrompt: currentSystemPrompt(),
