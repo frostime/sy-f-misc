@@ -30,6 +30,7 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     maxInputLenForAutoTitle: 500,
     autoTitleModelId: '',
     renderInStreamMode: true, // 默认在 stream 模式下渲染 markdown
+    toolCallMaxRounds: 7,
     chatOption: {
         temperature: 0.7,
         stream: true,

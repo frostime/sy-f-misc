@@ -149,9 +149,6 @@ export interface ToolChainOptions {
     // 最大轮次（LLM-工具调用往返）
     maxRounds?: number;
 
-    // 最大工具调用次数
-    maxCalls?: number;
-
     // 中断控制器
     abortController?: AbortController;
 
@@ -270,7 +267,6 @@ export async function executeToolChain(
 
     // 设置默认值
     const maxRounds = options.maxRounds ?? 10;
-    const maxCalls = options.maxCalls ?? 12;
     const callbacks = options.callbacks || {};
     const checkToolResults = options.checkToolResults ?? false;
 
@@ -294,7 +290,6 @@ export async function executeToolChain(
         while (
             currentResponse.tool_calls?.length > 0 &&
             state.roundIndex < maxRounds &&
-            state.callCount < maxCalls &&
             state.status === 'running'
         ) {
             // 增加轮次
@@ -305,9 +300,6 @@ export async function executeToolChain(
 
             // 处理所有工具调用
             for (const toolCall of currentResponse.tool_calls) {
-                // 检查是否达到最大调用次数
-                // if (state.callCount >= maxCalls) break;
-
                 // 增加调用次数
                 state.callCount++;
 
@@ -507,9 +499,7 @@ export async function executeToolChain(
             console.debug('Requesting final response from LLM', {
                 hasUnexecutedToolCalls: currentResponse.tool_calls?.length > 0,
                 isContentEmpty: isEmptyResponse(currentResponse.content),
-                reason: state.roundIndex >= maxRounds ? 'max_rounds_reached' :
-                    state.callCount >= maxCalls ? 'max_calls_reached' :
-                        'empty_response'
+                reason: state.roundIndex >= maxRounds ? 'max_rounds_reached' : 'empty_response'
             });
             console.debug(currentResponse);
 
@@ -520,8 +510,8 @@ export async function executeToolChain(
                         role: 'tool' as const,
                         content: JSON.stringify({
                             status: 'incomplete',
-                            message: 'Tool chain execution stopped due to limits',
-                            reason: state.roundIndex >= maxRounds ? 'max_rounds_reached' : 'max_calls_reached'
+                            message: 'Tool chain execution stopped due to max rounds limit',
+                            reason: 'max_rounds_reached'
                         }),
                         tool_call_id: toolCall.id
                     };
@@ -535,11 +525,7 @@ export async function executeToolChain(
             let promptContent: string;
             if (currentResponse.tool_calls?.length > 0) {
                 // 因限制而中止的情况
-                const limitReason = state.roundIndex >= maxRounds
-                    ? `maximum rounds (${maxRounds})`
-                    : `maximum tool calls (${maxCalls})`;
-
-                promptContent = `[SYSTEM] Tool chain execution stopped: reached ${limitReason}.
+                promptContent = `[SYSTEM] Tool chain execution stopped: reached maximum rounds (${maxRounds}).
 
 Based on the information gathered so far, please provide a response to the user that:
 1. Acknowledges any incomplete investigations due to the limit
@@ -651,13 +637,9 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
 
             // 如果因限制而中止，添加额外的提示要求总结未完成的调研
             if (stopDueToLimit) {
-                const limitReason = state.roundIndex >= maxRounds
-                    ? `达到最大轮次限制 (${maxRounds})`
-                    : `达到最大调用次数限制 (${maxCalls})`;
-
                 prompt += `
 
-[IMPORTANT] 本次工具调用链因 ${limitReason} 而提前终止，**调研未完全完成**。
+[IMPORTANT] 本次工具调用链因达到最大轮次限制 (${maxRounds}) 而提前终止，**调研未完全完成**。
 除了上述经验总结外，还需要额外生成：
 
 **未完成调研说明**：
@@ -729,10 +711,7 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
     // 添加状态信息（如果是不正常结束）
     let statusInfo = '';
     if (stopDueToLimit) {
-        const limitReason = state.roundIndex >= maxRounds
-            ? `max_rounds(${maxRounds})`
-            : `max_calls(${maxCalls})`;
-        statusInfo = `\n\nStatus: INCOMPLETE - stopped due to ${limitReason}`;
+        statusInfo = `\n\nStatus: INCOMPLETE - stopped due to max_rounds(${maxRounds})`;
     }
 
     let hint = '';

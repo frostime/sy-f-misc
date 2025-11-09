@@ -96,6 +96,24 @@ const ChatSessionSetting = (props: {
                 />
             </Form.Wrap>
             <Form.Wrap
+                title="工具调用链最大轮次"
+                description="插件允许LLM自动多轮调用工具实现复杂任务，该选项用来限制最大调用轮次，防止无限调用"
+            >
+                <Form.Input
+                    type="number"
+                    value={config().toolCallMaxRounds ?? 7}
+                    changed={(v) => {
+                        v = v || '0';
+                        config.update('toolCallMaxRounds', parseInt(v));
+                    }}
+                    number={{
+                        min: 1,
+                        max: 20,
+                        step: 1
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
                 title="Stream 模式"
                 description="以 Stream 模式请求"
             >
