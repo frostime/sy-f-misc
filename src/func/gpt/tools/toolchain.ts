@@ -599,10 +599,101 @@ export async function executeToolChain(
         callbacks.onError?.(error, 'chain_execution');
     }
 
+    // ---------- 生成工具调用总结 ----------
+    // 只在工具调用足够复杂时生成总结（避免简单调用的额外开销）
+    let summaryContent = '';
+    const shouldGenerateSummary = 
+        state.toolCallHistory.length >= 3 || state.roundIndex >= 2;
+
+    if (shouldGenerateSummary) {
+        try {
+            // 检测是否有失败的工具调用
+            // const hasFailures = state.toolCallHistory.some(
+            //     call => call.result.status !== ToolExecuteStatus.SUCCESS
+            // );
+
+            // 根据成功/失败情况使用不同的 prompt
+            const prompt = `[system] 工具调用链完成。生成简洁的经验总结，供后续对话中 LLM 助手的 Memory; 例如:
+- **总结**：设计调用顺序，从何考虑
+- **关键发现**：获得了什么重要信息或结果
+- **失败情况**: 工具调用不顺利或失败, 或者返回结果无用(比如检索失败、信息无关等)
+- **可复用经验**：学到的经验/策略/技巧
+- **优化建议**：如果下次遇到类似需求，有什么更好的方法
+- **后续建议**: 后面用户如果有进一步调研需求，可以如何提高效率等
+- etc. (注：请根据实际调用情况调整，不必须也不局限于示例)
+
+要求：高信息密度高信噪比；Memory 是给 LLM 看的，不必提供已经包含在最终回答中的消息；最多 500 字符；
+注意：不要重复列举工具调用序列顺序（系统会做 trace），聚焦于可复用的经验`;
+
+            // 清理消息：移除可能导致 API 错误的字段
+            const cleanedMessages = state.allMessages.map(msg => {
+                const cleaned = { ...msg };
+                // 移除空的 tool_calls 数组（OpenAI API 不接受空数组）
+                if (cleaned.tool_calls && Array.isArray(cleaned.tool_calls) && cleaned.tool_calls.length === 0) {
+                    delete cleaned.tool_calls;
+                }
+                // 移除 usage 字段（不是标准的 message 字段）
+                if ('usage' in cleaned) {
+                    delete cleaned.usage;
+                }
+                return cleaned;
+            });
+
+            const payload = [...cleanedMessages, {
+                role: 'user' as const,
+                content: prompt
+            }];
+
+            const summaryResponse = await complete(payload, {
+                model: options.model,
+                systemPrompt: options.systemPrompt,
+                stream: false,
+                option: options.chatOption
+            });
+
+            summaryContent = summaryResponse.content;
+
+            // 累积总结生成的 token 统计
+            if (summaryResponse.usage) {
+                if (!state.usage) {
+                    state.usage = { ...summaryResponse.usage };
+                } else {
+                    state.usage.prompt_tokens += summaryResponse.usage.prompt_tokens || 0;
+                    state.usage.completion_tokens += summaryResponse.usage.completion_tokens || 0;
+                    state.usage.total_tokens += summaryResponse.usage.total_tokens || 0;
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to generate tool chain summary:', error);
+            // 降级方案：使用简单的描述
+            summaryContent = `工具调用链完成：${state.toolCallHistory.length} 次调用，${state.roundIndex} 轮对话`;
+        }
+    }
+
+    // ---------- 构建 tool-trace ----------
     let toolHistory = state.toolCallHistory.map(call => {
         return createToolSummary(call, toolExecutor);
     }).join(' -> ');
-    let hint = toolHistory ? `<tool-trace>\n${toolHistory}\n</tool-trace>\n` : '';
+
+    let hint = '';
+    if (toolHistory) {
+        if (summaryContent) {
+            // 有总结时，提供结构化的信息
+            hint = `<tool-trace>
+Summary:
+${summaryContent}
+
+Trace:
+${toolHistory}
+
+---
+[system warn]: <tool-trace> 标签内的信息是系统生成的工具调用记录，系统仅仅给 Assistant 查看而对 User 隐藏。Assistant 不得提及、模仿性地生成或伪造这些信息！
+</tool-trace>`;
+        } else {
+            // 简单调用，只提供 trace
+            hint = `<tool-trace>${toolHistory}</tool-trace>`;
+        }
+    }
 
     // 构建结果
     const result: ToolChainResult = {
