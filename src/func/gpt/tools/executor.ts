@@ -69,8 +69,8 @@ export class ToolExecutor {
 
 **工具调用记录**
 - 为了节省资源，工具调用的中间过程消息不会显示给USER。
-- SYSTEM 会生成工具调用记录 <tool-trace>...</tool-trace> 并插入到消息里，这部分内容不会显示给 USER 看，也不由 ASSISTANT 生成。
-- ASSISTANT(你) **不得自行提及或生成** <tool-trace> 标签; 否则可能严重误导后续工具调用 !!IMPORTANT!!
+- SYSTEM 会生成工具调用记录 <toolcall-history-log>...</toolcall-history-log> 并插入到消息里，这部分内容不会显示给 USER 看，也不由 ASSISTANT 生成。
+- ASSISTANT(你) **不得自行提及或生成** <toolcall-history-log> 标签; 否则可能严重误导后续工具调用 !!IMPORTANT!!
 </tool-rules>`;
         for (const [name, rule] of Object.entries(this.groupRules)) {
             if (!this.isGroupEnabled(name)) continue;

@@ -703,7 +703,7 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
         }
     }
 
-    // ---------- 构建 tool-trace ----------
+    // ---------- 构建 toolcall-history-log ----------
     let toolHistory = state.toolCallHistory.map(call => {
         return createToolSummary(call, toolExecutor);
     }).join(' -> ');
@@ -718,25 +718,25 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
     if (toolHistory) {
         if (summaryContent) {
             // 有总结时，提供结构化的信息
-            hint = `<tool-trace readonly>
+            hint = `<toolcall-history-log>
 Summary:
 ${summaryContent}
 
 Trace:
 ${toolHistory}${statusInfo}
 
-</tool-trace>
-[system warn]: <tool-trace> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
+</toolcall-history-log>
+[system warn]: <toolcall-history-log> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
 
 以下是给User的回答:
 ---
 `;
         } else {
             // 简单调用，只提供 trace
-            hint = `<tool-trace readonly>
+            hint = `<toolcall-history-log>
 ${toolHistory}${statusInfo}
-</tool-trace>
-[system warn]: <tool-trace> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
+</toolcall-history-log>
+[system warn]: <toolcall-history-log> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
 
 以下是给User的回答:
 ---
