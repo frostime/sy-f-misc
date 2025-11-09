@@ -7,7 +7,6 @@
  */
 import { complete } from '../openai/complete';
 import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '.';
-import { adaptIMessageContentAppender } from '../data-utils';
 
 
 namespace DataCompressor {
@@ -288,6 +287,7 @@ export async function executeToolChain(
 
     // 当前响应
     let currentResponse = llmResponseWithToolCalls;
+    let stopDueToLimit = false;
 
     try {
         // 工具调用轮次循环
@@ -430,26 +430,6 @@ export async function executeToolChain(
             // 准备发送给 LLM 的消息
             let messagesToSend = [...state.allMessages];
 
-            // 检查是否接近限制，在最后一个 tool 消息中添加警告
-            const roundsLeft = maxRounds - state.roundIndex;
-            const callsLeft = maxCalls - state.callCount;
-            const isNearLimit = roundsLeft <= 1 || callsLeft <= 1;
-
-            if (isNearLimit && messagesToSend.length > 0) {
-                // 找到最后一个 tool 消息并添加警告信息
-                for (let i = messagesToSend.length - 1; i >= 0; i--) {
-                    if (messagesToSend[i].role === 'tool') {
-                        const warningText = `\n\n[SYSTEM WARNING] Tool chain approaching limits. Please wrap up and provide final response in next turn. DO NOT INITIATE NEW TOOL CALLS! ONLY PROVIDE FINAL ANSWER TO USER REQUEST UNDER CURRENT CONTEXT.`;
-
-                        messagesToSend[i] = {
-                            ...messagesToSend[i],
-                            content: adaptIMessageContentAppender(messagesToSend[i].content, warningText)
-                        };
-                        break;
-                    }
-                }
-            }
-
             // 允许修改发送给 LLM 的消息
             const modifiedMessages = callbacks.onBeforeSendToLLM?.(messagesToSend);
             if (modifiedMessages) {
@@ -515,43 +495,75 @@ export async function executeToolChain(
             }
         }
 
-        // 处理未完成的工具调用（防止消息序列不完整）
-        if (state.status === 'running' && currentResponse.tool_calls?.length > 0) {
-            console.debug('Adding placeholder responses for incomplete tool calls to maintain message sequence integrity');
+        // 检查是否需要生成最终回复
+        // 情况1: 因限制而中止（还有未执行的 tool_calls）
+        // 情况2: 工具调用完成但 LLM 没有给出文字回复
+        stopDueToLimit = state.status === 'running' && (
+            currentResponse.tool_calls?.length > 0 ||  // 还有未执行的工具调用
+            isEmptyResponse(currentResponse.content)    // 或者没有文字回复
+        );
 
-            // 为所有未响应的 tool_calls 添加占位符响应
-            for (const toolCall of currentResponse.tool_calls) {
-                const placeholderMessage = {
-                    role: 'tool' as const,
-                    content: JSON.stringify({
-                        status: 'incomplete',
-                        message: 'Tool chain execution stopped due to limits (maxRounds or maxCalls reached)',
-                        reason: state.roundIndex >= maxRounds ? 'max_rounds_reached' : 'max_calls_reached'
-                    }),
-                    tool_call_id: toolCall.id
-                };
+        if (stopDueToLimit) {
+            console.debug('Requesting final response from LLM', {
+                hasUnexecutedToolCalls: currentResponse.tool_calls?.length > 0,
+                isContentEmpty: isEmptyResponse(currentResponse.content),
+                reason: state.roundIndex >= maxRounds ? 'max_rounds_reached' :
+                    state.callCount >= maxCalls ? 'max_calls_reached' :
+                        'empty_response'
+            });
+            console.debug(currentResponse);
 
-                state.toolChainMessages.push(placeholderMessage);
-                state.allMessages.push(placeholderMessage);
+            // 处理未完成的工具调用（添加占位符以保持消息序列完整性）
+            if (currentResponse.tool_calls?.length > 0) {
+                for (const toolCall of currentResponse.tool_calls) {
+                    const placeholderMessage = {
+                        role: 'tool' as const,
+                        content: JSON.stringify({
+                            status: 'incomplete',
+                            message: 'Tool chain execution stopped due to limits',
+                            reason: state.roundIndex >= maxRounds ? 'max_rounds_reached' : 'max_calls_reached'
+                        }),
+                        tool_call_id: toolCall.id
+                    };
+
+                    state.toolChainMessages.push(placeholderMessage);
+                    state.allMessages.push(placeholderMessage);
+                }
             }
-        }
 
-        // 设置完成状态
-        if (state.status === 'running') {
-            state.status = 'completed';
+            // 构建适当的提示消息
+            let promptContent: string;
+            if (currentResponse.tool_calls?.length > 0) {
+                // 因限制而中止的情况
+                const limitReason = state.roundIndex >= maxRounds
+                    ? `maximum rounds (${maxRounds})`
+                    : `maximum tool calls (${maxCalls})`;
 
-            // 检查最终响应是否为空，如果为空则请求后续响应
-            if (isEmptyResponse(currentResponse.content)) {
-                console.debug('Final LLM response is empty, requesting follow-up');
+                promptContent = `[SYSTEM] Tool chain execution stopped: reached ${limitReason}.
 
-                // 创建后续请求消息
-                const followUpMessage = {
-                    role: 'user' as const,
-                    content: '[system warn]: Tool call procedure completed. Now please review and provider final response to meat the USER\'s requirement.'
-                };
+Based on the information gathered so far, please provide a response to the user that:
+1. Acknowledges any incomplete investigations due to the limit
+2. Summarizes what HAS been accomplished/discovered
+3. Provides useful insights based on available information
+4. If appropriate, suggests what additional information could not be gathered
 
-                state.allMessages.push(followUpMessage);
+Provide a complete, helpful response even if some planned tool calls could not be executed.
 
+NOTE: Since the tool integration is not yet complete, your response will inevitably be incomplete. Please acknowledge this limitation instead of pretending everything is working normally.
+`;
+            } else {
+                // 只是没有文字回复的情况
+                promptContent = '[SYSTEM] Tool calls completed. Please provide a final response to the user based on the tool results.';
+            }
+
+            const followUpMessage = {
+                role: 'user' as const,
+                content: promptContent
+            };
+
+            state.allMessages.push(followUpMessage);
+
+            try {
                 const followUpResponse = await complete(state.allMessages, {
                     model: options.model,
                     systemPrompt: options.systemPrompt,
@@ -562,22 +574,20 @@ export async function executeToolChain(
                 });
 
                 currentResponse = followUpResponse;
-
                 callbacks.onLLMResponseComplete?.(followUpResponse);
 
                 const finalAssistantMessage = {
                     role: 'assistant' as const,
                     content: followUpResponse.content,
                     reasoning_content: followUpResponse.reasoning_content,
-                    tool_calls: followUpResponse.tool_calls,
+                    // 不保留新的 tool_calls（避免再次触发工具调用）
                     usage: followUpResponse.usage
                 };
 
-                // 添加后续响应到消息历史
                 state.toolChainMessages.push(finalAssistantMessage);
                 state.allMessages.push(finalAssistantMessage);
 
-                // 累积 follow-up response 的 token 使用量
+                // 累积 token 使用量
                 if (followUpResponse.usage) {
                     if (!state.usage) {
                         state.usage = { ...followUpResponse.usage };
@@ -587,12 +597,16 @@ export async function executeToolChain(
                         state.usage.total_tokens += followUpResponse.usage.total_tokens || 0;
                     }
                 }
-
-                // 如果 follow-up response 包含 tool_calls，添加占位符响应以保持消息序列完整性
-                if (followUpResponse.tool_calls?.length > 0) {
-                    delete finalAssistantMessage.tool_calls;
-                }
+            } catch (error) {
+                console.error('Failed to generate final response:', error);
+                callbacks.onError?.(error, 'final_response');
+                // 即使失败也继续，使用现有的响应
             }
+        }
+
+        // 设置完成状态
+        if (state.status === 'running') {
+            state.status = 'completed';
         }
     } catch (error) {
         state.status = 'error';
@@ -602,7 +616,7 @@ export async function executeToolChain(
     // ---------- 生成工具调用总结 ----------
     // 只在工具调用足够复杂时生成总结（避免简单调用的额外开销）
     let summaryContent = '';
-    const shouldGenerateSummary = 
+    const shouldGenerateSummary =
         state.toolCallHistory.length >= 3 || state.roundIndex >= 3;
 
     if (shouldGenerateSummary) {
@@ -613,7 +627,7 @@ export async function executeToolChain(
             // );
 
             // 根据成功/失败情况使用不同的 prompt
-            const prompt = `[system] 工具调用链完成。请生成**工具使用经验总结**（关注工具调用应用在任务上）；可以关注这些：
+            let prompt = `[system] 工具调用链完成。请生成**工具使用经验总结**（关注工具调用应用在任务上）；可以关注这些：
 
 -  **总结**：设计调用逻辑是怎么涉及的
 -  **工具失败经验**: 哪些数据源/网站/参数设置无效或有问题？（如"知乎反爬严重，web_search无法获取内容"）
@@ -634,6 +648,34 @@ export async function executeToolChain(
 示例：
 ✅ "WebPage获取遇到知乎链接时建议跳过（反爬严重）；XX 目录下的 README 前 200 行都是废话，可以跳过不看" -> 对Assistant调用工具的建议
 ❌ "经过调研后发现原型学习天然适合few-shot学习和跨域问题" -> 对User有用，但是对调用工具没用`;
+
+            // 如果因限制而中止，添加额外的提示要求总结未完成的调研
+            if (stopDueToLimit) {
+                const limitReason = state.roundIndex >= maxRounds
+                    ? `达到最大轮次限制 (${maxRounds})`
+                    : `达到最大调用次数限制 (${maxCalls})`;
+
+                prompt += `
+
+[IMPORTANT] 本次工具调用链因 ${limitReason} 而提前终止，**调研未完全完成**。
+除了上述经验总结外，还需要额外生成：
+
+**未完成调研说明**：
+- 简要说明哪些调研/信息获取未能完成（基于最后未执行的 tool_calls 推断）
+- 如果用户需要更完整的信息，后续应该从哪里继续调研
+- 建议的下一步工具调用策略（如调整参数、换用其他工具等）
+
+格式示例：
+"""
+## 工具使用经验
+[正常的经验总结]
+
+## 调研状态
+⚠️ 因达到限制而提前终止。已完成 X 项调研，未完成：[具体说明]
+建议后续：[具体建议]
+"""`;
+            }
+
             // 清理消息：移除可能导致 API 错误的字段
             const cleanedMessages = state.allMessages.map(msg => {
                 const cleaned = { ...msg };
@@ -684,6 +726,15 @@ export async function executeToolChain(
         return createToolSummary(call, toolExecutor);
     }).join(' -> ');
 
+    // 添加状态信息（如果是不正常结束）
+    let statusInfo = '';
+    if (stopDueToLimit) {
+        const limitReason = state.roundIndex >= maxRounds
+            ? `max_rounds(${maxRounds})`
+            : `max_calls(${maxCalls})`;
+        statusInfo = `\n\nStatus: INCOMPLETE - stopped due to ${limitReason}`;
+    }
+
     let hint = '';
     if (toolHistory) {
         if (summaryContent) {
@@ -693,7 +744,7 @@ Summary:
 ${summaryContent}
 
 Trace:
-${toolHistory}
+${toolHistory}${statusInfo}
 
 </tool-trace>
 [system warn]: <tool-trace> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
@@ -704,7 +755,7 @@ ${toolHistory}
         } else {
             // 简单调用，只提供 trace
             hint = `<tool-trace readonly>
-${toolHistory}
+${toolHistory}${statusInfo}
 </tool-trace>
 [system warn]: <tool-trace> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
 
