@@ -14,7 +14,7 @@ export { ToolExecutor } from './executor';
 import { ToolExecutor } from './executor';
 import { basicTool } from './basic';
 import { toolGroupWeb } from './web';
-import { fileSystemTools } from './file-system';
+import { fileSystemTools, fileEditorTools } from './file-system';
 import { scriptTools } from './script-tools';
 import { ApprovalUIAdapter } from './types';
 import { DefaultUIAdapter } from './approval-ui';
@@ -37,6 +37,7 @@ export const toolExecutorFactory = (options: {
     toolExecutor.registerToolGroup(basicTool);
     toolExecutor.registerToolGroup(toolGroupWeb);
     toolExecutor.registerToolGroup(fileSystemTools);
+    toolExecutor.registerToolGroup(fileEditorTools);
     IS_IN_APP && toolExecutor.registerToolGroup(scriptTools);
     toolExecutor.registerToolGroup(siyuanTool);
 

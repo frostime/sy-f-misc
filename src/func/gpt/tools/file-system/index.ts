@@ -12,6 +12,7 @@ const path = window?.require?.('path');
 // additional file operation tools
 import { mkdirTool, moveFileTool, copyFileTool } from "./shutil";
 import { markitdownTool } from "./markitdown";
+import { editorTools } from "./editor";
 
 const fileSize = (size: number) => {
     //注意保留两位小数
@@ -182,12 +183,22 @@ const createFileTool: Tool = {
 /**
  * FileState 工具：查看文件详细信息
  */
+const TEXT_FILE = [
+  // 通用与文档
+  'txt', 'md', 'markdown',
+  // 配置
+  'yml', 'yaml', 'ini', 'toml', 'json', 'conf', 'cfg',
+  // 代码
+  'js', 'ts', 'py', 'cpp', 'java', 'html', 'xml', 'css',
+  // 数据与日志
+  'csv', 'log'
+];
 const fileStateTool: Tool = {
     definition: {
         type: 'function',
         function: {
             name: 'FileState',
-            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间等）',
+            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -209,7 +220,7 @@ const fileStateTool: Tool = {
         const stats = fs.statSync(filePath);
 
         // 格式化文件信息
-        const fileInfo = {
+        const fileInfo: any = {
             path: filePath,
             size: fileSize(stats.size),
             isDirectory: stats.isDirectory(),
@@ -217,6 +228,20 @@ const fileStateTool: Tool = {
             modifiedAt: stats.mtime.toISOString(),
             accessedAt: stats.atime.toISOString()
         };
+
+        // if is plaintext file
+        const isPlainText = TEXT_FILE.includes(path.extname(filePath).slice(1));
+        if (isPlainText) {
+            // 直接读取二进制数据统计行数，避免编码问题
+            const buffer = fs.readFileSync(filePath);
+            let lineCount = 1; // 至少有一行
+            for (let i = 0; i < buffer.length; i++) {
+                if (buffer[i] === 0x0A) { // LF
+                    lineCount++;
+                }
+            }
+            fileInfo.lineCount = lineCount;
+        }
 
         return {
             status: ToolExecuteStatus.SUCCESS,
@@ -350,10 +375,18 @@ export const fileSystemTools = {
         mkdirTool,
         moveFileTool,
         copyFileTool,
-        markitdownTool
+        markitdownTool,
     ] : [],
     rulePrompt: ''
 };
+
+export const fileEditorTools = {
+    name: '文件编辑工具组',
+    tools: fs ? [
+        ...editorTools.tools
+    ] : [],
+    rulePrompt: editorTools.rulePrompt
+}
 
 if (fs && fileSystemTools.tools.length > 0) {
     const os = window?.require?.('os');
@@ -394,7 +427,8 @@ if (fs && fileSystemTools.tools.length > 0) {
 当前主机运行的系统: ${platform}, 用户家目录: ${homeDir}
 ${drivesStr}
 
-### 工具使用
+### 文件系统工具
+
 - TreeList: 树状列出目录结构，支持深度和 glob 匹配，显示文件大小
 - FileState: 获取特定文件元信息
 - ReadFile: 读取文本文件内容
