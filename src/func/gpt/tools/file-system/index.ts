@@ -26,6 +26,23 @@ const fileSize = (size: number) => {
 }
 
 /**
+ * 辅助函数：为文本内容添加行号
+ * @param text 文本内容
+ * @param beginLine 起始行号（从 0 开始）
+ * @returns 带行号的文本
+ */
+const renderTextWithLineNum = (text: string, beginLine: number = 0): string => {
+    const lines = text.split('\n');
+    const maxLineNum = beginLine + lines.length - 1;
+    const padding = maxLineNum.toString().length;
+
+    return lines.map((line, index) => {
+        const lineNum = beginLine + index;
+        return `${lineNum.toString().padStart(padding)}: ${line}`;
+    }).join('\n');
+}
+
+/**
  * ReadFile 工具：读取文件内容
  */
 const readFileTool: Tool = {
@@ -54,6 +71,10 @@ const readFileTool: Tool = {
                     limit: {
                         type: 'number',
                         description: '为了防止文件内容过大，限制最大字符数量；默认 7000, 如果设置为 < 0 则不限制'
+                    },
+                    showLineNum: {
+                        type: 'boolean',
+                        description: '是否在每行开头显示行号，默认 false; 涉及大文件批量读取建议开启'
                     }
                 },
                 required: ['path']
@@ -63,8 +84,9 @@ const readFileTool: Tool = {
         requireResultApproval: true
     },
 
-    execute: async (args: { path: string; beginLine?: number; endLine?: number; limit?: number }): Promise<ToolExecuteResult> => {
+    execute: async (args: { path: string; beginLine?: number; endLine?: number; limit?: number; showLineNum?: boolean }): Promise<ToolExecuteResult> => {
         const limit = args.limit ?? 7000;
+        const showLineNum = args.showLineNum ?? false;
         const filePath = path.resolve(args.path);
 
         // 读取文件内容
@@ -96,14 +118,20 @@ const readFileTool: Tool = {
                 resultContent = resultContent.substring(0, limit);
                 const truncatedLineCount = resultContent.split('\n').length;
                 endLine = startLine + truncatedLineCount - 1;
-                warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)\n\n`;
+                warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)`;
             }
+
+            // 如果需要显示行号，添加行号
+            if (showLineNum) {
+                resultContent = renderTextWithLineNum(resultContent, startLine);
+            }
+
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: `
-${warning}\`\`\`${filePath} [${startLine}-${endLine}]
+${warning}
+----- 文件 "${filePath}" 内容如下 (${startLine}-${endLine}) -----
 ${resultContent}
-\`\`\`
 `.trim(),
             };
         }
@@ -116,12 +144,20 @@ ${resultContent}
             const originalLineCount = content.split('\n').length;
             resultContent = resultContent.substring(0, limit);
             const truncatedLineCount = resultContent.split('\n').length;
-            warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)\n\n`;
+            warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)`;
+        }
+
+        // 如果需要显示行号，添加行号
+        if (showLineNum) {
+            resultContent = renderTextWithLineNum(resultContent, 0);
         }
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: `${warning}${resultContent}`
+            data: `${warning}
+--- 文件 "${filePath}" 内容如下 (0-${resultContent.split('\n').length - 1}) ---
+${resultContent}
+`.trim(),
         };
     }
 };
@@ -287,6 +323,10 @@ const treeListTool: Tool = {
                     regexPattern: {
                         type: 'string',
                         description: '可选的正则表达式模式，用于过滤文件和目录（匹配相对路径），例如 \\.js$ 或 src/.*\\.ts$'
+                    },
+                    skipHiddenDir: {
+                        type: 'boolean',
+                        description: '不查看隐藏目录内部结构（以 . 开头的目录，如 .git），默认 true',
                     }
                 },
                 required: ['path']
@@ -295,8 +335,8 @@ const treeListTool: Tool = {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },
-    execute: async (args: { path: string; depth?: number; regexPattern?: string }): Promise<ToolExecuteResult> => {
-        const { path: startPath, depth = 1, regexPattern } = args;
+    execute: async (args: { path: string; depth?: number; regexPattern?: string; skipHiddenDir?: boolean }): Promise<ToolExecuteResult> => {
+        const { path: startPath, depth = 1, regexPattern, skipHiddenDir = true } = args;
         const MAX_DEPTH = 7;
 
         // 处理深度参数：-1 表示深度搜索，使用最大深度限制
@@ -323,7 +363,7 @@ const treeListTool: Tool = {
             }
         }
 
-        const listDirRecursive = (dirPath: string, currentDepth: number, prefix: string, relativePath: string = ''): string[] => {
+        const listDirRecursive = (dirPath: string, currentDepth: number, prefix: string, relativePath: string = '', skipHiddenDir: boolean = true): string[] => {
             if (currentDepth >= effectiveDepth) {
                 return [];
             }
@@ -351,12 +391,19 @@ const treeListTool: Tool = {
                     const shouldInclude = !regex || regex.test(itemRelativePath);
 
                     if (isDirectory) {
+                        const isHiddenDir = item.startsWith('.');
                         if (shouldInclude || !regex) {
-                            output.push(`${entryPrefix}${item}/`);
+                            if (isHiddenDir && skipHiddenDir) {
+                                output.push(`${entryPrefix}${item}/ (内部结构略)`);
+                            } else {
+                                output.push(`${entryPrefix}${item}/`);
+                            }
                         }
-                        // 继续递归，即使当前目录不匹配（因为子文件可能匹配）
-                        const subOutput = listDirRecursive(itemPath, currentDepth + 1, newPrefix, itemRelativePath);
-                        output.push(...subOutput);
+                        // 继续递归，除非是隐藏目录且需要跳过
+                        if (!(isHiddenDir && skipHiddenDir)) {
+                            const subOutput = listDirRecursive(itemPath, currentDepth + 1, newPrefix, itemRelativePath, skipHiddenDir);
+                            output.push(...subOutput);
+                        }
                     } else {
                         if (shouldInclude) {
                             const size = fileSize(stats.size);
@@ -370,7 +417,7 @@ const treeListTool: Tool = {
             return output;
         };
 
-        const result = listDirRecursive(resolvedPath, 0, '', '');
+        const result = listDirRecursive(resolvedPath, 0, '', '', skipHiddenDir);
         return {
             status: ToolExecuteStatus.SUCCESS,
             data: [resolvedPath, ...result].join('\n')

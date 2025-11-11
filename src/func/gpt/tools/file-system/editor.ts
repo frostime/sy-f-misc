@@ -809,8 +809,8 @@ export const editorTools = {
 - SearchInDirectory: 在目录中搜索包含特定内容的文件
 
 **使用建议**:
-0. 可以使用 fileState 查看文件的大小、行数
-1. 编辑前先用 ReadFile 查看文件内容; 每次读取建议指定行号
+0. 指定编辑某个文件前，使用 fileState 查看文件的大小、行数
+1. 用 ReadFile 查看文件内容; 每次读取建议指定行号
 2. 使用 SearchInFile 定位需要修改的具体位置
 3. 行号统一从 0 开始计数
 4. 复杂修改建议分步进行，每次修改后验证结果

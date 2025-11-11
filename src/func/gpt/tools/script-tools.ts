@@ -67,9 +67,16 @@ const shellTool: Tool = {
 
         let shellCode = args.command;
         if (isWindows) {
-            // PowerShell 脚本头，防止中文乱码
+            // PowerShell 脚本头，防止中文乱码并禁用颜色输出
             shellCode = `# Set UTF-8 encoding for output
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# Disable color output to avoid ANSI escape sequences
+$PSStyle.OutputRendering = [System.Management.Automation.OutputRendering]::PlainText;
+# 禁用外部程序的 ANSI 颜色输出（通过环境变量）
+$env:NO_COLOR = '1'                     # 通用标准（越来越多工具支持）
+$env:CLICOLOR = '0'                     # macOS / BSD 工具
+$env:CLICOLOR_FORCE = '0'               # 强制禁用
+
 # 用户命令开始
 ${args.command}
             `.trim();
@@ -100,17 +107,20 @@ ${args.command}
                     console.error('Failed to delete temporary shell script:', e);
                 }
 
+                stdout = stdout.trim();
+                stderr = stderr.trim();
+
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
-                        error: `Shell execution error: ${error.message}\n${stderr}`
+                        error: `Shell execution error: ${error.message}\n[stdout]\n${stdout}\n\n[stderr]\n${stderr}`
                     });
                     return;
                 }
 
                 resolve({
                     status: ToolExecuteStatus.SUCCESS,
-                    data: stdout || '命令执行成功，无输出'
+                    data: `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`
                 });
             });
         });
@@ -184,17 +194,20 @@ ${args.code}
                     }
                 }
 
+                stdout = stdout.trim();
+                stderr = stderr.trim();
+
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
-                        error: `Python execution error: ${error.message}\n${stderr}`
+                        error: `Python execution error: ${error.message}\n[stdout]\n\n${stdout}\n[stderr]\n${stderr}`
                     });
                     return;
                 }
 
                 resolve({
                     status: ToolExecuteStatus.SUCCESS,
-                    data: stdout || '脚本执行成功，无输出'
+                    data: `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`
                 });
             });
         });
