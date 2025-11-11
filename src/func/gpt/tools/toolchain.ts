@@ -115,9 +115,10 @@ const createToolSummary = (call: ToolChainResult['toolCallHistory'][number], too
 
     const tool = toolExecutor.getTool(toolName);
 
-    const compressedArgs = tool?.compressArgs ?
+    let compressedArgs = tool?.compressArgs ?
         tool.compressArgs(args) :
         DataCompressor.compressArgs(args);
+    compressedArgs = compressedArgs.replace('\\n', '\\\\n'); // 转义换行，避免日志换行混乱
 
     let resultPart = '';
     if (result.status !== ToolExecuteStatus.SUCCESS) {
@@ -133,6 +134,7 @@ const createToolSummary = (call: ToolChainResult['toolCallHistory'][number], too
             DataCompressor.compressResult(result);
         resultPart = `r=${compressedResult}`
     }
+    resultPart = resultPart.replace('\\n', '\\\\n'); // 转义换行，避免日志换行混乱
 
     return `${toolName}(${compressedArgs}, s=${status}, ${resultPart})`;
 };
@@ -718,9 +720,9 @@ ${stopDueToLimit ? `
     }
 
     // ---------- 构建 toolcall-history-log ----------
-    let toolHistory = state.toolCallHistory.map(call => {
-        return createToolSummary(call, toolExecutor);
-    }).join(' -> ');
+    let toolHistory = state.toolCallHistory.map((call, index) => {
+        return `${index + 1}. ${createToolSummary(call, toolExecutor)}`;
+    }).join('\n');
 
     // 添加状态信息（如果是不正常结束）
     let statusInfo = '';

@@ -764,7 +764,7 @@ export const searchInFileTool: Tool = {
                     },
                     pattern: {
                         type: 'string',
-                        description: '搜索模式（支持正则表达式）'
+                        description: '搜索模式（设置 regex 为 true 以支持正则表达式）'
                     },
                     regex: {
                         type: 'boolean',
@@ -776,7 +776,7 @@ export const searchInFileTool: Tool = {
                         minimum: 0
                     }
                 },
-                required: ['path', 'pattern']
+                required: ['path', 'pattern', 'regex']
             }
         },
         permissionLevel: ToolPermissionLevel.MODERATE,
