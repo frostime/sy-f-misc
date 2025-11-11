@@ -13,7 +13,49 @@ const childProcess = window?.require?.('child_process');
 const os = window?.require?.('os');
 
 const platform = os?.platform();
+const DEFAULT_OUTPUT_LIMIT = 7000;
 
+const safeCreateTempDir = (dir: string) => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+};
+
+const persistToolResult = (toolKey: string, content: string) => {
+    try {
+        const tempRoot = path.join(os.tmpdir(), 'siyuan_temp');
+        safeCreateTempDir(tempRoot);
+        const suffix = Math.random().toString(16).slice(2, 10);
+        const filePath = path.join(tempRoot, `${toolKey}_result_${Date.now()}_${suffix}.log`);
+        fs.writeFileSync(filePath, content, 'utf-8');
+        return filePath;
+    } catch (error) {
+        console.error('Failed to persist tool result:', error);
+        return '';
+    }
+};
+
+const normalizeOutputLimit = (limit?: number) => {
+    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+        return DEFAULT_OUTPUT_LIMIT;
+    }
+    return limit <= 0 ? Number.POSITIVE_INFINITY : limit;
+};
+
+const formatOutputWithLimit = (fullOutput: string, limit: number, filePath: string) => {
+    const savedPathLine = filePath ? `完整输出已保存至: ${filePath}` : '完整输出保存失败，请检查日志。';
+    if (!Number.isFinite(limit) || fullOutput.length <= limit) {
+        return `${fullOutput}\n\n${savedPathLine}`.trim();
+    }
+
+    const headLength = Math.floor(limit / 2);
+    const tailLength = limit - headLength;
+    const head = fullOutput.slice(0, headLength);
+    const tail = fullOutput.slice(fullOutput.length - tailLength);
+    const omitted = fullOutput.length - limit;
+
+    return `${head}\n\n...输出过长，省略 ${omitted} 个字符。${savedPathLine}\n\n${tail}`.trim();
+};
 
 const testHasCommand = async (command: string) => {
     try {
@@ -24,7 +66,7 @@ const testHasCommand = async (command: string) => {
     }
 }
 
-let hasPwsh = null;
+let hasPwsh: boolean | null = null;
 
 /**
  * 执行 Shell 命令工具
@@ -45,6 +87,10 @@ const shellTool: Tool = {
                     directory: {
                         type: 'string',
                         description: '执行命令的目录，默认为当前工作目录'
+                    },
+                    limit: {
+                        type: 'number',
+                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
                     }
                 },
                 required: ['command']
@@ -54,9 +100,10 @@ const shellTool: Tool = {
         requireResultApproval: true
     },
 
-    execute: async (args: { command: string; directory?: string }): Promise<ToolExecuteResult> => {
+    execute: async (args: { command: string; directory?: string; limit?: number }): Promise<ToolExecuteResult> => {
         // 确定执行目录
         const cwd = args.directory ? path.resolve(args.directory) : process.cwd();
+        const outputLimit = normalizeOutputLimit(args.limit);
 
         // 创建临时脚本文件
         const isWindows = os.platform() === 'win32';
@@ -109,18 +156,30 @@ ${args.command}
 
                 stdout = stdout.trim();
                 stderr = stderr.trim();
+                const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
+                const exitCode = error && typeof (error as any).code !== 'undefined' ? (error as any).code : 0;
+                const recordLines = [
+                    `Command: ${args.command}`,
+                    `Directory: ${cwd}`,
+                    `Shell: ${shell}`,
+                    `Exit code: ${exitCode}`,
+                    '',
+                    fullOutput
+                ].join('\n');
+                const outputFilePath = persistToolResult('shell', recordLines);
+                const summary = formatOutputWithLimit(fullOutput, outputLimit, outputFilePath);
 
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
-                        error: `Shell execution error: ${error.message}\n[stdout]\n${stdout}\n\n[stderr]\n${stderr}`
+                        error: `Shell execution error: ${error.message}\n${summary}`
                     });
                     return;
                 }
 
                 resolve({
                     status: ToolExecuteStatus.SUCCESS,
-                    data: `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`
+                    data: summary
                 });
             });
         });
@@ -150,6 +209,10 @@ const pythonTool: Tool = {
                     keepFile: {
                         type: 'boolean',
                         description: '运行完毕后是否保留 Python 脚本文件，默认为 false'
+                    },
+                    limit: {
+                        type: 'number',
+                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
                     }
                 },
                 required: ['code']
@@ -159,11 +222,12 @@ const pythonTool: Tool = {
         requireResultApproval: true
     },
 
-    execute: async (args: { code: string; directory?: string; keepFile?: boolean }): Promise<ToolExecuteResult> => {
+    execute: async (args: { code: string; directory?: string; keepFile?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
         // 创建临时文件
         const tempDir = args.directory || os.tmpdir();
         const timestamp = new Date().getTime();
         const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
+        const outputLimit = normalizeOutputLimit(args.limit);
 
         // 在 Python 代码前添加编码设置，防止中文乱码
         const fixedCode = `
@@ -196,18 +260,31 @@ ${args.code}
 
                 stdout = stdout.trim();
                 stderr = stderr.trim();
+                const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
+                const recordLines = [
+                    'Command: python',
+                    `Script path: ${scriptPath}`,
+                    `Keep file: ${args.keepFile ? 'true' : 'false'}`,
+                    '',
+                    'User code:',
+                    args.code,
+                    '',
+                    fullOutput
+                ].join('\n');
+                const outputFilePath = persistToolResult('python', recordLines);
+                const summary = formatOutputWithLimit(fullOutput, outputLimit, outputFilePath);
 
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
-                        error: `Python execution error: ${error.message}\n[stdout]\n\n${stdout}\n[stderr]\n${stderr}`
+                        error: `Python execution error: ${error.message}\n${summary}`
                     });
                     return;
                 }
 
                 resolve({
                     status: ToolExecuteStatus.SUCCESS,
-                    data: `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`
+                    data: summary
                 });
             });
         });

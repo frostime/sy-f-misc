@@ -42,6 +42,266 @@ const formatLineRange = (lines: string[], start: number, end: number, highlight?
 };
 
 /**
+ * 编辑操作接口
+ */
+interface EditOperation {
+    type: 'replace' | 'insert' | 'delete';
+    line: number;           // 起始行号（0-based，基于原始文件）
+    endLine?: number;       // 结束行号（仅用于 replace/delete）
+    position?: 'before' | 'after';  // 插入位置（仅用于 insert）
+    content?: string;       // 新内容（用于 replace/insert）
+}
+
+/**
+ * 批量编辑结果
+ */
+interface BatchEditResult {
+    success: boolean;
+    lines?: string[];
+    error?: string;
+    details: string;
+}
+
+/**
+ * 核心函数：批量应用编辑操作
+ * 
+ * 关键算法：从后向前执行操作，确保所有操作都基于原始行号
+ * 
+ * @param lines 原始文件行数组
+ * @param operations 编辑操作列表
+ * @param totalLines 原始文件总行数
+ * @returns 批量编辑结果
+ */
+const applyBatchEdits = (
+    lines: string[], 
+    operations: EditOperation[], 
+    totalLines: number
+): BatchEditResult => {
+    // 验证阶段：检查所有操作的行号是否有效
+    for (const op of operations) {
+        if (op.line < 0 || op.line >= totalLines) {
+            return {
+                success: false,
+                error: `操作 ${op.type} 的行号 ${op.line} 超出范围 [0, ${totalLines - 1}]`,
+                details: ''
+            };
+        }
+
+        if (op.type === 'replace' || op.type === 'delete') {
+            if (op.endLine === undefined) {
+                return {
+                    success: false,
+                    error: `操作 ${op.type} 缺少 endLine 参数`,
+                    details: ''
+                };
+            }
+            if (op.endLine < op.line || op.endLine >= totalLines) {
+                return {
+                    success: false,
+                    error: `操作 ${op.type} 的 endLine ${op.endLine} 无效（line: ${op.line}, totalLines: ${totalLines}）`,
+                    details: ''
+                };
+            }
+        }
+
+        if (op.type === 'insert') {
+            if (!op.position || !['before', 'after'].includes(op.position)) {
+                return {
+                    success: false,
+                    error: `操作 insert 的 position 参数必须是 'before' 或 'after'`,
+                    details: ''
+                };
+            }
+            if (op.content === undefined) {
+                return {
+                    success: false,
+                    error: `操作 insert 缺少 content 参数`,
+                    details: ''
+                };
+            }
+        }
+
+        if (op.type === 'replace' && op.content === undefined) {
+            return {
+                success: false,
+                error: `操作 replace 缺少 content 参数`,
+                details: ''
+            };
+        }
+    }
+
+    // 排序阶段：按照"影响位置"降序排序（从文件末尾向开头处理）
+    const sortedOps = [...operations].sort((a, b) => {
+        const aPos = a.type === 'insert' 
+            ? a.line + (a.position === 'after' ? 1 : 0)
+            : (a.endLine ?? a.line);
+        const bPos = b.type === 'insert' 
+            ? b.line + (b.position === 'after' ? 1 : 0)
+            : (b.endLine ?? b.line);
+        return bPos - aPos; // 降序
+    });
+
+    // 执行阶段：依次执行排序后的操作
+    const resultLines = [...lines];
+    const details: string[] = [];
+
+    for (const op of sortedOps) {
+        switch (op.type) {
+            case 'replace': {
+                const originalLines = resultLines.slice(op.line, op.endLine! + 1);
+                const newLines = op.content!.split('\n');
+                resultLines.splice(op.line, op.endLine! - op.line + 1, ...newLines);
+                details.push(
+                    `✓ Replace [${op.line}-${op.endLine}]: ${originalLines.length} 行 → ${newLines.length} 行`
+                );
+                break;
+            }
+            case 'insert': {
+                const insertIndex = op.position === 'before' ? op.line : op.line + 1;
+                const newLines = op.content!.split('\n');
+                resultLines.splice(insertIndex, 0, ...newLines);
+                details.push(
+                    `✓ Insert at ${op.line} (${op.position}): ${newLines.length} 行`
+                );
+                break;
+            }
+            case 'delete': {
+                const deletedLines = resultLines.slice(op.line, op.endLine! + 1);
+                resultLines.splice(op.line, op.endLine! - op.line + 1);
+                details.push(
+                    `✓ Delete [${op.line}-${op.endLine}]: ${deletedLines.length} 行`
+                );
+                break;
+            }
+        }
+    }
+
+    return {
+        success: true,
+        lines: resultLines,
+        details: details.reverse().join('\n') // 反转以恢复原始顺序显示
+    };
+};
+
+/**
+ * BatchEdit 工具：批量执行多个编辑操作
+ */
+export const batchEditTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'BatchEdit',
+            description: '批量执行多个文件编辑操作。所有操作基于原始文件的行号，自动处理行号偏移问题。这是执行多个编辑的推荐方式。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: {
+                        type: 'string',
+                        description: '文件路径'
+                    },
+                    operations: {
+                        type: 'array',
+                        description: '编辑操作列表，将按照从后向前的顺序自动执行',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                type: {
+                                    type: 'string',
+                                    enum: ['replace', 'insert', 'delete'],
+                                    description: '操作类型：replace=替换, insert=插入, delete=删除'
+                                },
+                                line: {
+                                    type: 'number',
+                                    description: '起始行号（0-based，基于原始文件）',
+                                    minimum: 0
+                                },
+                                endLine: {
+                                    type: 'number',
+                                    description: '结束行号（仅 replace/delete 需要）',
+                                    minimum: 0
+                                },
+                                position: {
+                                    type: 'string',
+                                    enum: ['before', 'after'],
+                                    description: '插入位置（仅 insert 需要）：before=行前, after=行后'
+                                },
+                                content: {
+                                    type: 'string',
+                                    description: '新内容（replace/insert 需要）'
+                                }
+                            },
+                            required: ['type', 'line']
+                        }
+                    }
+                },
+                required: ['path', 'operations']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.SENSITIVE,
+        requireResultApproval: true
+    },
+
+    execute: async (args: {
+        path: string;
+        operations: EditOperation[]
+    }): Promise<ToolExecuteResult> => {
+        if (!fs || !path) {
+            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
+        }
+
+        const filePath = path.resolve(args.path);
+
+        if (!fs.existsSync(filePath)) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `文件不存在: ${filePath}`
+            };
+        }
+
+        if (!args.operations || args.operations.length === 0) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: '操作列表不能为空'
+            };
+        }
+
+        try {
+            const lines = readFileLines(filePath);
+            const totalLines = lines.length;
+
+            // 执行批量编辑
+            const result = applyBatchEdits(lines, args.operations, totalLines);
+
+            if (!result.success) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: result.error!
+                };
+            }
+
+            // 写入文件
+            writeFileLines(filePath, result.lines!);
+
+            // 构建结果信息
+            let resultMsg = `✓ 成功在 ${path.basename(filePath)} 中执行 ${args.operations.length} 个批量操作\n\n`;
+            resultMsg += `文件变化: ${totalLines} 行 → ${result.lines!.length} 行\n\n`;
+            resultMsg += `--- 执行详情 ---\n${result.details}`;
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: resultMsg
+            };
+
+        } catch (error: any) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `批量编辑失败: ${error.message}`
+            };
+        }
+    }
+};
+
+/**
  * ReplaceLines 工具：替换指定行范围的内容
  */
 export const replaceLinesTool: Tool = {
@@ -786,6 +1046,7 @@ export const searchInDirectoryTool: Tool = {
 export const editorTools = {
     name: '文件编辑工具组',
     tools: fs ? [
+        batchEditTool,          // 批量编辑（推荐）
         replaceLinesTool,
         insertLinesTool,
         deleteLinesTool,
@@ -798,7 +1059,14 @@ export const editorTools = {
 
 类似 Cursor/Copilot 的精确文件编辑能力：
 
-**编辑工具**:
+**批量编辑工具（推荐）**:
+- BatchEdit: 一次性执行多个编辑操作（替换、插入、删除），自动处理行号偏移
+  - 所有操作基于原始文件的行号
+  - 自动按照从后向前的顺序执行，避免行号冲突
+  - 支持混合不同类型的操作
+  - 示例：[{type: 'replace', line: 10, endLine: 15, content: '...'}, {type: 'insert', line: 5, position: 'after', content: '...'}]
+
+**单次编辑工具**:
 - ReplaceLines: 替换指定行范围的内容
 - InsertLines: 在指定位置插入新内容
 - DeleteLines: 删除指定行范围
@@ -813,7 +1081,8 @@ export const editorTools = {
 1. 用 ReadFile 查看文件内容; 每次读取建议指定行号
 2. 使用 SearchInFile 定位需要修改的具体位置
 3. 行号统一从 0 开始计数
-4. 复杂修改建议分步进行，每次修改后验证结果
-5. 使用 ReplaceString 进行批量重命名或格式调整
+4. **需要多处修改时，优先使用 BatchEdit 工具，一次性完成所有编辑**
+5. 复杂修改建议分步进行，每次修改后验证结果
+6. 使用 ReplaceString 进行批量重命名或格式调整
 `.trim()
 };

@@ -7,7 +7,7 @@
  */
 
 
-import { Component, For, Show, createSignal } from 'solid-js';
+import { Component, For, Show, createSignal, onMount } from 'solid-js';
 import { toolsManager } from './store';
 import { toolExecutorFactory } from '../tools';
 import { solidDialog } from '@/libs/dialog';
@@ -34,6 +34,15 @@ export const ToolsManagerSetting: Component = () => {
             [groupName]: !prev[groupName]
         }));
     };
+
+    onMount(() => {
+        // 初始化所有工具组为闭合状态
+        const initialCollapsedState: Record<string, boolean> = {};
+        for (const groupName of Object.keys(tempExecutor.groupRegistry)) {
+            initialCollapsedState[groupName] = true;
+        }
+        setCollapsedGroups(initialCollapsedState);
+    });
 
     // 切换工具组的启用状态
     const toggleGroupEnabled = (groupName: string) => {
