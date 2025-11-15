@@ -432,10 +432,11 @@ export async function executeToolChain(
 
             // 发送更新后的消息给 OpenAI
             try {
+                // TODO 轮次快结束的时候提醒，防止最后一轮生成无用的工具调用
                 const response = await complete(messagesToSend, {
                     model: options.model,
                     systemPrompt: options.systemPrompt,
-                    stream: !!callbacks.onLLMResponseUpdate,
+                    stream: options.chatOption?.stream || false,
                     streamMsg: callbacks.onLLMResponseUpdate,
                     abortControler: options.abortController,
                     option: options.chatOption
@@ -555,7 +556,7 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
                 const followUpResponse = await complete(state.allMessages, {
                     model: options.model,
                     systemPrompt: options.systemPrompt,
-                    stream: !!callbacks.onLLMResponseUpdate,
+                    stream: options.chatOption?.stream || false,
                     streamMsg: callbacks.onLLMResponseUpdate,
                     abortControler: options.abortController,
                     option: options.chatOption
