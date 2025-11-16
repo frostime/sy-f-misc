@@ -35,8 +35,8 @@ const writeFileLines = (filePath: string, lines: string[]): void => {
 const formatLineRange = (lines: string[], start: number, end: number, highlight?: number): string => {
     const result: string[] = [];
     for (let i = start; i <= end; i++) {
-        const prefix = i === highlight ? '→' : ' ';
-        result.push(`${prefix} ${i.toString().padStart(4)}: ${lines[i]}`);
+        const prefix = (i + 1) === highlight ? '→' : ' ';
+        result.push(`${prefix} ${(i + 1).toString().padStart(4)}: ${lines[i]}`);
     }
     return result.join('\n');
 };
@@ -46,8 +46,8 @@ const formatLineRange = (lines: string[], start: number, end: number, highlight?
  */
 interface EditOperation {
     type: 'replace' | 'insert' | 'delete';
-    line: number;           // 起始行号（0-based，基于原始文件）
-    endLine?: number;       // 结束行号（仅用于 replace/delete）
+    line: number;           // 起始行号（1-based，基于原始文件）
+    endLine?: number;       // 结束行号（仅用于 replace/delete，1-based）
     position?: 'before' | 'after';  // 插入位置（仅用于 insert）
     content?: string;       // 新内容（用于 replace/insert）
 }
@@ -77,12 +77,20 @@ const applyBatchEdits = (
     operations: EditOperation[], 
     totalLines: number
 ): BatchEditResult => {
+    const getAffectedPosition = (op: EditOperation): number => {
+        const baseLine = op.line - 1;
+        if (op.type === 'insert') {
+            return baseLine + (op.position === 'after' ? 1 : 0);
+        }
+        return (op.endLine ?? op.line) - 1;
+    };
+
     // 验证阶段：检查所有操作的行号是否有效
     for (const op of operations) {
-        if (op.line < 0 || op.line >= totalLines) {
+        if (op.line < 1 || op.line > totalLines) {
             return {
                 success: false,
-                error: `操作 ${op.type} 的行号 ${op.line} 超出范围 [0, ${totalLines - 1}]`,
+                error: `操作 ${op.type} 的行号 ${op.line} 超出范围 [1, ${totalLines}]`,
                 details: ''
             };
         }
@@ -95,7 +103,7 @@ const applyBatchEdits = (
                     details: ''
                 };
             }
-            if (op.endLine < op.line || op.endLine >= totalLines) {
+            if (op.endLine < op.line || op.endLine > totalLines) {
                 return {
                     success: false,
                     error: `操作 ${op.type} 的 endLine ${op.endLine} 无效（line: ${op.line}, totalLines: ${totalLines}）`,
@@ -131,33 +139,27 @@ const applyBatchEdits = (
     }
 
     // 排序阶段：按照"影响位置"降序排序（从文件末尾向开头处理）
-    const sortedOps = [...operations].sort((a, b) => {
-        const aPos = a.type === 'insert' 
-            ? a.line + (a.position === 'after' ? 1 : 0)
-            : (a.endLine ?? a.line);
-        const bPos = b.type === 'insert' 
-            ? b.line + (b.position === 'after' ? 1 : 0)
-            : (b.endLine ?? b.line);
-        return bPos - aPos; // 降序
-    });
+    const sortedOps = [...operations].sort((a, b) => getAffectedPosition(b) - getAffectedPosition(a));
 
     // 执行阶段：依次执行排序后的操作
     const resultLines = [...lines];
     const details: string[] = [];
 
     for (const op of sortedOps) {
+        const lineIndex = op.line - 1;
+        const endLineIndex = op.endLine !== undefined ? op.endLine - 1 : undefined;
         switch (op.type) {
             case 'replace': {
-                const originalLines = resultLines.slice(op.line, op.endLine! + 1);
+                const originalLines = resultLines.slice(lineIndex, endLineIndex! + 1);
                 const newLines = op.content!.split('\n');
-                resultLines.splice(op.line, op.endLine! - op.line + 1, ...newLines);
+                resultLines.splice(lineIndex, endLineIndex! - lineIndex + 1, ...newLines);
                 details.push(
                     `✓ Replace [${op.line}-${op.endLine}]: ${originalLines.length} 行 → ${newLines.length} 行`
                 );
                 break;
             }
             case 'insert': {
-                const insertIndex = op.position === 'before' ? op.line : op.line + 1;
+                const insertIndex = op.position === 'before' ? lineIndex : lineIndex + 1;
                 const newLines = op.content!.split('\n');
                 resultLines.splice(insertIndex, 0, ...newLines);
                 details.push(
@@ -166,8 +168,8 @@ const applyBatchEdits = (
                 break;
             }
             case 'delete': {
-                const deletedLines = resultLines.slice(op.line, op.endLine! + 1);
-                resultLines.splice(op.line, op.endLine! - op.line + 1);
+                const deletedLines = resultLines.slice(lineIndex, endLineIndex! + 1);
+                resultLines.splice(lineIndex, endLineIndex! - lineIndex + 1);
                 details.push(
                     `✓ Delete [${op.line}-${op.endLine}]: ${deletedLines.length} 行`
                 );
@@ -212,13 +214,13 @@ export const batchEditTool: Tool = {
                                 },
                                 line: {
                                     type: 'number',
-                                    description: '起始行号（0-based，基于原始文件）',
-                                    minimum: 0
+                                    description: '起始行号（从1开始计数，基于原始文件）',
+                                    minimum: 1
                                 },
                                 endLine: {
                                     type: 'number',
-                                    description: '结束行号（仅 replace/delete 需要）',
-                                    minimum: 0
+                                    description: '结束行号（仅 replace/delete 需要，1-based）',
+                                    minimum: 1
                                 },
                                 position: {
                                     type: 'string',
@@ -319,13 +321,13 @@ export const replaceLinesTool: Tool = {
                     },
                     beginLine: {
                         type: 'number',
-                        description: '起始行号（从 0 开始，闭区间）',
-                        minimum: 0
+                        description: '起始行号（从 1 开始，闭区间）',
+                        minimum: 1
                     },
                     endLine: {
                         type: 'number',
-                        description: '结束行号（从 0 开始，闭区间）',
-                        minimum: 0
+                        description: '结束行号（从 1 开始，闭区间）',
+                        minimum: 1
                     },
                     newContent: {
                         type: 'string',
@@ -364,7 +366,9 @@ export const replaceLinesTool: Tool = {
             const totalLines = lines.length;
 
             // 验证行号范围
-            if (args.beginLine < 0 || args.endLine >= totalLines) {
+            const beginIndex = args.beginLine - 1;
+            const endIndex = args.endLine - 1;
+            if (beginIndex < 0 || endIndex >= totalLines) {
                 return {
                     status: ToolExecuteStatus.ERROR,
                     error: `行号超出范围。文件总行数: ${totalLines}，请求范围: [${args.beginLine}, ${args.endLine}]`
@@ -379,11 +383,11 @@ export const replaceLinesTool: Tool = {
             }
 
             // 保存原始内容（用于显示）
-            const originalLines = lines.slice(args.beginLine, args.endLine + 1);
+            const originalLines = lines.slice(beginIndex, endIndex + 1);
 
             // 执行替换
             const newLines = args.newContent.split('\n');
-            lines.splice(args.beginLine, args.endLine - args.beginLine + 1, ...newLines);
+            lines.splice(beginIndex, endIndex - beginIndex + 1, ...newLines);
 
             // 写入文件
             writeFileLines(filePath, lines);
@@ -429,8 +433,8 @@ export const insertLinesTool: Tool = {
                     },
                     line: {
                         type: 'number',
-                        description: '插入位置的行号（从 0 开始）',
-                        minimum: 0
+                        description: '插入位置的行号（从 1 开始）',
+                        minimum: 1
                     },
                     position: {
                         type: 'string',
@@ -473,15 +477,16 @@ export const insertLinesTool: Tool = {
             const totalLines = lines.length;
 
             // 验证行号
-            if (args.line < 0 || args.line >= totalLines) {
+            if (args.line < 1 || args.line > totalLines) {
                 return {
                     status: ToolExecuteStatus.ERROR,
                     error: `行号超出范围。文件总行数: ${totalLines}，请求行号: ${args.line}`
                 };
             }
 
+            const lineIndex = args.line - 1;
             // 计算实际插入位置
-            const insertIndex = args.position === 'before' ? args.line : args.line + 1;
+            const insertIndex = args.position === 'before' ? lineIndex : lineIndex + 1;
 
             // 插入内容
             const newLines = args.content.split('\n');
@@ -494,9 +499,9 @@ export const insertLinesTool: Tool = {
             let resultMsg = `✓ 成功在 ${path.basename(filePath)} 的第 ${args.line} 行${args.position === 'before' ? '前' : '后'}插入 ${newLines.length} 行内容\n\n`;
             resultMsg += `--- 插入位置上下文 ---\n`;
 
-            const contextStart = Math.max(0, args.line - 2);
-            const contextEnd = Math.min(totalLines - 1, args.line + 2);
-            resultMsg += formatLineRange(lines.slice(0, totalLines), contextStart, contextEnd, args.line);
+            const contextStart = Math.max(0, lineIndex - 2);
+            const contextEnd = Math.min(totalLines - 1, lineIndex + 2);
+            resultMsg += formatLineRange(lines.slice(0, totalLines), contextStart, contextEnd, lineIndex);
 
             resultMsg += `\n\n--- 插入的内容 ---\n${args.content}`;
 
@@ -532,13 +537,13 @@ export const deleteLinesTool: Tool = {
                     },
                     beginLine: {
                         type: 'number',
-                        description: '起始行号（从 0 开始，闭区间）',
-                        minimum: 0
+                        description: '起始行号（从 1 开始，闭区间）',
+                        minimum: 1
                     },
                     endLine: {
                         type: 'number',
-                        description: '结束行号（从 0 开始，闭区间）',
-                        minimum: 0
+                        description: '结束行号（从 1 开始，闭区间）',
+                        minimum: 1
                     }
                 },
                 required: ['path', 'beginLine', 'endLine']
@@ -572,7 +577,9 @@ export const deleteLinesTool: Tool = {
             const totalLines = lines.length;
 
             // 验证行号范围
-            if (args.beginLine < 0 || args.endLine >= totalLines) {
+            const beginIndex = args.beginLine - 1;
+            const endIndex = args.endLine - 1;
+            if (beginIndex < 0 || endIndex >= totalLines) {
                 return {
                     status: ToolExecuteStatus.ERROR,
                     error: `行号超出范围。文件总行数: ${totalLines}，请求范围: [${args.beginLine}, ${args.endLine}]`
@@ -587,10 +594,10 @@ export const deleteLinesTool: Tool = {
             }
 
             // 保存被删除的内容
-            const deletedLines = lines.slice(args.beginLine, args.endLine + 1);
+            const deletedLines = lines.slice(beginIndex, endIndex + 1);
 
             // 删除行
-            lines.splice(args.beginLine, args.endLine - args.beginLine + 1);
+            lines.splice(beginIndex, endIndex - beginIndex + 1);
 
             // 写入文件
             writeFileLines(filePath, lines);
@@ -828,7 +835,7 @@ export const searchInFileTool: Tool = {
             const matches: Array<{ lineNum: number; line: string }> = [];
             lines.forEach((line, index) => {
                 if (searchRegex.test(line)) {
-                    matches.push({ lineNum: index, line });
+                    matches.push({ lineNum: index + 1, line });
                 }
             });
 
@@ -843,11 +850,12 @@ export const searchInFileTool: Tool = {
             let resultMsg = `在 ${path.basename(filePath)} 中找到 ${matches.length} 处匹配:\n\n`;
 
             matches.forEach((match, index) => {
-                const startLine = Math.max(0, match.lineNum - contextLines);
-                const endLine = Math.min(lines.length - 1, match.lineNum + contextLines);
+                const lineIndex = match.lineNum - 1;
+                const startLine = Math.max(0, lineIndex - contextLines);
+                const endLine = Math.min(lines.length - 1, lineIndex + contextLines);
 
                 resultMsg += `匹配 ${index + 1} (第 ${match.lineNum} 行):\n`;
-                resultMsg += formatLineRange(lines, startLine, endLine, match.lineNum);
+                resultMsg += formatLineRange(lines, startLine, endLine, lineIndex);
                 resultMsg += '\n\n';
             });
 
@@ -1080,7 +1088,7 @@ export const editorTools = {
 0. 指定编辑某个文件前，使用 fileState 查看文件的大小、行数
 1. 用 ReadFile 查看文件内容; 每次读取建议指定行号
 2. 使用 SearchInFile 定位需要修改的具体位置
-3. 行号统一从 0 开始计数
+3. 行号统一从 1 开始计数
 4. **需要多处修改时，优先使用 BatchEdit 工具，一次性完成所有编辑**
 5. 复杂修改建议分步进行，每次修改后验证结果
 6. 使用 ReplaceString 进行批量重命名或格式调整

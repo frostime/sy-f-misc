@@ -28,10 +28,10 @@ const fileSize = (size: number) => {
 /**
  * 辅助函数：为文本内容添加行号
  * @param text 文本内容
- * @param beginLine 起始行号（从 0 开始）
+ * @param beginLine 起始行号（从 1 开始）
  * @returns 带行号的文本
  */
-const renderTextWithLineNum = (text: string, beginLine: number = 0): string => {
+const renderTextWithLineNum = (text: string, beginLine: number = 1): string => {
     const lines = text.split('\n');
     const maxLineNum = beginLine + lines.length - 1;
     const padding = maxLineNum.toString().length;
@@ -60,13 +60,13 @@ const readFileTool: Tool = {
                     },
                     beginLine: {
                         type: 'number',
-                        description: '起始行号（从0开始计数，闭区间）; 如果仅指定 beginLine，表示从 beginLine 开始读取末尾',
-                        minimum: 0
+                        description: '起始行号（从1开始计数，闭区间）; 如果仅指定 beginLine，表示从 beginLine 开始读取末尾',
+                        minimum: 1
                     },
                     endLine: {
                         type: 'number',
-                        description: '结束行号（从0开始计数，闭区间）; 如果仅指定 endLine，表示从开头读取到 endLine',
-                        minimum: 0
+                        description: '结束行号（从1开始计数，闭区间）; 如果仅指定 endLine，表示从开头读取到 endLine',
+                        minimum: 1
                     },
                     limit: {
                         type: 'number',
@@ -97,15 +97,22 @@ const readFileTool: Tool = {
             const lines = content.split('\n');
             const totalLines = lines.length;
 
-            // 确定起始行和结束行（闭区间）
-            const startLine = args.beginLine !== undefined ? Math.max(0, args.beginLine) : 0;
-            let endLine = args.endLine !== undefined ? Math.min(totalLines - 1, args.endLine) : totalLines - 1;
+            // 确定起始行和结束行（闭区间），输入为 1-based，内部转 0-based
+            const startLine = args.beginLine !== undefined ? Math.max(0, args.beginLine - 1) : 0;
+            let endLine = args.endLine !== undefined ? Math.min(totalLines - 1, args.endLine - 1) : totalLines - 1;
 
             // 验证行范围
+            if (args.beginLine !== undefined && args.endLine !== undefined && args.beginLine > args.endLine) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `起始行(${args.beginLine})不能大于结束行(${args.endLine})`
+                };
+            }
+
             if (startLine > endLine) {
                 return {
                     status: ToolExecuteStatus.ERROR,
-                    error: `起始行(${startLine})不能大于结束行(${endLine})`
+                    error: `起始行(${startLine + 1})不能大于结束行(${endLine + 1})`
                 };
             }
 
@@ -123,14 +130,14 @@ const readFileTool: Tool = {
 
             // 如果需要显示行号，添加行号
             if (showLineNum) {
-                resultContent = renderTextWithLineNum(resultContent, startLine);
+                resultContent = renderTextWithLineNum(resultContent, startLine + 1);
             }
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: `
 ${warning}
------ 文件 "${filePath}" 内容如下 (${startLine}-${endLine}) -----
+----- 文件 "${filePath}" 内容如下 (${startLine + 1}-${endLine + 1}) -----
 ${resultContent}
 `.trim(),
             };
@@ -149,13 +156,13 @@ ${resultContent}
 
         // 如果需要显示行号，添加行号
         if (showLineNum) {
-            resultContent = renderTextWithLineNum(resultContent, 0);
+            resultContent = renderTextWithLineNum(resultContent, 1);
         }
 
         return {
             status: ToolExecuteStatus.SUCCESS,
             data: `${warning}
---- 文件 "${filePath}" 内容如下 (0-${resultContent.split('\n').length - 1}) ---
+--- 文件 "${filePath}" 内容如下 (1-${resultContent.split('\n').length}) ---
 ${resultContent}
 `.trim(),
         };
