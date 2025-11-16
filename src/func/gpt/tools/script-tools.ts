@@ -134,16 +134,19 @@ ${args.command}
 
         // 确定使用的 shell 和参数
         let shell: string;
+        const shellArgs = [];
+
         if (isWindows) {
             // 优先使用 PowerShell Core (pwsh) 如果存在，否则退回到 powershell.exe
             if (hasPwsh === null) {
                 hasPwsh = await testHasCommand('pwsh');
             }
             shell = hasPwsh ? 'pwsh' : 'powershell.exe';
+            shellArgs.push('-NoProfile', '-NonInteractive', '-File', scriptPath);
         } else {
             shell = 'bash';
+            shellArgs.push(scriptPath);
         }
-        const shellArgs = [scriptPath];
 
         // 执行脚本
         return new Promise((resolve) => {

@@ -129,6 +129,15 @@ export interface ToolGroup {
     rulePrompt?: string;
 }
 
+export interface IExternalToolUnit {
+    type: 'script' | 'api';  // 暂时先只支持 script
+
+    scriptType?: 'python' | 'powershell';
+    // 默认先只允许添加
+    scriptLocation?: 'machine' | 'siyuan'; // 在本机某个特定位置，或者是在思源工作空间内的位置
+    scriptPath?: string;
+}
+
 /**
  * 展示模式枚举
  */
