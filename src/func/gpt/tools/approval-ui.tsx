@@ -22,7 +22,7 @@ const ArgsListComponent = (props: { args: Record<string, any> }) => {
                 {Object.keys(props.args).map(key => (
                     <li>
                         <strong>{key}:</strong> {
-                            typeof props.args[key] === 'string' && props.args[key].includes('\n') ? (
+                            typeof props.args[key] === 'string' && (props.args[key].includes('\n') || props.args[key].length > 100) ? (
                                 <textarea
                                     class="b3-text-field"
                                     readOnly
@@ -36,7 +36,7 @@ const ArgsListComponent = (props: { args: Record<string, any> }) => {
                                     }}
                                 />
                             ) : (
-                                <code>{String(props.args[key])}</code>
+                                <code>{JSON.stringify(props.args[key])}</code>
                             )
                         }
                     </li>

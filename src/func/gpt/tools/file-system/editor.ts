@@ -73,8 +73,8 @@ interface BatchEditResult {
  * @returns 批量编辑结果
  */
 const applyBatchEdits = (
-    lines: string[], 
-    operations: EditOperation[], 
+    lines: string[],
+    operations: EditOperation[],
     totalLines: number
 ): BatchEditResult => {
     const getAffectedPosition = (op: EditOperation): number => {
@@ -966,7 +966,16 @@ export const searchInDirectoryTool: Tool = {
             }
 
             // 递归搜索文件
-            const results: Array<{ file: string; matches: number }> = [];
+            interface FileMatch {
+                file: string;
+                matches: Array<{
+                    lineNum: number;
+                    line: string;
+                    preview: string;  // 包含匹配内容的预览文本
+                }>;
+            }
+            const results: FileMatch[] = [];
+            let totalMatchCount = 0;
 
             const searchDir = (currentPath: string, depth: number = 0) => {
                 if (depth > 5 || results.length >= maxResults) return; // 限制深度和结果数
@@ -996,14 +1005,60 @@ export const searchInDirectoryTool: Tool = {
                             // 尝试读取文件内容
                             try {
                                 const content = fs.readFileSync(itemPath, 'utf-8');
-                                const matches = content.match(new RegExp(searchRegex, 'g'));
 
-                                if (matches && matches.length > 0) {
-                                    results.push({
-                                        file: path.relative(dirPath, itemPath),
-                                        matches: matches.length
+                                // 使用全局正则一次性找到所有匹配
+                                const globalRegex = new RegExp(searchRegex.source, 'g' + searchRegex.flags.replace('g', ''));
+                                const matches: RegExpMatchArray[] = Array.from(content.matchAll(globalRegex));
+
+                                if (matches.length === 0) continue;
+
+                                const fileMatches: FileMatch['matches'] = [];
+
+                                // 构建行索引映射（字符位置 -> 行号）
+                                const lines = content.split('\n');
+                                const lineStarts: number[] = [0];
+                                let pos = 0;
+                                for (let i = 0; i < lines.length - 1; i++) {
+                                    pos += lines[i].length + 1; // +1 for '\n'
+                                    lineStarts.push(pos);
+                                }
+
+                                // 处理每个匹配
+                                for (const match of matches) {
+                                    const matchPos = match.index ?? 0;
+
+                                    // 二分查找定位行号
+                                    let lineNum = lineStarts.findIndex((start, idx) => {
+                                        const nextStart = lineStarts[idx + 1] ?? content.length + 1;
+                                        return matchPos >= start && matchPos < nextStart;
+                                    }) + 1;
+
+                                    // 获取该行的起止位置
+                                    const lineStart = lineStarts[lineNum - 1];
+                                    const lineEnd = lineStarts[lineNum] ? lineStarts[lineNum] - 1 : content.length;
+                                    const line = content.substring(lineStart, lineEnd);
+
+                                    // 生成预览：匹配位置前后各50字符
+                                    const matchInLine = matchPos - lineStart;
+                                    const previewStart = Math.max(0, matchInLine - 50);
+                                    const previewEnd = Math.min(line.length, matchInLine + match[0].length + 50);
+
+                                    let preview = line.substring(previewStart, previewEnd);
+                                    if (previewStart > 0) preview = '...' + preview;
+                                    if (previewEnd < line.length) preview = preview + '...';
+
+                                    fileMatches.push({
+                                        lineNum,
+                                        line: line.trim(),
+                                        preview: preview.trim()
                                     });
                                 }
+
+                                totalMatchCount += fileMatches.length;
+                                results.push({
+                                    file: path.relative(dirPath, itemPath),
+                                    matches: fileMatches
+                                });
                             } catch {
                                 // 跳过无法读取的文件（二进制文件等）
                             }
@@ -1024,14 +1079,29 @@ export const searchInDirectoryTool: Tool = {
             }
 
             // 构建结果
-            let resultMsg = `在 ${path.basename(dirPath)} 中找到 ${results.length} 个匹配的文件:\n\n`;
+            let resultMsg = `在 ${path.basename(dirPath)} 中找到 ${results.length} 个匹配的文件（共 ${totalMatchCount} 处匹配）:\n\n`;
 
-            results.forEach((result, index) => {
-                resultMsg += `${index + 1}. ${result.file} (${result.matches} 处匹配)\n`;
+            results.forEach((result, fileIndex) => {
+                resultMsg += `📄 ${fileIndex + 1}. ${result.file}\n`;
+
+                // 如果匹配数量不多，显示所有匹配；否则只显示前几个
+                const maxMatchesToShow = 5;
+                const matchesToShow = result.matches.slice(0, maxMatchesToShow);
+
+                matchesToShow.forEach((match, matchIndex) => {
+                    resultMsg += `   ${matchIndex + 1}) 第 ${match.lineNum} 行:\n`;
+                    resultMsg += `      ${match.preview}\n`;
+                });
+
+                if (result.matches.length > maxMatchesToShow) {
+                    resultMsg += `   ... 还有 ${result.matches.length - maxMatchesToShow} 处匹配未显示\n`;
+                }
+
+                resultMsg += '\n';
             });
 
             if (results.length >= maxResults) {
-                resultMsg += `\n(已达到最大结果数 ${maxResults}，可能有更多匹配)`;
+                resultMsg += `(已达到最大文件数 ${maxResults}，可能有更多匹配文件)`;
             }
 
             return {
