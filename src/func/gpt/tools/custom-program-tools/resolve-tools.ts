@@ -8,14 +8,16 @@
 
 import { thisPlugin } from '@frostime/siyuan-plugin-kits';
 import {
-    getCustomScriptsDir,
     getScriptPath,
     listPythonScripts,
     listToolJsonFiles,
     getFileModifiedTime,
     fileExists,
-    readJsonFile
+    readJsonFile,
+    createTempRunDir,
+    cleanupTempDir
 } from './utils';
+import { putFile } from '@/api';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
@@ -55,33 +57,40 @@ const getPy2ToolPath = (): string => {
 };
 
 export const checkSyncIgnore = async () => {
-    const ignoreFilePath = path.join(window.siyuan.config.system.dataDir, '.siyuan', 'syncignore');
+    const syncignorePath = '.siyuan/syncignore';
+    const requiredIgnore = 'snippets/fmisc-custom-toolscripts/__pycache__/**';
+
+    const ignoreFilePath = path.join(window.siyuan.config.system.dataDir, syncignorePath);
+
     if (!fileExists(ignoreFilePath)) {
-        // TODO: 使用 SiYuan 内部 API 写入 syncignore，不要直接用 fs 写入思源工作数据空间
+        // 文件不存在，创建默认配置
         const defaultIgnores = [
-            'snippets/fmisc-custom-toolscripts/__pycache__/**',
+            requiredIgnore,
         ].join('\n');
 
-        // TODO: 使用 SiYuan 内部 API 写入 syncignore，不要直接用 fs 写入思源工作数据空间
-        fs.writeFileSync(ignoreFilePath, defaultIgnores, 'utf-8');
+        const blob = new Blob([defaultIgnores], { type: 'text/plain' });
+        await putFile('data/' + syncignorePath, false, blob);
         return;
     }
+
     // 读取现有的 syncignore 文件内容
     const content = fs.readFileSync(ignoreFilePath, 'utf-8');
     const lines = content.split('\n').map(line => line.trim());
-    const requiredIgnore = 'snippets/fmisc-custom-toolscripts/__pycache__/**';
 
     if (!lines.includes(requiredIgnore)) {
         // 添加缺失的忽略规则
         lines.push(requiredIgnore);
-        // TODO: 使用 SiYuan 内部 API 写入 syncignore，不要直接用 fs 写入思源工作数据空间
-        fs.writeFileSync(ignoreFilePath, lines.join('\n'), 'utf-8');
+        const newContent = lines.join('\n');
+
+        const blob = new Blob([newContent], { type: 'text/plain' });
+        await putFile('data/' + syncignorePath, false, blob);
         return;
     }
 }
 
 /**
  * 批量解析多个脚本
+ * 使用临时目录进行解析，避免在工作空间生成 .pyc 文件
  */
 export const parseAllScripts = async (scriptPaths: string[]): Promise<{
     success: boolean;
@@ -93,31 +102,70 @@ export const parseAllScripts = async (scriptPaths: string[]): Promise<{
     }
 
     const py2toolPath = getPy2ToolPath();
-    const scriptsDir = getCustomScriptsDir();
+    const tempDir = createTempRunDir();
 
-    return new Promise((resolve) => {
-        // 使用 --dir 参数批量解析整个目录，--with-mtime 让其存储修改时间
-        const args = ['--dir', scriptsDir, '--with-mtime'];
+    try {
+        // 复制所有 Python 脚本到临时目录
+        const pythonScripts = await listPythonScripts();
+        for (const scriptName of pythonScripts) {
+            const srcPath = getScriptPath(scriptName);
+            const destPath = path.join(tempDir, scriptName);
+            fs.copyFileSync(srcPath, destPath);
+        }
 
-        childProcess.execFile('python', [py2toolPath, ...args], (error, stdout, stderr) => {
-            if (error) {
-                resolve({
-                    success: false,
-                    successCount: 0,
-                    errors: [{ script: 'all', error: `${error.message}\n${stderr}` }]
-                });
-                return;
-            }
+        return new Promise((resolve) => {
+            // 使用 --dir 参数批量解析临时目录，--with-mtime 让其存储修改时间
+            const args = ['--dir', tempDir, '--with-mtime'];
 
-            console.log('py2tool.py batch output:', stdout);
+            childProcess.execFile('python', [py2toolPath, ...args], (error, stdout, stderr) => {
+                if (error) {
+                    cleanupTempDir(tempDir);
+                    resolve({
+                        success: false,
+                        successCount: 0,
+                        errors: [{ script: 'all', error: `${error.message}\n${stderr}` }]
+                    });
+                    return;
+                }
 
-            resolve({
-                success: true,
-                successCount: scriptPaths.length,
-                errors: []
+                try {
+                    // 将生成的 .tool.json 文件复制回原目录
+                    const files = fs.readdirSync(tempDir);
+                    const toolJsonFiles = files.filter(f => f.endsWith('.tool.json'));
+
+                    for (const jsonFile of toolJsonFiles) {
+                        const srcPath = path.join(tempDir, jsonFile);
+                        const destPath = getScriptPath(jsonFile);
+                        fs.copyFileSync(srcPath, destPath);
+                    }
+
+                    console.log('py2tool.py batch output:', stdout);
+                    console.log(`成功解析 ${toolJsonFiles.length} 个脚本，JSON 文件已复制回工作目录`);
+
+                    resolve({
+                        success: true,
+                        successCount: scriptPaths.length,
+                        errors: []
+                    });
+                } catch (copyError) {
+                    resolve({
+                        success: false,
+                        successCount: 0,
+                        errors: [{ script: 'all', error: `复制结果文件失败: ${copyError.message}` }]
+                    });
+                } finally {
+                    cleanupTempDir(tempDir);
+                }
             });
         });
-    });
+    } catch (error) {
+        cleanupTempDir(tempDir);
+        return {
+            success: false,
+            successCount: 0,
+            errors: [{ script: 'all', error: `准备临时目录失败: ${error.message}` }]
+        };
+    }
 };
 
 /**

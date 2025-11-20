@@ -88,7 +88,7 @@ export const checkPythonAvailable = async (): Promise<{
 export const createTempRunDir = (): string => {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 10);
-    const tempDir = path.join(os.tmpdir(), 'siyuan_custom_tools', `run_${timestamp}_${random}`);
+    const tempDir = path.join(os.tmpdir(), 'siyuan_temp', `run_${timestamp}_${random}`);
     fs.mkdirSync(tempDir, { recursive: true });
     return tempDir;
 };

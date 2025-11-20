@@ -347,7 +347,7 @@ const GlobalSetting = () => {
                         <Heading>
                             自定义脚本工具
                         </Heading>
-                        <Form.Wrap
+                        {/* <Form.Wrap
                             title="重新导入自定义脚本工具"
                             description="从脚本目录重新加载工具定义，如果修改了脚本需要重新导入。注意：需要重启插件或刷新页面才能生效。"
                         >
@@ -357,7 +357,7 @@ const GlobalSetting = () => {
                                     return store.loadCustomScriptTools();
                                 }}
                             />
-                        </Form.Wrap>
+                        </Form.Wrap> */}
                         <CustomScriptToolSetting />
                     </Match>
                 </Switch>
