@@ -8,7 +8,7 @@
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import Form from "@/libs/components/Form";
-import { createSignal, Switch, Match } from "solid-js";
+import { createSignal, Switch, Match, Show } from "solid-js";
 
 // import { useModel, defaultConfig, providers, save, load } from "./store";
 import * as store from "./store";
@@ -133,15 +133,17 @@ const GlobalSetting = () => {
                         <span>工具</span>
                     </div>
                 </TabButton>
-                <TabButton
-                    active={activeTab() === 'custom-scripts'}
-                    onClick={() => setActiveTab('custom-scripts')}
-                >
-                    <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
-                        <span>🐍</span>
-                        <span>自定义脚本工具</span>
-                    </div>
-                </TabButton>
+                <Show when={globalMiscConfigs().enableCustomScriptTools}>
+                    <TabButton
+                        active={activeTab() === 'custom-scripts'}
+                        onClick={() => setActiveTab('custom-scripts')}
+                    >
+                        <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
+                            <span>🐍</span>
+                            <span>自定义脚本工具</span>
+                        </div>
+                    </TabButton>
+                </Show>
             </div>
 
             <div style={{
@@ -225,6 +227,20 @@ const GlobalSetting = () => {
                                     value={globalMiscConfigs().exportMDSkipHidden}
                                     changed={(v) => {
                                         globalMiscConfigs.update('exportMDSkipHidden', v);
+                                    }}
+                                />
+                            </Form.Wrap>
+
+                            <Heading>实验性功能</Heading>
+                            <Form.Wrap
+                                title="启用自定义脚本工具"
+                                description="开启后，可以通过 Python 脚本扩展 GPT 工具能力。<br/>注意：需要重启插件后生效！"
+                            >
+                                <Form.Input
+                                    type="checkbox"
+                                    value={globalMiscConfigs().enableCustomScriptTools}
+                                    changed={(v) => {
+                                        globalMiscConfigs.update('enableCustomScriptTools', v);
                                     }}
                                 />
                             </Form.Wrap>

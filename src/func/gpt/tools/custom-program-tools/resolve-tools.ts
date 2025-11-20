@@ -54,37 +54,6 @@ const getPy2ToolPath = (): string => {
     return path.resolve(scriptPath);
 };
 
-/**
- * 调用 py2tool.py 解析 Python 脚本
- */
-export const parseScriptWithPy2Tool = async (scriptPath: string): Promise<{
-    success: boolean;
-    error?: string;
-}> => {
-    const py2toolPath = getPy2ToolPath();
-
-    return new Promise((resolve) => {
-        const args = ['--files', scriptPath];
-
-        childProcess.execFile('python', [py2toolPath, ...args], (error, stdout, stderr) => {
-            if (error) {
-                resolve({
-                    success: false,
-                    error: `Failed to parse script: ${error.message}\n${stderr}`
-                });
-                return;
-            }
-
-            console.log('py2tool.py output:', stdout);
-
-            resolve({
-                success: true
-            });
-        });
-    });
-};
-
-
 export const checkSyncIgnore = async () => {
     const ignoreFilePath = path.join(window.siyuan.config.system.dataDir, '.siyuan', 'syncignore');
     if (!fileExists(ignoreFilePath)) {
@@ -125,8 +94,8 @@ export const parseAllScripts = async (scriptPaths: string[]): Promise<{
     const scriptsDir = getCustomScriptsDir();
 
     return new Promise((resolve) => {
-        // 使用 --dir 参数批量解析整个目录
-        const args = ['--dir', scriptsDir];
+        // 使用 --dir 参数批量解析整个目录，--with-mtime 让其存储修改时间
+        const args = ['--dir', scriptsDir, '--with-mtime'];
 
         childProcess.execFile('python', [py2toolPath, ...args], (error, stdout, stderr) => {
             if (error) {
@@ -152,7 +121,7 @@ export const parseAllScripts = async (scriptPaths: string[]): Promise<{
 /**
  * 加载工具定义 JSON 文件
  */
-const loadToolDefinition = async (toolJsonPath: string): Promise<ParsedToolModule['moduleData'] | null> => {
+const loadToolDefinition = async (toolJsonPath: string): Promise<(ParsedToolModule['moduleData'] & { lastModified?: number }) | null> => {
     try {
         const data = await readJsonFile(toolJsonPath);
 
@@ -170,10 +139,10 @@ const loadToolDefinition = async (toolJsonPath: string): Promise<ParsedToolModul
 };
 
 /**
- * 扫描所有自定义脚本并加载工具定义
+ * 扫描所有自定义脚本并加载工具定义（不检查时间戳，直接加载）
  */
 export const scanCustomScripts = async (): Promise<ParsedToolModule[]> => {
-    //必须确保 pycache 被 syncignore 忽略; 在
+    //必须确保 pycache 被 syncignore 忽略
     await checkSyncIgnore();
     const toolJsonFiles = await listToolJsonFiles();
     const modules: ParsedToolModule[] = [];
@@ -211,9 +180,100 @@ export const scanCustomScripts = async (): Promise<ParsedToolModule[]> => {
 };
 
 /**
+ * 智能扫描自定义脚本：检查时间戳，只在需要时重新解析
+ * @returns 返回加载的模块和重新解析的数量
+ */
+export const scanCustomScriptsWithSmartLoad = async (): Promise<{
+    modules: ParsedToolModule[];
+    reparsedCount: number;
+}> => {
+    await checkSyncIgnore();
+
+    const pythonScripts = await listPythonScripts();
+    const scriptsToParse: string[] = [];
+    const modules: ParsedToolModule[] = [];
+
+    // 首先检查所有脚本，看哪些需要重新解析
+    for (const scriptName of pythonScripts) {
+        const scriptPath = getScriptPath(scriptName);
+        const toolJsonPath = scriptPath.replace('.py', '.tool.json');
+
+        let needReparse = false;
+
+        if (!fileExists(toolJsonPath)) {
+            // JSON 文件不存在，需要解析
+            needReparse = true;
+        } else {
+            // JSON 文件存在，检查时间戳
+            const moduleData = await loadToolDefinition(toolJsonPath);
+            if (moduleData && moduleData.lastModified !== undefined) {
+                const currentScriptTime = getFileModifiedTime(scriptPath);
+                if (currentScriptTime > moduleData.lastModified) {
+                    // 脚本比 JSON 中记录的时间新，需要重新解析
+                    needReparse = true;
+                }
+            } else {
+                // JSON 文件格式不正确或没有时间戳，需要重新解析
+                needReparse = true;
+            }
+        }
+
+        if (needReparse) {
+            scriptsToParse.push(scriptPath);
+        }
+    }
+
+    // 如果有需要重新解析的脚本，执行解析
+    if (scriptsToParse.length > 0) {
+        console.log(`检测到 ${scriptsToParse.length} 个脚本需要重新解析`);
+        await parseAllScripts(scriptsToParse);
+    }
+
+    // 加载所有工具定义
+    const toolJsonFiles = await listToolJsonFiles();
+    for (const jsonFile of toolJsonFiles) {
+        const toolJsonPath = getScriptPath(jsonFile);
+        const moduleData = await loadToolDefinition(toolJsonPath);
+
+        if (!moduleData) {
+            continue;
+        }
+
+        const scriptName = jsonFile.replace('.tool.json', '.py');
+        const scriptPath = getScriptPath(scriptName);
+
+        if (!fileExists(scriptPath)) {
+            console.warn('Python script not found for tool definition:', scriptPath);
+            continue;
+        }
+
+        const lastModified = getFileModifiedTime(scriptPath);
+
+        modules.push({
+            scriptName,
+            scriptPath,
+            toolJsonPath,
+            moduleData: {
+                type: moduleData.type,
+                name: moduleData.name,
+                scriptPath: moduleData.scriptPath,
+                tools: moduleData.tools,
+                rulePrompt: moduleData.rulePrompt
+            },
+            lastModified
+        });
+    }
+
+    return {
+        modules,
+        reparsedCount: scriptsToParse.length
+    };
+};
+
+/**
  * 检查脚本是否需要重新解析（.py 文件比 .tool.json 文件新）
  */
-export const checkNeedReparse = (scriptPath: string, toolJsonPath: string): boolean => {
+const checkNeedReparse = (scriptPath: string, toolJsonPath: string): boolean => {
     if (!fileExists(toolJsonPath)) {
         return true;
     }

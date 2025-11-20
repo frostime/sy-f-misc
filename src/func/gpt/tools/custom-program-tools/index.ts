@@ -7,7 +7,7 @@
  */
 
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "../types";
-import { scanCustomScripts, ParsedToolModule } from './resolve-tools';
+import { scanCustomScriptsWithSmartLoad, ParsedToolModule } from './resolve-tools';
 import { createTempRunDir, cleanupTempDir } from './utils';
 
 const fs = window?.require?.('fs');
@@ -333,17 +333,18 @@ export const createCustomScriptToolGroupsFromCache = (): ToolGroup[] => {
 };
 
 /**
- * 加载并缓存自定义脚本工具定义
+ * 加载并缓存自定义脚本工具定义（使用智能加载）
  */
 export const loadAndCacheCustomScriptTools = async (): Promise<{
     success: boolean;
     moduleCount: number;
     toolCount: number;
+    reparsedCount: number;
     error?: string;
 }> => {
     try {
-        // 扫描所有脚本模块
-        const modules = await scanCustomScripts();
+        // 使用智能加载：检查时间戳，只在必要时重新解析
+        const { modules, reparsedCount } = await scanCustomScriptsWithSmartLoad();
 
         // 缓存模块
         cachedModules = modules;
@@ -351,12 +352,13 @@ export const loadAndCacheCustomScriptTools = async (): Promise<{
         // 计算工具总数
         const toolCount = modules.reduce((sum, m) => sum + m.moduleData.tools.length, 0);
 
-        console.log(`Cached ${toolCount} custom script tools from ${modules.length} modules`);
+        console.log(`Cached ${toolCount} custom script tools from ${modules.length} modules (reparsed ${reparsedCount} scripts)`);
 
         return {
             success: true,
             moduleCount: modules.length,
-            toolCount
+            toolCount,
+            reparsedCount
         };
     } catch (error) {
         console.error('Failed to load custom script tools:', error);
@@ -364,11 +366,14 @@ export const loadAndCacheCustomScriptTools = async (): Promise<{
             success: false,
             moduleCount: 0,
             toolCount: 0,
+            reparsedCount: 0,
             error: error.message
         };
     }
-};/**
+};
+
+/**
  * 导出用于设置页面的工具组创建函数
  */
-export { scanCustomScripts, parseAllScripts, reparseOutdatedScripts } from './resolve-tools';
+export { scanCustomScripts, scanCustomScriptsWithSmartLoad, parseAllScripts, reparseOutdatedScripts } from './resolve-tools';
 export { openCustomScriptsDir, checkPythonAvailable } from './utils';

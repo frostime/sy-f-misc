@@ -151,17 +151,17 @@ def generate_schema_from_function(func: typing.Callable) -> dict:
 
     # 5. 提取权限配置属性（如果存在）
     permission_config = {}
-    
+
     # 检查函数是否设置了权限属性
     if hasattr(func, 'permissionLevel'):
         permission_config['permissionLevel'] = func.permissionLevel
-    
+
     if hasattr(func, 'requireExecutionApproval'):
         permission_config['requireExecutionApproval'] = func.requireExecutionApproval
-    
+
     if hasattr(func, 'requireResultApproval'):
         permission_config['requireResultApproval'] = func.requireResultApproval
-    
+
     # 将权限配置添加到 tool_schema
     if permission_config:
         tool_schema.update(permission_config)
@@ -197,12 +197,16 @@ def main():
     parser = argparse.ArgumentParser(
         description='将Python脚本转换为Tool定义的JSON Schema (使用 importlib 运行时分析)'
     )
+
+    import os
+
     # option 1
     parser.add_argument(
         '--files', nargs='+', required=False, help='要处理的Python文件列表'
     )
+    parser.add_argument('--dir', type=str, required=False, help='要处理的Python文件目录')
     parser.add_argument(
-        '--dir', type=str, required=False, help='要处理的Python文件目录'
+        '--with-mtime', action='store_true', help='在 JSON 中存储脚本的修改时间'
     )
     args = parser.parse_args()
     if not args.files and not args.dir:
@@ -256,6 +260,12 @@ def main():
             'tools': tools,
             'rulePrompt': module_doc,
         }
+
+        # 如果指定了 --with-mtime，添加修改时间
+        if args.with_mtime:
+            tool_group['lastModified'] = int(
+                os.path.getmtime(file_path) * 1000
+            )  # 转换为毫秒
 
         # 6. 写入 JSON 文件
         json_file = file_path.with_suffix('.tool.json')
