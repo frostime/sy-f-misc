@@ -615,7 +615,7 @@ export const searchInFileTool: Tool = {
                 const startLine = Math.max(0, lineIndex - contextLines);
                 const endLine = Math.min(lines.length - 1, lineIndex + contextLines);
 
-                resultMsg += `匹配 ${index + 1} (第 ${match.lineNum} 行):\n`;
+                resultMsg += `${index + 1}: L${match.lineNum}\n`;
                 resultMsg += formatLineRange(lines, startLine, endLine, lineIndex);
                 resultMsg += '\n\n';
             });
@@ -859,8 +859,8 @@ export const searchInDirectoryTool: Tool = {
                 const matchesToShow = result.matches.slice(0, maxMatchesToShow);
 
                 matchesToShow.forEach((match, matchIndex) => {
-                    resultMsg += `   ${matchIndex + 1}) 第 ${match.lineNum} 行:\n`;
-                    resultMsg += `      ${match.preview}\n`;
+                    resultMsg += `${matchIndex + 1}: L${match.lineNum}\n`;
+                    resultMsg += `  ${match.preview}\n`;
                 });
 
                 if (result.matches.length > maxMatchesToShow) {
