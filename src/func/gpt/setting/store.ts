@@ -12,7 +12,7 @@ import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 import { createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
 // import { toolExecutorFactory } from "../tools";
 import { userCustomizedPreprocessor } from "../openai/adpater";
-
+import { loadAndCacheCustomScriptTools } from "../tools/custom-program-tools";
 
 /**
  * `siyuan` or `modelName@providerName`
@@ -61,20 +61,20 @@ export const globalMiscConfigs = useStoreRef<typeof _defaultGlobalMiscConfigs>(_
 
 // 工具管理器设置
 export const toolsManager = useStoreRef<{
-  // 工具组默认启用状态
-  groupDefaults: Record<string, boolean>;
-  // 工具级别的启用状态（按工具名称）
-  toolDefaults: Record<string, boolean>;
-  // 工具权限覆盖配置
-  toolPermissionOverrides: Record<string, {
-    permissionLevel?: 'public' | 'moderate' | 'sensitive';
-    requireExecutionApproval?: boolean;
-    requireResultApproval?: boolean;
-  }>;
+    // 工具组默认启用状态
+    groupDefaults: Record<string, boolean>;
+    // 工具级别的启用状态（按工具名称）
+    toolDefaults: Record<string, boolean>;
+    // 工具权限覆盖配置
+    toolPermissionOverrides: Record<string, {
+        permissionLevel?: 'public' | 'moderate' | 'sensitive';
+        requireExecutionApproval?: boolean;
+        requireResultApproval?: boolean;
+    }>;
 }>({
-  groupDefaults: {},
-  toolDefaults: {},
-  toolPermissionOverrides: {}
+    groupDefaults: {},
+    toolDefaults: {},
+    toolPermissionOverrides: {}
 });
 
 const CURRENT_SCHEMA = '1.0';
@@ -315,9 +315,28 @@ export const load = async (plugin?: Plugin) => {
 
     await Promise.all([
         loadCustomPreprocessModule(),
-        loadCustomContextProviderModule()
+        loadCustomContextProviderModule(),
+        loadCustomScriptTools()
     ]);
 }
+
+/**
+ * 加载自定义脚本工具
+ */
+export const loadCustomScriptTools = async () => {
+    try {
+        const result = await loadAndCacheCustomScriptTools();
+        if (result.success) {
+            console.log(`成功加载 ${result.moduleCount} 个自定义脚本模块，包含 ${result.toolCount} 个工具`);
+        } else {
+            console.error('加载自定义脚本工具失败:', result.error);
+        }
+        return result.success;
+    } catch (error) {
+        console.error('Failed to load custom script tools:', error);
+        return false;
+    }
+};
 
 export const providers = useStoreRef<IGPTProvider[]>([]);
 export const UIConfig = useStoreRef({

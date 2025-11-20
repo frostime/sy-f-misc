@@ -149,6 +149,23 @@ def generate_schema_from_function(func: typing.Callable) -> dict:
         },
     }
 
+    # 5. 提取权限配置属性（如果存在）
+    permission_config = {}
+    
+    # 检查函数是否设置了权限属性
+    if hasattr(func, 'permissionLevel'):
+        permission_config['permissionLevel'] = func.permissionLevel
+    
+    if hasattr(func, 'requireExecutionApproval'):
+        permission_config['requireExecutionApproval'] = func.requireExecutionApproval
+    
+    if hasattr(func, 'requireResultApproval'):
+        permission_config['requireResultApproval'] = func.requireResultApproval
+    
+    # 将权限配置添加到 tool_schema
+    if permission_config:
+        tool_schema.update(permission_config)
+
     return tool_schema
 
 
