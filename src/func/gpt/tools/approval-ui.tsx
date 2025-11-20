@@ -57,6 +57,8 @@ const BaseApprovalUI = (props: {
 }) => {
     const reason = createSignalRef('');
 
+    let decided = createSignalRef(false);
+
     return (
         <div style={{
             "padding": "16px",
@@ -97,17 +99,29 @@ const BaseApprovalUI = (props: {
 
                 <ButtonInput
                     label="拒绝"
-                    onClick={() => props.onReject(props.showReasonInput ? reason() : undefined)}
+                    onClick={() => {
+                        if (decided()) return;
+                        decided(true);
+                        props.onReject(props.showReasonInput ? reason() : undefined);
+                    }}
                     style={{
                         "background-color": "var(--b3-theme-error)",
-                        "font-size": "12px"
+                        "font-size": "12px",
+                        "opacity": decided() ? "0.6" : "1",
+                        "pointer-events": decided() ? "none" : "auto"
                     }}
                 />
                 <ButtonInput
                     label="允许"
-                    onClick={() => props.onApprove()}
+                    onClick={() => {
+                        if (decided()) return;
+                        decided(true);
+                        props.onApprove()
+                    }}
                     style={{
-                        "font-size": "12px"
+                        "font-size": "12px",
+                        "opacity": decided() ? "0.6" : "1",
+                        "pointer-events": decided() ? "none" : "auto"
                     }}
                 />
             </div>

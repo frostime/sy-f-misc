@@ -491,8 +491,8 @@ export const treeListTool: Tool = {
 /**
  * 辅助函数：读取文件并分割成行数组
  */
-const readFileLines = (filePath: string): string[] => {
-    const content = fs.readFileSync(filePath, 'utf-8');
+const readFileLines = (filePath: string, encoding: string = 'utf-8'): string[] => {
+    const content = fs.readFileSync(filePath, encoding);
     return content.split('\n');
 };
 
@@ -516,7 +516,7 @@ export const searchInFileTool: Tool = {
         type: 'function',
         function: {
             name: 'SearchInFile',
-            description: '在指定文件中搜索匹配的内容，返回行号和上下文',
+            description: '在指定文本文件中搜索匹配的内容，返回行号和上下文; 注意：该工具适用于文本文件，不建议用于二进制文件',
             parameters: {
                 type: 'object',
                 properties: {
@@ -537,6 +537,10 @@ export const searchInFileTool: Tool = {
                         description: '返回匹配行的上下文行数，默认 2',
                         minimum: 0
                     },
+                    encoding: {
+                        type: 'string',
+                        description: '文件编码，默认 utf-8',
+                    },
                     limit: {
                         type: 'number',
                         description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
@@ -555,13 +559,14 @@ export const searchInFileTool: Tool = {
         pattern: string;
         regex?: boolean;
         contextLines?: number;
+        encoding?: string;
         limit?: number
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
         }
 
-        const filePath = path.resolve(args.path);
+        const filePath: string = path.resolve(args.path);
         const outputLimit = normalizeOutputLimit(args.limit);
 
         if (!fs.existsSync(filePath)) {
@@ -571,8 +576,15 @@ export const searchInFileTool: Tool = {
             };
         }
 
+        if (filePath.endsWith('.exe') || filePath.endsWith('.lib') || filePath.endsWith('.dll')) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `不支持在二进制文件中搜索内容: ${filePath}`
+            };
+        }
+
         try {
-            const lines = readFileLines(filePath);
+            const lines = readFileLines(filePath, args.encoding ?? 'utf-8');
             const useRegex = args.regex ?? false;
             const contextLines = args.contextLines ?? 2;
 
@@ -616,7 +628,7 @@ export const searchInFileTool: Tool = {
                 const endLine = Math.min(lines.length - 1, lineIndex + contextLines);
 
                 resultMsg += `${index + 1}: L${match.lineNum}\n`;
-                resultMsg += formatLineRange(lines, startLine, endLine, lineIndex);
+                resultMsg += formatLineRange(lines, startLine, endLine, match.lineNum);
                 resultMsg += '\n\n';
             });
 
@@ -645,7 +657,7 @@ export const searchInDirectoryTool: Tool = {
         type: 'function',
         function: {
             name: 'SearchInDirectory',
-            description: '在指定目录下搜索包含特定内容的文件',
+            description: '在指定目录下搜索包含特定内容的文本文件',
             parameters: {
                 type: 'object',
                 properties: {
@@ -670,6 +682,10 @@ export const searchInDirectoryTool: Tool = {
                         description: '最大返回结果数，默认 20',
                         minimum: 1
                     },
+                    encoding: {
+                        type: 'string',
+                        description: '文件编码，默认 utf-8',
+                    },
                     limit: {
                         type: 'number',
                         description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
@@ -689,6 +705,7 @@ export const searchInDirectoryTool: Tool = {
         filePattern?: string;
         regex?: boolean;
         maxResults?: number;
+        encoding?: string;
         limit?: number
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
@@ -752,6 +769,26 @@ export const searchInDirectoryTool: Tool = {
 
                 const items = fs.readdirSync(currentPath);
 
+                // 排除二进制文件和常见无关目录
+                const execludeSuffixes = [
+                    '.exe', '.dll', '.bin', '.lib', '.class',
+                    '.so', '.sys', '.db', '.msi', '.zip',
+                    '.rar', '.jpg', '.png', '.gif'
+                ];
+                if (execludeSuffixes.some(suffix => currentPath.toLocaleLowerCase().endsWith(suffix))) {
+                    return;
+                }
+                const execludeDirname = ['.git', 'node_modules', '.vscode', 'dist', 'build'];
+                if (execludeDirname.includes(path.basename(currentPath))) {
+                    return;
+                }
+                // 跳过大于 20MB 的内容
+                const stats = fs.statSync(currentPath);
+                const MAX_FILE_SIZE = 20 * 1024 * 1024;
+                if (stats.isFile() && stats.size > MAX_FILE_SIZE) {
+                    return;
+                }
+
                 for (const item of items) {
                     if (results.length >= maxResults) break;
 
@@ -774,7 +811,7 @@ export const searchInDirectoryTool: Tool = {
 
                             // 尝试读取文件内容
                             try {
-                                const content = fs.readFileSync(itemPath, 'utf-8');
+                                const content = fs.readFileSync(itemPath, args.encoding || 'utf-8');
 
                                 // 使用全局正则一次性找到所有匹配
                                 const globalRegex = new RegExp(searchRegex.source, 'g' + searchRegex.flags.replace('g', ''));
