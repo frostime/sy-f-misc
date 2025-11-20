@@ -57,11 +57,12 @@ const getPy2ToolPath = (): string => {
 export const checkSyncIgnore = async () => {
     const ignoreFilePath = path.join(window.siyuan.config.system.dataDir, '.siyuan', 'syncignore');
     if (!fileExists(ignoreFilePath)) {
-        // 创建 syncignore 文件
+        // TODO: 使用 SiYuan 内部 API 写入 syncignore，不要直接用 fs 写入思源工作数据空间
         const defaultIgnores = [
             'snippets/fmisc-custom-toolscripts/__pycache__/**',
         ].join('\n');
 
+        // TODO: 使用 SiYuan 内部 API 写入 syncignore，不要直接用 fs 写入思源工作数据空间
         fs.writeFileSync(ignoreFilePath, defaultIgnores, 'utf-8');
         return;
     }
@@ -73,6 +74,7 @@ export const checkSyncIgnore = async () => {
     if (!lines.includes(requiredIgnore)) {
         // 添加缺失的忽略规则
         lines.push(requiredIgnore);
+        // TODO: 使用 SiYuan 内部 API 写入 syncignore，不要直接用 fs 写入思源工作数据空间
         fs.writeFileSync(ignoreFilePath, lines.join('\n'), 'utf-8');
         return;
     }
