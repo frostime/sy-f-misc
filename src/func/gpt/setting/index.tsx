@@ -139,7 +139,7 @@ const GlobalSetting = () => {
                 >
                     <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
                         <span>🐍</span>
-                        <span>自定义脚本</span>
+                        <span>自定义脚本工具</span>
                     </div>
                 </TabButton>
             </div>

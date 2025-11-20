@@ -17,6 +17,7 @@ import {
     readJsonFile
 } from './utils';
 
+const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 const childProcess = window?.require?.('child_process');
 
@@ -83,6 +84,31 @@ export const parseScriptWithPy2Tool = async (scriptPath: string): Promise<{
     });
 };
 
+
+export const checkSyncIgnore = async () => {
+    const ignoreFilePath = path.join(window.siyuan.config.system.dataDir, '.siyuan', 'syncignore');
+    if (!fileExists(ignoreFilePath)) {
+        // 创建 syncignore 文件
+        const defaultIgnores = [
+            'snippets/fmisc-custom-toolscripts/__pycache__/**',
+        ].join('\n');
+
+        fs.writeFileSync(ignoreFilePath, defaultIgnores, 'utf-8');
+        return;
+    }
+    // 读取现有的 syncignore 文件内容
+    const content = fs.readFileSync(ignoreFilePath, 'utf-8');
+    const lines = content.split('\n').map(line => line.trim());
+    const requiredIgnore = 'snippets/fmisc-custom-toolscripts/__pycache__/**';
+
+    if (!lines.includes(requiredIgnore)) {
+        // 添加缺失的忽略规则
+        lines.push(requiredIgnore);
+        fs.writeFileSync(ignoreFilePath, lines.join('\n'), 'utf-8');
+        return;
+    }
+}
+
 /**
  * 批量解析多个脚本
  */
@@ -147,6 +173,8 @@ const loadToolDefinition = async (toolJsonPath: string): Promise<ParsedToolModul
  * 扫描所有自定义脚本并加载工具定义
  */
 export const scanCustomScripts = async (): Promise<ParsedToolModule[]> => {
+    //必须确保 pycache 被 syncignore 忽略; 在
+    await checkSyncIgnore();
     const toolJsonFiles = await listToolJsonFiles();
     const modules: ParsedToolModule[] = [];
 

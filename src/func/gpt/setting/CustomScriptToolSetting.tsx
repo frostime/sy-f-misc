@@ -11,11 +11,44 @@ import { showMessage } from 'siyuan';
 import {
     getCachedModules,
     parseAllScripts,
-    reparseOutdatedScripts,
+    loadAndCacheCustomScriptTools,
     openCustomScriptsDir,
     checkPythonAvailable
 } from '../tools/custom-program-tools';
 import type { ParsedToolModule } from '../tools/custom-program-tools/resolve-tools';
+import { solidDialog } from '@/libs/dialog';
+import Markdown from '@/libs/components/Elements/Markdown';
+import styles from './CustomScriptToolSetting.module.scss';
+
+const exampleScript = `Python 脚本需要遵循一定的规范，并做好类型标注，才能被正确解析为工具。例如：
+
+\`\`\`python
+__doc__ = """doc 属性会被当作模块的规则 prompt 使用"""
+
+def _utils():
+    # 工具类函数请加上 _ 前缀，避免被解析为工具
+    pass
+
+# 请务必做好类型标注，并规范地编写函数注释文档
+def add(a: int, b: int) -> int:
+    """将两个整数相加并返回结果
+
+    Args:
+        a (int): 第一个整数
+        b (int): 第二个整数
+
+    Returns:
+        int: 两个整数的和
+
+    """
+    return a + b
+
+
+# add.permissionLevel = "moderate"  # 可选，定义工具的权限级别，可选值：public, moderate, sensitive
+# add.requireExecutionApproval = True  # 可选，定义是否每次执行都需要用户审批
+# add.requireResultApproval = False  # 可选，定义是否需要用户审批结果
+\`\`\`
+`;
 
 /**
  * 自定义脚本工具设置组件
@@ -45,22 +78,23 @@ export const CustomScriptToolSetting: Component = () => {
         setExpandedModules(expanded);
     };
 
-    // 重新解析并导入
+    // 重新解析所有脚本
     const parseAndImport = async () => {
         setLoading(true);
         try {
-            showMessage('正在解析脚本...', 3000, 'info');
+            showMessage('正在解析所有脚本...', 3000, 'info');
 
-            const result = await parseAllScripts(
-                scripts().map(s => s.scriptPath)
-            );
+            // parseAllScripts 会解析整个目录，不需要传入具体路径
+            const result = await parseAllScripts([]);
 
             if (result.success) {
-                showMessage(`成功解析 ${result.successCount} 个脚本`, 3000, 'info');
+                showMessage('脚本解析完成，正在重新加载...', 2000, 'info');
+
+                // 重新加载缓存
+                await loadAndCacheCustomScriptTools();
                 loadScriptsFromCache();
 
-                // 提示需要重新加载工具
-                showMessage('工具定义已更新，请通过上方「重新导入」按钮重新加载', 5000, 'info');
+                showMessage('工具定义已更新！', 3000, 'info');
             } else {
                 const errorMsg = result.errors.map(e => `${e.script}: ${e.error}`).join('\n');
                 showMessage(`解析失败:\n${errorMsg}`, 5000, 'error');
@@ -73,28 +107,7 @@ export const CustomScriptToolSetting: Component = () => {
         }
     };
 
-    // 重新解析过时的脚本
-    const reparseOutdated = async () => {
-        setLoading(true);
-        try {
-            const result = await reparseOutdatedScripts();
 
-            if (result.parsedCount === 0) {
-                showMessage('所有脚本都是最新的', 2000, 'info');
-            } else if (result.success) {
-                showMessage(`重新解析了 ${result.parsedCount} 个脚本`, 3000, 'info');
-                loadScriptsFromCache();
-            } else {
-                const errorMsg = result.errors.map(e => `${e.script}: ${e.error}`).join('\n');
-                showMessage(`解析失败:\n${errorMsg}`, 5000, 'error');
-            }
-        } catch (error) {
-            console.error('Failed to reparse scripts:', error);
-            showMessage('重新解析失败: ' + error.message, 5000, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     // 打开脚本目录
     const openScriptDir = async () => {
@@ -116,37 +129,23 @@ export const CustomScriptToolSetting: Component = () => {
     });
 
     const CustomScriptModule = (module: ParsedToolModule) => (
-        <div class="b3-card" style={{ margin: '0 0 8px 0', padding: '0' }}>
+        <div class={styles.moduleCard}>
             {/* 模块头部 */}
             <div
-                class="custom-script-module-header"
-                style={{
-                    padding: '12px 16px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    'justify-content': 'space-between',
-                    'align-items': 'center',
-                    'border-bottom': expandedModules()[module.moduleData.name] ? '1px solid var(--b3-border-color)' : 'none'
-                }}
+                class={`${styles.moduleHeader} ${expandedModules()[module.moduleData.name] ? styles.expanded : ''}`}
                 onClick={() => toggleModule(module.moduleData.name)}
             >
-                <div style={{ flex: 1 }}>
-                    <div style={{ 'font-weight': 'bold', 'font-size': '15px', 'margin-bottom': '4px' }}>
+                <div class={styles.moduleInfo}>
+                    <div class={styles.moduleName}>
                         {module.moduleData.name}
                     </div>
-                    <div style={{ 'font-size': '12px', color: 'var(--b3-theme-on-surface-light)', display: 'flex', gap: '12px' }}>
+                    <div class={styles.moduleMeta}>
                         <span>📄 {module.scriptName}</span>
                         <span>🛠️ {module.moduleData.tools.length} 个工具</span>
                     </div>
                 </div>
                 <svg
-                    class="icon-arrow"
-                    style={{
-                        width: '16px',
-                        height: '16px',
-                        transform: expandedModules()[module.moduleData.name] ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.2s'
-                    }}
+                    class={`${styles.iconArrow} ${expandedModules()[module.moduleData.name] ? styles.expanded : ''}`}
                 >
                     <use href="#iconDown"></use>
                 </svg>
@@ -154,61 +153,33 @@ export const CustomScriptToolSetting: Component = () => {
 
             {/* 模块详情 */}
             <Show when={expandedModules()[module.moduleData.name]}>
-                <div style={{ padding: '12px 16px' }}>
+                <div class={styles.moduleContent}>
                     {/* 模块说明 */}
                     <Show when={module.moduleData.rulePrompt}>
-                        <div
-                            style={{
-                                'background-color': 'var(--b3-theme-surface)',
-                                padding: '8px 12px',
-                                'border-radius': '4px',
-                                'margin-bottom': '12px',
-                                'font-size': '13px',
-                                'white-space': 'pre-wrap',
-                                'font-family': 'var(--b3-font-family-code)'
-                            }}
-                        >
+                        <div class={styles.rulePrompt}>
                             {module.moduleData.rulePrompt}
                         </div>
                     </Show>
 
                     {/* 工具列表 */}
-                    <div style={{ 'font-weight': 'bold', 'margin-bottom': '8px' }}>工具列表:</div>
+                    <div class={styles.toolsHeader}>工具列表:</div>
                     <For each={module.moduleData.tools}>
                         {(tool) => (
-                            <div
-                                style={{
-                                    padding: '8px 12px',
-                                    'background-color': 'var(--b3-theme-surface)',
-                                    'border-radius': '4px',
-                                    'margin-bottom': '6px'
-                                }}
-                            >
-                                <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'flex-start' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ 'font-weight': 'bold', 'font-family': 'var(--b3-font-family-code)' }}>
+                            <div class={styles.toolItem}>
+                                <div class={styles.toolHeader}>
+                                    <div class={styles.toolInfo}>
+                                        <div class={styles.toolName}>
                                             {tool.function.name}()
                                         </div>
                                         <Show when={tool.function.description}>
-                                            <div style={{ 'font-size': '13px', color: 'var(--b3-theme-on-surface-light)', 'margin-top': '4px' }}>
+                                            <div class={styles.toolDescription}>
                                                 {tool.function.description}
                                             </div>
                                         </Show>
                                         <Show when={(tool as any).permissionLevel}>
-                                            <div style={{ 'margin-top': '4px', 'font-size': '12px' }}>
+                                            <div class={styles.toolPermission}>
                                                 <span
-                                                    style={{
-                                                        padding: '2px 6px',
-                                                        'border-radius': '3px',
-                                                        'background-color':
-                                                            (tool as any).permissionLevel === 'public' ? 'var(--b3-card-success-background)' :
-                                                                (tool as any).permissionLevel === 'moderate' ? 'var(--b3-card-warning-background)' :
-                                                                    'var(--b3-card-error-background)',
-                                                        color:
-                                                            (tool as any).permissionLevel === 'public' ? 'var(--b3-card-success-color)' :
-                                                                (tool as any).permissionLevel === 'moderate' ? 'var(--b3-card-warning-color)' :
-                                                                    'var(--b3-card-error-color)'
-                                                    }}
+                                                    class={`${styles.badge} ${styles[(tool as any).permissionLevel]}`}
                                                 >
                                                     {(tool as any).permissionLevel}
                                                 </span>
@@ -225,20 +196,20 @@ export const CustomScriptToolSetting: Component = () => {
     )
 
     return (
-        <div class="custom-script-tools-setting">
+        <div class={styles.container}>
             {/* Python 环境状态 */}
-            <div class="b3-card" style={{ margin: '0 0 8px 0', padding: '8px 16px' }}>
-                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
-                    <span style={{ 'font-weight': 'bold' }}>Python 环境:</span>
+            <div class={styles.statusCard}>
+                <div class={styles.statusRow}>
+                    <span class={styles.label}>Python 环境:</span>
                     <Show
                         when={pythonInfo().available}
                         fallback={
-                            <span style={{ color: 'var(--b3-theme-error)' }}>
+                            <span class={styles.unavailable}>
                                 ❌ Python 未安装或不可用
                             </span>
                         }
                     >
-                        <span style={{ color: 'var(--b3-theme-on-surface)' }}>
+                        <span class={styles.available}>
                             ✅ {pythonInfo().version}
                         </span>
                     </Show>
@@ -246,22 +217,40 @@ export const CustomScriptToolSetting: Component = () => {
             </div>
 
             {/* 说明信息 */}
-            <div class="b3-card" style={{ margin: '0 0 8px 0', padding: '8px 16px' }}>
-                <div style={{ 'font-size': '14px', 'line-height': '1.6' }}>
-                    <p style={{ margin: '0 0 8px 0' }}>
+            <div class={styles.infoCard}>
+                <div class={styles.header}>
+                    <span class={styles.title}>
                         <strong>自定义脚本工具</strong>允许你通过 Python 脚本扩展 GPT 工具能力。
-                    </p>
-                    <ul style={{ margin: '0', 'padding-left': '20px' }}>
-                        <li>将 Python 脚本（.py）放入脚本目录</li>
-                        <li>点击「重新解析并导入」生成工具定义</li>
-                        <li>脚本中的公开函数将作为工具暴露给 LLM</li>
-                        <li>使用类型注解和文档字符串定义工具参数</li>
-                    </ul>
+                    </span>
+                    <button class="b3-button"
+                        onClick={() => {
+                            solidDialog({
+                                title: '关于脚本要求',
+                                loader: () => {
+                                    return (
+                                        <div style={{
+                                            padding: '1em'
+                                        }}>
+                                            <Markdown markdown={exampleScript} />
+                                        </div>
+                                    )
+                                }
+                            })
+                        }}
+                    >
+                        关于脚本要求
+                    </button>
                 </div>
+                <ul>
+                    <li>将 Python 脚本（.py）放入脚本目录</li>
+                    <li>点击「解析所有脚本」生成工具定义并加载到系统</li>
+                    <li>脚本中的公开函数将作为工具暴露给 LLM</li>
+                    <li>使用类型注解和文档字符串定义工具参数</li>
+                </ul>
             </div>
 
             {/* 操作按钮 */}
-            <div style={{ display: 'flex', gap: '8px', 'margin-bottom': '16px' }}>
+            <div class={styles.actionBar}>
                 <button
                     class="b3-button b3-button--outline"
                     onClick={openScriptDir}
@@ -276,29 +265,21 @@ export const CustomScriptToolSetting: Component = () => {
                     disabled={loading() || !pythonInfo().available}
                 >
                     <svg class="b3-button__icon"><use href="#iconRefresh"></use></svg>
-                    重新解析并导入
-                </button>
-                <button
-                    class="b3-button b3-button--outline"
-                    onClick={reparseOutdated}
-                    disabled={loading() || !pythonInfo().available}
-                >
-                    <svg class="b3-button__icon"><use href="#iconSync"></use></svg>
-                    解析过时脚本
+                    解析所有脚本
                 </button>
                 <button
                     class="b3-button b3-button--outline"
                     onClick={loadScriptsFromCache}
                     disabled={loading()}
                 >
-                    <svg class="b3-button__icon"><use href="#iconRefresh"></use></svg>
-                    刷新列表
+                    <svg class="b3-button__icon"><use href="#iconList"></use></svg>
+                    刷新列表界面
                 </button>
             </div>
 
             {/* 加载状态 */}
             <Show when={loading()}>
-                <div style={{ 'text-align': 'center', padding: '20px', color: 'var(--b3-theme-on-surface-light)' }}>
+                <div class={styles.loadingContainer}>
                     <div class="fn__loading">
                         <div></div>
                     </div>
@@ -308,8 +289,8 @@ export const CustomScriptToolSetting: Component = () => {
 
             {/* 脚本模块列表 */}
             <Show when={!loading() && scripts().length === 0}>
-                <div class="b3-card" style={{ padding: '20px', 'text-align': 'center', color: 'var(--b3-theme-on-surface-light)' }}>
-                    暂无自定义脚本工具。请将 Python 脚本放入脚本目录后点击「重新解析并导入」。
+                <div class={styles.emptyState}>
+                    暂无自定义脚本工具。请将 Python 脚本放入脚本目录后点击「解析所有脚本」。
                 </div>
             </Show>
 

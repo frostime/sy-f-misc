@@ -271,25 +271,7 @@ const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
     return tools;
 };
 
-/**
- * 生成工具组的 rule prompt
- */
-const generateRulePrompt = (modules: ParsedToolModule[]): string => {
-    if (modules.length === 0) {
-        return '';
-    }
 
-    let prompt = '### 自定义脚本工具\n\n';
-    prompt += '以下是用户自定义的 Python 工具，由用户编写的脚本提供。\n\n';
-
-    for (const module of modules) {
-        if (module.moduleData.rulePrompt) {
-            prompt += `**${module.moduleData.name}**:\n${module.moduleData.rulePrompt}\n\n`;
-        }
-    }
-
-    return prompt.trim();
-};
 
 /**
  * 缓存的工具定义模块
@@ -306,46 +288,47 @@ export const getCachedModules = (): ParsedToolModule[] => {
 /**
  * 设置缓存的工具模块
  */
-export const setCachedModules = (modules: ParsedToolModule[]): void => {
-    cachedModules = modules;
+// const setCachedModules = (modules: ParsedToolModule[]): void => {
+//     cachedModules = modules;
+// };
+
+/**
+ * 从单个模块创建工具组
+ */
+const createToolGroupFromModule = (module: ParsedToolModule): ToolGroup => {
+    const tools = createToolsFromModule(module);
+
+    return {
+        name: module.moduleData.name,
+        tools: tools,
+        rulePrompt: module.moduleData.rulePrompt || `Python 脚本工具模块: ${module.moduleData.name}`
+    };
 };
 
 /**
- * 从缓存创建自定义脚本工具组
+ * 从缓存创建自定义脚本工具组数组
+ * 每个 Python 脚本对应一个独立的工具组
  */
-export const createCustomScriptToolGroupFromCache = (): ToolGroup => {
+export const createCustomScriptToolGroupsFromCache = (): ToolGroup[] => {
     try {
         if (cachedModules.length === 0) {
             console.log('No cached custom script tools');
-            return {
-                name: '自定义脚本工具组',
-                tools: [],
-                rulePrompt: ''
-            };
+            return [];
         }
 
-        // 为每个模块创建工具
-        const allTools: Tool[] = [];
+        // 为每个模块创建独立的工具组
+        const toolGroups: ToolGroup[] = [];
         for (const module of cachedModules) {
-            const tools = createToolsFromModule(module);
-            allTools.push(...tools);
+            const group = createToolGroupFromModule(module);
+            toolGroups.push(group);
         }
 
-        console.log(`Loaded ${allTools.length} custom script tools from ${cachedModules.length} cached modules`);
-
-        return {
-            name: '自定义脚本工具组',
-            tools: allTools,
-            rulePrompt: generateRulePrompt(cachedModules)
-        };
+        console.log(`Created ${toolGroups.length} custom script tool groups from cached modules`);
+        return toolGroups;
 
     } catch (error) {
-        console.error('Failed to create custom script tool group from cache:', error);
-        return {
-            name: '自定义脚本工具组',
-            tools: [],
-            rulePrompt: ''
-        };
+        console.error('Failed to create custom script tool groups from cache:', error);
+        return [];
     }
 };
 

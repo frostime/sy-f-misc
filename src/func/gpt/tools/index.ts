@@ -20,7 +20,7 @@ import { ApprovalUIAdapter } from './types';
 import { DefaultUIAdapter } from './approval-ui';
 import { toolsManager } from '../setting/store';
 import { siyuanTool } from './siyuan';
-import { createCustomScriptToolGroupFromCache } from './custom-program-tools';
+import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
 
 
 const IS_IN_APP = window?.require?.('electron') !== undefined;
@@ -43,12 +43,15 @@ export const toolExecutorFactory = (options: {
     toolExecutor.registerToolGroup(siyuanTool);
 
     // 从缓存加载自定义脚本工具组（同步）
+    // 每个 Python 脚本对应一个独立的工具组
     if (IS_IN_APP) {
-        const group = createCustomScriptToolGroupFromCache();
-        toolExecutor.registerToolGroup(group);
-        // 应用工具组默认设置
-        if (toolsManager().groupDefaults[group.name] !== undefined) {
-            toolExecutor.toggleGroupEnabled(group.name, toolsManager().groupDefaults[group.name]);
+        const groups = createCustomScriptToolGroupsFromCache();
+        for (const group of groups) {
+            toolExecutor.registerToolGroup(group);
+            // 应用工具组默认设置
+            if (toolsManager().groupDefaults[group.name] !== undefined) {
+                toolExecutor.toggleGroupEnabled(group.name, toolsManager().groupDefaults[group.name]);
+            }
         }
     }    // 设置审批回调
     const approvalAdapter = options.approvalAdapter || new DefaultUIAdapter();
