@@ -250,6 +250,7 @@ interface IChatSessionMsgItem {
     title?: string;
     loading?: boolean;  // 用于存储消息的输出状态，仅仅在等待过程中需求使用
     hidden?: boolean;   // 用于标识是否在获取上下文时跳过此消息
+    pinned?: boolean;   // 用于标识是否固定此消息（即使超出上下文范围也保留）
     // msgChars?: number;  //消息的字数
     attachedItems?: number;  //上下文消息条目数量, 不包括自身
     attachedChars?: number;  //上下文的字数, 不包括自身

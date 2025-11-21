@@ -922,6 +922,10 @@ const ChatSession: Component<{
                                         if (session.loading()) return;
                                         session.toggleHidden(index());
                                     }}
+                                    togglePinned={() => {
+                                        if (session.loading()) return;
+                                        session.togglePinned(index());
+                                    }}
                                     index={index()}
                                     totalCount={session.messages().length}
                                 />

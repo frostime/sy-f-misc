@@ -29,6 +29,7 @@ const MessageItem: Component<{
     deleteIt?: () => void;
     rerunIt?: () => void;
     toggleHidden?: () => void;
+    togglePinned?: () => void;
     toggleSeperator?: () => void;
     multiSelect?: boolean;
     // Remove the selected prop and simplify onSelect
@@ -351,6 +352,11 @@ const MessageItem: Component<{
             click: () => props.toggleHidden?.()
         });
         menu.addItem({
+            icon: 'iconPin',
+            label: props.messageItem.pinned ? '取消固定' : '固定消息',
+            click: () => props.togglePinned?.()
+        });
+        menu.addItem({
             icon: 'iconTrashcan',
             label: '删除',
             click: () => {
@@ -518,6 +524,21 @@ const MessageItem: Component<{
         );
     };
 
+    const PinIndicator = () => (
+        <Show when={props.messageItem.pinned}>
+            <div
+                class={styles.pinIndicator}
+                title="已固定"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    props.togglePinned?.();
+                }}
+            >
+                <svg><use href="#iconPin" /></svg>
+            </div>
+        </Show>
+    );
+
     const ReasoningSection = () => {
         const copyReasoningContent = (e: MouseEvent) => {
             e.stopImmediatePropagation();
@@ -628,11 +649,20 @@ const MessageItem: Component<{
                     <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
                     <ToolbarButton
                         icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
-                        title={props.messageItem.hidden ? "在上下文中显示" : "在上下文中隐藏"}
+                        title={props.messageItem.hidden ? "在上下文中显示" : "固定消息"}
                         onclick={(e: MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
                             props.toggleHidden?.();
+                        }}
+                    />
+                    <ToolbarButton
+                        icon="iconPin"
+                        title={props.messageItem.pinned ? "取消固定" : "固定消息"}
+                        onclick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            props.togglePinned?.();
                         }}
                     />
                     <ToolbarButton icon="iconTrashcan" title="删除" onclick={(e: MouseEvent) => {
@@ -695,6 +725,7 @@ const MessageItem: Component<{
                 </div>
             </Show>
             <VersionIndicator />
+            <PinIndicator />
             {props.messageItem.message.role === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (
@@ -711,7 +742,8 @@ const MessageItem: Component<{
                             [styles.message]: true,
                             [styles[props.messageItem.message.role]]: true,
                             'b3-typography': true,
-                            [styles.hidden]: props.messageItem.hidden
+                            [styles.hidden]: props.messageItem.hidden,
+                            [styles.pinned]: props.messageItem.pinned
                         }}
                         // style={{
                         //     'white-space': props.loading ? 'pre-wrap' : '',

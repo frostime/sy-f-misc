@@ -231,6 +231,13 @@ const useMessageManagement = (params: {
         messages.update(index, 'hidden', value ?? !targetMsg.hidden);
     }
 
+    const togglePinned = (index: number, value?: boolean) => {
+        if (index < 0 || index >= messages().length) return;
+        const targetMsg = messages()[index];
+        if (targetMsg.type !== 'message') return;
+        messages.update(index, 'pinned', value ?? !targetMsg.pinned);
+    }
+
     const addMsgItemVersion = (itemId: string, content: string) => {
         const index = messages().findIndex(item => item.id === itemId);
         if (index === -1) return;
@@ -327,6 +334,7 @@ const useMessageManagement = (params: {
         toggleSeperator,
         toggleSeperatorAt,
         toggleHidden,
+        togglePinned,
         addMsgItemVersion,
         switchMsgItemVersion,
         delMsgItemVersion
@@ -541,7 +549,7 @@ ${inputContent}
      * @param initialResponse 初始响应
      * @returns 处理后的响应
      */
-    const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: CompletionResponse): CompletionResponse & { 
+    const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: CompletionResponse): CompletionResponse & {
         hintSize?: number;
         toolChainData?: IChatSessionMsgItem['toolChainResult'];
     } => {
@@ -560,7 +568,7 @@ ${inputContent}
                     status: toolChainResult.status,
                     error: toolChainResult.error
                 }
-            } as CompletionResponse & { 
+            } as CompletionResponse & {
                 hintSize?: number;
                 toolChainData?: IChatSessionMsgItem['toolChainResult'];
             };
@@ -602,7 +610,7 @@ ${inputContent}
             const nextIndex = atIndex + 1;
             // const nextMsg = messages()[nextIndex];
 
-            // 准备或更新目标消息; 如果下一条消息是普通的 assistant 消息，则更新它
+            // 准备或更新目标消息; 如果下一条消息是普通的 assistant 消消息，则更新它
             if (messages()[nextIndex]?.message?.role === 'assistant' && !messages()[nextIndex].hidden) {
                 messages.update(prev => {
                     const updated = [...prev];
@@ -907,28 +915,28 @@ export const useSession = (props: {
         const targetIndex = fromIndex ?? history.length - 1;
         const targetMessage = history[targetIndex];
 
-        if (itemNum === 0) {
-            return [targetMessage.message!];
-        }
-
         const isAttachable = (msg: IChatSessionMsgItem) => {
             return msg.type === 'message' && !msg.hidden;
         }
 
         // 从指定位置向前截取历史消息
         const previousMessages = history.slice(0, targetIndex);
-        let lastMessages: IChatSessionMsgItem[] = previousMessages;
+
+        // 1. 获取滑动窗口内的消息 (Window Messages)
+        let attachedMessages: IChatSessionMsgItem[] = [];
+
         if (itemNum > 0) {
+            let lastMessages: IChatSessionMsgItem[] = previousMessages;
+
             // 计算需要获取的消息数量，考虑hidden消息
             let visibleCount = 0;
             let startIndex = previousMessages.length - 1;
 
             while (startIndex >= 0) {
                 const msg = previousMessages[startIndex];
-                if (msg.type === 'message' && !msg.hidden) {
+                if (isAttachable(msg)) {
                     visibleCount++;
                     if (visibleCount >= itemNum) {
-                        // startIndex = i;
                         break;
                     }
                 }
@@ -937,25 +945,40 @@ export const useSession = (props: {
             }
 
             lastMessages = previousMessages.slice(startIndex);
-        }
 
-        //查找最后一个为 seperator 的消息
-        let lastSeperatorIndex = -1;
-        for (let i = lastMessages.length - 1; i >= 0; i--) {
-            if (lastMessages[i].type === 'seperator') {
-                lastSeperatorIndex = i;
-                break;
+            //查找最后一个为 seperator 的消息
+            let lastSeperatorIndex = -1;
+            for (let i = lastMessages.length - 1; i >= 0; i--) {
+                if (lastMessages[i].type === 'seperator') {
+                    lastSeperatorIndex = i;
+                    break;
+                }
+            }
+
+            if (lastSeperatorIndex === -1) {
+                attachedMessages = lastMessages.filter(isAttachable);
+            } else {
+                attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(isAttachable);
             }
         }
 
-        let attachedMessages: IChatSessionMsgItem[] = [];
-        if (lastSeperatorIndex === -1) {
-            attachedMessages = lastMessages.filter(isAttachable);
-        } else {
-            attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(isAttachable);
-        }
+        // 2. 获取被固定的消息 (Pinned Messages)
+        // 规则：
+        // 1. 必须是 message 类型且未隐藏
+        // 2. 必须是 pinned 状态
+        // 3. 必须不在滑动窗口内 (避免重复)
+        const attachedIds = new Set(attachedMessages.map(m => m.id));
+        const pinnedMessages = previousMessages.filter(msg =>
+            msg.pinned && isAttachable(msg) && !attachedIds.has(msg.id)
+        );
 
-        return [...attachedMessages, targetMessage].map(item => item.message!);
+        // 3. 合并并保持原有顺序
+        // 因为 pinnedMessages 和 attachedMessages 都是 previousMessages 的子集，
+        // 我们可以通过 ID 集合再次从 previousMessages 中筛选，从而自然保持顺序
+        const finalIds = new Set([...attachedMessages, ...pinnedMessages].map(m => m.id));
+        const finalContext = previousMessages.filter(m => finalIds.has(m.id));
+
+        return [...finalContext, targetMessage].map(item => item.message!);
     }
 
     // 使用消息管理 hook
@@ -965,6 +988,7 @@ export const useSession = (props: {
         toggleSeperator,
         toggleSeperatorAt,
         toggleHidden,
+        togglePinned,
         addMsgItemVersion,
         switchMsgItemVersion,
         delMsgItemVersion
@@ -1158,6 +1182,7 @@ export const useSession = (props: {
         sendMessage,
         abortMessage,
         toggleHidden,
+        togglePinned,
         toggleSeperatorAt,
         toggleNewThread,
         checkAttachedContext,
