@@ -21,7 +21,7 @@ import Markdown from '@/libs/components/Elements/Markdown';
 import styles from './CustomScriptToolSetting.module.scss';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { globalMiscConfigs } from './store';
-import { text } from 'stream/consumers';
+
 
 const exampleScript = `Python 脚本需要遵循一定的规范，并做好类型标注，才能被正确解析为工具。例如：
 

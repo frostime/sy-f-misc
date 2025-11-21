@@ -224,7 +224,7 @@ const extractPermissionConfig = (toolDef: IToolDefinition): {
     if ((toolDef as any).requireResultApproval !== undefined) {
         config.requireResultApproval = (toolDef as any).requireResultApproval;
     } else {
-        config.requireResultApproval = false;
+        config.requireResultApproval = true;
     }
 
     return config;
