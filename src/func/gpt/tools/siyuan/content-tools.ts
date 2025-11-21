@@ -8,7 +8,7 @@
 
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
 import { appendDailyNote, appendMarkdown, getBlockFullMarkdownContent } from './utils';
-import { normalizeLimit, truncateContent } from '../utils';
+import { normalizeLimit, truncateContent, DEFAULT_LIMIT_CHAR } from '../utils';
 
 /**
  * 获取块完整Markdown内容工具
@@ -32,7 +32,7 @@ export const getBlockMarkdownTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '为了防止文档内容过大，限制最大字符数量；默认 7000, 如果设置为 < 0 则不限制'
+                        description: `为了防止文档内容过大，限制最大字符数量；默认 ${DEFAULT_LIMIT_CHAR}, 如果设置为 < 0 则不限制`
                     }
                 },
                 required: ['blockId']

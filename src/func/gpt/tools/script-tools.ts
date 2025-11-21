@@ -1,6 +1,6 @@
 // src/func/gpt/tools/script/index.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
-import { saveAndTruncate, formatToolResult, normalizeLimit } from './utils';
+import { saveAndTruncate, formatToolResult, normalizeLimit, DEFAULT_LIMIT_CHAR } from './utils';
 
 /**
  * 脚本执行工具组
@@ -48,7 +48,7 @@ const shellTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
                     }
                 },
                 required: ['command']
@@ -174,7 +174,7 @@ const pythonTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
                     }
                 },
                 required: ['code']

@@ -6,7 +6,8 @@ import {
     formatWithLineNumber,
     formatFileSize,
     safeCreateDir,
-    tempRoot
+    tempRoot,
+    DEFAULT_LIMIT_CHAR
 } from '../utils';
 
 /**
@@ -48,7 +49,7 @@ export const readFileTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '为了防止文件内容过大，限制最大字符数量；默认 7000, 如果设置为 < 0 则不限制'
+                        description: `为了防止文件内容过大，限制最大字符数量；默认 ${DEFAULT_LIMIT_CHAR}, 如果设置为 < 0 则不限制`
                     },
                     showLineNum: {
                         type: 'boolean',
@@ -307,7 +308,7 @@ export const treeListTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
                     }
                 },
                 required: ['path']
@@ -444,7 +445,7 @@ export const searchInFileTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
                     }
                 },
                 required: ['path', 'pattern', 'regex']
@@ -590,7 +591,7 @@ export const searchInDirectoryTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
                     }
                 },
                 required: ['path', 'pattern']
@@ -873,7 +874,7 @@ export const searchFilesTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
                     }
                 },
                 required: ['path', 'pattern']

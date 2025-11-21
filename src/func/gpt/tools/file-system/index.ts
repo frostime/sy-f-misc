@@ -94,6 +94,6 @@ ${drivesStr}
 - CopyFile: 复制文件或目录
 - MarkitdownRead: 读取 Word (.docx), PDF (.pdf) 等文件，转换为 Markdown 格式（需要安装 markitdown 工具）
 
-**注意**: 搜索和列表工具会自动限制输出长度（默认7000字符），完整结果会保存到临时文件。
+**注意**: 搜索和列表工具会自动限制输出长度，完整结果会保存到临时文件。
 `.trim();
 }
