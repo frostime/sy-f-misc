@@ -12,7 +12,7 @@ import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 import { createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
 // import { toolExecutorFactory } from "../tools";
 import { userCustomizedPreprocessor } from "../openai/adpater";
-
+import { loadAndCacheCustomScriptTools } from "../tools/custom-program-tools";
 
 /**
  * `siyuan` or `modelName@providerName`
@@ -55,29 +55,31 @@ const _defaultGlobalMiscConfigs = {
     maxMessageLogItems: 500,
     tavilyApiKey: '',      // Tavily API Key for web search
     bochaApiKey: '',       // 博查 API Key for web search
-    exportMDSkipHidden: false // 导出 Markdown 时是否跳过隐藏的消息
+    exportMDSkipHidden: false, // 导出 Markdown 时是否跳过隐藏的消息
+    enableCustomScriptTools: false, // 是否启用自定义脚本工具功能
+    CustomScriptEnvVars: '' // 自定义脚本工具的环境变量，格式为 KEY=VALUE，每行一个
 }
 export const globalMiscConfigs = useStoreRef<typeof _defaultGlobalMiscConfigs>(_defaultGlobalMiscConfigs);
 
 // 工具管理器设置
 export const toolsManager = useStoreRef<{
-  // 工具组默认启用状态
-  groupDefaults: Record<string, boolean>;
-  // 工具级别的启用状态（按工具名称）
-  toolDefaults: Record<string, boolean>;
-  // 工具权限覆盖配置
-  toolPermissionOverrides: Record<string, {
-    permissionLevel?: 'public' | 'moderate' | 'sensitive';
-    requireExecutionApproval?: boolean;
-    requireResultApproval?: boolean;
-  }>;
+    // 工具组默认启用状态
+    groupDefaults: Record<string, boolean>;
+    // 工具级别的启用状态（按工具名称）
+    toolDefaults: Record<string, boolean>;
+    // 工具权限覆盖配置
+    toolPermissionOverrides: Record<string, {
+        permissionLevel?: 'public' | 'moderate' | 'sensitive';
+        requireExecutionApproval?: boolean;
+        requireResultApproval?: boolean;
+    }>;
 }>({
-  groupDefaults: {},
-  toolDefaults: {},
-  toolPermissionOverrides: {}
+    groupDefaults: {},
+    toolDefaults: {},
+    toolPermissionOverrides: {}
 });
 
-const CURRENT_SCHEMA = '1.0';
+const CURRENT_SCHEMA = '1.5';
 
 /**
  * 返回可以用于保存为 json 的配置信息
@@ -317,7 +319,36 @@ export const load = async (plugin?: Plugin) => {
         loadCustomPreprocessModule(),
         loadCustomContextProviderModule()
     ]);
+
+    // 根据开关决定是否加载自定义脚本工具
+    if (globalMiscConfigs().enableCustomScriptTools) {
+        await loadCustomScriptTools();
+    } else {
+        console.log('自定义脚本工具功能已禁用，跳过加载');
+    }
 }
+
+/**
+ * 加载自定义脚本工具
+ */
+export const loadCustomScriptTools = async () => {
+    try {
+        const result = await loadAndCacheCustomScriptTools();
+        if (result.success) {
+            if (result.reparsedCount > 0) {
+                console.log(`成功加载 ${result.moduleCount} 个自定义脚本模块，包含 ${result.toolCount} 个工具（重新解析了 ${result.reparsedCount} 个脚本）`);
+            } else {
+                console.log(`成功加载 ${result.moduleCount} 个自定义脚本模块，包含 ${result.toolCount} 个工具（所有脚本都是最新的）`);
+            }
+        } else {
+            console.error('加载自定义脚本工具失败:', result.error);
+        }
+        return result.success;
+    } catch (error) {
+        console.error('Failed to load custom script tools:', error);
+        return false;
+    }
+};
 
 export const providers = useStoreRef<IGPTProvider[]>([]);
 export const UIConfig = useStoreRef({

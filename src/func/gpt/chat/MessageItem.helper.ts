@@ -205,6 +205,76 @@ export const renderMathBlock = (element: HTMLElement) => {
     }
 }
 
+/**
+     * Run post-processors for code blocks and math formulas
+     */
+export const runMarkdownPostRender = async (contentRef: HTMLElement) => {
+    if (!contentRef) return;
+
+    // Process code blocks
+    const codeBlocks = contentRef.querySelectorAll('pre>code');
+    if (codeBlocks.length > 0) {
+        if (!window.hljs) {
+            await initHljs();
+        }
+        if (window.hljs) {
+            codeBlocks.forEach((ele: HTMLElement) => {
+                renderCodeblock(ele);
+            });
+        }
+    }
+
+    // Process math formulas
+    const mathElements: HTMLElement[] = Array.from(contentRef.querySelectorAll('.language-math'));
+    if (mathElements.length > 0) {
+        if (!window.katex) {
+            await initKatex();
+        }
+        mathElements.forEach((element) => {
+            renderMathBlock(element);
+        });
+    }
+
+    // .language-mermaid
+    const mermaidElements: HTMLElement[] = Array.from(contentRef.querySelectorAll('.language-mermaid'));
+    if (mermaidElements.length > 0) {
+        if (!window.mermaid) {
+            await initMermaid();
+        }
+        mermaidElements.forEach(async (element) => {
+            const code = element.textContent || '';
+            const id = "mermaid" + window.Lute.NewNodeID();
+
+            if (!code.trim()) {
+                return;
+            }
+            try {
+                const mermaidData = await window.mermaid.render(id, code);
+                element.innerHTML = mermaidData.svg;
+            } catch (error) {
+                console.groupCollapsed('Mermaid failed to render code:');
+                console.warn(error);
+                console.warn(code);
+                console.groupEnd();
+                const ele: HTMLElement = document.querySelector(`body>div#d${id}`);
+                if (ele) {
+                    ele.style.position = 'absolute';
+                    ele.style.bottom = '0';
+                    ele.style.opacity = '0';
+                    ele.style.transform = 'translateY(50px)';
+                    ele.style.transition = 'opacity 0.5s ease-in-out, transform 0.5s ease-in-out';
+                    element.innerHTML += `<div style="color: var(--b3-theme-error); text-align: center;">Mermaid 渲染失败，请检查代码正确性</div>`;
+                    element.style.outline = '1px solid var(--b3-border-color)';
+                    // 延时移除元素
+                    setTimeout(() => {
+                        ele.remove();
+                    }, 500);
+                }
+            }
+        });
+    }
+};
+
 
 /**
  * Hook for rendering markdown with support for streaming content
@@ -213,78 +283,9 @@ export const renderMathBlock = (element: HTMLElement) => {
 export function createMarkdownRenderer() {
     let lute = getLute();
     const { config } = useSimpleContext();
-    /**
-     * Run post-processors for code blocks and math formulas
-     */
-    const runPostProcessors = async (contentRef: HTMLElement) => {
-        if (!contentRef) return;
-
-        // Process code blocks
-        const codeBlocks = contentRef.querySelectorAll('pre>code');
-        if (codeBlocks.length > 0) {
-            if (!window.hljs) {
-                await initHljs();
-            }
-            if (window.hljs) {
-                codeBlocks.forEach((ele: HTMLElement) => {
-                    renderCodeblock(ele);
-                });
-            }
-        }
-
-        // Process math formulas
-        const mathElements: HTMLElement[] = Array.from(contentRef.querySelectorAll('.language-math'));
-        if (mathElements.length > 0) {
-            if (!window.katex) {
-                await initKatex();
-            }
-            mathElements.forEach((element) => {
-                renderMathBlock(element);
-            });
-        }
-
-        // .language-mermaid
-        const mermaidElements: HTMLElement[] = Array.from(contentRef.querySelectorAll('.language-mermaid'));
-        if (mermaidElements.length > 0) {
-            if (!window.mermaid) {
-                await initMermaid();
-            }
-            mermaidElements.forEach(async (element) => {
-                const code = element.textContent || '';
-                const id = "mermaid" + window.Lute.NewNodeID();
-
-                if (!code.trim()) {
-                    return;
-                }
-                try {
-                    const mermaidData = await window.mermaid.render(id, code);
-                    element.innerHTML = mermaidData.svg;
-                } catch (error) {
-                    console.groupCollapsed('Mermaid failed to render code:');
-                    console.warn(error);
-                    console.warn(code);
-                    console.groupEnd();
-                    const ele: HTMLElement = document.querySelector(`body>div#d${id}`);
-                    if (ele) {
-                        ele.style.position = 'absolute';
-                        ele.style.bottom = '0';
-                        ele.style.opacity = '0';
-                        ele.style.transform = 'translateY(50px)';
-                        ele.style.transition = 'opacity 0.5s ease-in-out, transform 0.5s ease-in-out';
-                        element.innerHTML += `<div style="color: var(--b3-theme-error); text-align: center;">Mermaid 渲染失败，请检查代码正确性</div>`;
-                        element.style.outline = '1px solid var(--b3-border-color)';
-                        // 延时移除元素
-                        setTimeout(() => {
-                            ele.remove();
-                        }, 500);
-                    }
-                }
-            });
-        }
-    };
 
     // Debounced version of runPostProcessors to avoid excessive processing
-    const renderHTMLBlock = debounce(runPostProcessors, 50);
+    const renderHTMLBlock = debounce(runMarkdownPostRender, 50);
 
     // 缓存已渲染的内容
     let cachedRenderablePart = '';

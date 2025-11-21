@@ -130,9 +130,9 @@ export interface ToolGroup {
 }
 
 export interface IExternalToolUnit {
-    type: 'script' | 'api';  // 暂时先只支持 script
+    type: 'script';  // 暂时先只支持 script
 
-    scriptType?: 'python' | 'powershell';
+    scriptType?: 'python';  // 暂时先只支持 python
     // 默认先只允许添加
     scriptLocation?: 'machine' | 'siyuan'; // 在本机某个特定位置，或者是在思源工作空间内的位置
     scriptPath?: string;

@@ -1,5 +1,6 @@
 // src/func/gpt/tools/script/index.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
+import { saveAndTruncate, formatToolResult, normalizeLimit, DEFAULT_LIMIT_CHAR } from './utils';
 
 /**
  * 脚本执行工具组
@@ -13,49 +14,6 @@ const childProcess = window?.require?.('child_process');
 const os = window?.require?.('os');
 
 const platform = os?.platform();
-const DEFAULT_OUTPUT_LIMIT = 7000;
-
-const safeCreateTempDir = (dir: string) => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-};
-
-const persistToolResult = (toolKey: string, content: string) => {
-    try {
-        const tempRoot = path.join(os.tmpdir(), 'siyuan_temp');
-        safeCreateTempDir(tempRoot);
-        const suffix = Math.random().toString(16).slice(2, 10);
-        const filePath = path.join(tempRoot, `${toolKey}_result_${Date.now()}_${suffix}.log`);
-        fs.writeFileSync(filePath, content, 'utf-8');
-        return filePath;
-    } catch (error) {
-        console.error('Failed to persist tool result:', error);
-        return '';
-    }
-};
-
-const normalizeOutputLimit = (limit?: number) => {
-    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
-        return DEFAULT_OUTPUT_LIMIT;
-    }
-    return limit <= 0 ? Number.POSITIVE_INFINITY : limit;
-};
-
-const formatOutputWithLimit = (fullOutput: string, limit: number, filePath: string) => {
-    const savedPathLine = filePath ? `完整输出已保存至: ${filePath}` : '完整输出保存失败，请检查日志。';
-    if (!Number.isFinite(limit) || fullOutput.length <= limit) {
-        return `${fullOutput}\n\n${savedPathLine}`.trim();
-    }
-
-    const headLength = Math.floor(limit / 2);
-    const tailLength = limit - headLength;
-    const head = fullOutput.slice(0, headLength);
-    const tail = fullOutput.slice(fullOutput.length - tailLength);
-    const omitted = fullOutput.length - limit;
-
-    return `${head}\n\n...输出过长，省略 ${omitted} 个字符。${savedPathLine}\n\n${tail}`.trim();
-};
 
 const testHasCommand = async (command: string) => {
     try {
@@ -90,7 +48,7 @@ const shellTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
                     }
                 },
                 required: ['command']
@@ -103,7 +61,7 @@ const shellTool: Tool = {
     execute: async (args: { command: string; directory?: string; limit?: number }): Promise<ToolExecuteResult> => {
         // 确定执行目录
         const cwd = args.directory ? path.resolve(args.directory) : process.cwd();
-        const outputLimit = normalizeOutputLimit(args.limit);
+        const outputLimit = normalizeLimit(args.limit);
 
         // 创建临时脚本文件
         const isWindows = os.platform() === 'win32';
@@ -169,8 +127,9 @@ ${args.command}
                     '',
                     fullOutput
                 ].join('\n');
-                const outputFilePath = persistToolResult('shell', recordLines);
-                const summary = formatOutputWithLimit(fullOutput, outputLimit, outputFilePath);
+
+                const result = saveAndTruncate('shell', recordLines, outputLimit);
+                const summary = formatToolResult(result);
 
                 if (error) {
                     resolve({
@@ -215,7 +174,7 @@ const pythonTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
                     }
                 },
                 required: ['code']
@@ -230,7 +189,7 @@ const pythonTool: Tool = {
         const tempDir = args.directory || os.tmpdir();
         const timestamp = new Date().getTime();
         const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
-        const outputLimit = normalizeOutputLimit(args.limit);
+        const outputLimit = normalizeLimit(args.limit);
 
         // 在 Python 代码前添加编码设置，防止中文乱码
         const fixedCode = `
@@ -274,8 +233,9 @@ ${args.code}
                     '',
                     fullOutput
                 ].join('\n');
-                const outputFilePath = persistToolResult('python', recordLines);
-                const summary = formatOutputWithLimit(fullOutput, outputLimit, outputFilePath);
+
+                const result = saveAndTruncate('python', recordLines, outputLimit);
+                const summary = formatToolResult(result);
 
                 if (error) {
                     resolve({

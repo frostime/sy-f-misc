@@ -1,7 +1,7 @@
 // additional file operation tools
 import { mkdirTool, moveFileTool, copyFileTool } from "./shutil";
 import { markitdownTool } from "./markitdown";
-import { readFileTool, createFileTool, fileStateTool, treeListTool, searchInFileTool, searchInDirectoryTool } from "./viewer";
+import { readFileTool, createFileTool, fileStateTool, treeListTool,searchFilesTool,  searchInFileTool, searchInDirectoryTool } from "./viewer";
 import { editorTools } from "./editor";
 
 // 通过 window.require 引入 Node.js 模块
@@ -17,6 +17,7 @@ export const fileSystemTools = {
         readFileTool,
         createFileTool,
         fileStateTool,
+        searchFilesTool,
         searchInFileTool,
         searchInDirectoryTool,
         mkdirTool,
@@ -82,8 +83,9 @@ ${drivesStr}
 - ReadFile: 读取文本文件内容
 
 **搜索工具**:
-- SearchInFile: 在文件中搜索并显示上下文（支持正则，自动处理大量结果）
-- SearchInDirectory: 在目录中搜索包含特定内容的文件（支持正则，自动处理大量结果）
+- SearchFiles: 在目录中搜索文件名称（支持正则）
+- SearchInFile: 在文件中搜索并显示上下文
+- SearchInDirectory: 在目录中搜索包含特定内容的文件
 
 **文件操作**:
 - CreateFile: 创建文本文件
@@ -92,6 +94,6 @@ ${drivesStr}
 - CopyFile: 复制文件或目录
 - MarkitdownRead: 读取 Word (.docx), PDF (.pdf) 等文件，转换为 Markdown 格式（需要安装 markitdown 工具）
 
-**注意**: 搜索和列表工具会自动限制输出长度（默认7000字符），完整结果会保存到临时文件。
+**注意**: 搜索和列表工具会自动限制输出长度，完整结果会保存到临时文件。
 `.trim();
 }

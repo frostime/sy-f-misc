@@ -8,7 +8,8 @@
  */
 
 import { getLute } from "@frostime/siyuan-plugin-kits";
-import { createMemo } from "solid-js";
+import { createEffect, createMemo } from "solid-js";
+import { runMarkdownPostRender } from "@/func/gpt/chat/MessageItem.helper";
 
 
 const Markdown = (props: {
@@ -21,11 +22,20 @@ const Markdown = (props: {
         return lute.Md2HTML(props.markdown);
     });
     let font = () => props.fontSize ? `${props.fontSize} !important;` : 'initial';
+
+    let eleRef: HTMLDivElement | undefined = undefined;
+    createEffect(() => {
+        if (eleRef) {
+            runMarkdownPostRender(eleRef);
+        }
+    });
+
     return (
         <div
             class="item__readme b3-typography"
             innerHTML={content()}
             style={`font-size: ${font()}`}
+            ref={eleRef}
         />
     );
 }
