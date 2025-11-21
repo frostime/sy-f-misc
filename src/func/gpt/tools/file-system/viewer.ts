@@ -1,4 +1,13 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import {
+    saveAndTruncate,
+    formatToolResult,
+    normalizeLimit,
+    formatWithLineNumber,
+    formatFileSize,
+    safeCreateDir,
+    tempRoot
+} from '../utils';
 
 /**
  * 文件系统工具组
@@ -8,87 +17,8 @@ import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from 
 // 通过 window.require 引入 Node.js 模块
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
-const os = window?.require?.('os');
 
-const DEFAULT_OUTPUT_LIMIT = 7000;
 
-const safeCreateTempDir = (dir: string) => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-};
-
-/**
- * 持久化工具结果到临时文件
- */
-const persistToolResult = (toolKey: string, content: string) => {
-    try {
-        const tempRoot = path.join(os.tmpdir(), 'siyuan_temp');
-        safeCreateTempDir(tempRoot);
-        const suffix = Math.random().toString(16).slice(2, 10);
-        const filePath = path.join(tempRoot, `${toolKey}_result_${Date.now()}_${suffix}.log`);
-        fs.writeFileSync(filePath, content, 'utf-8');
-        return filePath;
-    } catch (error) {
-        console.error('Failed to persist tool result:', error);
-        return '';
-    }
-};
-
-/**
- * 格式化输出，超过限制时截断并提示保存路径
- */
-const formatOutputWithLimit = (fullOutput: string, limit: number, toolKey: string) => {
-    const filePath = persistToolResult(toolKey, fullOutput);
-    const savedPathLine = filePath ? `完整输出已保存至: ${filePath}` : '完整输出保存失败，请检查日志。';
-
-    if (!Number.isFinite(limit) || fullOutput.length <= limit) {
-        return `${fullOutput}\n\n${savedPathLine}`.trim();
-    }
-
-    const headLength = Math.floor(limit / 2);
-    const tailLength = limit - headLength;
-    const head = fullOutput.slice(0, headLength);
-    const tail = fullOutput.slice(fullOutput.length - tailLength);
-    const omitted = fullOutput.length - limit;
-
-    return `${head}\n\n...输出过长，省略 ${omitted} 个字符。${savedPathLine}\n\n${tail}`.trim();
-};
-
-const normalizeOutputLimit = (limit?: number) => {
-    if (typeof limit !== 'number' || !Number.isFinite(limit)) {
-        return DEFAULT_OUTPUT_LIMIT;
-    }
-    return limit <= 0 ? Number.POSITIVE_INFINITY : limit;
-};
-
-const fileSize = (size: number) => {
-    //注意保留两位小数
-    if (size < 1024) {
-        return size.toFixed(2) + ' B';
-    } else if (size < 1024 * 1024) {
-        return (size / 1024).toFixed(2) + ' KB';
-    } else {
-        return (size / (1024 * 1024)).toFixed(2) + ' MB';
-    }
-}
-
-/**
- * 辅助函数：为文本内容添加行号
- * @param text 文本内容
- * @param beginLine 起始行号（从 1 开始）
- * @returns 带行号的文本
- */
-const renderTextWithLineNum = (text: string, beginLine: number = 1): string => {
-    const lines = text.split('\n');
-    const maxLineNum = beginLine + lines.length - 1;
-    const padding = maxLineNum.toString().length;
-
-    return lines.map((line, index) => {
-        const lineNum = beginLine + index;
-        return `${lineNum.toString().padStart(padding)}: ${line}`;
-    }).join('\n');
-}
 
 /**
  * ReadFile 工具：读取文件内容
@@ -133,7 +63,7 @@ export const readFileTool: Tool = {
     },
 
     execute: async (args: { path: string; beginLine?: number; endLine?: number; limit?: number; showLineNum?: boolean }): Promise<ToolExecuteResult> => {
-        const limit = args.limit ?? 7000;
+        const limit = normalizeLimit(args.limit);
         const showLineNum = args.showLineNum ?? false;
         const filePath = path.resolve(args.path);
 
@@ -178,7 +108,7 @@ export const readFileTool: Tool = {
 
             // 如果需要显示行号，添加行号
             if (showLineNum) {
-                resultContent = renderTextWithLineNum(resultContent, startLine + 1);
+                resultContent = formatWithLineNumber(resultContent, startLine + 1);
             }
 
             return {
@@ -204,7 +134,7 @@ ${resultContent}
 
         // 如果需要显示行号，添加行号
         if (showLineNum) {
-            resultContent = renderTextWithLineNum(resultContent, 1);
+            resultContent = formatWithLineNumber(resultContent, 1);
         }
 
         return {
@@ -245,7 +175,6 @@ export const createFileTool: Tool = {
     },
 
     execute: async (args: { path: string; content: string }): Promise<ToolExecuteResult> => {
-        const os = window?.require?.('os');
         let filePath: string;
 
         // 检查是否为绝对路径
@@ -253,11 +182,8 @@ export const createFileTool: Tool = {
             filePath = args.path;
         } else {
             // 相对路径，写入到临时目录
-            const tempDir = path.join(os.tmpdir(), 'siyuan_temp');
-            // 确保临时目录存在
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-            }
+            const tempDir = tempRoot();
+            safeCreateDir(tempDir);
             filePath = path.join(tempDir, args.path);
         }
 
@@ -327,7 +253,7 @@ export const fileStateTool: Tool = {
         // 格式化文件信息
         const fileInfo: any = {
             path: filePath,
-            size: fileSize(stats.size),
+            size: formatFileSize(stats.size),
             isDirectory: stats.isDirectory(),
             createdAt: stats.birthtime.toISOString(),
             modifiedAt: stats.mtime.toISOString(),
@@ -375,10 +301,6 @@ export const treeListTool: Tool = {
                         type: 'number',
                         description: '遍历深度，默认为 1; 设置为 -1 表示深度搜索（最大 7 层）'
                     },
-                    regexPattern: {
-                        type: 'string',
-                        description: '可选的正则表达式模式，用于过滤文件和目录（匹配相对路径），例如 \\.js$ 或 src/.*\\.ts$'
-                    },
                     skipHiddenDir: {
                         type: 'boolean',
                         description: '不查看隐藏目录内部结构（以 . 开头的目录，如 .git），默认 true',
@@ -394,10 +316,10 @@ export const treeListTool: Tool = {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },
-    execute: async (args: { path: string; depth?: number; regexPattern?: string; skipHiddenDir?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
-        const { path: startPath, depth = 1, regexPattern, skipHiddenDir = true } = args;
+    execute: async (args: { path: string; depth?: number; skipHiddenDir?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
+        const { path: startPath, depth = 1, skipHiddenDir = true } = args;
         const MAX_DEPTH = 7;
-        const outputLimit = normalizeOutputLimit(args.limit);
+        const outputLimit = normalizeLimit(args.limit);
 
         // 处理深度参数：-1 表示深度搜索，使用最大深度限制
         const effectiveDepth = depth === -1 ? MAX_DEPTH : Math.min(depth, MAX_DEPTH);
@@ -408,19 +330,6 @@ export const treeListTool: Tool = {
                 status: ToolExecuteStatus.ERROR,
                 error: `目录不存在或不是一个目录: ${resolvedPath}`
             };
-        }
-
-        // 编译正则表达式（如果提供）
-        let regex: RegExp | null = null;
-        if (regexPattern) {
-            try {
-                regex = new RegExp(regexPattern, 'i');
-            } catch (error) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `无效的正则表达式: ${error.message}`
-                };
-            }
         }
 
         const listDirRecursive = (dirPath: string, currentDepth: number, prefix: string, relativePath: string = '', skipHiddenDir: boolean = true): string[] => {
@@ -447,17 +356,12 @@ export const treeListTool: Tool = {
                     const stats = fs.statSync(itemPath);
                     const isDirectory = stats.isDirectory();
 
-                    // 如果有正则表达式，检查是否匹配相对路径
-                    const shouldInclude = !regex || regex.test(itemRelativePath);
-
                     if (isDirectory) {
                         const isHiddenDir = item.startsWith('.');
-                        if (shouldInclude || !regex) {
-                            if (isHiddenDir && skipHiddenDir) {
-                                output.push(`${entryPrefix}${item}/ (内部结构略)`);
-                            } else {
-                                output.push(`${entryPrefix}${item}/`);
-                            }
+                        if (isHiddenDir && skipHiddenDir) {
+                            output.push(`${entryPrefix}${item}/ (内部结构略)`);
+                        } else {
+                            output.push(`${entryPrefix}${item}/`);
                         }
                         // 继续递归，除非是隐藏目录且需要跳过
                         if (!(isHiddenDir && skipHiddenDir)) {
@@ -465,10 +369,8 @@ export const treeListTool: Tool = {
                             output.push(...subOutput);
                         }
                     } else {
-                        if (shouldInclude) {
-                            const size = fileSize(stats.size);
-                            output.push(`${entryPrefix}${item} (${size})`);
-                        }
+                        const size = formatFileSize(stats.size);
+                        output.push(`${entryPrefix}${item} (${size})`);
                     }
                 } catch (error) {
                     output.push(`${entryPrefix}${item} [访问错误]`);
@@ -479,9 +381,8 @@ export const treeListTool: Tool = {
 
         const result = listDirRecursive(resolvedPath, 0, '', '', skipHiddenDir);
         const fullOutput = [resolvedPath, ...result].join('\n');
-        const formattedOutput = formatOutputWithLimit(fullOutput, outputLimit, 'TreeList');
-
-        return {
+        const saveResult = saveAndTruncate('TreeList', fullOutput, outputLimit);
+        const formattedOutput = formatToolResult(saveResult); return {
             status: ToolExecuteStatus.SUCCESS,
             data: formattedOutput
         };
@@ -567,7 +468,7 @@ export const searchInFileTool: Tool = {
         }
 
         const filePath: string = path.resolve(args.path);
-        const outputLimit = normalizeOutputLimit(args.limit);
+        const outputLimit = normalizeLimit(args.limit);
 
         if (!fs.existsSync(filePath)) {
             return {
@@ -633,7 +534,8 @@ export const searchInFileTool: Tool = {
             });
 
             const fullOutput = resultMsg.trim();
-            const formattedOutput = formatOutputWithLimit(fullOutput, outputLimit, 'SearchInFile');
+            const saveResult = saveAndTruncate('SearchInFile', fullOutput, outputLimit);
+            const formattedOutput = formatToolResult(saveResult);
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
@@ -713,7 +615,7 @@ export const searchInDirectoryTool: Tool = {
         }
 
         const dirPath = path.resolve(args.path);
-        const outputLimit = normalizeOutputLimit(args.limit);
+        const outputLimit = normalizeLimit(args.limit);
 
         if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
             return {
@@ -912,7 +814,8 @@ export const searchInDirectoryTool: Tool = {
             }
 
             const fullOutput = resultMsg;
-            const formattedOutput = formatOutputWithLimit(fullOutput, outputLimit, 'SearchInDirectory');
+            const saveResult = saveAndTruncate('SearchInDirectory', fullOutput, outputLimit);
+            const formattedOutput = formatToolResult(saveResult);
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
@@ -925,5 +828,192 @@ export const searchInDirectoryTool: Tool = {
                 error: `搜索失败: ${error.message}`
             };
         }
+    }
+};
+
+/**
+ * SearchFiles 工具：搜索文件名
+ */
+export const searchFilesTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'SearchFiles',
+            description: '在指定目录下搜索匹配文件名的文件，返回扁平的文件路径列表',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: {
+                        type: 'string',
+                        description: '起始目录路径'
+                    },
+                    pattern: {
+                        type: 'string',
+                        description: '文件名搜索模式（支持正则表达式，匹配相对路径）'
+                    },
+                    regex: {
+                        type: 'boolean',
+                        description: '是否使用正则表达式，默认 true'
+                    },
+                    maxDepth: {
+                        type: 'number',
+                        description: '最大搜索深度，默认 5'
+                    },
+                    maxResults: {
+                        type: 'number',
+                        description: '最大返回结果数，默认 50'
+                    },
+                    showSize: {
+                        type: 'boolean',
+                        description: '是否显示文件大小，默认 false'
+                    },
+                    skipHiddenDir: {
+                        type: 'boolean',
+                        description: '是否跳过隐藏目录（以 . 开头），默认 true'
+                    },
+                    limit: {
+                        type: 'number',
+                        description: '限制返回的最大字符数，默认为 7000，传入 <= 0 表示不限制'
+                    }
+                },
+                required: ['path', 'pattern']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.MODERATE,
+        requireResultApproval: true
+    },
+
+    execute: async (args: {
+        path: string;
+        pattern: string;
+        regex?: boolean;
+        maxDepth?: number;
+        maxResults?: number;
+        showSize?: boolean;
+        skipHiddenDir?: boolean;
+        limit?: number;
+    }): Promise<ToolExecuteResult> => {
+        if (!fs || !path) {
+            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
+        }
+
+        const dirPath = path.resolve(args.path);
+        const outputLimit = normalizeLimit(args.limit);
+        const useRegex = args.regex ?? true;
+        const maxDepth = args.maxDepth ?? 5;
+        const maxResults = args.maxResults ?? 50;
+        const showSize = args.showSize ?? false;
+        const skipHiddenDir = args.skipHiddenDir ?? true;
+
+        if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `目录不存在或不是一个目录: ${dirPath}`
+            };
+        }
+
+        // 编译搜索正则
+        let searchRegex: RegExp;
+        try {
+            if (useRegex) {
+                searchRegex = new RegExp(args.pattern, 'i');
+            } else {
+                // 转义特殊字符，支持简单通配符
+                const pattern = args.pattern
+                    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                    .replace(/\\\*/g, '.*')
+                    .replace(/\\\?/g, '.');
+                searchRegex = new RegExp(pattern, 'i');
+            }
+        } catch (error: any) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `无效的搜索模式: ${error.message}`
+            };
+        }
+
+        // 搜索结果
+        interface FileResult {
+            relativePath: string;
+            size?: string;
+        }
+        const results: FileResult[] = [];
+
+        const searchDir = (currentPath: string, depth: number = 0, relativePath: string = '') => {
+            if (depth > maxDepth || results.length >= maxResults) return;
+
+            let items: string[];
+            try {
+                items = fs.readdirSync(currentPath);
+            } catch {
+                return; // 跳过无法读取的目录
+            }
+
+            for (const item of items) {
+                if (results.length >= maxResults) break;
+
+                const itemPath = path.join(currentPath, item);
+                const itemRelativePath = relativePath ? `${relativePath}/${item}` : item;
+
+                try {
+                    const stats = fs.statSync(itemPath);
+
+                    if (stats.isDirectory()) {
+                        // 跳过常见的无关目录和隐藏目录
+                        const isHiddenDir = item.startsWith('.');
+                        if (isHiddenDir && skipHiddenDir) {
+                            continue;
+                        }
+                        if (['.git', 'node_modules', '.vscode', 'dist', 'build'].includes(item)) {
+                            continue;
+                        }
+                        searchDir(itemPath, depth + 1, itemRelativePath);
+                    } else if (stats.isFile()) {
+                        // 检查文件名/路径是否匹配
+                        if (searchRegex.test(itemRelativePath)) {
+                            results.push({
+                                relativePath: itemRelativePath,
+                                size: showSize ? formatFileSize(stats.size) : undefined
+                            });
+                        }
+                    }
+                } catch {
+                    // 跳过无法访问的文件
+                }
+            }
+        };
+
+        searchDir(dirPath);
+
+        if (results.length === 0) {
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: `在目录 ${path.basename(dirPath)} 中未找到匹配的文件`
+            };
+        }
+
+        // 构建结果（扁平列表）
+        let resultMsg = `在 ${path.basename(dirPath)} 中找到 ${results.length} 个匹配的文件`;
+        if (results.length >= maxResults) {
+            resultMsg += ` (已达到最大结果数 ${maxResults})`;
+        }
+        resultMsg += ':\n\n';
+
+        results.forEach((result, index) => {
+            if (showSize && result.size) {
+                resultMsg += `${index + 1}. ${result.relativePath} (${result.size})\n`;
+            } else {
+                resultMsg += `${index + 1}. ${result.relativePath}\n`;
+            }
+        });
+
+        const fullOutput = resultMsg.trim();
+        const saveResult = saveAndTruncate('SearchFiles', fullOutput, outputLimit);
+        const formattedOutput = formatToolResult(saveResult);
+
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: formattedOutput
+        };
     }
 };

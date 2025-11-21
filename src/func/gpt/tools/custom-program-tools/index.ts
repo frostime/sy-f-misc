@@ -9,12 +9,12 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "../types";
 import { scanCustomScriptsWithSmartLoad, ParsedToolModule } from './resolve-tools';
 import { createTempRunDir, cleanupTempDir } from './utils';
+import { saveAndTruncate, formatToolResult, normalizeLimit } from '../utils';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 const childProcess = window?.require?.('child_process');
 
-const DEFAULT_OUTPUT_LIMIT = 7000;
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
 /**
@@ -28,28 +28,14 @@ interface CustomToolExecutionContext {
     outputLimit?: number;
 }
 
-/**
- * 格式化输出（带限制）
- */
-const formatOutputWithLimit = (output: string, limit: number): string => {
-    if (output.length <= limit) {
-        return output;
-    }
 
-    const headLength = Math.floor(limit / 2);
-    const tailLength = limit - headLength;
-    const head = output.slice(0, headLength);
-    const tail = output.slice(output.length - tailLength);
-    const omitted = output.length - limit;
-
-    return `${head}\n\n...输出过长，省略 ${omitted} 个字符...\n\n${tail}`;
-};
 
 /**
  * 执行自定义 Python 工具
  */
 const executeCustomPythonTool = async (context: CustomToolExecutionContext): Promise<ToolExecuteResult> => {
-    const { scriptPath, functionName, args, timeout = DEFAULT_TIMEOUT, outputLimit = DEFAULT_OUTPUT_LIMIT } = context;
+    const { scriptPath, functionName, args, timeout = DEFAULT_TIMEOUT, outputLimit } = context;
+    const limit = normalizeLimit(outputLimit);
 
     // 创建临时运行目录
     const tempDir = createTempRunDir();
@@ -169,9 +155,11 @@ except Exception as e:
                         // 处理结果
                         let resultData = result.result;
 
-                        // 如果结果是字符串，应用输出限制
+                        // 如果结果是字符串，应用输出限制并保存
                         if (typeof resultData === 'string') {
-                            resultData = formatOutputWithLimit(resultData, outputLimit);
+                            const saveResult = saveAndTruncate(`custom_${functionName}`, resultData, limit);
+                            const formattedOutput = formatToolResult(saveResult, `Custom Tool: ${functionName}`);
+                            resultData = formattedOutput;
                         }
 
                         resolve({
@@ -182,9 +170,11 @@ except Exception as e:
                     } catch (parseError) {
                         // JSON 解析失败，返回原始输出
                         const rawOutput = stdout.trim();
+                        const saveResult = saveAndTruncate(`custom_${functionName}`, rawOutput, limit);
+                        const formattedOutput = formatToolResult(saveResult, `Custom Tool: ${functionName}`);
                         resolve({
                             status: ToolExecuteStatus.SUCCESS,
-                            data: formatOutputWithLimit(rawOutput, outputLimit)
+                            data: formattedOutput
                         });
                     }
                 }

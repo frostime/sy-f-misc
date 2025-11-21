@@ -1,4 +1,5 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { normalizeLimit, truncateContent } from '../utils';
 
 // 通过 window.require 引入 Node.js 模块
 const fs = window?.require?.('fs');
@@ -143,28 +144,18 @@ export const markitdownTool: Tool = {
             let content: string = fs.readFileSync(outputFile, 'utf-8');
             const totalChars = content.length;
 
-            // 应用字符限制
-            let truncated = false;
-            const originalLimit = args.limit ?? 5000;
+            // 应用字符范围限制
+            const limit = normalizeLimit(args.limit, 5000);
 
-            let end: number;
-            if (originalLimit < 0) {
-                end = totalChars;
-            } else {
-                end = Math.min(begin + originalLimit, totalChars);
+            // 先应用 begin/end 范围
+            let rangeContent = content;
+            if (begin > 0 || !Number.isFinite(limit)) {
+                const end = Number.isFinite(limit) ? Math.min(begin + limit, totalChars) : totalChars;
+                rangeContent = content.substring(begin, end);
             }
 
-            if (begin > 0 || end < totalChars) {
-                content = content.substring(begin, end);
-                truncated = true;
-            }
-
-            // // 清理临时目录
-            // try {
-            //     fs.rmSync(tmpDir, { recursive: true, force: true });
-            // } catch {
-            //     // 清理失败不影响结果
-            // }
+            // 然后应用截断（如果内容仍然过长）
+            const truncResult = truncateContent(rangeContent, limit);
 
             // 构建返回信息
             const fileName = path.basename(filePath);
@@ -172,14 +163,14 @@ export const markitdownTool: Tool = {
             promptText += `临时文件保存位置: ${outputFile}\n`;
             promptText += `总字符数: ${totalChars}`;
 
-            if (truncated) {
-                promptText += ` (已截断)`;
+            if (begin > 0 || truncResult.isTruncated) {
+                promptText += ` (显示范围: ${begin} - ${begin + truncResult.shownLength})`;
             }
 
-            promptText += `\n\n--- 文件内容 ---\n${content}`;
+            promptText += `\n\n--- 文件内容 ---\n${truncResult.content}`;
 
-            if (truncated) {
-                promptText += `\n\n--- 注意: 显示内容已截断；完整内容可阅读临时文件 ---`;
+            if (truncResult.isTruncated) {
+                promptText += `\n\n--- 注意: 内容已截断，完整内容可阅读临时文件 ---`;
             }
 
             return {

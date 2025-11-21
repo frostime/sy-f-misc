@@ -8,6 +8,7 @@
  */
 import { addScript } from "../../utils";
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
+import { normalizeLimit, truncateContent } from '../utils';
 
 /**
  * 验证URL是否有效
@@ -722,7 +723,7 @@ export const webPageContentTool: Tool = {
         joinKeywords?: 'AND' | 'OR'
     }): Promise<ToolExecuteResult> => {
         const begin = args.begin ?? 0;
-        const limit = args.limit ?? 5000;
+        const limit = normalizeLimit(args.limit, 5000);
         const mode = args.mode ?? 'markdown';
         const options = {
             keepLink: args.keepLink,
@@ -771,24 +772,28 @@ export const webPageContentTool: Tool = {
                     resultText = formatKeywordSearchResult(searchResult, mode);
 
                     // 对关键词查找结果也应用字数限制
-                    if (limit > 0 && resultText.length > limit) {
-                        const truncatedText = resultText.substring(0, limit);
-                        resultText = truncatedText + `\n\n[关键词查找结果被截断: 原始长度 ${resultText.length} 字符, 显示 ${limit} 字符]`;
+                    const truncResult = truncateContent(resultText, limit);
+                    resultText = truncResult.content;
+                    if (truncResult.isTruncated) {
+                        resultText += `\n\n[关键词查找结果被截断: 原始长度 ${truncResult.originalLength} 字符, 显示 ${truncResult.shownLength} 字符]`;
                     }
                 } else {
                     // 应用起始位置和长度限制（仅在非关键词查找模式下）
-                    if (begin > 0 || (limit > 0 && originalLength > limit)) {
-                        // 确保 begin 不超过内容长度
+                    // 先应用 begin 偏移
+                    if (begin > 0) {
                         const startPos = Math.min(begin, originalLength);
-                        // 如果指定了限制，则截取指定长度；否则截取到末尾
-                        const endPos = limit > 0 ? Math.min(startPos + limit, originalLength) : originalLength;
+                        resultText = resultText.substring(startPos);
+                    }
 
-                        resultText = resultText.substring(startPos, endPos);
+                    // 然后应用截断
+                    const truncResult = truncateContent(resultText, limit);
+                    resultText = truncResult.content;
 
-                        // 添加截断信息
-                        if (endPos < originalLength || startPos > 0) {
-                            resultText += `\n\n[原始内容长度: ${originalLength} 字符, 显示范围: ${startPos} - ${endPos}]`;
-                        }
+                    // 添加截断信息
+                    if (begin > 0 || truncResult.isTruncated) {
+                        const displayStart = begin;
+                        const displayEnd = begin + truncResult.shownLength;
+                        resultText += `\n\n[原始内容长度: ${originalLength} 字符, 显示范围: ${displayStart} - ${displayEnd}]`;
                     }
                 }
 

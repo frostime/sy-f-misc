@@ -58,15 +58,16 @@ const getPy2ToolPath = (): string => {
 
 export const checkSyncIgnore = async () => {
     const syncignorePath = '.siyuan/syncignore';
-    const requiredIgnore = 'snippets/fmisc-custom-toolscripts/__pycache__/**';
+    const requiredIgnores = [
+        'snippets/fmisc-custom-toolscripts/__pycache__/**',
+        // 'snippets/fmisc-custom-toolscripts/.git/**'
+    ];
 
     const ignoreFilePath = path.join(window.siyuan.config.system.dataDir, syncignorePath);
 
     if (!fileExists(ignoreFilePath)) {
         // 文件不存在，创建默认配置
-        const defaultIgnores = [
-            requiredIgnore,
-        ].join('\n');
+        const defaultIgnores = requiredIgnores.join('\n');
 
         const blob = new Blob([defaultIgnores], { type: 'text/plain' });
         await putFile('data/' + syncignorePath, false, blob);
@@ -77,16 +78,25 @@ export const checkSyncIgnore = async () => {
     const content = fs.readFileSync(ignoreFilePath, 'utf-8');
     const lines = content.split('\n').map(line => line.trim());
 
-    if (!lines.includes(requiredIgnore)) {
-        // 添加缺失的忽略规则
-        lines.push(requiredIgnore);
-        const newContent = lines.join('\n');
+    let needsUpdate = false;
 
+    // 检查每个必需的忽略规则是否存在
+    for (const ignoreRule of requiredIgnores) {
+        if (!lines.includes(ignoreRule)) {
+            // 添加缺失的忽略规则
+            lines.push(ignoreRule);
+            needsUpdate = true;
+        }
+    }
+
+    if (needsUpdate) {
+        // 更新文件内容
+        const newContent = lines.join('\n');
         const blob = new Blob([newContent], { type: 'text/plain' });
         await putFile('data/' + syncignorePath, false, blob);
-        return;
     }
 }
+
 
 /**
  * 批量解析多个脚本

@@ -8,6 +8,7 @@
 
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
 import { appendDailyNote, appendMarkdown, getBlockFullMarkdownContent } from './utils';
+import { normalizeLimit, truncateContent } from '../utils';
 
 /**
  * 获取块完整Markdown内容工具
@@ -43,18 +44,28 @@ export const getBlockMarkdownTool: Tool = {
     },
 
     execute: async (args: { blockId: string; begin?: number; limit?: number }): Promise<ToolExecuteResult> => {
-        const limit = args.limit ?? 7000;
+        const limit = normalizeLimit(args.limit);
         const begin = args.begin ?? 0;
         try {
             let content = await getBlockFullMarkdownContent(args.blockId);
-            if (limit > 0 && content.length > limit) {
-                const len = content.length;
-                content = content.substring(begin, begin + limit);
-                content += `\n\n原始内容过长 (${len} 字符), 已省略; 只保留从 ${begin} 开始的 ${limit} 字符`;
+
+            // 应用 begin 偏移
+            if (begin > 0) {
+                content = content.substring(begin);
             }
+
+            // 应用截断
+            const truncResult = truncateContent(content, limit);
+            let resultContent = truncResult.content;
+
+            // 添加截断信息
+            if (begin > 0 || truncResult.isTruncated) {
+                resultContent += `\n\n[原始内容长度: ${truncResult.originalLength} 字符, 显示范围: ${begin} - ${begin + truncResult.shownLength}]`;
+            }
+
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: content
+                data: resultContent
             };
         } catch (error) {
             return {
