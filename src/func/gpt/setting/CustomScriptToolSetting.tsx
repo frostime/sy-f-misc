@@ -19,6 +19,9 @@ import type { ParsedToolModule } from '../tools/custom-program-tools/resolve-too
 import { solidDialog } from '@/libs/dialog';
 import Markdown from '@/libs/components/Elements/Markdown';
 import styles from './CustomScriptToolSetting.module.scss';
+import { inputDialog } from '@frostime/siyuan-plugin-kits';
+import { globalMiscConfigs } from './store';
+import { text } from 'stream/consumers';
 
 const exampleScript = `Python 脚本需要遵循一定的规范，并做好类型标注，才能被正确解析为工具。例如：
 
@@ -106,6 +109,32 @@ export const CustomScriptToolSetting: Component = () => {
             setLoading(false);
         }
     };
+
+    const configureCustomScriptEnvVars = async () => {
+        inputDialog({
+            title: '配置自定义脚本环境变量, 格式为 KEY=VALUE，每行一个',
+            defaultText: globalMiscConfigs().CustomScriptEnvVars || '',
+            type: 'textarea',
+            width: '600px',
+            height: '500px',
+            maxHeight: '70%',
+            confirm: (text: string) => {
+                const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                // check format
+                for (const line of lines) {
+                    // 允许空值，例如 KEY=
+                    if (!/^[A-Za-z_][A-Za-z0-9_]*=.*$/.test(line)) {
+                        showMessage(`环境变量格式错误: ${line}`, 5000, 'error');
+                        return false;
+                    }
+                }
+                // globalMiscConfigs().CustomScriptEnvVars = text;
+                globalMiscConfigs.update('CustomScriptEnvVars', text);
+                showMessage('环境变量已保存', 3000);
+                return true;
+            }
+        })
+    }
 
 
 
@@ -269,12 +298,20 @@ export const CustomScriptToolSetting: Component = () => {
                 </button>
                 <button
                     class="b3-button b3-button--outline"
+                    onClick={configureCustomScriptEnvVars}
+                    disabled={loading() || !pythonInfo().available}
+                >
+                    <svg class="b3-button__icon"><use href="#iconSetting"></use></svg>
+                    脚本环境变量
+                </button>
+                {/* <button
+                    class="b3-button b3-button--outline"
                     onClick={loadScriptsFromCache}
                     disabled={loading()}
                 >
                     <svg class="b3-button__icon"><use href="#iconList"></use></svg>
                     刷新列表界面
-                </button>
+                </button> */}
             </div>
 
             {/* 加载状态 */}

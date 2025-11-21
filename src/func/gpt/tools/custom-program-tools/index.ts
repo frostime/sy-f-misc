@@ -7,7 +7,7 @@
  */
 
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "../types";
-import { scanCustomScriptsWithSmartLoad, ParsedToolModule } from './resolve-tools';
+import { scanCustomScriptsWithSmartLoad, ParsedToolModule, getEnvVars } from './resolve-tools';
 import { createTempRunDir, cleanupTempDir } from './utils';
 import { saveAndTruncate, formatToolResult, normalizeLimit } from '../utils';
 
@@ -104,6 +104,7 @@ except Exception as e:
 
         // 准备参数
         const argsJson = JSON.stringify(args);
+        const env = getEnvVars();
 
         // 执行脚本
         return new Promise((resolve) => {
@@ -113,7 +114,8 @@ except Exception as e:
                 {
                     cwd: tempDir,
                     timeout: timeout,
-                    maxBuffer: 10 * 1024 * 1024 // 10MB
+                    maxBuffer: 10 * 1024 * 1024, // 10MB
+                    env
                 },
                 (error, stdout, stderr) => {
                     // 清理临时目录

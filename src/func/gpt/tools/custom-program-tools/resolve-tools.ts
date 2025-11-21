@@ -18,10 +18,28 @@ import {
     cleanupTempDir
 } from './utils';
 import { putFile } from '@/api';
+import { globalMiscConfigs } from '../../setting/store';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 const childProcess = window?.require?.('child_process');
+const process = window?.require?.('process') || (window as any).process;
+
+/**
+ * 获取自定义脚本环境变量
+ */
+export const getEnvVars = () => {
+    const envStr = globalMiscConfigs().CustomScriptEnvVars || '';
+    const env = { ...(process?.env || {}) }; // Start with existing env
+    const lines = envStr.split('\n');
+    for (const line of lines) {
+        const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+        if (match) {
+            env[match[1]] = match[2].trim();
+        }
+    }
+    return env;
+}
 
 /**
  * 解析后的工具模块
@@ -126,8 +144,9 @@ export const parseAllScripts = async (scriptPaths: string[]): Promise<{
         return new Promise((resolve) => {
             // 使用 --dir 参数批量解析临时目录，--with-mtime 让其存储修改时间
             const args = ['--dir', tempDir, '--with-mtime'];
+            const env = getEnvVars();
 
-            childProcess.execFile('python', [py2toolPath, ...args], (error, stdout, stderr) => {
+            childProcess.execFile('python', [py2toolPath, ...args], { env }, (error, stdout, stderr) => {
                 if (error) {
                     cleanupTempDir(tempDir);
                     resolve({
