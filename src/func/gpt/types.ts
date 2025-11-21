@@ -254,6 +254,16 @@ interface IChatSessionMsgItem {
     // msgChars?: number;  //消息的字数
     attachedItems?: number;  //上下文消息条目数量, 不包括自身
     attachedChars?: number;  //上下文的字数, 不包括自身
+    branchFrom?: {
+        sessionId: string;
+        sessionTitle: string;
+        messageId: string;
+    };
+    branchTo?: {
+        sessionId: string;
+        sessionTitle: string;
+        messageId: string;
+    }[];
     /**
      * 工具调用链结果（如果这条消息经过了工具调用）
      */

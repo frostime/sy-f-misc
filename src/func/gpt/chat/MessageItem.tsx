@@ -8,6 +8,7 @@ import { floatingEditor } from '@/libs/components/floating-editor';
 import { convertMathFormulas } from '@gpt/utils';
 import { adaptIMessageContentGetter } from '@gpt/data-utils';
 import { defaultConfig } from '@gpt/setting/store';
+import * as persist from '@gpt/persistence';
 
 import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
@@ -240,19 +241,61 @@ const MessageItem: Component<{
     }
 
     const createNewBranch = () => {
-        const messages = session.messages();
+        const messages = session.messages.unwrap();
         const currentIndex = messages.findIndex(m => m.id === props.messageItem.id);
         if (currentIndex === -1) return;
 
         confirm('确认?', '保留以上记录，创建一个新的对话分支', () => {
-            const branchMessages = messages.slice(0, currentIndex + 1);
-            const newSession: Partial<IChatSessionHistory> = {
-                title: session.title() + ' - 新的分支',
+            const sourceSessionId = session.sessionId();
+            const sourceSessionTitle = session.title();
+            const sourceMessageId = props.messageItem.id;
+            const newSessionId = window.Lute.NewNodeID();
+            const newSessionTitle = session.title() + ' - 新的分支';
+
+            // 1. Update current session (Source)
+            session.messages.update(currentIndex, (msg) => {
+                const newBranch = {
+                    sessionId: newSessionId,
+                    sessionTitle: newSessionTitle,
+                    messageId: sourceMessageId
+                };
+                const currentBranches = msg.branchTo || [];
+                const branchTo = [...currentBranches, newBranch];
+                //unique
+                const uniqueBranchTo = Array.from(new Map(branchTo.map(item => [item.sessionId + item.messageId, item])).values());
+                return { ...msg, branchTo: uniqueBranchTo };
+            });
+
+            // Save the source session immediately to persist the link
+            persist.saveToLocalStorage(session.sessionHistory());
+
+            // 2. Prepare new session (Target)
+            const slices = messages.slice(0, currentIndex + 1);
+            const branchMessages = structuredClone(slices);
+            const lastMsg = branchMessages[branchMessages.length - 1];
+
+            // Set branchFrom on the last message of the new session
+            lastMsg.branchFrom = {
+                sessionId: sourceSessionId,
+                sessionTitle: sourceSessionTitle,
+                messageId: sourceMessageId
+            };
+            // Clear branchTo in the new session's copy
+            delete lastMsg.branchTo;
+
+            const newSessionData: Partial<IChatSessionHistory> = {
+                id: newSessionId,
+                title: newSessionTitle,
                 items: branchMessages,
                 sysPrompt: session.systemPrompt()
             };
+
+            // 3. Switch
             session.newSession();
-            session.applyHistory(newSession);
+            session.applyHistory(newSessionData);
+
+            // Save the new session
+            persist.saveToLocalStorage(session.sessionHistory());
         });
     };
 
@@ -307,25 +350,25 @@ const MessageItem: Component<{
         });
         const addBlank = (type: 'user' | 'assistant') => {
             const timestamp = new Date().getTime();
-                const newMessage: IChatSessionMsgItem = {
-                    type: 'message',
-                    id: window.Lute.NewNodeID(),
-                    timestamp: timestamp,
-                    author: 'user',
-                    message: {
-                        role: type,
-                        content: ''
-                    },
-                    currentVersion: timestamp.toString(),
-                    versions: {}
-                };
-                session.messages.update((oldList: IChatSessionMsgItem[]) => {
-                    const index = oldList.findIndex(item => item.id === props.messageItem.id);
-                    if (index === -1) return oldList;
-                    const newList = [...oldList];
-                    newList.splice(index + 1, 0, newMessage);
-                    return newList;
-                });
+            const newMessage: IChatSessionMsgItem = {
+                type: 'message',
+                id: window.Lute.NewNodeID(),
+                timestamp: timestamp,
+                author: 'user',
+                message: {
+                    role: type,
+                    content: ''
+                },
+                currentVersion: timestamp.toString(),
+                versions: {}
+            };
+            session.messages.update((oldList: IChatSessionMsgItem[]) => {
+                const index = oldList.findIndex(item => item.id === props.messageItem.id);
+                if (index === -1) return oldList;
+                const newList = [...oldList];
+                newList.splice(index + 1, 0, newMessage);
+                return newList;
+            });
         }
         menu.addItem({
             icon: 'iconAdd',
@@ -539,6 +582,94 @@ const MessageItem: Component<{
         </Show>
     );
 
+    const BranchIndicator = () => {
+        const switchSession = (sessionId: string, targetMsgId?: string) => {
+            // Save current
+            persist.saveToLocalStorage(session.sessionHistory());
+
+            // Load target
+            const key = `gpt-chat-${sessionId}`;
+            const data = localStorage.getItem(key);
+            if (data) {
+                const history = JSON.parse(data);
+                session.newSession();
+                session.applyHistory(history);
+
+                if (targetMsgId) {
+                    setTimeout(() => {
+                        const selector = `[data-session-id="${sessionId}"] [data-msg-id="${targetMsgId}"]`;
+                        const element = document.querySelector(selector) as HTMLElement;
+                        if (element) {
+                            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            element.classList.add(styles.highlight);
+                            setTimeout(() => {
+                                element.classList.remove(styles.highlight);
+                            }, 2000);
+                        }
+                    }, 300);
+                }
+            } else {
+                showMessage('无法找到目标会话');
+            }
+        };
+
+        const showBranchMenu = (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const menu = new Menu("branch-menu");
+
+            if (props.messageItem.branchFrom) {
+                const from = props.messageItem.branchFrom;
+                menu.addItem({
+                    icon: 'iconReply',
+                    label: `来自: ${from.sessionTitle}`,
+                    click: () => switchSession(from.sessionId, from.messageId)
+                });
+            }
+
+            if (props.messageItem.branchTo && props.messageItem.branchTo.length > 0) {
+                if (props.messageItem.branchFrom) menu.addSeparator();
+
+                menu.addItem({
+                    label: '分支列表',
+                    type: 'readonly'
+                });
+
+                props.messageItem.branchTo.forEach(to => {
+                    menu.addItem({
+                        icon: 'iconSplitLR',
+                        label: `前往: ${to.sessionTitle}`,
+                        click: () => switchSession(to.sessionId, to.messageId)
+                    });
+                });
+            }
+
+            const target = e.target as HTMLElement;
+            const rect = target.getBoundingClientRect();
+            menu.open({
+                x: rect.left,
+                y: rect.bottom
+            });
+        };
+
+        const hasBranch = props.messageItem.branchFrom || (props.messageItem.branchTo && props.messageItem.branchTo.length > 0);
+
+        return (
+            <Show when={hasBranch}>
+                <div
+                    class={styles.branchIndicator}
+                    onClick={showBranchMenu}
+                    title="分支信息"
+                >
+                    <svg><use href="#iconSplitLR" /></svg>
+                    <Show when={props.messageItem.branchTo?.length}>
+                        <span>{props.messageItem.branchTo?.length}</span>
+                    </Show>
+                </div>
+            </Show>
+        );
+    };
+
     const ReasoningSection = () => {
         const copyReasoningContent = (e: MouseEvent) => {
             e.stopImmediatePropagation();
@@ -726,6 +857,7 @@ const MessageItem: Component<{
             </Show>
             <VersionIndicator />
             <PinIndicator />
+            <BranchIndicator />
             {props.messageItem.message.role === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (

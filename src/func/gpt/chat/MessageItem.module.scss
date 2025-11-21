@@ -87,6 +87,18 @@ $chat-very-narrow-container: 400px;
         }
     }
 
+    .branchIndicator {
+        @extend .versionIndicator;
+        // right: calc(var(--horizontal-padding));
+        right: var(--horizontal-padding);
+        top: calc(var(--vertical-padding) + 22px);
+        color: var(--b3-theme-secondary);
+
+        svg {
+            fill: var(--b3-theme-secondary);
+        }
+    }
+
     &[data-role="user"] {
         flex-direction: row-reverse;
 
@@ -120,6 +132,11 @@ $chat-very-narrow-container: 400px;
         .pinIndicator {
             right: unset;
             left: calc(var(--horizontal-padding) + 40px);
+        }
+
+        .branchIndicator {
+            right: unset;
+            left: calc(var(--horizontal-padding) + 80px);
         }
     }
 
@@ -398,4 +415,20 @@ $chat-very-narrow-container: 400px;
 .pre-scroll-container {
     overflow-x: auto;
     max-width: 100%;
+}
+
+.highlight {
+    animation: highlight 2s ease-out;
+}
+
+@keyframes highlight {
+    0% {
+        background-color: var(--b3-theme-primary-lightest);
+        box-shadow: 0 0 8px var(--b3-theme-primary);
+    }
+
+    100% {
+        background-color: transparent;
+        box-shadow: none;
+    }
 }
