@@ -21,6 +21,7 @@ import { DefaultUIAdapter } from './approval-ui';
 import { toolsManager } from '../setting/store';
 import { siyuanTool } from './siyuan';
 import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
+import { registerToolCallScriptGroup } from './toolcall-script';
 
 
 const IS_IN_APP = window?.require?.('electron') !== undefined;
@@ -53,7 +54,13 @@ export const toolExecutorFactory = (options: {
                 toolExecutor.toggleGroupEnabled(group.name, toolsManager().groupDefaults[group.name]);
             }
         }
-    }    // 设置审批回调
+    }
+
+
+    // 注册 ToolCallScript 工具（需要注入 executor）
+    registerToolCallScriptGroup(toolExecutor);
+
+    // 设置审批回调
     const approvalAdapter = options.approvalAdapter || new DefaultUIAdapter();
 
     // 设置执行审批回调
