@@ -7,6 +7,7 @@
  */
 import { globalMiscConfigs } from '../../setting/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
+import { saveAndTruncate } from '../utils';
 
 export interface TavilySearchResponse {
     query: string;
@@ -295,6 +296,9 @@ export const tavilySearchTool: Tool = {
                 data: { error: "Tavily search failed. API key may be missing or invalid." }
             };
         }
+
+        //单纯保存记录而已
+        saveAndTruncate('tavily-search', JSON.stringify(result, null, 2), Number.POSITIVE_INFINITY, { name: 'TavilySearch', args });
 
         return {
             status: ToolExecuteStatus.SUCCESS,

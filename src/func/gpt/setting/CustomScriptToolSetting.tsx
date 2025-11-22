@@ -115,8 +115,8 @@ export const CustomScriptToolSetting: Component = () => {
             title: '配置自定义脚本环境变量, 格式为 KEY=VALUE，每行一个',
             defaultText: globalMiscConfigs().CustomScriptEnvVars || '',
             type: 'textarea',
-            width: '600px',
-            height: '500px',
+            width: '1000px',
+            height: '640px',
             maxHeight: '70%',
             confirm: (text: string) => {
                 const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);

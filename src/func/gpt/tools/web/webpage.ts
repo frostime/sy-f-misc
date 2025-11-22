@@ -8,7 +8,7 @@
  */
 import { addScript } from "../../utils";
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
-import { normalizeLimit, truncateContent } from '../utils';
+import { normalizeLimit, saveAndTruncate, truncateContent } from '../utils';
 
 /**
  * 验证URL是否有效
@@ -820,6 +820,8 @@ export const webPageContentTool: Tool = {
                 error: '未能获取任何网页内容'
             };
         }
+
+        saveAndTruncate('webpage', results.join('\n\n---\n\n'), Number.POSITIVE_INFINITY, { name: 'Webpage', args });
 
         return {
             status: ToolExecuteStatus.SUCCESS,

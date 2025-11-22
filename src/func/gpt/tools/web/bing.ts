@@ -1,6 +1,8 @@
 import { getFrontend } from "siyuan";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { forwardProxy } from "@/api";
+import { save } from "../../setting";
+import { saveAndTruncate } from "../utils";
 
 /*
  * Copyright (c) 2025 by frostime. All Rights Reserved.
@@ -229,6 +231,7 @@ export const bingSearchTool: Tool = {
     execute: async (args: { query: string; site?: string; filetype?: string; dateFilter?: 'day' | 'week' | 'month'; pageIdx?: number }): Promise<ToolExecuteResult> => {
         try {
             const result = await bingSearch(args.query, args.pageIdx || 1, args.site, args.filetype, args.dateFilter);
+            saveAndTruncate('bing-search', JSON.stringify(result, null, 2), Number.POSITIVE_INFINITY, { name: 'BingSearch', args });
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: result
