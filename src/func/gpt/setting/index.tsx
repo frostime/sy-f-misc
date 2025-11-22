@@ -22,6 +22,9 @@ import Heading from "./Heading";
 import { LoadModuleFileButtonGroup } from "@/libs/components/user-custom-module";
 import { ToolsManagerSetting } from "./ToolsManagerSetting";
 import { CustomScriptToolSetting } from "./CustomScriptToolSetting";
+import { Rows } from "@/libs/components/Elements/Flex";
+import { ButtonInput } from "@/libs/components/Elements";
+import { pruneOldTempToollogFiles, tempRoot } from "../tools/utils";
 
 type TabType = 'chat' | 'prompt' | 'provider' | 'tools' | 'custom-scripts';
 
@@ -336,6 +339,33 @@ const GlobalSetting = () => {
                                 }}
                             />
                         </Form.Wrap>
+                        <Show when={window?.require?.('fs') !== undefined}>
+                            <Form.Wrap
+                                title="工具结果缓存"
+                                description="工具结果将缓存在本地目录中, 点击清理会只保留最新的50条记录"
+                                direction="column"
+                            >
+                                <Rows>
+                                    <ButtonInput
+                                        label="打开目录"
+                                        onClick={() => {
+                                            const electron = window?.require?.('electron');
+                                            if (electron?.shell) {
+                                                const tempDir = tempRoot();
+                                                electron.shell.openPath(tempDir);
+                                                // electron.shell.openPath(CUSTOM_SCRIPTS_DIR);
+                                            }
+                                        }}
+                                    />
+                                    <ButtonInput
+                                        label="清理日志"
+                                        onClick={async () => {
+                                            pruneOldTempToollogFiles();
+                                        }}
+                                    />
+                                </Rows>
+                            </Form.Wrap>
+                        </Show>
 
                         <Heading>
                             工具管理

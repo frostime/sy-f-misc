@@ -2,6 +2,8 @@ const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 const os = window?.require?.('os');
 
+const MAX_LOG_NUMBER = 50;
+
 /**
  * 获取临时目录根路径
  */
@@ -89,6 +91,33 @@ export const createTempdir = (name: string, subfiles?: Record<string, string>): 
 
     return tempDir;
 };
+
+
+/**
+ * 防止临时目录下文件过多，删除较旧的文件
+ * @returns 
+ */
+export const pruneOldTempToollogFiles = (): void => {
+    if (!fs || !path || !os) {
+        return;
+    }
+    const tempDir = tempRoot();
+    if (!fs.existsSync(tempDir)) {
+        return;
+    }
+    const files = fs.readdirSync(tempDir)
+        .map(file => ({
+            name: file,
+            time: fs.statSync(path.join(tempDir, file)).mtime.getTime()
+        }))
+        .sort((a, b) => b.time - a.time);
+    if (files.length > MAX_LOG_NUMBER) {
+        const filesToDelete = files.slice(MAX_LOG_NUMBER);
+        for (const file of filesToDelete) {
+            fs.unlinkSync(path.join(tempDir, file.name));
+        }
+    }
+}
 
 export const DEFAULT_LIMIT_CHAR = 7000;
 

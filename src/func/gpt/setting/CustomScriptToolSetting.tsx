@@ -301,17 +301,9 @@ export const CustomScriptToolSetting: Component = () => {
                     onClick={configureCustomScriptEnvVars}
                     disabled={loading() || !pythonInfo().available}
                 >
-                    <svg class="b3-button__icon"><use href="#iconSetting"></use></svg>
+                    <svg class="b3-button__icon"><use href="#iconSettings"></use></svg>
                     脚本环境变量
                 </button>
-                {/* <button
-                    class="b3-button b3-button--outline"
-                    onClick={loadScriptsFromCache}
-                    disabled={loading()}
-                >
-                    <svg class="b3-button__icon"><use href="#iconList"></use></svg>
-                    刷新列表界面
-                </button> */}
             </div>
 
             {/* 加载状态 */}
