@@ -127,6 +127,7 @@ export interface ToolGroup {
     name: string;
     tools: Tool[];
     rulePrompt?: string;
+    dynamicPromptFunction?: () => string;  //为后面做 Memory 机制做准备
 }
 
 export interface IExternalToolUnit {

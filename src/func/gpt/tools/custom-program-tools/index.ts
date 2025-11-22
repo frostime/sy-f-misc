@@ -155,17 +155,14 @@ except Exception as e:
                         }
 
                         // 处理结果
-                        let resultData = result.result;
+                        let resultData = JSON.stringify(result.result);
 
-                        // 如果结果是字符串，应用输出限制并保存
-                        if (typeof resultData === 'string') {
-                            const saveResult = saveAndTruncate(`custom_${functionName}`, resultData, limit, {
-                                name: functionName,
-                                args: args
-                            });
-                            const formattedOutput = formatToolResult(saveResult, `Custom Tool: ${functionName}`);
-                            resultData = formattedOutput;
-                        }
+                        const saveResult = saveAndTruncate(`custom_${functionName}`, resultData, limit, {
+                            name: functionName,
+                            args: args
+                        });
+                        const formattedOutput = formatToolResult(saveResult, `Custom Tool: ${functionName}`);
+                        resultData = formattedOutput;
 
                         resolve({
                             status: ToolExecuteStatus.SUCCESS,

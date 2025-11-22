@@ -21,12 +21,20 @@ import Markdown from '@/libs/components/Elements/Markdown';
 import styles from './CustomScriptToolSetting.module.scss';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { globalMiscConfigs } from './store';
+import { ButtonInput } from '@/libs/components/Elements';
+import { Cols } from '@/libs/components/Elements/Flex';
 
 
-const exampleScript = `Python 脚本需要遵循一定的规范，并做好类型标注，才能被正确解析为工具。例如：
+const exampleScript = `允许编写 Python 脚本来扩展 LLM 能力。.py 脚本将被自动解析为 LLM Tools。
+
+Python 脚本需要遵循一定的规范，并做好类型标注。例如：
 
 \`\`\`python
+import os
+
 __doc__ = """doc 属性会被当作模块的规则 prompt 使用"""
+
+API_KEY = os.getenv('你自己定义的变量')
 
 def _utils():
     # 工具类函数请加上 _ 前缀，避免被解析为工具
@@ -47,10 +55,12 @@ def add(a: int, b: int) -> int:
     return a + b
 
 
-# add.permissionLevel = "moderate"  # 可选，定义工具的权限级别，可选值：public, moderate, sensitive
+# add.permissionLevel = "moderate"  # 可选，定义工具的权限级别，可选值：public(不需要用户许可即可调用), moderate(需要用户首次审核，之后可以记住选择), sensitive(每次执行都需要用户审核)
 # add.requireExecutionApproval = True  # 可选，定义是否每次执行都需要用户审批
-# add.requireResultApproval = False  # 可选，定义是否需要用户审批结果
+# add.requireResultApproval = True  # 可选，定义是否需要用户审批结果
 \`\`\`
+
+依赖的外部变量（如 APIKEY 等），请通过环境变量传入，点击 "脚本环境变量" 按钮即可设置。
 `;
 
 /**
@@ -260,6 +270,15 @@ export const CustomScriptToolSetting: Component = () => {
                                         <div style={{
                                             padding: '1em'
                                         }}>
+                                            <Cols>
+                                                <div style={{ flex: 1 }}>编写符合要求的脚本并放入脚本目录, 点击"解析所有脚本"</div>
+                                                <ButtonInput onClick={() => {
+                                                    navigator.clipboard.writeText(exampleScript);
+                                                    showMessage('已复制到剪贴板', 2000, 'info');
+                                                }}>
+                                                    拷贝这段要求
+                                                </ButtonInput>
+                                            </Cols>
                                             <Markdown markdown={exampleScript} />
                                         </div>
                                     )
