@@ -382,7 +382,10 @@ export const treeListTool: Tool = {
 
         const result = listDirRecursive(resolvedPath, 0, '', '', skipHiddenDir);
         const fullOutput = [resolvedPath, ...result].join('\n');
-        const saveResult = saveAndTruncate('TreeList', fullOutput, outputLimit);
+        const saveResult = saveAndTruncate('TreeList', fullOutput, outputLimit, {
+            name: 'TreeList',
+            args
+        });
         const formattedOutput = formatToolResult(saveResult); return {
             status: ToolExecuteStatus.SUCCESS,
             data: formattedOutput
@@ -535,7 +538,10 @@ export const searchInFileTool: Tool = {
             });
 
             const fullOutput = resultMsg.trim();
-            const saveResult = saveAndTruncate('SearchInFile', fullOutput, outputLimit);
+            const saveResult = saveAndTruncate('SearchInFile', fullOutput, outputLimit, {
+                name: 'SearchInFile',
+                args
+            });
             const formattedOutput = formatToolResult(saveResult);
 
             return {
@@ -815,7 +821,10 @@ export const searchInDirectoryTool: Tool = {
             }
 
             const fullOutput = resultMsg;
-            const saveResult = saveAndTruncate('SearchInDirectory', fullOutput, outputLimit);
+            const saveResult = saveAndTruncate('SearchInDirectory', fullOutput, outputLimit, {
+                name: 'SearchInDirectory',
+                args
+            });
             const formattedOutput = formatToolResult(saveResult);
 
             return {
@@ -1009,7 +1018,10 @@ export const searchFilesTool: Tool = {
         });
 
         const fullOutput = resultMsg.trim();
-        const saveResult = saveAndTruncate('SearchFiles', fullOutput, outputLimit);
+        const saveResult = saveAndTruncate('SearchFiles', fullOutput, outputLimit, {
+            name: 'SearchFiles',
+            args
+        });
         const formattedOutput = formatToolResult(saveResult);
 
         return {

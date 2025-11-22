@@ -128,7 +128,10 @@ ${args.command}
                     fullOutput
                 ].join('\n');
 
-                const result = saveAndTruncate('shell', recordLines, outputLimit);
+                const result = saveAndTruncate('shell', recordLines, outputLimit, {
+                    name: 'Shell',
+                    args
+                });
                 const summary = formatToolResult(result);
 
                 if (error) {
@@ -234,7 +237,10 @@ ${args.code}
                     fullOutput
                 ].join('\n');
 
-                const result = saveAndTruncate('python', recordLines, outputLimit);
+                const result = saveAndTruncate('python', recordLines, outputLimit, {
+                    name: 'Python',
+                    args
+                });
                 const summary = formatToolResult(result);
 
                 if (error) {

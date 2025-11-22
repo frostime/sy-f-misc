@@ -19,19 +19,53 @@ export const safeCreateDir = (dir: string): void => {
 };
 
 /**
+ * 工具调用信息
+ */
+export interface ToolCallInfo {
+    /** 工具名称 */
+    name: string;
+    /** 工具参数 */
+    args: Record<string, any>;
+}
+
+/**
  * 在临时目录下创建文本文件用来缓存工具调用结果
  * @param toolKey 工具名称/标识符
  * @param ext 文件扩展名，默认 'log'
  * @param content 文本内容
+ * @param toolCallInfo 可选的工具调用信息，会被记录在文件开头
  * @returns 文件完整路径
  */
-export const createTempfile = (toolKey: string, ext: string = 'log', content?: string): string => {
+export const createTempfile = (
+    toolKey: string,
+    ext: string = 'log',
+    content?: string,
+    toolCallInfo?: ToolCallInfo
+): string => {
     const tempDir = tempRoot();
     safeCreateDir(tempDir);
     const suffix = Math.random().toString(16).slice(2, 10);
     const filePath = path.join(tempDir, `${toolKey}_${Date.now()}_${suffix}.${ext}`);
+
     if (content !== undefined) {
-        fs.writeFileSync(filePath, content, 'utf-8');
+        let finalContent = content;
+
+        const args = toolCallInfo?.args || {};
+        const argsString = Object.entries(args)
+            .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+            .join('\n');
+        // 如果提供了工具调用信息，添加到文件开头
+        if (toolCallInfo) {
+            const header = [
+                `------ Tool Call: ${toolCallInfo.name} ------`,
+                argsString,
+                `------ Tool Call Result ------`,
+                ''
+            ].join('\n');
+            finalContent = header + content;
+        }
+
+        fs.writeFileSync(filePath, finalContent, 'utf-8');
     }
     return filePath;
 };
@@ -125,6 +159,8 @@ export const truncateContent = (content: string, maxLength: number): TruncateRes
 export interface SaveAndTruncateResult extends TruncateResult {
     /** 临时文件路径 */
     tempFilePath: string;
+    /** 工具名称（用于显示） */
+    toolName?: string;
 }
 
 /**
@@ -132,26 +168,29 @@ export interface SaveAndTruncateResult extends TruncateResult {
  * @param toolKey 工具名称/标识符
  * @param content 原始内容
  * @param maxLength 最大长度限制
+ * @param toolCallInfo 可选的工具调用信息，会被记录在文件开头
  * @returns 保存和截断结果
  */
 export const saveAndTruncate = (
     toolKey: string,
     content: string,
-    maxLength: number
+    maxLength: number,
+    toolCallInfo?: ToolCallInfo
 ): SaveAndTruncateResult => {
-    const tempFilePath = createTempfile(toolKey, 'log', content);
+    const tempFilePath = createTempfile(toolKey, 'log', content, toolCallInfo);
     const truncResult = truncateContent(content, maxLength);
 
     return {
         ...truncResult,
-        tempFilePath
+        tempFilePath,
+        toolName: toolCallInfo?.name
     };
 };
 
 /**
  * 格式化工具执行结果消息（统一的展示格式）
  * @param result 保存和截断结果
- * @param toolName 工具名称（用于显示）
+ * @param toolName 工具名称（用于显示），如果不提供则使用 result.toolName
  * @returns 格式化后的消息字符串
  */
 export const formatToolResult = (
@@ -160,8 +199,10 @@ export const formatToolResult = (
 ): string => {
     const lines: string[] = [];
 
-    if (toolName) {
-        lines.push(`工具: ${toolName}`);
+    // 优先使用传入的 toolName，否则使用 result.toolName
+    const effectiveToolName = toolName || result.toolName;
+    if (effectiveToolName) {
+        lines.push(`工具: ${effectiveToolName}`);
     }
 
     lines.push(`完整输出已保存至: ${result.tempFilePath}`);

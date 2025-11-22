@@ -159,7 +159,10 @@ except Exception as e:
 
                         // 如果结果是字符串，应用输出限制并保存
                         if (typeof resultData === 'string') {
-                            const saveResult = saveAndTruncate(`custom_${functionName}`, resultData, limit);
+                            const saveResult = saveAndTruncate(`custom_${functionName}`, resultData, limit, {
+                                name: functionName,
+                                args: args
+                            });
                             const formattedOutput = formatToolResult(saveResult, `Custom Tool: ${functionName}`);
                             resultData = formattedOutput;
                         }
@@ -172,7 +175,10 @@ except Exception as e:
                     } catch (parseError) {
                         // JSON 解析失败，返回原始输出
                         const rawOutput = stdout.trim();
-                        const saveResult = saveAndTruncate(`custom_${functionName}`, rawOutput, limit);
+                        const saveResult = saveAndTruncate(`custom_${functionName}`, rawOutput, limit, {
+                            name: functionName,
+                            args: args
+                        });
                         const formattedOutput = formatToolResult(saveResult, `Custom Tool: ${functionName}`);
                         resolve({
                             status: ToolExecuteStatus.SUCCESS,
