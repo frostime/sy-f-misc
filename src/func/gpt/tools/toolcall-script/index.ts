@@ -7,6 +7,7 @@
  */
 import { ToolExecutor } from "../executor";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { complete } from "../../openai/complete";
 
 
 /**
@@ -65,6 +66,39 @@ const executeScript = async (
         return await Promise.all(promises);
     };
 
+    // 辅助函数：FORMALIZE - 使用 LLM 将非结构化文本转换为结构化数据
+    const formalize = async (text: string, typeDescription: string) => {
+        const systemPrompt = "You are a precise data extraction tool. Your task is to convert unstructured text into valid JSON based on a TypeScript type definition. Output ONLY the raw JSON string. Do not include markdown code blocks or explanations. Ensure that the output and be directly parsable by JSON.parse.";
+        const userPrompt = `Target Type:
+${typeDescription}
+
+Input Text:
+${text}
+
+Extract the data and format it as JSON matching the Target Type.`;
+
+        const result = await complete(userPrompt, {
+            systemPrompt: systemPrompt,
+            option: {
+                temperature: 0
+            }
+        });
+
+        if (!result.ok) {
+            throw new Error(`FORMALIZE failed: ${result.content}`);
+        }
+
+        let cleanContent = result.content.trim();
+        // Remove markdown code blocks if present
+        cleanContent = cleanContent.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+        
+        try {
+            return JSON.parse(cleanContent);
+        } catch (e) {
+             throw new Error(`FORMALIZE produced invalid JSON: ${e.message}`);
+        }
+    };
+
     // 创建沙盒环境
     const sandbox = {
         // 劫持 console
@@ -108,6 +142,7 @@ const executeScript = async (
         toolCall: toolCall,
         sleep: sleep,
         parallel: parallel,
+        FORMALIZE: formalize,
 
         // 常用全局对象（受限版本）
         JSON: JSON,
@@ -181,12 +216,14 @@ export const toolCallScriptTool: Tool = {
         type: 'function',
         function: {
             name: 'ToolCallScript',
-            description: `Execute JavaScript code with special TOOL_CALL API to orchestrate complex tool combinations.
+                description: `Execute JavaScript code with special TOOL_CALL API to orchestrate complex tool combinations.
+返回 \`string\`（聚合 console 输出，附 warnings/errors 区块）
 
 Available APIs in script:
 - TOOL_CALL(toolName, args): Call any available tool and get result
-- sleep(ms): Delay execution
-- parallel(...promises): Execute multiple tool calls in parallel
+- FORMALIZE(text, typeDescription): Convert unstructured text to JSON using LLM
+- sleep(ms)
+- parallel(...promises)
 - console.log/warn/error: Output messages (returned as tool result)`,
             parameters: {
                 type: 'object',
@@ -237,11 +274,18 @@ const createToolCallScriptTool = (executor: ToolExecutor): Tool => {
                 };
             }
 
+            let script = args.script;
+            // 处理特殊转义字符，解决 JSON 解析问题
+            script = script.replace(/_esc_dquote_/g, '"')
+                         .replace(/_esc_newline_/g, '\n')
+                         .replace(/_esc_squote_/g, "'")
+                         .replace(/_esc_backslash_/g, '\\\\');
+
             // 限制超时时间（最大 5 分钟）
             const timeoutMs = Math.min(args.timeout || 60000, 300000);
 
             try {
-                const output = await executeScript(args.script, executor, timeoutMs);
+                const output = await executeScript(script, executor, timeoutMs);
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: output
@@ -266,42 +310,35 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 
 当需要执行复杂的工具组合调用时（如批量操作、条件调用、循环处理），使用 ToolCallScript 工具，编写 JS 脚本在沙箱中运行。
 
-**典型场景**：
-- 批量文件操作：先读取目录，然后对多个文件执行相同操作
-- 条件工具调用：根据前一个工具的结果决定后续调用
-- 复杂工作流：需要循环、分支逻辑的场景
-- 并行执行：同时调用多个工具提高效率
-
 **可用 API**：
 - \`await TOOL_CALL(toolName, args)\`: 调用任意可用工具
+- \`await FORMALIZE(text, typeDescription)\`: 使用 LLM 将非结构化文本转换为结构化数据 (JSON); typeDescription一定要设计好!s
 - \`await sleep(ms)\`: 延迟执行
 - \`await parallel(...promises)\`: 并行执行多个工具调用
 - \`console.log/warn/error\`: 输出信息（作为工具返回值）
 
-**TOOL_CALL 返回**: 直接返回工具调用结果，类型视不同工具而定
+**特殊转义字符**：
+为了避免 JSON 解析错误，你可以在 script 中使用以下特殊占位符代替特殊字符：
+- \`_esc_dquote_\` -> \`"\` (双引号)
+- \`_esc_backslash_\` -> \`\\\` (反斜杠)
 
-**示例 批量重命名**：
+**示例 特殊字符转义**：
 \`\`\`javascript
-// 读取目录下所有 .txt 文件并重命名为 .md
-const result = await TOOL_CALL('TreeList', { directory: '/path/to/dir', depth: 1 });
-for (const item of result.children) {
-    if (item.type === 'file' && item.name.endsWith('.txt')) {
-        const newPath = item.path.replace(/\\.txt$/, '.md');
-        await TOOL_CALL('MoveFile', { source: item.path, destination: newPath });
-        console.log(\`Renamed: \${item.name} -> \${item.name.replace('.txt', '.md')}\`);
-    }
-}
+// 如果你想执行: console.log("Hello\\nWorld");
+// 可以编写如下脚本 (不强制，单纯为了降低生成错误字符破坏 tool call json 结构的风险)
+console.log(_esc_dquote_Hello World_esc_dquote_);
 \`\`\`
 
-**示例 并行搜索**：
+**核心 API \`TOOL_CALL\`** : 直接返回工具调用结果，类型视不同工具而定
+
+**示例 FORMALIZE**:
 \`\`\`javascript
-// 在多个目录中并行搜索文件
-const results = await parallel(
-    TOOL_CALL('SearchFiles', { directory: '/path1', pattern: 'config' }),
-    TOOL_CALL('SearchFiles', { directory: '/path2', pattern: 'config' }),
-    TOOL_CALL('SearchFiles', { directory: '/path3', pattern: 'config' })
-);
-console.log(\`Found \${results.flat().length} files\`);
+const searchResult = await TOOL_CALL('BingSearch', { query: 'latest news' });
+// 将搜索结果转换为结构化数组
+const items = await FORMALIZE(searchResult, 'type Result = { title: string; url: string; summary: string }[];');
+for (const item of items) {
+    console.log(item.title);
+}
 \`\`\`
 
 **示例 检索网页**:
@@ -321,10 +358,12 @@ for (const url of urls) {
 
 \`\`\`
 
+
 **注意事项**：
 - 脚本中必须使用 \`await\` 来调用 TOOL_CALL
+- 有些 Tool 有 limit 字符，意味着结果会被截断; 如果需要完整结果，请务必设置 limit 为 -1!
+- 有些 Tool 可能会返回非结构数据，使用 FORMALIZE 可将其转换为结构化数据; 不过请你设计好类型定义
 - 工具调用失败会抛出异常，可使用 try-catch 处理
-- 默认超时 60 秒，最长 5 分钟
 - 所有 console.log 输出会作为工具结果返回
 `.trim()
     });
