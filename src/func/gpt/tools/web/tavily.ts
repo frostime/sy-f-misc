@@ -224,7 +224,7 @@ export const tavilySearchTool: Tool = {
         type: 'function',
         function: {
             name: 'TavilySearch',
-            description: '使用 Tavily API 获取互联网上的高质量搜索结果',
+            description: '使用 Tavily API 获取互联网上的高质量搜索结果\n返回 `TavilySearchResponse`; 核心字段为 `{content: { url: string; content: string; images?: string[]; }[];}`',
             parameters: {
                 type: 'object',
                 properties: {

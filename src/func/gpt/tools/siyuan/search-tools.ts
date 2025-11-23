@@ -2,14 +2,14 @@ import { sql } from "@/api";
 import { request } from "@frostime/siyuan-plugin-kits/api";
 import { getNotebook } from "@frostime/siyuan-plugin-kits";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
-import { blockMapper, documentMapper } from "./utils";
+import { documentMapper } from "./utils";
 
 export const searchDocumentTool: Tool = {
     definition: {
         type: 'function',
         function: {
             name: 'searchDocument',
-            description: '搜索指定的文档, name/hpath 两个参数至少提供一个, notebook 为可选的过滤条件',
+            description: '搜索指定的文档, name/hpath 两个参数至少提供一个, notebook 为可选的过滤条件\n返回 `DocumentSummary[]`',
             parameters: {
                 type: 'object',
                 properties: {
@@ -84,7 +84,7 @@ export const sqlUsageHelperTool: Tool = {
         type: 'function',
         function: {
             name: 'sqlUsageHelper',
-            description: 'SQL 使用帮助',
+            description: 'SQL 使用帮助\n返回 `string`（内置 sql-helper.md 的完整内容）',
             parameters: {
                 type: 'object',
                 properties: {},
@@ -109,7 +109,7 @@ export const querySQLTool: Tool = {
         type: 'function',
         function: {
             name: 'querySQL',
-            description: '执行 SQL 查询, 只支持 SELECT 语句; 注意不需要_esc_newline_转义',
+            description: '执行 SQL 查询, 只支持 SELECT 语句; 注意不需要_esc_newline_转义\n返回 `Array<Record<string, any>>`（SQL 查询结果）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -151,7 +151,7 @@ export const searchKeywordTool: Tool = {
         type: 'function',
         function: {
             name: 'searchKeyword',
-            description: '在笔记库中搜索关键词',
+            description: '在笔记库中搜索关键词\n返回 `KeywordSearchResult[]`（包含块/笔记本信息，已去除 <mark> 标签）',
             parameters: {
                 type: 'object',
                 properties: {

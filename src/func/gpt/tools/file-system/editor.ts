@@ -193,7 +193,7 @@ export const batchEditTool: Tool = {
         type: 'function',
         function: {
             name: 'BatchEdit',
-            description: '批量执行多个文件编辑操作。所有操作基于原始文件的行号，自动处理行号偏移问题。这是执行多个编辑的推荐方式。',
+            description: '批量执行多个文件编辑操作。所有操作基于原始文件的行号，自动处理行号偏移问题。这是执行多个编辑的推荐方式。\n返回 `string`（包含操作列表与行数变化摘要）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -311,7 +311,7 @@ export const replaceLinesTool: Tool = {
         type: 'function',
         function: {
             name: 'ReplaceLines',
-            description: '替换文件中指定行范围的内容（闭区间），这是最核心的编辑操作',
+            description: '替换文件中指定行范围的内容（闭区间），这是最核心的编辑操作\n返回 `string`（包含原始内容与新内容对比）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -423,7 +423,7 @@ export const insertLinesTool: Tool = {
         type: 'function',
         function: {
             name: 'InsertLines',
-            description: '在文件的指定行之前或之后插入新内容',
+            description: '在文件的指定行之前或之后插入新内容\n返回 `string`（插入的上下文和新文本）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -527,7 +527,7 @@ export const deleteLinesTool: Tool = {
         type: 'function',
         function: {
             name: 'DeleteLines',
-            description: '删除文件中指定行范围的内容（闭区间）',
+            description: '删除文件中指定行范围的内容（闭区间）\n返回 `string`（被删除的文本内容）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -629,7 +629,7 @@ export const replaceStringTool: Tool = {
         type: 'function',
         function: {
             name: 'ReplaceString',
-            description: '在文件中查找并替换字符串（支持正则表达式）',
+            description: '在文件中查找并替换字符串（支持正则表达式）\n返回 `string`（匹配/替换次数及示例）',
             parameters: {
                 type: 'object',
                 properties: {

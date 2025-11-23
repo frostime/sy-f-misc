@@ -196,7 +196,7 @@ export const bingSearchTool: Tool = {
         type: 'function',
         function: {
             name: 'BingSearch',
-            description: '使用 Bing 获取互联网上的搜索结果',
+            description: '使用 Bing 获取互联网上的搜索结果\n返回 `{title, link, description}[]`',
             parameters: {
                 type: 'object',
                 properties: {

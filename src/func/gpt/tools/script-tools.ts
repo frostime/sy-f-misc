@@ -34,7 +34,7 @@ const shellTool: Tool = {
         type: 'function',
         function: {
             name: 'Shell',
-            description: `在${platform} 运行 ${platform === 'win32' ? 'PowerShell' : 'Bash'} 指令/脚本`,
+            description: `在${platform} 运行 ${platform === 'win32' ? 'PowerShell' : 'Bash'} 指令/脚本\n返回 \`string\`（stdout/stderr 摘要，完整输出保存于历史记录）`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -159,7 +159,7 @@ const pythonTool: Tool = {
         type: 'function',
         function: {
             name: 'Python',
-            description: '在本地运行 Python 代码 (默认假设本地安装已经安装了 Python)',
+            description: '在本地运行 Python 代码 (默认假设本地安装已经安装了 Python)\n返回 `string`（stdout/stderr 摘要，含脚本路径）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -268,7 +268,7 @@ const javascriptTool: Tool = {
         type: 'function',
         function: {
             name: 'JavaScript',
-            description: '在当前环境中运行 JavaScript 代码（出于安全考虑，禁止访问 document 对象）',
+            description: '在当前环境中运行 JavaScript 代码（出于安全考虑，禁止访问 document 对象）\n返回 `string`（console.log 输出及可选警告/错误）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -335,7 +335,7 @@ const pandocTool: Tool = {
         type: 'function',
         function: {
             name: 'Pandoc',
-            description: '使用思源自带的 Pandoc 命令，默认会执行 `pandoc -s <file> --to markdown`; 也可以自行指定完整的 pandoc 命令',
+            description: '使用思源自带的 Pandoc 命令，默认会执行 `pandoc -s <file> --to markdown`; 也可以自行指定完整的 pandoc 命令\n返回 `string`（Pandoc stdout 或错误信息）',
             parameters: {
                 type: 'object',
                 properties: {

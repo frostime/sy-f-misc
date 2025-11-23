@@ -29,7 +29,7 @@ export const readFileTool: Tool = {
         type: 'function',
         function: {
             name: 'ReadFile',
-            description: '读取文件内容，可指定起始行 [beginLine, endLine] 闭区间',
+            description: '读取文件内容，可指定起始行 [beginLine, endLine] 闭区间\n返回 `string`（包含行范围、可选行号及截断提示）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -156,7 +156,7 @@ export const createFileTool: Tool = {
         type: 'function',
         function: {
             name: 'CreateFile',
-            description: '指定路径和内容创建文本文件，如果文件已存在则报错。如果不指定完整路径（相对路径），文件将会被创建到系统临时目录的 siyuan_temp 子目录下',
+            description: '指定路径和内容创建文本文件，如果文件已存在则报错。如果不指定完整路径（相对路径），文件将会被创建到系统临时目录的 siyuan_temp 子目录下\n返回 `string`（创建结果或错误信息）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -230,7 +230,7 @@ export const fileStateTool: Tool = {
         type: 'function',
         function: {
             name: 'FileState',
-            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）',
+            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）\n返回 `Record<string, any>`（包含 path/size/时间等字段）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -290,7 +290,7 @@ export const treeListTool: Tool = {
         type: 'function',
         function: {
             name: 'TreeList',
-            description: '树状列出目录内容，支持深度和正则表达式匹配',
+            description: '树状列出目录内容，支持深度和正则表达式匹配\n返回 `string`（树形目录文本，超长时附截断信息）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -421,7 +421,7 @@ export const searchInFileTool: Tool = {
         type: 'function',
         function: {
             name: 'SearchInFile',
-            description: '在指定文本文件中搜索匹配的内容，返回行号和上下文; 注意：该工具适用于文本文件，不建议用于二进制文件',
+            description: '在指定文本文件中搜索匹配的内容，返回行号和上下文; 注意：该工具适用于文本文件，不建议用于二进制文件\n返回 `string`（每个命中的行号与上下文摘要）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -566,7 +566,7 @@ export const searchInDirectoryTool: Tool = {
         type: 'function',
         function: {
             name: 'SearchInDirectory',
-            description: '在指定目录下搜索包含特定内容的文本文件',
+            description: '在指定目录下搜索包含特定内容的文本文件\n返回 `string`（命中文件列表及每个文件的内容摘要）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -849,7 +849,7 @@ export const searchFilesTool: Tool = {
         type: 'function',
         function: {
             name: 'SearchFiles',
-            description: '在指定目录下搜索匹配文件名的文件，返回扁平的文件路径列表',
+            description: '在指定目录下搜索匹配文件名的文件，返回扁平的文件路径列表\n返回 `string`（相对路径列表，可能附大小/截断说明）',
             parameters: {
                 type: 'object',
                 properties: {

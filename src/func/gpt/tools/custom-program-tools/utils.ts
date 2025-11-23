@@ -37,7 +37,7 @@ export const ensureCustomScriptsDir = async (): Promise<void> => {
 export const listPythonScripts = async (): Promise<string[]> => {
     await ensureCustomScriptsDir();
     const files = await fs.promises.readdir(CUSTOM_SCRIPTS_DIR);
-    return files.filter((f: string) => f.endsWith('.py'));
+    return files.filter((f: string) => f.endsWith('.py') && !f.startsWith('_') );
 };
 
 /**
