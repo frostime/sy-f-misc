@@ -155,7 +155,7 @@ export const createFileTool: Tool = {
         type: 'function',
         function: {
             name: 'CreateFile',
-            description: '指定路径和内容创建文本文件，如果文件已存在则报错。如果不指定完整路径（相对路径），文件将会被创建到系统临时目录的 siyuan_temp 子目录下\n返回 `string`（创建结果或错误信息）',
+            description: '指定路径和内容创建文本文件，如果文件已存在则报错。如果不指定完整路径（相对路径），文件将会被创建到系统临时目录的 siyuan_temp 子目录下\n返回 `{ error: string; path: string }`（error 为空表示成功，path 为实际创建的文件路径）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -191,7 +191,11 @@ export const createFileTool: Tool = {
         if (fs.existsSync(filePath)) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `文件已存在: ${filePath}`
+                error: `文件已存在: ${filePath}`,
+                data: {
+                    error: 'FILE_ALREADY_EXISTS',
+                    path: filePath
+                }
             };
         }
 
@@ -206,7 +210,10 @@ export const createFileTool: Tool = {
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: `文件创建成功: ${filePath}`
+            data: {
+                error: '',
+                path: filePath
+            }
         };
     }
 };

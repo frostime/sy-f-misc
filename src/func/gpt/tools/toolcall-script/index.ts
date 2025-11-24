@@ -4,6 +4,10 @@
  * @Date         : 2025-11-22 16:00:00
  * @FilePath     : /src/func/gpt/tools/toolcall-script/index.ts
  * @Description  : 工具调用脚本执行器 - 允许 LLM 通过 JS 脚本编排复杂的工具调用
+ * 
+ * 为了节省 token，弥补 LLM 在复杂逻辑处理上的不足，我们允许 LLM 编写 JavaScript 代码来调用工具。
+ * 允许通过 TOOL_CALL 等特殊 API 调用其他工具，并通过 FORMALIZE 将非结构化文本转换为结构化数据。
+ * 最终返回脚本中的 console 输出，方便 LLM 查看执行结果。
  */
 import { ToolExecutor } from "../executor";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
@@ -116,7 +120,7 @@ Extract the data and format it as JSON matching the Target Type.`;
             }
         });
 
-        if (!result.ok) {
+        if (result.ok === false) {
             throw new Error(`FORMALIZE failed: ${result.content}`);
         }
 
@@ -131,8 +135,21 @@ Extract the data and format it as JSON matching the Target Type.`;
         }
     };
 
+    // 辅助函数：创建访问拦截器
+    const createBlockedAccessProxy = (name: string) => {
+        return new Proxy({}, {
+            get: () => {
+                throw new Error(`Access to '${name}' is blocked in sandbox for security reasons`);
+            },
+            set: () => {
+                throw new Error(`Access to '${name}' is blocked in sandbox for security reasons`);
+            }
+        });
+    };
+
     // 创建沙盒环境
     const sandbox = {
+        _logging: [] as { type: 'log' | 'error' | 'warn', message: string }[],
         // 劫持 console
         console: {
             log: (...args: any[]) => {
@@ -146,46 +163,34 @@ Extract the data and format it as JSON matching the Target Type.`;
                     }
                     return String(arg);
                 }).join(' ');
-                sandbox._output.push(message);
+                sandbox._logging.push({ type: 'log', message });
             },
             error: (...args: any[]) => {
                 const message = args.map(arg => String(arg)).join(' ');
-                sandbox._errors.push(message);
+                sandbox._logging.push({ type: 'error', message });
             },
             warn: (...args: any[]) => {
                 const message = args.map(arg => String(arg)).join(' ');
-                sandbox._warnings.push(message);
+                sandbox._logging.push({ type: 'warn', message });
             }
         },
 
-        // 内部状态（不暴露给用户脚本）
-        _output: [] as string[],
-        _errors: [] as string[],
-        _warnings: [] as string[],
-
-        // 禁用危险对象
-        document: undefined,
-        window: undefined,
-        eval: undefined,
-        Function: undefined,
+        // 禁用危险对象 - 使用 Proxy 提供友好的错误提示
+        document: createBlockedAccessProxy('document'),
+        window: createBlockedAccessProxy('window'),
+        eval: createBlockedAccessProxy('eval'),
+        Function: createBlockedAccessProxy('Function'),
+        importScripts: createBlockedAccessProxy('importScripts'),
+        process: createBlockedAccessProxy('process'),
+        require: createBlockedAccessProxy('require'),
 
         // 提供的 API
         TOOL_CALL: toolCall,
-        toolCall: toolCall,
+        // toolCall: toolCall,
         SLEEP: sleep,
         PARALLEL: parallel,
-        FORMALIZE: formalize,
+        FORMALIZE: formalize
 
-        // 常用全局对象（受限版本）
-        JSON: JSON,
-        Math: Math,
-        Date: Date,
-        Array: Array,
-        Object: Object,
-        String: String,
-        Number: Number,
-        Boolean: Boolean,
-        Promise: Promise
     };
 
     // 使用 AsyncFunction 支持异步操作
@@ -217,28 +222,24 @@ Extract the data and format it as JSON matching the Target Type.`;
         });
     };
 
-    let output: string = '';
+    function formatLogging(logging: { type: 'log' | 'error' | 'warn', message: string }[]): string {
+        return logging.map(entry => `[${entry.type}] ${entry.message}`).join('\n');
+    }
 
     try {
         const result = await executeWithTimeout();
 
         // 构建输出
         let output = '';
-        if (result._output.length > 0) {
-            output += result._output.join('\n');
-        }
-        if (result._warnings.length > 0) {
-            output += (output ? '\n\n' : '') + '[Warnings]\n' + result._warnings.join('\n');
-        }
-        if (result._errors.length > 0) {
-            output += (output ? '\n\n' : '') + '[Errors]\n' + result._errors.join('\n');
+        if (result._logging.length > 0) {
+            output += formatLogging(result._logging);
         }
 
         output = output || 'Script executed successfully (no output)';
+        return output;
     } catch (error) {
         throw new Error(`Script execution failed: ${error.message}`);
     }
-    return output;
 };
 
 
@@ -349,6 +350,7 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 ### ToolCallScript - 工具编排脚本
 
 当需要执行复杂的工具组合调用时，使用 ToolCallScript 工具，编写 JS 脚本在沙箱中运行。
+沙箱中不可访问 document, window, eval, Function 等危险对象。
 
 **可用 API**：
 - \`await TOOL_CALL(toolName: string, args: object)\`: 调用任意可用工具
@@ -361,6 +363,7 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 为了避免 JSON 解析错误，你可以在 script 中使用以下特殊占位符代替特殊字符：
 - \`_esc_dquote_\` -> \`"\` (双引号)
 - \`_esc_backslash_\` -> \`\\\` (反斜杠)
+- 如无必要，尽量使用单引号 ' 替换 双引号 "，以减少转义需求
 
 **示例 特殊字符转义**：
 \`\`\`javascript
