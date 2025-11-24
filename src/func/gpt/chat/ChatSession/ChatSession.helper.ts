@@ -463,7 +463,7 @@ const useGptCommunication = (params: {
 ---
 ${inputContent}
 `.trim();
-        let autoTitleModel = config().autoTitleModelId;
+        let autoTitleModel = config().utilityModelId;
         let modelToUse = null;
         if (autoTitleModel) {
             modelToUse = useModel(autoTitleModel);

@@ -14,6 +14,30 @@ import { createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPl
 import { userCustomizedPreprocessor } from "../openai/adpater";
 import { loadAndCacheCustomScriptTools } from "../tools/custom-program-tools";
 
+const CURRENT_SCHEMA = '1.6';
+
+const compareSchemaVersion = (a?: string, b?: string) => {
+    const normalize = (version?: string) => {
+        return (version ?? '0').split('.')
+            .map((part) => {
+                const parsed = Number.parseInt(part, 10);
+                return Number.isNaN(parsed) ? 0 : parsed;
+            });
+    };
+
+    const versionA = normalize(a);
+    const versionB = normalize(b);
+    const maxLen = Math.max(versionA.length, versionB.length);
+
+    for (let i = 0; i < maxLen; i++) {
+        const diff = (versionA[i] ?? 0) - (versionB[i] ?? 0);
+        if (diff !== 0) {
+            return diff > 0 ? 1 : -1;
+        }
+    }
+    return 0;
+};
+
 /**
  * `siyuan` or `modelName@providerName`
  */
@@ -28,8 +52,9 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     attachedHistory: 3,
     convertMathSyntax: true,
     maxInputLenForAutoTitle: 500,
-    autoTitleModelId: '',
-    renderInStreamMode: true, // 默认在 stream 模式下渲染 markdown
+    // autoTitleModelId: '', // 1.6 版本废除改为 utilityModelId, 承担各种繁琐的小任务
+    utilityModelId: '',
+    renderInStreamMode: true,
     toolCallMaxRounds: 7,
     chatOption: {
         temperature: 0.7,
@@ -78,8 +103,6 @@ export const toolsManager = useStoreRef<{
     toolDefaults: {},
     toolPermissionOverrides: {}
 });
-
-const CURRENT_SCHEMA = '1.5';
 
 /**
  * 返回可以用于保存为 json 的配置信息
@@ -221,7 +244,7 @@ export default preprocessor;
 }
 
 export const customContextProviders = {
-    preprocessProviders: (providers: CustomContextProvider[]): CustomContextProvider[] | void => { }
+    preprocessProviders: (_providers: CustomContextProvider[]): CustomContextProvider[] | void => { }
 }
 
 export const loadCustomContextProviderModule = async () => {
@@ -288,6 +311,29 @@ export default loadProviders;
     }
 }
 
+const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>) => {
+    const dataSchema = (data as any).schema as string | undefined;
+    let migrated = false;
+
+    // 1.6 版本: 向后兼容 schema <= 1.5
+    if (compareSchemaVersion(dataSchema, '1.6') < 0) {
+        const hasAutoTitleModelId = (data as any).config && (data as any).config.autoTitleModelId !== undefined;
+        const donotHasUtilityModelId = (data as any).config && (data as any).config.utilityModelId === undefined;
+        if (hasAutoTitleModelId && donotHasUtilityModelId) {
+            (data as any).config.utilityModelId = (data as any).config.autoTitleModelId;
+            console.log('历史版本兼容: 迁移 autoTitleModelId 到 utilityModelId');
+            delete (data as any).config.autoTitleModelId;
+            migrated = true;
+        }
+    }
+
+    if (migrated && (data as any).schema !== CURRENT_SCHEMA) {
+        (data as any).schema = CURRENT_SCHEMA;
+    }
+
+    return { data, migrated };
+}
+
 export const save = debounce(save_, 2000);
 export const load = async (plugin?: Plugin) => {
     let defaultData = asStorage();
@@ -295,7 +341,12 @@ export const load = async (plugin?: Plugin) => {
     plugin = plugin ?? thisPlugin();
     let data = await plugin.loadData(StoreName);
     data = data;
+    let migrated = false;
     if (data) {
+        const compatibilityResult = 历史版本兼容(data);
+        data = compatibilityResult.data;
+        migrated = compatibilityResult.migrated;
+
         let current = deepMerge(defaultData, data);
         current.defaultModel && defaultModelId(current.defaultModel);
         current.visualModel && visualModel(current.visualModel);
@@ -313,6 +364,10 @@ export const load = async (plugin?: Plugin) => {
             toolsManager(current.toolsManager);
         }
         console.debug('Load GPT config:', current);
+    }
+
+    if (migrated) {
+        await save_(plugin);
     }
 
     await Promise.all([

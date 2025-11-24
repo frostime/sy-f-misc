@@ -55,14 +55,14 @@ const ChatSessionSetting = (props: {
                 />
             </Form.Wrap>
             <Form.Wrap
-                title="自动生成标题时使用的模型 ID"
-                description="格式为 <code>Modelname@ProviderName</code>，比如 deepseek-chat@Deepseek<br/>如果不填写，就使用当前对话的模型; 或者填写 siyuan 代表使用思源内置的 AI 配置"
+                title="辅助任务模型"
+                description="承担对话标题命名等杂活的模块；填入格式为 <code>Modelname@ProviderName</code>，比如 deepseek-chat@Deepseek<br/>如果不填写，就使用当前对话的模型; 或者填写 siyuan 代表使用思源内置的 AI 配置"
             >
                 <Form.Input
                     type="textinput"
-                    value={config().autoTitleModelId ?? ''}
+                    value={config().utilityModelId ?? ''}
                     changed={(v) => {
-                        config.update('autoTitleModelId', v);
+                        config.update('utilityModelId', v);
                     }}
                 />
             </Form.Wrap>

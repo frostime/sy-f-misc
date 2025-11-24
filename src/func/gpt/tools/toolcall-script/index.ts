@@ -8,7 +8,9 @@
 import { ToolExecutor } from "../executor";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { complete } from "../../openai/complete";
+import * as store from "@gpt/setting/store";
 
+const FORMALIZE_MAX_INPUT_LENGTH = 32000;
 
 /**
  * 执行脚本的核心函数
@@ -68,7 +70,34 @@ const executeScript = async (
 
     // 辅助函数：FORMALIZE - 使用 LLM 将非结构化文本转换为结构化数据
     const formalize = async (text: string, typeDescription: string) => {
-        const systemPrompt = "You are a precise data extraction tool. Your task is to convert unstructured text into valid JSON based on a TypeScript type definition. Output ONLY the raw JSON string. Do not include markdown code blocks or explanations. Ensure that the output and be directly parsable by JSON.parse.";
+        let len = text.length;
+        if (text.length > FORMALIZE_MAX_INPUT_LENGTH) {
+            text = text.slice(0, FORMALIZE_MAX_INPUT_LENGTH);
+            console.warn(`FORMALIZE: Input text exceeded ${FORMALIZE_MAX_INPUT_LENGTH} characters, truncated from ${len} to ${FORMALIZE_MAX_INPUT_LENGTH}.`);
+            text += `\n...\n(注意: 输入文本过长(${len}字符) 已被截断为 ${FORMALIZE_MAX_INPUT_LENGTH} 字符)`;
+        }
+
+        const systemPrompt = `You are a precise data extraction tool. Your task is to convert unstructured text into valid JSON based on a TypeScript type definition. Output ONLY the raw JSON string. Do not include markdown code blocks or explanations. Ensure that the output and be directly parsable by JSON.parse.
+
+Example:
+
+=== Input ===
+Target Type:
+{
+  filename: string;
+  CreateYear: string; //Should be yyyy format
+  sizeKB: number; // Be a number without 'KB' suffix.
+}[];
+
+
+Input Text:
+- A.txt | Create on 2023-01-01 | Size: 15KB
+- B.docx | Create on 2022-12-15 | Size: 45KB
+
+=== Output ===
+[{ "filename": "A.txt", "CreateYear": "2023", "sizeKB": 15 },{ "filename": "B.docx", "CreateYear": "2022", "sizeKB": 45 }]
+
+`;
         const userPrompt = `Target Type:
 ${typeDescription}
 
@@ -78,9 +107,11 @@ ${text}
 Extract the data and format it as JSON matching the Target Type.`;
 
         const result = await complete(userPrompt, {
+            model: store.useModel(store.defaultConfig().utilityModelId || store.defaultModelId()),
             systemPrompt: systemPrompt,
             option: {
-                temperature: 0
+                temperature: 0,
+                stream: false
             }
         });
 
@@ -91,11 +122,11 @@ Extract the data and format it as JSON matching the Target Type.`;
         let cleanContent = result.content.trim();
         // Remove markdown code blocks if present
         cleanContent = cleanContent.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
-        
+
         try {
             return JSON.parse(cleanContent);
         } catch (e) {
-             throw new Error(`FORMALIZE produced invalid JSON: ${e.message}`);
+            throw new Error(`FORMALIZE produced invalid JSON: ${e.message}`);
         }
     };
 
@@ -140,8 +171,8 @@ Extract the data and format it as JSON matching the Target Type.`;
         // 提供的 API
         TOOL_CALL: toolCall,
         toolCall: toolCall,
-        sleep: sleep,
-        parallel: parallel,
+        SLEEP: sleep,
+        PARALLEL: parallel,
         FORMALIZE: formalize,
 
         // 常用全局对象（受限版本）
@@ -216,14 +247,14 @@ export const toolCallScriptTool: Tool = {
         type: 'function',
         function: {
             name: 'ToolCallScript',
-                description: `Execute JavaScript code with special TOOL_CALL API to orchestrate complex tool combinations.
+            description: `Execute JavaScript code with special TOOL_CALL API to orchestrate complex tool combinations.
 返回 \`string\`（聚合 console 输出，附 warnings/errors 区块）
 
 Available APIs in script:
-- TOOL_CALL(toolName, args): Call any available tool and get result
-- FORMALIZE(text, typeDescription): Convert unstructured text to JSON using LLM
-- sleep(ms)
-- parallel(...promises)
+- TOOL_CALL(toolName: string, args: object): Call any available tool and get result
+- FORMALIZE(text: string, typeDescription: string): Convert unstructured text to JSON using LLM
+- SLEEP(ms)
+- PARALLEL(...promises)
 - console.log/warn/error: Output messages (returned as tool result)`,
             parameters: {
                 type: 'object',
@@ -277,9 +308,9 @@ const createToolCallScriptTool = (executor: ToolExecutor): Tool => {
             let script = args.script;
             // 处理特殊转义字符，解决 JSON 解析问题
             script = script.replace(/_esc_dquote_/g, '"')
-                         .replace(/_esc_newline_/g, '\n')
-                         .replace(/_esc_squote_/g, "'")
-                         .replace(/_esc_backslash_/g, '\\\\');
+                .replace(/_esc_newline_/g, '\n')
+                .replace(/_esc_squote_/g, "'")
+                .replace(/_esc_backslash_/g, '\\\\');
 
             // 限制超时时间（最大 5 分钟）
             const timeoutMs = Math.min(args.timeout || 60000, 300000);
@@ -308,13 +339,13 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
         rulePrompt: `
 ### ToolCallScript - 工具编排脚本
 
-当需要执行复杂的工具组合调用时（如批量操作、条件调用、循环处理），使用 ToolCallScript 工具，编写 JS 脚本在沙箱中运行。
+当需要执行复杂的工具组合调用时，使用 ToolCallScript 工具，编写 JS 脚本在沙箱中运行。
 
 **可用 API**：
-- \`await TOOL_CALL(toolName, args)\`: 调用任意可用工具
-- \`await FORMALIZE(text, typeDescription)\`: 使用 LLM 将非结构化文本转换为结构化数据 (JSON); typeDescription一定要设计好!s
-- \`await sleep(ms)\`: 延迟执行
-- \`await parallel(...promises)\`: 并行执行多个工具调用
+- \`await TOOL_CALL(toolName: string, args: object)\`: 调用任意可用工具
+- \`await FORMALIZE(text: string, typeDescription: string)\`: 使用 LLM 将非结构化文本转换为结构化数据 (JSON); typeDescription一定要设计好!s
+- \`await SLEEP(ms: number)\`: 延迟执行
+- \`await PARALLEL(...promises: Promise[])\`: 并行执行多个工具调用
 - \`console.log/warn/error\`: 输出信息（作为工具返回值）
 
 **特殊转义字符**：
@@ -330,16 +361,6 @@ console.log(_esc_dquote_Hello World_esc_dquote_);
 \`\`\`
 
 **核心 API \`TOOL_CALL\`** : 直接返回工具调用结果，类型视不同工具而定
-
-**示例 FORMALIZE**:
-\`\`\`javascript
-const searchResult = await TOOL_CALL('BingSearch', { query: 'latest news' });
-// 将搜索结果转换为结构化数组
-const items = await FORMALIZE(searchResult, 'type Result = { title: string; url: string; summary: string }[];');
-for (const item of items) {
-    console.log(item.title);
-}
-\`\`\`
 
 **示例 检索网页**:
 \`\`\`javascript
@@ -358,12 +379,34 @@ for (const url of urls) {
 
 \`\`\`
 
+**核心 API \`FORMALIZE\`** : 某些工具返回纯文本而非结构化数据时，可用此 API 转换为结构化数据方便嵌入 JS 使用
+本质也是调用 LLM 完成，所以输入的文本量不宜过大，否则可能导致超时或费用过高
+
+**示例 FORMALIZE**:
+\`\`\`javascript
+const formated = await FORMALIZE(\`
+- A.txt | Create on 2023-01-01 | Size: 15KB
+- B.docx | Create on 2022-12-15 | Size: 45KB
+\`, \`
+{
+  filename: string;
+  CreateYear: string; //Should be yyyy format
+  sizeKB: number; // Be a number without 'KB' suffix.
+}[];
+\`);
+>>> Will be like: [{ "filename": "A.txt", "CreateYear": "2023", "sizeKB": 15 },{ "filename": "B.docx", "CreateYear": "2022", "sizeKB": 45 }]
+\`\`\`
+
 
 **注意事项**：
 - 脚本中必须使用 \`await\` 来调用 TOOL_CALL
-- 有些 Tool 有 limit 字符，意味着结果会被截断; 如果需要完整结果，请务必设置 limit 为 -1!
 - 有些 Tool 可能会返回非结构数据，使用 FORMALIZE 可将其转换为结构化数据; 不过请你设计好类型定义
-- 工具调用失败会抛出异常，可使用 try-catch 处理
+    - FORMALIZE 会强制限制最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，过多会内部强制截断
+    - FORMALIZE 本质也是调用 LLM，不要滥用
+- 有些 Tool 有 limit 字符，意味着结果会被截断; 如果需要完整结果，可设置 limit 为 -1（如果支持）
+    - 如果需要 FORMALIZE，建议在返回类型中设置关于截断 (truncated) 的相关信息，以免误判
+    - 例如: { isTruncated: boolean; cacheLocalFile?: string; }
+- 复杂调用，建议使用内置转义字符，避免 JSON 解析错误
 - 所有 console.log 输出会作为工具结果返回
 `.trim()
     });
