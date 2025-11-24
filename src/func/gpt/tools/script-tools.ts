@@ -1,6 +1,6 @@
 // src/func/gpt/tools/script/index.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
-import { saveAndTruncate, formatToolResult, normalizeLimit, DEFAULT_LIMIT_CHAR } from './utils';
+import { processToolOutput, normalizeLimit, DEFAULT_LIMIT_CHAR } from './utils';
 
 /**
  * 脚本执行工具组
@@ -120,11 +120,13 @@ ${args.command}
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
                 // const exitCode = error && typeof (error as any).code !== 'undefined' ? (error as any).code : 0;
 
-                const result = saveAndTruncate('shell', fullOutput, outputLimit, {
-                    name: 'Shell',
-                    args
+                const result = processToolOutput({
+                    toolKey: 'shell',
+                    content: fullOutput,
+                    toolCallInfo: { name: 'Shell', args },
+                    truncateForLLM: outputLimit
                 });
-                const summary = formatToolResult(result);
+                const summary = result.output;
 
                 if (error) {
                     resolve({
@@ -222,11 +224,13 @@ ${args.code}
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
 
-                const result = saveAndTruncate('python', fullOutput, outputLimit, {
-                    name: 'Python',
-                    args
+                const result = processToolOutput({
+                    toolKey: 'python',
+                    content: fullOutput,
+                    toolCallInfo: { name: 'Python', args },
+                    truncateForLLM: outputLimit
                 });
-                const summary = formatToolResult(result);
+                const summary = result.output;
 
                 if (error) {
                     resolve({

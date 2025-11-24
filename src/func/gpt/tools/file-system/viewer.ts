@@ -1,7 +1,6 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import {
-    saveAndTruncate,
-    formatToolResult,
+    processToolOutput,
     normalizeLimit,
     formatWithLineNumber,
     formatFileSize,
@@ -382,13 +381,15 @@ export const treeListTool: Tool = {
 
         const result = listDirRecursive(resolvedPath, 0, '', '', skipHiddenDir);
         const fullOutput = [resolvedPath, ...result].join('\n');
-        const saveResult = saveAndTruncate('TreeList', fullOutput, outputLimit, {
-            name: 'TreeList',
-            args
+        const processResult = processToolOutput({
+            toolKey: 'TreeList',
+            content: fullOutput,
+            toolCallInfo: { name: 'TreeList', args },
+            truncateForLLM: outputLimit
         });
-        const formattedOutput = formatToolResult(saveResult); return {
+        return {
             status: ToolExecuteStatus.SUCCESS,
-            data: formattedOutput
+            data: processResult.output
         };
     }
 };
@@ -538,15 +539,16 @@ export const searchInFileTool: Tool = {
             });
 
             const fullOutput = resultMsg.trim();
-            const saveResult = saveAndTruncate('SearchInFile', fullOutput, outputLimit, {
-                name: 'SearchInFile',
-                args
+            const processResult = processToolOutput({
+                toolKey: 'SearchInFile',
+                content: fullOutput,
+                toolCallInfo: { name: 'SearchInFile', args },
+                truncateForLLM: outputLimit
             });
-            const formattedOutput = formatToolResult(saveResult);
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: formattedOutput
+                data: processResult.output
             };
 
         } catch (error: any) {
@@ -821,15 +823,16 @@ export const searchInDirectoryTool: Tool = {
             }
 
             const fullOutput = resultMsg;
-            const saveResult = saveAndTruncate('SearchInDirectory', fullOutput, outputLimit, {
-                name: 'SearchInDirectory',
-                args
+            const processResult = processToolOutput({
+                toolKey: 'SearchInDirectory',
+                content: fullOutput,
+                toolCallInfo: { name: 'SearchInDirectory', args },
+                truncateForLLM: outputLimit
             });
-            const formattedOutput = formatToolResult(saveResult);
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: formattedOutput
+                data: processResult.output
             };
 
         } catch (error: any) {
@@ -1018,15 +1021,16 @@ export const searchFilesTool: Tool = {
         });
 
         const fullOutput = resultMsg.trim();
-        const saveResult = saveAndTruncate('SearchFiles', fullOutput, outputLimit, {
-            name: 'SearchFiles',
-            args
+        const processResult = processToolOutput({
+            toolKey: 'SearchFiles',
+            content: fullOutput,
+            toolCallInfo: { name: 'SearchFiles', args },
+            truncateForLLM: outputLimit
         });
-        const formattedOutput = formatToolResult(saveResult);
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: formattedOutput
+            data: processResult.output
         };
     }
 };

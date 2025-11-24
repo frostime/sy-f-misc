@@ -182,69 +182,118 @@ export const truncateContent = (content: string, maxLength: number): TruncateRes
     };
 };
 
+
 /**
- * 保存并截断结果
+ * 工具输出处理选项
  */
-export interface SaveAndTruncateResult extends TruncateResult {
-    /** 临时文件路径 */
-    tempFilePath: string;
-    /** 工具名称（用于显示） */
-    toolName?: string;
+export interface ProcessToolOutputOptions {
+    /** 工具标识符，用于日志文件命名 */
+    toolKey: string;
+    /** 工具输出内容 */
+    content: string;
+    /** 工具调用信息（会被记录在日志文件开头） */
+    toolCallInfo?: ToolCallInfo;
+    /** 
+     * 为 LLM 输出做准备：截断 + 格式化
+     * - false: 仅缓存到本地，不截断不格式化（默认）
+     * - true: 使用默认长度限制截断并格式化
+     * - number: 使用指定长度限制截断并格式化
+     * 
+     * 用于需要将结果返回给 LLM 的场景，会自动添加文件路径、长度等元信息
+     */
+    truncateForLLM?: boolean | number;
 }
 
 /**
- * 保存并截断内容
- * @param toolKey 工具名称/标识符
- * @param content 原始内容
- * @param maxLength 最大长度限制
- * @param toolCallInfo 可选的工具调用信息，会被记录在文件开头
- * @returns 保存和截断结果
+ * 工具输出处理结果
  */
-export const saveAndTruncate = (
-    toolKey: string,
-    content: string,
-    maxLength: number,
-    toolCallInfo?: ToolCallInfo
-): SaveAndTruncateResult => {
-    const tempFilePath = createTempfile(toolKey, 'log', content, toolCallInfo);
-    const truncResult = truncateContent(content, maxLength);
-
-    return {
-        ...truncResult,
-        tempFilePath,
-        toolName: toolCallInfo?.name
-    };
-};
+export interface ProcessToolOutputResult {
+    /** 处理后的输出内容（如果 format=true 则包含格式化信息） */
+    output: string;
+    /** 临时文件路径 */
+    tempFilePath: string;
+    /** 是否被截断 */
+    isTruncated: boolean;
+    /** 原始内容长度 */
+    originalLength: number;
+    /** 显示的内容长度（如果未截断则等于原始长度） */
+    shownLength: number;
+    /** 省略的内容长度 */
+    omittedLength: number;
+}
 
 /**
- * 格式化工具执行结果消息（统一的展示格式）
- * @param result 保存和截断结果
- * @param toolName 工具名称（用于显示），如果不提供则使用 result.toolName
- * @returns 格式化后的消息字符串
+ * 处理工具输出：缓存 + 可选截断 + 可选格式化
+ * 
+ * 使用场景：
+ * 1. 仅缓存（不返回给 LLM）：processToolOutput({ toolKey, content, toolCallInfo })
+ * 2. 缓存 + 截断 + 格式化（返回给 LLM）：processToolOutput({ toolKey, content, toolCallInfo, truncateForLLM: true })
+ * 3. 自定义截断长度：processToolOutput({ toolKey, content, toolCallInfo, truncateForLLM: 5000 })
+ * 
+ * @param options 处理选项
+ * @returns 处理结果
  */
-export const formatToolResult = (
-    result: SaveAndTruncateResult,
-    toolName?: string
-): string => {
-    const lines: string[] = [];
+export const processToolOutput = (options: ProcessToolOutputOptions): ProcessToolOutputResult => {
+    const {
+        toolKey,
+        content,
+        toolCallInfo,
+        truncateForLLM = false
+    } = options;
 
-    // 优先使用传入的 toolName，否则使用 result.toolName
-    const effectiveToolName = toolName || result.toolName;
-    if (effectiveToolName) {
-        lines.push(`工具: ${effectiveToolName}`);
+    // 1. 缓存到本地文件
+    const tempFilePath = createTempfile(toolKey, 'log', content, toolCallInfo);
+
+    // 2. 确定是否需要为 LLM 处理（截断 + 格式化）
+    const shouldProcessForLLM = truncateForLLM !== false;
+
+    // 3. 确定截断长度
+    let maxLength: number;
+    if (!shouldProcessForLLM) {
+        maxLength = Number.POSITIVE_INFINITY; // 不截断
+    } else if (truncateForLLM === true) {
+        maxLength = DEFAULT_LIMIT_CHAR; // 使用默认限制
+    } else {
+        maxLength = truncateForLLM; // 使用指定限制
     }
 
-    lines.push(`完整输出已保存至: ${result.tempFilePath}`);
-    lines.push(`原始长度: ${result.originalLength} 字符`);
+    // 4. 执行截断
+    const truncResult = truncateContent(content, maxLength);
 
-    if (result.isTruncated) {
-        lines.push(`显示长度: ${result.shownLength} 字符 (省略了 ${result.omittedLength} 字符)`);
+    // 5. 决定输出内容
+    let output: string;
+    if (shouldProcessForLLM) {
+        // 格式化输出，包含元信息（用于 LLM）
+        const lines: string[] = [];
+
+        if (toolCallInfo?.name) {
+            lines.push(`工具: ${toolCallInfo.name}`);
+        }
+
+        lines.push(`完整输出已保存至: ${tempFilePath}`);
+        lines.push(`原始长度: ${truncResult.originalLength} 字符`);
+
+        if (truncResult.isTruncated) {
+            lines.push(`显示长度: ${truncResult.shownLength} 字符 (省略了 ${truncResult.omittedLength} 字符)`);
+        }
+
+        lines.push('');
+        lines.push(truncResult.content);
+
+        output = lines.join('\n');
+    } else {
+        // 原始输出（仅缓存场景）
+        output = truncResult.content;
     }
 
-    lines.push('');
-    lines.push(result.content);
-
-    return lines.join('\n');
+    return {
+        output,
+        tempFilePath,
+        isTruncated: truncResult.isTruncated,
+        originalLength: truncResult.originalLength,
+        shownLength: truncResult.shownLength,
+        omittedLength: truncResult.omittedLength
+    };
 };
 
 /**
