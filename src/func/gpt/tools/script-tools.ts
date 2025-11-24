@@ -118,17 +118,9 @@ ${args.command}
                 stdout = stdout.trim();
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
-                const exitCode = error && typeof (error as any).code !== 'undefined' ? (error as any).code : 0;
-                const recordLines = [
-                    `Command: ${args.command}`,
-                    `Directory: ${cwd}`,
-                    `Shell: ${shell}`,
-                    `Exit code: ${exitCode}`,
-                    '',
-                    fullOutput
-                ].join('\n');
+                // const exitCode = error && typeof (error as any).code !== 'undefined' ? (error as any).code : 0;
 
-                const result = saveAndTruncate('shell', recordLines, outputLimit, {
+                const result = saveAndTruncate('shell', fullOutput, outputLimit, {
                     name: 'Shell',
                     args
                 });
@@ -189,7 +181,10 @@ const pythonTool: Tool = {
 
     execute: async (args: { code: string; directory?: string; keepFile?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
         // 创建临时文件
-        const tempDir = args.directory || os.tmpdir();
+        let tempDir = args.directory;
+        if (!tempDir) {
+            tempDir = path.join(os.tmpdir(), 'siyuan_temp');
+        }
         const timestamp = new Date().getTime();
         const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
         const outputLimit = normalizeLimit(args.limit);
@@ -226,18 +221,8 @@ ${args.code}
                 stdout = stdout.trim();
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
-                const recordLines = [
-                    'Command: python',
-                    `Script path: ${scriptPath}`,
-                    `Keep file: ${args.keepFile ? 'true' : 'false'}`,
-                    '',
-                    'User code:',
-                    args.code,
-                    '',
-                    fullOutput
-                ].join('\n');
 
-                const result = saveAndTruncate('python', recordLines, outputLimit, {
+                const result = saveAndTruncate('python', fullOutput, outputLimit, {
                     name: 'Python',
                     args
                 });

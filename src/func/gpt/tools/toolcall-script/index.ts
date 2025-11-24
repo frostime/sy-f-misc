@@ -9,6 +9,7 @@ import { ToolExecutor } from "../executor";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { complete } from "../../openai/complete";
 import * as store from "@gpt/setting/store";
+import { saveAndTruncate } from "../utils";
 
 const FORMALIZE_MAX_INPUT_LENGTH = 32000;
 
@@ -216,6 +217,8 @@ Extract the data and format it as JSON matching the Target Type.`;
         });
     };
 
+    let output: string = '';
+
     try {
         const result = await executeWithTimeout();
 
@@ -231,10 +234,11 @@ Extract the data and format it as JSON matching the Target Type.`;
             output += (output ? '\n\n' : '') + '[Errors]\n' + result._errors.join('\n');
         }
 
-        return output || 'Script executed successfully (no output)';
+        output = output || 'Script executed successfully (no output)';
     } catch (error) {
         throw new Error(`Script execution failed: ${error.message}`);
     }
+    return output;
 };
 
 
@@ -317,6 +321,10 @@ const createToolCallScriptTool = (executor: ToolExecutor): Tool => {
 
             try {
                 const output = await executeScript(script, executor, timeoutMs);
+                saveAndTruncate('toolcall-script', output, 30000, {
+                    name: 'ToolCallScript',
+                    args: args
+                });
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: output

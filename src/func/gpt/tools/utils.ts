@@ -2,7 +2,7 @@ const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 const os = window?.require?.('os');
 
-const MAX_LOG_NUMBER = 50;
+const MAX_LOG_NUMBER = 100;
 
 /**
  * 获取临时目录根路径
@@ -38,7 +38,7 @@ export interface ToolCallInfo {
  * @param toolCallInfo 可选的工具调用信息，会被记录在文件开头
  * @returns 文件完整路径
  */
-export const createTempfile = (
+const createTempfile = (
     toolKey: string,
     ext: string = 'log',
     content?: string,
@@ -54,7 +54,7 @@ export const createTempfile = (
 
         const args = toolCallInfo?.args || {};
         const argsString = Object.entries(args)
-            .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+            .map(([key, value]) => `${key}:${JSON.stringify(value).length > 100 ? '\n' : ' '}${value}`)
             .join('\n');
         // 如果提供了工具调用信息，添加到文件开头
         if (toolCallInfo) {
@@ -78,7 +78,7 @@ export const createTempfile = (
  * @param subfiles 可选参数，表示在创建目录的同时创建子文件，key 为子文件名，value 为子文件内容
  * @returns 创建的目录路径
  */
-export const createTempdir = (name: string, subfiles?: Record<string, string>): string => {
+const createTempdir = (name: string, subfiles?: Record<string, string>): string => {
     const tempDir = path.join(tempRoot(), name);
     safeCreateDir(tempDir);
 
