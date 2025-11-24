@@ -155,7 +155,8 @@ except Exception as e:
                         }
 
                         // 处理结果
-                        let resultData = JSON.stringify(result.result);
+                        // let resultData = JSON.stringify(result.result);
+                        let resultData = result.result;
 
                         const processResult = processToolOutput({
                             toolKey: `custom_${functionName}`,

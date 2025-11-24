@@ -49,6 +49,10 @@ const createTempfile = (
     const suffix = Math.random().toString(16).slice(2, 10);
     const filePath = path.join(tempDir, `${toolKey}_${Date.now()}_${suffix}.${ext}`);
 
+    if (typeof content !== 'string') {
+        content = JSON.stringify(content);
+    }
+
     if (content !== undefined) {
         let finalContent = content;
 

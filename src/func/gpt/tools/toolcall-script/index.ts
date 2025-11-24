@@ -21,13 +21,13 @@ const FORMALIZE_MAX_INPUT_LENGTH = 32000;
  * 执行脚本的核心函数
  * @param script 要执行的 JavaScript 代码
  * @param executor 工具执行器
- * @param timeoutMs 超时时间（毫秒），默认 60 秒
+ * @param timeoutSeconds 超时时间（秒），默认 180 秒（3 分钟）
  * @returns 脚本执行结果
  */
 const executeScript = async (
     script: string,
     executor: ToolExecutor,
-    timeoutMs: number = 60000
+    timeoutSeconds: number = 180
 ): Promise<string> => {
     // TOOL_CALL API - 调用其他工具
     const toolCall = async (toolName: string, args: Record<string, any>) => {
@@ -200,8 +200,8 @@ Extract the data and format it as JSON matching the Target Type.`;
     const executeWithTimeout = () => {
         return new Promise<typeof sandbox>(async (resolve, reject) => {
             const timeoutId = setTimeout(() => {
-                reject(new Error(`Script execution timeout (${timeoutMs}ms)`));
-            }, timeoutMs);
+                reject(new Error(`Script execution timeout (${timeoutSeconds * 1000}ms)`));
+            }, timeoutSeconds * 1000);
 
             try {
                 // 创建异步函数并执行
@@ -270,7 +270,7 @@ Available APIs in script:
                     },
                     timeout: {
                         type: 'number',
-                        description: 'Timeout in milliseconds (default: 60000). Maximum allowed: 300000 (5 minutes)'
+                        description: 'Timeout in seconds (default: 180). Maximum allowed: 360 (6 minutes)'
                     }
                 },
                 required: ['script']
@@ -317,11 +317,11 @@ const createToolCallScriptTool = (executor: ToolExecutor): Tool => {
                 .replace(/_esc_squote_/g, "'")
                 .replace(/_esc_backslash_/g, '\\\\');
 
-            // 限制超时时间（最大 5 分钟）
-            const timeoutMs = Math.min(args.timeout || 60000, 300000);
+            // 限制超时时间（最大 6 分钟）
+            const timeoutSeconds = Math.min(args.timeout || 180, 360);
 
             try {
-                const output = await executeScript(script, executor, timeoutMs);
+                const output = await executeScript(script, executor, timeoutSeconds);
                 processToolOutput({
                     toolKey: 'toolcall-script',
                     content: output,
@@ -415,6 +415,7 @@ const formated = await FORMALIZE(\`
 - 有些 Tool 可能会返回非结构数据，使用 FORMALIZE 可将其转换为结构化数据; 不过请你设计好类型定义
     - FORMALIZE 会强制限制最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，过多会内部强制截断
     - FORMALIZE 本质也是调用 LLM，不要滥用
+    - 如果需要对 N 个文本进行 FORMALIZE，建议将他们合并，并要求 FORMALIZE 为特定类型的数组
 - 有些 Tool 有 limit 字符，意味着结果会被截断; 如果需要完整结果，可设置 limit 为 -1（如果支持）
     - 如果需要 FORMALIZE，建议在返回类型中设置关于截断 (truncated) 的相关信息，以免误判
     - 例如: { isTruncated: boolean; cacheLocalFile?: string; }
