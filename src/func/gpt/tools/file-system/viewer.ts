@@ -229,7 +229,7 @@ export const fileStateTool: Tool = {
         type: 'function',
         function: {
             name: 'FileState',
-            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）\n返回 `Record<string, any>`（包含 path/size/时间等字段）',
+            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）\n返回 `{ path: string; size: string; isDirectory: boolean; createdAt: string; modifiedAt: string; accessedAt: string; lineCount?: number }`',
             parameters: {
                 type: 'object',
                 properties: {

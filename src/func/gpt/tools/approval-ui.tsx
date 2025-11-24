@@ -15,6 +15,9 @@ import { createSignalRef } from "@frostime/solid-signal-ref";
  * 渲染参数列表组件
  */
 const ArgsListComponent = (props: { args: Record<string, any> }) => {
+    const rows = (text: string) => {
+        return Math.max(Math.min(text.split('\n').length, 20), 5);
+    }
     return (
         <>
             <h3>参数:</h3>
@@ -27,7 +30,7 @@ const ArgsListComponent = (props: { args: Record<string, any> }) => {
                                     class="b3-text-field"
                                     readOnly
                                     value={props.args[key]}
-                                    rows={4}
+                                    rows={rows(props.args[key])}
                                     style={{
                                         "width": "100%",
                                         "margin": "8px 0",
