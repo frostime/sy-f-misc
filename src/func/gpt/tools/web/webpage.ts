@@ -8,7 +8,7 @@
  */
 import { addScript } from "../../utils";
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
-import { normalizeLimit, saveAndTruncate, truncateContent } from '../utils';
+import { normalizeLimit, processToolOutput, truncateContent } from '../utils';
 
 /**
  * 验证URL是否有效
@@ -658,7 +658,7 @@ export const webPageContentTool: Tool = {
         type: 'function',
         function: {
             name: 'WebPageContent',
-            description: '获取给定 URL 链接的网页内容。支持两种模式：markdown模式（默认）返回解析的Markdown文本，raw模式返回原始HTML结构。支持关键词查找功能，可以查找包含特定关键词的内容块并返回统计结果。',
+            description: '获取给定 URL 链接的网页内容。支持两种模式：markdown模式（默认）返回解析的Markdown文本，raw模式返回原始HTML结构。支持关键词查找功能，可以查找包含特定关键词的内容块并返回统计结果。\n返回 `string`（含元信息 + Markdown/HTML 内容，可能带截断提示）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -821,7 +821,11 @@ export const webPageContentTool: Tool = {
             };
         }
 
-        saveAndTruncate('webpage', results.join('\n\n---\n\n'), Number.POSITIVE_INFINITY, { name: 'Webpage', args });
+        processToolOutput({
+            toolKey: 'webpage',
+            content: results.join('\n\n---\n\n'),
+            toolCallInfo: { name: 'Webpage', args }
+        });
 
         return {
             status: ToolExecuteStatus.SUCCESS,

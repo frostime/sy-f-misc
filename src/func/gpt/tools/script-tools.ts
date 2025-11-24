@@ -1,6 +1,6 @@
 // src/func/gpt/tools/script/index.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
-import { saveAndTruncate, formatToolResult, normalizeLimit, DEFAULT_LIMIT_CHAR } from './utils';
+import { processToolOutput, normalizeLimit, DEFAULT_LIMIT_CHAR } from './utils';
 
 /**
  * 脚本执行工具组
@@ -34,7 +34,7 @@ const shellTool: Tool = {
         type: 'function',
         function: {
             name: 'Shell',
-            description: `在${platform} 运行 ${platform === 'win32' ? 'PowerShell' : 'Bash'} 指令/脚本`,
+            description: `在${platform} 运行 ${platform === 'win32' ? 'PowerShell' : 'Bash'} 指令/脚本\n返回 \`string\`（stdout/stderr 摘要，完整输出保存于历史记录）`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -118,21 +118,15 @@ ${args.command}
                 stdout = stdout.trim();
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
-                const exitCode = error && typeof (error as any).code !== 'undefined' ? (error as any).code : 0;
-                const recordLines = [
-                    `Command: ${args.command}`,
-                    `Directory: ${cwd}`,
-                    `Shell: ${shell}`,
-                    `Exit code: ${exitCode}`,
-                    '',
-                    fullOutput
-                ].join('\n');
+                // const exitCode = error && typeof (error as any).code !== 'undefined' ? (error as any).code : 0;
 
-                const result = saveAndTruncate('shell', recordLines, outputLimit, {
-                    name: 'Shell',
-                    args
+                const result = processToolOutput({
+                    toolKey: 'shell',
+                    content: fullOutput,
+                    toolCallInfo: { name: 'Shell', args },
+                    truncateForLLM: outputLimit
                 });
-                const summary = formatToolResult(result);
+                const summary = result.output;
 
                 if (error) {
                     resolve({
@@ -159,7 +153,7 @@ const pythonTool: Tool = {
         type: 'function',
         function: {
             name: 'Python',
-            description: '在本地运行 Python 代码 (默认假设本地安装已经安装了 Python)',
+            description: '在本地运行 Python 代码 (默认假设本地安装已经安装了 Python)\n返回 `string`（stdout/stderr 摘要，含脚本路径）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -189,7 +183,10 @@ const pythonTool: Tool = {
 
     execute: async (args: { code: string; directory?: string; keepFile?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
         // 创建临时文件
-        const tempDir = args.directory || os.tmpdir();
+        let tempDir = args.directory;
+        if (!tempDir) {
+            tempDir = path.join(os.tmpdir(), 'siyuan_temp');
+        }
         const timestamp = new Date().getTime();
         const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
         const outputLimit = normalizeLimit(args.limit);
@@ -226,22 +223,14 @@ ${args.code}
                 stdout = stdout.trim();
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
-                const recordLines = [
-                    'Command: python',
-                    `Script path: ${scriptPath}`,
-                    `Keep file: ${args.keepFile ? 'true' : 'false'}`,
-                    '',
-                    'User code:',
-                    args.code,
-                    '',
-                    fullOutput
-                ].join('\n');
 
-                const result = saveAndTruncate('python', recordLines, outputLimit, {
-                    name: 'Python',
-                    args
+                const result = processToolOutput({
+                    toolKey: 'python',
+                    content: fullOutput,
+                    toolCallInfo: { name: 'Python', args },
+                    truncateForLLM: outputLimit
                 });
-                const summary = formatToolResult(result);
+                const summary = result.output;
 
                 if (error) {
                     resolve({
@@ -268,7 +257,7 @@ const javascriptTool: Tool = {
         type: 'function',
         function: {
             name: 'JavaScript',
-            description: '在当前环境中运行 JavaScript 代码（出于安全考虑，禁止访问 document 对象）',
+            description: '在当前环境中运行 JavaScript 代码（出于安全考虑，禁止访问 document 对象）\n返回 `string`（console.log 输出及可选警告/错误）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -335,7 +324,7 @@ const pandocTool: Tool = {
         type: 'function',
         function: {
             name: 'Pandoc',
-            description: '使用思源自带的 Pandoc 命令，默认会执行 `pandoc -s <file> --to markdown`; 也可以自行指定完整的 pandoc 命令',
+            description: '使用思源自带的 Pandoc 命令，默认会执行 `pandoc -s <file> --to markdown`; 也可以自行指定完整的 pandoc 命令\n返回 `string`（Pandoc stdout 或错误信息）',
             parameters: {
                 type: 'object',
                 properties: {

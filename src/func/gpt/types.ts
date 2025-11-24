@@ -347,7 +347,7 @@ interface IChatSessionConfig {
     //GPT 常常使用 \( \) 语法，但是 md 习惯使用 $ $ 语法，需要转换
     convertMathSyntax: boolean;
     maxInputLenForAutoTitle: number;
-    autoTitleModelId?: string;
+    utilityModelId?: string;
     renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
     toolCallMaxRounds: number; // 工具调用最大轮次
     chatOption: IChatOption;

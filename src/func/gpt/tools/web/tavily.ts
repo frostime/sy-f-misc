@@ -7,7 +7,7 @@
  */
 import { globalMiscConfigs } from '../../setting/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
-import { saveAndTruncate } from '../utils';
+import { processToolOutput } from '../utils';
 
 export interface TavilySearchResponse {
     query: string;
@@ -224,7 +224,7 @@ export const tavilySearchTool: Tool = {
         type: 'function',
         function: {
             name: 'TavilySearch',
-            description: '使用 Tavily API 获取互联网上的高质量搜索结果',
+            description: '使用 Tavily API 获取互联网上的高质量搜索结果\n返回 `TavilySearchResponse`; 核心字段为 `{content: { url: string; content: string; images?: string[]; }[];}`',
             parameters: {
                 type: 'object',
                 properties: {
@@ -298,7 +298,11 @@ export const tavilySearchTool: Tool = {
         }
 
         //单纯保存记录而已
-        saveAndTruncate('tavily-search', JSON.stringify(result, null, 2), Number.POSITIVE_INFINITY, { name: 'TavilySearch', args });
+        processToolOutput({
+            toolKey: 'tavily-search',
+            content: JSON.stringify(result, null, 2),
+            toolCallInfo: { name: 'TavilySearch', args }
+        });
 
         return {
             status: ToolExecuteStatus.SUCCESS,

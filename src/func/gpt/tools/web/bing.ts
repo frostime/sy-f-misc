@@ -2,7 +2,7 @@ import { getFrontend } from "siyuan";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { forwardProxy } from "@/api";
 import { save } from "../../setting";
-import { saveAndTruncate } from "../utils";
+import { processToolOutput } from "../utils";
 
 /*
  * Copyright (c) 2025 by frostime. All Rights Reserved.
@@ -196,7 +196,7 @@ export const bingSearchTool: Tool = {
         type: 'function',
         function: {
             name: 'BingSearch',
-            description: '使用 Bing 获取互联网上的搜索结果',
+            description: '使用 Bing 获取互联网上的搜索结果\n返回 `{title, link, description}[]`',
             parameters: {
                 type: 'object',
                 properties: {
@@ -231,7 +231,11 @@ export const bingSearchTool: Tool = {
     execute: async (args: { query: string; site?: string; filetype?: string; dateFilter?: 'day' | 'week' | 'month'; pageIdx?: number }): Promise<ToolExecuteResult> => {
         try {
             const result = await bingSearch(args.query, args.pageIdx || 1, args.site, args.filetype, args.dateFilter);
-            saveAndTruncate('bing-search', JSON.stringify(result, null, 2), Number.POSITIVE_INFINITY, { name: 'BingSearch', args });
+            processToolOutput({
+                toolKey: 'bing-search',
+                content: JSON.stringify(result, null, 2),
+                toolCallInfo: { name: 'BingSearch', args }
+            });
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: result

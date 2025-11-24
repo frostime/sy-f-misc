@@ -22,7 +22,7 @@ const datetimeTool: Tool = {
         type: 'function',
         function: {
             name: 'datetime',
-            description: '获取当前日期和时间',
+            description: '获取当前日期和时间\n返回 `string`（ISO 字符串或指定格式）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -111,7 +111,7 @@ const textTool: Tool = {
         type: 'function',
         function: {
             name: 'text',
-            description: '对文本进行核心操作，如获取长度、查找和替换。支持使用纯文本或正则表达式进行搜索。',
+            description: '对文本进行核心操作，如获取长度、查找和替换。支持使用纯文本或正则表达式进行搜索。\n返回 `number | number[] | string`（依 operation 而定）',
             parameters: {
                 type: 'object',
                 properties: {

@@ -59,7 +59,7 @@ export const bochaSearchTool: Tool = {
         type: 'function',
         function: {
             name: 'BochaSearch',
-            description: '使用 Bocha API 获取互联网上的高质量搜索结果',
+            description: '使用 Bocha API 获取互联网上的高质量搜索结果\n返回 `{ code: number; queryContext: any; webPages: Array<{ datePublished, name, url, abstract, siteName }> }`',
             parameters: {
                 type: 'object',
                 properties: {

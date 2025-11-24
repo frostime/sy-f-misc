@@ -59,6 +59,8 @@ const BaseApprovalUI = (props: {
 
     let decided = createSignalRef(false);
 
+    const descriptionShort = props.description && props.description.length > 200 ? props.description.slice(0, 200) + '...' : props.description;
+
     return (
         <div style={{
             "padding": "16px",
@@ -69,7 +71,7 @@ const BaseApprovalUI = (props: {
                 "margin": "8px 0"
             }}>
                 <h3>{props.title}</h3>
-                {props.description && <p><strong>{props.description}</strong></p>}
+                {props.description && <p><strong>{descriptionShort}</strong></p>}
 
                 {props.children}
             </div>

@@ -1,5 +1,5 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
-import { normalizeLimit, truncateContent } from '../utils';
+import { normalizeLimit, processToolOutput } from '../utils';
 
 // 通过 window.require 引入 Node.js 模块
 const fs = window?.require?.('fs');
@@ -36,7 +36,7 @@ export const markitdownTool: Tool = {
         type: 'function',
         function: {
             name: 'MarkitdownRead',
-            description: '使用 markitdown 命令行工具读取 Word (.docx), PDF (.pdf) 等文件内容，转换为 Markdown 格式',
+            description: '使用 markitdown 命令行工具读取 Word (.docx), PDF (.pdf) 等文件内容，转换为 Markdown 格式\n返回 `string`（包含文件信息、截取范围及 Markdown 片段）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -147,35 +147,37 @@ export const markitdownTool: Tool = {
             // 应用字符范围限制
             const limit = normalizeLimit(args.limit, 5000);
 
-            // 先应用 begin/end 范围
+            // 先应用 begin 范围截取
             let rangeContent = content;
-            if (begin > 0 || !Number.isFinite(limit)) {
-                const end = Number.isFinite(limit) ? Math.min(begin + limit, totalChars) : totalChars;
-                rangeContent = content.substring(begin, end);
+            const actualEnd = Number.isFinite(limit) ? Math.min(begin + limit, totalChars) : totalChars;
+            if (begin > 0 || actualEnd < totalChars) {
+                rangeContent = content.substring(begin, actualEnd);
             }
 
-            // 然后应用截断（如果内容仍然过长）
-            const truncResult = truncateContent(rangeContent, limit);
-
-            // 构建返回信息
+            // 构建内容（包含自定义元信息）
             const fileName = path.basename(filePath);
-            let promptText = `已使用 markitdown 读取文件: ${fileName}\n`;
-            promptText += `临时文件保存位置: ${outputFile}\n`;
-            promptText += `总字符数: ${totalChars}`;
-
-            if (begin > 0 || truncResult.isTruncated) {
-                promptText += ` (显示范围: ${begin} - ${begin + truncResult.shownLength})`;
+            let contentWithMeta = `--- Markitdown 转换结果 ---\n`;
+            contentWithMeta += `文件: ${fileName}\n`;
+            contentWithMeta += `临时输出: ${outputFile}\n`;
+            contentWithMeta += `总字符数: ${totalChars}\n`;
+            
+            if (begin > 0 || actualEnd < totalChars) {
+                contentWithMeta += `读取范围: ${begin} - ${actualEnd} 字符\n`;
             }
+            
+            contentWithMeta += `\n--- 文件内容 ---\n${rangeContent}`;
 
-            promptText += `\n\n--- 文件内容 ---\n${truncResult.content}`;
-
-            if (truncResult.isTruncated) {
-                promptText += `\n\n--- 注意: 内容已截断，完整内容可阅读临时文件 ---`;
-            }
+            // 使用 processToolOutput 统一处理缓存、截断和格式化
+            const result = processToolOutput({
+                toolKey: 'markitdown',
+                content: contentWithMeta,
+                toolCallInfo: { name: 'MarkitdownRead', args },
+                truncateForLLM: limit
+            });
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: promptText
+                data: result.output
             };
 
         } catch (error: any) {

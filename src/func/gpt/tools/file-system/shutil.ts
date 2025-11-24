@@ -16,7 +16,7 @@ export const mkdirTool: Tool = {
         type: 'function',
         function: {
             name: 'Mkdir',
-            description: '创建目录 (可选 recursive 类似于 mkdir -p)',
+            description: '创建目录 (可选 recursive 类似于 mkdir -p)\n返回 `string`（目录创建或已存在的提示）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -56,7 +56,7 @@ export const moveFileTool: Tool = {
         type: 'function',
         function: {
             name: 'MoveFile',
-            description: '移动文件或目录到新位置',
+            description: '移动文件或目录到新位置\n返回 `string`（移动结果描述，含源和目标）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -105,7 +105,7 @@ export const copyFileTool: Tool = {
         type: 'function',
         function: {
             name: 'CopyFile',
-            description: '复制文件或目录 (可递归)',
+            description: '复制文件或目录 (可递归)\n返回 `string`（复制结果描述，含源和目标）',
             parameters: {
                 type: 'object',
                 properties: {

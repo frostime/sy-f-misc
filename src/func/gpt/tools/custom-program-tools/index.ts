@@ -9,7 +9,7 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "../types";
 import { scanCustomScriptsWithSmartLoad, ParsedToolModule, getEnvVars } from './resolve-tools';
 import { createTempRunDir, cleanupTempDir } from './utils';
-import { saveAndTruncate, formatToolResult, normalizeLimit } from '../utils';
+import { processToolOutput, normalizeLimit } from '../utils';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
@@ -157,12 +157,13 @@ except Exception as e:
                         // 处理结果
                         let resultData = JSON.stringify(result.result);
 
-                        const saveResult = saveAndTruncate(`custom_${functionName}`, resultData, limit, {
-                            name: functionName,
-                            args: args
+                        const processResult = processToolOutput({
+                            toolKey: `custom_${functionName}`,
+                            content: resultData,
+                            toolCallInfo: { name: `Custom Tool: ${functionName}`, args },
+                            truncateForLLM: limit
                         });
-                        const formattedOutput = formatToolResult(saveResult, `Custom Tool: ${functionName}`);
-                        resultData = formattedOutput;
+                        resultData = processResult.output;
 
                         resolve({
                             status: ToolExecuteStatus.SUCCESS,
@@ -172,14 +173,15 @@ except Exception as e:
                     } catch (parseError) {
                         // JSON 解析失败，返回原始输出
                         const rawOutput = stdout.trim();
-                        const saveResult = saveAndTruncate(`custom_${functionName}`, rawOutput, limit, {
-                            name: functionName,
-                            args: args
+                        const processResult = processToolOutput({
+                            toolKey: `custom_${functionName}`,
+                            content: rawOutput,
+                            toolCallInfo: { name: `Custom Tool: ${functionName}`, args },
+                            truncateForLLM: limit
                         });
-                        const formattedOutput = formatToolResult(saveResult, `Custom Tool: ${functionName}`);
                         resolve({
                             status: ToolExecuteStatus.SUCCESS,
-                            data: formattedOutput
+                            data: processResult.output
                         });
                     }
                 }
