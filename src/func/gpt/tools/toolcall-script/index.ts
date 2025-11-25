@@ -87,7 +87,8 @@ const executeScript = async (
 Example:
 
 === Input ===
-Target Type:
+Target Requirement:
+请过滤掉文件夹，只返回文件列表，类型定义如下:
 {
   filename: string;
   CreateYear: string; //Should be yyyy format
@@ -98,18 +99,19 @@ Target Type:
 Input Text:
 - A.txt | Create on 2023-01-01 | Size: 15KB
 - B.docx | Create on 2022-12-15 | Size: 45KB
+- C/ | Create on 2022-12-15 | Size: -
 
 === Output ===
 [{ "filename": "A.txt", "CreateYear": "2023", "sizeKB": 15 },{ "filename": "B.docx", "CreateYear": "2022", "sizeKB": 45 }]
 
 `;
-        const userPrompt = `Target Type:
+        const userPrompt = `Target Requirement:
 ${typeDescription}
 
 Input Text:
 ${text}
 
-Extract the data and format it as JSON matching the Target Type.`;
+Extract the data and format it as JSON matching the Target Requirement.`;
 
         const result = await complete(userPrompt, {
             model: store.useModel(store.defaultConfig().utilityModelId || store.defaultModelId()),
@@ -399,7 +401,9 @@ for (const url of urls) {
 const formated = await FORMALIZE(\`
 - A.txt | Create on 2023-01-01 | Size: 15KB
 - B.docx | Create on 2022-12-15 | Size: 45KB
+- C/ | Create on 2022-12-15 | Size: -
 \`, \`
+请过滤掉文件夹，只返回文件列表，类型定义如下:
 {
   filename: string;
   CreateYear: string; //Should be yyyy format
@@ -412,15 +416,16 @@ const formated = await FORMALIZE(\`
 
 **注意事项**：
 - 脚本中必须使用 \`await\` 来调用 TOOL_CALL
+- 复杂调用，建议使用内置转义字符，避免 JSON 解析错误
+- 所有 console.log 输出会作为工具结果返回
 - 有些 Tool 可能会返回非结构数据，使用 FORMALIZE 可将其转换为结构化数据; 不过请你设计好类型定义
     - FORMALIZE 会强制限制最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，过多会内部强制截断
     - FORMALIZE 本质也是调用 LLM，不要滥用
     - 如果需要对 N 个文本进行 FORMALIZE，建议将他们合并，并要求 FORMALIZE 为特定类型的数组
+    - 保证返回结果的最小可用; 例如输入文件信息，想要返回 2023 年之后的文件，就不要返回所有年份的文件然后多此一举的过滤；FORMALIZE 很强大，但也有成本
 - 有些 Tool 有 limit 字符，意味着结果会被截断; 如果需要完整结果，可设置 limit 为 -1（如果支持）
     - 如果需要 FORMALIZE，建议在返回类型中设置关于截断 (truncated) 的相关信息，以免误判
     - 例如: { isTruncated: boolean; cacheLocalFile?: string; }
-- 复杂调用，建议使用内置转义字符，避免 JSON 解析错误
-- 所有 console.log 输出会作为工具结果返回
 `.trim()
     });
     return executor;

@@ -37,7 +37,7 @@ export const ensureCustomScriptsDir = async (): Promise<void> => {
 export const listPythonScripts = async (): Promise<string[]> => {
     await ensureCustomScriptsDir();
     const files = await fs.promises.readdir(CUSTOM_SCRIPTS_DIR);
-    return files.filter((f: string) => f.endsWith('.py') && !f.startsWith('_') );
+    return files.filter((f: string) => f.endsWith('.py') && !f.startsWith('_'));
 };
 
 /**
@@ -84,14 +84,36 @@ export const checkPythonAvailable = async (): Promise<{
 
 /**
  * 创建临时运行目录
+ * 使用 realpathSync.native 避免 Windows 8.3 短文件名格式
  */
+// export const createTempRunDir = (): string => {
+//     const timestamp = Date.now();
+//     const random = Math.random().toString(36).substring(2, 10);
+//     const tmpdir = os.tmpdir();
+//     // 在 Windows 上将短路径转换为长路径，避免 ZUOYIP~1 这样的格式
+//     const fullPath = fs?.realpathSync?.native ? fs.realpathSync.native(tmpdir) : tmpdir;
+//     const tempDir = path.join(fullPath, 'siyuan_temp', `run_${timestamp}_${random}`);
+//     fs.mkdirSync(tempDir, { recursive: true });
+//     return tempDir;
+// };
 export const createTempRunDir = (): string => {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 10);
-    const tempDir = path.join(os.tmpdir(), 'siyuan_temp', `run_${timestamp}_${random}`);
+    const tmpdir = os.tmpdir();
+
+    // 先创建目录（使用原始路径）
+    const tempDir = path.join(tmpdir, 'siyuan_temp', `run_${timestamp}_${random}`);
     fs.mkdirSync(tempDir, { recursive: true });
-    return tempDir;
+
+    // 再对已存在的目录进行路径规范化
+    try {
+        return fs.realpathSync.native?.(tempDir) ?? tempDir;
+    } catch {
+        // 降级处理：如果 native 方法失败，使用普通 realpathSync
+        return fs.realpathSync(tempDir);
+    }
 };
+
 
 /**
  * 清理临时目录

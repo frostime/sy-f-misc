@@ -6,9 +6,23 @@ const MAX_LOG_NUMBER = 100;
 
 /**
  * 获取临时目录根路径
+ * 使用 realpathSync.native 避免 Windows 8.3 短文件名格式
  */
 export const tempRoot = (): string => {
-    return path.join(os.tmpdir(), 'siyuan_temp');
+    const tmpdir = os.tmpdir();
+    const targetPath = path.join(tmpdir, 'siyuan_temp');
+
+    // 确保目录存在
+    if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true });
+    }
+
+    // 对已存在的目录进行路径规范化
+    try {
+        return fs.realpathSync.native?.(targetPath) ?? fs.realpathSync(targetPath);
+    } catch {
+        return targetPath;
+    }
 };
 
 /**

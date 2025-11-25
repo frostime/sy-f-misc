@@ -106,10 +106,11 @@ def generate_schema_from_function(func: typing.Callable) -> dict:
         func_description += '\n' + parsed_docstring.long_description.strip()
 
     # 添加返回值说明到函数描述中
-    if parsed_docstring.returns and parsed_docstring.returns.description:
+    if parsed_docstring.returns:
+        return_type = parsed_docstring.returns.type_name or 'Unknown'
         return_desc = parsed_docstring.returns.description.strip()
         if return_desc:
-            func_description += f'\n\nReturns:\n{return_desc}'
+            func_description += f'\n\nReturns:\n{return_type}: {return_desc}'
 
     param_descriptions = {
         param.arg_name: param.description for param in parsed_docstring.params
