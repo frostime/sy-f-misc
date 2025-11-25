@@ -52,6 +52,12 @@ const executeScript = async (
 
         // 检查执行结果状态
         if (toolResult.status === ToolExecuteStatus.SUCCESS) {
+            // 确保返回的是结构化的原始数据，而非格式化文本 (finalText)
+            // finalText 是为 LLM 准备的，可能包含截断提示、system hints 等
+            // ToolCallScript 需要原始数据进行进一步处理
+            if (toolResult.data === undefined || toolResult.data === null) {
+                console.warn(`[ToolCallScript] Tool '${toolName}' returned undefined/null data. This may indicate the tool doesn't properly return structured data.`);
+            }
             return toolResult.data;
         } else if (toolResult.status === ToolExecuteStatus.ERROR) {
             throw new Error(`Tool '${toolName}' returned error: ${toolResult.error}`);
@@ -369,7 +375,8 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 console.log(_esc_dquote_Hello World_esc_dquote_);
 \`\`\`
 
-**核心 API \`TOOL_CALL\`** : 直接返回工具调用结果，类型视不同工具而定
+**核心 API \`TOOL_CALL\`** : 直接返回工具调用结果的**原始结构化数据** (result.data)，而非格式化后的文本 (result.finalText)
+- 参考工具定义描述来获悉返回类型
 
 **示例 检索网页**:
 \`\`\`javascript
@@ -412,6 +419,8 @@ const formated = await FORMALIZE(\`
 **注意事项**：
 - 脚本中必须使用 \`await\` 来调用 TOOL_CALL
 - 复杂调用，建议使用内置转义字符，避免 JSON 解析错误
+- TOOL_CALL 返回的是工具的原始数据 (data)，而非格式化文本 (finalText)，适合进行编程处理
+- 如果你需要对工具返回的文本进行解析，可能需要使用 FORMALIZE 将其转换为结构化数据
 - 所有 console.log 输出会作为工具结果返回
 - 有些 Tool 可能会返回非结构数据，使用 FORMALIZE 可将其转换为结构化数据; 不过请你设计好类型定义
     - FORMALIZE 会强制限制最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，过多会内部强制截断

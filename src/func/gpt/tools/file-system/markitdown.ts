@@ -160,24 +160,40 @@ export const markitdownTool: Tool = {
             contentWithMeta += `文件: ${fileName}\n`;
             contentWithMeta += `临时输出: ${outputFile}\n`;
             contentWithMeta += `总字符数: ${totalChars}\n`;
-            
+
             if (begin > 0 || actualEnd < totalChars) {
                 contentWithMeta += `读取范围: ${begin} - ${actualEnd} 字符\n`;
             }
-            
+
             contentWithMeta += `\n--- 文件内容 ---\n${rangeContent}`;
 
-            // 直接返回原始 contentWithMeta
+            // 返回原始 contentWithMeta
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: contentWithMeta
             };
-
         } catch (error: any) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `处理文件时出错: ${error.message}`
+                error: `MarkitDown 处理失败: ${error.message}`
             };
         }
+    },
+
+    // 截断器：考虑 begin 和 limit 参数
+    truncateForLLM: (formatted: string, args: Record<string, any>) => {
+        const begin = args.begin ?? 0;
+        const limit = normalizeLimit(args.limit, 5000);
+
+        // 应用 begin 偏移
+        let content = begin > 0 ? formatted.substring(begin) : formatted;
+
+        // 应用 limit 截断
+        if (limit > 0 && content.length > limit) {
+            content = content.substring(0, limit);
+            content += `\n\n[内容过长，已从位置 ${begin} 截断为 ${limit} 字符]`;
+        }
+
+        return content;
     }
 };

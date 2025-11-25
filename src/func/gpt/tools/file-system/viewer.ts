@@ -62,7 +62,6 @@ export const readFileTool: Tool = {
     },
 
     execute: async (args: { path: string; beginLine?: number; endLine?: number; limit?: number; showLineNum?: boolean }): Promise<ToolExecuteResult> => {
-        const limit = normalizeLimit(args.limit);
         const showLineNum = args.showLineNum ?? false;
         const filePath = path.resolve(args.path);
 
@@ -95,41 +94,27 @@ export const readFileTool: Tool = {
 
             // 提取指定行范围（闭区间）
             let resultContent = lines.slice(startLine, endLine + 1).join('\n');
-            let warning = '';
-            if (limit > 0 && resultContent.length > limit) {
-                const originalLen = resultContent.length;
-                const originalLineCount = endLine - startLine + 1;
-                resultContent = resultContent.substring(0, limit);
-                const truncatedLineCount = resultContent.split('\n').length;
-                endLine = startLine + truncatedLineCount - 1;
-                warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)`;
-            }
 
             // 如果需要显示行号，添加行号
             if (showLineNum) {
                 resultContent = formatWithLineNumber(resultContent, startLine + 1);
             }
 
+            // 返回原始数据（文件路径、内容、行范围信息）
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: `
-${warning}
------ 文件 "${filePath}" 内容如下 (${startLine + 1}-${endLine + 1}) -----
-${resultContent}
-`.trim(),
+                data: {
+                    filePath,
+                    content: resultContent,
+                    startLine: startLine + 1,
+                    endLine: endLine + 1,
+                    totalLines
+                }
             };
         }
 
-        // 没有指定行范围，返回全部内容（需应用 limit 限制）
+        // 没有指定行范围，返回全部内容
         let resultContent = content;
-        let warning = '';
-        if (limit > 0 && resultContent.length > limit) {
-            const originalLen = resultContent.length;
-            const originalLineCount = content.split('\n').length;
-            resultContent = resultContent.substring(0, limit);
-            const truncatedLineCount = resultContent.split('\n').length;
-            warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)`;
-        }
 
         // 如果需要显示行号，添加行号
         if (showLineNum) {
@@ -138,11 +123,33 @@ ${resultContent}
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: `${warning}
---- 文件 "${filePath}" 内容如下 (1-${resultContent.split('\n').length}) ---
-${resultContent}
-`.trim(),
+            data: {
+                filePath,
+                content: resultContent,
+                totalLines: content.split('\n').length
+            }
         };
+    },
+
+    // 格式化：将结构化数据转换为适合 LLM 的文本
+    formatForLLM: (data: any) => {
+        if (typeof data === 'string') {
+            return data;  // 兼容旧格式
+        }
+        const { filePath, content, startLine, endLine, totalLines } = data;
+        if (startLine && endLine) {
+            return `----- 文件 "${filePath}" 内容如下 (${startLine}-${endLine}) -----\n${content}`;
+        }
+        return `--- 文件 "${filePath}" 内容如下 (1-${totalLines}) ---\n${content}`;
+    },
+
+    // 截断：使用 args.limit 参数，从开头顺序截断
+    truncateForLLM: (formatted: string, args: Record<string, any>) => {
+        const limit = normalizeLimit(args.limit);
+        if (limit <= 0 || formatted.length <= limit) {
+            return formatted;
+        }
+        return formatted.substring(0, limit) + `\n\n[内容过长，已截断为前 ${limit} 字符]`;
     }
 };
 

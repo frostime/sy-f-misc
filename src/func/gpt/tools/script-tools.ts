@@ -394,5 +394,7 @@ export const scriptTools: ToolGroup = {
 - Python 工具：需确保系统已安装 Python; 返回结果为 python 的标准流输出
 - JavaScript 工具：运行在特殊环境中，禁用 document 对象; 返回结果为 JavaScript console.log 等 api 输出
 - Pandoc 工具：使用思源自带的 Pandoc 进行文档格式转换，默认转换为 Markdown 格式。适用于读取外部 docx 等文件内容。
+
+**通用参数**: 所有工具都支持可选的 limit 参数（数字类型）来控制返回给 LLM 的输出长度，默认约 8000 字符。设置为 -1 或 0 表示不限制。
 `
 };

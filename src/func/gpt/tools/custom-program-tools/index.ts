@@ -45,6 +45,8 @@ const executeCustomPythonTool = async (context: CustomToolExecutionContext): Pro
         fs.copyFileSync(scriptPath, tempScriptPath);
 
         // 创建入口脚本
+        // 支持 Python 函数定义 format 属性来自定义格式化
+        // 例如: def my_tool(): ...; my_tool.format = lambda data: f"结果: {data}"
         const mainScript = `
 # -*- coding: utf-8 -*-
 import sys
@@ -80,11 +82,22 @@ try:
     # 调用函数
     result = func(**args)
 
-    # 输出结果
+    # 构建输出
     output = {
         "success": True,
         "result": result
     }
+
+    # 检查函数是否有自定义 format 方法
+    if hasattr(func, 'format') and callable(func.format):
+        try:
+            formatted = func.format(result)
+            if isinstance(formatted, str):
+                output["formattedText"] = formatted
+        except Exception as fmt_err:
+            # 格式化失败不影响主流程，只记录警告
+            output["formatWarning"] = str(fmt_err)
+
     print(json.dumps(output, ensure_ascii=False))
 
 except Exception as e:
@@ -152,11 +165,18 @@ except Exception as e:
                             return;
                         }
 
-                        // 直接返回原始数据，不做任何格式化
-                        resolve({
+                        // 构建返回结果
+                        const executeResult: ToolExecuteResult = {
                             status: ToolExecuteStatus.SUCCESS,
                             data: result.result
-                        });
+                        };
+
+                        // 如果 Python 端提供了格式化文本，直接使用
+                        if (result.formattedText) {
+                            executeResult.formattedText = result.formattedText;
+                        }
+
+                        resolve(executeResult);
 
                     } catch (parseError) {
                         // JSON 解析失败，返回原始输出

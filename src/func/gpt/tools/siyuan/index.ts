@@ -157,8 +157,6 @@ order by A.value desc;
 - 查询日记文档时候请灵活使用 getDailyNoteDocs, 日期格式例如 2025-06-07; 如果对日记文档的批量统计或复杂查询, 可以考虑使用 SQL 配合 custom-dailynote-<yyyyMMdd> 属性
 - 使用 querySQL 工具的时候, 一定要明确指出 limit 限制,建议默认32 !IMPORTANT!
 - 当基于思源块内容进行回答时, 可以附上 [锚文本](siyuan链接) 方便用户溯源
-- 不错的社区网站:
-  - 思源论文精选: https://ld246.com/tag/siyuan/perfect
-  - 思源主题博客: https://siyuannote.com/
+- **通用参数**: 所有工具都支持可选的 limit 参数（数字类型）来控制返回给 LLM 的输出长度，默认约 8000 字符。设置为 -1 或 0 表示不限制。这是输出限制，不影响工具的实际执行逻辑
 `
 };

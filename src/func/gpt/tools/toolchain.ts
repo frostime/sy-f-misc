@@ -404,8 +404,8 @@ export async function executeToolChain(
                     // executor.execute 已经完成了：缓存 + 格式化 + 截断 + hints
                     toolResultContent = toolResult.finalText ?? JSON.stringify(toolResult.data);
                 } else {
-                    // 错误情况：直接 JSON 序列化
-                    toolResultContent = JSON.stringify({
+                    // 错误情况：使用 executor 生成的 finalText 或 fallback
+                    toolResultContent = toolResult.finalText ?? JSON.stringify({
                         error: toolResult.error || 'Tool execution failed'
                     });
                 }

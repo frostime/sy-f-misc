@@ -135,7 +135,7 @@ export interface Tool {
 
     // 格式化函数：将原始 data 转换为适合 LLM 的文本
     // 如果未定义，将使用默认格式化逻辑（JSON.stringify）
-    formatForLLM?: (data: any) => string;
+    formatForLLM?: (data: ToolExecuteResult['data']) => string;
 
     // 截断函数：对格式化后的文本进行截断处理
     // 工具可以使用自己的 args 参数（如 limit/begin）来实现自定义截断逻辑

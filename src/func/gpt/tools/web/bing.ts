@@ -241,5 +241,18 @@ export const bingSearchTool: Tool = {
                 data: error
             };
         }
+    },
+
+    formatForLLM: (data: {
+        title: string;
+        link: string;
+        description: string;
+    }[]): string => {
+        if (!data || data.length === 0) {
+            return 'No search results found.';
+        }
+        return data.map((item, index) => {
+            return `Title: ${item.title}\nLink: ${item.link}\nDescription: ${item.description}`;
+        }).join('\n---\n');
     }
 };

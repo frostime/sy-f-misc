@@ -834,5 +834,22 @@ export const webPageContentTool: Tool = {
             return String(data);
         }
         return data.join('\n\n---\n\n');
+    },
+
+    // 截断器：考虑 begin 和 limit 参数
+    truncateForLLM: (formatted: string, args: Record<string, any>) => {
+        const begin = args.begin ?? 0;
+        const limit = normalizeLimit(args.limit, 5000);
+
+        // 应用 begin 偏移
+        let content = begin > 0 ? formatted.substring(begin) : formatted;
+
+        // 应用 limit 截断
+        if (limit > 0 && content.length > limit) {
+            content = content.substring(0, limit);
+            content += `\n\n[内容过长，已从位置 ${begin} 截断为 ${limit} 字符]`;
+        }
+
+        return content;
     }
 };

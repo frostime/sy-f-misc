@@ -399,33 +399,38 @@ ${group.rulePrompt.trim()}
         try {
             result = await tool.execute(args);
         } catch (error) {
-            return {
+            const errorResult: ToolExecuteResult = {
                 status: ToolExecuteStatus.ERROR,
-                error: `Error executing tool ${toolName}: ${error.message}`
+                error: `Error executing tool ${toolName}: ${error.message}`,
+                finalText: `Error executing tool ${toolName}: ${error.message}`
             };
+            return errorResult;
         }
 
-        // 如果工具执行失败，直接返回结果
+        // 如果工具执行失败，为错误也生成 finalText
         if (result.status !== ToolExecuteStatus.SUCCESS) {
-            return {
-                ...result,
-                finalText: JSON.stringify(result.data, null, 2) || result.status.toString(),
-            }
+            result.finalText = result.error || 'Tool execution failed';
+            return result;
         }
 
         // === 处理成功结果的数据 ===
         // 1. 格式化：将原始数据转为文本
+        // 如果工具执行时已经提供了 formattedText（如 Python 脚本自定义 format），则直接使用
         let formatted: string;
-        try {
-            if (tool.formatForLLM) {
-                formatted = tool.formatForLLM(result.data);
-            } else if (typeof result.data === 'string') {
-                formatted = result.data;
-            } else {
-                formatted = JSON.stringify(result.data, null, 2);
+        if (result.formattedText) {
+            formatted = result.formattedText;
+        } else {
+            try {
+                if (tool.formatForLLM) {
+                    formatted = tool.formatForLLM(result.data);
+                } else if (typeof result.data === 'string') {
+                    formatted = result.data;
+                } else {
+                    formatted = JSON.stringify(result.data, null, 2);
+                }
+            } catch (error) {
+                formatted = `[格式化错误] ${error.message}`;
             }
-        } catch (error) {
-            formatted = `[格式化错误] ${error.message}`;
         }
 
         //2. 截断处理
