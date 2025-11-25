@@ -8,7 +8,7 @@
  */
 import { addScript } from "../../utils";
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
-import { normalizeLimit, processToolOutput, truncateContent } from '../utils';
+import { normalizeLimit, truncateContent } from '../utils';
 
 /**
  * 验证URL是否有效
@@ -821,15 +821,18 @@ export const webPageContentTool: Tool = {
             };
         }
 
-        processToolOutput({
-            toolKey: 'webpage',
-            content: results.join('\n\n---\n\n'),
-            toolCallInfo: { name: 'Webpage', args }
-        });
-
+        // 返回原始数据数组
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: results.join('\n\n---\n\n')
+            data: results
         };
+    },
+
+    // 格式化器：将原始结果数组转换为适合 LLM 的文本
+    formatForLLM: (data: any[]) => {
+        if (!Array.isArray(data)) {
+            return String(data);
+        }
+        return data.join('\n\n---\n\n');
     }
 };

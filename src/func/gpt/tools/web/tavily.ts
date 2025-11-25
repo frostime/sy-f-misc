@@ -7,7 +7,6 @@
  */
 import { globalMiscConfigs } from '../../setting/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
-import { processToolOutput } from '../utils';
 
 export interface TavilySearchResponse {
     query: string;
@@ -297,13 +296,7 @@ export const tavilySearchTool: Tool = {
             };
         }
 
-        //单纯保存记录而已
-        processToolOutput({
-            toolKey: 'tavily-search',
-            content: JSON.stringify(result, null, 2),
-            toolCallInfo: { name: 'TavilySearch', args }
-        });
-
+        // 直接返回原始结果对象
         return {
             status: ToolExecuteStatus.SUCCESS,
             data: result

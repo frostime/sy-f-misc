@@ -1,6 +1,5 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import {
-    processToolOutput,
     normalizeLimit,
     formatWithLineNumber,
     formatFileSize,
@@ -326,7 +325,6 @@ export const treeListTool: Tool = {
     execute: async (args: { path: string; depth?: number; skipHiddenDir?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
         const { path: startPath, depth = 1, skipHiddenDir = true } = args;
         const MAX_DEPTH = 7;
-        const outputLimit = normalizeLimit(args.limit);
 
         // 处理深度参数：-1 表示深度搜索，使用最大深度限制
         const effectiveDepth = depth === -1 ? MAX_DEPTH : Math.min(depth, MAX_DEPTH);
@@ -388,15 +386,10 @@ export const treeListTool: Tool = {
 
         const result = listDirRecursive(resolvedPath, 0, '', '', skipHiddenDir);
         const fullOutput = [resolvedPath, ...result].join('\n');
-        const processResult = processToolOutput({
-            toolKey: 'TreeList',
-            content: fullOutput,
-            toolCallInfo: { name: 'TreeList', args },
-            truncateForLLM: outputLimit
-        });
+        // 直接返回原始 fullOutput
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: processResult.output
+            data: fullOutput
         };
     }
 };
@@ -480,7 +473,6 @@ export const searchInFileTool: Tool = {
         }
 
         const filePath: string = path.resolve(args.path);
-        const outputLimit = normalizeLimit(args.limit);
 
         if (!fs.existsSync(filePath)) {
             return {
@@ -546,16 +538,10 @@ export const searchInFileTool: Tool = {
             });
 
             const fullOutput = resultMsg.trim();
-            const processResult = processToolOutput({
-                toolKey: 'SearchInFile',
-                content: fullOutput,
-                toolCallInfo: { name: 'SearchInFile', args },
-                truncateForLLM: outputLimit
-            });
-
+            // 直接返回原始 fullOutput
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: processResult.output
+                data: fullOutput
             };
 
         } catch (error: any) {
@@ -631,7 +617,6 @@ export const searchInDirectoryTool: Tool = {
         }
 
         const dirPath = path.resolve(args.path);
-        const outputLimit = normalizeLimit(args.limit);
 
         if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
             return {
@@ -830,16 +815,10 @@ export const searchInDirectoryTool: Tool = {
             }
 
             const fullOutput = resultMsg;
-            const processResult = processToolOutput({
-                toolKey: 'SearchInDirectory',
-                content: fullOutput,
-                toolCallInfo: { name: 'SearchInDirectory', args },
-                truncateForLLM: outputLimit
-            });
-
+            // 直接返回原始 fullOutput
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: processResult.output
+                data: fullOutput
             };
 
         } catch (error: any) {
@@ -918,7 +897,6 @@ export const searchFilesTool: Tool = {
         }
 
         const dirPath = path.resolve(args.path);
-        const outputLimit = normalizeLimit(args.limit);
         const useRegex = args.regex ?? true;
         const maxDepth = args.maxDepth ?? 5;
         const maxResults = args.maxResults ?? 50;
@@ -1028,16 +1006,10 @@ export const searchFilesTool: Tool = {
         });
 
         const fullOutput = resultMsg.trim();
-        const processResult = processToolOutput({
-            toolKey: 'SearchFiles',
-            content: fullOutput,
-            toolCallInfo: { name: 'SearchFiles', args },
-            truncateForLLM: outputLimit
-        });
-
+        // 直接返回原始 fullOutput
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: processResult.output
+            data: fullOutput
         };
     }
 };

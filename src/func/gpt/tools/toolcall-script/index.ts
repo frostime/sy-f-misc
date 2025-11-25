@@ -13,7 +13,6 @@ import { ToolExecutor } from "../executor";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { complete } from "../../openai/complete";
 import * as store from "@gpt/setting/store";
-import { processToolOutput } from "../utils";
 
 const FORMALIZE_MAX_INPUT_LENGTH = 32000;
 
@@ -324,11 +323,7 @@ const createToolCallScriptTool = (executor: ToolExecutor): Tool => {
 
             try {
                 const output = await executeScript(script, executor, timeoutSeconds);
-                processToolOutput({
-                    toolKey: 'toolcall-script',
-                    content: output,
-                    toolCallInfo: { name: 'ToolCallScript', args }
-                });
+                // 直接返回原始 output
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: output

@@ -1,6 +1,6 @@
 // src/func/gpt/tools/script/index.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
-import { processToolOutput, normalizeLimit, DEFAULT_LIMIT_CHAR } from './utils';
+import { DEFAULT_LIMIT_CHAR } from './utils';
 
 /**
  * 脚本执行工具组
@@ -61,7 +61,6 @@ const shellTool: Tool = {
     execute: async (args: { command: string; directory?: string; limit?: number }): Promise<ToolExecuteResult> => {
         // 确定执行目录
         const cwd = args.directory ? path.resolve(args.directory) : process.cwd();
-        const outputLimit = normalizeLimit(args.limit);
 
         // 创建临时脚本文件
         const isWindows = os.platform() === 'win32';
@@ -118,27 +117,19 @@ ${args.command}
                 stdout = stdout.trim();
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
-                // const exitCode = error && typeof (error as any).code !== 'undefined' ? (error as any).code : 0;
-
-                const result = processToolOutput({
-                    toolKey: 'shell',
-                    content: fullOutput,
-                    toolCallInfo: { name: 'Shell', args },
-                    truncateForLLM: outputLimit
-                });
-                const summary = result.output;
 
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
-                        error: `Shell execution error: ${error.message}\n${summary}`
+                        error: `Shell execution error: ${error.message}\n${fullOutput}`
                     });
                     return;
                 }
 
+                // 直接返回原始 fullOutput
                 resolve({
                     status: ToolExecuteStatus.SUCCESS,
-                    data: summary
+                    data: fullOutput
                 });
             });
         });
@@ -189,7 +180,6 @@ const pythonTool: Tool = {
         }
         const timestamp = new Date().getTime();
         const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
-        const outputLimit = normalizeLimit(args.limit);
 
         // 在 Python 代码前添加编码设置，防止中文乱码
         const fixedCode = `
@@ -224,25 +214,18 @@ ${args.code}
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
 
-                const result = processToolOutput({
-                    toolKey: 'python',
-                    content: fullOutput,
-                    toolCallInfo: { name: 'Python', args },
-                    truncateForLLM: outputLimit
-                });
-                const summary = result.output;
-
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
-                        error: `Python execution error: ${error.message}\n${summary}`
+                        error: `Python execution error: ${error.message}\n${fullOutput}`
                     });
                     return;
                 }
 
+                // 直接返回原始 fullOutput
                 resolve({
                     status: ToolExecuteStatus.SUCCESS,
-                    data: summary
+                    data: fullOutput
                 });
             });
         });

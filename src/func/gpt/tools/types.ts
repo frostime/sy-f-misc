@@ -58,6 +58,18 @@ export interface ToolExecuteResult {
 
     // 用户拒绝原因（用户拒绝时）
     rejectReason?: string;
+
+    // === 以下字段由 ToolExecutor.execute 自动填充 ===
+    // 是否被截断
+    isTruncated?: boolean;
+
+    // 格式化后的数据 ( data --> format)
+    formattedText?: string;
+    // 最终发送给 LLM 的文本 ( data --> format --> truncate)
+    finalText?: string;
+
+    // 缓存文件路径（原始数据保存位置）
+    cacheFile?: string;
 }
 
 /**
@@ -109,6 +121,7 @@ export type ToolExecuteFunction = (
 
 /**
  * 工具对象
+ * execute --> format --> truncate --> LLM 模型
  */
 export interface Tool {
     definition: ToolDefinitionWithPermission;
@@ -119,6 +132,15 @@ export interface Tool {
 
     // 可选的结果压缩函数，用于在工具链日志中显示简化的结果信息
     compressResult?: (result: ToolExecuteResult) => string;
+
+    // 格式化函数：将原始 data 转换为适合 LLM 的文本
+    // 如果未定义，将使用默认格式化逻辑（JSON.stringify）
+    formatForLLM?: (data: any) => string;
+
+    // 截断函数：对格式化后的文本进行截断处理
+    // 工具可以使用自己的 args 参数（如 limit/begin）来实现自定义截断逻辑
+    // 如果未定义，将使用默认的头尾截断逻辑
+    truncateForLLM?: (formatted: string, args: Record<string, any>) => string;
 
     // group?: 'web' | 'siyuan' | 'file-system';
 }

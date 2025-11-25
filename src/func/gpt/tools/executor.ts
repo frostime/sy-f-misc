@@ -9,7 +9,7 @@ import {
     ToolGroup
 } from './types';
 import { toolsManager } from '../setting/store';
-
+import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
 
 /**
  * 工具注册表
@@ -407,8 +407,77 @@ ${group.rulePrompt.trim()}
 
         // 如果工具执行失败，直接返回结果
         if (result.status !== ToolExecuteStatus.SUCCESS) {
-            return result;
+            return {
+                ...result,
+                finalText: JSON.stringify(result.data, null, 2) || result.status.toString(),
+            }
         }
+
+        // === 处理成功结果的数据 ===
+        // 1. 格式化：将原始数据转为文本
+        let formatted: string;
+        try {
+            if (tool.formatForLLM) {
+                formatted = tool.formatForLLM(result.data);
+            } else if (typeof result.data === 'string') {
+                formatted = result.data;
+            } else {
+                formatted = JSON.stringify(result.data, null, 2);
+            }
+        } catch (error) {
+            formatted = `[格式化错误] ${error.message}`;
+        }
+
+        //2. 截断处理
+        let originalLength = formatted.length;
+        let finalForLLM = formatted;
+        let isTruncated = false;
+        if (tool.truncateForLLM) {
+            // 使用工具自己的截断逻辑（可能考虑 args 中的 limit/begin）
+            finalForLLM = tool.truncateForLLM(formatted, args);
+            isTruncated = finalForLLM.length < originalLength;
+        } else {
+            let limit = DEFAULT_LIMIT_CHAR;
+            if (args.limit !== undefined) {
+                // 0 意味着不截断
+                limit = args.limit <= 0 ? Number.POSITIVE_INFINITY : args.limit;
+            }
+            // 使用默认的头尾截断
+            const truncResult = truncateContent(formatted, limit);
+            finalForLLM = truncResult.content;
+            isTruncated = truncResult.isTruncated;
+        }
+
+        result.formattedText = formatted;
+        result.isTruncated = isTruncated;
+        result.finalText = finalForLLM;
+
+        // 3. 缓存原始数据到本地文件
+        const cacheFile = cacheToolCallResult(toolName, args, result);
+        result.cacheFile = cacheFile;
+
+        const sysHintHeader = [];
+        if (isTruncated) {
+            sysHintHeader.push(`[system log] 原始完整结果内容过长 (${originalLength} 字符)，已截断为 ${finalForLLM.length} 字符`);
+        }
+        if (cacheFile) {
+            sysHintHeader.push(`[system log] 原始完整结果已缓存至文件: ${cacheFile}, 如有需求可尝试访问获取所有结果`);
+        }
+        if (sysHintHeader.length > 0) {
+            result.finalText = sysHintHeader.join('\n') + '=====' + result.finalText;
+        }
+
+
+        // const formattedData = formatToolOutputForLLM({
+        //     tool: {
+        //         formatForLLM: tool.formatForLLM,
+        //         truncateForLLM: tool.truncateForLLM
+        //     },
+        //     toolName,
+        //     rawData: result.data,
+        //     args,
+        //     cacheFile
+        // });
 
         // 结果审批检查
         const shouldCheckResult =
@@ -421,13 +490,16 @@ ${group.rulePrompt.trim()}
                 return {
                     status: ToolExecuteStatus.RESULT_REJECTED,
                     data: result.data,  // 保留原始数据，以便调用者可以访问
+                    formattedText: result.formattedText,
+                    cacheFile: result.cacheFile,
+                    isTruncated: result.isTruncated,
                     error: 'Result not approved for LLM',
                     rejectReason: approval.rejectReason
                 };
             }
         }
 
-        // 返回成功结果
+        // 返回增强后的成功结果
         return result;
     }
 }

@@ -9,7 +9,6 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "../types";
 import { scanCustomScriptsWithSmartLoad, ParsedToolModule, getEnvVars } from './resolve-tools';
 import { createTempRunDir, cleanupTempDir } from './utils';
-import { processToolOutput, normalizeLimit } from '../utils';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
@@ -34,8 +33,7 @@ interface CustomToolExecutionContext {
  * 执行自定义 Python 工具
  */
 const executeCustomPythonTool = async (context: CustomToolExecutionContext): Promise<ToolExecuteResult> => {
-    const { scriptPath, functionName, args, timeout = DEFAULT_TIMEOUT, outputLimit } = context;
-    const limit = normalizeLimit(outputLimit);
+    const { scriptPath, functionName, args, timeout = DEFAULT_TIMEOUT } = context;
 
     // 创建临时运行目录
     const tempDir = createTempRunDir();
@@ -154,35 +152,17 @@ except Exception as e:
                             return;
                         }
 
-                        // 处理结果
-                        // let resultData = JSON.stringify(result.result);
-                        let resultData = result.result;
-
-                        const processResult = processToolOutput({
-                            toolKey: `custom_${functionName}`,
-                            content: resultData,
-                            toolCallInfo: { name: `Custom Tool: ${functionName}`, args },
-                            truncateForLLM: limit
-                        });
-                        resultData = processResult.output;
-
+                        // 直接返回原始数据，不做任何格式化
                         resolve({
                             status: ToolExecuteStatus.SUCCESS,
-                            data: resultData
+                            data: result.result
                         });
 
                     } catch (parseError) {
                         // JSON 解析失败，返回原始输出
-                        const rawOutput = stdout.trim();
-                        const processResult = processToolOutput({
-                            toolKey: `custom_${functionName}`,
-                            content: rawOutput,
-                            toolCallInfo: { name: `Custom Tool: ${functionName}`, args },
-                            truncateForLLM: limit
-                        });
                         resolve({
                             status: ToolExecuteStatus.SUCCESS,
-                            data: processResult.output
+                            data: stdout.trim()
                         });
                     }
                 }

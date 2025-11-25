@@ -1,5 +1,5 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
-import { normalizeLimit, processToolOutput } from '../utils';
+import { normalizeLimit } from '../utils';
 
 // 通过 window.require 引入 Node.js 模块
 const fs = window?.require?.('fs');
@@ -167,17 +167,10 @@ export const markitdownTool: Tool = {
             
             contentWithMeta += `\n--- 文件内容 ---\n${rangeContent}`;
 
-            // 使用 processToolOutput 统一处理缓存、截断和格式化
-            const result = processToolOutput({
-                toolKey: 'markitdown',
-                content: contentWithMeta,
-                toolCallInfo: { name: 'MarkitdownRead', args },
-                truncateForLLM: limit
-            });
-
+            // 直接返回原始 contentWithMeta
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: result.output
+                data: contentWithMeta
             };
 
         } catch (error: any) {

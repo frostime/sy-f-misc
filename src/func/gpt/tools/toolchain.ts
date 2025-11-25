@@ -397,11 +397,18 @@ export async function executeToolChain(
                 }
 
                 // 构建工具结果消息
-                const toolResultContent = JSON.stringify(
-                    toolResult.status === ToolExecuteStatus.SUCCESS
-                        ? toolResult.data
-                        : { error: toolResult.error || 'Tool execution failed' }
-                );
+                let toolResultContent: string;
+
+                if (toolResult.status === ToolExecuteStatus.SUCCESS) {
+                    // 直接使用 executor 已经处理好的 finalText
+                    // executor.execute 已经完成了：缓存 + 格式化 + 截断 + hints
+                    toolResultContent = toolResult.finalText ?? JSON.stringify(toolResult.data);
+                } else {
+                    // 错误情况：直接 JSON 序列化
+                    toolResultContent = JSON.stringify({
+                        error: toolResult.error || 'Tool execution failed'
+                    });
+                }
 
                 // 创建工具结果消息
                 const toolResultMessage = {
