@@ -489,7 +489,8 @@ ${ruleContent.trim()}
             // 使用默认的头尾截断
             const truncResult = truncateContent(formatted, limit);
             finalForLLM = truncResult.content;
-            isTruncated = truncResult.isTruncated;
+            // isTruncated = truncResult.isTruncated;
+            isTruncated = finalForLLM.length < originalLength;
         }
 
         result.formattedText = formatted;
@@ -497,14 +498,17 @@ ${ruleContent.trim()}
         result.finalText = finalForLLM;
 
         // 3. 缓存原始数据到本地文件
-        const cacheFile = cacheToolCallResult(toolName, args, result);
-        result.cacheFile = cacheFile;
+        let cacheFile = null;
+        if (tool.SKIP_CACHE_RESULT !== true) {
+            cacheFile = cacheToolCallResult(toolName, args, result);
+            result.cacheFile = cacheFile;
+        }
 
         const sysHintHeader = [];
         if (isTruncated) {
             sysHintHeader.push(`[system log] 原始完整结果内容过长 (${originalLength} 字符)，已截断为 ${finalForLLM.length} 字符`);
         }
-        if (cacheFile) {
+        if (result.cacheFile) {
             sysHintHeader.push(`[system log] 原始完整结果已缓存至文件: ${cacheFile}, 如有需求可尝试访问获取所有结果`);
         }
         if (sysHintHeader.length > 0) {

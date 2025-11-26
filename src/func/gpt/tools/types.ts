@@ -129,6 +129,8 @@ export interface Tool {
     SKIP_EXTERNAL_TRUNCATE?: boolean;
     DEFAULT_OUTPUT_LIMIT_CHAR?: number;
 
+    SKIP_CACHE_RESULT?: boolean;
+
     /**
      * 声明工具成功执行后 result.data 的类型（用于 ToolCallScript 参考）
      * 这有助于 LLM 在编写脚本时了解 TOOL_CALL 返回的数据结构

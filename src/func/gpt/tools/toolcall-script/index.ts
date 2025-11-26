@@ -350,6 +350,9 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 
     // CheckToolDataType 工具：查询工具的返回数据类型
     const checkToolReturnTypeTool: Tool = {
+        SKIP_CACHE_RESULT: true,
+        SKIP_EXTERNAL_TRUNCATE: true,
+
         definition: {
             type: 'function',
             function: {

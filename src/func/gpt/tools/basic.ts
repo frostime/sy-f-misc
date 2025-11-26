@@ -23,6 +23,9 @@ const datetimeTool: Tool = {
         note: 'ISO 字符串或指定格式的日期时间'
     },
 
+    SKIP_CACHE_RESULT: true,
+    SKIP_EXTERNAL_TRUNCATE: true,
+
     definition: {
         type: 'function',
         function: {

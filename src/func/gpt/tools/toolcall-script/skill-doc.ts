@@ -201,6 +201,10 @@ const getAvailableTopics = (): string[] => Object.keys(SKILL_DOCS);
  * ToolCallScript 技能文档查询工具
  */
 export const toolCallScriptDocTool: Tool = {
+
+    SKIP_CACHE_RESULT: true,
+    SKIP_EXTERNAL_TRUNCATE: true,
+
     definition: {
         type: 'function',
         function: {
