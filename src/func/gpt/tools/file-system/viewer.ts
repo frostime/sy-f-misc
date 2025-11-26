@@ -248,6 +248,8 @@ const TEXT_FILE = [
     'csv', 'log'
 ];
 export const fileStateTool: Tool = {
+    SKIP_CACHE_RESULT: true,
+    SKIP_EXTERNAL_TRUNCATE: true,
     definition: {
         type: 'function',
         function: {

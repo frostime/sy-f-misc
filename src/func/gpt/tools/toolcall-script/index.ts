@@ -289,6 +289,11 @@ Available APIs in script:
         requireResultApproval: true
     },
 
+    declaredReturnType: {
+        type: 'string',
+        note: 'Aggregated console output from the script execution, including any warnings or errors.'
+    },
+
     // 占位 execute 函数，实际使用 createToolCallScriptTool 创建
     execute: async (): Promise<ToolExecuteResult> => {
         return {
@@ -450,45 +455,33 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
         name: 'Tool Orchestration',
         tools: [toolCallScriptTool, checkToolReturnTypeTool, toolCallScriptDocTool],
         rulePrompt: `
-## ToolCallScript - 工具编排脚本 ##
+## ToolCallScript - 高级工具编排 ##
 
-在沙箱中执行 JS 脚本编排复杂的多工具调用（禁用 document/window/eval 等）。
+允许你编写 JavaScript 脚本来编排复杂的工具调用流程。
 
-**可用 API**:
-- \`await TOOL_CALL(toolName, args)\`: 调用工具，返回原始 data（非格式化文本）
-- \`await FORMALIZE(text, typeDescription)\`: LLM 将文本转为 JSON（设计好类型定义！）
-- \`await SLEEP(ms)\` / \`await PARALLEL(...promises)\`
-- \`console.log/warn/error\`: 输出作为返回值
+### ⚠️ 核心工作流 (必须遵守) ###
 
-**转义字符**（避免 JSON 解析错误）:
-\`_esc_dquote_\` → \`"\` | \`_esc_backslash_\` → \`\\\` | 优先用单引号 '
+1. **🔍 检查类型 (Check)**: 在编写脚本前，**必须**先调用 \`CheckToolReturnType\` 查询你要使用的工具返回什么数据结构。
+   - **切记**: 脚本中 \`TOOL_CALL\` 返回的是**原始对象**，不是你在对话中看到的格式化文本。
+   - *不要猜测字段名，先查清楚！*
 
-### 关键规则 ###
-- 必须用 \`await\` 调用异步 API
-- **TOOL_CALL 返回原始 data 对象**，与工具 description 中描述的返回类型一致
-  - 注意：直接调用工具时 LLM 看到的是格式化后的文本，但脚本中拿到的是结构化数据
-  - 不确定数据结构时，调用 **CheckToolReturnType** 查询，或用 \`console.log(result)\` 探索
-  - 详情查看 \`data-format-reference\` 技能文档
-- FORMALIZE 最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，本质是 LLM 调用，勿滥用
-- 合并多个 FORMALIZE 请求为数组类型，减少调用次数
-- 部分工具有 limit 参数，脚本中通常需要完整数据，建议设为 -1
+2. **📚 查阅文档 (Learn)**: 如果不熟悉脚本写法，调用 \`ToolCallScriptDoc\` 查询 \`best-practices\` 或 \`example-basic\`。
 
-## CheckToolReturnType - 工具返回类型查询 ##
+3. **✍️ 编写脚本 (Code)**: 
+   - 使用 \`await TOOL_CALL(name, args)\` 调用工具。
+   - 使用 \`console.log()\` 输出结果。
+   - 必须处理错误 (try-catch)。
 
-调用 **CheckToolReturnType** 查询工具的返回数据类型，了解数据结构后再编写脚本。
+### 脚本环境 API ###
+- \`await TOOL_CALL(toolName, args)\`: 返回原始 Data (Object/Array)。
+- \`await FORMALIZE(text, typeDescription)\`: LLM 提取结构化数据。
+- \`await SLEEP(ms)\`, \`await PARALLEL(...promises)\`
+- \`console.log/warn/error\`: 脚本的输出方式。
 
-## ToolCallScriptDoc - 技能文档索引 ##
-
-调用 **ToolCallScriptDoc** 获取详细文档。**首次编写脚本建议先查 best-practices！**
-
-| 主题 | 内容摘要 | 何时查询 |
-|------|----------|----------|
-| \`best-practices\` | await 使用、错误处理、JSON 转义、FORMALIZE 技巧 | 首次编写脚本、遇到问题时 |
-| \`data-format-reference\` | TOOL_CALL 返回数据说明与示例 | 理解 TOOL_CALL 返回的结构化数据 |
-| \`example-basic\` | 基础示例：读取文件、简单处理、输出结果 | 学习基本用法 |
-| \`example-formalize\` | FORMALIZE 示例：从文本提取结构化数据 | 需要解析非结构化文本 |
-| \`example-parallel\` | PARALLEL 示例：并行搜索、合并结果 | 需要并发执行多个工具 |
-| \`example-complex\` | 复杂编排：搜索→获取→提取的完整流程 | 编写多步骤复杂脚本 |
+### 常见错误 ###
+- ❌ 假设工具返回 Markdown 字符串 -> ✅ 实际上通常返回 JSON 对象/数组。
+- ❌ 忘记 \`await\` -> ✅ 异步操作必须 await。
+- ❌ JSON 字符串中包含未转义字符 -> ✅ 使用 \`_esc_dquote_\` 等占位符。
 `.trim()
     });
     return executor;

@@ -6,6 +6,24 @@ const os = window?.require?.('os');
 
 const MAX_LOG_NUMBER = 100;
 
+export const formatWithXMLTags = (options: {
+    tagName: string; content: string; attrs?: Record<string, string>;
+}): string => {
+    const { tagName, content, attrs = {} } = options;
+    // const indentStr = ' '.repeat(indent);
+    const attrsStr = Object.entries(attrs)
+        .map(([key, value]) => ` ${key}="${value.replace(/"/g, '&quot;')}"`)
+        .join('');
+    let body = `<${tagName}${attrsStr}>`;
+    if (content.includes('\n')) {
+        body += `\n${content}\n`;
+    } else {
+        body += content;
+    }
+    body += `</${tagName}>`;
+    return body;
+}
+
 /**
  * 获取临时目录根路径
  * 使用 realpathSync.native 避免 Windows 8.3 短文件名格式

@@ -7,7 +7,7 @@
  */
 import { globalMiscConfigs } from '../../setting/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
-import { normalizeLimit, truncateContent } from '../utils';
+import { formatWithXMLTags, normalizeLimit, truncateContent } from '../utils';
 
 export interface TavilySearchResponse {
     query: string;
@@ -160,20 +160,31 @@ export function formatTavilyResults(results: TavilySearchResponse): string {
     let markdown = `## Search Results for: "${results.query}"\n\n`;
 
     if (results.answer) {
-        markdown += `### Answer\n${results.answer}\n\n`;
+        // markdown += `### Answer\n${results.answer}\n\n`;
+        markdown += formatWithXMLTags({ tagName: 'Answer', content: results.answer }) + '\n\n';
     }
 
     results.results.forEach((result, index) => {
-        markdown += `### ${index + 1}. [${result.title}](${result.url})\n`;
-        markdown += `${result.content}\n\n`;
+        // markdown += `### ${index + 1}. [${result.title}](${result.url})\n`;
+        // markdown += `${result.content}\n\n`;
+        markdown += formatWithXMLTags({
+            tagName: `Result${index + 1}`,
+            content: `Title: ${result.title}\nURL: ${result.url}\nContent: ${result.content}`
+        }) + '\n\n';
     });
 
     if (results.images && results.images.length > 0) {
-        markdown += `### Images\n`;
-        results.images.forEach((image, index) => {
-            markdown += `${index + 1}. ![Image](${image.url})${image.description ? ` - ${image.description}` : ''}\n`;
-        });
-        markdown += '\n';
+        // markdown += `### Images\n`;
+        // results.images.forEach((image, index) => {
+        //     markdown += `${index + 1}. ![Image](${image.url})${image.description ? ` - ${image.description}` : ''}\n`;
+        // });
+        // markdown += '\n';
+        markdown += formatWithXMLTags({
+            tagName: 'Images',
+            content: results.images.map((image, index) => {
+                return `Image${index + 1}: URL: ${image.url}${image.description ? `, Description: ${image.description}` : ''}`;
+            }).join('\n')
+        }) + '\n\n';
     }
 
     markdown += `*Search performed: ${new Date(results.created_at).toLocaleString()} (took ${results.time}s)*\n`;
