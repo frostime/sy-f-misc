@@ -58,6 +58,18 @@ export interface ToolExecuteResult {
 
     // 用户拒绝原因（用户拒绝时）
     rejectReason?: string;
+
+    // === 以下字段由 ToolExecutor.execute 自动填充 ===
+    // 是否被截断
+    isTruncated?: boolean;
+
+    // 格式化后的数据 ( data --> format)
+    formattedText?: string;
+    // 最终发送给 LLM 的文本 ( data --> format --> truncate)
+    finalText?: string;
+
+    // 缓存文件路径（原始数据保存位置）
+    cacheFile?: string;
 }
 
 /**
@@ -109,9 +121,27 @@ export type ToolExecuteFunction = (
 
 /**
  * 工具对象
+ * execute --> format --> truncate --> LLM 模型
  */
 export interface Tool {
     definition: ToolDefinitionWithPermission;
+
+    SKIP_EXTERNAL_TRUNCATE?: boolean;
+    DEFAULT_OUTPUT_LIMIT_CHAR?: number;
+
+    SKIP_CACHE_RESULT?: boolean;
+
+    /**
+     * 声明工具成功执行后 result.data 的类型（用于 ToolCallScript 参考）
+     * 这有助于 LLM 在编写脚本时了解 TOOL_CALL 返回的数据结构
+     */
+    declaredReturnType?: {
+        /** TypeScript 类型表达式，如 "DocumentSummary[]" 或 "{ id: string; content: string }" */
+        type: string;
+        /** 补充说明，如字段含义、特殊情况等 */
+        note?: string;
+    };
+
     execute: ToolExecuteFunction;
 
     // 可选的参数压缩函数，用于在工具链日志中显示简化的参数信息
@@ -120,14 +150,28 @@ export interface Tool {
     // 可选的结果压缩函数，用于在工具链日志中显示简化的结果信息
     compressResult?: (result: ToolExecuteResult) => string;
 
+    // 格式化函数：将原始 data 转换为适合 LLM 的文本
+    // 如果未定义，将使用默认格式化逻辑（JSON.stringify）
+    formatForLLM?: (data: ToolExecuteResult['data'], args: Record<string, any>) => string;
+
+    // 截断函数：对格式化后的文本进行截断处理
+    // 工具可以使用自己的 args 参数（如 limit/begin）来实现自定义截断逻辑
+    // 如果未定义，将使用默认的头尾截断逻辑
+    truncateForLLM?: (formatted: string, args: Record<string, any>) => string;
+
     // group?: 'web' | 'siyuan' | 'file-system';
 }
 
 export interface ToolGroup {
     name: string;
     tools: Tool[];
-    rulePrompt?: string;
-    dynamicPromptFunction?: () => string;  //为后面做 Memory 机制做准备
+    /**
+     * 工具组的规则提示
+     * - 字符串：静态提示
+     * - 函数：动态提示，接收当前启用的工具名列表作为参数
+     */
+    rulePrompt?: string | ((enabledToolNames: string[]) => string);
+    // dynamicStatePrompt?: () => string;  //为后面做 Memory 机制做准备
 }
 
 export interface IExternalToolUnit {

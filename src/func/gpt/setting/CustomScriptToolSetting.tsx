@@ -40,7 +40,8 @@ def _utils():
     # 工具类函数请加上 _ 前缀，避免被解析为工具
     pass
 
-# 请务必做好类型标注，并规范地编写函数注释文档
+
+# 做好类型标注和文档注释; 确保返回结果只有一个；不要返回 tuple!
 def add(a: int, b: int) -> int:
     """将两个整数相加并返回结果
 
@@ -55,12 +56,34 @@ def add(a: int, b: int) -> int:
     return a + b
 
 
-# add.permissionLevel = "moderate"  # 可选，定义工具的权限级别，可选值：public(不需要用户许可即可调用), moderate(需要用户首次审核，之后可以记住选择), sensitive(每次执行都需要用户审核)
+# add.permissionLevel = "moderate"  # 可选，定义工具的权限级别，可选值：public, moderate, sensitive
 # add.requireExecutionApproval = True  # 可选，定义是否每次执行都需要用户审批
-# add.requireResultApproval = True  # 可选，定义是否需要用户审批结果
-\`\`\`
+# add.requireResultApproval = False  # 可选，定义是否需要用户审批结果
 
-依赖的外部变量（如 APIKEY 等），请通过环境变量传入，点击 "脚本环境变量" 按钮即可设置。
+
+def get_weather(city: str) -> str:
+    """获取指定城市的天气信息
+
+    Args:
+        city (str): 城市名称
+
+    Returns:
+        dict: {'city': str, 'temperature': int, 'condition': str}
+
+    """
+    temp = os.getenv('DEFAULT_TEMPERATURE', '25')
+    # 这里是一个模拟实现，实际应用中应调用天气API获取数据
+    return {'temperature': temp, 'condition': '晴朗'}
+
+
+# 或者 get_weather 返回复杂类型; 增加 format 函数用来专门格式化给 LLM 看
+# 插件的机制是 ToolCall --> [Data Result] --> Format [String] --> Truncate/Cache --> LLM
+# 而在调用 ToolCallScript 工具的时候，await TOOL_CALL 会直接返回 [Data Result]
+get_weather.format = (
+    lambda ans,
+    args: f"{args['city']}的天气{ans['condition']}，温度{ans['temperature']}摄氏度。"
+)
+
 `;
 
 /**

@@ -171,12 +171,14 @@ export const ToolResultApprovalUI: Component<{
 }> = (props) => {
 
     // const dataContent = instanceof(props.result.data, string) ? props.result.data : JSON.stringify(props.result.data);
-    let dataContent = '';
-    if (typeof props.result.data === 'string') {
-        dataContent = props.result.data;
-    } else {
-        dataContent = JSON.stringify(props.result.data);
-    }
+    // let dataContent = props.result.finalText;
+    let dataContent = props.result.finalText ??
+        (typeof props.result.data === 'string' ? props.result.data : JSON.stringify(props.result.data));
+    // if (typeof props.result.data === 'string') {
+    //     dataContent = props.result.data;
+    // } else {
+    //     dataContent = JSON.stringify(props.result.data);
+    // }
 
     return (
         <BaseApprovalUI

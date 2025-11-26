@@ -1,6 +1,6 @@
 // src/func/gpt/tools/script/index.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
-import { processToolOutput, normalizeLimit, DEFAULT_LIMIT_CHAR } from './utils';
+import { DEFAULT_LIMIT_CHAR } from './utils';
 
 /**
  * 脚本执行工具组
@@ -30,6 +30,11 @@ let hasPwsh: boolean | null = null;
  * 执行 Shell 命令工具
  */
 const shellTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '格式为 "[stdout]\n...\n\n[stderr]\n..."'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -61,7 +66,6 @@ const shellTool: Tool = {
     execute: async (args: { command: string; directory?: string; limit?: number }): Promise<ToolExecuteResult> => {
         // 确定执行目录
         const cwd = args.directory ? path.resolve(args.directory) : process.cwd();
-        const outputLimit = normalizeLimit(args.limit);
 
         // 创建临时脚本文件
         const isWindows = os.platform() === 'win32';
@@ -118,27 +122,19 @@ ${args.command}
                 stdout = stdout.trim();
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
-                // const exitCode = error && typeof (error as any).code !== 'undefined' ? (error as any).code : 0;
-
-                const result = processToolOutput({
-                    toolKey: 'shell',
-                    content: fullOutput,
-                    toolCallInfo: { name: 'Shell', args },
-                    truncateForLLM: outputLimit
-                });
-                const summary = result.output;
 
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
-                        error: `Shell execution error: ${error.message}\n${summary}`
+                        error: `Shell execution error: ${error.message}\n${fullOutput}`
                     });
                     return;
                 }
 
+                // 直接返回原始 fullOutput
                 resolve({
                     status: ToolExecuteStatus.SUCCESS,
-                    data: summary
+                    data: fullOutput
                 });
             });
         });
@@ -149,6 +145,11 @@ ${args.command}
  * 执行 Python 脚本工具
  */
 const pythonTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '格式为 "[stdout]\n...\n\n[stderr]\n..."'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -189,7 +190,6 @@ const pythonTool: Tool = {
         }
         const timestamp = new Date().getTime();
         const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
-        const outputLimit = normalizeLimit(args.limit);
 
         // 在 Python 代码前添加编码设置，防止中文乱码
         const fixedCode = `
@@ -224,25 +224,18 @@ ${args.code}
                 stderr = stderr.trim();
                 const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
 
-                const result = processToolOutput({
-                    toolKey: 'python',
-                    content: fullOutput,
-                    toolCallInfo: { name: 'Python', args },
-                    truncateForLLM: outputLimit
-                });
-                const summary = result.output;
-
                 if (error) {
                     resolve({
                         status: ToolExecuteStatus.ERROR,
-                        error: `Python execution error: ${error.message}\n${summary}`
+                        error: `Python execution error: ${error.message}\n${fullOutput}`
                     });
                     return;
                 }
 
+                // 直接返回原始 fullOutput
                 resolve({
                     status: ToolExecuteStatus.SUCCESS,
-                    data: summary
+                    data: fullOutput
                 });
             });
         });
@@ -253,6 +246,11 @@ ${args.code}
  * 执行 JavaScript 代码工具
  */
 const javascriptTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: 'console.log 输出，可能含 Warnings/Errors 部分'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -320,6 +318,11 @@ const javascriptTool: Tool = {
  * 执行 Pandoc 转换工具
  */
 const pandocTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: 'Pandoc stdout 输出（通常是转换后的 Markdown）'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -403,13 +406,15 @@ const scriptName = platform === 'win32' ? 'PowerShell' : 'Bash';
 export const scriptTools: ToolGroup = {
     name: '脚本执行工具组',
     tools: [shellTool, pythonTool, javascriptTool, pandocTool],
-    rulePrompt: `本地脚本执行工具组
+    rulePrompt: `
+## 脚本执行工具组 ##
 
-这些工具适用于需要与系统交互或执行复杂运算的场景，以及在处理大量数据、数学计算、 统计分析、固定流程算法等大语言模型不擅长的领域（如数学计算问题）。
+适用场景：系统交互、数学计算、统计分析、批量处理等 LLM 不擅长的精确计算任务
 
-- Shell 工具：运行当前系统的 ${scriptName} 命令; 通过创建临时脚本文件执行, 请传入完整的脚本代码或者命令代码
-- Python 工具：需确保系统已安装 Python; 返回结果为 python 的标准流输出
-- JavaScript 工具：运行在特殊环境中，禁用 document 对象; 返回结果为 JavaScript console.log 等 api 输出
-- Pandoc 工具：使用思源自带的 Pandoc 进行文档格式转换，默认转换为 Markdown 格式。适用于读取外部 docx 等文件内容。
-`
+**工具选择**:
+- Shell: ${scriptName} 命令/脚本（传入完整代码）
+- Python: 需系统已安装，返回 stdout
+- JavaScript: 沙盒环境（禁用 document），返回 console 输出
+- Pandoc: 文档格式转换（docx→Markdown 等），使用思源自带 Pandoc
+`.trim()
 };

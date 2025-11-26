@@ -1,6 +1,5 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import {
-    processToolOutput,
     normalizeLimit,
     formatWithLineNumber,
     formatFileSize,
@@ -28,7 +27,7 @@ export const readFileTool: Tool = {
         type: 'function',
         function: {
             name: 'ReadFile',
-            description: '读取文件内容，可指定起始行 [beginLine, endLine] 闭区间\n返回 `string`（包含行范围、可选行号及截断提示）',
+            description: '读取文件内容，可指定起始行 [beginLine, endLine] 闭区间',
             parameters: {
                 type: 'object',
                 properties: {
@@ -62,8 +61,12 @@ export const readFileTool: Tool = {
         requireResultApproval: true
     },
 
+    declaredReturnType: {
+        type: '{ filePath: string; content: string; startLine?: number; endLine?: number; totalLines: number }',
+        note: '注意不是纯字符串，而是结构化对象！内容在 content 字段'
+    },
+
     execute: async (args: { path: string; beginLine?: number; endLine?: number; limit?: number; showLineNum?: boolean }): Promise<ToolExecuteResult> => {
-        const limit = normalizeLimit(args.limit);
         const showLineNum = args.showLineNum ?? false;
         const filePath = path.resolve(args.path);
 
@@ -96,41 +99,27 @@ export const readFileTool: Tool = {
 
             // 提取指定行范围（闭区间）
             let resultContent = lines.slice(startLine, endLine + 1).join('\n');
-            let warning = '';
-            if (limit > 0 && resultContent.length > limit) {
-                const originalLen = resultContent.length;
-                const originalLineCount = endLine - startLine + 1;
-                resultContent = resultContent.substring(0, limit);
-                const truncatedLineCount = resultContent.split('\n').length;
-                endLine = startLine + truncatedLineCount - 1;
-                warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)`;
-            }
 
             // 如果需要显示行号，添加行号
             if (showLineNum) {
                 resultContent = formatWithLineNumber(resultContent, startLine + 1);
             }
 
+            // 返回原始数据（文件路径、内容、行范围信息）
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: `
-${warning}
------ 文件 "${filePath}" 内容如下 (${startLine + 1}-${endLine + 1}) -----
-${resultContent}
-`.trim(),
+                data: {
+                    filePath,
+                    content: resultContent,
+                    startLine: startLine + 1,
+                    endLine: endLine + 1,
+                    totalLines
+                }
             };
         }
 
-        // 没有指定行范围，返回全部内容（需应用 limit 限制）
+        // 没有指定行范围，返回全部内容
         let resultContent = content;
-        let warning = '';
-        if (limit > 0 && resultContent.length > limit) {
-            const originalLen = resultContent.length;
-            const originalLineCount = content.split('\n').length;
-            resultContent = resultContent.substring(0, limit);
-            const truncatedLineCount = resultContent.split('\n').length;
-            warning = `⚠️ 原始内容过长 (${originalLen} 字符, ${originalLineCount} 行), 已截断为前 ${limit} 字符 (${truncatedLineCount} 行)`;
-        }
 
         // 如果需要显示行号，添加行号
         if (showLineNum) {
@@ -139,12 +128,34 @@ ${resultContent}
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: `${warning}
---- 文件 "${filePath}" 内容如下 (1-${resultContent.split('\n').length}) ---
-${resultContent}
-`.trim(),
+            data: {
+                filePath,
+                content: resultContent,
+                totalLines: content.split('\n').length
+            }
         };
-    }
+    },
+
+    // 格式化：将结构化数据转换为适合 LLM 的文本
+    formatForLLM: (data: any) => {
+        if (typeof data === 'string') {
+            return data;  // 兼容旧格式
+        }
+        const { filePath, content, startLine, endLine, totalLines } = data;
+        if (startLine && endLine) {
+            return `----- 文件 "${filePath}" 内容如下 (${startLine}-${endLine}) -----\n${content}`;
+        }
+        return `--- 文件 "${filePath}" 内容如下 (1-${totalLines}) ---\n${content}`;
+    },
+
+    // 截断：使用 args.limit 参数，从开头顺序截断
+    // truncateForLLM: (formatted: string, args: Record<string, any>) => {
+    //     const limit = normalizeLimit(args.limit);
+    //     if (limit <= 0 || formatted.length <= limit) {
+    //         return formatted;
+    //     }
+    //     return formatted.substring(0, limit) + `\n\n[内容过长，已截断为前 ${limit} 字符]`;
+    // }
 };
 
 /**
@@ -155,7 +166,7 @@ export const createFileTool: Tool = {
         type: 'function',
         function: {
             name: 'CreateFile',
-            description: '指定路径和内容创建文本文件，如果文件已存在则报错。如果不指定完整路径（相对路径），文件将会被创建到系统临时目录的 siyuan_temp 子目录下\n返回 `{ error: string; path: string }`（error 为空表示成功，path 为实际创建的文件路径）',
+            description: '指定路径和内容创建文本文件，如果文件已存在则报错。如果不指定完整路径（相对路径），文件将会被创建到系统临时目录的 siyuan_temp 子目录下',
             parameters: {
                 type: 'object',
                 properties: {
@@ -172,6 +183,11 @@ export const createFileTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    declaredReturnType: {
+        type: '{ error: string; path: string }',
+        note: 'error 为空字符串表示成功, path 为实际创建的文件路径'
     },
 
     execute: async (args: { path: string; content: string }): Promise<ToolExecuteResult> => {
@@ -232,11 +248,13 @@ const TEXT_FILE = [
     'csv', 'log'
 ];
 export const fileStateTool: Tool = {
+    SKIP_CACHE_RESULT: true,
+    SKIP_EXTERNAL_TRUNCATE: true,
     definition: {
         type: 'function',
         function: {
             name: 'FileState',
-            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）\n返回 `{ path: string; size: string; isDirectory: boolean; createdAt: string; modifiedAt: string; accessedAt: string; lineCount?: number }`',
+            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -249,6 +267,10 @@ export const fileStateTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC,
+    },
+
+    declaredReturnType: {
+        type: '{ path: string; size: string; isDirectory: boolean; createdAt: string; modifiedAt: string; accessedAt: string; lineCount?: number }'
     },
 
     execute: async (args: { path: string }): Promise<ToolExecuteResult> => {
@@ -296,7 +318,7 @@ export const treeListTool: Tool = {
         type: 'function',
         function: {
             name: 'TreeList',
-            description: '树状列出目录内容，支持深度和正则表达式匹配\n返回 `string`（树形目录文本，超长时附截断信息）',
+            description: '树状列出目录内容，支持深度和正则表达式匹配',
             parameters: {
                 type: 'object',
                 properties: {
@@ -323,10 +345,15 @@ export const treeListTool: Tool = {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },
+
+    declaredReturnType: {
+        type: '{ root: string; items: TreeItem[]; treeText: string }',
+        note: 'TreeItem = { name: string; type: "file" | "dir"; size?: string; children?: TreeItem[] }'
+    },
+
     execute: async (args: { path: string; depth?: number; skipHiddenDir?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
         const { path: startPath, depth = 1, skipHiddenDir = true } = args;
         const MAX_DEPTH = 7;
-        const outputLimit = normalizeLimit(args.limit);
 
         // 处理深度参数：-1 表示深度搜索，使用最大深度限制
         const effectiveDepth = depth === -1 ? MAX_DEPTH : Math.min(depth, MAX_DEPTH);
@@ -339,7 +366,17 @@ export const treeListTool: Tool = {
             };
         }
 
-        const listDirRecursive = (dirPath: string, currentDepth: number, prefix: string, relativePath: string = '', skipHiddenDir: boolean = true): string[] => {
+        // 结构化数据类型
+        interface TreeItem {
+            name: string;
+            type: 'file' | 'dir';
+            size?: string;
+            children?: TreeItem[];
+            skipped?: boolean; // 隐藏目录被跳过
+        }
+
+        // 递归构建结构化数据
+        const buildTree = (dirPath: string, currentDepth: number): TreeItem[] => {
             if (currentDepth >= effectiveDepth) {
                 return [];
             }
@@ -348,16 +385,12 @@ export const treeListTool: Tool = {
             try {
                 items = fs.readdirSync(dirPath);
             } catch (error) {
-                return [`${prefix}└── [读取错误: ${error.message}]`];
+                return [];
             }
 
-            const output: string[] = [];
-            items.forEach((item, index) => {
+            const result: TreeItem[] = [];
+            for (const item of items) {
                 const itemPath = path.join(dirPath, item);
-                const itemRelativePath = relativePath ? `${relativePath}/${item}` : item;
-                const isLast = index === items.length - 1;
-                const newPrefix = prefix + (isLast ? '    ' : '│   ');
-                const entryPrefix = prefix + (isLast ? '└── ' : '├── ');
 
                 try {
                     const stats = fs.statSync(itemPath);
@@ -366,39 +399,85 @@ export const treeListTool: Tool = {
                     if (isDirectory) {
                         const isHiddenDir = item.startsWith('.');
                         if (isHiddenDir && skipHiddenDir) {
-                            output.push(`${entryPrefix}${item}/ (内部结构略)`);
+                            result.push({
+                                name: item,
+                                type: 'dir',
+                                skipped: true
+                            });
                         } else {
-                            output.push(`${entryPrefix}${item}/`);
-                        }
-                        // 继续递归，除非是隐藏目录且需要跳过
-                        if (!(isHiddenDir && skipHiddenDir)) {
-                            const subOutput = listDirRecursive(itemPath, currentDepth + 1, newPrefix, itemRelativePath, skipHiddenDir);
-                            output.push(...subOutput);
+                            result.push({
+                                name: item,
+                                type: 'dir',
+                                children: buildTree(itemPath, currentDepth + 1)
+                            });
                         }
                     } else {
-                        const size = formatFileSize(stats.size);
-                        output.push(`${entryPrefix}${item} (${size})`);
+                        result.push({
+                            name: item,
+                            type: 'file',
+                            size: formatFileSize(stats.size)
+                        });
                     }
                 } catch (error) {
-                    output.push(`${entryPrefix}${item} [访问错误]`);
+                    result.push({
+                        name: item,
+                        type: 'file',
+                        size: '[访问错误]'
+                    });
+                }
+            }
+            return result;
+        };
+
+        // 构建树形文本（用于 formatForLLM）
+        const buildTreeText = (items: TreeItem[], prefix: string = ''): string[] => {
+            const output: string[] = [];
+            items.forEach((item, index) => {
+                const isLast = index === items.length - 1;
+                const entryPrefix = prefix + (isLast ? '└── ' : '├── ');
+                const newPrefix = prefix + (isLast ? '    ' : '│   ');
+
+                if (item.type === 'dir') {
+                    if (item.skipped) {
+                        output.push(`${entryPrefix}${item.name}/ (内部结构略)`);
+                    } else {
+                        output.push(`${entryPrefix}${item.name}/`);
+                        if (item.children && item.children.length > 0) {
+                            output.push(...buildTreeText(item.children, newPrefix));
+                        }
+                    }
+                } else {
+                    output.push(`${entryPrefix}${item.name} (${item.size})`);
                 }
             });
             return output;
         };
 
-        const result = listDirRecursive(resolvedPath, 0, '', '', skipHiddenDir);
-        const fullOutput = [resolvedPath, ...result].join('\n');
-        const processResult = processToolOutput({
-            toolKey: 'TreeList',
-            content: fullOutput,
-            toolCallInfo: { name: 'TreeList', args },
-            truncateForLLM: outputLimit
-        });
+        const treeItems = buildTree(resolvedPath, 0);
+        const treeTextLines = buildTreeText(treeItems);
+        const treeText = [resolvedPath, ...treeTextLines].join('\n');
+
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: processResult.output
+            data: {
+                root: resolvedPath,
+                items: treeItems,
+                treeText: treeText
+            }
         };
-    }
+    },
+
+    formatForLLM: (data: { root: string; items: any[]; treeText: string }) => {
+        return data.treeText;
+    },
+
+    // truncateForLLM: (formatted: string, args: Record<string, any>) => {
+    //     const limit = normalizeLimit(args.limit);
+    //     if (limit <= 0 || formatted.length <= limit) {
+    //         return formatted;
+    //     }
+    //     return formatted.substring(0, limit) + `\n\n[内容过长，已截断为前 ${limit} 字符]`;
+    // }
 };
 
 /**
@@ -429,7 +508,7 @@ export const searchInFileTool: Tool = {
         type: 'function',
         function: {
             name: 'SearchInFile',
-            description: '在指定文本文件中搜索匹配的内容，返回行号和上下文; 注意：该工具适用于文本文件，不建议用于二进制文件\n返回 `string`（每个命中的行号与上下文摘要）',
+            description: '在指定文本文件中搜索匹配的内容，返回行号和上下文; 注意：该工具适用于文本文件，不建议用于二进制文件',
             parameters: {
                 type: 'object',
                 properties: {
@@ -467,6 +546,11 @@ export const searchInFileTool: Tool = {
 
     },
 
+    declaredReturnType: {
+        type: '{ filePath: string; pattern: string; matches: Array<{ lineNum: number; line: string; context: string }> }',
+        note: '结构化搜索结果，每个 match 包含行号、匹配行和上下文'
+    },
+
     execute: async (args: {
         path: string;
         pattern: string;
@@ -480,7 +564,6 @@ export const searchInFileTool: Tool = {
         }
 
         const filePath: string = path.resolve(args.path);
-        const outputLimit = normalizeLimit(args.limit);
 
         if (!fs.existsSync(filePath)) {
             return {
@@ -518,44 +601,35 @@ export const searchInFileTool: Tool = {
             }
 
             // 搜索匹配
-            const matches: Array<{ lineNum: number; line: string }> = [];
+            const matches: Array<{ lineNum: number; line: string; context: string }> = [];
             lines.forEach((line, index) => {
                 if (searchRegex.test(line)) {
-                    matches.push({ lineNum: index + 1, line });
+                    const lineNum = index + 1;
+                    const startLine = Math.max(0, index - contextLines);
+                    const endLine = Math.min(lines.length - 1, index + contextLines);
+                    const context = formatLineRange(lines, startLine, endLine, lineNum);
+                    matches.push({ lineNum, line: line.trim(), context });
                 }
             });
 
             if (matches.length === 0) {
                 return {
                     status: ToolExecuteStatus.SUCCESS,
-                    data: `未找到匹配的内容`
+                    data: {
+                        filePath,
+                        pattern: args.pattern,
+                        matches: []
+                    }
                 };
             }
 
-            // 构建结果
-            let resultMsg = `在 ${path.basename(filePath)} 中找到 ${matches.length} 处匹配:\n\n`;
-
-            matches.forEach((match, index) => {
-                const lineIndex = match.lineNum - 1;
-                const startLine = Math.max(0, lineIndex - contextLines);
-                const endLine = Math.min(lines.length - 1, lineIndex + contextLines);
-
-                resultMsg += `${index + 1}: L${match.lineNum}\n`;
-                resultMsg += formatLineRange(lines, startLine, endLine, match.lineNum);
-                resultMsg += '\n\n';
-            });
-
-            const fullOutput = resultMsg.trim();
-            const processResult = processToolOutput({
-                toolKey: 'SearchInFile',
-                content: fullOutput,
-                toolCallInfo: { name: 'SearchInFile', args },
-                truncateForLLM: outputLimit
-            });
-
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: processResult.output
+                data: {
+                    filePath,
+                    pattern: args.pattern,
+                    matches
+                }
             };
 
         } catch (error: any) {
@@ -564,7 +638,32 @@ export const searchInFileTool: Tool = {
                 error: `搜索失败: ${error.message}`
             };
         }
-    }
+    },
+
+    formatForLLM: (data: { filePath: string; pattern: string; matches: Array<{ lineNum: number; line: string; context: string }> }) => {
+        if (!data.matches || data.matches.length === 0) {
+            return `未找到匹配的内容`;
+        }
+
+        const fileName = data.filePath.split(/[\\/]/).pop() || data.filePath;
+        let result = `在 ${fileName} 中找到 ${data.matches.length} 处匹配:\n\n`;
+
+        data.matches.forEach((match, index) => {
+            result += `${index + 1}: L${match.lineNum}\n`;
+            result += match.context;
+            result += '\n\n';
+        });
+
+        return result.trim();
+    },
+
+    // truncateForLLM: (formatted: string, args: Record<string, any>) => {
+    //     const limit = normalizeLimit(args.limit);
+    //     if (limit <= 0 || formatted.length <= limit) {
+    //         return formatted;
+    //     }
+    //     return formatted.substring(0, limit) + `\n\n[内容过长，已截断为前 ${limit} 字符]`;
+    // }
 };
 
 /**
@@ -575,7 +674,7 @@ export const searchInDirectoryTool: Tool = {
         type: 'function',
         function: {
             name: 'SearchInDirectory',
-            description: '在指定目录下搜索包含特定内容的文本文件\n返回 `string`（命中文件列表及每个文件的内容摘要）',
+            description: '在指定目录下搜索包含特定内容的文本文件',
             parameters: {
                 type: 'object',
                 properties: {
@@ -617,6 +716,11 @@ export const searchInDirectoryTool: Tool = {
 
     },
 
+    declaredReturnType: {
+        type: '{ dirPath: string; pattern: string; results: Array<{ file: string; matches: Array<{ lineNum: number; preview: string }> }>; totalMatchCount: number }',
+        note: '结构化搜索结果'
+    },
+
     execute: async (args: {
         path: string;
         pattern: string;
@@ -631,7 +735,6 @@ export const searchInDirectoryTool: Tool = {
         }
 
         const dirPath = path.resolve(args.path);
-        const outputLimit = normalizeLimit(args.limit);
 
         if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
             return {
@@ -796,50 +899,16 @@ export const searchInDirectoryTool: Tool = {
 
             searchDir(dirPath);
 
-            if (results.length === 0) {
-                return {
-                    status: ToolExecuteStatus.SUCCESS,
-                    data: `在目录 ${path.basename(dirPath)} 中未找到匹配的文件`
-                };
-            }
-
-            // 构建结果
-            let resultMsg = `在 ${path.basename(dirPath)} 中找到 ${results.length} 个匹配的文件（共 ${totalMatchCount} 处匹配）:\n\n`;
-
-            results.forEach((result, fileIndex) => {
-                resultMsg += `📄 ${fileIndex + 1}. ${result.file}\n`;
-
-                // 如果匹配数量不多，显示所有匹配；否则只显示前几个
-                const maxMatchesToShow = 5;
-                const matchesToShow = result.matches.slice(0, maxMatchesToShow);
-
-                matchesToShow.forEach((match, matchIndex) => {
-                    resultMsg += `${matchIndex + 1}: L${match.lineNum}\n`;
-                    resultMsg += `  ${match.preview}\n`;
-                });
-
-                if (result.matches.length > maxMatchesToShow) {
-                    resultMsg += `   ... 还有 ${result.matches.length - maxMatchesToShow} 处匹配未显示\n`;
-                }
-
-                resultMsg += '\n';
-            });
-
-            if (results.length >= maxResults) {
-                resultMsg += `(已达到最大文件数 ${maxResults}，可能有更多匹配文件)`;
-            }
-
-            const fullOutput = resultMsg;
-            const processResult = processToolOutput({
-                toolKey: 'SearchInDirectory',
-                content: fullOutput,
-                toolCallInfo: { name: 'SearchInDirectory', args },
-                truncateForLLM: outputLimit
-            });
-
+            // 返回结构化数据
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: processResult.output
+                data: {
+                    dirPath,
+                    pattern: args.pattern,
+                    results,
+                    totalMatchCount,
+                    reachedLimit: results.length >= maxResults
+                }
             };
 
         } catch (error: any) {
@@ -848,7 +917,54 @@ export const searchInDirectoryTool: Tool = {
                 error: `搜索失败: ${error.message}`
             };
         }
-    }
+    },
+
+    formatForLLM: (data: any) => {
+        if (typeof data === 'string') {
+            return data; // 兼容旧格式或空结果
+        }
+
+        const { dirPath, results, totalMatchCount, reachedLimit } = data;
+        const dirName = dirPath.split(/[\\/]/).pop() || dirPath;
+
+        if (!results || results.length === 0) {
+            return `在目录 ${dirName} 中未找到匹配的文件`;
+        }
+
+        let resultMsg = `在 ${dirName} 中找到 ${results.length} 个匹配的文件（共 ${totalMatchCount} 处匹配）:\n\n`;
+
+        results.forEach((result: any, fileIndex: number) => {
+            resultMsg += `📄 ${fileIndex + 1}. ${result.file}\n`;
+
+            const maxMatchesToShow = 5;
+            const matchesToShow = result.matches.slice(0, maxMatchesToShow);
+
+            matchesToShow.forEach((match: any, matchIndex: number) => {
+                resultMsg += `${matchIndex + 1}: L${match.lineNum}\n`;
+                resultMsg += `  ${match.preview}\n`;
+            });
+
+            if (result.matches.length > maxMatchesToShow) {
+                resultMsg += `   ... 还有 ${result.matches.length - maxMatchesToShow} 处匹配未显示\n`;
+            }
+
+            resultMsg += '\n';
+        });
+
+        if (reachedLimit) {
+            resultMsg += `(已达到最大文件数限制，可能有更多匹配文件)`;
+        }
+
+        return resultMsg.trim();
+    },
+
+    // truncateForLLM: (formatted: string, args: Record<string, any>) => {
+    //     const limit = normalizeLimit(args.limit);
+    //     if (limit <= 0 || formatted.length <= limit) {
+    //         return formatted;
+    //     }
+    //     return formatted.substring(0, limit) + `\n\n[内容过长，已截断为前 ${limit} 字符]`;
+    // }
 };
 
 /**
@@ -859,7 +975,7 @@ export const searchFilesTool: Tool = {
         type: 'function',
         function: {
             name: 'SearchFiles',
-            description: '在指定目录下搜索匹配文件名的文件，返回扁平的文件路径列表\n返回 `string`（相对路径列表，可能附大小/截断说明）',
+            description: '在指定目录下搜索匹配文件名的文件，返回扁平的文件路径列表',
             parameters: {
                 type: 'object',
                 properties: {
@@ -903,6 +1019,11 @@ export const searchFilesTool: Tool = {
         requireResultApproval: true
     },
 
+    declaredReturnType: {
+        type: '{ dirPath: string; pattern: string; files: Array<{ relativePath: string; size?: string }>; reachedLimit: boolean }',
+        note: '结构化文件列表'
+    },
+
     execute: async (args: {
         path: string;
         pattern: string;
@@ -918,7 +1039,6 @@ export const searchFilesTool: Tool = {
         }
 
         const dirPath = path.resolve(args.path);
-        const outputLimit = normalizeLimit(args.limit);
         const useRegex = args.regex ?? true;
         const maxDepth = args.maxDepth ?? 5;
         const maxResults = args.maxResults ?? 50;
@@ -1005,39 +1125,52 @@ export const searchFilesTool: Tool = {
 
         searchDir(dirPath);
 
-        if (results.length === 0) {
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: `在目录 ${path.basename(dirPath)} 中未找到匹配的文件`
-            };
+        // 返回结构化数据
+        return {
+            status: ToolExecuteStatus.SUCCESS,
+            data: {
+                dirPath,
+                pattern: args.pattern,
+                files: results,
+                reachedLimit: results.length >= maxResults
+            }
+        };
+    },
+
+    formatForLLM: (data: any) => {
+        if (typeof data === 'string') {
+            return data; // 兼容旧格式或空结果
         }
 
-        // 构建结果（扁平列表）
-        let resultMsg = `在 ${path.basename(dirPath)} 中找到 ${results.length} 个匹配的文件`;
-        if (results.length >= maxResults) {
-            resultMsg += ` (已达到最大结果数 ${maxResults})`;
+        const { dirPath, files, reachedLimit } = data;
+        const dirName = dirPath.split(/[\\/]/).pop() || dirPath;
+
+        if (!files || files.length === 0) {
+            return `在目录 ${dirName} 中未找到匹配的文件`;
+        }
+
+        let resultMsg = `在 ${dirName} 中找到 ${files.length} 个匹配的文件`;
+        if (reachedLimit) {
+            resultMsg += ` (已达到最大结果数限制)`;
         }
         resultMsg += ':\n\n';
 
-        results.forEach((result, index) => {
-            if (showSize && result.size) {
-                resultMsg += `${index + 1}. ${result.relativePath} (${result.size})\n`;
+        files.forEach((file: any, index: number) => {
+            if (file.size) {
+                resultMsg += `${index + 1}. ${file.relativePath} (${file.size})\n`;
             } else {
-                resultMsg += `${index + 1}. ${result.relativePath}\n`;
+                resultMsg += `${index + 1}. ${file.relativePath}\n`;
             }
         });
 
-        const fullOutput = resultMsg.trim();
-        const processResult = processToolOutput({
-            toolKey: 'SearchFiles',
-            content: fullOutput,
-            toolCallInfo: { name: 'SearchFiles', args },
-            truncateForLLM: outputLimit
-        });
+        return resultMsg.trim();
+    },
 
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: processResult.output
-        };
-    }
+    // truncateForLLM: (formatted: string, args: Record<string, any>) => {
+    //     const limit = normalizeLimit(args.limit);
+    //     if (limit <= 0 || formatted.length <= limit) {
+    //         return formatted;
+    //     }
+    //     return formatted.substring(0, limit) + `\n\n[内容过长，已截断为前 ${limit} 字符]`;
+    // }
 };

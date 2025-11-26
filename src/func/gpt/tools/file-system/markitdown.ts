@@ -1,5 +1,5 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
-import { normalizeLimit, processToolOutput } from '../utils';
+import { normalizeLimit } from '../utils';
 
 // 通过 window.require 引入 Node.js 模块
 const fs = window?.require?.('fs');
@@ -31,7 +31,12 @@ const checkMarkitdownAvailable = (): boolean => {
  * Markitdown 工具：读取 Word、PDF 等文件内容
  * 使用 markitdown 命令行工具将文件转换为 Markdown 格式
  */
+const MARKITDOWN_LIMIT = 7000;
+
 export const markitdownTool: Tool = {
+    SKIP_EXTERNAL_TRUNCATE: true, // 内部已处理截断
+    DEFAULT_OUTPUT_LIMIT_CHAR: MARKITDOWN_LIMIT,
+
     definition: {
         type: 'function',
         function: {
@@ -51,7 +56,7 @@ export const markitdownTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '为了防止文件内容过大，限制最大字符数量；默认 5000, 如果设置为 < 0 则不限制',
+                        description: `为了防止文件内容过大，限制最大字符数量；默认 ${MARKITDOWN_LIMIT}, 如果设置为 < 0 则不限制`,
                         minimum: -1
                     }
                 },
@@ -145,7 +150,7 @@ export const markitdownTool: Tool = {
             const totalChars = content.length;
 
             // 应用字符范围限制
-            const limit = normalizeLimit(args.limit, 5000);
+            const limit = normalizeLimit(args.limit, MARKITDOWN_LIMIT);
 
             // 先应用 begin 范围截取
             let rangeContent = content;
@@ -160,30 +165,22 @@ export const markitdownTool: Tool = {
             contentWithMeta += `文件: ${fileName}\n`;
             contentWithMeta += `临时输出: ${outputFile}\n`;
             contentWithMeta += `总字符数: ${totalChars}\n`;
-            
+
             if (begin > 0 || actualEnd < totalChars) {
                 contentWithMeta += `读取范围: ${begin} - ${actualEnd} 字符\n`;
             }
-            
+
             contentWithMeta += `\n--- 文件内容 ---\n${rangeContent}`;
 
-            // 使用 processToolOutput 统一处理缓存、截断和格式化
-            const result = processToolOutput({
-                toolKey: 'markitdown',
-                content: contentWithMeta,
-                toolCallInfo: { name: 'MarkitdownRead', args },
-                truncateForLLM: limit
-            });
-
+            // 返回原始 contentWithMeta
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: result.output
+                data: contentWithMeta
             };
-
         } catch (error: any) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `处理文件时出错: ${error.message}`
+                error: `MarkitDown 处理失败: ${error.message}`
             };
         }
     }

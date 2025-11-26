@@ -13,7 +13,7 @@ import { ToolExecutor } from "../executor";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { complete } from "../../openai/complete";
 import * as store from "@gpt/setting/store";
-import { processToolOutput } from "../utils";
+import { toolCallScriptDocTool } from "./skill-doc";
 
 const FORMALIZE_MAX_INPUT_LENGTH = 32000;
 
@@ -53,6 +53,12 @@ const executeScript = async (
 
         // 检查执行结果状态
         if (toolResult.status === ToolExecuteStatus.SUCCESS) {
+            // 确保返回的是结构化的原始数据，而非格式化文本 (finalText)
+            // finalText 是为 LLM 准备的，可能包含截断提示、system hints 等
+            // ToolCallScript 需要原始数据进行进一步处理
+            if (toolResult.data === undefined || toolResult.data === null) {
+                console.warn(`[ToolCallScript] Tool '${toolName}' returned undefined/null data. This may indicate the tool doesn't properly return structured data.`);
+            }
             return toolResult.data;
         } else if (toolResult.status === ToolExecuteStatus.ERROR) {
             throw new Error(`Tool '${toolName}' returned error: ${toolResult.error}`);
@@ -283,6 +289,11 @@ Available APIs in script:
         requireResultApproval: true
     },
 
+    declaredReturnType: {
+        type: 'string',
+        note: 'Aggregated console output from the script execution, including any warnings or errors.'
+    },
+
     // 占位 execute 函数，实际使用 createToolCallScriptTool 创建
     execute: async (): Promise<ToolExecuteResult> => {
         return {
@@ -324,11 +335,7 @@ const createToolCallScriptTool = (executor: ToolExecutor): Tool => {
 
             try {
                 const output = await executeScript(script, executor, timeoutSeconds);
-                processToolOutput({
-                    toolKey: 'toolcall-script',
-                    content: output,
-                    toolCallInfo: { name: 'ToolCallScript', args }
-                });
+                // 直接返回原始 output
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: output
@@ -345,87 +352,136 @@ const createToolCallScriptTool = (executor: ToolExecutor): Tool => {
 
 export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
     const toolCallScriptTool = createToolCallScriptTool(executor);
+
+    // CheckToolDataType 工具：查询工具的返回数据类型
+    const checkToolReturnTypeTool: Tool = {
+        SKIP_CACHE_RESULT: true,
+        SKIP_EXTERNAL_TRUNCATE: true,
+
+        definition: {
+            type: 'function',
+            function: {
+                name: 'CheckToolReturnType',
+                description: '查询指定工具的 TOOL_CALL 返回数据类型。用于在编写脚本前了解工具返回的数据结构。支持批量查询多个工具。',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        toolNames: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: '工具名称列表，不填则列出所有已声明返回类型的工具'
+                        }
+                    }
+                }
+            },
+            permissionLevel: ToolPermissionLevel.PUBLIC
+        },
+
+        declaredReturnType: {
+            type: 'string',
+            note: '工具返回类型信息（单个/批量/列表）'
+        },
+
+        execute: async (args: { toolNames?: string[] }): Promise<ToolExecuteResult> => {
+            if (args.toolNames && args.toolNames.length > 0) {
+                // 批量查询工具
+                const results: string[] = [];
+                const notFound: string[] = [];
+                const noDeclared: string[] = [];
+
+                for (const toolName of args.toolNames) {
+                    const tool = executor.getTool(toolName);
+                    if (!tool) {
+                        notFound.push(toolName);
+                        continue;
+                    }
+
+                    if (!tool.declaredReturnType) {
+                        noDeclared.push(toolName);
+                        continue;
+                    }
+
+                    const typeInfo = `- **${toolName}**: \`${tool.declaredReturnType.type}\`${tool.declaredReturnType.note ? `\n  ${tool.declaredReturnType.note}` : ''}`;
+                    results.push(typeInfo);
+                }
+
+                // 构建输出
+                const parts: string[] = [];
+                if (results.length > 0) {
+                    parts.push(`## 工具返回类型\n\n${results.join('\n')}`);
+                }
+                if (noDeclared.length > 0) {
+                    parts.push(`## 未声明返回类型\n以下工具未声明 declaredReturnType，建议用 console.log() 探索：\n${noDeclared.map(n => `- ${n}`).join('\n')}`);
+                }
+                if (notFound.length > 0) {
+                    parts.push(`## 未找到的工具\n${notFound.map(n => `- ${n}`).join('\n')}`);
+                }
+
+                return {
+                    status: ToolExecuteStatus.SUCCESS,
+                    data: parts.join('\n\n')
+                };
+            }
+
+            // 列出所有已声明返回类型的工具
+            const toolsWithType: string[] = [];
+            for (const groupName of Object.keys(executor.groupRegistry)) {
+                const group = executor.groupRegistry[groupName];
+                for (const tool of group.tools) {
+                    if (tool.declaredReturnType) {
+                        const name = tool.definition.function.name;
+                        const type = tool.declaredReturnType.type;
+                        const note = tool.declaredReturnType.note;
+                        toolsWithType.push(`- ${name}: \`${type}\`${note ? ` (${note})` : ''}`);
+                    }
+                }
+            }
+
+            if (toolsWithType.length === 0) {
+                return {
+                    status: ToolExecuteStatus.SUCCESS,
+                    data: '没有工具声明了返回类型。'
+                };
+            }
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: `已声明返回类型的工具:\n\n${toolsWithType.join('\n')}`
+            };
+        }
+    };
+
     executor.registerToolGroup({
         name: 'Tool Orchestration',
-        tools: [toolCallScriptTool],
+        tools: [toolCallScriptTool, checkToolReturnTypeTool, toolCallScriptDocTool],
         rulePrompt: `
-### ToolCallScript - 工具编排脚本
+## ToolCallScript - 高级工具编排 ##
 
-当需要执行复杂的工具组合调用时，使用 ToolCallScript 工具，编写 JS 脚本在沙箱中运行。
-沙箱中不可访问 document, window, eval, Function 等危险对象。
+允许你编写 JavaScript 脚本来编排复杂的工具调用流程。
 
-**可用 API**：
-- \`await TOOL_CALL(toolName: string, args: object)\`: 调用任意可用工具
-- \`await FORMALIZE(text: string, typeDescription: string)\`: 使用 LLM 将非结构化文本转换为结构化数据 (JSON); typeDescription一定要设计好!s
-- \`await SLEEP(ms: number)\`: 延迟执行
-- \`await PARALLEL(...promises: Promise[])\`: 并行执行多个工具调用
-- \`console.log/warn/error\`: 输出信息（作为工具返回值）
+### ⚠️ 核心工作流 (必须遵守) ###
 
-**特殊转义字符**：
-为了避免 JSON 解析错误，你可以在 script 中使用以下特殊占位符代替特殊字符：
-- \`_esc_dquote_\` -> \`"\` (双引号)
-- \`_esc_backslash_\` -> \`\\\` (反斜杠)
-- 如无必要，尽量使用单引号 ' 替换 双引号 "，以减少转义需求
+1. **🔍 检查类型 (Check)**: 在编写脚本前，**必须**先调用 \`CheckToolReturnType\` 查询你要使用的工具返回什么数据结构。
+   - **切记**: 脚本中 \`TOOL_CALL\` 返回的是**原始对象**，不是你在对话中看到的格式化文本。
+   - *不要猜测字段名，先查清楚！*
 
-**示例 特殊字符转义**：
-\`\`\`javascript
-// 如果你想执行: console.log("Hello\\nWorld");
-// 可以编写如下脚本 (不强制，单纯为了降低生成错误字符破坏 tool call json 结构的风险)
-console.log(_esc_dquote_Hello World_esc_dquote_);
-\`\`\`
+2. **📚 查阅文档 (Learn)**: 如果不熟悉脚本写法，调用 \`ToolCallScriptDoc\` 查询 \`best-practices\` 或 \`example-basic\`。
 
-**核心 API \`TOOL_CALL\`** : 直接返回工具调用结果，类型视不同工具而定
+3. **✍️ 编写脚本 (Code)**: 
+   - 使用 \`await TOOL_CALL(name, args)\` 调用工具。
+   - 使用 \`console.log()\` 输出结果。
+   - 必须处理错误 (try-catch)。
 
-**示例 检索网页**:
-\`\`\`javascript
-// 检索多个网页内容
-const urls = ['https://example.com/page1', 'https://example.com/page2'];
-const KEYWORD = 'KEYWORD';
+### 脚本环境 API ###
+- \`await TOOL_CALL(toolName, args)\`: 返回原始 Data (Object/Array)。
+- \`await FORMALIZE(text, typeDescription)\`: LLM 提取结构化数据。
+- \`await SLEEP(ms)\`, \`await PARALLEL(...promises)\`
+- \`console.log/warn/error\`: 脚本的输出方式。
 
-for (const url of urls) {
-    const pageContent = await TOOL_CALL('WebPageContent', { url: url, mode: 'markdown', limit: -1 });
-    if (pageContent.includes(KEYWORD)) {
-        console.log(\`Keyword found in \${url}\`);
-    } else {
-        console.log(\`Keyword not found in \${url}\`);
-    }
-}
-
-\`\`\`
-
-**核心 API \`FORMALIZE\`** : 某些工具返回纯文本而非结构化数据时，可用此 API 转换为结构化数据方便嵌入 JS 使用
-本质也是调用 LLM 完成，所以输入的文本量不宜过大，否则可能导致超时或费用过高
-
-**示例 FORMALIZE**:
-\`\`\`javascript
-const formated = await FORMALIZE(\`
-- A.txt | Create on 2023-01-01 | Size: 15KB
-- B.docx | Create on 2022-12-15 | Size: 45KB
-- C/ | Create on 2022-12-15 | Size: -
-\`, \`
-请过滤掉文件夹，只返回文件列表，类型定义如下:
-{
-  filename: string;
-  CreateYear: string; //Should be yyyy format
-  sizeKB: number; // Be a number without 'KB' suffix.
-}[];
-\`);
->>> Will be like: [{ "filename": "A.txt", "CreateYear": "2023", "sizeKB": 15 },{ "filename": "B.docx", "CreateYear": "2022", "sizeKB": 45 }]
-\`\`\`
-
-
-**注意事项**：
-- 脚本中必须使用 \`await\` 来调用 TOOL_CALL
-- 复杂调用，建议使用内置转义字符，避免 JSON 解析错误
-- 所有 console.log 输出会作为工具结果返回
-- 有些 Tool 可能会返回非结构数据，使用 FORMALIZE 可将其转换为结构化数据; 不过请你设计好类型定义
-    - FORMALIZE 会强制限制最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，过多会内部强制截断
-    - FORMALIZE 本质也是调用 LLM，不要滥用
-    - 如果需要对 N 个文本进行 FORMALIZE，建议将他们合并，并要求 FORMALIZE 为特定类型的数组
-    - 保证返回结果的最小可用; 例如输入文件信息，想要返回 2023 年之后的文件，就不要返回所有年份的文件然后多此一举的过滤；FORMALIZE 很强大，但也有成本
-- 有些 Tool 有 limit 字符，意味着结果会被截断; 如果需要完整结果，可设置 limit 为 -1（如果支持）
-    - 如果需要 FORMALIZE，建议在返回类型中设置关于截断 (truncated) 的相关信息，以免误判
-    - 例如: { isTruncated: boolean; cacheLocalFile?: string; }
+### 常见错误 ###
+- ❌ 假设工具返回 Markdown 字符串 -> ✅ 实际上通常返回 JSON 对象/数组。
+- ❌ 忘记 \`await\` -> ✅ 异步操作必须 await。
+- ❌ JSON 字符串中包含未转义字符 -> ✅ 使用 \`_esc_dquote_\` 等占位符。
 `.trim()
     });
     return executor;

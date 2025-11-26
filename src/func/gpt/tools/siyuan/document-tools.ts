@@ -29,6 +29,11 @@ export const listActiveDocsTool: Tool = {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
+    declaredReturnType: {
+        type: '{ OpenedDocs: DocumentSummary[]; Editing: string[] }',
+        note: 'Editing 是当前正在编辑的文档 ID 列表'
+    },
+
     execute: async (): Promise<ToolExecuteResult> => {
         let tabs = document.querySelectorAll(`div[data-type="wnd"] ul.layout-tab-bar>li.item:not(.item--readonly)`);
         if (!tabs || tabs.length === 0) {
@@ -95,6 +100,11 @@ export const getDocumentTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    declaredReturnType: {
+        type: 'DocumentSummary | { docs: DocumentSummary[]; notFoundIds?: string[] }',
+        note: '单个 docId 返回 DocumentSummary，docIdList 返回对象格式'
     },
 
     execute: async (args: { docId?: string; docIdList?: string[] }): Promise<ToolExecuteResult> => {
@@ -181,6 +191,10 @@ export const getParentDocTool: Tool = {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
+    declaredReturnType: {
+        type: 'DocumentSummary'
+    },
+
     execute: async (args: { docId: string }): Promise<ToolExecuteResult> => {
         const doc = await getDocument({ docId: args.docId });
         if (!doc) {
@@ -241,6 +255,11 @@ export const listSubDocsTool: Tool = {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
+    declaredReturnType: {
+        type: 'Array<DocumentSummary & { children?: ... }>',
+        note: '嵌套结构，children 递归包含子文档'
+    },
+
     execute: async (args: { docId: string; depth?: number }): Promise<ToolExecuteResult> => {
         try {
             const result = await listSubDocs(args.docId, args.depth || 1);
@@ -278,6 +297,10 @@ export const listSiblingDocsTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    declaredReturnType: {
+        type: 'DocumentSummary[]'
     },
 
     execute: async (args: { docId: BlockId }): Promise<ToolExecuteResult> => {
@@ -345,6 +368,11 @@ export const listNotebookDocsTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    declaredReturnType: {
+        type: 'DocumentSummary[] | Array<DocumentSummary & { children }>',
+        note: 'depth=1 返回平坦列表，depth>1 返回嵌套结构'
     },
 
     execute: async (args: { notebookId: string; depth?: number }): Promise<ToolExecuteResult> => {
@@ -415,6 +443,10 @@ export const getDailyNoteDocsTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    declaredReturnType: {
+        type: 'DocumentSummary[]'
     },
 
     execute: async (args: { notebookId?: string; atDate?: string; beforeDate?: string; afterDate?: string }): Promise<ToolExecuteResult> => {

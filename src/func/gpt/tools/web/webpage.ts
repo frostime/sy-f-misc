@@ -8,7 +8,7 @@
  */
 import { addScript } from "../../utils";
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
-import { normalizeLimit, processToolOutput, truncateContent } from '../utils';
+import { normalizeLimit, truncateContent } from '../utils';
 
 /**
  * 验证URL是否有效
@@ -652,8 +652,18 @@ export const webUtils = {
 // 导出类型
 export type { ParsedHtmlContent };
 
+const WEB_PAGE_LIMIT = 7000;
 // 网页内容工具
 export const webPageContentTool: Tool = {
+
+    DEFAULT_OUTPUT_LIMIT_CHAR: WEB_PAGE_LIMIT,
+    SKIP_EXTERNAL_TRUNCATE: true, // 工具内部自己处理，关闭外部的截断截止
+
+    declaredReturnType: {
+        type: 'string[]',
+        note: '元信息 + Markdown/HTML 内容的字符串数组（每个 URL 一个元素），可能带截断提示'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -677,7 +687,7 @@ export const webPageContentTool: Tool = {
                     },
                     limit: {
                         type: 'integer',
-                        description: '可选, 返回的网页内容字符数量的限制; 默认 5000; 如果小于等于 0, 则不限制; 注意是字符数量(string.length)'
+                        description: `可选, 返回的网页内容字符数量的限制; 默认 ${WEB_PAGE_LIMIT}; 如果小于等于 0, 则不限制; 注意是字符数量(string.length)`
                     },
                     keepLink: {
                         type: 'boolean',
@@ -723,7 +733,7 @@ export const webPageContentTool: Tool = {
         joinKeywords?: 'AND' | 'OR'
     }): Promise<ToolExecuteResult> => {
         const begin = args.begin ?? 0;
-        const limit = normalizeLimit(args.limit, 5000);
+        const limit = normalizeLimit(args.limit, WEB_PAGE_LIMIT);
         const mode = args.mode ?? 'markdown';
         const options = {
             keepLink: args.keepLink,
@@ -821,15 +831,35 @@ export const webPageContentTool: Tool = {
             };
         }
 
-        processToolOutput({
-            toolKey: 'webpage',
-            content: results.join('\n\n---\n\n'),
-            toolCallInfo: { name: 'Webpage', args }
-        });
-
+        // 返回原始数据数组
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: results.join('\n\n---\n\n')
+            data: results
         };
-    }
+    },
+
+    // 格式化器：将原始结果数组转换为适合 LLM 的文本
+    formatForLLM: (data: any[]) => {
+        if (!Array.isArray(data)) {
+            return String(data);
+        }
+        return data.join('\n\n---\n\n');
+    },
+
+    // 截断器：考虑 begin 和 limit 参数
+    // truncateForLLM: (formatted: string, args: Record<string, any>) => {
+    //     const begin = args.begin ?? 0;
+    //     const limit = normalizeLimit(args.limit, 5000);
+
+    //     // 应用 begin 偏移
+    //     let content = begin > 0 ? formatted.substring(begin) : formatted;
+
+    //     // 应用 limit 截断
+    //     if (limit > 0 && content.length > limit) {
+    //         content = content.substring(0, limit);
+    //         content += `\n\n[内容过长，已从位置 ${begin} 截断为 ${limit} 字符]`;
+    //     }
+
+    //     return content;
+    // }
 };

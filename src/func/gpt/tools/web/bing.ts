@@ -1,8 +1,6 @@
 import { getFrontend } from "siyuan";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { forwardProxy } from "@/api";
-import { save } from "../../setting";
-import { processToolOutput } from "../utils";
 
 /*
  * Copyright (c) 2025 by frostime. All Rights Reserved.
@@ -192,6 +190,11 @@ export function formatBingResultsToReport(data: BingSearchReportInput): string {
 }
 
 export const bingSearchTool: Tool = {
+    declaredReturnType: {
+        type: 'Array<{ title, link, description }>',
+        note: '搜索结果数组，可能包含 "Bing 直接回答" 特殊条目（link 为空）'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -231,11 +234,7 @@ export const bingSearchTool: Tool = {
     execute: async (args: { query: string; site?: string; filetype?: string; dateFilter?: 'day' | 'week' | 'month'; pageIdx?: number }): Promise<ToolExecuteResult> => {
         try {
             const result = await bingSearch(args.query, args.pageIdx || 1, args.site, args.filetype, args.dateFilter);
-            processToolOutput({
-                toolKey: 'bing-search',
-                content: JSON.stringify(result, null, 2),
-                toolCallInfo: { name: 'BingSearch', args }
-            });
+            // 直接返回原始结果
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: result
@@ -247,5 +246,18 @@ export const bingSearchTool: Tool = {
                 data: error
             };
         }
+    },
+
+    formatForLLM: (data: {
+        title: string;
+        link: string;
+        description: string;
+    }[]): string => {
+        if (!data || data.length === 0) {
+            return 'No search results found.';
+        }
+        return data.map((item, index) => {
+            return `Title: ${item.title}\nLink: ${item.link}\nDescription: ${item.description}`;
+        }).join('\n---\n');
     }
 };

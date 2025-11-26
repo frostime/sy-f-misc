@@ -39,6 +39,10 @@ export const listNotebookTool: Tool = {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
+    declaredReturnType: {
+        type: '{ id: string; name: string; dailynotePathTemplate: string }[]'
+    },
+
     execute: async (): Promise<ToolExecuteResult> => {
         try {
             const notebooks = listNotebook();
@@ -83,6 +87,10 @@ export const getNotebookTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    declaredReturnType: {
+        type: '{ id: string; name: string; dailynotePathTemplate: string }'
     },
 
     execute: async (args: { id?: string; name?: string }): Promise<ToolExecuteResult> => {

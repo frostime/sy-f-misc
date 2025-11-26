@@ -8,7 +8,7 @@
 
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
 import { appendDailyNote, appendMarkdown, getBlockFullMarkdownContent } from './utils';
-import { normalizeLimit, truncateContent, DEFAULT_LIMIT_CHAR } from '../utils';
+import { normalizeLimit, DEFAULT_LIMIT_CHAR } from '../utils';
 
 /**
  * 获取块完整Markdown内容工具
@@ -43,29 +43,17 @@ export const getBlockMarkdownTool: Tool = {
         requireResultApproval: true
     },
 
+    declaredReturnType: {
+        type: 'string',
+        note: 'Markdown 文本内容'
+    },
+
     execute: async (args: { blockId: string; begin?: number; limit?: number }): Promise<ToolExecuteResult> => {
-        const limit = normalizeLimit(args.limit);
-        const begin = args.begin ?? 0;
         try {
-            let content = await getBlockFullMarkdownContent(args.blockId);
-
-            // 应用 begin 偏移
-            if (begin > 0) {
-                content = content.substring(begin);
-            }
-
-            // 应用截断
-            const truncResult = truncateContent(content, limit);
-            let resultContent = truncResult.content;
-
-            // 添加截断信息
-            if (begin > 0 || truncResult.isTruncated) {
-                resultContent += `\n\n[原始内容长度: ${truncResult.originalLength} 字符, 显示范围: ${begin} - ${begin + truncResult.shownLength}]`;
-            }
-
+            const content = await getBlockFullMarkdownContent(args.blockId);
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: resultContent
+                data: content
             };
         } catch (error) {
             return {
@@ -73,6 +61,24 @@ export const getBlockMarkdownTool: Tool = {
                 error: `获取块内容失败: ${error.message}`
             };
         }
+    },
+
+    // 截断器：考虑 begin 和 limit 参数
+    truncateForLLM: (formatted: string, args: Record<string, any>) => {
+        const begin = args.begin ?? 0;
+        const limit = normalizeLimit(args.limit);
+
+        // 应用 begin 偏移
+        let content = begin > 0 ? formatted.substring(begin) : formatted;
+
+        // 应用 limit 截断
+        if (limit > 0 && content.length > limit) {
+            const originalLength = formatted.length;
+            content = content.substring(0, limit);
+            content += `\n\n[原始内容长度: ${originalLength} 字符, 显示范围: ${begin} - ${begin + limit}]`;
+        }
+
+        return content;
     }
 };
 
@@ -101,6 +107,11 @@ export const appendMarkdownTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    declaredReturnType: {
+        type: 'string',
+        note: '固定返回 "添加成功"'
     },
 
     execute: async (args: { document: string; markdown: string }): Promise<ToolExecuteResult> => {
@@ -144,6 +155,11 @@ export const appendDailyNoteTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    declaredReturnType: {
+        type: 'string',
+        note: '日记文档的 docId'
     },
 
     execute: async (args: { notebookId: string; markdown: string }): Promise<ToolExecuteResult> => {

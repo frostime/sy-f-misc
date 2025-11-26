@@ -9,7 +9,6 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "../types";
 import { scanCustomScriptsWithSmartLoad, ParsedToolModule, getEnvVars } from './resolve-tools';
 import { createTempRunDir, cleanupTempDir } from './utils';
-import { processToolOutput, normalizeLimit } from '../utils';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
@@ -34,8 +33,7 @@ interface CustomToolExecutionContext {
  * 执行自定义 Python 工具
  */
 const executeCustomPythonTool = async (context: CustomToolExecutionContext): Promise<ToolExecuteResult> => {
-    const { scriptPath, functionName, args, timeout = DEFAULT_TIMEOUT, outputLimit } = context;
-    const limit = normalizeLimit(outputLimit);
+    const { scriptPath, functionName, args, timeout = DEFAULT_TIMEOUT } = context;
 
     // 创建临时运行目录
     const tempDir = createTempRunDir();
@@ -47,6 +45,8 @@ const executeCustomPythonTool = async (context: CustomToolExecutionContext): Pro
         fs.copyFileSync(scriptPath, tempScriptPath);
 
         // 创建入口脚本
+        // 支持 Python 函数定义 format 属性来自定义格式化
+        // 例如: def my_tool(): ...; my_tool.format = lambda data: f"结果: {data}"
         const mainScript = `
 # -*- coding: utf-8 -*-
 import sys
@@ -82,11 +82,22 @@ try:
     # 调用函数
     result = func(**args)
 
-    # 输出结果
+    # 构建输出
     output = {
         "success": True,
         "result": result
     }
+
+    # 检查函数是否有自定义 format 方法
+    if hasattr(func, 'format') and callable(func.format):
+        try:
+            formatted = func.format(result, args)
+            if isinstance(formatted, str):
+                output["formattedText"] = formatted
+        except Exception as fmt_err:
+            # 格式化失败不影响主流程，只记录警告
+            output["formatWarning"] = str(fmt_err)
+
     print(json.dumps(output, ensure_ascii=False))
 
 except Exception as e:
@@ -154,35 +165,24 @@ except Exception as e:
                             return;
                         }
 
-                        // 处理结果
-                        // let resultData = JSON.stringify(result.result);
-                        let resultData = result.result;
-
-                        const processResult = processToolOutput({
-                            toolKey: `custom_${functionName}`,
-                            content: resultData,
-                            toolCallInfo: { name: `Custom Tool: ${functionName}`, args },
-                            truncateForLLM: limit
-                        });
-                        resultData = processResult.output;
-
-                        resolve({
+                        // 构建返回结果
+                        const executeResult: ToolExecuteResult = {
                             status: ToolExecuteStatus.SUCCESS,
-                            data: resultData
-                        });
+                            data: result.result
+                        };
+
+                        // 如果 Python 端提供了格式化文本，直接使用
+                        if (result.formattedText) {
+                            executeResult.formattedText = result.formattedText;
+                        }
+
+                        resolve(executeResult);
 
                     } catch (parseError) {
                         // JSON 解析失败，返回原始输出
-                        const rawOutput = stdout.trim();
-                        const processResult = processToolOutput({
-                            toolKey: `custom_${functionName}`,
-                            content: rawOutput,
-                            toolCallInfo: { name: `Custom Tool: ${functionName}`, args },
-                            truncateForLLM: limit
-                        });
                         resolve({
                             status: ToolExecuteStatus.SUCCESS,
-                            data: processResult.output
+                            data: stdout.trim()
                         });
                     }
                 }
@@ -237,6 +237,20 @@ const extractPermissionConfig = (toolDef: IToolDefinition): {
 };
 
 /**
+ * 从工具定义中提取 declaredReturnType
+ */
+const extractDeclaredReturnType = (toolDef: IToolDefinition): { type: string; note?: string } | undefined => {
+    const declaredReturnType = (toolDef as any).declaredReturnType;
+    if (declaredReturnType && typeof declaredReturnType.type === 'string') {
+        return {
+            type: declaredReturnType.type,
+            note: declaredReturnType.note
+        };
+    }
+    return undefined;
+};
+
+/**
  * 为单个模块创建工具列表
  */
 const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
@@ -244,12 +258,14 @@ const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
 
     for (const toolDef of module.moduleData.tools) {
         const permissionConfig = extractPermissionConfig(toolDef);
+        const declaredReturnType = extractDeclaredReturnType(toolDef);
 
         const tool: Tool = {
             definition: {
                 ...toolDef,
                 ...permissionConfig
             },
+            declaredReturnType: declaredReturnType,
             execute: async (args: Record<string, any>) => {
                 return executeCustomPythonTool({
                     scriptPath: module.scriptPath,

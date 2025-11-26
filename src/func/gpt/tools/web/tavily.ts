@@ -7,7 +7,7 @@
  */
 import { globalMiscConfigs } from '../../setting/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
-import { processToolOutput } from '../utils';
+import { formatWithXMLTags, normalizeLimit, truncateContent } from '../utils';
 
 export interface TavilySearchResponse {
     query: string;
@@ -160,20 +160,31 @@ export function formatTavilyResults(results: TavilySearchResponse): string {
     let markdown = `## Search Results for: "${results.query}"\n\n`;
 
     if (results.answer) {
-        markdown += `### Answer\n${results.answer}\n\n`;
+        // markdown += `### Answer\n${results.answer}\n\n`;
+        markdown += formatWithXMLTags({ tagName: 'Answer', content: results.answer }) + '\n\n';
     }
 
     results.results.forEach((result, index) => {
-        markdown += `### ${index + 1}. [${result.title}](${result.url})\n`;
-        markdown += `${result.content}\n\n`;
+        // markdown += `### ${index + 1}. [${result.title}](${result.url})\n`;
+        // markdown += `${result.content}\n\n`;
+        markdown += formatWithXMLTags({
+            tagName: `Result${index + 1}`,
+            content: `Title: ${result.title}\nURL: ${result.url}\nContent: ${result.content}`
+        }) + '\n\n';
     });
 
     if (results.images && results.images.length > 0) {
-        markdown += `### Images\n`;
-        results.images.forEach((image, index) => {
-            markdown += `${index + 1}. ![Image](${image.url})${image.description ? ` - ${image.description}` : ''}\n`;
-        });
-        markdown += '\n';
+        // markdown += `### Images\n`;
+        // results.images.forEach((image, index) => {
+        //     markdown += `${index + 1}. ![Image](${image.url})${image.description ? ` - ${image.description}` : ''}\n`;
+        // });
+        // markdown += '\n';
+        markdown += formatWithXMLTags({
+            tagName: 'Images',
+            content: results.images.map((image, index) => {
+                return `Image${index + 1}: URL: ${image.url}${image.description ? `, Description: ${image.description}` : ''}`;
+            }).join('\n')
+        }) + '\n\n';
     }
 
     markdown += `*Search performed: ${new Date(results.created_at).toLocaleString()} (took ${results.time}s)*\n`;
@@ -219,7 +230,16 @@ export function formatTavilyExtractResult(result: TavilyExtractResponse): string
     return markdown;
 }
 
+const TAVILY_LIMIT = 6000;
+
 export const tavilySearchTool: Tool = {
+    DEFAULT_OUTPUT_LIMIT_CHAR: TAVILY_LIMIT,
+
+    declaredReturnType: {
+        type: 'TavilySearchResponse',
+        note: '{ query, answer?, results: Array<{ url, title, content, score }>, images?, search_id, created_at, time }'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -297,16 +317,24 @@ export const tavilySearchTool: Tool = {
             };
         }
 
-        //单纯保存记录而已
-        processToolOutput({
-            toolKey: 'tavily-search',
-            content: JSON.stringify(result, null, 2),
-            toolCallInfo: { name: 'TavilySearch', args }
-        });
-
+        // 直接返回原始结果对象
         return {
             status: ToolExecuteStatus.SUCCESS,
             data: result
         };
+    },
+
+    formatForLLM: (data: TavilySearchResponse): string => {
+        if (!data || !data.results || data.results.length === 0) {
+            return 'No search results found.';
+        }
+
+        return formatTavilyResults(data);
+    },
+
+    truncateForLLM: (formatted: string, args: Record<string, any>): string => {
+        const limit = normalizeLimit(args.limit, TAVILY_LIMIT);
+        const result = truncateContent(formatted, limit);
+        return result.content;
     }
 };

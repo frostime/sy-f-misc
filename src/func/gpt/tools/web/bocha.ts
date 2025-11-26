@@ -7,6 +7,7 @@
  */
 import { globalMiscConfigs } from '../../setting/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
+import { normalizeLimit, truncateContent } from '../utils';
 
 
 /**
@@ -54,7 +55,15 @@ export async function webSearch(query: string, options?: {
 }
 
 
+const BOCHA_LIMIT = 7000;
+
 export const bochaSearchTool: Tool = {
+    DEFAULT_OUTPUT_LIMIT_CHAR: BOCHA_LIMIT,
+
+    declaredReturnType: {
+        type: '{ code, queryContext, webPages: Array<{ datePublished, name, url, abstract, siteName }> }'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -133,5 +142,29 @@ export const bochaSearchTool: Tool = {
             status: ToolExecuteStatus.SUCCESS,
             data: data
         };
+    },
+
+    formatForLLM: (data: { code: number; queryContext: any; webPages: any[] }): string => {
+        if (!data || !data.webPages || data.webPages.length === 0) {
+            return 'No search results found.';
+        }
+
+        const parts: string[] = [];
+        parts.push(`## Bocha Search Results`);
+
+        data.webPages.forEach((page, index) => {
+            parts.push(`\n**${index + 1}. [${page.name}](${page.url})**`);
+            if (page.siteName) parts.push(`Site: ${page.siteName}`);
+            if (page.datePublished) parts.push(`Date: ${page.datePublished}`);
+            parts.push(page.abstract || '');
+        });
+
+        return parts.join('\n');
+    },
+
+    truncateForLLM: (formatted: string, args: Record<string, any>): string => {
+        const limit = normalizeLimit(args.limit, BOCHA_LIMIT);
+        const result = truncateContent(formatted, limit);
+        return result.content;
     }
 };
