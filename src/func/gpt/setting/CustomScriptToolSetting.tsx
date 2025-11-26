@@ -68,7 +68,8 @@ def get_weather(city: str) -> str:
         city (str): 城市名称
 
     Returns:
-        dict: {'city': str, 'temperature': int, 'condition': str}
+        dict: {'city': str, 'temperature': int, 'condition': str }
+            condition 可以是 '晴朗', '多云', '雨天' 等等
 
     """
     temp = os.getenv('DEFAULT_TEMPERATURE', '25')
@@ -83,7 +84,14 @@ get_weather.format = (
     lambda ans,
     args: f"{args['city']}的天气{ans['condition']}，温度{ans['temperature']}摄氏度。"
 )
+\`\`\`
 
+插件会解析脚本，并将 \`add\`, \`get_weather\` 函数作为工具暴露给 LLM 使用。
+
+**返回**: 可以返回 str，也可以返回 dict 或者 list; 但不要返回多个参数
+**特殊属性**:
+- \`permissionLevel/requireExecutionApproval/requireResultApproval\`: 配置工具的权限
+- \`format(result: ReturnTypeOfFun, args: dict) -> str\`: 定义如何将返回结果格式化为字符串供 LLM 阅读
 `;
 
 /**

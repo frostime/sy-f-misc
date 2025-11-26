@@ -782,11 +782,11 @@ export const webPageContentTool: Tool = {
                     resultText = formatKeywordSearchResult(searchResult, mode);
 
                     // 对关键词查找结果也应用字数限制
-                    const truncResult = truncateContent(resultText, limit);
-                    resultText = truncResult.content;
-                    if (truncResult.isTruncated) {
-                        resultText += `\n\n[关键词查找结果被截断: 原始长度 ${truncResult.originalLength} 字符, 显示 ${truncResult.shownLength} 字符]`;
-                    }
+                    // const truncResult = truncateContent(resultText, limit);
+                    // resultText = truncResult.content;
+                    // if (truncResult.isTruncated) {
+                    //     resultText += `\n\n[关键词查找结果被截断: 原始长度 ${truncResult.originalLength} 字符, 显示 ${truncResult.shownLength} 字符]`;
+                    // }
                 } else {
                     // 应用起始位置和长度限制（仅在非关键词查找模式下）
                     // 先应用 begin 偏移
@@ -800,11 +800,11 @@ export const webPageContentTool: Tool = {
                     resultText = truncResult.content;
 
                     // 添加截断信息
-                    if (begin > 0 || truncResult.isTruncated) {
-                        const displayStart = begin;
-                        const displayEnd = begin + truncResult.shownLength;
-                        resultText += `\n\n[原始内容长度: ${originalLength} 字符, 显示范围: ${displayStart} - ${displayEnd}]`;
-                    }
+                    // if (begin > 0 || truncResult.isTruncated) {
+                    //     const displayStart = begin;
+                    //     const displayEnd = begin + truncResult.shownLength;
+                    //     resultText += `\n\n[原始内容长度: ${originalLength} 字符, 显示范围: ${displayStart} - ${displayEnd}]`;
+                    // }
                 }
 
                 // 组装元信息和内容
@@ -834,17 +834,17 @@ export const webPageContentTool: Tool = {
         // 返回原始数据数组
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: results
+            data: results.join('\n')
         };
     },
 
     // 格式化器：将原始结果数组转换为适合 LLM 的文本
-    formatForLLM: (data: any[]) => {
-        if (!Array.isArray(data)) {
-            return String(data);
-        }
-        return data.join('\n\n---\n\n');
-    },
+    // formatForLLM: (data: any[]) => {
+    //     if (!Array.isArray(data)) {
+    //         return String(data);
+    //     }
+    //     return data.join('\n\n---\n\n');
+    // },
 
     // 截断器：考虑 begin 和 limit 参数
     // truncateForLLM: (formatted: string, args: Record<string, any>) => {
