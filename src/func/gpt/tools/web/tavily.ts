@@ -318,20 +318,7 @@ export const tavilySearchTool: Tool = {
             return 'No search results found.';
         }
 
-        const parts: string[] = [];
-        parts.push(`> Search: "${data.query}"`);
-
-        if (data.answer) {
-            parts.push(`\n### Answer\n${data.answer}`);
-        }
-
-        parts.push('\n### Results');
-        data.results.forEach((result, index) => {
-            parts.push(`\n**${index + 1}. [${result.title}](${result.url})**`);
-            parts.push(result.content);
-        });
-
-        return parts.join('\n');
+        return formatTavilyResults(data);
     },
 
     truncateForLLM: (formatted: string, args: Record<string, any>): string => {

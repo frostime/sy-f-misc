@@ -261,7 +261,7 @@ export async function executeToolChain(
         contextMessages: options.contextMessages || [],
         toolChainMessages: [],
         allMessages: [...(options.contextMessages || [])],
-        toolCallHistory: [],
+        toolCallHistory: [] as ToolChainResult['toolCallHistory'],
         startTime: Date.now(),
         status: 'running' as 'running' | 'completed' | 'aborted' | 'error' | 'timeout',
         usage: llmResponseWithToolCalls.usage // 添加 usage 属性以跟踪令牌使用情况
@@ -768,6 +768,22 @@ ${toolHistory}${statusInfo}
         }
     }
 
+    //不把过多内容返回给上层
+    const toolCallHistoryClean = state.toolCallHistory.map(call => {
+        const { status, data, error, rejectReason } = call.result;
+        const resultClean = {
+            status, data, error ,rejectReason
+        };
+        //实际发送给 LLM 的内容
+        if (call.result.finalText !== undefined) {
+            resultClean.data = call.result.finalText;
+        }
+        return {
+            ...call,
+            result: resultClean
+        };
+    });
+
     // 构建结果
     const result: ToolChainResult = {
         toolChainContent: hint,
@@ -778,7 +794,8 @@ ${toolHistory}${statusInfo}
             toolChain: state.toolChainMessages,
             complete: state.allMessages
         },
-        toolCallHistory: state.toolCallHistory,
+        // toolCallHistory: state.toolCallHistory,
+        toolCallHistory: toolCallHistoryClean,
         status: 'completed',
         error: state.status === 'error' ? 'Error executing tool chain' : undefined,
         stats: {

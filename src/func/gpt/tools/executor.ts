@@ -458,7 +458,7 @@ ${ruleContent.trim()}
         } else {
             try {
                 if (tool.formatForLLM) {
-                    formatted = tool.formatForLLM(result.data);
+                    formatted = tool.formatForLLM(result.data, args || {});
                 } else if (typeof result.data === 'string') {
                     formatted = result.data;
                 } else {
@@ -508,7 +508,7 @@ ${ruleContent.trim()}
             sysHintHeader.push(`[system log] 原始完整结果已缓存至文件: ${cacheFile}, 如有需求可尝试访问获取所有结果`);
         }
         if (sysHintHeader.length > 0) {
-            result.finalText = sysHintHeader.join('\n') + '=====' + result.finalText;
+            result.finalText = sysHintHeader.join('\n') + '\n=====\n' + result.finalText;
         }
 
 

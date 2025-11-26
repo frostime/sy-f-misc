@@ -460,7 +460,7 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 **转义字符**（避免 JSON 解析错误）:
 \`_esc_dquote_\` → \`"\` | \`_esc_backslash_\` → \`\\\` | 优先用单引号 '
 
-## 关键规则 ##
+### 关键规则 ###
 - 必须用 \`await\` 调用异步 API
 - **TOOL_CALL 返回原始 data 对象**，与工具 description 中描述的返回类型一致
   - 注意：直接调用工具时 LLM 看到的是格式化后的文本，但脚本中拿到的是结构化数据
@@ -469,6 +469,10 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 - FORMALIZE 最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，本质是 LLM 调用，勿滥用
 - 合并多个 FORMALIZE 请求为数组类型，减少调用次数
 - 部分工具有 limit 参数，脚本中通常需要完整数据，建议设为 -1
+
+## CheckToolReturnType - 工具返回类型查询 ##
+
+调用 **CheckToolReturnType** 查询工具的返回数据类型，了解数据结构后再编写脚本。
 
 ## ToolCallScriptDoc - 技能文档索引 ##
 

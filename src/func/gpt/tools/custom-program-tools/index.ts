@@ -91,7 +91,7 @@ try:
     # 检查函数是否有自定义 format 方法
     if hasattr(func, 'format') and callable(func.format):
         try:
-            formatted = func.format(result)
+            formatted = func.format(result, args)
             if isinstance(formatted, str):
                 output["formattedText"] = formatted
         except Exception as fmt_err:

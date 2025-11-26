@@ -39,10 +39,6 @@ if (Array.isArray(result) && result.length > 0) {
 }
 \`\`\`
 
-**常见注意点**:
-- ReadFile 返回 \`{ filePath, content, totalLines, ... }\` 对象，不是纯字符串！
-- 思源工具返回的 DocumentSummary 包含 \`{ id, name, hpath, box, updated, ... }\`
-- 搜索类工具通常返回数组
 `.trim(),
 
     'best-practices': `
