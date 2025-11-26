@@ -13,6 +13,7 @@ import { ToolExecutor } from "../executor";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { complete } from "../../openai/complete";
 import * as store from "@gpt/setting/store";
+import { toolCallScriptDocTool } from "./skill-doc";
 
 const FORMALIZE_MAX_INPUT_LENGTH = 32000;
 
@@ -348,88 +349,31 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
     const toolCallScriptTool = createToolCallScriptTool(executor);
     executor.registerToolGroup({
         name: 'Tool Orchestration',
-        tools: [toolCallScriptTool],
+        tools: [toolCallScriptTool, toolCallScriptDocTool],
         rulePrompt: `
-### ToolCallScript - 工具编排脚本
+## ToolCallScript - 工具编排脚本 ##
 
-当需要执行复杂的工具组合调用时，使用 ToolCallScript 工具，编写 JS 脚本在沙箱中运行。
-沙箱中不可访问 document, window, eval, Function 等危险对象。
+在沙箱中执行 JS 脚本编排复杂的多工具调用（禁用 document/window/eval 等）。
 
-**可用 API**：
-- \`await TOOL_CALL(toolName: string, args: object)\`: 调用任意可用工具
-- \`await FORMALIZE(text: string, typeDescription: string)\`: 使用 LLM 将非结构化文本转换为结构化数据 (JSON); typeDescription一定要设计好!s
-- \`await SLEEP(ms: number)\`: 延迟执行
-- \`await PARALLEL(...promises: Promise[])\`: 并行执行多个工具调用
-- \`console.log/warn/error\`: 输出信息（作为工具返回值）
+**可用 API**:
+- \`await TOOL_CALL(toolName, args)\`: 调用工具，返回原始 data（非格式化文本）
+- \`await FORMALIZE(text, typeDescription)\`: LLM 将文本转为 JSON（设计好类型定义！）
+- \`await SLEEP(ms)\` / \`await PARALLEL(...promises)\`
+- \`console.log/warn/error\`: 输出作为返回值
 
-**特殊转义字符**：
-为了避免 JSON 解析错误，你可以在 script 中使用以下特殊占位符代替特殊字符：
-- \`_esc_dquote_\` -> \`"\` (双引号)
-- \`_esc_backslash_\` -> \`\\\` (反斜杠)
-- 如无必要，尽量使用单引号 ' 替换 双引号 "，以减少转义需求
+**转义字符**（避免 JSON 解析错误）:
+\`_esc_dquote_\` → \`"\` | \`_esc_backslash_\` → \`\\\` | 优先用单引号 '
 
-**示例 特殊字符转义**：
-\`\`\`javascript
-// 如果你想执行: console.log("Hello\\nWorld");
-// 可以编写如下脚本 (不强制，单纯为了降低生成错误字符破坏 tool call json 结构的风险)
-console.log(_esc_dquote_Hello World_esc_dquote_);
-\`\`\`
+## 关键规则 ##
+- 必须用 \`await\` 调用异步 API
+- TOOL_CALL 返回原始数据，需要解析文本时用 FORMALIZE
+- FORMALIZE 最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，本质是 LLM 调用，勿滥用
+- 合并多个 FORMALIZE 请求为数组类型，减少调用次数
+- 部分工具有 limit 参数，需完整结果时设为 -1
 
-**核心 API \`TOOL_CALL\`** : 直接返回工具调用结果的**原始结构化数据** (result.data)，而非格式化后的文本 (result.finalText)
-- 参考工具定义描述来获悉返回类型
-
-**示例 检索网页**:
-\`\`\`javascript
-// 检索多个网页内容
-const urls = ['https://example.com/page1', 'https://example.com/page2'];
-const KEYWORD = 'KEYWORD';
-
-for (const url of urls) {
-    const pageContent = await TOOL_CALL('WebPageContent', { url: url, mode: 'markdown', limit: -1 });
-    if (pageContent.includes(KEYWORD)) {
-        console.log(\`Keyword found in \${url}\`);
-    } else {
-        console.log(\`Keyword not found in \${url}\`);
-    }
-}
-
-\`\`\`
-
-**核心 API \`FORMALIZE\`** : 某些工具返回纯文本而非结构化数据时，可用此 API 转换为结构化数据方便嵌入 JS 使用
-本质也是调用 LLM 完成，所以输入的文本量不宜过大，否则可能导致超时或费用过高
-
-**示例 FORMALIZE**:
-\`\`\`javascript
-const formated = await FORMALIZE(\`
-- A.txt | Create on 2023-01-01 | Size: 15KB
-- B.docx | Create on 2022-12-15 | Size: 45KB
-- C/ | Create on 2022-12-15 | Size: -
-\`, \`
-请过滤掉文件夹，只返回文件列表，类型定义如下:
-{
-  filename: string;
-  CreateYear: string; //Should be yyyy format
-  sizeKB: number; // Be a number without 'KB' suffix.
-}[];
-\`);
->>> Will be like: [{ "filename": "A.txt", "CreateYear": "2023", "sizeKB": 15 },{ "filename": "B.docx", "CreateYear": "2022", "sizeKB": 45 }]
-\`\`\`
-
-
-**注意事项**：
-- 脚本中必须使用 \`await\` 来调用 TOOL_CALL
-- 复杂调用，建议使用内置转义字符，避免 JSON 解析错误
-- TOOL_CALL 返回的是工具的原始数据 (data)，而非格式化文本 (finalText)，适合进行编程处理
-- 如果你需要对工具返回的文本进行解析，可能需要使用 FORMALIZE 将其转换为结构化数据
-- 所有 console.log 输出会作为工具结果返回
-- 有些 Tool 可能会返回非结构数据，使用 FORMALIZE 可将其转换为结构化数据; 不过请你设计好类型定义
-    - FORMALIZE 会强制限制最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，过多会内部强制截断
-    - FORMALIZE 本质也是调用 LLM，不要滥用
-    - 如果需要对 N 个文本进行 FORMALIZE，建议将他们合并，并要求 FORMALIZE 为特定类型的数组
-    - 保证返回结果的最小可用; 例如输入文件信息，想要返回 2023 年之后的文件，就不要返回所有年份的文件然后多此一举的过滤；FORMALIZE 很强大，但也有成本
-- 有些 Tool 有 limit 字符，意味着结果会被截断; 如果需要完整结果，可设置 limit 为 -1（如果支持）
-    - 如果需要 FORMALIZE，建议在返回类型中设置关于截断 (truncated) 的相关信息，以免误判
-    - 例如: { isTruncated: boolean; cacheLocalFile?: string; }
+## 进阶文档 ##
+如需查看详细 API 说明、最佳实践或代码示例（如并行执行、复杂编排），请调用 **ToolCallScriptDoc**。
+可用主题: \`api-reference\` \`best-practices\` \`example-basic\` \`example-formalize\` \`example-parallel\` \`example-complex\`
 `.trim()
     });
     return executor;

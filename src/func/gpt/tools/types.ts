@@ -125,6 +125,10 @@ export type ToolExecuteFunction = (
  */
 export interface Tool {
     definition: ToolDefinitionWithPermission;
+
+    SKIP_EXTERNAL_TRUNCATE?: boolean;
+    DEFAULT_OUTPUT_LIMIT_CHAR?: number;
+
     execute: ToolExecuteFunction;
 
     // 可选的参数压缩函数，用于在工具链日志中显示简化的参数信息
@@ -148,8 +152,13 @@ export interface Tool {
 export interface ToolGroup {
     name: string;
     tools: Tool[];
-    rulePrompt?: string;
-    dynamicPromptFunction?: () => string;  //为后面做 Memory 机制做准备
+    /**
+     * 工具组的规则提示
+     * - 字符串：静态提示
+     * - 函数：动态提示，接收当前启用的工具名列表作为参数
+     */
+    rulePrompt?: string | ((enabledToolNames: string[]) => string);
+    // dynamicStatePrompt?: () => string;  //为后面做 Memory 机制做准备
 }
 
 export interface IExternalToolUnit {

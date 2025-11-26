@@ -766,30 +766,16 @@ export const editorTools = {
         replaceStringTool
     ] : [],
     rulePrompt: `
-### 文件编辑工具
+## 文件编辑工具组 ##
 
-类似 Cursor/Copilot 的精确文件编辑能力：
+**单次操作**: ReplaceLines | InsertLines | DeleteLines | ReplaceString(支持正则)
 
-**批量编辑工具（推荐）**:
-- BatchEdit: 一次性执行多个编辑操作（替换、插入、删除），自动处理行号偏移
-  - 所有操作基于原始文件的行号
-  - 自动按照从后向前的顺序执行，避免行号冲突
-  - 支持混合不同类型的操作
-  - 示例：[{type: 'replace', line: 10, endLine: 15, content: '...'}, {type: 'insert', line: 5, position: 'after', content: '...'}]
+**多次操作**: BatchEdit —— 批量修改时优先使用，不过务必确保行号正确
 
-**单次编辑工具**:
-- ReplaceLines: 替换指定行范围的内容
-- InsertLines: 在指定位置插入新内容
-- DeleteLines: 删除指定行范围
-- ReplaceString: 字符串查找替换（支持正则）
-
-**使用建议**:
-0. 指定编辑某个文件前，使用 fileState 查看文件的大小、行数
-1. 用 ReadFile 查看文件内容; 每次读取建议指定行号
-2. 使用 SearchInFile (位于文件系统工具组) 定位需要修改的具体位置
-3. 行号统一从 1 开始计数
-4. **需要多处修改时，优先使用 BatchEdit 工具，一次性完成所有编辑**
-5. 复杂修改建议分步进行，每次修改后验证结果
-6. 使用 ReplaceString 进行批量重命名或格式调整
+## 实践 Skills ##
+1. FileState 查看文件大小/行数
+2. ReadFile 或 SearchInFile 定位目标位置; 未知文件避免盲目全量读取
+3. 执行编辑（行号从 1 开始）
+4. 复杂修改分步进行，每步验证
 `.trim()
 };

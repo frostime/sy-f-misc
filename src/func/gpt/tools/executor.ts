@@ -33,7 +33,6 @@ export class ToolExecutor {
     private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
     public groupRegistry: Record<string, ToolGroup> = {};
-    public groupRules: Record<string, string> = {};
 
     // public groupEnabled: Record<string, boolean> = {};
     // private toolEnabled: Record<string, boolean> = {};
@@ -46,19 +45,60 @@ export class ToolExecutor {
         tool: {}
     });
 
+    /**
+     * 获取工具组中已启用的工具名列表
+     */
+    getEnabledToolNamesInGroup(groupName: string): string[] {
+        const group = this.groupRegistry[groupName];
+        if (!group) return [];
+        return group.tools
+            .filter(tool => this.isToolEnabled(tool.definition.function.name))
+            .map(tool => tool.definition.function.name);
+    }
+
+    /**
+     * 解析工具组的 rulePrompt（支持静态字符串和动态函数）
+     */
+    private resolveGroupRulePrompt(groupName: string): string {
+        const group = this.groupRegistry[groupName];
+        if (!group || !group.rulePrompt) return '';
+
+        const enabledToolNames = this.getEnabledToolNamesInGroup(groupName);
+
+        // 如果没有启用的工具，不返回规则
+        if (enabledToolNames.length === 0) return '';
+
+        let ruleContent: string;
+        if (typeof group.rulePrompt === 'function') {
+            ruleContent = group.rulePrompt(enabledToolNames);
+        } else {
+            ruleContent = group.rulePrompt;
+        }
+
+        if (!ruleContent?.trim()) return '';
+
+        return `
+<tool-group-rule group="${groupName}">
+Group "${groupName}" contains following tools: ${enabledToolNames.join(', ')}.
+
+${ruleContent.trim()}
+</tool-group-rule>
+`;
+    }
+
     toolRules() {
         if (!this.hasEnabledTools()) return '';
         let prompt = `<tool-rules>
 在当前对话中，如果发现有必要，请使用提供的工具(tools)。以下是使用工具的指导原则：
 
 **工作规范**
-- 在每次工具调用之前，必须进行详细的规划。
-- 在每次工具调用之后，必须对结果进行深入的反思。
-- 不要仅仅给出工具调用的请求而不输出中间的思考和规划来——否则这可能严重影响 ASSISTANT 解决问题的能力和深入思考的能力。这一点非常重要！
+- 在调用工具前，请在内部充分规划；当任务复杂或用户明确要求时，再在输出中简要说明你的计划（3–5 行）。
+- 在工具调用后，如有必要，可对关键结果做简要反思，但不要输出冗长的思考过程。
+- 每个 TOOL 都有一个隐藏可选参数 \`limit\`，来截断限制返回给 LLM 的输出长度。设置为 -1 或 0 表示不限制。
 
 **进入 Tool Call 流程后**
-- 持续进行直到USER的问题完全解决，确保在结束 ASSISTANT 的回合并返回给USER之前，问题已经得到解决。
-- 只有在确定问题已解决时，才终止 ASSISTANT 的回合。
+- 当你认为已经足够回答用户问题时，可以提前结束工具链；如果仍有疑问，再与用户交互确认是否需要继续深入
+- Tool Call 结束之后, 可能会把完整结果写入本地日志文件；如果你被允许访问文件系统可以尝试读取以获得更多信息。
 
 **用户审核**
 - 部分工具在调用的时候会给用户审核，用户可能拒绝调用。
@@ -68,13 +108,18 @@ export class ToolExecutor {
 - 如果USER希望手动调用工具并查看结果（例如网络搜索等），请将工具结果**完整**呈现给USER，不要仅提供总结或选择性提供而导致信息丢失。
 
 **工具调用记录**
-- 为了节省资源，工具调用的中间过程消息不会显示给USER。
+- 为了节省资源，工具调用的中间过程消息不会显示给USER，务必确保你最后给出一个完善的回答。
 - SYSTEM 会生成工具调用记录 <toolcall-history-log>...</toolcall-history-log> 并插入到消息里，这部分内容不会显示给 USER 看，也不由 ASSISTANT 生成。
 - ASSISTANT(你) **不得自行提及或生成** <toolcall-history-log> 标签; 否则可能严重误导后续工具调用 !!IMPORTANT!!
 </tool-rules>`;
-        for (const [name, rule] of Object.entries(this.groupRules)) {
-            if (!this.isGroupEnabled(name)) continue;
-            prompt += `\n\n${rule}`;
+
+        // 动态解析每个启用的工具组的 rulePrompt
+        for (const groupName of Object.keys(this.groupRegistry)) {
+            if (!this.isGroupEnabled(groupName)) continue;
+            const rule = this.resolveGroupRulePrompt(groupName);
+            if (rule) {
+                prompt += `\n\n${rule}`;
+            }
         }
         return prompt;
     }
@@ -156,17 +201,8 @@ export class ToolExecutor {
         if (group.tools.length === 0) return;
         group.tools.forEach(tool => this.registerTool(tool));
         this.groupRegistry[group.name] = group;
-        if (group.rulePrompt?.trim()) {
-            this.groupRules[group.name] = (`
-<tool-group-rule group="${group.name}">
-Group "${group.name}" contains following tools: ${group.tools.map(tool => tool.definition.function.name).join(', ')}.
-
-${group.rulePrompt.trim()}
-</tool-group-rule>
-`);
-        }
+        // rulePrompt 现在在 toolRules() 中动态解析，不再在此处静态存储
         //工具组默认禁用
-        // this.groupEnabled[group.name] = false;
         this.enablingStore.update('group', group.name, false);
     }
 
@@ -437,12 +473,15 @@ ${group.rulePrompt.trim()}
         let originalLength = formatted.length;
         let finalForLLM = formatted;
         let isTruncated = false;
-        if (tool.truncateForLLM) {
+        if (tool.SKIP_EXTERNAL_TRUNCATE === true) {
+            // 不截断
+        }
+        else if (tool.truncateForLLM) {
             // 使用工具自己的截断逻辑（可能考虑 args 中的 limit/begin）
             finalForLLM = tool.truncateForLLM(formatted, args);
             isTruncated = finalForLLM.length < originalLength;
         } else {
-            let limit = DEFAULT_LIMIT_CHAR;
+            let limit = tool.DEFAULT_OUTPUT_LIMIT_CHAR || DEFAULT_LIMIT_CHAR;
             if (args.limit !== undefined) {
                 // 0 意味着不截断
                 limit = args.limit <= 0 ? Number.POSITIVE_INFINITY : args.limit;

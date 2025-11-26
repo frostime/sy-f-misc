@@ -219,8 +219,9 @@ export const basicTool = {
     name: 'basic-tools',
     tools: [datetimeTool, textTool],
     rulePrompt: `
-一些基础工具
-- 如果在回答中涉及到实时性信息，例如用户询问了“最近”“近期”“XX月前”等，请务必调用 datetime 确认当前的时间。
-- 如果需要对文本进行查找、替换或获取长度等操作，请使用 text 工具，它支持正则表达式。
-`
+## 基础工具组 ##
+
+- **datetime**: 涉及时效性信息（"最近"、"近期"、"XX月前"等）时，必须先调用确认当前时间
+- **text**: 文本查找、替换、长度计算，支持正则表达式
+`.trim()
 }

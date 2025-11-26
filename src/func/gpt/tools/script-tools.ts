@@ -386,15 +386,15 @@ const scriptName = platform === 'win32' ? 'PowerShell' : 'Bash';
 export const scriptTools: ToolGroup = {
     name: '脚本执行工具组',
     tools: [shellTool, pythonTool, javascriptTool, pandocTool],
-    rulePrompt: `本地脚本执行工具组
+    rulePrompt: `
+## 脚本执行工具组 ##
 
-这些工具适用于需要与系统交互或执行复杂运算的场景，以及在处理大量数据、数学计算、 统计分析、固定流程算法等大语言模型不擅长的领域（如数学计算问题）。
+适用场景：系统交互、数学计算、统计分析、批量处理等 LLM 不擅长的精确计算任务
 
-- Shell 工具：运行当前系统的 ${scriptName} 命令; 通过创建临时脚本文件执行, 请传入完整的脚本代码或者命令代码
-- Python 工具：需确保系统已安装 Python; 返回结果为 python 的标准流输出
-- JavaScript 工具：运行在特殊环境中，禁用 document 对象; 返回结果为 JavaScript console.log 等 api 输出
-- Pandoc 工具：使用思源自带的 Pandoc 进行文档格式转换，默认转换为 Markdown 格式。适用于读取外部 docx 等文件内容。
-
-**通用参数**: 所有工具都支持可选的 limit 参数（数字类型）来控制返回给 LLM 的输出长度，默认约 8000 字符。设置为 -1 或 0 表示不限制。
-`
+**工具选择**:
+- Shell: ${scriptName} 命令/脚本（传入完整代码）
+- Python: 需系统已安装，返回 stdout
+- JavaScript: 沙盒环境（禁用 document），返回 console 输出
+- Pandoc: 文档格式转换（docx→Markdown 等），使用思源自带 Pandoc
+`.trim()
 };

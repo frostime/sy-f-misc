@@ -72,30 +72,13 @@ if (fs && fileSystemTools.tools.length > 0) {
     }
 
     fileSystemTools.rulePrompt = `
-当前主机运行的系统: ${platform}, 用户家目录: ${homeDir}
-${drivesStr}
+## 文件系统工具组 ##
 
-### 文件系统工具
+**环境**: ${platform}, 家目录: \`${homeDir}\`${drivesStr ? `, ${drivesStr}` : ''}
 
-**浏览和读取**:
-- TreeList: 树状列出目录结构，支持深度和 glob 匹配，显示文件大小
-- FileState: 获取特定文件元信息
-- ReadFile: 读取文本文件内容
-
-**搜索工具**:
-- SearchFiles: 在目录中搜索文件名称（支持正则）
-- SearchInFile: 在文件中搜索并显示上下文
-- SearchInDirectory: 在目录中搜索包含特定内容的文件
-
-**文件操作**:
-- CreateFile: 创建文本文件
-- Mkdir: 创建目录 (支持 recursive 类似 -p)
-- MoveFile: 移动文件或目录
-- CopyFile: 复制文件或目录
-- MarkitdownRead: 读取 Word (.docx), PDF (.pdf) 等文件，转换为 Markdown 格式（需要安装 markitdown 工具）
-
-**注意**: 
-- 搜索和列表工具会自动限制输出长度，完整结果会保存到日志文件。
-- 所有工具都支持可选的 limit 参数（数字类型）来控制返回给 LLM 的输出长度，默认约 8000 字符。设置为 -1 或 0 表示不限制。这是输出限制，不影响工具的实际执行逻辑。
+**浏览**: TreeList(目录树) | FileState(文件元信息) | ReadFile(读取内容)
+**搜索**: SearchFiles(文件名) | SearchInFile(文件内搜索) | SearchInDirectory(目录内搜索)
+**操作**: CreateFile | Mkdir(-p) | MoveFile | CopyFile
+**转换**: MarkitdownRead(docx/pdf→Markdown，需 markitdown)
 `.trim();
 }

@@ -31,7 +31,12 @@ const checkMarkitdownAvailable = (): boolean => {
  * Markitdown 工具：读取 Word、PDF 等文件内容
  * 使用 markitdown 命令行工具将文件转换为 Markdown 格式
  */
+const MARKITDOWN_LIMIT = 7000;
+
 export const markitdownTool: Tool = {
+    SKIP_EXTERNAL_TRUNCATE: true, // 内部已处理截断
+    DEFAULT_OUTPUT_LIMIT_CHAR: MARKITDOWN_LIMIT,
+
     definition: {
         type: 'function',
         function: {
@@ -51,7 +56,7 @@ export const markitdownTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: '为了防止文件内容过大，限制最大字符数量；默认 5000, 如果设置为 < 0 则不限制',
+                        description: `为了防止文件内容过大，限制最大字符数量；默认 ${MARKITDOWN_LIMIT}, 如果设置为 < 0 则不限制`,
                         minimum: -1
                     }
                 },
@@ -145,7 +150,7 @@ export const markitdownTool: Tool = {
             const totalChars = content.length;
 
             // 应用字符范围限制
-            const limit = normalizeLimit(args.limit, 5000);
+            const limit = normalizeLimit(args.limit, MARKITDOWN_LIMIT);
 
             // 先应用 begin 范围截取
             let rangeContent = content;
@@ -178,22 +183,5 @@ export const markitdownTool: Tool = {
                 error: `MarkitDown 处理失败: ${error.message}`
             };
         }
-    },
-
-    // 截断器：考虑 begin 和 limit 参数
-    truncateForLLM: (formatted: string, args: Record<string, any>) => {
-        const begin = args.begin ?? 0;
-        const limit = normalizeLimit(args.limit, 5000);
-
-        // 应用 begin 偏移
-        let content = begin > 0 ? formatted.substring(begin) : formatted;
-
-        // 应用 limit 截断
-        if (limit > 0 && content.length > limit) {
-            content = content.substring(0, limit);
-            content += `\n\n[内容过长，已从位置 ${begin} 截断为 ${limit} 字符]`;
-        }
-
-        return content;
     }
 };

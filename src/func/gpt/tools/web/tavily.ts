@@ -7,6 +7,7 @@
  */
 import { globalMiscConfigs } from '../../setting/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
+import { normalizeLimit, truncateContent } from '../utils';
 
 export interface TavilySearchResponse {
     query: string;
@@ -218,7 +219,11 @@ export function formatTavilyExtractResult(result: TavilyExtractResponse): string
     return markdown;
 }
 
+const TAVILY_LIMIT = 6000;
+
 export const tavilySearchTool: Tool = {
+    DEFAULT_OUTPUT_LIMIT_CHAR: TAVILY_LIMIT,
+
     definition: {
         type: 'function',
         function: {
@@ -301,5 +306,32 @@ export const tavilySearchTool: Tool = {
             status: ToolExecuteStatus.SUCCESS,
             data: result
         };
+    },
+
+    formatForLLM: (data: TavilySearchResponse): string => {
+        if (!data || !data.results || data.results.length === 0) {
+            return 'No search results found.';
+        }
+
+        const parts: string[] = [];
+        parts.push(`> Search: "${data.query}"`);
+
+        if (data.answer) {
+            parts.push(`\n### Answer\n${data.answer}`);
+        }
+
+        parts.push('\n### Results');
+        data.results.forEach((result, index) => {
+            parts.push(`\n**${index + 1}. [${result.title}](${result.url})**`);
+            parts.push(result.content);
+        });
+
+        return parts.join('\n');
+    },
+
+    truncateForLLM: (formatted: string, args: Record<string, any>): string => {
+        const limit = normalizeLimit(args.limit, TAVILY_LIMIT);
+        const result = truncateContent(formatted, limit);
+        return result.content;
     }
 };
