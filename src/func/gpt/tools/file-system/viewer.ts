@@ -61,6 +61,11 @@ export const readFileTool: Tool = {
         requireResultApproval: true
     },
 
+    declaredReturnType: {
+        type: '{ filePath: string; content: string; startLine?: number; endLine?: number; totalLines: number }',
+        note: '注意不是纯字符串，而是结构化对象！内容在 content 字段'
+    },
+
     execute: async (args: { path: string; beginLine?: number; endLine?: number; limit?: number; showLineNum?: boolean }): Promise<ToolExecuteResult> => {
         const showLineNum = args.showLineNum ?? false;
         const filePath = path.resolve(args.path);
@@ -180,6 +185,11 @@ export const createFileTool: Tool = {
         permissionLevel: ToolPermissionLevel.SENSITIVE
     },
 
+    declaredReturnType: {
+        type: '{ error: string; path: string }',
+        note: 'error 为空字符串表示成功'
+    },
+
     execute: async (args: { path: string; content: string }): Promise<ToolExecuteResult> => {
         let filePath: string;
 
@@ -242,7 +252,7 @@ export const fileStateTool: Tool = {
         type: 'function',
         function: {
             name: 'FileState',
-            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）\n返回 `{ path: string; size: string; isDirectory: boolean; createdAt: string; modifiedAt: string; accessedAt: string; lineCount?: number }`',
+            description: '指定路径，查看文件的详细信息（如大小、创建时间、修改时间、文本文件行数等）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -255,6 +265,10 @@ export const fileStateTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.PUBLIC,
+    },
+
+    declaredReturnType: {
+        type: '{ path: string; size: string; isDirectory: boolean; createdAt: string; modifiedAt: string; accessedAt: string; lineCount?: number }'
     },
 
     execute: async (args: { path: string }): Promise<ToolExecuteResult> => {
@@ -302,7 +316,7 @@ export const treeListTool: Tool = {
         type: 'function',
         function: {
             name: 'TreeList',
-            description: '树状列出目录内容，支持深度和正则表达式匹配\n返回 `string`（树形目录文本，超长时附截断信息）',
+            description: '树状列出目录内容，支持深度和正则表达式匹配',
             parameters: {
                 type: 'object',
                 properties: {
@@ -329,6 +343,12 @@ export const treeListTool: Tool = {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },
+
+    declaredReturnType: {
+        type: 'string',
+        note: '树形目录结构文本'
+    },
+
     execute: async (args: { path: string; depth?: number; skipHiddenDir?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
         const { path: startPath, depth = 1, skipHiddenDir = true } = args;
         const MAX_DEPTH = 7;
@@ -465,6 +485,11 @@ export const searchInFileTool: Tool = {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
 
+    },
+
+    declaredReturnType: {
+        type: 'string',
+        note: '格式化的搜索结果文本'
     },
 
     execute: async (args: {
@@ -608,6 +633,11 @@ export const searchInDirectoryTool: Tool = {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
 
+    },
+
+    declaredReturnType: {
+        type: 'string',
+        note: '格式化的搜索结果文本'
     },
 
     execute: async (args: {

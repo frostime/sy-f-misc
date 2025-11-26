@@ -129,6 +129,17 @@ export interface Tool {
     SKIP_EXTERNAL_TRUNCATE?: boolean;
     DEFAULT_OUTPUT_LIMIT_CHAR?: number;
 
+    /**
+     * 声明工具成功执行后 result.data 的类型（用于 ToolCallScript 参考）
+     * 这有助于 LLM 在编写脚本时了解 TOOL_CALL 返回的数据结构
+     */
+    declaredReturnType?: {
+        /** TypeScript 类型表达式，如 "DocumentSummary[]" 或 "{ id: string; content: string }" */
+        type: string;
+        /** 补充说明，如字段含义、特殊情况等 */
+        note?: string;
+    };
+
     execute: ToolExecuteFunction;
 
     // 可选的参数压缩函数，用于在工具链日志中显示简化的参数信息

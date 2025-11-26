@@ -60,6 +60,10 @@ const BOCHA_LIMIT = 7000;
 export const bochaSearchTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: BOCHA_LIMIT,
 
+    declaredReturnType: {
+        type: '{ code, queryContext, webPages: Array<{ datePublished, name, url, abstract, siteName }> }'
+    },
+
     definition: {
         type: 'function',
         function: {

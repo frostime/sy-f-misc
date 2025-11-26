@@ -347,9 +347,105 @@ const createToolCallScriptTool = (executor: ToolExecutor): Tool => {
 
 export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
     const toolCallScriptTool = createToolCallScriptTool(executor);
+
+    // CheckToolDataType 工具：查询工具的返回数据类型
+    const checkToolReturnTypeTool: Tool = {
+        definition: {
+            type: 'function',
+            function: {
+                name: 'CheckToolReturnType',
+                description: '查询指定工具的 TOOL_CALL 返回数据类型。用于在编写脚本前了解工具返回的数据结构。支持批量查询多个工具。',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        toolNames: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: '工具名称列表，不填则列出所有已声明返回类型的工具'
+                        }
+                    }
+                }
+            },
+            permissionLevel: ToolPermissionLevel.PUBLIC
+        },
+
+        declaredReturnType: {
+            type: 'string',
+            note: '工具返回类型信息（单个/批量/列表）'
+        },
+
+        execute: async (args: { toolNames?: string[] }): Promise<ToolExecuteResult> => {
+            if (args.toolNames && args.toolNames.length > 0) {
+                // 批量查询工具
+                const results: string[] = [];
+                const notFound: string[] = [];
+                const noDeclared: string[] = [];
+
+                for (const toolName of args.toolNames) {
+                    const tool = executor.getTool(toolName);
+                    if (!tool) {
+                        notFound.push(toolName);
+                        continue;
+                    }
+
+                    if (!tool.declaredReturnType) {
+                        noDeclared.push(toolName);
+                        continue;
+                    }
+
+                    const typeInfo = `- **${toolName}**: \`${tool.declaredReturnType.type}\`${tool.declaredReturnType.note ? `\n  ${tool.declaredReturnType.note}` : ''}`;
+                    results.push(typeInfo);
+                }
+
+                // 构建输出
+                const parts: string[] = [];
+                if (results.length > 0) {
+                    parts.push(`## 工具返回类型\n\n${results.join('\n')}`);
+                }
+                if (noDeclared.length > 0) {
+                    parts.push(`## 未声明返回类型\n以下工具未声明 declaredReturnType，建议用 console.log() 探索：\n${noDeclared.map(n => `- ${n}`).join('\n')}`);
+                }
+                if (notFound.length > 0) {
+                    parts.push(`## 未找到的工具\n${notFound.map(n => `- ${n}`).join('\n')}`);
+                }
+
+                return {
+                    status: ToolExecuteStatus.SUCCESS,
+                    data: parts.join('\n\n')
+                };
+            }
+
+            // 列出所有已声明返回类型的工具
+            const toolsWithType: string[] = [];
+            for (const groupName of Object.keys(executor.groupRegistry)) {
+                const group = executor.groupRegistry[groupName];
+                for (const tool of group.tools) {
+                    if (tool.declaredReturnType) {
+                        const name = tool.definition.function.name;
+                        const type = tool.declaredReturnType.type;
+                        const note = tool.declaredReturnType.note;
+                        toolsWithType.push(`- ${name}: \`${type}\`${note ? ` (${note})` : ''}`);
+                    }
+                }
+            }
+
+            if (toolsWithType.length === 0) {
+                return {
+                    status: ToolExecuteStatus.SUCCESS,
+                    data: '没有工具声明了返回类型。'
+                };
+            }
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: `已声明返回类型的工具:\n\n${toolsWithType.join('\n')}`
+            };
+        }
+    };
+
     executor.registerToolGroup({
         name: 'Tool Orchestration',
-        tools: [toolCallScriptTool, toolCallScriptDocTool],
+        tools: [toolCallScriptTool, checkToolReturnTypeTool, toolCallScriptDocTool],
         rulePrompt: `
 ## ToolCallScript - 工具编排脚本 ##
 
@@ -366,14 +462,26 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 
 ## 关键规则 ##
 - 必须用 \`await\` 调用异步 API
-- TOOL_CALL 返回原始数据，需要解析文本时用 FORMALIZE
+- **TOOL_CALL 返回原始 data 对象**，与工具 description 中描述的返回类型一致
+  - 注意：直接调用工具时 LLM 看到的是格式化后的文本，但脚本中拿到的是结构化数据
+  - 不确定数据结构时，调用 **CheckToolReturnType** 查询，或用 \`console.log(result)\` 探索
+  - 详情查看 \`data-format-reference\` 技能文档
 - FORMALIZE 最大处理 ${FORMALIZE_MAX_INPUT_LENGTH} 字符，本质是 LLM 调用，勿滥用
 - 合并多个 FORMALIZE 请求为数组类型，减少调用次数
-- 部分工具有 limit 参数，需完整结果时设为 -1
+- 部分工具有 limit 参数，脚本中通常需要完整数据，建议设为 -1
 
-## 进阶文档 ##
-如需查看详细 API 说明、最佳实践或代码示例（如并行执行、复杂编排），请调用 **ToolCallScriptDoc**。
-可用主题: \`api-reference\` \`best-practices\` \`example-basic\` \`example-formalize\` \`example-parallel\` \`example-complex\`
+## ToolCallScriptDoc - 技能文档索引 ##
+
+调用 **ToolCallScriptDoc** 获取详细文档。**首次编写脚本建议先查 best-practices！**
+
+| 主题 | 内容摘要 | 何时查询 |
+|------|----------|----------|
+| \`best-practices\` | await 使用、错误处理、JSON 转义、FORMALIZE 技巧 | 首次编写脚本、遇到问题时 |
+| \`data-format-reference\` | TOOL_CALL 返回数据说明与示例 | 理解 TOOL_CALL 返回的结构化数据 |
+| \`example-basic\` | 基础示例：读取文件、简单处理、输出结果 | 学习基本用法 |
+| \`example-formalize\` | FORMALIZE 示例：从文本提取结构化数据 | 需要解析非结构化文本 |
+| \`example-parallel\` | PARALLEL 示例：并行搜索、合并结果 | 需要并发执行多个工具 |
+| \`example-complex\` | 复杂编排：搜索→获取→提取的完整流程 | 编写多步骤复杂脚本 |
 `.trim()
     });
     return executor;

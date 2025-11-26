@@ -26,6 +26,9 @@ const SKILL_DOCS: Record<string, string> = {
 \`SELECT * FROM blocks WHERE <条件> ORDER BY <排序> LIMIT 32\`
 
 **重要**: 始终指定 LIMIT 避免返回过多数据！建议默认 LIMIT 32
+
+- 完整SQL表结构文档: https://docs.siyuan-note.club/zh-Hans/reference/database/table.html
+- SQL 查询 CheatSheet: https://ld246.com/article/1739546865001
 `.trim(),
 
     'sql-blocks-table': `
@@ -113,10 +116,11 @@ LIMIT 32
 \`\`\`
 `.trim(),
 
-    'block-syntax': `
+    'block-markdown-syntax': `
 ## 块内容特殊语法 ##
 
-思源 Markdown 内容中的特殊语法：
+思源块/文档的内容用 Markdown 格式表示
+附加一些 Markdown 内容中的特殊语法：
 
 **块链接** (可点击跳转):
 \`[显示文本](siyuan://blocks/<BlockId>)\`
@@ -152,6 +156,15 @@ LIMIT 32
 - appendDailyNote: 向今日日记追加内容
 
 **注意**: 日记文档按笔记本独立管理，操作前需确认目标笔记本
+
+**SQL 查询指定范围日记示例**:
+\`\`\`
+select distinct B.* from blocks as B join attributes as A
+on B.id = A.block_id
+where A.name like 'custom-dailynote-%' and B.type='d'
+and A.value >= '20231010' and A.value <= '20231013'
+order by A.value desc;
+\`\`\`
 `.trim(),
 
     'id-and-path': `

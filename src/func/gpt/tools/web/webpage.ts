@@ -659,6 +659,11 @@ export const webPageContentTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: WEB_PAGE_LIMIT,
     SKIP_EXTERNAL_TRUNCATE: true, // 工具内部自己处理，关闭外部的截断截止
 
+    declaredReturnType: {
+        type: 'string[]',
+        note: '元信息 + Markdown/HTML 内容的字符串数组（每个 URL 一个元素），可能带截断提示'
+    },
+
     definition: {
         type: 'function',
         function: {

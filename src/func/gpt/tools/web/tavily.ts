@@ -224,6 +224,11 @@ const TAVILY_LIMIT = 6000;
 export const tavilySearchTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: TAVILY_LIMIT,
 
+    declaredReturnType: {
+        type: 'TavilySearchResponse',
+        note: '{ query, answer?, results: Array<{ url, title, content, score }>, images?, search_id, created_at, time }'
+    },
+
     definition: {
         type: 'function',
         function: {

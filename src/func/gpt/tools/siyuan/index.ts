@@ -61,7 +61,15 @@ export const siyuanTool = {
 
 **块内容语法**:
 - 块链接: \`[文本](siyuan://blocks/<BlockId>)\`
-- 块引用: \`((<BlockId> "锚文本"))\`
+- 块引用: \`((<BlockId> "锚文本"))\` (又称为 ref, 反向链接等)
+- 嵌入块: \`{{SQL语句}}\` (动态执行 SQL 并嵌入结果，SQL 内换行用 \`_esc_newline_\` 转义)
+
+**工具分类概览**:
+- 笔记本: listNotebook, getNotebook
+- 文档导航: listActiveDocs, getDocument, getParentDoc, listSubDocs, listSiblingDocs, listNotebookDocs
+- 日记: getDailyNoteDocs, appendDailyNote
+- 内容读写: getBlockMarkdown, appendMarkdown
+- 搜索查询: searchDocument, searchKeyword, querySQL
 
 ## 关键规则 ##
 
@@ -72,10 +80,20 @@ export const siyuanTool = {
 - 基于块内容回答时，附上 siyuan 链接方便用户溯源
 - 优先使用现成工具，仅在复杂查询时使用 querySQL
 
-## 进阶文档 ##
+## SiYuanSkillDoc - 技能文档索引 ##
 
-使用 querySQL 或需要理解 SQL 表结构、日记机制、块语法等高级概念时，调用 **SiYuanSkillDoc** 查询相关主题:
-\`sql-overview\` \`sql-blocks-table\` \`sql-refs-table\` \`sql-attributes-table\` \`block-syntax\` \`dailynote\` \`id-and-path\` \`tool-selection\`
+调用 **SiYuanSkillDoc** 获取详细文档。**使用 querySQL 前必须先查阅相关主题！**
+
+| 主题 | 内容摘要 | 何时查询 |
+|------|----------|----------|
+| \`tool-selection\` | 工具选择决策指南 | 不确定用哪个工具时 |
+| \`sql-overview\` | SQL 查询基础、核心表、参考链接 | 首次使用 querySQL |
+| \`sql-blocks-table\` | blocks 表字段详解 (type/content/path等) | 查询块/文档数据 |
+| \`sql-refs-table\` | refs 表、反链查询示例 | 查询块引用关系 |
+| \`sql-attributes-table\` | attributes 表、自定义属性查询 | 按属性筛选块 |
+| \`dailynote\` | 日记机制、路径模板、SQL 示例 | 操作日记文档 |
+| \`block-markdown-syntax\` | 块链接/引用/嵌入块/标签语法 | 生成特殊 Markdown |
+| \`id-and-path\` | ID 格式、path/hpath 规则详解 | 解析 ID 或路径 |
 
 ## 通用参数 ##
 

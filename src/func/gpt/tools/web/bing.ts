@@ -190,6 +190,11 @@ export function formatBingResultsToReport(data: BingSearchReportInput): string {
 }
 
 export const bingSearchTool: Tool = {
+    declaredReturnType: {
+        type: 'Array<{ title, link, description }>',
+        note: '搜索结果数组，可能包含 "Bing 直接回答" 特殊条目（link 为空）'
+    },
+
     definition: {
         type: 'function',
         function: {

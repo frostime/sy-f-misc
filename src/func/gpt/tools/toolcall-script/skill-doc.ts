@@ -12,54 +12,43 @@ import { Tool, ToolExecuteStatus, ToolPermissionLevel, ToolExecuteResult } from 
  * 技能文档主题定义
  */
 const SKILL_DOCS: Record<string, string> = {
-    'api-reference': `
-## ToolCallScript API 参考 ##
 
-在沙箱环境中可用的全局函数：
+    'data-format-reference': `
+## TOOL_CALL 返回数据说明 ##
 
-### 1. TOOL_CALL
-\`await TOOL_CALL(toolName: string, args: object): Promise<any>\`
-- **功能**: 调用注册的工具。
-- **返回**: 工具执行的原始结果 (data)。注意这不是最终给 LLM 的文本，而是结构化数据（如果工具支持）。
-- **示例**:
-  \`\`\`javascript
-  const files = await TOOL_CALL('ListFiles', { path: '/data' });
-  \`\`\`
+**核心概念**: 正常使用工具调用和 TOOL_CALL 返回结果可能不同。
 
-### 2. FORMALIZE
-\`await FORMALIZE(text: string, typeDescription: string): Promise<any>\`
-- **功能**: 使用 LLM 将非结构化文本转换为 JSON 对象。
-- **参数**:
-  - \`text\`: 需要解析的文本。
-  - \`typeDescription\`: TypeScript 类型定义描述，指导 LLM 如何提取数据。
-- **限制**: 输入文本最大 32000 字符。
-- **示例**:
-  \`\`\`javascript
-  const data = await FORMALIZE(rawText, '{ name: string, age: number }[]');
-  \`\`\`
+原因是 Chat 对话中，Tool Call Result 会经过 Format(str) → Truncate → LLM 处理，最终展示给 LLM 的是格式化后的文本；而脚本中 TOOL_CALL 拿到的是工具的**原始结构化数据**。
 
-### 3. PARALLEL
-\`await PARALLEL(...promises: Promise<any>[]): Promise<any[]>\`
-- **功能**: 并行执行多个 Promise。
-- **示例**:
-  \`\`\`javascript
-  const [res1, res2] = await PARALLEL(
-      TOOL_CALL('ToolA', {}),
-      TOOL_CALL('ToolB', {})
-  );
-  \`\`\`
+**查询工具返回类型**:
+使用 **CheckToolReturnType** 工具查询工具的返回数据类型：
+\`\`\`json
+{ "toolNames": ["searchDocument", "ReadFile", "querySQL"] }
+\`\`\`
 
-### 4. SLEEP
-\`await SLEEP(ms: number): Promise<void>\`
-- **功能**: 暂停执行指定毫秒数。
+**探索技巧**:
+\`\`\`javascript
+// 不确定返回结构时，先打印查看
+const result = await TOOL_CALL('someToolName', { ... });
+console.log('Type:', typeof result, Array.isArray(result));
+console.log('Sample:', JSON.stringify(result, null, 2));
 
-### 5. Console
-\`console.log(msg)\`, \`console.warn(msg)\`, \`console.error(msg)\`
-- **功能**: 记录输出。所有日志将作为工具的最终返回结果。
+// 或只打印第一个元素（如果是数组）
+if (Array.isArray(result) && result.length > 0) {
+    console.log('First item:', JSON.stringify(result[0], null, 2));
+}
+\`\`\`
+
+**常见注意点**:
+- ReadFile 返回 \`{ filePath, content, totalLines, ... }\` 对象，不是纯字符串！
+- 思源工具返回的 DocumentSummary 包含 \`{ id, name, hpath, box, updated, ... }\`
+- 搜索类工具通常返回数组
 `.trim(),
 
     'best-practices': `
 ## 最佳实践 ##
+
+0. **确认 Tool 返回类型**: 在设计 ToolCallScript 之前，先调用 **CheckToolReturnType** 查询要使用工具的返回类型，了解数据结构后再编写脚本。
 
 1. **始终使用 await**: 所有 API (TOOL_CALL, FORMALIZE, SLEEP, PARALLEL) 都是异步的，必须使用 \`await\`，否则脚本会立即结束或报错。
 

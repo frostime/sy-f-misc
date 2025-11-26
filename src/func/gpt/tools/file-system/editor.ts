@@ -189,6 +189,11 @@ const applyBatchEdits = (
  * BatchEdit 工具：批量执行多个编辑操作
  */
 export const batchEditTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '操作摘要：包含操作列表、行数变化、执行详情'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -307,6 +312,11 @@ export const batchEditTool: Tool = {
  * ReplaceLines 工具：替换指定行范围的内容
  */
 export const replaceLinesTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '包含原始内容与新内容对比的摘要'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -419,6 +429,11 @@ export const replaceLinesTool: Tool = {
  * InsertLines 工具：在指定位置插入内容
  */
 export const insertLinesTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '包含插入位置上下文和新文本的摘要'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -523,6 +538,11 @@ export const insertLinesTool: Tool = {
  * DeleteLines 工具：删除指定行范围
  */
 export const deleteLinesTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '被删除的文本内容'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -625,6 +645,11 @@ export const deleteLinesTool: Tool = {
  * ReplaceString 工具：字符串查找替换
  */
 export const replaceStringTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '包含匹配/替换次数及示例的摘要'
+    },
+
     definition: {
         type: 'function',
         function: {

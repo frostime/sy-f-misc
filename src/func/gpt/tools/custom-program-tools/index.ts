@@ -237,6 +237,20 @@ const extractPermissionConfig = (toolDef: IToolDefinition): {
 };
 
 /**
+ * 从工具定义中提取 declaredReturnType
+ */
+const extractDeclaredReturnType = (toolDef: IToolDefinition): { type: string; note?: string } | undefined => {
+    const declaredReturnType = (toolDef as any).declaredReturnType;
+    if (declaredReturnType && typeof declaredReturnType.type === 'string') {
+        return {
+            type: declaredReturnType.type,
+            note: declaredReturnType.note
+        };
+    }
+    return undefined;
+};
+
+/**
  * 为单个模块创建工具列表
  */
 const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
@@ -244,12 +258,14 @@ const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
 
     for (const toolDef of module.moduleData.tools) {
         const permissionConfig = extractPermissionConfig(toolDef);
+        const declaredReturnType = extractDeclaredReturnType(toolDef);
 
         const tool: Tool = {
             definition: {
                 ...toolDef,
                 ...permissionConfig
             },
+            declaredReturnType: declaredReturnType,
             execute: async (args: Record<string, any>) => {
                 return executeCustomPythonTool({
                     scriptPath: module.scriptPath,

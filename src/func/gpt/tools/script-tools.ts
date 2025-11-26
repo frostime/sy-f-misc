@@ -30,6 +30,11 @@ let hasPwsh: boolean | null = null;
  * 执行 Shell 命令工具
  */
 const shellTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '格式为 "[stdout]\n...\n\n[stderr]\n..."'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -140,6 +145,11 @@ ${args.command}
  * 执行 Python 脚本工具
  */
 const pythonTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: '格式为 "[stdout]\n...\n\n[stderr]\n..."'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -236,6 +246,11 @@ ${args.code}
  * 执行 JavaScript 代码工具
  */
 const javascriptTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: 'console.log 输出，可能含 Warnings/Errors 部分'
+    },
+
     definition: {
         type: 'function',
         function: {
@@ -303,6 +318,11 @@ const javascriptTool: Tool = {
  * 执行 Pandoc 转换工具
  */
 const pandocTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: 'Pandoc stdout 输出（通常是转换后的 Markdown）'
+    },
+
     definition: {
         type: 'function',
         function: {

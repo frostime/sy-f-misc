@@ -43,6 +43,11 @@ export const getBlockMarkdownTool: Tool = {
         requireResultApproval: true
     },
 
+    declaredReturnType: {
+        type: 'string',
+        note: 'Markdown 文本内容'
+    },
+
     execute: async (args: { blockId: string; begin?: number; limit?: number }): Promise<ToolExecuteResult> => {
         try {
             const content = await getBlockFullMarkdownContent(args.blockId);
@@ -104,6 +109,11 @@ export const appendMarkdownTool: Tool = {
         permissionLevel: ToolPermissionLevel.SENSITIVE
     },
 
+    declaredReturnType: {
+        type: 'string',
+        note: '固定返回 "添加成功"'
+    },
+
     execute: async (args: { document: string; markdown: string }): Promise<ToolExecuteResult> => {
         try {
             await appendMarkdown(args.document, args.markdown);
@@ -145,6 +155,11 @@ export const appendDailyNoteTool: Tool = {
             }
         },
         permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    declaredReturnType: {
+        type: 'string',
+        note: '日记文档的 docId'
     },
 
     execute: async (args: { notebookId: string; markdown: string }): Promise<ToolExecuteResult> => {
