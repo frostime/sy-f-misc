@@ -18,7 +18,7 @@ export const getBlockMarkdownTool: Tool = {
         type: 'function',
         function: {
             name: 'getBlockMarkdown',
-            description: '获取块的完整Markdown内容\n返回 `string`（Markdown 正文，附截断范围提示）',
+            description: '获取块的完整Markdown内容',
             parameters: {
                 type: 'object',
                 properties: {
@@ -90,7 +90,7 @@ export const appendMarkdownTool: Tool = {
         type: 'function',
         function: {
             name: 'appendMarkdown',
-            description: '向文档添加Markdown内容\n返回 `string`（固定值 "添加成功" 或错误信息）',
+            description: '向文档添加Markdown内容',
             parameters: {
                 type: 'object',
                 properties: {
@@ -138,7 +138,7 @@ export const appendDailyNoteTool: Tool = {
         type: 'function',
         function: {
             name: 'appendDailyNote',
-            description: '添加日记\n返回 `string`（写入的日记文档 docId）',
+            description: '添加日记',
             parameters: {
                 type: 'object',
                 properties: {

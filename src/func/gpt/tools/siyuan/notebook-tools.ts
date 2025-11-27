@@ -29,7 +29,7 @@ export const listNotebookTool: Tool = {
         type: 'function',
         function: {
             name: 'listNotebook',
-            description: '获取思源笔记中的笔记本列表\n返回 `{ id: string; name: string; dailynotePathTemplate: string }[]`',
+            description: '获取思源笔记中的笔记本列表',
             parameters: {
                 type: 'object',
                 properties: {},
@@ -71,7 +71,7 @@ export const getNotebookTool: Tool = {
         type: 'function',
         function: {
             name: 'getNotebook',
-            description: '获取笔记本信息, id可以唯一确定笔记本, name可以不唯一\n返回 `{ id: string; name: string; dailynotePathTemplate: string }`',
+            description: '获取笔记本信息, id可以唯一确定笔记本, name可以不唯一',
             parameters: {
                 type: 'object',
                 properties: {

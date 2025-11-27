@@ -41,7 +41,7 @@ export const markitdownTool: Tool = {
         type: 'function',
         function: {
             name: 'MarkitdownRead',
-            description: '使用 markitdown 命令行工具读取 Word (.docx), PDF (.pdf) 等文件内容，转换为 Markdown 格式\n返回 `string`（包含文件信息、截取范围及 Markdown 片段）',
+            description: '使用 markitdown 命令行工具读取 Word (.docx), PDF (.pdf) 等文件内容，转换为 Markdown 格式',
             parameters: {
                 type: 'object',
                 properties: {

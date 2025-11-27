@@ -19,7 +19,7 @@ export const listActiveDocsTool: Tool = {
         type: 'function',
         function: {
             name: 'listActiveDocs',
-            description: '获取当前活动的文档列表(用户当前打开的、正在编辑的文档)\n返回 `{ OpenedDocs: DocumentSummary[]; Editing: string[] }`',
+            description: '获取当前活动的文档列表(用户当前打开的、正在编辑的文档)',
             parameters: {
                 type: 'object',
                 properties: {},
@@ -80,7 +80,7 @@ export const getDocumentTool: Tool = {
         type: 'function',
         function: {
             name: 'getDocument',
-            description: '获取文档信息; docId/docIdList 只能提供一个\n返回 `DocumentSummary` 或 `{ docs: DocumentSummary[]; notFoundIds?: string[] }`',
+            description: '获取文档信息; docId/docIdList 只能提供一个',
             parameters: {
                 type: 'object',
                 properties: {
@@ -176,7 +176,7 @@ export const getParentDocTool: Tool = {
         type: 'function',
         function: {
             name: 'getParentDoc',
-            description: '获取文档的父文档\n返回 `DocumentSummary`（若无父文档则 NOT_FOUND）',
+            description: '获取文档的父文档',
             parameters: {
                 type: 'object',
                 properties: {
@@ -236,7 +236,7 @@ export const listSubDocsTool: Tool = {
         type: 'function',
         function: {
             name: 'listSubDocs',
-            description: '列出文档的子文档\n返回 `Array<DocumentSummary & { children: DocumentSummary[] }>`，深度默认1',
+            description: '列出文档的子文档',
             parameters: {
                 type: 'object',
                 properties: {
@@ -284,7 +284,7 @@ export const listSiblingDocsTool: Tool = {
         type: 'function',
         function: {
             name: 'listSiblingDocs',
-            description: '列出文档的同级文档\n返回 `DocumentSummary[]`',
+            description: '列出文档的同级文档',
             parameters: {
                 type: 'object',
                 properties: {
@@ -350,7 +350,7 @@ export const listNotebookDocsTool: Tool = {
         type: 'function',
         function: {
             name: 'listNotebookDocs',
-            description: '列出笔记本下的文档, 若 depth 则列出子文档森林\n返回 `DocumentSummary[]` 或 `Array<DocumentSummary & { children: DocumentSummary[] }>`',
+            description: '列出笔记本下的文档, 若 depth 则列出子文档森林',
             parameters: {
                 type: 'object',
                 properties: {
@@ -418,7 +418,7 @@ export const getDailyNoteDocsTool: Tool = {
         type: 'function',
         function: {
             name: 'getDailyNoteDocs',
-            description: '获取日记文档, 可以指定某天/时间范围，可以指定笔记本\n返回 `DocumentSummary[]`',
+            description: '获取日记文档, 可以指定某天/时间范围，可以指定笔记本',
             parameters: {
                 type: 'object',
                 properties: {

@@ -18,6 +18,9 @@ export const solidDialog = (args: {
     maxHeight?: string,
     callback?: () => void;
 }) => {
+    if (args.maxHeight === undefined) {
+        args.maxHeight = '90%';
+    }
     let container = document.createElement('div')
     container.style.display = 'contents';
     let disposer = render(args.loader, container);
