@@ -63,6 +63,14 @@ export const listNotebookTool: Tool = {
                 error: `获取笔记本列表失败: ${error.message}`
             };
         }
+    },
+
+    formatForLLM: (data: { id: string; name: string; dailynotePathTemplate: string }[]): string => {
+        if (!data || data.length === 0) {
+            return '(无笔记本)';
+        }
+        const lines = data.map(nb => `- [${nb.id}] ${nb.name} (日记模板: ${nb.dailynotePathTemplate})`);
+        return `---笔记本列表 (共 ${data.length} 个)---\n${lines.join('\n')}`;
     }
 };
 
@@ -120,5 +128,9 @@ export const getNotebookTool: Tool = {
                 dailynotePathTemplate: conf.conf.dailyNoteSavePath
             }
         };
+    },
+
+    formatForLLM: (data: { id: string; name: string; dailynotePathTemplate: string }): string => {
+        return `[${data.id}] ${data.name} (日记模板: ${data.dailynotePathTemplate})`;
     }
 };

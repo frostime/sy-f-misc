@@ -508,7 +508,7 @@ ${ruleContent.trim()}
         if (isTruncated) {
             sysHintHeader.push(`[system log] 原始完整结果内容过长 (${originalLength} 字符)，已截断为 ${finalForLLM.length} 字符`);
         }
-        if (result.cacheFile) {
+        if (result.cacheFile && isTruncated) {
             sysHintHeader.push(`[system log] 原始完整结果已缓存至文件: ${cacheFile}, 如有需求可尝试访问获取所有结果`);
         }
         if (sysHintHeader.length > 0) {

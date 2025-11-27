@@ -6,10 +6,11 @@
  * @Description  : 思源文档相关工具
  */
 
-import { getBlockByID, id2block, listDailynote } from "@frostime/siyuan-plugin-kits";
+import { getBlockByID, listDailynote } from "@frostime/siyuan-plugin-kits";
 import { listDocsByPath } from "@/api";
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { documentMapper, getDocument, listSubDocs } from './utils';
+import { documentMapper, DocumentSummary, DocumentSummaryWithChildren, getDocument, listSubDocs, formatDocList, formatDocTree } from './utils';
+import { formatArraysToToon } from "../utils";
 
 /**
  * 获取活动文档列表工具
@@ -69,6 +70,28 @@ export const listActiveDocsTool: Tool = {
                 Editing: edit
             }
         };
+    },
+
+    formatForLLM: (data: { OpenedDocs?: DocumentSummary[]; Editing?: string[] }): string => {
+        const lines: string[] = [];
+
+        if (data.OpenedDocs && data.OpenedDocs.length > 0) {
+            lines.push(`---当前打开的文档 (共 ${data.OpenedDocs.length} 个)---`);
+            for (const doc of data.OpenedDocs) {
+                lines.push(`- [${doc.id}] ${doc.hpath}`);
+            }
+        } else {
+            lines.push('---当前打开的文档---\n(无)');
+        }
+
+        lines.push('');
+        if (data.Editing && data.Editing.length > 0) {
+            lines.push(`---正在编辑的文档---\n${data.Editing.join(', ')}`);
+        } else {
+            lines.push('---正在编辑的文档---\n(无)');
+        }
+
+        return lines.join('\n');
     }
 };
 
@@ -165,6 +188,22 @@ export const getDocumentTool: Tool = {
                 error: `获取文档信息失败: ${error.message}`
             };
         }
+    },
+
+    formatForLLM: (data: DocumentSummary | { docs: DocumentSummary[]; notFoundIds?: string[] }): string => {
+        // 单个文档
+        if ('id' in data && 'hpath' in data) {
+            // return `[${data.id}] ${data.hpath} (box: ${data.box})`;
+            return formatArraysToToon([data], 'Docs');
+        }
+        // 多个文档
+        const result = data as { docs: DocumentSummary[]; notFoundIds?: string[] };
+        // const lines = result.docs.map(doc => `- [${doc.id}] ${doc.hpath}`);
+        let output = `---文档列表 (共 ${result.docs.length} 个)---\n${formatArraysToToon(result.docs, 'Docs')}`;
+        if (result.notFoundIds && result.notFoundIds.length > 0) {
+            output += `\n\n[未找到] ${result.notFoundIds.join(', ')}`;
+        }
+        return output;
     }
 };
 
@@ -225,6 +264,10 @@ export const getParentDocTool: Tool = {
             status: ToolExecuteStatus.SUCCESS,
             data: documentMapper(parentDoc)
         };
+    },
+
+    formatForLLM: (data: DocumentSummary): string => {
+        return `[${data.id}] ${data.hpath} (box: ${data.box})`;
     }
 };
 
@@ -273,6 +316,10 @@ export const listSubDocsTool: Tool = {
                 error: `列出子文档失败: ${error.message}`
             };
         }
+    },
+
+    formatForLLM: (data: DocumentSummaryWithChildren[]): string => {
+        return formatDocTree(data);
     }
 };
 
@@ -323,18 +370,30 @@ export const listSiblingDocsTool: Tool = {
             }
 
             const parentPath = parts.slice(0, -1).join('/');
-            const docs = await listDocsByPath(doc.box, parentPath);
-            if (!docs || docs.length === 0) {
+            const response = await listDocsByPath(doc.box, parentPath);
+            if (!response || !response.files || response.files.length === 0) {
                 return {
                     status: ToolExecuteStatus.NOT_FOUND,
                     error: `未找到同级文档`
                 };
             }
 
-            let blocks = await id2block(docs.files.map(doc => doc.id));
+            // 直接从 listDocsByPath 构建文档列表，保留 subFileCount 信息
+            const siblingDocs = response.files.map((file: any) => {
+                // 构建 hpath：父级 hpath + 文档名
+                const parentHpath = doc.hpath.split('/').slice(0, -1).join('/');
+                return documentMapper({
+                    id: file.id,
+                    hpath: parentHpath + '/' + file.name,
+                    path: file.path,
+                    content: file.name1 || file.name,
+                    box: doc.box
+                }, file.subFileCount);
+            });
+
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: blocks.map(documentMapper)
+                data: siblingDocs
             };
         } catch (error) {
             return {
@@ -342,6 +401,10 @@ export const listSiblingDocsTool: Tool = {
                 error: `列出同级文档失败: ${error.message}`
             };
         }
+    },
+
+    formatForLLM: (data: DocumentSummary[]): string => {
+        return formatDocList(data);
     }
 };
 
@@ -377,28 +440,38 @@ export const listNotebookDocsTool: Tool = {
 
     execute: async (args: { notebookId: string; depth?: number }): Promise<ToolExecuteResult> => {
         let topLevel = await listDocsByPath(args.notebookId, '');
-        if (!topLevel || topLevel.length === 0) {
+        if (!topLevel || !topLevel.files || topLevel.files.length === 0) {
             return {
                 status: ToolExecuteStatus.NOT_FOUND,
                 error: `未找到笔记本下的文档: ${args.notebookId}`
             };
         }
 
-        let topLevelDocs = await id2block(topLevel.files.map(doc => doc.id));
+        // 从 listDocsByPath 返回的数据直接构建文档列表，包含 subFileCount
+        const topLevelDocs = topLevel.files.map((file: any) => documentMapper({
+            id: file.id,
+            hpath: '/' + file.name,  // 顶级文档的 hpath 就是 /文档名
+            path: file.path,
+            content: file.name1 || file.name,
+            box: args.notebookId
+        }, file.subFileCount));
+
         if (args.depth === undefined || args.depth === 1) {
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: topLevelDocs.map(documentMapper)
+                data: topLevelDocs
             };
         }
 
         const subDepth = args.depth - 1;
         const subDocs = await Promise.all(
             topLevelDocs.map(async (doc) => {
-                const subDocs = await listSubDocs(doc.id, subDepth);
+                const children = doc.subFileCount > 0
+                    ? await listSubDocs(doc.id, subDepth)
+                    : [];
                 return {
                     ...doc,
-                    children: subDocs
+                    children: children.length > 0 ? children : undefined
                 };
             })
         );
@@ -407,6 +480,18 @@ export const listNotebookDocsTool: Tool = {
             status: ToolExecuteStatus.SUCCESS,
             data: subDocs
         };
+    },
+
+    formatForLLM: (data: DocumentSummary[] | DocumentSummaryWithChildren[]): string => {
+        if (!data || data.length === 0) {
+            return '(空列表)';
+        }
+        // 检查是否有 children 字段来决定使用哪种格式
+        const hasChildren = data.some((doc: any) => doc.children !== undefined);
+        if (hasChildren) {
+            return formatDocTree(data as DocumentSummaryWithChildren[]);
+        }
+        return formatDocList(data as DocumentSummary[]);
     }
 }
 
@@ -498,5 +583,9 @@ export const getDailyNoteDocsTool: Tool = {
             status: ToolExecuteStatus.SUCCESS,
             data: docs.map(documentMapper)
         };
+    },
+
+    formatForLLM: (data: DocumentSummary[]): string => {
+        return formatDocList(data);
     }
 };

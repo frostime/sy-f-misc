@@ -2,7 +2,7 @@ import { sql } from "@/api";
 import { request } from "@frostime/siyuan-plugin-kits/api";
 import { getNotebook } from "@frostime/siyuan-plugin-kits";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
-import { documentMapper } from "./utils";
+import { documentMapper, DocumentSummary, formatDocList } from "./utils";
 
 export const searchDocumentTool: Tool = {
     definition: {
@@ -66,6 +66,10 @@ export const searchDocumentTool: Tool = {
             status: ToolExecuteStatus.SUCCESS,
             data: docs
         };
+    },
+
+    formatForLLM: (data: DocumentSummary[]): string => {
+        return formatDocList(data);
     }
 }
 
@@ -149,6 +153,15 @@ export const querySQLTool: Tool = {
             status: ToolExecuteStatus.SUCCESS,
             data: results
         };
+    },
+
+    formatForLLM: (data: any[]): string => {
+        if (!Array.isArray(data) || data.length === 0) {
+            return '(查询结果为空)';
+        }
+        // 使用紧凑的单行 JSON 格式，保留所有字段
+        const lines = data.map((row, i) => `#${i + 1} ${JSON.stringify(row)}`);
+        return `---SQL 查询结果 (共 ${data.length} 条)---\n${lines.join('\n')}`;
     }
 }
 
@@ -157,6 +170,7 @@ export const querySQLTool: Tool = {
  * 基于思源笔记的全文搜索API实现
  */
 export const searchKeywordTool: Tool = {
+    SKIP_EXTERNAL_TRUNCATE: true,
     definition: {
         type: 'function',
         function: {
@@ -173,7 +187,7 @@ export const searchKeywordTool: Tool = {
                         type: 'string',
                         description: '笔记本ID，用于限定搜索范围'
                     },
-                    limit: {
+                    limitItem: {
                         type: 'number',
                         description: '限制返回结果数量，默认为24'
                     }
@@ -193,7 +207,7 @@ export const searchKeywordTool: Tool = {
     execute: async (args: {
         keyword: string;
         notebook?: string;
-        limit?: number;
+        limitItem?: number;
     }): Promise<ToolExecuteResult> => {
         // 验证关键词
         const keyword = args.keyword?.trim();
@@ -232,7 +246,7 @@ export const searchKeywordTool: Tool = {
             groupBy: 0,
             orderBy: 0,
             page: 1,
-            pageSize: args.limit || 24, // 默认返回20条结果
+            pageSize: args.limitItem || 24, // 默认返回20条结果
             reqId: Date.now(),
         };
 
@@ -274,5 +288,21 @@ export const searchKeywordTool: Tool = {
             status: ToolExecuteStatus.SUCCESS,
             data: results
         };
+    },
+
+    formatForLLM: (data: any[]): string => {
+        if (!Array.isArray(data) || data.length === 0) {
+            return '(无搜索结果)';
+        }
+        const lines: string[] = [`---搜索结果 (共 ${data.length} 条)---`];
+        for (const item of data) {
+            // 截断过长的 content
+            const contentPreview = item.content?.length > 80
+                ? item.content.substring(0, 80) + '...'
+                : item.content;
+            lines.push(`#[${item.id}] type=${item.type} | ${item.hpath}`);
+            lines.push(`  ${contentPreview}`);
+        }
+        return lines.join('\n');
     }
 }

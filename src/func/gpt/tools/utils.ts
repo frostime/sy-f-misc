@@ -24,6 +24,36 @@ export const formatWithXMLTags = (options: {
     return body;
 }
 
+export const formatArraysToToon = (items: object[], prefix: string = '') => {
+    if (items.length === 0) return `${prefix}[0]{}`;
+
+    const keys = Object.keys(items[0]);
+    const lines = [`${prefix}[${items.length}]{${keys.join(',')}}`];
+
+    for (const item of items) {
+        const values = keys.map(key => {
+            const value = item[key];
+
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'object') {
+                // Base64 编码避免所有转义问题
+                return JSON.stringify(value).replace(/"/g, '\\"');
+            }
+
+            const str = String(value);
+            // RFC 4180: 包含特殊字符时用引号包裹
+            if (/[",\n\r]/.test(str)) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        });
+        lines.push(values.join(','));
+    }
+
+    return lines.join('\n');
+};
+
+
 /**
  * 获取临时目录根路径
  * 使用 realpathSync.native 避免 Windows 8.3 短文件名格式
