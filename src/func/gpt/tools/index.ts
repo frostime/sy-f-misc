@@ -76,7 +76,8 @@ export const toolExecutorFactory = (options: {
             return await approvalAdapter.showToolExecutionApproval(
                 toolName,
                 toolDescription,
-                args
+                args,
+                tool.definition
             );
         });
     }

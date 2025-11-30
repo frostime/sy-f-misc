@@ -5,11 +5,14 @@
  * @FilePath     : /src/func/gpt/tools/approval-ui.tsx
  * @Description  : 工具审核 UI 组件和适配器
  */
-import { Component, JSX } from "solid-js";
-import { ToolExecuteResult, ApprovalUIAdapter } from "./types";
+import { Component, JSX, Show } from "solid-js";
+import { ToolExecuteResult, ApprovalUIAdapter, ToolDefinitionWithPermission, ToolPermissionLevel } from "./types";
 import { ButtonInput } from "@/libs/components/Elements";
 import { solidDialog } from "@/libs/dialog";
 import { createSignalRef } from "@frostime/solid-signal-ref";
+import { toolCallSafetyReview } from "./utils";
+import { toolsManager } from "../setting/store";
+import Markdown from "@/libs/components/Elements/Markdown";
 
 /**
  * 渲染参数列表组件
@@ -57,6 +60,7 @@ const BaseApprovalUI = (props: {
     onReject: (reason?: string) => void;
     showReasonInput?: boolean;
     children?: JSX.Element;
+    extraButtons?: JSX.Element;
 }) => {
     const reason = createSignalRef('');
 
@@ -85,6 +89,8 @@ const BaseApprovalUI = (props: {
                 "align-content": "center",
                 "gap": "8px"
             }}>
+                {props.extraButtons}
+
                 {props.showReasonInput && (
                     <input
                         type="text"
@@ -96,7 +102,7 @@ const BaseApprovalUI = (props: {
                     />
                 )}
 
-                {!props.showReasonInput && (
+                {!props.showReasonInput && !props.extraButtons && (
                     <div style={{
                         "flex": 1
                     }} />
@@ -140,11 +146,61 @@ const BaseApprovalUI = (props: {
 export const ToolExecutionApprovalUI: Component<{
     toolName: string;
     toolDescription: string;
+    toolDefinition?: ToolDefinitionWithPermission;
     args: Record<string, any>;
     onApprove: () => void;
     onReject: (reason?: string) => void;
 }> = (props) => {
+    const safetyReviewResult = createSignalRef<string | null>(null);
+    const isReviewing = createSignalRef(false);
 
+    // 获取有效的权限级别（考虑用户覆盖配置）
+    const getEffectivePermissionLevel = (): ToolPermissionLevel | undefined => {
+        const toolName = props.toolDefinition?.function?.name;
+        if (!toolName) return props.toolDefinition?.permissionLevel;
+
+        const override = toolsManager().toolPermissionOverrides[toolName];
+        if (override?.permissionLevel) {
+            switch (override.permissionLevel) {
+                case 'public': return ToolPermissionLevel.PUBLIC;
+                case 'moderate': return ToolPermissionLevel.MODERATE;
+                case 'sensitive': return ToolPermissionLevel.SENSITIVE;
+            }
+        }
+        return props.toolDefinition?.permissionLevel;
+    };
+
+    const isSensitiveTool = () => getEffectivePermissionLevel() === ToolPermissionLevel.SENSITIVE;
+
+    const handleSafetyReview = async () => {
+        if (!props.toolDefinition || isReviewing()) return;
+        isReviewing(true);
+        safetyReviewResult(null);
+        try {
+            const result = await toolCallSafetyReview(props.toolDefinition, props.args);
+            safetyReviewResult(result);
+        } catch (e) {
+            safetyReviewResult(`安全审查失败: ${e instanceof Error ? e.message : String(e)}`);
+        } finally {
+            isReviewing(false);
+        }
+    };
+
+    const SafetyReviewButton = () => (
+        <Show when={isSensitiveTool() && props.toolDefinition}>
+            <ButtonInput
+                label={isReviewing() ? "审查中..." : "AI安全审查"}
+                onClick={handleSafetyReview}
+                style={{
+                    "font-size": "12px",
+                    "opacity": isReviewing() ? "0.6" : "1",
+                    "pointer-events": isReviewing() ? "none" : "auto",
+                    "background-color": "var(--b3-theme-secondary)"
+                }}
+            />
+            {/* <div style={{ "flex": 1 }} /> */}
+        </Show>
+    );
 
     return (
         <BaseApprovalUI
@@ -153,8 +209,24 @@ export const ToolExecutionApprovalUI: Component<{
             onApprove={props.onApprove}
             onReject={props.onReject}
             showReasonInput={true}
+            extraButtons={<SafetyReviewButton />}
         >
             <ArgsListComponent args={props.args} />
+
+            <Show when={safetyReviewResult()}>
+                <div style={{
+                    "margin-top": "12px",
+                    "padding": "12px",
+                    "background-color": "var(--b3-theme-surface)",
+                    "border-radius": "4px",
+                    "border": "1px solid var(--b3-border-color)"
+                }}>
+                    <h4 style={{ "margin": "0 0 8px 0" }}>🛡️ AI 安全审查结果</h4>
+                    <div class="b3-typography" style={{ "white-space": "pre-wrap", "font-size": "13px" }}>
+                        <Markdown markdown={safetyReviewResult() ?? ""}/>
+                    </div>
+                </div>
+            </Show>
         </BaseApprovalUI>
     );
 };
@@ -167,7 +239,7 @@ export const ToolResultApprovalUI: Component<{
     args: Record<string, any>;
     result: ToolExecuteResult;
     onApprove: () => void;
-    onReject: () => void;
+    onReject: (reason?: string) => void;
 }> = (props) => {
 
     // const dataContent = instanceof(props.result.data, string) ? props.result.data : JSON.stringify(props.result.data);
@@ -184,8 +256,8 @@ export const ToolResultApprovalUI: Component<{
         <BaseApprovalUI
             title={`允许将工具 ${props.toolName} 的结果发送给 LLM？`}
             onApprove={props.onApprove}
-            onReject={() => props.onReject()}
-            showReasonInput={false}
+            onReject={props.onReject}
+            showReasonInput={true}
         >
             <ArgsListComponent args={props.args} />
 
@@ -221,7 +293,8 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
     async showToolExecutionApproval(
         toolName: string,
         toolDescription: string,
-        args: Record<string, any>
+        args: Record<string, any>,
+        toolDefinition?: ToolDefinitionWithPermission
     ): Promise<{
         approved: boolean;
         rejectReason?: string;
@@ -233,6 +306,7 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                     <ToolExecutionApprovalUI
                         toolName={toolName}
                         toolDescription={toolDescription}
+                        toolDefinition={toolDefinition}
                         args={args}
                         onApprove={() => {
                             close();
@@ -279,11 +353,11 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
                             close();
                             resolve({ approved: true });
                         }}
-                        onReject={() => {
+                        onReject={(reason?: string) => {
                             close();
                             resolve({
                                 approved: false,
-                                rejectReason: '用户拒绝发送结果'
+                                rejectReason: reason?.trim() || '用户拒绝发送结果'
                             });
                         }}
                     />

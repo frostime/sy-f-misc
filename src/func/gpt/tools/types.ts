@@ -204,13 +204,14 @@ export interface ApprovalUIAdapter {
      * @param toolName 工具名称
      * @param toolDescription 工具描述
      * @param args 工具参数
-     * @param permissionLevel 工具权限级别
+     * @param toolDefinition 工具定义（可选，用于安全审查等）
      * @returns 用户决策
      */
     showToolExecutionApproval(
         toolName: string,
         toolDescription: string,
-        args: Record<string, any>
+        args: Record<string, any>,
+        toolDefinition?: ToolDefinitionWithPermission
     ): Promise<{
         approved: boolean;
         persistDecision?: boolean;

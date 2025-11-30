@@ -1,4 +1,6 @@
-import { ToolExecuteResult } from "./types";
+import { complete } from "../openai";
+import { Tool, ToolExecuteResult } from "./types";
+import * as store from '@gpt/setting/store';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
@@ -306,3 +308,38 @@ export const formatFileSize = (size: number): string => {
         return (size / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
     }
 };
+
+export const toolCallSafetyReview = async (toolDef: Tool['definition'], args: Record<string, any>): Promise<string> => {
+    const systemPrompt = `你是一个 LLM Tool Call Safety 审核助手。你的任务是审核用户请求调用的工具和参数，判断是否存在潜在的安全风险或滥用可能性。注意是否会更改用户数据，或者访问敏感信息等。
+
+输入:
+- 工具调用的定义
+- LLM 请求的参数
+
+输出: Markdown 格式文本，格式严格遵循下面的要求:
+- 安全风险: "无" | "低" | "中" | "高"
+- 安全性评价: 详细说明工具调用的安全性，指出可能的风险点 (一两句话)
+- 建议: 如果存在风险，提供具体的缓解建议；如果没有风险，说明可以安全使用 (一两句话)
+
+内容凝练，如无必要不超过200字; 直接输出内容，不包含 \`\`\` 代码块等冗余标记
+`
+    const response = await complete(`Tool Definition:
+${JSON.stringify(toolDef, null)}
+
+User Arguments:
+${JSON.stringify(args, null)}
+`, {
+        model: store.useModel(store.defaultConfig().utilityModelId || store.defaultModelId()),
+        systemPrompt: systemPrompt,
+        option: {
+            temperature: 0,
+            stream: false
+        }
+    });
+    if (response.ok === false) {
+        return `自动化安全审核失败，${response.content || '未知错误'}`;
+    }
+
+    let cleanContent = response.content.trim();
+    return cleanContent;
+}
