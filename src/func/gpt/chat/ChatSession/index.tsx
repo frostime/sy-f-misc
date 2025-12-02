@@ -51,6 +51,8 @@ import {
     isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
 import BlocksProvider from '@gpt/context-provider/BlocksProvider';
+import { describe } from 'node:test';
+import { truncateContent } from '../../tools/utils';
 
 
 const ChatSession: Component<{
@@ -1146,7 +1148,7 @@ const ChatSession: Component<{
                         e.currentTarget.classList.remove(styles.dropTarget);
 
                         if (!e.dataTransfer.types.length) return;
-                        debugger
+
                         const type = e.dataTransfer.types[0];
                         if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
                             let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, '');
@@ -1178,6 +1180,67 @@ const ChatSession: Component<{
                             const tab = document.querySelector(`li[data-type="tab-header"][data-id="${payload.id}"]`) as HTMLElement;
                             if (tab) {
                                 tab.style.opacity = 'unset';
+                            }
+                        } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            const files = Array.from(e.dataTransfer.files);
+
+                            // 过滤支持的文件类型
+                            const supportedFiles = files.filter(file => {
+                                if (file.size > 2 * 1024 * 1024) {
+                                    return false;  //限制 2MB 以内
+                                }
+                                const ext = file.name.split('.').pop()?.toLowerCase();
+                                return ['txt', 'md', 'py', 'ts', 'js', 'json', 'yaml', 'toml', 'xml', 'html'].includes(ext || '');
+                            });
+
+                            if (supportedFiles.length === 0) {
+                                return;
+                            }
+
+                            const readTextContent = async (file: File): Promise<string> => {
+                                return new Promise((resolve, reject) => {
+                                    const reader = new FileReader();
+                                    reader.onload = (e) => {
+                                        const result = e.target?.result as string;
+                                        resolve(result);
+                                    }
+                                    reader.onerror = () => {
+                                        reject(reader.error);
+                                    }
+                                    // 关键：添加这一行！
+                                    reader.readAsText(file);
+                                });
+                            }
+
+
+                            for (const file of supportedFiles) {
+                                try {
+                                    let content = await readTextContent(file);
+                                    if (content.length > 10000) {
+                                        const len = content.length;
+                                        const result = truncateContent(content, 10000);
+                                        content = result.content;
+                                        if (result.isTruncated) {
+                                            content += `\n\n...（内容过长，已截断，原始长度 ${len} 字符）`;
+                                        }
+                                    }
+                                    const context: IProvidedContext = {
+                                        id: `file-${Date.now()}-${file.name}`,
+                                        name: 'ReadLocalFile',
+                                        displayTitle: '本地文件',
+                                        description: '用户提交的本地文件内容',
+                                        contextItems: [
+                                            {
+                                                name: file.name,
+                                                description: `${file.name}的内容`,
+                                                content: content
+                                            }
+                                        ]
+                                    };
+                                    session.setContext(context);
+                                } catch (error) {
+                                    console.error('文件读取失败:', error);
+                                }
                             }
                         }
                     }}>
