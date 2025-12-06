@@ -251,10 +251,16 @@ const GlobalSetting = () => {
                     </Match>
 
                     <Match when={activeTab() === 'prompt'}>
+                        <Heading>
+                            配置 Prompt 模板
+                        </Heading>
                         <PromptTemplateSetting />
                     </Match>
 
                     <Match when={activeTab() === 'provider'}>
+                        <Heading>
+                            配置 LLM 提供商
+                        </Heading>
                         <ProviderSetting />
                         <Heading>
                             其他配置

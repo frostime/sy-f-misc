@@ -1,7 +1,6 @@
-import { Accessor, Component, For, createSignal, onCleanup } from "solid-js";
+import { Accessor, Component, onCleanup } from "solid-js";
 import Form from "@/libs/components/Form";
 import { providers } from "./store";
-import Heading from "./Heading";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
@@ -9,6 +8,7 @@ import { SvgSymbol } from "../chat/Elements";
 import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { showMessage } from "siyuan";
+import { CollapsibleDraggableList } from "@/libs/components/drag-list";
 
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<{
@@ -157,112 +157,24 @@ const ProviderEditForm: Component<{
     );
 };
 
-const ProviderListItem = (props: {
-    index: Accessor<number>;
-    dragHandle: (e: DragEvent, index: number) => void;
-}) => {
+const ProviderSetting = () => {
+    const updateProvider = (index: number, field: keyof IGPTProvider, value: string | string[]) => {
+        providers.update(index, field, value);
+    };
 
-    const { updateProvider, removeProvider } = useSimpleContext();
-
-    const onEdit = () => {
+    const openEditDialog = (index: number) => {
         solidDialog({
             title: '编辑 Provider',
             loader: () => (
                 <SimpleProvider state={{ updateProvider, removeProvider }}>
-                    <ProviderEditForm index={props.index} />
+                    <ProviderEditForm index={() => index} />
                 </SimpleProvider>
             ),
             width: '750px',
             height: '700px'
-        })
-    }
-
-    const onDelete = () => {
-        removeProvider(props.index());
-    }
-    return (
-        <div
-            draggable={true}
-            onDragStart={(e: DragEvent) => props.dragHandle(e, props.index())}
-            class={styles.listItem}
-        >
-            <span class={styles.listItemTitle}>
-                {providers()[props.index()].name}
-            </span>
-            {providers()[props.index()].disabled && (
-                <SvgSymbol size="15px">iconEyeoff</SvgSymbol>
-            )}
-            {/* <button class="b3-button b3-button--text" onclick={() => {
-                // 将当前项移动到顶部
-                providers.update(prev => {
-                    const items = [...prev];
-                    const [item] = items.splice(props.index(), 1);
-                    items.unshift(item);
-                    return items;
-                });
-            }}>
-                <SvgSymbol size="15px">iconUp</SvgSymbol>
-            </button>
-            <button class="b3-button b3-button--text" onclick={() => {
-                // 将当前项移动到底部
-                providers.update(prev => {
-                    const items = [...prev];
-                    const [item] = items.splice(props.index(), 1);
-                    items.push(item);
-                    return items;
-                });
-            }}>
-                <SvgSymbol size="15px">iconDown</SvgSymbol>
-            </button> */}
-            <button class="b3-button b3-button--text" onclick={() => onEdit()}>
-                <SvgSymbol size="15px">iconEdit</SvgSymbol>
-            </button>
-            <button class="b3-button b3-button--text" onclick={() => onDelete()}>
-                <SvgSymbol size="15px">iconTrashcan</SvgSymbol>
-            </button>
-        </div>
-    )
-}
-
-const useDndReorder = () => {
-    const [draggedIndex, setDraggedIndex] = createSignal<number | null>(null);
-    const [targetIndex, setTargetIndex] = createSignal<number | null>(null);
-
-    const handleDragStart = (e: DragEvent, index: number) => {
-        setDraggedIndex(index);
-        e.dataTransfer!.effectAllowed = 'move';
-        e.dataTransfer!.setData('text/plain', String(index));
+        });
     };
 
-    const handleDragOver = (e: DragEvent, index: number) => {
-        e.preventDefault();
-        setTargetIndex(index);
-    };
-
-    const handleDrop = (e: DragEvent) => {
-        e.preventDefault();
-        const _draggedIndex = draggedIndex();
-        const _targetIndex = targetIndex();
-        // console.log(_draggedIndex, _targetIndex);
-        if (_draggedIndex !== null && _targetIndex !== null && _draggedIndex !== _targetIndex) {
-            providers.update(prev => {
-                const items = [...prev];
-                // 将 draggedIndex 移动到 targetIndex 的位置，其余的保持不变
-                const draggedItem = items[_draggedIndex];
-                items.splice(_draggedIndex, 1);
-                items.splice(_targetIndex, 0, draggedItem);
-                return items;
-            });
-        }
-        setDraggedIndex(null);
-        setTargetIndex(null);
-    };
-
-
-    return { handleDragStart, handleDragOver, handleDrop };
-};
-
-const ProviderSetting = () => {
     const addProvider = () => {
         inputDialog({
             title: '新建 Provider',
@@ -276,26 +188,18 @@ const ProviderSetting = () => {
                 }, ...prev]);
 
                 // 直接打开编辑对话框
-                setTimeout(() => {
-                    solidDialog({
-                        title: '编辑 Provider',
-                        loader: () => (
-                            <SimpleProvider state={{ updateProvider, removeProvider }}>
-                                <ProviderEditForm index={() => 0} />
-                            </SimpleProvider>
-                        ),
-                        width: '750px',
-                        height: '600px'
-                    });
-                }, 10);
+                setTimeout(() => openEditDialog(0), 10);
             },
         });
     };
 
     const removeProvider = (target: number | string) => {
+        const provider = typeof target === 'number' ? providers()[target] : providers().find(p => p.name === target);
+        if (!provider) return;
+
         confirmDialog({
-            title: `确认删除 Provider 配置 ${providers()[target].name}?`,
-            content: `该 Provider 下的 ${providers()[target].models.length} 个 Model 将会被删除<br/>${providers()[target].models.join(', ')}`,
+            title: `确认删除 Provider 配置 ${provider.name}?`,
+            content: `该 Provider 下的 ${provider.models.length} 个 Model 将会被删除<br/>${provider.models.join(', ')}`,
             confirm: () => {
                 if (typeof target === 'number') {
                     providers.update(prev => prev.filter((_, i) => i !== target));
@@ -306,48 +210,30 @@ const ProviderSetting = () => {
         });
     };
 
-    const updateProvider = (index: number, field: keyof IGPTProvider, value: string | string[]) => {
-        providers.update(index, field, value);
-    };
-
-    const { handleDragStart, handleDragOver, handleDrop } = useDndReorder();
-
     return (
         <SimpleProvider state={{ updateProvider, removeProvider }}>
-            <div>
-                <Heading>
-                    <div class={styles.headerContainer}>
-                        <div class={`fn__flex-1 ${styles.headerTitle}`}>
-                            Provider 配置
-                        </div>
-
-                        <button
-                            class="b3-button b3-button--text"
-                            onClick={addProvider}
-                        >
-                            <SvgSymbol size="20px">iconAdd</SvgSymbol>
-                        </button>
-                    </div>
-                </Heading>
-
-                <div class={`fn__flex-1 ${styles.listContainer}`}>
-                    <For each={providers()}>
-                        {(_, index) => (
-                            <div
-                                onDragOver={(e) => handleDragOver(e, index())}
-                                onDrop={handleDrop}
-                                style={{
-                                    display: 'contents'
-                                }}
-                            >
-                                <ProviderListItem index={index} dragHandle={handleDragStart} />
-                            </div>
-                        )}
-                    </For>
-                </div>
-            </div>
+            <CollapsibleDraggableList
+                title="Provider 配置"
+                items={providers()}
+                onAdd={addProvider}
+                containerClass={`fn__flex-1 ${styles.listContainer}`}
+                itemClass={styles.listItem}
+                wrapperClass={styles.sectionContainer}
+                containerStyle={{ 'margin': '0 24px' }}
+                onOrderChange={(newItems) => providers.update(newItems)}
+                onEdit={(item) => {
+                    const index = providers().findIndex(p => p.name === item.name);
+                    if (index !== -1) openEditDialog(index);
+                }}
+                onDelete={(item) => {
+                    const index = providers().findIndex(p => p.name === item.name);
+                    if (index !== -1) removeProvider(index);
+                }}
+                renderBadge={(item) => (
+                    item.disabled ? <SvgSymbol size="15px">iconEyeoff</SvgSymbol> : null
+                )}
+            />
         </SimpleProvider>
-
     );
 };
 
