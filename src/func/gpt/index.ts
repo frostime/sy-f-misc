@@ -27,6 +27,7 @@ import { showMessageLog } from "./MessageLogger";
 
 import * as openai from './openai';
 import * as chatInDoc from './chat-in-doc';
+import { pythonServiceManager, clearAllBindings } from './tools/python-session';
 
 export { openai };
 
@@ -467,6 +468,14 @@ export const unload = async (plugin: FMiscPlugin) => {
 
     // 清理文档内对话功能
     chatInDoc.destroy();
+
+    // 清理 Python Session 服务
+    try {
+        clearAllBindings();  // 清除所有 Session 绑定
+        await pythonServiceManager.stop();  // 停止 Python 服务
+    } catch (error) {
+        console.warn('Failed to cleanup Python Session service:', error);
+    }
 
     await persist.updateCacheFile();
     window.removeEventListener('beforeunload', persist.updateCacheFile)

@@ -6,10 +6,17 @@ import {
     ToolExecuteResult,
     UserApprovalCallback,
     ResultApprovalCallback,
-    ToolGroup
+    ToolGroup,
+    IStatefulToolGroup,
+    IToolGroupContext
 } from './types';
 import { toolsManager } from '../setting/store';
 import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
+
+/**
+ * 有状态工具组工厂函数类型
+ */
+export type StatefulToolGroupFactory = (context: IToolGroupContext) => IStatefulToolGroup;
 
 /**
  * 工具注册表
@@ -33,6 +40,18 @@ export class ToolExecutor {
     private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
     public groupRegistry: Record<string, ToolGroup> = {};
+
+    /**
+     * 有状态工具组工厂注册表
+     * 存储工厂函数，以便在需要时创建实例
+     */
+    private statefulGroupFactories: Map<string, StatefulToolGroupFactory> = new Map();
+
+    /**
+     * 活跃的有状态工具组实例
+     * key: groupName, value: 实例
+     */
+    private statefulGroupInstances: Map<string, IStatefulToolGroup> = new Map();
 
     // public groupEnabled: Record<string, boolean> = {};
     // private toolEnabled: Record<string, boolean> = {};
@@ -204,6 +223,153 @@ ${ruleContent.trim()}
         // rulePrompt 现在在 toolRules() 中动态解析，不再在此处静态存储
         //工具组默认禁用
         this.enablingStore.update('group', group.name, false);
+    }
+
+    // ==================== Stateful Tool Group ====================
+
+    /**
+     * 注册有状态工具组工厂
+     * 注意：这只是注册工厂，实际实例会在 initStatefulToolGroup 时创建
+     */
+    registerStatefulToolGroupFactory(factory: StatefulToolGroupFactory, groupName: string): void {
+        this.statefulGroupFactories.set(groupName, factory);
+    }
+
+    /**
+     * 初始化有状态工具组
+     * 创建实例，调用 init()，并注册其工具到 executor
+     */
+    async initStatefulToolGroup(groupName: string, context: IToolGroupContext): Promise<boolean> {
+        const factory = this.statefulGroupFactories.get(groupName);
+        if (!factory) {
+            console.warn(`Stateful tool group factory '${groupName}' not found`);
+            return false;
+        }
+
+        // 如果已经有实例，先清理
+        if (this.statefulGroupInstances.has(groupName)) {
+            await this.cleanupStatefulToolGroup(groupName);
+        }
+
+        try {
+            // 创建实例
+            const instance = factory(context);
+
+            // 初始化
+            await instance.init();
+
+            // 存储实例
+            this.statefulGroupInstances.set(groupName, instance);
+
+            // 注册工具到 executor（作为普通 ToolGroup）
+            this.registerToolGroup(instance);
+
+            console.log(`Stateful tool group '${groupName}' initialized successfully`);
+            return true;
+        } catch (error) {
+            console.error(`Failed to initialize stateful tool group '${groupName}':`, error);
+            return false;
+        }
+    }
+
+    /**
+     * 清理指定的有状态工具组
+     */
+    async cleanupStatefulToolGroup(groupName: string): Promise<void> {
+        const instance = this.statefulGroupInstances.get(groupName);
+        if (!instance) return;
+
+        try {
+            await instance.cleanup();
+        } catch (error) {
+            console.error(`Error cleaning up stateful tool group '${groupName}':`, error);
+        }
+
+        // 从实例映射中移除
+        this.statefulGroupInstances.delete(groupName);
+
+        // 从普通 groupRegistry 中移除
+        if (this.groupRegistry[groupName]) {
+            // 移除该组下的所有工具
+            const group = this.groupRegistry[groupName];
+            for (const tool of group.tools) {
+                const toolName = tool.definition.function.name;
+                delete this.registry[toolName];
+                // 清理 enabling store
+                const toolStore = { ...this.enablingStore()['tool'] };
+                delete toolStore[toolName];
+                this.enablingStore.set('tool', toolStore);
+            }
+            delete this.groupRegistry[groupName];
+
+            // 清理 group enabling store
+            const groupStore = { ...this.enablingStore()['group'] };
+            delete groupStore[groupName];
+            this.enablingStore.set('group', groupStore);
+        }
+    }
+
+    /**
+     * 清理所有有状态工具组
+     */
+    async cleanupAllStatefulToolGroups(): Promise<void> {
+        const groupNames = Array.from(this.statefulGroupInstances.keys());
+        await Promise.all(groupNames.map(name => this.cleanupStatefulToolGroup(name)));
+    }
+
+    /**
+     * 获取有状态工具组实例
+     */
+    getStatefulToolGroup(groupName: string): IStatefulToolGroup | undefined {
+        return this.statefulGroupInstances.get(groupName);
+    }
+
+    /**
+     * 检查有状态工具组是否活跃
+     */
+    isStatefulToolGroupActive(groupName: string): boolean {
+        const instance = this.statefulGroupInstances.get(groupName);
+        return instance?.isActive() ?? false;
+    }
+
+    /**
+     * 获取所有活跃的有状态工具组的动态状态提示
+     * 返回拼接后的字符串，用于添加到系统提示词
+     */
+    async getDynamicStatePrompts(): Promise<string> {
+        const prompts: string[] = [];
+
+        for (const [groupName, instance] of this.statefulGroupInstances) {
+            // 只处理已启用且活跃的组
+            if (!this.isGroupEnabled(groupName) || !instance.isActive()) {
+                continue;
+            }
+
+            try {
+                const prompt = await instance.dynamicStatePrompt();
+                if (prompt?.trim()) {
+                    prompts.push(`<stateful-tool-state group="${groupName}">\n${prompt.trim()}\n</stateful-tool-state>`);
+                }
+            } catch (error) {
+                console.error(`Error getting dynamic state prompt for '${groupName}':`, error);
+            }
+        }
+
+        return prompts.join('\n\n');
+    }
+
+    /**
+     * 检查是否有已注册的有状态工具组工厂
+     */
+    hasStatefulToolGroupFactory(groupName: string): boolean {
+        return this.statefulGroupFactories.has(groupName);
+    }
+
+    /**
+     * 获取所有已注册的有状态工具组工厂名称
+     */
+    getStatefulToolGroupFactoryNames(): string[] {
+        return Array.from(this.statefulGroupFactories.keys());
     }
 
     /**

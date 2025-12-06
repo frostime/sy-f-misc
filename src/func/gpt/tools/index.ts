@@ -22,6 +22,7 @@ import { toolsManager } from '../setting/store';
 import { siyuanTool } from './siyuan';
 import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
 import { registerToolCallScriptGroup } from './toolcall-script';
+import { createPythonSessionToolGroup, PYTHON_SESSION_GROUP_NAME } from './python-session';
 
 
 const IS_IN_APP = window?.require?.('electron') !== undefined;
@@ -59,6 +60,15 @@ export const toolExecutorFactory = (options: {
 
     // 注册 ToolCallScript 工具（需要注入 executor）
     registerToolCallScriptGroup(toolExecutor);
+
+    // 注册 Python Session 有状态工具组工厂
+    // 这只是注册工厂函数，实际实例会在需要时通过 initStatefulToolGroup 创建
+    if (IS_IN_APP) {
+        toolExecutor.registerStatefulToolGroupFactory(
+            createPythonSessionToolGroup,
+            PYTHON_SESSION_GROUP_NAME
+        );
+    }
 
     // 设置审批回调
     const approvalAdapter = options.approvalAdapter || new DefaultUIAdapter();

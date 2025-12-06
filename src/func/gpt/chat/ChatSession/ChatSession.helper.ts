@@ -411,11 +411,16 @@ const useGptCommunication = (params: {
         return option;
     }
 
-    const currentSystemPrompt = () => {
+    const currentSystemPrompt = async () => {
         let ptime = `It's: ${new Date().toString()}`;
         let prompt = systemPrompt().trim() || '';
         if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
             prompt += params.toolExecutor.toolRules();
+            // 获取有状态工具组的动态状态提示
+            const dynamicStatePrompt = await params.toolExecutor.getDynamicStatePrompts();
+            if (dynamicStatePrompt) {
+                prompt += '\n\n' + dynamicStatePrompt;
+            }
         }
         return `${ptime}\n\n${prompt}`;
     }
@@ -506,7 +511,7 @@ ${inputContent}
                 maxRounds: config().toolCallMaxRounds,
                 abortController: controller,
                 model: model(),
-                systemPrompt: currentSystemPrompt(),
+                systemPrompt: await currentSystemPrompt(),
                 chatOption: gptOption(),
                 checkToolResults: true,
                 callbacks: {
@@ -648,7 +653,7 @@ ${inputContent}
             // 获取初始响应
             const initialResponse = await gpt.complete(msgToSend, {
                 model: modelToUse,
-                systemPrompt: currentSystemPrompt(),
+                systemPrompt: await currentSystemPrompt(),
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {
@@ -769,7 +774,7 @@ ${inputContent}
             // 获取初始响应
             const initialResponse = await gpt.complete(msgToSend, {
                 model: modelToUse,
-                systemPrompt: currentSystemPrompt(),
+                systemPrompt: await currentSystemPrompt(),
                 stream: option.stream ?? true,
                 streamInterval: 2,
                 streamMsg(msg) {

@@ -171,7 +171,45 @@ export interface ToolGroup {
      * - 函数：动态提示，接收当前启用的工具名列表作为参数
      */
     rulePrompt?: string | ((enabledToolNames: string[]) => string);
-    // dynamicStatePrompt?: () => string;  //为后面做 Memory 机制做准备
+}
+
+/**
+ * 有状态工具组的上下文
+ */
+export interface IToolGroupContext {
+    /** ChatSession ID */
+    sessionId: string;
+}
+
+/**
+ * 有状态的工具组接口
+ * 支持生命周期管理和动态状态提示
+ * 用于 Python Session、Memory 等需要维护状态的工具组
+ */
+export interface IStatefulToolGroup extends ToolGroup {
+    /**
+     * 动态状态 prompt，会在每次发送给 LLM 前调用
+     * 用于告知 LLM 当前工具的状态（如 Python Session 的变量列表）
+     * @returns 状态提示文本，空字符串表示不注入
+     */
+    dynamicStatePrompt?: () => string | Promise<string>;
+
+    /**
+     * 初始化状态（绑定到特定 ChatSession）
+     * @param context 工具组上下文
+     */
+    init?: (context: IToolGroupContext) => void | Promise<void>;
+
+    /**
+     * 清理资源（ChatSession 关闭时调用）
+     */
+    cleanup?: () => void | Promise<void>;
+
+    /**
+     * 判断工具组是否活跃（用于决定是否注入动态 prompt）
+     * @returns true 表示活跃，应该注入动态状态
+     */
+    isActive?: () => boolean;
 }
 
 export interface IExternalToolUnit {

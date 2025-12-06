@@ -22,6 +22,7 @@ import Heading from "./Heading";
 import { LoadModuleFileButtonGroup } from "@/libs/components/user-custom-module";
 import { ToolsManagerSetting } from "./ToolsManagerSetting";
 import { CustomScriptToolSetting } from "./CustomScriptToolSetting";
+import { PythonSessionSetting } from "./PythonSessionSetting";
 import { Rows } from "@/libs/components/Elements/Flex";
 import { ButtonInput } from "@/libs/components/Elements";
 import { pruneOldTempToollogFiles, tempRoot } from "../tools/utils";
@@ -365,6 +366,13 @@ const GlobalSetting = () => {
                                     />
                                 </Rows>
                             </Form.Wrap>
+                        </Show>
+
+                        <Show when={window?.require?.('child_process') !== undefined}>
+                            <Heading>
+                                Python 交互服务
+                            </Heading>
+                            <PythonSessionSetting />
                         </Show>
 
                         <Heading>
