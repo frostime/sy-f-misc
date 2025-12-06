@@ -175,6 +175,9 @@ interface IChatOption {
     tool_choice?: IToolChoice;
 }
 
+// ========================================
+// LLM V1 版本配置; To be deprecated
+// ========================================
 interface IGPTProvider {
     name: string;  //provider 的名称, 例如 OpenAI, V3 等等
     models: string[];  //所有的模型
@@ -190,6 +193,87 @@ interface IGPTModel {
     url: string;
     apiKey: string;
 }
+
+
+// ========================================
+// LLM V2 版本类型替代
+// ========================================
+
+type LLMServiceType =
+    | 'chat'          // 对应 /chat/completions
+    | 'embeddings'    // 对应 /embeddings
+    | 'image'         // 对应 /images/generations
+    | 'audio_stt'     // 对应 /audio/transcriptions
+    | 'audio_tts'     // 对应 /audio/speech
+    | 'moderation'    // 对应 /moderations
+    | string;         // 扩展
+
+type LLMModality = 'text' | 'image' | 'file' | 'audio' | 'video';
+
+//替代 IGPTProvider
+interface ILLMProviderV2 {
+    name: string;  //provider 的名称, 例如 OpenAI, V3 等等
+
+    baseUrl: string;  //API URL, 例如 https://api.openai.com/v1
+
+    /** OpenAI 兼容的 endpoint 映射 */
+    endpoints: Partial<Record<LLMServiceType, string>> & {
+        /** chat 一般都是 /chat/completions 或 /responses */
+        chat?: string;
+        /** embeddings 多半是 /embeddings */
+        embeddings?: string;
+        /** 图像生成 */
+        image?: string;
+    };
+
+    apiKey: string;
+    customHeaders?: Record<string, string>;  // 自定义请求头
+
+    disabled: boolean;  //是否禁用该provider
+
+    models: ILLMConfigV2[];  //所有的模型
+}
+
+//替代 IGPTProvider['models']
+interface ILLMConfigV2 {
+    model: string;  //模型名称
+    displayName?: string; //显示名称; 在火山方舟这种场景下比较有用
+
+    type: LLMServiceType; // 决定使用 provider.endpoints 中的哪个路径
+
+    modalities: {
+        input: LLMModality[];
+        output: LLMModality[];
+    };
+
+    capabilities: {
+        tools?: boolean;  //是否支持工具调用 默认 true
+        streaming?: boolean; //是否支持流式输出 默认 true
+        reasoning?: boolean; // 是否支持推理字段 (reasoning_content),
+        jsonMode?: boolean;  // 是否支持 json_object
+    }
+
+    limits: {
+        maxContext?: number;      // 最大上下文窗口 (Context Window)
+        maxOutput?: number;       // 最大输出 token
+        temperatureRange?: [number, number];
+        [key: string]: any; //后面再扩展吧
+    }
+
+    options: {
+        //强制覆盖对话中的选项; 比如指定 think effort 等
+        customOverride?: Partial<IChatOption & Record<string, any>>;
+        //不支持的选项列表
+        unsupported?: (keyof IChatOption | string)[];
+    };
+
+    price?: {
+        inputPerK: number;  //每1K tokens 的价格
+        outputPerK: number; //每1K tokens 的价格
+        unit?: string;    //价格单位, "USD" | "CNY"
+    }
+}
+
 
 interface CompletionResponse {
     ok?: boolean;
