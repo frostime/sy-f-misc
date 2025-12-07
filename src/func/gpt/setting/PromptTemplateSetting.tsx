@@ -257,7 +257,7 @@ const PromptTemplateSetting = () => {
                     onAdd={() => addTemplate('system')}
                     emptyText="暂无系统提示词模板"
                     wrapperClass={styles.sectionContainer}
-                    containerStyle={{ 'margin': '0 24px' }}
+                    listContainerStyle={{ 'margin': '0 24px' }}
                     {...listProps(systemPrompts)}
                 />
 
@@ -269,7 +269,7 @@ const PromptTemplateSetting = () => {
                     onAdd={() => addTemplate('user')}
                     emptyText="暂无用户提示词模板"
                     wrapperClass={styles.sectionContainer}
-                    containerStyle={{ 'margin': '0 24px' }}
+                    listContainerStyle={{ 'margin': '0 24px' }}
                     {...listProps(userPrompts)}
                 />
             </div>

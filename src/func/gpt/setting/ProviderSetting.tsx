@@ -216,10 +216,10 @@ const ProviderSetting = () => {
                 title="Provider 配置"
                 items={providers()}
                 onAdd={addProvider}
-                containerClass={`fn__flex-1 ${styles.listContainer}`}
+                listContainerClass={`fn__flex-1 ${styles.listContainer}`}
                 itemClass={styles.listItem}
                 wrapperClass={styles.sectionContainer}
-                containerStyle={{ 'margin': '0 24px' }}
+                listContainerStyle={{ 'margin': '0 24px' }}
                 onOrderChange={(newItems) => providers.update(newItems)}
                 onEdit={(item) => {
                     const index = providers().findIndex(p => p.name === item.name);

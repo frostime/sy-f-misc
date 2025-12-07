@@ -1,4 +1,4 @@
-import { For, createSignal, JSX, Show, createMemo } from "solid-js";
+import { For, createSignal, JSX, Show, createMemo, splitProps } from "solid-js";
 import SvgSymbol from "./Elements/IconSymbol";
 import { CollapsibleContainer } from "./collapsible";
 
@@ -243,8 +243,11 @@ export interface BasicDraggableListProps<T extends BasicListItem = BasicListItem
     canDrop?: (draggedItem: T, targetItem: T) => boolean;
 
     // 样式定制
-    containerClass?: string;
+    listContainerClass?: string;
+    listContainerStyle?: JSX.CSSProperties;
     itemClass?: string;
+    itemStyle?: JSX.CSSProperties;
+    itemTitleStyle?: JSX.CSSProperties;
 
     // 空状态
     emptyText?: string;
@@ -285,7 +288,7 @@ export function BasicDraggableList<T extends BasicListItem = BasicListItem>(
             }}
             canDrop={props.canDrop ? (dragged, target) => props.canDrop!(dragged.data, target.data) : undefined}
             renderContainer={(children) => (
-                <div class={props.containerClass} style={props.containerClass ? undefined : defaultContainerStyle}>
+                <div class={props.listContainerClass} style={props.listContainerStyle ? props.listContainerStyle : defaultContainerStyle}>
                     {children}
                 </div>
             )}
@@ -306,10 +309,12 @@ export function BasicDraggableList<T extends BasicListItem = BasicListItem>(
                     style={{
                         ...(props.itemClass ? {} : defaultItemStyle),
                         opacity: isDragging() ? 0.5 : 1,
-                        'background-color': isDragOver() ? 'var(--b3-theme-surface)' : 'transparent'
+                        'background-color': isDragOver() ? 'var(--b3-theme-surface)' : 'transparent',
+                        ...props.itemStyle
                     }}
+                    data-role="draggable-list-item"
                 >
-                    <span style={{ flex: 1, 'font-weight': 'bold' }}>
+                    <span style={{ flex: 1, 'font-weight': 'bold', ...props.itemTitleStyle }} data-role="item-title">
                         {item.data.name}
                     </span>
 
@@ -389,19 +394,36 @@ export interface CollapsibleDraggableListProps<T extends BasicListItem = BasicLi
 export function CollapsibleDraggableList<T extends BasicListItem = BasicListItem>(
     props: CollapsibleDraggableListProps<T>
 ) {
+    // 使用 splitProps 正确分发 props，保持响应式
+    const [containerProps, listProps] = splitProps(
+        props,
+        [
+            'title',
+            'defaultExpanded',
+            'expanded',
+            'onExpandedChange',
+            'onAdd',
+            'addIcon',
+            'headerActions',
+            'wrapperClass',
+            'headerStyle',
+            'containerStyle'
+        ]
+    );
+
     // 构建标题栏的操作按钮
     const actions = () => (
         <>
-            {props.headerActions}
-            <Show when={props.onAdd}>
+            {containerProps.headerActions}
+            <Show when={containerProps.onAdd}>
                 <button
                     class="b3-button b3-button--text"
                     onClick={(e) => {
                         e.stopPropagation();
-                        props.onAdd?.();
+                        containerProps.onAdd?.();
                     }}
                 >
-                    <SvgSymbol size="18px">{props.addIcon ?? 'iconAdd'}</SvgSymbol>
+                    <SvgSymbol size="18px">{containerProps.addIcon ?? 'iconAdd'}</SvgSymbol>
                 </button>
             </Show>
         </>
@@ -409,30 +431,16 @@ export function CollapsibleDraggableList<T extends BasicListItem = BasicListItem
 
     return (
         <CollapsibleContainer
-            title={props.title}
-            defaultExpanded={props.defaultExpanded}
-            expanded={props.expanded}
-            onExpandedChange={props.onExpandedChange}
+            title={containerProps.title}
+            defaultExpanded={containerProps.defaultExpanded}
+            expanded={containerProps.expanded}
+            onExpandedChange={containerProps.onExpandedChange}
             actions={actions()}
-            containerClass={props.wrapperClass}
-            headerStyle={props.headerStyle}
-            containerStyle={props.containerStyle}
+            containerClass={containerProps.wrapperClass}
+            headerStyle={containerProps.headerStyle}
+            containerStyle={containerProps.containerStyle}
         >
-            <BasicDraggableList
-                items={props.items}
-                onEdit={props.onEdit}
-                onDelete={props.onDelete}
-                onOrderChange={props.onOrderChange}
-                renderBadge={props.renderBadge}
-                renderActions={props.renderActions}
-                showMoveButtons={props.showMoveButtons}
-                onMoveUp={props.onMoveUp}
-                onMoveDown={props.onMoveDown}
-                canDrop={props.canDrop}
-                containerClass={props.containerClass}
-                itemClass={props.itemClass}
-                emptyText={props.emptyText}
-            />
+            <BasicDraggableList {...listProps} />
         </CollapsibleContainer>
     );
 }
