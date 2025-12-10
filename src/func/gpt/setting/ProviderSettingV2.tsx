@@ -1,6 +1,6 @@
-import { Component, createSignal, For, Show, onMount, Accessor } from "solid-js";
+import { Component, createSignal, For, Show, onMount, Accessor, createMemo } from "solid-js";
 import Form from "@/libs/components/Form";
-import { llmProviders } from "./store";
+import { llmProviders, resolveEndpointUrl } from "./store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
@@ -8,7 +8,7 @@ import { SvgSymbol } from "../chat/Elements";
 import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { showMessage } from "siyuan";
-import { BasicDraggableList, CollapsibleDraggableList } from "@/libs/components/drag-list";
+import { BasicDraggableList } from "@/libs/components/drag-list";
 import { createModelConfig } from "./preset";
 import Heading from "./Heading";
 // import { Button } from "@frostime/siyuan-plugin-kits/element";
@@ -354,6 +354,11 @@ const ProviderBasicConfig: Component = () => {
     const provider = () => llmProviders()[providerIndex()];
     const hideApiKey = createSignalRef(true);
 
+    const endpointUrlExample = createMemo(() => {
+        const url = resolveEndpointUrl(provider(), 'chat');
+        return url;
+    });
+
     const updateEndpoint = (type: string, path: string) => {
         const endpoints = { ...provider().endpoints };
         if (path.trim()) {
@@ -387,7 +392,11 @@ const ProviderBasicConfig: Component = () => {
                 />
             </Form.Wrap>
 
-            <Form.Wrap title="Base URL" description="API 基础地址（不含 endpoint），如: https://api.openai.com/v1" direction="row">
+            <Form.Wrap title="Base URL" description={`
+                API 基础地址（不含 endpoint），如: https://api.openai.com/v1
+                <br/>
+                当前方案: ${endpointUrlExample()}
+                `} direction="row">
                 <Form.Input
                     type="textinput"
                     value={provider().baseUrl}
@@ -457,7 +466,7 @@ const ProviderBasicConfig: Component = () => {
                     type="textarea"
                     value={JSON.stringify(provider().customHeaders || {}, null, 2)}
                     changed={updateCustomHeaders}
-                    style={{ width: '100%', height: '100px', 'font-family': 'monospace' }}
+                    style={{ width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)' }}
                 />
             </Form.Wrap>
         </div>
@@ -478,7 +487,7 @@ const ModelsListPanel: Component = () => {
     const handleAddModel = () => {
         inputDialog({
             title: '添加模型',
-            defaultText: '输入模型 ID（如: gpt-4o-2024-05-13）',
+            // defaultText: '输入模型 ID（如: gpt-4o-2024-05-13）',
             confirm: (modelName) => {
                 if (!modelName?.trim()) return;
 
@@ -743,7 +752,7 @@ const ProviderSettingV2 = () => {
     const addProvider = () => {
         inputDialog({
             title: '新建 Provider',
-            defaultText: '输入 Provider 名称（如: OpenAI, Claude 等）',
+            // defaultText: '输入 Provider 名称（如: OpenAI, Claude 等）',
             type: 'textline',
             confirm: (name) => {
                 if (!name?.trim()) return;

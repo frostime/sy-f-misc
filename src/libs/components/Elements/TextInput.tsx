@@ -3,7 +3,9 @@ import type { Accessor, JSX } from "solid-js";
 
 export default function TextInput(props: {
     value?: string | Accessor<string>;
-    changed?: (value: string) => void;
+    // changed?: (value: string) => void;
+    onInput?: (value: string) => void;
+    onChanged?: (value: string) => void;
     style?: JSX.CSSProperties;
     placeholder?: string;
     password?: boolean;
@@ -30,7 +32,10 @@ export default function TextInput(props: {
             placeholder={props.placeholder}
             value={value()}
             onInput={(e) => {
-                props.changed?.(e.currentTarget.value);
+                props.onInput?.(e.currentTarget.value);
+            }}
+            onChange={(e) => {
+                props.onChanged?.(e.currentTarget.value);
             }}
             spellcheck={props.spellcheck}
             type={props.password ? "password" : "text"}

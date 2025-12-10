@@ -26,7 +26,7 @@ const UserInput = (props: {
                 <Match when={props.type === 'line'}>
                     <TextInput
                         value={props.text()}
-                        changed={(v) => { props.text.update(v) }}
+                        onInput={(v) => { props.text.update(v) }}
                         spellcheck={false}
                         placeholder={props.placeholder}
                         style={{ width: '100%' }}

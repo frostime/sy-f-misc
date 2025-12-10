@@ -221,7 +221,7 @@ export const listAvialableModels = (): Record<string, string> => {
 
 
 
-const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceType = 'chat') => {
+export const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceType = 'chat') => {
     const path = provider.endpoints?.[type] || provider.endpoints?.chat || DEFAULT_CHAT_ENDPOINT;
     const normalizedBase = trimTrailingSlash(provider.baseUrl || '');
     const normalizedPath = ensureLeadingSlash(path);
@@ -234,7 +234,7 @@ const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceType = 'ch
  * @param bareId: `modelName@providerName` | 'siyuan'
  * @returns
  */
-export const useModel = (bareId: ModelBareId): IGPTModel => {
+export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw'): IGPTModel => {
     const targetId = (bareId || '').trim() || defaultModelId();
     if (targetId === 'siyuan') {
         return siyuanModel();
@@ -243,13 +243,22 @@ export const useModel = (bareId: ModelBareId): IGPTModel => {
     const [modelName, providerName] = bareId.split('@');
     if (!modelName || !providerName) {
         // return null;
-        throw new Error(`Invalid Model ID Format: ${targetId}`);
+        if (error === 'throw') {
+            throw new Error(`Invalid model ID: ${bareId}`);
+        } else {
+            return null;
+        }
     }
     const provider = llmProviders().find(item => item.name === providerName);
     const model = provider?.models?.find(item => item.model === modelName);
 
     if (!provider || !model) {
-        throw new Error(`Model not found: ${targetId}`);
+        // throw new Error(`Model not found: ${targetId}`);
+        if (error === 'throw') {
+            throw new Error(`Model not found: ${bareId}`);
+        } else {
+            return null;
+        }
     }
     return {
         bareId: targetId,
