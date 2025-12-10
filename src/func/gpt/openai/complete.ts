@@ -271,7 +271,7 @@ export const complete = async (input: string | IMessage[], options?: {
     }
 
     try {
-        const { url, model, apiKey, modelToUse } = options.model;
+        const { url, model, apiKey, modelToUse, config: modelConfig } = options.model;
         const messages = adpatInputMessage(input, { model: options.model });
 
         if (options?.systemPrompt) {
