@@ -228,8 +228,9 @@ const ModelConfigPanel: Component<{
                 {/* <h4 style={{ 'margin-top': '0' }}>功能支持 (Capabilities)</h4> */}
 
                 <For each={[
-                    { key: 'streaming', label: '流式输出 (Streaming)', desc: '支持 SSE 流式响应' },
-                    { key: 'tools', label: '工具调用 (Tools)', desc: '支持 function calling' },
+                    { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
+                    { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
+                    { key: 'reasoningEffort', label: 'reasoning_effort', desc: '部分模型允许设置 reasoning_effort 参数' },
                     // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
                     // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
                 ] as const}>

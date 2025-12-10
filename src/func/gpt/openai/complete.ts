@@ -284,8 +284,7 @@ export const complete = async (input: string | IMessage[], options?: {
         let chatOption = options?.option ?? {};
         chatOption = adaptChatOptions({
             chatOption,
-            model,
-            apiUrl: url
+            runtimeLLM: options.model
         });
 
         if (options?.stream !== undefined) {
@@ -330,7 +329,8 @@ export const complete = async (input: string | IMessage[], options?: {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
-                'Accept': 'text/event-stream'
+                'Accept': 'text/event-stream',
+                ...(provider?.customHeaders || {})
             },
             body: JSON.stringify(payload),
             signal: options?.abortControler?.signal

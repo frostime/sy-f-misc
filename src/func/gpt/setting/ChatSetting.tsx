@@ -14,7 +14,7 @@ import { IStoreRef } from "@frostime/solid-signal-ref";
 import { UIConfig, defaultModelId, listAvialableModels, useModel } from "../model/store";
 import Heading from "./Heading";
 import { showMessage } from "siyuan";
-import { TextInput } from "@/libs/components/Elements";
+import { SelectInput, TextInput } from "@/libs/components/Elements";
 
 
 const ChatSessionSetting = (props: {
@@ -230,6 +230,27 @@ const ChatSessionSetting = (props: {
                         min: -2,
                         max: 2,
                         step: 0.05
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="Reasoning Effort"
+                description="OpenAI 系的推理模型允许指定推理强度"
+            >
+                <SelectInput
+                    value={config().chatOption.reasoning_effort}
+                    changed={(v: IChatCompleteOption['reasoning_effort'] | null) => {
+                        if (!v) return;
+                        config.update('chatOption', 'reasoning_effort', v);
+                    }}
+                    options={{
+                        "": "不设置",
+                        "none": "none",
+                        "minimal": "minimal",
+                        "low": "low",
+                        "medium": "medium",
+                        "high": "high",
+                        "xhigh": "xhing"
                     }}
                 />
             </Form.Wrap>
