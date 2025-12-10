@@ -155,13 +155,13 @@ export interface ToolChainOptions {
     abortController?: AbortController;
 
     // 模型配置
-    model?: IGPTModel;
+    model?: IRuntimeLLM;
 
     // 系统提示词
     systemPrompt?: string;
 
     // 聊天选项
-    chatOption?: IChatOption;
+    chatOption?: IChatCompleteOption;
 
     // 是否检查工具结果
     checkToolResults?: boolean;

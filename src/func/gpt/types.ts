@@ -90,7 +90,7 @@ interface IToolCallResponse {
     };
 }
 
-interface IChatOption {
+interface IChatCompleteOption {
     /**
      * Controls the randomness of the output.
      * Lower values (e.g., 0.2) make it more deterministic, higher values (e.g., 1.0) make it more creative.
@@ -173,6 +173,8 @@ interface IChatOption {
      * - {type: 'function', function: {name: 'tool_name'}}: 强制模型调用指定工具
      */
     tool_choice?: IToolChoice;
+
+    reasoning_effort?: 'none' | 'low' | 'medium' | 'high'
 }
 
 // ========================================
@@ -186,18 +188,6 @@ interface IGPTProvider {
     disabled?: boolean;  //是否禁用该provider
     redirect?: Record<string, string>;  //模型名称重定向; 适合字节火山等使用接入端点而非模型名称作为输入的情况
 }
-
-
-
-interface IGPTModel {
-    modelToUse?: string; //模型, 发送给 Chat 请求用的名称, 如果为空则使用 model
-    model: string;  //模型名称
-    url: string;
-    apiKey: string;
-    bareId: ModelBareId;  // model@Provider
-    config?: ILLMConfigV2;
-}
-
 
 // ========================================
 // LLM V2 版本类型替代
@@ -258,6 +248,7 @@ interface ILLMConfigV2 {
         streaming?: boolean; //是否支持流式输出 默认 true
         reasoning?: boolean; // 是否支持推理字段 (reasoning_content),
         jsonMode?: boolean;  // 是否支持 json_object
+        reasoningEffort?: boolean; // 是否支持 reasoning_effort: 'none' | 'low' | 'medium' | 'high'
     }
 
     limits: {
@@ -269,9 +260,9 @@ interface ILLMConfigV2 {
 
     options: {
         //强制覆盖对话中的选项; 比如指定 think effort 等
-        customOverride?: Partial<IChatOption & Record<string, any>>;
+        customOverride?: Partial<IChatCompleteOption & Record<string, any>>;
         //不支持的选项列表
-        unsupported?: (keyof IChatOption | string)[];
+        unsupported?: (keyof IChatCompleteOption | string)[];
     };
 
     price?: {
@@ -280,6 +271,21 @@ interface ILLMConfigV2 {
         unit?: string;    //价格单位, "USD" | "CNY"
     }
 }
+
+interface IRuntimeLLM {
+    // modelToUse?: string; //模型, 发送给 Chat 请求用的名称, 如果为空则使用 model
+    model: string;  //模型名称
+    url: string;
+    apiKey: string;
+    bareId: ModelBareId;  // model@Provider
+    config?: ILLMConfigV2;
+    provider?: Omit<ILLMProviderV2, 'models'>;
+}
+
+
+// ========================================
+// Response
+// ========================================
 
 
 interface CompletionResponse {
@@ -441,5 +447,5 @@ interface IChatSessionConfig {
     utilityModelId?: string;
     renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
     toolCallMaxRounds: number; // 工具调用最大轮次
-    chatOption: IChatOption;
+    chatOption: IChatCompleteOption;
 }

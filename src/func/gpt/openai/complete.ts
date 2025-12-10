@@ -248,12 +248,12 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
 
 
 export const complete = async (input: string | IMessage[], options?: {
-    model?: IGPTModel,
+    model?: IRuntimeLLM,
     systemPrompt?: string,
     stream?: boolean,
     streamMsg?: (msg: string, toolCalls?: IToolCallResponse[]) => void,
     streamInterval?: number,
-    option?: IChatOption
+    option?: IChatCompleteOption
     abortControler?: AbortController
 }): Promise<CompletionResponse> => {
 
@@ -271,7 +271,7 @@ export const complete = async (input: string | IMessage[], options?: {
     }
 
     try {
-        const { url, model, apiKey, modelToUse, config: modelConfig } = options.model;
+        const { url, model, apiKey, config: modelConfig, provider } = options.model;
         const messages = adpatInputMessage(input, { model: options.model });
 
         if (options?.systemPrompt) {
@@ -293,8 +293,8 @@ export const complete = async (input: string | IMessage[], options?: {
         }
 
         const chatInputs = {
-            model: modelToUse || model,
-            modelDisplayName: model,
+            model: model,
+            modelDisplayName: modelConfig?.displayName || model,
             url: url,
             option: chatOption
         }

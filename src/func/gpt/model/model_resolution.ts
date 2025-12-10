@@ -10,7 +10,7 @@
 import { DEFAULT_CHAT_ENDPOINT, trimTrailingSlash, ensureLeadingSlash } from "./url_utils";
 import { defaultModelId, llmProviders } from "./state";
 
-const siyuanModel = (): IGPTModel & {
+const siyuanModel = (): IRuntimeLLM & {
     baseUrl: string;
 } => {
     let { apiBaseURL, apiModel, apiKey } = window.siyuan.config.ai.openAI;
@@ -55,7 +55,7 @@ export const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceTyp
  * @param bareId: `modelName@providerName` | 'siyuan'
  * @returns
  */
-export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw'): IGPTModel => {
+export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw'): IRuntimeLLM => {
     const targetId = (bareId || '').trim() || defaultModelId();
     if (targetId === 'siyuan') {
         return siyuanModel();
@@ -84,10 +84,10 @@ export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw')
     return {
         bareId: targetId,
         model: model.model,
-        modelToUse: model.model,
         url: resolveEndpointUrl(provider, model.type),
         apiKey: provider.apiKey,
-        config: model
+        config: model,
+        provider: provider
     };
 }
 

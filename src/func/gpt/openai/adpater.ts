@@ -19,14 +19,14 @@ export const userCustomizedPreprocessor = {
         model: string;
         modelDisplayName: string;
         url: string;
-        option: IChatOption;
+        option: IChatCompleteOption;
     }) => {
 
     }
 };
 
 export const adpatInputMessage = (input: Parameters<typeof complete>[0], options: {
-    model: IGPTModel;
+    model: IRuntimeLLM;
 }) => {
     let messages: IMessage[] = [];
     if (typeof input === 'string') {
@@ -70,7 +70,7 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
 }
 
 export const adaptChatOptions = (target: {
-    chatOption: IChatOption;
+    chatOption: IChatCompleteOption;
     model: string;
     apiUrl: string
 }) => {

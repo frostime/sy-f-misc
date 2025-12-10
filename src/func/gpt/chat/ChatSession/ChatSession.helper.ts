@@ -26,7 +26,7 @@ import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
 
 interface ISimpleContext {
-    model: Accessor<IGPTModel>;
+    model: Accessor<IRuntimeLLM>;
     config: IStoreRef<IChatSessionConfig>;
     session: ReturnType<typeof useSession>;
     [key: string]: any
@@ -384,7 +384,7 @@ const useContextAndAttachments = (params: {
  * GPT 通信相关的 hook - 支持工具调用
  */
 const useGptCommunication = (params: {
-    model: Accessor<IGPTModel>;
+    model: Accessor<IRuntimeLLM>;
     config: IStoreRef<IChatSessionConfig>;
     messages: IStoreRef<IChatSessionMsgItem[]>;
     systemPrompt: ReturnType<typeof useSignalRef<string>>;
@@ -422,8 +422,8 @@ const useGptCommunication = (params: {
 
     const customComplete = async (messageToSend: IMessage[] | string, options?: {
         stream?: boolean;
-        model?: IGPTModel;
-        chatOption?: Partial<IChatOption>;
+        model?: IRuntimeLLM;
+        chatOption?: Partial<IChatCompleteOption>;
     }) => {
         try {
             const modelToUse = options?.model ?? model();
@@ -864,7 +864,7 @@ ${inputContent}
  * 主会话 hook
  */
 export const useSession = (props: {
-    model: Accessor<IGPTModel>;
+    model: Accessor<IRuntimeLLM>;
     config: IStoreRef<IChatSessionConfig>;
     scrollToBottom: (force?: boolean) => void;
 }) => {
