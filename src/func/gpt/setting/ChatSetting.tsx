@@ -11,7 +11,7 @@
 import Form from "@/libs/components/Form";
 
 import { IStoreRef } from "@frostime/solid-signal-ref";
-import { UIConfig, defaultModelId, listAvialableModels, useModel } from "./store";
+import { UIConfig, defaultModelId, listAvialableModels, useModel } from "../model/store";
 import Heading from "./Heading";
 import { showMessage } from "siyuan";
 import { TextInput } from "@/libs/components/Elements";

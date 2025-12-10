@@ -11,13 +11,13 @@ import Form from "@/libs/components/Form";
 import { createSignal, Switch, Match, Show } from "solid-js";
 
 // import { useModel, defaultConfig, providers, save, load } from "./store";
-import * as store from "./store";
+import * as store from "../model/store";
 import ChatSetting from "./ChatSetting";
 // import ProviderSetting from "./ProviderSetting";
 import ProviderSettingV2 from "./ProviderSettingV2";
 import { onCleanup } from "solid-js";
 import PromptTemplateSetting from "./PromptTemplateSetting";
-import { globalMiscConfigs } from "./store";
+import { globalMiscConfigs } from "../model/store";
 import Heading from "./Heading";
 
 import { LoadModuleFileButtonGroup } from "@/libs/components/user-custom-module";
@@ -392,4 +392,4 @@ export {
     ChatSetting,
     GlobalSetting
 }
-export * from "./store";
+export * from "../model/store";

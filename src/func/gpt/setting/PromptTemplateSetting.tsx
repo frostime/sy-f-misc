@@ -1,7 +1,7 @@
 // h:\SrcCode\SiYuanDevelopment\sy-f-misc\src\func\gpt\setting\PromptTemplateSetting.tsx
 import { Accessor, Component, createMemo } from "solid-js";
 import Form from "@/libs/components/Form";
-import { globalMiscConfigs, promptTemplates } from "./store";
+import { globalMiscConfigs, promptTemplates } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";

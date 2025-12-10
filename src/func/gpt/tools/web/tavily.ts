@@ -5,7 +5,7 @@
  * @FilePath     : /src/func/gpt/tools/web/tavily.ts
  * @Description  : Tavily search API integration
  */
-import { globalMiscConfigs } from '../../setting/store';
+import { globalMiscConfigs } from '../../model/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
 import { formatWithXMLTags, normalizeLimit, truncateContent } from '../utils';
 

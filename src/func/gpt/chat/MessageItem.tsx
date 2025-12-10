@@ -7,7 +7,7 @@ import { floatingEditor } from '@/libs/components/floating-editor';
 
 import { convertMathFormulas } from '@gpt/utils';
 import { adaptIMessageContentGetter } from '@gpt/data-utils';
-import { defaultConfig } from '@gpt/setting/store';
+import { defaultConfig } from '@/func/gpt/model/store';
 import * as persist from '@gpt/persistence';
 
 import styles from './MessageItem.module.scss';

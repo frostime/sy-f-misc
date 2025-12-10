@@ -15,7 +15,7 @@ import URLProvider from './URLProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
-import { globalMiscConfigs, customContextProviders } from '../setting/store';
+import { globalMiscConfigs, customContextProviders } from '../model/store';
 import { inputDialogForProvider } from './InputForProvder';
 import { RecentUpdatedDocProvider } from './RecentDocProvider';
 import { UserInputProvider } from './UserInputProvider';

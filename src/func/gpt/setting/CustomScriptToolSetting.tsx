@@ -20,7 +20,7 @@ import { solidDialog } from '@/libs/dialog';
 import Markdown from '@/libs/components/Elements/Markdown';
 import styles from './CustomScriptToolSetting.module.scss';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
-import { globalMiscConfigs } from './store';
+import { globalMiscConfigs } from '../model/store';
 import { ButtonInput } from '@/libs/components/Elements';
 import { Cols } from '@/libs/components/Elements/Flex';
 

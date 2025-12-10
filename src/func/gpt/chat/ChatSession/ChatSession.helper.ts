@@ -9,7 +9,7 @@ import { createSimpleContext } from '@/libs/simple-context';
 
 // GPT-related imports
 import * as gpt from '@gpt/openai';
-import { globalMiscConfigs, useModel } from '@gpt/setting/store';
+import { globalMiscConfigs, useModel } from '@/func/gpt/model/store';
 import {
     adaptIMessageContentGetter,
     mergeInputWithContext,

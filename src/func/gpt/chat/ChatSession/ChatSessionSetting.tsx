@@ -1,5 +1,5 @@
 import Form from '@/libs/components/Form';
-import { UIConfig, promptTemplates } from '@gpt/setting/store';
+import { UIConfig, promptTemplates } from '@/func/gpt/model/store';
 import { ChatSetting } from '@gpt/setting';
 
 import { useSimpleContext } from './ChatSession.helper';

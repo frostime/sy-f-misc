@@ -1,4 +1,4 @@
-import { defaultModelId, useModel } from "../setting/store";
+import { defaultModelId, useModel } from "../model/store";
 import { appendLog } from "../MessageLogger";
 import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage } from './adpater';
 

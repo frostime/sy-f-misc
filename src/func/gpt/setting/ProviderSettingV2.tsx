@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, onMount, Accessor, createMemo } from "solid-js";
 import Form from "@/libs/components/Form";
-import { llmProviders, resolveEndpointUrl } from "./store";
+import { llmProviders, resolveEndpointUrl } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
@@ -9,7 +9,7 @@ import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { showMessage } from "siyuan";
 import { BasicDraggableList } from "@/libs/components/drag-list";
-import { createModelConfig } from "./preset";
+import { createModelConfig } from "../model/preset";
 import Heading from "./Heading";
 // import { Button } from "@frostime/siyuan-plugin-kits/element";
 import { ButtonInput } from "@/libs/components/Elements";

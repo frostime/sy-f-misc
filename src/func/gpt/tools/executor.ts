@@ -8,7 +8,7 @@ import {
     ResultApprovalCallback,
     ToolGroup
 } from './types';
-import { toolsManager } from '../setting/store';
+import { toolsManager } from '../model/store';
 import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
 
 /**

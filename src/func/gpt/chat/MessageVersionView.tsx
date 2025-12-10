@@ -6,7 +6,7 @@ import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 
 import { adaptIMessageContentGetter, mergeMultiVesion } from '@gpt/data-utils';
-import { UIConfig } from '@gpt/setting/store';
+import { UIConfig } from '@/func/gpt/model/store';
 
 import styles from './MessageItem.module.scss';
 import { type useSession } from './ChatSession/ChatSession.helper';

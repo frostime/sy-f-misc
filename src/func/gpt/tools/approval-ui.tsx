@@ -11,7 +11,7 @@ import { ButtonInput } from "@/libs/components/Elements";
 import { solidDialog } from "@/libs/dialog";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { toolCallSafetyReview } from "./utils";
-import { toolsManager } from "../setting/store";
+import { toolsManager } from "../model/store";
 import Markdown from "@/libs/components/Elements/Markdown";
 
 /**

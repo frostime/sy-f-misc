@@ -15,7 +15,7 @@ import { ButtonInput } from '@/libs/components/Elements';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 
 import { adaptIMessageContentGetter } from '@gpt/data-utils';
-import { UIConfig } from '@gpt/setting/store';
+import { UIConfig } from '@/func/gpt/model/store';
 import { type useSession } from './ChatSession/ChatSession.helper';
 import styles from './SessionItemsManager.module.scss';
 

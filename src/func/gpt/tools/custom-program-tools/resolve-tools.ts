@@ -18,7 +18,7 @@ import {
     cleanupTempDir
 } from './utils';
 import { putFile } from '@/api';
-import { globalMiscConfigs } from '../../setting/store';
+import { globalMiscConfigs } from '../../model/store';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
