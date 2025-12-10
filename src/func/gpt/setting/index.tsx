@@ -13,7 +13,8 @@ import { createSignal, Switch, Match, Show } from "solid-js";
 // import { useModel, defaultConfig, providers, save, load } from "./store";
 import * as store from "./store";
 import ChatSetting from "./ChatSetting";
-import ProviderSetting from "./ProviderSetting";
+// import ProviderSetting from "./ProviderSetting";
+import ProviderSettingV2 from "./ProviderSettingV2";
 import { onCleanup } from "solid-js";
 import PromptTemplateSetting from "./PromptTemplateSetting";
 import { globalMiscConfigs } from "./store";
@@ -66,16 +67,6 @@ const GlobalSetting = () => {
     });
 
     const [activeTab, setActiveTab] = createSignal<TabType>('chat');
-
-    const VisualModel = {
-        value: () => {
-            return store.visualModel.value.join('\n');
-        },
-        changed: (value: string) => {
-            const models = value.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
-            store.visualModel.update(models);
-        }
-    }
 
     const plugin = thisPlugin();
     const dataDir = window.siyuan.config.system.dataDir;
@@ -261,27 +252,22 @@ const GlobalSetting = () => {
                         <Heading>
                             配置 LLM 提供商
                         </Heading>
-                        <ProviderSetting />
-                        <Heading>
+                        <ProviderSettingV2 />
+                        {/* <Heading>
                             其他配置
                         </Heading>
                         <Form.Wrap
-                            title="视觉模型"
-                            description="支持上传图片的模型，使用英文逗号或者换行符分隔"
-                            direction="row"
+                            title="视觉能力管理"
+                            description="视觉/多模态能力现由每个模型的配置 (modalities.input) 决定，您可以在新的 Provider 管理中为特定模型启用图片输入。"
                         >
-                            <Form.Input
-                                type="textarea"
-                                value={VisualModel.value()}
-                                changed={VisualModel.changed}
-                                style={{
-                                    width: "100%",
-                                    'font-size': '1.2em',
-                                    'line-height': '1.1em'
-                                }}
-                                spellcheck={false}
-                            />
-                        </Form.Wrap>
+                            <div style={{
+                                'font-size': '13px',
+                                color: 'var(--b3-theme-on-surface)',
+                                'line-height': 1.6
+                            }}>
+                                请在 Provider 配置中为模型设置对应的模态能力。
+                            </div>
+                        </Form.Wrap> */}
                     </Match>
 
                     <Match when={activeTab() === 'tools'}>

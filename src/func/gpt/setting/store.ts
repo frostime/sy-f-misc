@@ -9,12 +9,13 @@
 import type { Plugin } from "siyuan";
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 
-import { createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { confirmDialog, createJavascriptFile, debounce, deepMerge, importJavascriptFile, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { createModelConfig } from "./preset";
 // import { toolExecutorFactory } from "../tools";
 import { userCustomizedPreprocessor } from "../openai/adpater";
 import { loadAndCacheCustomScriptTools } from "../tools/custom-program-tools";
 
-const CURRENT_SCHEMA = '1.6';
+const CURRENT_SCHEMA = '2.0';
 
 const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -41,12 +42,9 @@ const compareSchemaVersion = (a?: string, b?: string) => {
 /**
  * `siyuan` or `modelName@providerName`
  */
-export const defaultModelId = useSignalRef<string>('siyuan');
+export const defaultModelId = useSignalRef<ModelBareId>('siyuan');
 
-/**
- * 视觉模型, 可以发送图片
- */
-export const visualModel = useSignalRef<string[]>(['gpt-4o-mini']);
+
 
 export const defaultConfig = useStoreRef<IChatSessionConfig>({
     attachedHistory: 3,
@@ -65,6 +63,76 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
         presence_penalty: 0,
     }
 });
+
+
+//@deprecated
+export const providers = useStoreRef<IGPTProvider[]>([]);
+//@deprecated; 视觉模型, 可以发送图片
+export const visualModel = useSignalRef<string[]>(['gpt-4o-mini']);
+
+export const llmProviders = useStoreRef<ILLMProviderV2[]>([]);
+
+export const UIConfig = useStoreRef({
+    inputFontsize: 20,
+    msgFontsize: 19,
+    maxWidth: 1250
+});
+
+export const promptTemplates = useStoreRef<IPromptTemplate[]>([]);
+
+
+const DEFAULT_CHAT_ENDPOINT = '/chat/completions';
+
+
+/**
+ * 确保 url 末尾没有斜杠 /
+ */
+const trimTrailingSlash = (url?: string) => {
+    if (!url) return url;
+    return url.replace(/\/+$/, '');
+};
+
+
+/**
+ * 确保路径以 / 开头
+ */
+const ensureLeadingSlash = (path?: string) => {
+    if (!path) return path;
+    return path.startsWith('/') ? path : `/${path}`;
+};
+
+const splitLegacyProviderUrl = (url?: string) => {
+    // 按照插件之前的逻辑，旧版本的 url 末尾应该只会是 /chat/completions
+    if (!url) {
+        return {
+            baseUrl: '',
+            endpoint: DEFAULT_CHAT_ENDPOINT
+        };
+    }
+    const normalized = url.trim();
+    const marker = '/chat/completions';
+    const idx = normalized.lastIndexOf(marker);
+    if (idx !== -1) {
+        const baseUrl = trimTrailingSlash(normalized.slice(0, idx)) || '';
+        return {
+            baseUrl,
+            endpoint: marker
+        };
+    }
+    try {
+        const parsed = new URL(normalized);
+        const baseUrl = `${parsed.origin}`;
+        return {
+            baseUrl: trimTrailingSlash(baseUrl + parsed.pathname) || baseUrl,
+            endpoint: DEFAULT_CHAT_ENDPOINT
+        };
+    } catch (error) {
+        return {
+            baseUrl: trimTrailingSlash(normalized) || '',
+            endpoint: DEFAULT_CHAT_ENDPOINT
+        };
+    }
+};
 
 
 const _defaultGlobalMiscConfigs = {
@@ -112,21 +180,24 @@ const asStorage = () => {
     return {
         schema: CURRENT_SCHEMA,
         defaultModel: defaultModelId.unwrap(),
-        visualModel: visualModel.unwrap(),
         config: { ...defaultConfig.unwrap() },
         globalMiscConfigs: { ...globalMiscConfigs.unwrap() },
-        providers: [...providers.unwrap()],
+        llmProviders: [...llmProviders.unwrap()],
         ui: { ...UIConfig.unwrap() },
         promptTemplates: [...promptTemplates.unwrap()],
         toolsManager: { ...toolsManager.unwrap() }
     }
 }
 
-const siyuanModel = (): IGPTModel => {
+const siyuanModel = (): IGPTModel & {
+    baseUrl: string;
+} => {
     let { apiBaseURL, apiModel, apiKey } = window.siyuan.config.ai.openAI;
     let url = `${apiBaseURL.endsWith('/') ? apiBaseURL : apiBaseURL + '/'}chat/completions`;
     return {
+        bareId: 'siyuan',
         url,
+        baseUrl: apiBaseURL,
         model: apiModel,
         apiKey: apiKey
     }
@@ -134,52 +205,78 @@ const siyuanModel = (): IGPTModel => {
 
 
 export const listAvialableModels = (): Record<string, string> => {
-    let availableModels = {
+    const availableModels: Record<string, string> = {
         'siyuan': '思源内置模型'
     };
-    providers().forEach((provider) => {
-        if (provider.disabled !== true) {
-            provider.models.forEach((model) => {
-                availableModels[`${model}@${provider.name}`] = `(${provider.name}) ${model}`;
-            });
-        }
+    llmProviders().forEach((provider) => {
+        if (provider.disabled) return;
+        provider.models?.forEach((modelConfig) => {
+            const modelId = `${modelConfig.model}@${provider.name}`;
+            const displayName = modelConfig.displayName ?? modelConfig.model;
+            availableModels[modelId] = `(${provider.name}) ${displayName}`;
+        });
     });
     return availableModels;
 }
 
 
+
+const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceType = 'chat') => {
+    const path = provider.endpoints?.[type] || provider.endpoints?.chat || DEFAULT_CHAT_ENDPOINT;
+    const normalizedBase = trimTrailingSlash(provider.baseUrl || '');
+    const normalizedPath = ensureLeadingSlash(path);
+    if (!normalizedBase) return normalizedPath;
+    return `${normalizedBase}${normalizedPath}`;
+};
+
 /**
  *
- * @param id: `modelName@providerName` | 'siyuan'
+ * @param bareId: `modelName@providerName` | 'siyuan'
  * @returns
  */
-export const useModel = (id: string): IGPTModel => {
-    if (id === 'siyuan') {
+export const useModel = (bareId: ModelBareId): IGPTModel => {
+    const targetId = (bareId || '').trim() || defaultModelId();
+    if (targetId === 'siyuan') {
         return siyuanModel();
     }
-    let [modelName, providerName] = id.trim().split('@');
+    // const { provider, model } = findModelConfigById(targetId);
+    const [modelName, providerName] = bareId.split('@');
     if (!modelName || !providerName) {
-        throw new Error('Invalid model name');
+        // return null;
+        throw new Error(`Invalid Model ID Format: ${targetId}`);
     }
-    // 在 providers 中查找
-    let provider = providers().find(p => p.name === providerName);
-    if (!provider) {
-        throw new Error('Provider not found');
-    }
-    if (!provider.models.includes(modelName)) {
-        console.warn(`Model ${modelName} not found in provider ${providerName}`);
-    }
+    const provider = llmProviders().find(item => item.name === providerName);
+    const model = provider?.models?.find(item => item.model === modelName);
 
-    let modelToUse = modelName;
-    if (provider.redirect && provider.redirect[modelName]) {
-        modelToUse = provider.redirect[modelName];
+    if (!provider || !model) {
+        throw new Error(`Model not found: ${targetId}`);
     }
     return {
-        modelToUse,
-        model: modelName,
-        url: provider.url,
-        apiKey: provider.apiKey
+        bareId: targetId,
+        model: model.model,
+        modelToUse: model.model,
+        url: resolveEndpointUrl(provider, model.type),
+        apiKey: provider.apiKey,
+        config: model
     };
+}
+
+
+export const checkSupportsModality = (modelInput: ILLMConfigV2 | ModelBareId, modality: LLMModality, direction: 'input' | 'output' = 'input') => {
+    let modelConfig: ILLMConfigV2 | null = null;
+    if (typeof modelInput === 'string') {
+        const model = useModel(modelInput);
+        modelConfig = model?.config || null;
+    } else {
+        modelConfig = modelInput;
+    }
+
+    if (!modelConfig || !modelConfig.modalities) {
+        return false;
+    }
+
+    const list = modelConfig.modalities?.[direction] ?? [];
+    return Array.isArray(list) && list.includes(modality);
 }
 
 
@@ -315,6 +412,22 @@ const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>) => {
     const dataSchema = (data as any).schema as string | undefined;
     let migrated = false;
 
+    if (compareSchemaVersion(dataSchema, CURRENT_SCHEMA) === 0) {
+        return { data, migrated };
+    }
+
+    // 1.5 版本: 向后兼容 schema <= 1.4
+    if (compareSchemaVersion(dataSchema, '1.5') < 0) {
+        if ((data as any).config && (data as any).config.modelId) {
+            (data as any).config.defaultModelId = (data as any).config.modelId;
+            console.log('历史版本兼容: 迁移 modelId 到 defaultModelId');
+            delete (data as any).config.modelId;
+            migrated = true;
+        }
+    }
+
+    // 1.5 版本: 向后兼)
+
     // 1.6 版本: 向后兼容 schema <= 1.5
     if (compareSchemaVersion(dataSchema, '1.6') < 0) {
         const hasAutoTitleModelId = (data as any).config && (data as any).config.autoTitleModelId !== undefined;
@@ -327,9 +440,102 @@ const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>) => {
         }
     }
 
-    if (migrated && (data as any).schema !== CURRENT_SCHEMA) {
-        (data as any).schema = CURRENT_SCHEMA;
+    if (compareSchemaVersion(dataSchema, '2.0') < 0) {
+        const oldData = JSON.parse(JSON.stringify(data));
+        confirmDialog({
+            title: '配置版本更新',
+            content: `GPT/LLM 功能部分有较大更新，配置文件将自动升级，是否将旧配置备份到本地？(如果存在问题可以将文件粘贴到插件设置目录下覆盖新配置文件)`,
+            confirm: () => {
+                const name = StoreName;
+                const blob = new Blob([JSON.stringify(oldData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backup.${name}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        });
+
+        /**
+         * Transform from old provider to new provider
+         * @returns 
+         */
+        const migrateLegacyProviders = () => {
+            console.log('[GPT 配置迁移] 开始迁移旧版 Provider 配置...');
+            const legacyProviders = (data as any).providers as IGPTProvider[];
+            const legacyVisualModels = (data as any).visualModel as string[];
+            console.log(`[GPT 配置迁移] 发现 ${legacyProviders?.length || 0} 个旧版 Provider`);
+            if (!Array.isArray(legacyProviders) || legacyProviders.length === 0) {
+                return false;
+            }
+            const visualModelSet = new Set((legacyVisualModels ?? []).map((name) => name?.trim()).filter(Boolean));
+            const convertedProviders: ILLMProviderV2[] = legacyProviders.map((legacy, index) => {
+                const { baseUrl, endpoint } = splitLegacyProviderUrl(legacy.url);
+                const models: ILLMConfigV2[] = (legacy.models ?? []).map((legacyModelName) => {
+                    const redirectedName = legacy.redirect?.[legacyModelName] ?? legacyModelName;
+                    const preset = createModelConfig(redirectedName);
+                    const config = deepMerge({}, preset) as ILLMConfigV2;
+                    config.model = redirectedName;
+                    if (legacyModelName !== redirectedName) {
+                        config.displayName = legacyModelName;
+                    }
+                    config.modalities = config.modalities || { input: ['text'], output: ['text'] };
+                    config.modalities.input = Array.from(new Set([...(config.modalities.input || []), 'text']));
+                    config.modalities.output = Array.from(new Set(config.modalities.output || ['text'])) as LLMModality[];
+                    if (visualModelSet.has(legacyModelName) || visualModelSet.has(redirectedName)) {
+                        if (!config.modalities.input.includes('image')) {
+                            config.modalities.input.push('image');
+                        }
+                    }
+                    config.capabilities = config.capabilities || { tools: true, streaming: true };
+                    if (config.capabilities.tools === undefined) config.capabilities.tools = true;
+                    if (config.capabilities.streaming === undefined) config.capabilities.streaming = true;
+                    config.limits = config.limits || {};
+                    config.options = config.options || { customOverride: {}, unsupported: [] };
+                    return config;
+                }).filter(Boolean);
+                return {
+                    name: legacy.name || `LegacyProvider-${index + 1}`,
+                    baseUrl: trimTrailingSlash(baseUrl || legacy.url || '') || '',
+                    endpoints: {
+                        chat: ensureLeadingSlash(endpoint ?? DEFAULT_CHAT_ENDPOINT) || DEFAULT_CHAT_ENDPOINT
+                    },
+                    apiKey: legacy.apiKey ?? '',
+                    customHeaders: undefined,
+                    disabled: legacy.disabled ?? false,
+                    models
+                } satisfies ILLMProviderV2;
+            }).filter((provider) => provider.models?.length);
+
+            if (!convertedProviders.length) {
+                return false;
+            }
+            (data as any).llmProviders = convertedProviders;
+            delete (data as any).providers;
+            delete (data as any).visualModel;
+
+            const availableIds = new Set<string>();
+            convertedProviders.forEach((provider) => {
+                provider.models?.forEach((model) => {
+                    availableIds.add(`${model.model}@${provider.name}` as ModelBareId);
+                });
+            });
+            if (!(availableIds.has((data as any).defaultModel) || (data as any).defaultModel === 'siyuan')) {
+                console.warn('[GPT] legacy 默认模型已失效，自动回退到思源内置模型');
+                (data as any).defaultModel = 'siyuan';
+            }
+            console.log(`[GPT 配置迁移] 成功迁移 ${convertedProviders.length} 个 Provider`);
+            return true;
+        };
+        migrateLegacyProviders();
     }
+
+    migrated = true;
+
+    (data as any).schema = CURRENT_SCHEMA;
 
     return { data, migrated };
 }
@@ -349,10 +555,13 @@ export const load = async (plugin?: Plugin) => {
 
         let current = deepMerge(defaultData, data);
         current.defaultModel && defaultModelId(current.defaultModel);
-        current.visualModel && visualModel(current.visualModel);
+        // current.visualModel && visualModel(current.visualModel);
         current.config && defaultConfig(current.config);
         current.globalMiscConfigs && globalMiscConfigs(current.globalMiscConfigs);
-        current.providers && providers(current.providers);
+        // current.providers && providers(current.providers);
+        if (Array.isArray(current.llmProviders)) {
+            llmProviders(current.llmProviders);
+        }
         current.ui && UIConfig(current.ui)
         current.promptTemplates && promptTemplates(current.promptTemplates)
         console.debug('Load GPT config:', current);
@@ -405,11 +614,3 @@ export const loadCustomScriptTools = async () => {
     }
 };
 
-export const providers = useStoreRef<IGPTProvider[]>([]);
-export const UIConfig = useStoreRef({
-    inputFontsize: 20,
-    msgFontsize: 19,
-    maxWidth: 1250
-});
-
-export const promptTemplates = useStoreRef<IPromptTemplate[]>([]);

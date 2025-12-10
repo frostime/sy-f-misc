@@ -176,7 +176,7 @@ interface IChatOption {
 }
 
 // ========================================
-// LLM V1 版本配置; To be deprecated
+// LLM V1 版本配置; To be deprecated; 替代为 ILLMProviderV2
 // ========================================
 interface IGPTProvider {
     name: string;  //provider 的名称, 例如 OpenAI, V3 等等
@@ -187,17 +187,23 @@ interface IGPTProvider {
     redirect?: Record<string, string>;  //模型名称重定向; 适合字节火山等使用接入端点而非模型名称作为输入的情况
 }
 
+
+
 interface IGPTModel {
     modelToUse?: string; //模型, 发送给 Chat 请求用的名称, 如果为空则使用 model
     model: string;  //模型名称
     url: string;
     apiKey: string;
+    bareId: ModelBareId;  // model@Provider
+    config?: ILLMConfigV2;
 }
 
 
 // ========================================
 // LLM V2 版本类型替代
 // ========================================
+
+type ModelBareId = string | 'siyuan';  // <modelName>@<providerName>
 
 type LLMServiceType =
     | 'chat'          // 对应 /chat/completions
@@ -225,6 +231,7 @@ interface ILLMProviderV2 {
         /** 图像生成 */
         image?: string;
     };
+    // baseUrl + endpoints[type] 组成完整的 API URL
 
     apiKey: string;
     customHeaders?: Record<string, string>;  // 自定义请求头

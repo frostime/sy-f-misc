@@ -68,17 +68,17 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
                 tools: true,
                 streaming: true,
-                reasoning: true, // 支持 reasoning_effort 等配置 :contentReference[oaicite:0]{index=0}
+                reasoning: true, // 支持 reasoning_effort 等配置
                 jsonMode: true,
             },
             limits: {
-                // 官方文档与三方测评普遍给出 400K 上下文量级 :contentReference[oaicite:1]{index=1}
+                // 官方文档与三方测评普遍给出 400K 上下文量级
                 maxContext: 400_000,
                 maxOutput: 128_000,
             },
@@ -96,7 +96,7 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
@@ -118,7 +118,7 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
@@ -143,22 +143,22 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
                 tools: true,
                 streaming: true,
-                reasoning: true, // 4.5 系列是混合推理模型，带 thinking token :contentReference[oaicite:2]{index=2}
+                reasoning: true, // 4.5 系列是混合推理模型，带 thinking token
                 jsonMode: false,
             },
             limits: {
-                // Sonnet 4 / 4.5 支持 1M context（部分平台默认 200k，可额外开 1M）:contentReference[oaicite:3]{index=3}
+                // Sonnet 4 / 4.5 支持 1M context（部分平台默认 200k，可额外开 1M）
                 maxContext: 1_000_000,
                 maxOutput: 8_000,
             },
             options: {
-                // Claude API 不支持 frequency_penalty / presence_penalty 等 OpenAI 特有参数 :contentReference[oaicite:4]{index=4}
+                // Claude API 不支持 frequency_penalty / presence_penalty 等 OpenAI 特有参数
                 unsupported: ['frequency_penalty', 'presence_penalty'],
             },
         },
@@ -169,7 +169,7 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
@@ -178,7 +178,7 @@ const MODEL_PRESETS: IModelPreset[] = [
                 reasoning: true,
             },
             limits: {
-                maxContext: 1_000_000, // Sonnet 4 已扩展到 1M :contentReference[oaicite:5]{index=5}
+                maxContext: 1_000_000, // Sonnet 4 已扩展到 1M
                 maxOutput: 8_000,
             },
             options: {
@@ -192,7 +192,7 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
@@ -218,18 +218,18 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                // 官方 API 支持文本 + 图像 + 音频 + 视频输入 :contentReference[oaicite:6]{index=6}
-                input: ['text', 'image', 'audio', 'video', 'file'],
+                // 官方 API 支持文本 + 图像 + 音频 + 视频输入
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
-                tools: true,       // function calling / tool use :contentReference[oaicite:7]{index=7}
+                tools: true,       // function calling / tool use
                 streaming: true,
                 reasoning: true,
                 jsonMode: true,   // 支持 JSON Schema 结构化输出
             },
             limits: {
-                maxContext: 1_000_000, // 官方宣传 1M 级上下文 :contentReference[oaicite:8]{index=8}
+                maxContext: 1_000_000, // 官方宣传 1M 级上下文
             },
         },
     },
@@ -239,7 +239,7 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'audio', 'video', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
@@ -249,7 +249,7 @@ const MODEL_PRESETS: IModelPreset[] = [
                 jsonMode: true,
             },
             limits: {
-                // Gemini 2.5 Pro / Flash 也提供 1M 级上下文 :contentReference[oaicite:9]{index=9}
+                // Gemini 2.5 Pro / Flash 也提供 1M 级上下文
                 maxContext: 1_000_000,
             },
         },
@@ -268,13 +268,13 @@ const MODEL_PRESETS: IModelPreset[] = [
                 output: ['text'],
             },
             capabilities: {
-                tools: true,       // 支持 function calling :contentReference[oaicite:10]{index=10}
+                tools: true,       // 支持 function calling
                 streaming: true,
-                reasoning: true,   // R1 是显式推理模型 :contentReference[oaicite:11]{index=11}
+                reasoning: true,   // R1 是显式推理模型
                 jsonMode: false,
             },
             limits: {
-                // 多方资料给出 128K / 160K 级别，这里取保守 128K :contentReference[oaicite:12]{index=12}
+                // 多方资料给出 128K / 160K 级别，这里取保守 128K
                 maxContext: 128_000,
                 maxOutput: 8_000,
             },
@@ -301,7 +301,7 @@ const MODEL_PRESETS: IModelPreset[] = [
                 jsonMode: true,
             },
             limits: {
-                // V3/V3.2 官方技术报告给出 128K 上下文 :contentReference[oaicite:13]{index=13}
+                // V3/V3.2 官方技术报告给出 128K 上下文
                 maxContext: 128_000,
                 maxOutput: 8_000,
             },
@@ -317,17 +317,17 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
-                tools: true,       // OpenAI 兼容工具调用 :contentReference[oaicite:14]{index=14}
+                tools: true,       // OpenAI 兼容工具调用
                 streaming: true,
-                reasoning: true,   // 默认启用 thinking mode :contentReference[oaicite:15]{index=15}
+                reasoning: true,   // 默认启用 thinking mode
                 jsonMode: false,
             },
             limits: {
-                // 官方及测评普遍给出 128K~200K，这里取 200K 上限 :contentReference[oaicite:16]{index=16}
+                // 官方及测评普遍给出 128K~200K，这里取 200K 上限
                 maxContext: 200_000,
                 maxOutput: 8_000,
             },
@@ -343,18 +343,18 @@ const MODEL_PRESETS: IModelPreset[] = [
                 output: ['text'],
             },
             capabilities: {
-                tools: true,       // 支持 function calling / agent 能力 :contentReference[oaicite:17]{index=17}
+                tools: true,       // 支持 function calling / agent 能力
                 streaming: true,
-                reasoning: true,   // hybrid reasoning（思考 + 快速模式）:contentReference[oaicite:18]{index=18}
+                reasoning: true,   // hybrid reasoning（思考 + 快速模式）
                 jsonMode: false,
             },
             limits: {
-                // Zhipu 文档一般给出 128K，上游托管有时为 200K，这里取 128K 保守值 :contentReference[oaicite:19]{index=19}
+                // Zhipu 文档一般给出 128K，上游托管有时为 200K，这里取 128K 保守值
                 maxContext: 128_000,
                 maxOutput: 8_192,
             },
             price: {
-                // 下面价格为公开估算值，仅供 UI 显示参考 :contentReference[oaicite:20]{index=20}
+                // 下面价格为公开估算值，仅供 UI 显示参考
                 inputPerK: 0.001,
                 outputPerK: 0.003,
                 unit: 'USD',
@@ -371,14 +371,14 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                // Qwen3-Omni / Qwen3-VL 等支持多模态输入 :contentReference[oaicite:21]{index=21}
-                input: ['text', 'image', 'audio', 'video', 'file'],
+                // Qwen3-Omni / Qwen3-VL 等支持多模态输入
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
                 tools: true,
                 streaming: true,
-                reasoning: true, // hybrid thinking 模式 :contentReference[oaicite:22]{index=22}
+                reasoning: true, // hybrid thinking 模式
                 jsonMode: true,
             },
             limits: {
@@ -392,7 +392,7 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'video'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
@@ -412,7 +412,7 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
@@ -436,7 +436,7 @@ const MODEL_PRESETS: IModelPreset[] = [
         config: {
             type: 'chat',
             modalities: {
-                input: ['text', 'image', 'file'],
+                input: ['text', 'image'],
                 output: ['text'],
             },
             capabilities: {
@@ -478,7 +478,7 @@ const MODEL_PRESETS: IModelPreset[] = [
     // 图像生成 / VLM 模型
     // ==================
     {
-        keywords: [/dall-e/i, /gpt-image/i, /midjourney/i, /stable-diffusion/i, /flux/i],
+        keywords: [/dall-e/i, /midjourney/i, /stable-diffusion/i, /flux/i, /nano-banana/i],
         config: {
             type: 'image',
             modalities: {

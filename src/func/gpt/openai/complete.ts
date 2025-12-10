@@ -53,7 +53,7 @@ const handleStreamChunk = (line: string): (StreamChunkData | { usage: any }) | n
 
         if (responseData.choices && responseData.choices.length > 0) {
             const delta = responseData.choices[0].delta || {};
-            result = {...result, ...adaptChunkMessage(delta)};
+            result = { ...result, ...adaptChunkMessage(delta) };
         }
         return result;
     } catch (e) {
@@ -259,9 +259,20 @@ export const complete = async (input: string | IMessage[], options?: {
 
     let response: Response;
 
+    if (!options.model) {
+        const model = useModel(defaultModelId() || 'siyuan');
+        if (!model) {
+            return {
+                ok: false,
+                content: `Error: 无法获取对话模型，请先在设置中添加并选择一个模型。`,
+            }
+        }
+        options.model = model;
+    }
+
     try {
-        const { url, model, apiKey, modelToUse } = options?.model ?? useModel(defaultModelId() || 'siyuan');
-        const messages = adpatInputMessage(input, { model });
+        const { url, model, apiKey, modelToUse } = options.model;
+        const messages = adpatInputMessage(input, { model: options.model });
 
         if (options?.systemPrompt) {
             messages.unshift({
@@ -344,7 +355,7 @@ export const complete = async (input: string | IMessage[], options?: {
         }
 
         return options?.stream
-            ? handleStreamResponse(response, {...options, t0})
+            ? handleStreamResponse(response, { ...options, t0 })
             : handleNormalResponse(response, { t0 });
 
     } catch (error) {

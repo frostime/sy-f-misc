@@ -1,6 +1,7 @@
 import { Accessor, Component, onCleanup } from "solid-js";
 import Form from "@/libs/components/Form";
-import { providers } from "./store";
+// import { providers } from "./store";
+import { llmProviders } from "./store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
@@ -9,6 +10,11 @@ import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { showMessage } from "siyuan";
 import { CollapsibleDraggableList } from "@/libs/components/drag-list";
+
+
+const providers = () => {
+    throw new Error('Deprecated: Please use llmProviders() instead of providers()');
+}
 
 
 const { SimpleProvider, useSimpleContext } = createSimpleContext<{

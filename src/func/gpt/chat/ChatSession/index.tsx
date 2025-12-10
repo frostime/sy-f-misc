@@ -41,17 +41,16 @@ import styles from './ChatSession.module.scss';
 // GPT and settings related
 import {
     defaultConfig, UIConfig, useModel, defaultModelId,
-    listAvialableModels, promptTemplates, visualModel, globalMiscConfigs
+    listAvialableModels, promptTemplates, globalMiscConfigs, checkSupportsModality
 } from '@gpt/setting/store';
 import * as persist from '@gpt/persistence';
 import { getContextProviders, executeContextProvider, executeContextProviderDirect } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
-import {
-    adaptIMessageContentGetter,
-    isMsgItemWithMultiVersion
-} from '@gpt/data-utils';
+// import {
+//     adaptIMessageContentGetter,
+//     isMsgItemWithMultiVersion
+// } from '@gpt/data-utils';
 import BlocksProvider from '@gpt/context-provider/BlocksProvider';
-import { describe } from 'node:test';
 import { truncateContent } from '../../tools/utils';
 
 
@@ -1254,7 +1253,10 @@ const ChatSession: Component<{
                         onPaste={(e) => {
                             const items = e.clipboardData?.items;
                             if (!items) return;
-                            if (!visualModel().includes(model().model)) return;
+                            if (!checkSupportsModality(modelId(), 'image')) {
+                                showMessage('当前模型不支持图片输入');
+                                return;
+                            }
 
                             for (let i = 0; i < items.length; i++) {
                                 if (items[i].type.indexOf('image') !== -1) {

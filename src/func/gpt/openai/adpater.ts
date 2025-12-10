@@ -1,4 +1,4 @@
-import { visualModel } from "../setting";
+import { checkSupportsModality } from "../setting";
 import { type complete } from "./complete";
 
 
@@ -26,7 +26,7 @@ export const userCustomizedPreprocessor = {
 };
 
 export const adpatInputMessage = (input: Parameters<typeof complete>[0], options: {
-    model: string;
+    model: IGPTModel;
 }) => {
     let messages: IMessage[] = [];
     if (typeof input === 'string') {
@@ -49,9 +49,9 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
     }
 
     if (options) {
-        const model = options?.model;
+        // const modelId = options?.modelId ?? options?.model;
         // 非视觉模型去掉图片消息字段
-        if (!visualModel().includes(model)) {
+        if (!checkSupportsModality(options.model.config, 'image')) {
             let hasImage = false;
             messages.forEach(item => {
                 if (typeof item.content !== 'string') {
@@ -61,7 +61,7 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
                 }
             });
             if (hasImage) {
-                console.warn(`注意: 模型 ${model} 不支持图片消息!已在内部自动过滤图片信息。`);
+                console.warn(`注意: 模型 ${options.model.model ?? options.model} 不支持图片消息!已在内部自动过滤图片信息。`);
             }
         }
     }
