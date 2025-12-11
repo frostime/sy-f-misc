@@ -23,6 +23,7 @@ export interface SimpleFormField {
 
 export interface SimpleFormProps {
     fields: SimpleFormField[];
+    onChange?: (key: string, value: any, current: Record<string, any>) => void;
     onSave?: (values: Record<string, any>) => void;
     onCancel?: () => void;
     labelWidth?: string;  // 标签列宽度
@@ -44,6 +45,7 @@ export default function SimpleForm(props: SimpleFormProps) {
             ...prev,
             [key]: value
         }));
+        props.onChange?.(key, value, { ...formValues(), [key]: value });
     };
 
     // 保存

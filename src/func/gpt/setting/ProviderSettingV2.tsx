@@ -706,8 +706,11 @@ const ProviderEditForm: Component<{
                     display: 'flex',
                     width: '100%',
                     "border-bottom": "1px solid var(--b3-border-color)",
-                    // "background-color": "var(--b3-theme-background)",
-                    'flex-shrink': '0'
+                    "background-color": "var(--b3-theme-background)",
+                    'flex-shrink': '0',
+                    position: "sticky",
+                    top: 0,
+                    "z-index": 10
                 }}>
                     <TabButton
                         active={activeTab() === 'basic'}
