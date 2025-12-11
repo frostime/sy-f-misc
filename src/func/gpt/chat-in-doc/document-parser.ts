@@ -107,7 +107,7 @@ export const insertBlankMessage = async (docId: string, type: 'USER' | 'ASSISTAN
  * @param content 助手回复内容
  * @param modelName 模型名称，可选
  */
-export const insertAssistantMessage = async (docId: string, response: CompletionResponse, modelName?: string): Promise<void> => {
+export const insertAssistantMessage = async (docId: string, response: ICompletionResult, modelName?: string): Promise<void> => {
     // 创建助手对话块
     const assistantBlock = blankMessage('ASSISTANT', response.content, {
         escape: false,

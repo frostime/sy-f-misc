@@ -71,7 +71,7 @@ export const adaptIMessageContentAppender = (content: IMessage['content'], appen
     ];
 }
 
-export const convertImgsToBase64Url = async (images: Blob[]): Promise<IMessageContent[]> => {
+export const convertImgsToBase64Url = async (images: Blob[]): Promise<IImageContentPart[]> => {
     return await Promise.all(images.map(async (image) => {
         const base64data = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -87,7 +87,7 @@ export const convertImgsToBase64Url = async (images: Blob[]): Promise<IMessageCo
             image_url: {
                 url: `data:image/jpeg;base64,${base64data}`
             }
-        } as IMessageContent;
+        } as IImageContentPart;
     }));
 };
 
@@ -126,7 +126,7 @@ export const stageMsgItemVersion = (item: IChatSessionMsgItem, version?: string)
         item.versions = item.versions || {}; // 确保 versions 存在
         item.versions[versionId] = {
             content: item.message.content,
-            reasoning_content: item.message.reasoning_content || '',
+            reasoning_content: (item.message as IAssistantMessage).reasoning_content || '',
             author: item.author,
             timestamp: item.timestamp,
             token: item.token,
@@ -151,9 +151,9 @@ export const applyMsgItemVersion = (item: IChatSessionMsgItem, version: string) 
         item.message.content = selectedVersion.content;
         // 更新 reasoning_content，如果存在的话
         if (selectedVersion.reasoning_content) {
-            item.message.reasoning_content = selectedVersion.reasoning_content;
-        } else if (item.message.reasoning_content) {
-            item.message.reasoning_content = '';
+            (item.message as IAssistantMessage).reasoning_content = selectedVersion.reasoning_content;
+        } else if ((item.message as IAssistantMessage).reasoning_content) {
+            (item.message as IAssistantMessage).reasoning_content = '';
         }
         selectedVersion.author && (item.author = selectedVersion.author);
         selectedVersion.timestamp && (item.timestamp = selectedVersion.timestamp);

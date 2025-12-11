@@ -6,17 +6,125 @@
  * @LastEditTime : 2025-05-30 19:32:40
  * @Description  :
  */
-interface IMessageContent {
-    type: 'text' | 'image_url';
-    text?: string;
-    image_url?: {
-        url: string;
+// ============================================================================
+// Message Content Types（ OpenAI 规范）
+// 参考 https://platform.openai.com/docs/api-reference/chat/create
+// ============================================================================
+
+/**
+ * 文本内容部分
+ */
+interface ITextContentPart {
+    type: 'text';
+    text: string;
+}
+
+/**
+ * 图片内容部分
+ */
+interface IImageContentPart {
+    type: 'image_url';
+    image_url: {
+        url: string;  // URL 或 base64 encoded image data
+        detail?: 'auto' | 'low' | 'high';
     };
 }
 
-type TMessageContent = IMessageContent[] | string;
+/**
+ * 音频内容部分
+ * 注意：OpenAI 使用 input_audio，不是 audio_url
+ */
+interface IAudioContentPart {
+    type: 'input_audio';
+    input_audio: {
+        data: string;  // Base64 encoded audio data
+        format: 'wav' | 'mp3';
+    };
+}
 
-interface IMessage {
+/**
+ * 文件内容部分
+ * 注意：OpenAI 使用 file，不是 file_url
+ */
+interface IFileContentPart {
+    type: 'file';
+    file: {
+        file_data?: string;   // Base64 encoded file data
+        file_id?: string;     // Uploaded file ID
+        filename?: string;    // File name
+    };
+}
+
+/**
+ * 内容部分联合类型
+ */
+type IMessageContentPart =
+    | ITextContentPart
+    | IImageContentPart
+    | IAudioContentPart
+    | IFileContentPart
+    // | string;
+
+/**
+ * 消息内容类型
+ * 可以是简单字符串，或内容部分数组
+ */
+type TMessageContent = string | IMessageContentPart[];
+
+// ============================================================================
+// Message Types
+// ============================================================================
+
+/**
+ * 用户消息
+ */
+interface IUserMessage {
+    role: 'user';
+    content: TMessageContent;
+    name?: string;  // 可选的参与者名称
+}
+
+/**
+ * 助手消息
+ */
+interface IAssistantMessage {
+    role: 'assistant';
+    content: string | null;
+    name?: string;
+    refusal?: string | null;  // 拒绝回答的原因
+    reasoning_content?: string;
+    tool_calls?: IToolCall[];
+}
+
+/**
+ * 系统消息
+ */
+interface ISystemMessage {
+    role: 'system';
+    content: string;
+    name?: string;
+}
+
+/**
+ * 工具消息（工具调用的结果）
+ */
+interface IToolMessage {
+    role: 'tool';
+    content: string;
+    tool_call_id: string;
+}
+
+/**
+ * 消息联合类型
+ */
+type IMessageStrict =
+    | IUserMessage
+    | IAssistantMessage
+    | ISystemMessage
+    | IToolMessage;
+
+// 较为宽松，规避严格类型检查
+type IMessageLoose = {
     role: 'user' | 'assistant' | 'system' | 'tool';
     content: TMessageContent;
     reasoning_content?: string;
@@ -24,6 +132,10 @@ interface IMessage {
     tool_calls?: IToolCallResponse[];
     [key: string]: any;
 }
+
+type IMessage = IMessageStrict | IMessageLoose;
+
+
 
 interface IPromptTemplate {
     name: string;
@@ -48,9 +160,15 @@ interface JSONSchemaProperty {
     maximum?: number;                                 // 用于数值类型
 }
 
-/**
- * 工具定义，用于描述模型可以调用的函数
- */
+interface IToolCall {
+    id: string;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string;  // JSON string
+    };
+}
+
 interface IToolDefinition {
     type: 'function';
     function: {
@@ -60,7 +178,9 @@ interface IToolDefinition {
             type: 'object';
             properties: Record<string, JSONSchemaProperty>;
             required?: string[];
+            additionalProperties?: boolean;
         };
+        strict?: boolean;
     };
 }
 
@@ -70,12 +190,13 @@ interface IToolDefinition {
 type IToolChoice =
     | 'auto'
     | 'none'
-    | {
-        type: 'function';
-        function: {
-            name: string;
-        };
-    };
+    | 'required'
+    | { type: 'function'; function: { name: string } };
+
+// ============================================================================
+// Chat Completion Options
+// ============================================================================
+
 
 /**
  * 工具调用响应，模型生成的工具调用
@@ -91,91 +212,131 @@ interface IToolCallResponse {
 }
 
 interface IChatCompleteOption {
-    /**
-     * Controls the randomness of the output.
-     * Lower values (e.g., 0.2) make it more deterministic, higher values (e.g., 1.0) make it more creative.
-     * Default is 0.7 for Chat Completions.
-     * @type {number}
-     * @range 0.0 - 2.0
-     */
-    temperature?: number;
 
-    /**
-     * Nucleus sampling. An alternative to temperature.
-     * Only the tokens comprising the smallest set that exceeds the probability mass of this value are considered.
-     * Use either temperature or top_p, not both.
-     * Default is 1.0 for Chat Completions.
-     * @type {number}
-     * @range 0.0 - 1.0
-     */
-    top_p?: number;
 
-    /**
-     * Options for streaming responses.
-     * @type {object}
-     */
+    // Sampling parameters
+    temperature?: number;  // 0-2
+    top_p?: number;  // 0-1
+    max_tokens?: number;
+    max_completion_tokens?: number;
+
+    // Penalties
+    frequency_penalty?: number;  // -2 to 2
+    presence_penalty?: number;   // -2 to 2
+
+    // Stop sequences
+    stop?: string | string[];
+
+    // Streaming
+    stream?: boolean;
     stream_options?: {
-        /**
-         * Whether to include usage statistics in the response.
-         * @type {boolean}
-         */
         include_usage?: boolean;
     };
 
-    /**
-     * The maximum number of tokens in the response.
-     * Useful for limiting costs and preventing long responses.
-     * Default is model-dependent (e.g., 4096 for gpt-3.5-turbo).
-     * @type {number}
-     */
-    max_tokens?: number;
-
-    /**
-     * Penalizes tokens based on how frequently they have appeared so far in the text.
-     * Between -2.0 and 2.0. Positive values will reduce repetition and help the model generate novel text.
-     * Default is 0.
-     * @type {number}
-     * @range -2.0 - 2.0
-     */
-    frequency_penalty?: number;
-
-    /**
-     * Penalizes tokens that have already appeared in the text, regardless of how many times they have appeared.
-     * Between -2.0 and 2.0. Positive values will reduce the likelihood of repeated content.
-     * Default is 0.
-     * @type {number}
-     * @range -2.0 - 2.0
-     */
-    presence_penalty?: number;
-
-    /**
-     * Specifies a stop sequence or multiple stop sequences for the API to stop generating further tokens.
-     * The returned text will not contain the stop sequence.
-     * Default is null.
-     * @type {string | string[]}
-     */
-    stop?: string | string[];
-
-    /**
-     * 是否使用流式响应
-     */
-    stream?: boolean;
-
-    /**
-     * 定义可供模型调用的工具列表
-     */
+    // Tools
     tools?: IToolDefinition[];
-
-    /**
-     * 控制模型如何选择工具
-     * - 'auto': 模型自行决定是否调用工具
-     * - 'none': 模型不调用任何工具
-     * - {type: 'function', function: {name: 'tool_name'}}: 强制模型调用指定工具
-     */
     tool_choice?: IToolChoice;
+    parallel_tool_calls?: boolean;
 
-    reasoning_effort?: 'none' | 'low' | 'medium' | 'high'
+    // Response format
+    response_format?: {
+        type: 'text' | 'json_object' | 'json_schema';
+        json_schema?: {
+            name: string;
+            description?: string;
+            schema: Record<string, any>;
+            strict?: boolean;
+        };
+    };
+
+    reasoning_effort?: 'none' | 'low' | 'medium' | 'high';
+
+    // Audio
+    audio?: {
+        voice: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+        format: 'wav' | 'mp3' | 'flac' | 'opus' | 'pcm16';
+    };
+
+    // Modalities
+    modalities?: ('text' | 'audio')[];
+
+    // Other
+    seed?: number;
+    n?: number;  // Number of completions
+    logprobs?: boolean;
+    top_logprobs?: number;
+    logit_bias?: Record<string, number>;
+    user?: string;
+
+    // Metadata
+    metadata?: Record<string, string>;
+    store?: boolean;
 }
+
+
+
+// ========================================
+// Response
+// ========================================
+interface ICompletionUsage {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+
+    //trivials
+    prompt_tokens_details?: {
+        cached_tokens?: number;
+        audio_tokens?: number;
+    };
+    completion_tokens_details?: {
+        reasoning_tokens?: number;
+        audio_tokens?: number;
+    };
+}
+
+// interface ICompletionResponse {
+//     id: string;
+//     object: 'chat.completion';
+//     created: number;
+//     model: string;
+//     choices: {
+//         index: number;
+//         message: IAssistantMessage;
+//         finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'function_call';
+//         logprobs?: any;
+//     }[];
+//     usage?: ICompletionUsage;
+//     system_fingerprint?: string;
+
+//     // Extended fields (from our wrapper)
+//     references?: { title?: string; url: string }[];
+//     time?: {
+//         latency: number;  // ms
+//         throughput?: number;  // tokens/s
+//     };
+// }
+
+
+interface ICompletionResult {
+    ok?: boolean;
+    content: string;
+    usage?: {
+        completion_tokens: number;
+        prompt_tokens: number;
+        total_tokens: number;
+    };
+    reasoning_content?: string;
+    references?: {
+        title?: string;
+        url: string;
+    }[];
+    time?: {
+        latency: number; // ms
+        throughput?: number; // tokens/s
+    };
+    tool_calls?: IToolCallResponse[];
+}
+
 
 // ========================================
 // LLM V1 版本配置; To be deprecated; 替代为 ILLMProviderV2
@@ -209,8 +370,11 @@ type LLMModality = 'text' | 'image' | 'file' | 'audio' | 'video';
 //替代 IGPTProvider
 interface ILLMProviderV2 {
     name: string;  //provider 的名称, 例如 OpenAI, V3 等等
-
     baseUrl: string;  //API URL, 例如 https://api.openai.com/v1
+    apiKey: string;
+    customHeaders?: Record<string, string>;  // 自定义请求头
+
+    disabled: boolean;  //是否禁用该provider
 
     /** OpenAI 兼容的 endpoint 映射 */
     endpoints: Partial<Record<LLMServiceType, string>> & {
@@ -220,13 +384,10 @@ interface ILLMProviderV2 {
         embeddings?: string;
         /** 图像生成 */
         image?: string;
+        audio_speech?: string;
+        audio_transcriptions?: string;
     };
     // baseUrl + endpoints[type] 组成完整的 API URL
-
-    apiKey: string;
-    customHeaders?: Record<string, string>;  // 自定义请求头
-
-    disabled: boolean;  //是否禁用该provider
 
     models: ILLMConfigV2[];  //所有的模型
 }
@@ -249,6 +410,7 @@ interface ILLMConfigV2 {
         reasoning?: boolean; // 是否支持推理字段 (reasoning_content),
         jsonMode?: boolean;  // 是否支持 json_object
         reasoningEffort?: boolean; // 是否支持 reasoning_effort: 'none' | 'low' | 'medium' | 'high'
+        // structuredOutputs?: boolean;  // json_schema
     }
 
     limits: {
@@ -283,31 +445,6 @@ interface IRuntimeLLM {
 }
 
 
-// ========================================
-// Response
-// ========================================
-
-
-interface CompletionResponse {
-    ok?: boolean;
-    content: string;
-    usage?: {
-        completion_tokens: number;
-        prompt_tokens: number;
-        total_tokens: number;
-    };
-    reasoning_content?: string;
-    references?: {
-        title?: string;
-        url: string;
-    }[];
-    time?: {
-        latency: number; // ms
-        throughput?: number; // tokens/s
-    };
-    tool_calls?: IToolCallResponse[];
-}
-
 /**
  * 对话 Session 中各个 item 记录
  */
@@ -322,11 +459,11 @@ interface IChatSessionMsgItem {
     currentVersion?: string; // 当前 version
     versions?: Record<string, {
         content: IMessage['content'];
-        reasoning_content?: IMessage['reasoning_content'];
+        reasoning_content?: IAssistantMessage['reasoning_content'];
         author?: IChatSessionMsgItem['author'];
         timestamp?: IChatSessionMsgItem['timestamp'];
         token?: IChatSessionMsgItem['token'];
-        time?: CompletionResponse['time'];
+        time?: ICompletionResult['time'];
     }>; //多版本 message 情况下有用
     context?: IProvidedContext[];
     // 为了在 MessageItem 当中隐藏 context prompt，在这里记录 prompt 字符串的起止位置

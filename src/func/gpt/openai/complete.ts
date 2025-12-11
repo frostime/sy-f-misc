@@ -14,7 +14,7 @@ interface StreamChunkData {
     };
 }
 
-const buildReferencesText = (refers: CompletionResponse['references']) => {
+const buildReferencesText = (refers: ICompletionResult['references']) => {
     if (!refers) return '';
     return '**References**:\n' + refers.filter(ref => Boolean(ref.url)).map((ref, index) => {
         return `${index + 1}. [${ref.title || ref.url}](${ref.url})`;
@@ -68,12 +68,12 @@ const handleStreamChunk = (line: string): (StreamChunkData | { usage: any }) | n
 const handleStreamResponse = async (
     response: Response,
     options: NonNullable<Parameters<typeof complete>[1]> & { t0: number }
-): Promise<CompletionResponse> => {
+): Promise<ICompletionResult> => {
     if (!response.body) {
         throw new Error('Response body is null');
     }
 
-    const responseContent: CompletionResponse = {
+    const responseContent: ICompletionResult = {
         content: '',
         reasoning_content: '',
         usage: null,
@@ -209,7 +209,7 @@ const handleStreamResponse = async (
 /**
  * 处理非流式响应
  */
-const handleNormalResponse = async (response: Response, options: { t0: number }): Promise<CompletionResponse> => {
+const handleNormalResponse = async (response: Response, options: { t0: number }): Promise<ICompletionResult> => {
     const data = await response.json();
     const t1 = new Date().getTime();
     const latency = t1 - options.t0;
@@ -225,7 +225,7 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
     }
 
     // 使用适配器处理消息
-    let results = adaptResponseMessage(data.choices[0].message) as CompletionResponse;
+    let results = adaptResponseMessage(data.choices[0].message) as ICompletionResult;
     results.usage = data.usage;
 
     // 处理引用
@@ -255,7 +255,7 @@ export const complete = async (input: string | IMessage[], options?: {
     streamInterval?: number,
     option?: IChatCompleteOption
     abortControler?: AbortController
-}): Promise<CompletionResponse> => {
+}): Promise<ICompletionResult> => {
 
     let response: Response;
 

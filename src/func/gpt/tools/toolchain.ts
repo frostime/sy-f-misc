@@ -178,7 +178,7 @@ export interface ToolChainOptions {
         onLLMResponseUpdate?: (content: string, toolCalls?: IToolCallResponse[]) => void;
 
         // LLM 响应完成
-        onLLMResponseComplete?: (response: CompletionResponse) => void;
+        onLLMResponseComplete?: (response: ICompletionResult) => void;
 
         // 发送给 LLM 前
         onBeforeSendToLLM?: (messages: IMessage[]) => IMessage[] | void;
@@ -196,7 +196,7 @@ export interface ToolChainResult {
     responseContent: string;
     toolChainContent: string;
 
-    usage: CompletionResponse['usage'];
+    usage: ICompletionResult['usage'];
 
     // 消息分类
     messages: {
@@ -250,7 +250,7 @@ export interface ToolChainResult {
  */
 export async function executeToolChain(
     toolExecutor: ToolExecutor,
-    llmResponseWithToolCalls: CompletionResponse,
+    llmResponseWithToolCalls: ICompletionResult,
     options: ToolChainOptions
 ): Promise<ToolChainResult> {
 
