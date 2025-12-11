@@ -1,13 +1,11 @@
 import { createMemo, JSX } from "solid-js";
 
 
-interface ICheckboxInputProps {
+export default function CheckboxInput(props: {
     checked?: boolean;
     changed?: (value: boolean) => void;
     style?: JSX.CSSProperties;
-}
-
-export default function CheckboxInput(props: ICheckboxInputProps) {
+}) {
     const attrStyle = createMemo(() => ({
         style: props.style ?? {}
     }));

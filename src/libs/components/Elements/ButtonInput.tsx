@@ -8,7 +8,8 @@ export default function ButtonInput(props: {
     onClick?: () => void;
     classOutlined?: boolean;
     classText?: boolean;
-    children?: JSX.Element
+    disabled?: boolean;
+    children?: JSX.Element;
 }) {
     const attrStyle = createMemo(() => ({
         style: props.style ?? {}
@@ -23,6 +24,7 @@ export default function ButtonInput(props: {
             }}
             {...attrStyle()}
             onClick={() => props.onClick?.()}
+            disabled={props.disabled}
         >
             {props.label}
             {props.children}

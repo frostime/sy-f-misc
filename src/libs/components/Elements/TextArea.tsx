@@ -1,12 +1,6 @@
 import { createMemo } from "solid-js";
 import type { JSX } from "solid-js";
 
-interface ITextAreaProps {
-    value?: string;
-    changed?: (value: string) => void;
-    style?: JSX.CSSProperties;
-    spellcheck?: boolean;
-}
 
 const Enter = (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -14,7 +8,12 @@ const Enter = (e: KeyboardEvent) => {
     }
 }
 
-export default function TextArea(props: ITextAreaProps) {
+export default function TextArea(props: {
+    value?: string;
+    changed?: (value: string) => void;
+    style?: JSX.CSSProperties;
+    spellcheck?: boolean;
+}) {
     const attrStyle = createMemo(() => {
         const baseStyle: JSX.CSSProperties = {
             resize: "vertical",
