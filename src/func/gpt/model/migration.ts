@@ -101,6 +101,7 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
             const visualModelSet = new Set((legacyVisualModels ?? []).map((name) => name?.trim()).filter(Boolean));
             const convertedProviders: ILLMProviderV2[] = legacyProviders.map((legacy, index) => {
                 const { baseUrl, endpoint } = splitLegacyProviderUrl(legacy.url);
+
                 const models: ILLMConfigV2[] = (legacy.models ?? []).map((legacyModelName) => {
                     const redirectedName = legacy.redirect?.[legacyModelName] ?? legacyModelName;
                     const preset = createModelConfig(redirectedName);

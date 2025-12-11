@@ -4,9 +4,12 @@
 
 
 import {
-    imageToBase64,
-    audioToBase64,
-    fileToBase64,
+    // imageToBase64,
+    // audioToBase64,
+    // fileToBase64,
+    ImageProcess,
+    AudioProcess,
+    FileProcess,
     type ImageProcessOptions,
     type AudioProcessOptions,
     type FileProcessOptions
@@ -34,7 +37,8 @@ export class MessageBuilder {
         source: Blob | File | string,
         options?: ImageProcessOptions & { detail?: 'auto' | 'low' | 'high' }
     ): Promise<this> {
-        const url = await imageToBase64(source, options);
+        // const url = await imageToBase64(source, options);
+        const url = await ImageProcess.toDataURL(source, options);
         this.parts.push({
             type: 'image_url',
             image_url: {
@@ -65,7 +69,8 @@ export class MessageBuilder {
         source: Blob | File | string,
         options?: AudioProcessOptions
     ): Promise<this> {
-        const { data, format } = await audioToBase64(source, options);
+        // const { data, format } = await audioToBase64(source, options);
+        const { data, format } = await AudioProcess.toBase64(source, options);
         this.parts.push({
             type: 'input_audio',
             input_audio: { data, format }
@@ -88,7 +93,8 @@ export class MessageBuilder {
             });
         } else {
             // 使用 base64 编码
-            const { data, filename } = await fileToBase64(source, options);
+            // const { data, filename } = await fileToBase64(source, options);
+            const { data, filename } = await FileProcess.toBase64(source, options);
             this.parts.push({
                 type: 'file',
                 file: { file_data: data, filename }

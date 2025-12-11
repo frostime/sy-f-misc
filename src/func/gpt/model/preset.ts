@@ -1,36 +1,20 @@
 import { deepMerge } from "@frostime/siyuan-plugin-kits";
 
-/**
- * 预设配置接口
- * 不需要包含所有字段，只需要包含该类模型的"特征"
- */
 interface IModelPreset {
-    keywords: (string | RegExp)[]; // 匹配关键词，支持字符串或正则
+    keywords: (string | RegExp)[];
     config: Partial<Omit<ILLMConfigV2, 'model' | 'displayName'>>;
 }
 
-// 兜底通用配置
-const DEFAULT_CHAT_CONFIG: ILLMConfigV2 = {
+const DEFAULT_CHAT_CONFIG = (): ILLMConfigV2 => ({
     model: 'model-placeholder',
     type: 'chat',
     modalities: { input: ['text'], output: ['text'] },
     capabilities: { tools: true, streaming: true },
-    limits: { },
-    options: {
-        customOverride: {},
-        unsupported: []
-    },
-};
+    limits: {},
+    options: { customOverride: {}, unsupported: [] },
+});
 
-/**
- * 根据模型名称，自动应用预设并生成配置
- * @param modelName 用户输入的模型 ID，如 "gpt-4o-2024-05-13"
- * @param manualConfig 用户手动指定的配置（如果有，优先级最高）
- */
-export function createModelConfig(
-    modelName: string,
-): ILLMConfigV2 {
-    // 1. 寻找匹配的预设
+export function createModelConfig(modelName: string): ILLMConfigV2 {
     const matchedPreset = MODEL_PRESETS.find(preset => {
         return preset.keywords.some(keyword => {
             if (keyword instanceof RegExp) {
@@ -39,9 +23,7 @@ export function createModelConfig(
             return modelName.includes(keyword);
         });
     });
-
-    // 2. 合并配置：DEFAULT_CHAT_CONFIG -> matchedPreset.config -> { model, displayName }
-    const mergedConfig = deepMerge(DEFAULT_CHAT_CONFIG, matchedPreset?.config || {});
+    const mergedConfig = deepMerge(DEFAULT_CHAT_CONFIG(), matchedPreset?.config || {});
     const finalConfig = deepMerge(mergedConfig, {
         model: modelName,
         displayName: modelName,
@@ -50,159 +32,172 @@ export function createModelConfig(
     return finalConfig;
 }
 
-
 /**
  * 常用模型预设（按优先级排序：越具体越靠前）
- *
- * 注意：
- * - 真正的上下文长度 / 价格以各家官方文档为准
- * - 这里的数字是“安全的近似值 + 上限提示”，仅做 UI / 提示用途
  */
 const MODEL_PRESETS: IModelPreset[] = [
     // ===========================
-    // OpenAI GPT-5.1 / GPT-5 系列
+    // OpenAI GPT 系列
     // ===========================
+
+    // GPT-5.1 系列 (最新旗舰)
     {
-        // 例如：gpt-5.1, gpt-5.1-chat, gpt-5.1-thinking
-        keywords: [/^gpt-5\.1\b/i, /gpt-5\.1-/i],
+        keywords: [/^gpt-5\.1\b/i, /gpt-5\.1[-_]/i],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true, // 支持 reasoning_effort 等配置
-                jsonMode: true,
-            },
-            limits: {
-                // 官方文档与三方测评普遍给出 400K 上下文量级
-                maxContext: 400_000,
-                maxOutput: 128_000,
-            },
-            options: {
-                customOverride: {
-                    // 给出一个常用的默认值示例，使用方可以再覆盖
-                    // reasoning_effort: 'medium',
-                },
-            },
-        },
-    },
-    {
-        // gpt-5 主系列（不含 5.1），包括 gpt-5, gpt-5-mini, gpt-5-nano 等
-        keywords: [/^gpt-5\b/i, /gpt-5-(mini|nano|instant)/i],
-        config: {
-            type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text', 'image'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
                 reasoning: true,
                 jsonMode: true,
-            },
-            limits: {
-                maxContext: 400_000,
-                maxOutput: 64_000,
+                reasoningEffort: true,
             },
         },
     },
 
-    // 兼容老的 gpt-4o / gpt-4.1 之类的名称
+    // GPT-5 主系列
     {
-        keywords: [/gpt-4o/i, /gpt-4\.1/i],
+        keywords: [/^gpt-5\b/i, /gpt-5[-_](mini|nano|instant)/i],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text', 'image'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
                 reasoning: true,
                 jsonMode: true,
             },
-            limits: {
-                maxContext: 128_000,
-                maxOutput: 16_000,
+        },
+    },
+
+    // o-系列推理模型
+    {
+        keywords: [/^o[34][-_](mini|pro)/i, /^o[34]\b/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                reasoningEffort: true,
+                jsonMode: false,
             },
+        },
+    },
+
+    // GPT-4.1 系列 (代码优化)
+    {
+        keywords: [/^gpt-4\.1\b/i, /gpt-4\.1[-_]/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: true,
+            },
+        },
+    },
+
+    // GPT-4o 系列
+    {
+        keywords: [/^gpt-4o\b/i, /gpt-4o[-_]/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: true,
+            },
+            limits: { maxContext: 128_000 },
         },
     },
 
     // ================
     // Anthropic Claude
     // ================
+
+    // Claude 4.5 系列 (最新)
     {
-        // Claude 4.5 全家（Opus / Sonnet / Haiku）
-        keywords: [/claude-4\.5/i],
+        keywords: [
+            /^claude[-_]?(opus|sonnet|haiku)[-_]?4[._]5\b/i,
+            /^claude[-_]?4[._]5[-_]?(opus|sonnet|haiku)/i
+        ],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text', 'image'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
-                reasoning: true, // 4.5 系列是混合推理模型，带 thinking token
+                reasoning: true,
                 jsonMode: false,
             },
-            limits: {
-                // Sonnet 4 / 4.5 支持 1M context（部分平台默认 200k，可额外开 1M）
-                maxContext: 1_000_000,
-                maxOutput: 8_000,
-            },
-            options: {
-                // Claude API 不支持 frequency_penalty / presence_penalty 等 OpenAI 特有参数
-                unsupported: ['frequency_penalty', 'presence_penalty'],
-            },
-        },
-    },
-    {
-        // Claude 4 系列（Opus 4 / Sonnet 4 / Haiku 4）
-        keywords: [/claude-4\b/i, /claude-4-(opus|sonnet|haiku)/i],
-        config: {
-            type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-            },
-            limits: {
-                maxContext: 1_000_000, // Sonnet 4 已扩展到 1M
-                maxOutput: 8_000,
-            },
+            limits: { maxContext: 200_000 },
             options: {
                 unsupported: ['frequency_penalty', 'presence_penalty'],
             },
         },
     },
+
+    // Claude 4 系列
     {
-        // 兜底：任何 claude-*
-        keywords: [/^claude-/i],
+        keywords: [
+            /^claude[-_]?(opus|sonnet|haiku)[-_]?4\b/i,
+            /^claude[-_]?4[-_]?(opus|sonnet|haiku)/i
+        ],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text', 'image'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
                 reasoning: true,
+                jsonMode: false,
             },
-            limits: {
-                maxContext: 200_000,
+            limits: { maxContext: 200_000 },
+            options: {
+                unsupported: ['frequency_penalty', 'presence_penalty'],
             },
+        },
+    },
+
+    // Claude 3.7 (混合推理模型)
+    {
+        keywords: [/^claude[-_]?3[._]7\b/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: false,
+            },
+            limits: { maxContext: 200_000 },
+            options: {
+                unsupported: ['frequency_penalty', 'presence_penalty'],
+            },
+        },
+    },
+
+    // Claude 通用兜底
+    {
+        keywords: [/^claude[-_]/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: false,
+                jsonMode: false,
+            },
+            limits: { maxContext: 200_000 },
             options: {
                 unsupported: ['frequency_penalty', 'presence_penalty'],
             },
@@ -210,47 +205,65 @@ const MODEL_PRESETS: IModelPreset[] = [
     },
 
     // =========================
-    // Google Gemini 2.5 / 3 系列
+    // Google Gemini
     // =========================
+
+    // Gemini 3 Pro (最新)
     {
-        // Gemini 3（Pro / Flash / Omni 等）
-        keywords: [/gemini[-_]?3(\.0)?/i],
+        keywords: [/^gemini[-_]?3(\.0)?[-_]?pro/i],
         config: {
             type: 'chat',
-            modalities: {
-                // 官方 API 支持文本 + 图像 + 音频 + 视频输入
-                input: ['text', 'image'],
-                output: ['text'],
-            },
-            capabilities: {
-                tools: true,       // function calling / tool use
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,   // 支持 JSON Schema 结构化输出
-            },
-            limits: {
-                maxContext: 1_000_000, // 官方宣传 1M 级上下文
-            },
-        },
-    },
-    {
-        // Gemini 2.5（Pro / Flash）
-        keywords: [/gemini[-_]?2\.5/i],
-        config: {
-            type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text', 'image'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
                 reasoning: true,
                 jsonMode: true,
             },
-            limits: {
-                // Gemini 2.5 Pro / Flash 也提供 1M 级上下文
-                maxContext: 1_000_000,
+        },
+    },
+
+    // Gemini 2.5 系列
+    {
+        keywords: [/^gemini[-_]?2[._]5[-_]?(pro|flash)/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: true,
+            },
+        },
+    },
+
+    // Gemini 2.5 Flash-Lite
+    {
+        keywords: [/^gemini[-_]?2[._]5[-_]?flash[-_]?lite/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: true,
+            },
+        },
+    },
+
+    // Gemini 2.0 Flash
+    {
+        keywords: [/^gemini[-_]?2(\.0)?[-_]?flash/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: false,
+                jsonMode: true,
             },
         },
     },
@@ -258,52 +271,63 @@ const MODEL_PRESETS: IModelPreset[] = [
     // =========
     // DeepSeek
     // =========
+
+    // DeepSeek V3.2
     {
-        // DeepSeek R1（reasoner）
-        keywords: [/deepseek[-_]?r1/i, /deepseek[-_]?reasoner/i],
+        keywords: [/^deepseek[-_]?v3[._]2/i],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text'],
-                output: ['text'],
-            },
+            modalities: { input: ['text'], output: ['text'] },
             capabilities: {
-                tools: true,       // 支持 function calling
+                tools: true,
                 streaming: true,
-                reasoning: true,   // R1 是显式推理模型
-                jsonMode: false,
-            },
-            limits: {
-                // 多方资料给出 128K / 160K 级别，这里取保守 128K
-                maxContext: 128_000,
-                maxOutput: 8_000,
-            },
-            options: {
-                customOverride: {
-                    // 可以在这里预设比如 enable_thoughts / enable_reasoning 等 DeepSeek 自定义参数
-                },
+                reasoning: true,
+                jsonMode: true,
             },
         },
     },
+
+    // DeepSeek V3.1 (混合推理)
     {
-        // DeepSeek V3 / V3.1 / V3.2 / deepseek-chat
-        keywords: [/deepseek[-_]?v3\.2/i, /deepseek[-_]?v3(\b|[-_])/i, /deepseek[-_]?chat/i],
+        keywords: [/^deepseek[-_]?v3[._]1/i],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text'],
-                output: ['text'],
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: true,
             },
+        },
+    },
+
+    // DeepSeek R1
+    {
+        keywords: [/^deepseek[-_]?r1/i, /^deepseek[-_]?reasoner/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: false,
+            },
+        },
+    },
+
+    // DeepSeek V3 / Chat
+    {
+        keywords: [/^deepseek[-_]?v3\b/i, /^deepseek[-_]?chat/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
                 reasoning: false,
                 jsonMode: true,
-            },
-            limits: {
-                // V3/V3.2 官方技术报告给出 128K 上下文
-                maxContext: 128_000,
-                maxOutput: 8_000,
             },
         },
     },
@@ -311,53 +335,65 @@ const MODEL_PRESETS: IModelPreset[] = [
     // =========
     // GLM 系列
     // =========
+
+    // GLM-4.6 (最强编码)
     {
-        // GLM-4.6（旗舰）
-        keywords: [/glm[-_]?4\.6/i],
+        keywords: [/^glm[-_]?4[._]6/i],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text'], output: ['text'] },
             capabilities: {
-                tools: true,       // OpenAI 兼容工具调用
+                tools: true,
                 streaming: true,
-                reasoning: true,   // 默认启用 thinking mode
+                reasoning: true,
                 jsonMode: false,
             },
-            limits: {
-                // 官方及测评普遍给出 128K~200K，这里取 200K 上限
-                maxContext: 200_000,
-                maxOutput: 8_000,
+            limits: { maxContext: 200_000 },
+        },
+    },
+
+    // GLM-4.5 系列
+    {
+        keywords: [/^glm[-_]?4[._]5/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: false,
+            },
+            limits: { maxContext: 128_000 },
+        },
+    },
+
+    // GLM-4.xv (多模态)
+    {
+        keywords: [/^glm[-_]?4\.[56]v/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: false,
             },
         },
     },
+
+    // GLM 通用
     {
-        // GLM-4.5 / 4.5-Air 等
-        keywords: [/glm[-_]?4\.5/i],
+        keywords: [/^glm[-_]?4\b/i],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text'], output: ['text'] },
             capabilities: {
-                tools: true,       // 支持 function calling / agent 能力
+                tools: true,
                 streaming: true,
-                reasoning: true,   // hybrid reasoning（思考 + 快速模式）
+                reasoning: false,
                 jsonMode: false,
-            },
-            limits: {
-                // Zhipu 文档一般给出 128K，上游托管有时为 200K，这里取 128K 保守值
-                maxContext: 128_000,
-                maxOutput: 8_192,
-            },
-            price: {
-                // 下面价格为公开估算值，仅供 UI 显示参考
-                inputPerK: 0.001,
-                outputPerK: 0.003,
-                unit: 'USD',
             },
         },
     },
@@ -365,88 +401,128 @@ const MODEL_PRESETS: IModelPreset[] = [
     // =========
     // Qwen 系列
     // =========
+
+    // Qwen3 系列 (最新)
     {
-        // Qwen3-Max / Qwen3-Omni / Qwen3 系列
-        keywords: [/qwen3[-_]?max/i, /qwen3[-_]?omni/i, /qwen3\b/i],
+        keywords: [
+            /^qwen3[-_]?(235b|30b|32b|14b|8b|4b|1\.7b|0\.6b)/i,
+            /^qwen3[-_]?(max|plus)/i
+        ],
         config: {
             type: 'chat',
-            modalities: {
-                // Qwen3-Omni / Qwen3-VL 等支持多模态输入
-                input: ['text', 'image'],
-                output: ['text'],
-            },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true, // hybrid thinking 模式
-                jsonMode: true,
-            },
-            limits: {
-                maxContext: 128_000,
-            },
-        },
-    },
-    {
-        // Qwen 多模态 / VL 系列
-        keywords: [/qwen[-_]?vl/i, /qwen3[-_]?vl/i],
-        config: {
-            type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
                 reasoning: true,
                 jsonMode: true,
             },
-            limits: {
-                maxContext: 128_000,
+        },
+    },
+
+    // QwQ (推理模型)
+    {
+        keywords: [/^qwq[-_]/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: false,
             },
         },
     },
+
+    // QVQ (视觉推理)
     {
-        // 兜底：任意 qwen*
+        keywords: [/^qvq[-_]/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: false,
+            },
+        },
+    },
+
+    // Qwen3 Omni 系列 (多模态)
+    {
+        keywords: [/^qwen3[-_]?omni/i, /^qwen[-_]?omni/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: false,
+                jsonMode: true,
+            },
+        },
+    },
+
+    // Qwen2.5 / Qwen2
+    {
+        keywords: [/^qwen2[._]5/i, /^qwen2\b/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: false,
+                jsonMode: true,
+            },
+        },
+    },
+
+    // Qwen VL (视觉)
+    {
+        keywords: [/^qwen[-_]?vl/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: false,
+                jsonMode: true,
+            },
+        },
+    },
+
+    // Qwen 通用兜底
+    {
         keywords: [/^qwen/i],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
-                reasoning: true,
+                reasoning: false,
                 jsonMode: true,
-            },
-            limits: {
-                maxContext: 128_000,
             },
         },
     },
 
     // =================
-    // 其它 GPT / 通用兜底
+    // GPT 通用兜底
     // =================
     {
-        // 兜底：任何 gpt-* （非 5 系列时用）
-        keywords: [/^gpt-/i],
+        keywords: [/^gpt[-_]/i],
         config: {
             type: 'chat',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['text'],
-            },
+            modalities: { input: ['text'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
-                reasoning: true,
+                reasoning: false,
                 jsonMode: true,
-            },
-            limits: {
-                maxContext: 128_000,
             },
         },
     },
@@ -455,36 +531,42 @@ const MODEL_PRESETS: IModelPreset[] = [
     // Embedding / 向量模型
     // ======================
     {
-        keywords: [/embed/i, /text-embedding/i, /text-embedding-3/i, /bge-/i, /m3e-/i],
+        keywords: [
+            /embed/i,
+            /text-embedding/i,
+            /bge[-_]/i,
+            /m3e[-_]/i,
+            /gte[-_]/i,
+            /bce[-_]/i
+        ],
         config: {
             type: 'embeddings',
-            modalities: {
-                input: ['text'],
-                output: ['text'],
-            },
+            modalities: { input: ['text'], output: ['text'] },
             capabilities: {
                 tools: false,
                 streaming: false,
                 reasoning: false,
                 jsonMode: false,
             },
-            limits: {
-                maxContext: 8_192,
-            },
         },
     },
 
     // ==================
-    // 图像生成 / VLM 模型
+    // 图像生成模型
     // ==================
     {
-        keywords: [/dall-e/i, /midjourney/i, /stable-diffusion/i, /flux/i, /nano-banana/i],
+        keywords: [
+            /^dall[-_]?e/i,
+            /^midjourney/i,
+            /^stable[-_]?diffusion/i,
+            /^flux/i,
+            /nano[-_]?banana/i,
+            /^sd\d/i,
+            /cogview/i
+        ],
         config: {
             type: 'image',
-            modalities: {
-                input: ['text', 'image'],
-                output: ['image'],
-            },
+            modalities: { input: ['text', 'image'], output: ['image'] },
             capabilities: {
                 tools: false,
                 streaming: false,
@@ -494,3 +576,4 @@ const MODEL_PRESETS: IModelPreset[] = [
         },
     },
 ];
+
