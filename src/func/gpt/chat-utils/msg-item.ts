@@ -171,11 +171,11 @@ export function mergeInputWithContext(
 /**
  * 从 IChatSessionMsgItem 中提取用户实际输入（去除上下文）
  */
-export function splitUserPrompt(item: Readonly<IChatSessionMsgItem>) {
+export function splitPromptFromContext(item: Readonly<IChatSessionMsgItem>) {
     const content = extractContentText(item.message!.content);
 
     const parts = {
-        attachedPrompt: '',
+        contextPrompt: '',
         userPrompt: '',
         userPromptSlice: [0, 0] as [number, number]
     }
@@ -183,7 +183,7 @@ export function splitUserPrompt(item: Readonly<IChatSessionMsgItem>) {
     if (item.userPromptSlice) {
         const [start, end] = item.userPromptSlice;
         // return content.slice(start, end);
-        parts.attachedPrompt = content.slice(0, start);
+        parts.contextPrompt = content.slice(0, start);
         parts.userPrompt = content.slice(start, end);
         parts.userPromptSlice = [start, end];
     } else {

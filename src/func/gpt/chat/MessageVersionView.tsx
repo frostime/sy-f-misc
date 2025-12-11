@@ -6,7 +6,7 @@ import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 
 import { extractMessageContent } from '@gpt/chat-utils';
-import { mergeMultiVesion } from '@gpt/data-utils';
+import { mergeMultiVersion } from '@gpt/chat-utils/msg-item';
 import { UIConfig } from '@/func/gpt/model/store';
 
 import styles from './MessageItem.module.scss';
@@ -188,7 +188,7 @@ const MessageVersionView: Component<{
                 <button
                     class="b3-button b3-button--outline"
                     onClick={() => {
-                        const mergedContent = mergeMultiVesion(props.messageItem);
+                        const mergedContent = mergeMultiVersion(props.messageItem);
 
                         inputDialog({
                             title: '合并的多版本消息',

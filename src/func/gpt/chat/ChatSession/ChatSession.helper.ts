@@ -10,19 +10,25 @@ import { createSimpleContext } from '@/libs/simple-context';
 // GPT-related imports
 import * as gpt from '@gpt/openai';
 import { globalMiscConfigs, useModel } from '@/func/gpt/model/store';
+// import {
+//     mergeInputWithContext,
+//     applyMsgItemVersion,
+//     stageMsgItemVersion,
+//     isMsgItemWithMultiVersion
+// } from '@gpt/data-utils';
 import {
     mergeInputWithContext,
     applyMsgItemVersion,
     stageMsgItemVersion,
     isMsgItemWithMultiVersion
-} from '@gpt/data-utils';
-// import { assembleContext2Prompt } from '@gpt/context-provider';
+} from '@gpt/chat-utils/msg-item';
+
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
 import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
 
-import { extractContentText, extractMessageContent, MessageBuilder, updateContentText } from '../../chat-utils';
+import { extractContentText, extractMessageContent, MessageBuilder, splitPromptFromContext, updateContentText } from '../../chat-utils';
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;
@@ -288,8 +294,9 @@ const useMessageManagement = (params: {
         const msgContent = msgItem.versions[version];
         if (!msgContent) return;
         messages.update(index, (prev: IChatSessionMsgItem) => {
-            const copied = structuredClone(prev);
-            return applyMsgItemVersion(copied, version);
+            // const copied = structuredClone(prev);
+            // return applyMsgItemVersion(copied, version);
+            return applyMsgItemVersion(prev, version);
         });
         return new Date().getTime(); // Return updated timestamp
     }
@@ -623,10 +630,17 @@ ${inputContent}
             if (messages()[nextIndex]?.message?.role === 'assistant' && !messages()[nextIndex].hidden) {
                 messages.update(prev => {
                     const updated = [...prev];
-                    const item = structuredClone(updated[nextIndex]);
-                    item['loading'] = true;
-                    stageMsgItemVersion(item);
-                    updated[nextIndex] = item;
+                    // const item = structuredClone(updated[nextIndex]);
+                    // item['loading'] = true;
+                    // stageMsgItemVersion(item);
+                    // updated[nextIndex] = item;
+                    // return updated;
+                    const newItem = {
+                        ...stageMsgItemVersion(updated[nextIndex]),
+                        loading: true  // 避免 inplace 操作, 尽量保持 immutable
+                    };
+                    updated[nextIndex] = newItem;
+
                     return updated;
                 });
             } else {
@@ -714,6 +728,7 @@ ${inputContent}
                 return msgItem;
             });
 
+            // #BUG 这个貌似是多余的吧？需要测试研究一下怎么回事。
             messages.update(nextIndex, (item: IChatSessionMsgItem) => {
                 let newItem = structuredClone(item);
                 return stageMsgItemVersion(newItem);
@@ -1282,16 +1297,18 @@ export const useSession = (props: {
 
             const content = item.message.content;
             // let { text } = adaptIMessageContentGetter(content);
-            let text = extractContentText(content);
-            let contextText = '';
+            // let text = extractContentText(content);
+            // let contextText = '';
 
-            // 处理上下文切片
-            if (item.userPromptSlice) {
-                const [beg] = item.userPromptSlice;
-                contextText = text.slice(0, beg);
-            }
+            // // 处理上下文切片
+            // if (item.userPromptSlice) {
+            //     const [beg] = item.userPromptSlice;
+            //     contextText = text.slice(0, beg);
+            // }
 
-            const newText = contextText + newContent;
+            const { contextPrompt } = splitPromptFromContext(item);
+
+            const newText = contextPrompt + newContent;
 
             batch(() => {
                 // if (Array.isArray(content)) {
@@ -1310,8 +1327,8 @@ export const useSession = (props: {
                 messages.update(index, 'message', 'content', updatedContent)
 
                 // 更新 userPromptSlice
-                if (contextText && contextText.length > 0) {
-                    const contextLength = contextText.length;
+                if (contextPrompt && contextPrompt.length > 0) {
+                    const contextLength = contextPrompt.length;
                     messages.update(index, 'userPromptSlice', [contextLength, contextLength + newContent.length]);
                 }
 
