@@ -8,6 +8,7 @@ export default function ButtonInput(props: {
     onClick?: () => void;
     classOutlined?: boolean;
     classText?: boolean;
+    classSmall?: boolean;
     disabled?: boolean;
     children?: JSX.Element;
 }) {
@@ -21,6 +22,7 @@ export default function ButtonInput(props: {
             classList={{
                 'b3-button--outline': props.classOutlined,
                 'b3-button--text': props.classText,
+                'b3-button--small': props.classSmall,
             }}
             {...attrStyle()}
             onClick={() => props.onClick?.()}

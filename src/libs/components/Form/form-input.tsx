@@ -30,7 +30,7 @@ export default function FormInput(props: IProps) {
             styles = { resize: "vertical", height: '10rem', "white-space": "nowrap" };
         }
         let propstyle = props.style ?? {};
-        styles = {...styles, ...propstyle};
+        styles = { ...styles, ...propstyle };
         return {
             style: styles
         };
@@ -45,7 +45,10 @@ export default function FormInput(props: IProps) {
                     {...attrStyle()}
                     type="checkbox"
                     checked={props.value}
-                    onInput={(e) => {
+                    // onInput={(e) => {
+                    //     changed(e.currentTarget.checked);
+                    // }}
+                    onChange={(e) => {
                         changed(e.currentTarget.checked);
                     }}
                 />
@@ -59,7 +62,10 @@ export default function FormInput(props: IProps) {
                     {...attrStyle()}
                     placeholder={props.placeholder}
                     value={props.value}
-                    onInput={(e) => {
+                    // onInput={(e) => {
+                    //     changed(e.currentTarget.value);
+                    // }}
+                    onChange={(e) => {
                         changed(e.currentTarget.value);
                     }}
                     spellcheck={props?.spellcheck}
@@ -74,7 +80,10 @@ export default function FormInput(props: IProps) {
                     {...attrStyle()}
                     value={props.value}
                     spellcheck={props?.spellcheck}
-                    onInput={(e) => {
+                    // onInput={(e) => {
+                    //     changed(e.currentTarget.value);
+                    // }}
+                    onChange={(e) => {
                         changed(e.currentTarget.value);
                     }}
                 />
@@ -88,7 +97,10 @@ export default function FormInput(props: IProps) {
                     {...attrStyle()}
                     type="number"
                     value={props.value}
-                    onInput={(e) => {
+                    // onInput={(e) => {
+                    //     changed(e.currentTarget.value);
+                    // }}
+                    onChange={(e) => {
                         changed(e.currentTarget.value);
                     }}
                     min={props.number?.min}
@@ -139,7 +151,11 @@ export default function FormInput(props: IProps) {
                         step={props.slider.step}
                         type="range"
                         value={props.value}
-                        onInput={(e) => {
+                        // onInput={(e) => {
+                        //     changed(e.currentTarget.value);
+                        //     value(e.currentTarget.value);
+                        // }}
+                        onChange={(e) => {
                             changed(e.currentTarget.value);
                             value(e.currentTarget.value);
                         }}
