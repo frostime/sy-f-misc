@@ -14,8 +14,8 @@ import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 
-import { adaptIMessageContentGetter } from '@gpt/data-utils';
-import { UIConfig } from '@gpt/setting/store';
+import { extractMessageContent } from '@gpt/chat-utils';
+import { UIConfig } from '@/func/gpt/model/store';
 import { type useSession } from './ChatSession/ChatSession.helper';
 import styles from './SessionItemsManager.module.scss';
 
@@ -50,7 +50,7 @@ const SessionItemsManager: Component<{
         const msg = messages().find(item => item.id === id);
         if (!msg) return null;
 
-        const { text } = adaptIMessageContentGetter(msg.message.content);
+        const { text } = extractMessageContent(msg.message.content);
         return {
             text,
             reasoning: msg.message.reasoning_content,
@@ -203,7 +203,7 @@ const SessionItemsManager: Component<{
 
     const MessageItemCard = (subProps: { item: IChatSessionMsgItem, index: Accessor<number> }) => {
         const textContent = (() => {
-            const { text } = adaptIMessageContentGetter(subProps.item.message.content);
+            const { text } = extractMessageContent(subProps.item.message.content);
             const snapshot = text.length > MAX_PREVIEW_LENGTH ? text.substring(0, MAX_PREVIEW_LENGTH) + '...' : text;
             const length = text.length;
             return {

@@ -273,7 +273,7 @@ const NewFileApp = (props: { updated: (v) => void }) => {
                         <td style="padding: 8px 4px;">
                             <TextInput
                                 value={prefix()}
-                                changed={(v) => {
+                                onInput={(v) => {
                                     prefix.update(v);
                                     updateFullPath();
                                 }}
@@ -297,7 +297,7 @@ const NewFileApp = (props: { updated: (v) => void }) => {
                         <td style="padding: 8px 4px;" ref={ref}>
                             <TextInput
                                 value={fname}
-                                changed={(v) => {
+                                onInput={(v) => {
                                     fname = v;
                                     updateFullPath();
                                 }}
@@ -591,7 +591,7 @@ const RenameAssetFile = (props: { assetLink: string }) => {
                     <div class="fn__flex-1">
                         <TextInput
                             value={newAssetLink.value}
-                            changed={(value) => newAssetLink.value = value}
+                            onInput={(value) => newAssetLink.value = value}
                             placeholder="新文件名"
                             spellcheck={false}
                             style={{

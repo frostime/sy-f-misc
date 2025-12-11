@@ -5,8 +5,9 @@ import { createSignalRef } from '@frostime/solid-signal-ref';
 import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 
-import { adaptIMessageContentGetter, mergeMultiVesion } from '@gpt/data-utils';
-import { UIConfig } from '@gpt/setting/store';
+import { extractMessageContent } from '@gpt/chat-utils';
+import { mergeMultiVersion } from '@gpt/chat-utils/msg-item';
+import { UIConfig } from '@/func/gpt/model/store';
 
 import styles from './MessageItem.module.scss';
 import { type useSession } from './ChatSession/ChatSession.helper';
@@ -31,7 +32,7 @@ const MessageVersionView: Component<{
         if (!props.messageItem.versions) return null;
         const content = props.messageItem.versions[version];
         if (!content) return null;
-        const { text } = adaptIMessageContentGetter(content.content);
+        const { text } = extractMessageContent(content.content);
         return {
             text,
             reasoning: content.reasoning_content
@@ -187,7 +188,7 @@ const MessageVersionView: Component<{
                 <button
                     class="b3-button b3-button--outline"
                     onClick={() => {
-                        const mergedContent = mergeMultiVesion(props.messageItem);
+                        const mergedContent = mergeMultiVersion(props.messageItem);
 
                         inputDialog({
                             title: '合并的多版本消息',

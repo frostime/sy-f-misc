@@ -1,4 +1,5 @@
-import { visualModel } from "../setting";
+import { showMessage } from "siyuan";
+import { checkSupportsModality } from "../setting";
 import { type complete } from "./complete";
 
 
@@ -19,14 +20,14 @@ export const userCustomizedPreprocessor = {
         model: string;
         modelDisplayName: string;
         url: string;
-        option: IChatOption;
+        option: IChatCompleteOption;
     }) => {
 
     }
 };
 
 export const adpatInputMessage = (input: Parameters<typeof complete>[0], options: {
-    model: string;
+    model: IRuntimeLLM;
 }) => {
     let messages: IMessage[] = [];
     if (typeof input === 'string') {
@@ -49,9 +50,9 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
     }
 
     if (options) {
-        const model = options?.model;
+        // const modelId = options?.modelId ?? options?.model;
         // 非视觉模型去掉图片消息字段
-        if (!visualModel().includes(model)) {
+        if (!checkSupportsModality(options.model.config, 'image')) {
             let hasImage = false;
             messages.forEach(item => {
                 if (typeof item.content !== 'string') {
@@ -61,7 +62,7 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
                 }
             });
             if (hasImage) {
-                console.warn(`注意: 模型 ${model} 不支持图片消息!已在内部自动过滤图片信息。`);
+                console.warn(`注意: 模型 ${options.model.model ?? options.model} 不支持图片消息!已在内部自动过滤图片信息。`);
             }
         }
     }
@@ -70,11 +71,15 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
 }
 
 export const adaptChatOptions = (target: {
-    chatOption: IChatOption;
-    model: string;
-    apiUrl: string
+    chatOption: IChatCompleteOption;
+    runtimeLLM: IRuntimeLLM;
 }) => {
-    let { model, apiUrl, chatOption } = target;
+    let { runtimeLLM, chatOption } = target;
+
+    // Extract model and url for backward compatibility
+    // const model = runtimeLLM.model;
+    // const apiUrl = runtimeLLM.url;
+    const config = runtimeLLM.config;
 
     const deleteIfEqual = (target: Record<string, any>, key: string, value = 0) => {
         if (target[key] === value) {
@@ -83,30 +88,72 @@ export const adaptChatOptions = (target: {
     }
 
     chatOption = structuredClone(chatOption);
+
+    // Step 1: Apply customOverride (highest priority)
+    if (config?.options?.customOverride) {
+        Object.assign(chatOption, config.options.customOverride);
+    }
+
+    // Step 2: Remove null/undefined values
     for (const key in chatOption) {
-        if (chatOption[key] === null || chatOption[key] === undefined) {
+        if (chatOption[key] === null || chatOption[key] === undefined || chatOption[key] === '') {
             delete chatOption[key];
         }
     }
 
-    //有些模型不支持这两个参数, 反正不填默认就是 0，那干脆可以闪电
-    deleteIfEqual(chatOption, 'frequency_penalty', 0);
-    deleteIfEqual(chatOption, 'presence_penalty', 0);
-
-    deleteIfEqual(chatOption, 'max_tokens', 0);
-
-    deleteIfEqual(chatOption, 'top_p', 1);
-
-
-    model = model.toLocaleLowerCase();
-
-    const isDoubao = model.match(/doubao/);
-    if (isDoubao) {
-        // temperature
-        if (chatOption.temperature > 1) {
-            chatOption.temperature = 1;
+    // Step 3: Filter unsupported options
+    if (config?.options?.unsupported) {
+        for (const key of config.options.unsupported) {
+            delete chatOption[key];
         }
     }
+
+    // Step 4: Apply limits
+    if (config?.limits) {
+        // Temperature range
+        if (config.limits.temperatureRange && chatOption.temperature !== undefined) {
+            const [min, max] = config.limits.temperatureRange;
+            chatOption.temperature = Math.max(min, Math.min(max, chatOption.temperature));
+        }
+
+        // Max output tokens
+        // #TODO 暂时先不做这个限制
+        // if (config.limits.maxOutput && chatOption.max_tokens !== undefined) {
+        //     chatOption.max_tokens = Math.min(config.limits.maxOutput, chatOption.max_tokens);
+        // }
+    }
+
+    // Step 5: Check capabilities and filter options
+    if (config?.capabilities) {
+        const disabledKeys = [];
+        // Tools support
+        if (config.capabilities.tools !== true && chatOption.tools) {
+            delete chatOption.tools;
+            delete chatOption.tool_choice;
+            disabledKeys.push('tools');
+        }
+
+        // Streaming support
+        if (config.capabilities.streaming !== true && chatOption.stream) {
+            chatOption.stream = false;
+            disabledKeys.push('stream');
+        }
+
+        // Reasoning effort support
+        if (config.capabilities.reasoningEffort !== true && chatOption.reasoning_effort) {
+            delete chatOption.reasoning_effort;
+            disabledKeys.push('reasoning_effort');
+        }
+        if (disabledKeys.length) {
+            showMessage(`${runtimeLLM.bareId} 不支持参数 ${disabledKeys.join(', ')}, 已自动移除`);
+        }
+    }
+
+    // Step 6: Existing cleanup logic (delete default values)
+    deleteIfEqual(chatOption, 'frequency_penalty', 0);
+    deleteIfEqual(chatOption, 'presence_penalty', 0);
+    deleteIfEqual(chatOption, 'max_tokens', 0);
+    deleteIfEqual(chatOption, 'top_p', 1);
 
     return chatOption;
 }

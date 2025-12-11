@@ -22,7 +22,7 @@ import { id2block } from "./utils";
 import * as persist from './persistence';
 import { solidDialog } from "@/libs/dialog";
 import HistoryList from "./chat/HistoryList";
-import { globalMiscConfigs } from "./setting/store";
+import { globalMiscConfigs } from "./model/store";
 import { showMessageLog } from "./MessageLogger";
 
 import * as openai from './openai';

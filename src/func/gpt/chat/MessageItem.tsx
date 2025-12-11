@@ -6,8 +6,8 @@ import { solidDialog } from '@/libs/dialog';
 import { floatingEditor } from '@/libs/components/floating-editor';
 
 import { convertMathFormulas } from '@gpt/utils';
-import { adaptIMessageContentGetter } from '@gpt/data-utils';
-import { defaultConfig } from '@gpt/setting/store';
+import { extractMessageContent } from '@gpt/chat-utils';
+import { defaultConfig } from '@/func/gpt/model/store';
 import * as persist from '@gpt/persistence';
 
 import styles from './MessageItem.module.scss';
@@ -45,7 +45,7 @@ const MessageItem: Component<{
     const markdownRenderer = createMarkdownRenderer();
 
     const textContent = createMemo(() => {
-        let { text } = adaptIMessageContentGetter(props.messageItem.message.content);
+        let { text } = extractMessageContent(props.messageItem.message.content);
         if (props.messageItem.userPromptSlice) {
             //隐藏 context prompt，现在 context 在用户输入前面
             text = text.slice(props.messageItem.userPromptSlice[0], props.messageItem.userPromptSlice[1]);
@@ -58,26 +58,10 @@ const MessageItem: Component<{
     });
 
     const imageUrls = createMemo(() => {
-        let { images } = adaptIMessageContentGetter(props.messageItem.message.content);
-        images = images || [];
-        images = images.map(image => {
-            if (image.startsWith('data:image')) {
-                // 解析 data URL
-                const [header, base64data] = image.split(',');
-                // 将 base64 转换为二进制数组
-                const binaryData = atob(base64data);
-                const bytes = new Uint8Array(binaryData.length);
-                for (let i = 0; i < binaryData.length; i++) {
-                    bytes[i] = binaryData.charCodeAt(i);
-                }
-                // 从 header 中获取 MIME 类型
-                const mimeType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-                // 创建 Blob
-                const blob = new Blob([bytes], { type: mimeType });
-                return URL.createObjectURL(blob);
-            }
-            return image;
-        });
+        let { images } = extractMessageContent(props.messageItem.message.content);
+        if (!images || images.length === 0) {
+            return [];
+        }
         return images;
     });
 
@@ -92,7 +76,7 @@ const MessageItem: Component<{
     });
 
     const msgLength = createMemo(() => {
-        let { text } = adaptIMessageContentGetter(props.messageItem.message.content);
+        let { text } = extractMessageContent(props.messageItem.message.content);
         return text.length;
     });
 
@@ -466,7 +450,7 @@ const MessageItem: Component<{
             icon: 'iconPreview',
             label: '查看原始 Prompt',
             click: () => {
-                const { text } = adaptIMessageContentGetter(props.messageItem.message.content);
+                const { text } = extractMessageContent(props.messageItem.message.content);
                 inputDialog({
                     title: '原始 Prompt',
                     defaultText: text,
@@ -671,12 +655,22 @@ const MessageItem: Component<{
     };
 
     const ReasoningSection = () => {
+        const isAssistant = () => props.messageItem.message?.role === 'assistant';
+
+        const reasoningContent = () => {
+            if (isAssistant()) {
+                const message = props.messageItem.message;
+                return message.reasoning_content;
+            }
+            return null;
+        }
+
         const copyReasoningContent = (e: MouseEvent) => {
             e.stopImmediatePropagation();
             e.preventDefault();
             try {
                 document.body.focus();
-                navigator.clipboard.writeText(props.messageItem.message.reasoning_content);
+                navigator.clipboard.writeText(reasoningContent());
                 showMessage('已复制推理过程到剪贴板');
             } catch (error) {
                 console.error('剪贴板操作失败:', error);
@@ -685,7 +679,7 @@ const MessageItem: Component<{
         };
 
         return (
-            <Show when={props.messageItem.message.reasoning_content}>
+            <Show when={reasoningContent()}>
                 <details class={styles.reasoningDetails}>
                     <summary>
                         推理过程

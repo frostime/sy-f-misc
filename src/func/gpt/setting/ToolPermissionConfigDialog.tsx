@@ -8,7 +8,7 @@
 import { Component, createSignal, For, Show } from 'solid-js';
 import { confirm } from 'siyuan';
 import { Tool } from '../tools/types';
-import { toolsManager } from './store';
+import { toolsManager } from '../model/store';
 
 // ==================== 共享常量 ====================
 

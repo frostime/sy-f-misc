@@ -12,7 +12,7 @@
 import { ToolExecutor } from "../executor";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { complete } from "../../openai/complete";
-import * as store from "@gpt/setting/store";
+import * as store from "@/func/gpt/model/store";
 import { toolCallScriptDocTool } from "./skill-doc";
 
 const FORMALIZE_MAX_INPUT_LENGTH = 32000;

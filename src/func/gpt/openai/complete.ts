@@ -1,4 +1,4 @@
-import { defaultModelId, useModel } from "../setting/store";
+import { defaultModelId, useModel } from "../model/store";
 import { appendLog } from "../MessageLogger";
 import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage } from './adpater';
 
@@ -14,7 +14,7 @@ interface StreamChunkData {
     };
 }
 
-const buildReferencesText = (refers: CompletionResponse['references']) => {
+const buildReferencesText = (refers: ICompletionResult['references']) => {
     if (!refers) return '';
     return '**References**:\n' + refers.filter(ref => Boolean(ref.url)).map((ref, index) => {
         return `${index + 1}. [${ref.title || ref.url}](${ref.url})`;
@@ -53,7 +53,7 @@ const handleStreamChunk = (line: string): (StreamChunkData | { usage: any }) | n
 
         if (responseData.choices && responseData.choices.length > 0) {
             const delta = responseData.choices[0].delta || {};
-            result = {...result, ...adaptChunkMessage(delta)};
+            result = { ...result, ...adaptChunkMessage(delta) };
         }
         return result;
     } catch (e) {
@@ -68,12 +68,12 @@ const handleStreamChunk = (line: string): (StreamChunkData | { usage: any }) | n
 const handleStreamResponse = async (
     response: Response,
     options: NonNullable<Parameters<typeof complete>[1]> & { t0: number }
-): Promise<CompletionResponse> => {
+): Promise<ICompletionResult> => {
     if (!response.body) {
         throw new Error('Response body is null');
     }
 
-    const responseContent: CompletionResponse = {
+    const responseContent: ICompletionResult = {
         content: '',
         reasoning_content: '',
         usage: null,
@@ -209,7 +209,7 @@ const handleStreamResponse = async (
 /**
  * 处理非流式响应
  */
-const handleNormalResponse = async (response: Response, options: { t0: number }): Promise<CompletionResponse> => {
+const handleNormalResponse = async (response: Response, options: { t0: number }): Promise<ICompletionResult> => {
     const data = await response.json();
     const t1 = new Date().getTime();
     const latency = t1 - options.t0;
@@ -225,7 +225,7 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
     }
 
     // 使用适配器处理消息
-    let results = adaptResponseMessage(data.choices[0].message) as CompletionResponse;
+    let results = adaptResponseMessage(data.choices[0].message) as ICompletionResult;
     results.usage = data.usage;
 
     // 处理引用
@@ -248,20 +248,31 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
 
 
 export const complete = async (input: string | IMessage[], options?: {
-    model?: IGPTModel,
+    model?: IRuntimeLLM,
     systemPrompt?: string,
     stream?: boolean,
     streamMsg?: (msg: string, toolCalls?: IToolCallResponse[]) => void,
     streamInterval?: number,
-    option?: IChatOption
+    option?: IChatCompleteOption
     abortControler?: AbortController
-}): Promise<CompletionResponse> => {
+}): Promise<ICompletionResult> => {
 
     let response: Response;
 
+    if (!options.model) {
+        const model = useModel(defaultModelId() || 'siyuan');
+        if (!model) {
+            return {
+                ok: false,
+                content: `Error: 无法获取对话模型，请先在设置中添加并选择一个模型。`,
+            }
+        }
+        options.model = model;
+    }
+
     try {
-        const { url, model, apiKey, modelToUse } = options?.model ?? useModel(defaultModelId() || 'siyuan');
-        const messages = adpatInputMessage(input, { model });
+        const { url, model, apiKey, config: modelConfig, provider } = options.model;
+        const messages = adpatInputMessage(input, { model: options.model });
 
         if (options?.systemPrompt) {
             messages.unshift({
@@ -273,8 +284,7 @@ export const complete = async (input: string | IMessage[], options?: {
         let chatOption = options?.option ?? {};
         chatOption = adaptChatOptions({
             chatOption,
-            model,
-            apiUrl: url
+            runtimeLLM: options.model
         });
 
         if (options?.stream !== undefined) {
@@ -282,8 +292,8 @@ export const complete = async (input: string | IMessage[], options?: {
         }
 
         const chatInputs = {
-            model: modelToUse || model,
-            modelDisplayName: model,
+            model: model,
+            modelDisplayName: modelConfig?.displayName || model,
             url: url,
             option: chatOption
         }
@@ -319,7 +329,8 @@ export const complete = async (input: string | IMessage[], options?: {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
-                'Accept': 'text/event-stream'
+                'Accept': 'text/event-stream',
+                ...(provider?.customHeaders || {})
             },
             body: JSON.stringify(payload),
             signal: options?.abortControler?.signal
@@ -344,7 +355,7 @@ export const complete = async (input: string | IMessage[], options?: {
         }
 
         return options?.stream
-            ? handleStreamResponse(response, {...options, t0})
+            ? handleStreamResponse(response, { ...options, t0 })
             : handleNormalResponse(response, { t0 });
 
     } catch (error) {

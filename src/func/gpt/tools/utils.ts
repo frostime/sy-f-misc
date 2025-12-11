@@ -1,6 +1,6 @@
 import { complete } from "../openai";
 import { Tool, ToolExecuteResult } from "./types";
-import * as store from '@gpt/setting/store';
+import * as store from '@/func/gpt/model/store';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');

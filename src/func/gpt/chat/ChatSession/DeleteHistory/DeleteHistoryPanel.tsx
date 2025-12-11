@@ -10,7 +10,7 @@
 import { Component, For, Show } from 'solid-js';
 import { showMessage } from 'siyuan';
 import type { IDeleteRecord } from './types';
-import { adaptIMessageContentGetter } from '@/func/gpt/data-utils';
+import { extractMessageContent } from '@/func/gpt/chat-utils';
 
 interface IDeleteHistoryPanelProps {
     /** 删除记录列表 */
@@ -54,7 +54,7 @@ const copyToClipboard = async (text: string) => {
 const DeleteHistoryPanel: Component<IDeleteHistoryPanelProps> = (props) => {
 
     const versionText = (content: TMessageContent) => {
-        const { text } = adaptIMessageContentGetter(content);
+        const { text } = extractMessageContent(content);
         return text;
     }
 

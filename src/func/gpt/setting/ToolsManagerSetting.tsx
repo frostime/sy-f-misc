@@ -8,7 +8,7 @@
 
 
 import { Component, For, Show, createSignal, onMount } from 'solid-js';
-import { toolsManager } from './store';
+import { toolsManager } from '../model/store';
 import { toolExecutorFactory } from '../tools';
 import { solidDialog } from '@/libs/dialog';
 import {

@@ -15,7 +15,7 @@ import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory } from "./document-parser";
 import { appendBlock, deleteBlock, getBlockByID, request } from "@frostime/siyuan-plugin-kits/api";
 import styles from "./style.module.scss";
-import { defaultModelId, listAvialableModels, useModel } from "../setting/store";
+import { defaultModelId, listAvialableModels, useModel } from "../model/store";
 import SelectInput from "@/libs/components/Elements/SelectInput";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { CheckboxInput } from "@/libs/components/Elements";

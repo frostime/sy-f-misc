@@ -4,7 +4,7 @@ import { Component, createMemo, For } from "solid-js";
 import { render } from "solid-js/web";
 
 import { ButtonInput, CheckboxInput, NumberInput } from "@/libs/components/Elements";
-import { globalMiscConfigs } from "./setting/store";
+import { globalMiscConfigs } from "./model/store";
 
 const max_log_items = () => globalMiscConfigs().maxMessageLogItems;
 export const messageLog = createSignalRef<{ time: string, data: any, type: string }[]>([]);

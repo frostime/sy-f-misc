@@ -18,7 +18,7 @@ import { fileSystemTools, fileEditorTools } from './file-system';
 import { scriptTools } from './script-tools';
 import { ApprovalUIAdapter } from './types';
 import { DefaultUIAdapter } from './approval-ui';
-import { toolsManager } from '../setting/store';
+import { toolsManager } from '../model/store';
 import { siyuanTool } from './siyuan';
 import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
 import { registerToolCallScriptGroup } from './toolcall-script';

@@ -1,14 +1,12 @@
 import { createMemo, For } from "solid-js";
 import type { JSX } from "solid-js";
 
-interface ISelectInputProps {
+export default function SelectInput(props: {
     value?: string;
     changed?: (value: string) => void;
     style?: JSX.CSSProperties;
     options: Record<string, string>;
-}
-
-export default function SelectInput(props: ISelectInputProps) {
+}) {
     const attrStyle = createMemo(() => ({
         style: props.style ?? {}
     }));

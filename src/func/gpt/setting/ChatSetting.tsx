@@ -11,8 +11,10 @@
 import Form from "@/libs/components/Form";
 
 import { IStoreRef } from "@frostime/solid-signal-ref";
-import { UIConfig, defaultModelId, listAvialableModels } from "./store";
+import { UIConfig, defaultModelId, listAvialableModels, useModel } from "../model/store";
 import Heading from "./Heading";
+import { showMessage } from "siyuan";
+import { SelectInput, TextInput } from "@/libs/components/Elements";
 
 
 const ChatSessionSetting = (props: {
@@ -58,12 +60,18 @@ const ChatSessionSetting = (props: {
                 title="辅助任务模型"
                 description="承担对话标题命名等杂活的模块；填入格式为 <code>Modelname@ProviderName</code>，比如 deepseek-chat@Deepseek<br/>如果不填写，就使用当前对话的模型; 或者填写 siyuan 代表使用思源内置的 AI 配置"
             >
-                <Form.Input
-                    type="textinput"
+                <TextInput
                     value={config().utilityModelId ?? ''}
-                    changed={(v) => {
-                        config.update('utilityModelId', v);
+                    onChanged={(v: string) => {
+                        const model = useModel(v, 'null');
+                        if (model) {
+                            config.update('utilityModelId', v);
+                        } else {
+                            showMessage(`错误的 ID，未找到模型 ${v}`, 3000, 'error');
+                            // config.update('utilityModelId', '');
+                        }
                     }}
+                    spellcheck={false}
                 />
             </Form.Wrap>
             <Form.Wrap
@@ -222,6 +230,27 @@ const ChatSessionSetting = (props: {
                         min: -2,
                         max: 2,
                         step: 0.05
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="Reasoning Effort"
+                description="OpenAI 系的推理模型允许指定推理强度"
+            >
+                <SelectInput
+                    value={config().chatOption.reasoning_effort}
+                    changed={(v: IChatCompleteOption['reasoning_effort'] | null) => {
+                        if (!v) return;
+                        config.update('chatOption', 'reasoning_effort', v);
+                    }}
+                    options={{
+                        "": "不设置",
+                        "none": "none",
+                        "minimal": "minimal",
+                        "low": "low",
+                        "medium": "medium",
+                        "high": "high",
+                        "xhigh": "xhing"
                     }}
                 />
             </Form.Wrap>

@@ -15,7 +15,7 @@ import URLProvider from './URLProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
-import { globalMiscConfigs, customContextProviders } from '../setting/store';
+import { globalMiscConfigs, customContextProviders } from '../model/store';
 import { inputDialogForProvider } from './InputForProvder';
 import { RecentUpdatedDocProvider } from './RecentDocProvider';
 import { UserInputProvider } from './UserInputProvider';
@@ -179,7 +179,7 @@ const executeContextProvider = async (provider: CustomContextProvider, options?:
     return context;
 }
 
-const assembleContext2Prompt = (contexts: IProvidedContext[]) => {
+const assembleContext2Prompt = (contexts: readonly IProvidedContext[]) => {
     if (contexts.length === 0) {
         return '';
     }
