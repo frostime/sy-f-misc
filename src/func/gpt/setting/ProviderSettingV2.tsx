@@ -170,6 +170,14 @@ const ModelConfigPanel: Component<{
                         changed={(v) => updateModel(index(), 'type', v)}
                     />
                 </Form.Wrap>
+
+                <Form.Wrap title="禁用" description="如果禁用, 则在对话模型列表中不会看到这一项">
+                    <Form.Input
+                        type="checkbox"
+                        value={model().disabled ?? false}
+                        changed={(v) => updateModel(index(), 'disabled', v)}
+                    />
+                </Form.Wrap>
             </div>
 
 
@@ -580,16 +588,15 @@ const ModelsListPanel: Component = () => {
                     renderBadge={(item) => {
                         const model = item as any as ILLMConfigV2;
                         return (
-                            <div style={{ 'display': 'flex', 'gap': '4px', 'font-size': '12px', 'color': 'var(--b3-theme-on-surface-light)' }}>
+                            <>
+                                <Show when={item.disabled}>
+                                    <SvgSymbol size="15px">iconEyeoff</SvgSymbol>
+                                </Show>
                                 <span style={{ 'background': 'var(--b3-theme-primary)', 'padding': '2px 6px', 'border-radius': '3px', 'color': 'var(--b3-theme-on-primary)' }}>
                                     {model.type}
                                 </span>
-                                {/* <Show when={model.modalities?.input?.includes('image')}>
-                                    <span title="支持图片输入">
-                                        <SvgSymbol size="14px">iconImage</SvgSymbol>
-                                    </span>
-                                </Show> */}
-                            </div>
+                            </>
+
                         );
                     }}
                 />
@@ -692,7 +699,7 @@ const ProviderEditForm: Component<{
                 'width': '100%',
                 'overflow': 'hidden',
                 background: 'var(--b3-theme-background)',
-                zoom: 1.2
+                zoom: 1.1
             }}>
                 {/* Tab Bar */}
                 <div style={{

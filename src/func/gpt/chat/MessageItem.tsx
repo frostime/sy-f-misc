@@ -62,27 +62,6 @@ const MessageItem: Component<{
         if (!images || images.length === 0) {
             return [];
         }
-        // images = images || [];
-        // //#TODO 修改，把 createObjectURL 工作全部交给 AttachmentList
-        // images = images.map(image => {
-        //     if (image.startsWith('data:image')) {
-        //         // 解析 data URL
-        //         const [header, base64data] = image.split(',');
-        //         // 将 base64 转换为二进制数组
-        //         const binaryData = atob(base64data);
-        //         const bytes = new Uint8Array(binaryData.length);
-        //         for (let i = 0; i < binaryData.length; i++) {
-        //             bytes[i] = binaryData.charCodeAt(i);
-        //         }
-        //         // 从 header 中获取 MIME 类型
-        //         const mimeType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-        //         // 创建 Blob
-        //         const blob = new Blob([bytes], { type: mimeType });
-        //         // #TODO 可能存在内存泄露
-        //         return URL.createObjectURL(blob);
-        //     }
-        //     return image;
-        // });
         return images;
     });
 

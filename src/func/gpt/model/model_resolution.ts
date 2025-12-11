@@ -32,6 +32,7 @@ export const listAvialableModels = (): Record<string, string> => {
     llmProviders().forEach((provider) => {
         if (provider.disabled) return;
         provider.models?.forEach((modelConfig) => {
+            if (modelConfig.disabled === true) return;
             const modelId = `${modelConfig.model}@${provider.name}`;
             const displayName = modelConfig.displayName ?? modelConfig.model;
             availableModels[modelId] = `(${provider.name}) ${displayName}`;

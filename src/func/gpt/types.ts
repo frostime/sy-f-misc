@@ -410,6 +410,8 @@ interface ILLMConfigV2 {
 
     type: LLMServiceType; // 决定使用 provider.endpoints 中的哪个路径
 
+    disabled?: boolean;
+
     modalities: {
         input: LLMModality[];
         output: LLMModality[];

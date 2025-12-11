@@ -21,13 +21,10 @@ const AttachmentList: Component<Props> = (props) => {
     const processedImages = createMemo(() => {
         // urlManager.revokeAll();
         if (!props.images) return [];
-        // 可能存在内存泄漏
         return props.images.map(img => {
             if (img instanceof Blob) {
-                // return URL.createObjectURL(img);
                 return urlManager.create(img);
             } else {
-                // 普通 URL
                 return img;
             }
         });
