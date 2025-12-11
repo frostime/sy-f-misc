@@ -75,7 +75,13 @@ const ChatSession: Component<{
     // const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
 
     // 删除历史面板状态管理
-    const showDeleteHistoryPanel = useSignalRef(false);
+    // const showDeleteHistoryPanel = useSignalRef(false);
+
+    const modelDisplayLable = createMemo(() => {
+        const runtimeLLM = model();
+        if (!runtimeLLM) return '';
+        return runtimeLLM.config?.displayName || runtimeLLM.model;
+    });
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -1124,7 +1130,7 @@ const ChatSession: Component<{
                             });
                         }}
                     >
-                        {model().model}
+                        {modelDisplayLable()}
                     </ToolbarLabel>
                     <ToolbarLabel onclick={openSetting} label='设置' role='setting' >
                         <SvgSymbol size="15px">iconSettings</SvgSymbol>

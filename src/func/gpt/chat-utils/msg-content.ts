@@ -1,5 +1,5 @@
 /*
- * 内容提取器 - 从消息中提取和解析各类内容
+ * 用来处理 TMessageContent 也就就是 IMessage['content'] 的模块
  */
 
 
@@ -16,6 +16,7 @@ import {
 
 export interface ExtractedContent {
     text: string;
+    textParts: string[],
     images: string[];
     audios: Array<{ data: string; format: 'wav' | 'mp3' }>;
     files: Array<{ data?: string; id?: string; filename?: string }>;
@@ -25,44 +26,42 @@ export interface ExtractedContent {
  * 从消息内容中提取各类媒体
  */
 export function extractMessageContent(content: TMessageContent): ExtractedContent {
-    const result: ExtractedContent = {
-        text: '',
-        images: [],
-        audios: [],
-        files: []
-    };
-
     if (typeof content === 'string') {
-        result.text = content;
-        return result;
+        return {
+            text: content,
+            textParts: [content],
+            images: [],
+            audios: [],
+            files: []
+        };
     }
 
-    for (const part of content) {
-        if (isTextContent(part)) {
-            result.text += (result.text ? '\n' : '') + part.text;
-        } else if (isImageContent(part)) {
-            result.images.push(part.image_url.url);
-        } else if (isAudioContent(part)) {
-            result.audios.push({
-                data: part.input_audio.data,
-                format: part.input_audio.format
-            });
-        } else if (isFileContent(part)) {
-            result.files.push({
-                data: part.file.file_data,
-                id: part.file.file_id,
-                filename: part.file.filename
-            });
-        }
-    }
+    const textParts = content.filter(isTextContent).map(p => p.text);
+    const images = content.filter(isImageContent).map(p => p.image_url.url);
+    const audios = content.filter(isAudioContent).map(p => ({
+        data: p.input_audio.data,
+        format: p.input_audio.format
+    }));
+    const files = content.filter(isFileContent).map(p => ({
+        data: p.file.file_data,
+        id: p.file.file_id,
+        filename: p.file.filename
+    }));
 
-    return result;
+    return {
+        text: textParts.join('\n'),
+        textParts,
+        images,
+        audios,
+        files
+    };
 }
+
 
 /**
  * 从消息中提取纯文本
  */
-export function extractText(content: TMessageContent): string {
+export function extractContentText(content: TMessageContent): string {
     if (typeof content === 'string') return content;
 
     return content
@@ -74,7 +73,7 @@ export function extractText(content: TMessageContent): string {
 /**
  * 从消息中提取图片 URLs
  */
-export function extractImages(content: TMessageContent): string[] {
+export function extractContentImages(content: TMessageContent): string[] {
     if (typeof content === 'string') return [];
 
     return content
@@ -85,7 +84,7 @@ export function extractImages(content: TMessageContent): string[] {
 /**
  * 从消息中提取音频
  */
-export function extractAudios(content: TMessageContent): Array<{ data: string; format: 'wav' | 'mp3' }> {
+export function extractContentAudios(content: TMessageContent): Array<{ data: string; format: 'wav' | 'mp3' }> {
     if (typeof content === 'string') return [];
 
     return content
@@ -99,7 +98,7 @@ export function extractAudios(content: TMessageContent): Array<{ data: string; f
 /**
  * 从消息中提取文件
  */
-export function extractFiles(content: TMessageContent): Array<{ data?: string; id?: string; filename?: string }> {
+export function extractContentFiles(content: TMessageContent): Array<{ data?: string; id?: string; filename?: string }> {
     if (typeof content === 'string') return [];
 
     return content
@@ -117,31 +116,43 @@ export function extractFiles(content: TMessageContent): Array<{ data?: string; i
 
 /**
  * 更新消息中的文本内容
+ * @param content 消息内容
+ * @param newText 新的文本内容
+ * @param partIndex 要更新的文本部分的索引，默认为 0（第一个）
  */
-export function updateText(content: TMessageContent, newText: string): TMessageContent {
+export function updateContentText(
+    content: TMessageContent,
+    newText: string,
+    partIndex: number = 0
+): TMessageContent {
     if (typeof content === 'string') {
         return newText;
     }
 
-    const newContent: IMessageContentPart[] = content.map(part => {
-        if (isTextContent(part)) {
+    const textPartIndices = content.reduce<number[]>((acc, part, index) => {
+        return isTextContent(part) ? [...acc, index] : acc;
+    }, []);
+
+    // 如果没有文本部分，使用展开运算符避免修改原本的 content
+    if (textPartIndices.length === 0) {
+        return [{ type: 'text', text: newText }, ...content];
+    }
+
+    const targetIndex = partIndex < 0 || partIndex >= textPartIndices.length
+        ? textPartIndices[textPartIndices.length - 1]
+        : textPartIndices[partIndex];
+
+    return content.map((part, index) => {
+        if (index === targetIndex && isTextContent(part)) {
             return { ...part, text: newText };
         }
         return part;
     });
-
-    // 如果没有文本部分，添加一个
-    if (!newContent.some(isTextContent)) {
-        newContent.unshift({ type: 'text', text: newText });
-    }
-
-    return newContent;
 }
-
 /**
  * 追加文本到消息
  */
-export function appendText(content: TMessageContent, appendText: string): TMessageContent {
+export function appendContentText(content: TMessageContent, appendText: string): TMessageContent {
     if (typeof content === 'string') {
         return content + appendText;
     }

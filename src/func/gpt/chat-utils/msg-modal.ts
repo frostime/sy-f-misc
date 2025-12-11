@@ -7,19 +7,19 @@
 // Type Guards
 // ============================================================================
 
-export function isTextContent(part: IMessageContentPart): part is ITextContentPart {
+export function isTextContent(part: TMessageContentPart): part is ITextContentPart {
     return part.type === 'text';
 }
 
-export function isImageContent(part: IMessageContentPart): part is IImageContentPart {
+export function isImageContent(part: TMessageContentPart): part is IImageContentPart {
     return part.type === 'image_url';
 }
 
-export function isAudioContent(part: IMessageContentPart): part is IAudioContentPart {
+export function isAudioContent(part: TMessageContentPart): part is IAudioContentPart {
     return part.type === 'input_audio';
 }
 
-export function isFileContent(part: IMessageContentPart): part is IFileContentPart {
+export function isFileContent(part: TMessageContentPart): part is IFileContentPart {
     return part.type === 'file';
 }
 

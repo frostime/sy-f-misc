@@ -15,15 +15,17 @@ import {
     mergeInputWithContext,
     applyMsgItemVersion,
     stageMsgItemVersion,
-    convertImgsToBase64Url,
+    // convertImgsToBase64Url,
     adaptIMessageContentSetter,
     isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
-import { assembleContext2Prompt } from '@gpt/context-provider';
+// import { assembleContext2Prompt } from '@gpt/context-provider';
 import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
 import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
+
+import { extractContentText, MessageBuilder, updateContentText } from '../../chat-utils';
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;
@@ -53,8 +55,11 @@ const useMessageManagement = (params: {
     }
 
     const appendUserMsg = async (msg: string, images?: Blob[], contexts?: IProvidedContext[]) => {
-        let content: IMessageContent[];
+        // let content: TMessageContentPart[];
 
+        const builder = new MessageBuilder();
+
+        // 附加 context
         let optionalFields: Partial<IChatSessionMsgItem> = {};
         if (contexts && contexts?.length > 0) {
             const result = mergeInputWithContext(msg, contexts);
@@ -63,27 +68,31 @@ const useMessageManagement = (params: {
             optionalFields['userPromptSlice'] = result.userPromptSlice;
         }
 
+        // if (images && images?.length > 0) {
+
+        //     content = [{
+        //         type: "text",
+        //         text: msg
+        //     }];
+
+        //     // 添加所有图片
+        //     const img_urls = await convertImgsToBase64Url(images);
+        //     content.push(...img_urls);
+        // }
+        builder.addText(msg);
         if (images && images?.length > 0) {
-
-            content = [{
-                type: "text",
-                text: msg
-            }];
-
-            // 添加所有图片
-            const img_urls = await convertImgsToBase64Url(images);
-            content.push(...img_urls);
+            await builder.addImages(images);
         }
+
+        const userMessage: IUserMessage = builder.buildUser();
+
         const timestamp = new Date().getTime();
         messages.update(prev => [...prev, {
             type: 'message',
             id: newID(),
             timestamp: timestamp,
             author: 'user',
-            message: {
-                role: 'user',
-                content: content ?? msg
-            },
+            message: userMessage,
             currentVersion: timestamp.toString(),
             versions: {},
             ...optionalFields
@@ -94,6 +103,7 @@ const useMessageManagement = (params: {
     /**
      * 在已经 appendUserMsg 的情况下，重新更新 context 内容
      */
+    /*
     const updateUserMsgContext = () => {
         // Get the latest messages
         const currentMessages = messages();
@@ -172,6 +182,7 @@ const useMessageManagement = (params: {
             return updatedMsg;
         });
     }
+    */
 
     const toggleSeperator = (index?: number) => {
         if (messages().length === 0) return;
@@ -330,7 +341,7 @@ const useMessageManagement = (params: {
     return {
         newID,
         appendUserMsg,
-        updateUserMsgContext,
+        // updateUserMsgContext,
         toggleSeperator,
         toggleSeperatorAt,
         toggleHidden,
@@ -490,11 +501,11 @@ ${inputContent}
      * @param scrollToBottom 滚动函数
      */
     const handleToolChain = async (
-        initialResponse: CompletionResponse,
+        initialResponse: ICompletionResult,
         contextMessages: IMessage[],
         targetIndex: number,
         scrollToBottom?: (force?: boolean) => void
-    ): Promise<CompletionResponse & { hintSize?: number; toolChainData?: IChatSessionMsgItem['toolChainResult'] }> => {
+    ): Promise<ICompletionResult & { hintSize?: number; toolChainData?: IChatSessionMsgItem['toolChainResult'] }> => {
         if (!params.toolExecutor || !initialResponse.tool_calls?.length) {
             return initialResponse;
         }
@@ -549,7 +560,7 @@ ${inputContent}
      * @param initialResponse 初始响应
      * @returns 处理后的响应
      */
-    const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: CompletionResponse): CompletionResponse & {
+    const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: ICompletionResult): ICompletionResult & {
         hintSize?: number;
         toolChainData?: IChatSessionMsgItem['toolChainResult'];
     } => {
@@ -568,7 +579,7 @@ ${inputContent}
                     status: toolChainResult.status,
                     error: toolChainResult.error
                 }
-            } as CompletionResponse & {
+            } as ICompletionResult & {
                 hintSize?: number;
                 toolChainData?: IChatSessionMsgItem['toolChainResult'];
             };
@@ -960,7 +971,26 @@ export const useSession = (props: {
             } else {
                 attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(isAttachable);
             }
+        } else if (itemNum < 0) {
+            // 负数表示无限窗口，附加所有历史记录直到遇到分隔符
+            let lastMessages: IChatSessionMsgItem[] = previousMessages;
+
+            //查找最后一个为 seperator 的消息
+            let lastSeperatorIndex = -1;
+            for (let i = lastMessages.length - 1; i >= 0; i--) {
+                if (lastMessages[i].type === 'seperator') {
+                    lastSeperatorIndex = i;
+                    break;
+                }
+            }
+
+            if (lastSeperatorIndex === -1) {
+                attachedMessages = lastMessages.filter(isAttachable);
+            } else {
+                attachedMessages = lastMessages.slice(lastSeperatorIndex + 1).filter(isAttachable);
+            }
         }
+        // 如果 itemNum === 0，attachedMessages 保持为空（仅固定消息）
 
         // 2. 获取被固定的消息 (Pinned Messages)
         // 规则：
@@ -1205,15 +1235,16 @@ export const useSession = (props: {
             // 记录版本删除到历史
             if (msgItem.versions?.[version]) {
                 const versionContent = msgItem.versions[version];
-                const content = typeof versionContent.content === 'string'
-                    ? versionContent.content
-                    : versionContent.content[0]?.text || '多媒体内容';
+                const textContent = extractContentText(versionContent.content);
+                // const content = typeof versionContent.content === 'string'
+                //     ? versionContent.content
+                //     : versionContent.content[0]?.text || '多媒体内容';
 
                 deleteHistory.addRecord({
                     type: 'version',
                     sessionId: sessionId(),
                     sessionTitle: title(),
-                    content: content,
+                    content: textContent.trim() || '多媒体内容',
                     timestamp: versionContent.timestamp || Date.now(),
                     author: versionContent.author,
                     versionId: version,
@@ -1252,7 +1283,8 @@ export const useSession = (props: {
             if (item.type !== 'message') return;
 
             const content = item.message.content;
-            let { text } = adaptIMessageContentGetter(content);
+            // let { text } = adaptIMessageContentGetter(content);
+            let text = extractContentText(content);
             let contextText = '';
 
             // 处理上下文切片
@@ -1264,18 +1296,20 @@ export const useSession = (props: {
             const newText = contextText + newContent;
 
             batch(() => {
-                if (Array.isArray(content)) {
-                    // 处理数组类型内容（包含图片等）
-                    const idx = content.findIndex(item => item.type === 'text');
-                    if (idx !== -1) {
-                        const updatedContent = [...content];
-                        updatedContent[idx] = { ...updatedContent[idx], text: newText };
-                        messages.update(index, 'message', 'content', updatedContent);
-                    }
-                } else if (typeof content === 'string') {
-                    // 处理字符串类型内容
-                    messages.update(index, 'message', 'content', newText);
-                }
+                // if (Array.isArray(content)) {
+                //     // 处理数组类型内容（包含图片等）
+                //     const idx = content.findIndex(item => item.type === 'text');
+                //     if (idx !== -1) {
+                //         const updatedContent = [...content];
+                //         updatedContent[idx] = { ...updatedContent[idx], text: newText };
+                //         messages.update(index, 'message', 'content', updatedContent);
+                //     }
+                // } else if (typeof content === 'string') {
+                //     // 处理字符串类型内容
+                //     messages.update(index, 'message', 'content', newText);
+                // }
+                const updatedContent = updateContentText(content, newText);
+                messages.update(index, 'message', 'content', updatedContent)
 
                 // 更新 userPromptSlice
                 if (contextText && contextText.length > 0) {
@@ -1301,9 +1335,10 @@ export const useSession = (props: {
             if (item.type !== 'message') return;
 
             // 记录消息删除到历史
-            const content = typeof item.message.content === 'string'
-                ? item.message.content
-                : item.message.content[0]?.text || '多媒体消息';
+            // const content = typeof item.message.content === 'string'
+            //     ? item.message.content
+            //     : item.message.content[0]?.text || '多媒体消息';
+            const content = extractContentText(item.message.content);
 
             deleteHistory.addRecord({
                 type: 'message',

@@ -1,10 +1,11 @@
 /*
  * 会话管理工具
  * 包含原 data-utils.ts 的功能
+ * 纯函数，避免 mutation 操作
  */
 
 
-import { extractText, updateText, extractMessageContent } from './msg-content';
+import { extractContentText } from './msg-content';
 import { assembleContext2Prompt } from '../context-provider';  // 保留原有的导入
 import { formatSingleItem } from '../persistence';  // 保留原有的导入
 
@@ -19,20 +20,41 @@ export function stageMsgItemVersion(
     item: IChatSessionMsgItem,
     version?: string
 ): IChatSessionMsgItem {
-    if (item.message) {
-        const versionId = version ?? (item.currentVersion ?? Date.now().toString());
-        item.versions = item.versions || {};
-        item.versions[versionId] = {
-            content: item.message.content,
-            reasoning_content: (item.message as any).reasoning_content || '',
-            author: item.author,
-            timestamp: item.timestamp,
-            token: item.token,
-            time: item.time
-        };
-        item.currentVersion = versionId;
+    // if (item.message) {
+    //     const versionId = version ?? (item.currentVersion ?? Date.now().toString());
+    //     item.versions = item.versions || {};
+    //     item.versions[versionId] = {
+    //         content: item.message.content,
+    //         reasoning_content: (item.message as any).reasoning_content || '',
+    //         author: item.author,
+    //         timestamp: item.timestamp,
+    //         token: item.token,
+    //         time: item.time
+    //     };
+    //     item.currentVersion = versionId;
+    // }
+    // return item;
+    if (!item.message) {
+        return item;
     }
-    return item;
+
+    const versionId = version ?? (item.currentVersion ?? Date.now().toString());
+
+    return {
+        ...item,
+        versions: {
+            ...(item.versions || {}),
+            [versionId]: {
+                content: item.message.content,
+                reasoning_content: (item.message as any).reasoning_content || '',
+                author: item.author,
+                timestamp: item.timestamp,
+                token: item.token,
+                time: item.time
+            }
+        },
+        currentVersion: versionId
+    };
 }
 
 /**
@@ -42,23 +64,44 @@ export function applyMsgItemVersion(
     item: IChatSessionMsgItem,
     version: string
 ): IChatSessionMsgItem {
-    if (item.versions && item.versions[version]) {
-        const selectedVersion = item.versions[version];
-        item.message!.content = selectedVersion.content;
+    // if (item.versions && item.versions[version]) {
+    //     const selectedVersion = item.versions[version];
+    //     item.message!.content = selectedVersion.content;
 
-        if (selectedVersion.reasoning_content) {
-            (item.message as any).reasoning_content = selectedVersion.reasoning_content;
-        } else if ((item.message as any).reasoning_content) {
-            (item.message as any).reasoning_content = '';
-        }
+    //     if (selectedVersion.reasoning_content) {
+    //         (item.message as any).reasoning_content = selectedVersion.reasoning_content;
+    //     } else if ((item.message as any).reasoning_content) {
+    //         (item.message as any).reasoning_content = '';
+    //     }
 
-        selectedVersion.author && (item.author = selectedVersion.author);
-        selectedVersion.timestamp && (item.timestamp = selectedVersion.timestamp);
-        selectedVersion.token && (item.token = selectedVersion.token);
-        selectedVersion.time && (item.time = selectedVersion.time);
-        item.currentVersion = version;
+    //     selectedVersion.author && (item.author = selectedVersion.author);
+    //     selectedVersion.timestamp && (item.timestamp = selectedVersion.timestamp);
+    //     selectedVersion.token && (item.token = selectedVersion.token);
+    //     selectedVersion.time && (item.time = selectedVersion.time);
+    //     item.currentVersion = version;
+    // }
+    // return item;
+    if (!item.versions || !item.versions[version]) {
+        return item;
     }
-    return item;
+
+    const selectedVersion = item.versions[version];
+
+    return {
+        ...item,
+        message: item.message ? {
+            ...item.message,
+            content: selectedVersion.content,
+            ...(selectedVersion.reasoning_content && {
+                reasoning_content: selectedVersion.reasoning_content
+            })
+        } : item.message,
+        ...(selectedVersion.author && { author: selectedVersion.author }),
+        ...(selectedVersion.timestamp && { timestamp: selectedVersion.timestamp }),
+        ...(selectedVersion.token && { token: selectedVersion.token }),
+        ...(selectedVersion.time && { time: selectedVersion.time }),
+        currentVersion: version
+    };
 }
 
 /**
@@ -74,7 +117,7 @@ export function isMsgItemWithMultiVersion(item: IChatSessionMsgItem): boolean {
 export function mergeMultiVersion(item: IChatSessionMsgItem): string {
     const allVersions = Object.values(item.versions || {});
     if (!allVersions.length) {
-        return extractText(item.message!.content);
+        return extractContentText(item.message!.content);
     }
 
     let mergedContent = '以下是对同一个问题的不同回复:\n\n';
@@ -82,7 +125,7 @@ export function mergeMultiVersion(item: IChatSessionMsgItem): string {
         if (v.content) {
             mergedContent += formatSingleItem(
                 item.message!.role.toUpperCase(),
-                extractText(v.content),
+                extractContentText(v.content),
                 {
                     version: (index + 1).toString(),
                     author: v.author
@@ -129,7 +172,7 @@ export function mergeInputWithContext(
  * 从 IChatSessionMsgItem 中提取用户实际输入（去除上下文）
  */
 export function extractUserInput(item: IChatSessionMsgItem): string {
-    const content = extractText(item.message!.content);
+    const content = extractContentText(item.message!.content);
 
     if (item.userPromptSlice) {
         const [start, end] = item.userPromptSlice;
@@ -157,7 +200,7 @@ export function estimateTokens(text: string): number {
  * 计算消息的字符数
  */
 export function countMessageChars(message: IMessage): number {
-    return extractText(message.content).length;
+    return extractContentText(message.content).length;
 }
 
 /**
@@ -192,10 +235,10 @@ export function calculateAttachmentInfo(
 /**
  * 创建空的消息项
  */
-export function createEmptyMsgItem(role: 'user' | 'assistant' | 'system'): IChatSessionMsgItem {
+export function createEmptyMsgItem(role: 'user' | 'assistant' | 'system', idGenerator: () => string = generateId): IChatSessionMsgItem {
     return {
         type: 'message',
-        id: generateId(),
+        id: idGenerator(),
         message: {
             role,
             content: ''
@@ -235,6 +278,6 @@ export function cloneMsgItem(item: IChatSessionMsgItem): IChatSessionMsgItem {
  */
 export function isMsgItemEmpty(item: IChatSessionMsgItem): boolean {
     if (item.type !== 'message' || !item.message) return true;
-    const text = extractText(item.message.content);
+    const text = extractContentText(item.message.content);
     return text.trim() === '';
 }

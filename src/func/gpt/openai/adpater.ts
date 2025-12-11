@@ -96,7 +96,7 @@ export const adaptChatOptions = (target: {
 
     // Step 2: Remove null/undefined values
     for (const key in chatOption) {
-        if (chatOption[key] === null || chatOption[key] === undefined) {
+        if (chatOption[key] === null || chatOption[key] === undefined || chatOption[key] === '') {
             delete chatOption[key];
         }
     }
@@ -127,24 +127,26 @@ export const adaptChatOptions = (target: {
     if (config?.capabilities) {
         const disabledKeys = [];
         // Tools support
-        if (config.capabilities.tools === false && chatOption.tools) {
+        if (config.capabilities.tools !== true && chatOption.tools) {
             delete chatOption.tools;
             delete chatOption.tool_choice;
             disabledKeys.push('tools');
         }
 
         // Streaming support
-        if (config.capabilities.streaming === false && chatOption.stream) {
+        if (config.capabilities.streaming !== true && chatOption.stream) {
             chatOption.stream = false;
             disabledKeys.push('stream');
         }
 
         // Reasoning effort support
-        if (config.capabilities.reasoningEffort === false && chatOption.reasoning_effort) {
+        if (config.capabilities.reasoningEffort !== true && chatOption.reasoning_effort) {
             delete chatOption.reasoning_effort;
             disabledKeys.push('reasoning_effort');
         }
-        showMessage(`${runtimeLLM.bareId} 不支持参数 ${disabledKeys.join(', ')}, 已自动移除`);
+        if (disabledKeys.length) {
+            showMessage(`${runtimeLLM.bareId} 不支持参数 ${disabledKeys.join(', ')}, 已自动移除`);
+        }
     }
 
     // Step 6: Existing cleanup logic (delete default values)

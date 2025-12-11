@@ -17,7 +17,7 @@ import {
 // ============================================================================
 
 export class MessageBuilder {
-    private parts: IMessageContentPart[] = [];
+    private parts: TMessageContentPart[] = [];
 
     /**
      * 添加文本
@@ -178,21 +178,4 @@ export function systemMessage(text: string, name?: string): ISystemMessage {
  */
 export function assistantMessage(text: string, name?: string): IAssistantMessage {
     return { role: 'assistant', content: text, name };
-}
-
-/**
- * 批量构建图文消息
- */
-export async function createImageTextMessage(
-    text: string,
-    images: (Blob | File | string)[],
-    options?: {
-        name?: string;
-        imageOptions?: ImageProcessOptions & { detail?: 'auto' | 'low' | 'high' };
-    }
-): Promise<IUserMessage> {
-    const builder = createMessage();
-    builder.addText(text);
-    await builder.addImages(images, options?.imageOptions);
-    return builder.buildUser(options?.name);
 }

@@ -74,6 +74,7 @@ const MessageItem: Component<{
                 const mimeType = header.match(/data:(.*?);/)?.[1] || 'image/jpeg';
                 // 创建 Blob
                 const blob = new Blob([bytes], { type: mimeType });
+                // #TODO 可能存在内存泄露
                 return URL.createObjectURL(blob);
             }
             return image;
@@ -671,12 +672,22 @@ const MessageItem: Component<{
     };
 
     const ReasoningSection = () => {
+        const isAssistant = () => props.messageItem.message?.role === 'assistant';
+
+        const reasoningContent = () => {
+            if (isAssistant()) {
+                const message = props.messageItem.message;
+                return message.reasoning_content;
+            }
+            return null;
+        }
+
         const copyReasoningContent = (e: MouseEvent) => {
             e.stopImmediatePropagation();
             e.preventDefault();
             try {
                 document.body.focus();
-                navigator.clipboard.writeText(props.messageItem.message.reasoning_content);
+                navigator.clipboard.writeText(reasoningContent());
                 showMessage('已复制推理过程到剪贴板');
             } catch (error) {
                 console.error('剪贴板操作失败:', error);
@@ -685,7 +696,7 @@ const MessageItem: Component<{
         };
 
         return (
-            <Show when={props.messageItem.message.reasoning_content}>
+            <Show when={reasoningContent()}>
                 <details class={styles.reasoningDetails}>
                     <summary>
                         推理过程

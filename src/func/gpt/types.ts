@@ -58,18 +58,18 @@ interface IFileContentPart {
 /**
  * 内容部分联合类型
  */
-type IMessageContentPart =
+type TMessageContentPart =
     | ITextContentPart
     | IImageContentPart
     | IAudioContentPart
     | IFileContentPart
-    // | string;
+// | string;
 
 /**
  * 消息内容类型
  * 可以是简单字符串，或内容部分数组
  */
-type TMessageContent = string | IMessageContentPart[];
+type TMessageContent = string | TMessageContentPart[];
 
 // ============================================================================
 // Message Types
@@ -114,6 +114,17 @@ interface IToolMessage {
     tool_call_id: string;
 }
 
+interface IMessageLoose {
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: TMessageContent | string | null;
+    name?: string;
+    refusal?: string | null;
+    reasoning_content?: string;
+    tool_calls?: IToolCall[];
+    tool_call_id?: string;
+    [key: string]: any;
+}
+
 /**
  * 消息联合类型
  */
@@ -124,14 +135,14 @@ type IMessageStrict =
     | IToolMessage;
 
 // 较为宽松，规避严格类型检查
-type IMessageLoose = {
-    role: 'user' | 'assistant' | 'system' | 'tool';
-    content: TMessageContent;
-    reasoning_content?: string;
-    tool_call_id?: string;
-    tool_calls?: IToolCallResponse[];
-    [key: string]: any;
-}
+// type IMessageLoose = {
+//     role: 'user' | 'assistant' | 'system' | 'tool';
+//     content: TMessageContent;
+//     reasoning_content?: string;
+//     tool_call_id?: string;
+//     tool_calls?: IToolCallResponse[];
+//     [key: string]: any;
+// };
 
 type IMessage = IMessageStrict | IMessageLoose;
 
@@ -455,7 +466,7 @@ interface IChatSessionMsgItem {
     */
     type: 'message' | 'seperator';
     id: string;
-    message?: IMessage;  // 如果多版本 versions 存在, 则 message === versions[currentVersion]
+    message?: IMessageLoose;  // 如果多版本 versions 存在, 则 message === versions[currentVersion]
     currentVersion?: string; // 当前 version
     versions?: Record<string, {
         content: IMessage['content'];

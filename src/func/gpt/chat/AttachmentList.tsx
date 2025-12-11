@@ -16,6 +16,7 @@ interface Props {
 const AttachmentList: Component<Props> = (props) => {
     const processedImages = createMemo(() => {
         if (!props.images) return [];
+        // 可能存在内存泄漏
         return props.images.map(img => {
             if (img instanceof Blob) {
                 return URL.createObjectURL(img);
