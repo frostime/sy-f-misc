@@ -7,7 +7,7 @@ import { useSignalRef } from "@frostime/solid-signal-ref";
 import { removeDoc } from "@/api";
 import { solidDialog } from "@/libs/dialog";
 
-import { adaptIMessageContentGetter } from "@gpt/data-utils";
+import { extractMessageContent } from "@gpt/chat-utils";
 import * as persist from '@gpt/persistence';
 import TitleTagEditor from "./TitleTagEditor";
 import styles from "./HistoryList.module.scss";
@@ -474,7 +474,7 @@ const HistoryList = (props: {
                 // 在完整消息中搜索
                 for (const messageItem of item.items) {
                     if (messageItem.type !== 'message' || !messageItem.message?.content) continue;
-                    const { text } = adaptIMessageContentGetter(messageItem.message.content);
+                    const { text } = extractMessageContent(messageItem.message.content);
                     if (text.toLowerCase().includes(query)) return true;
                     if (messageItem.author && messageItem.author.toLowerCase().includes(query)) return true;
                 }
@@ -515,7 +515,7 @@ const HistoryList = (props: {
 
             const items = messageItems.slice(0, 2);
             const content = items.map(item => {
-                const { text } = adaptIMessageContentGetter(item.message.content);
+                const { text } = extractMessageContent(item.message.content);
                 return (item.author || 'unknown') + ": " + text.replace(/\n/g, " ");
             }).join("\n");
 

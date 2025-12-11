@@ -6,7 +6,7 @@ import { solidDialog } from '@/libs/dialog';
 import { floatingEditor } from '@/libs/components/floating-editor';
 
 import { convertMathFormulas } from '@gpt/utils';
-import { adaptIMessageContentGetter } from '@gpt/data-utils';
+import { extractMessageContent } from '@gpt/chat-utils';
 import { defaultConfig } from '@/func/gpt/model/store';
 import * as persist from '@gpt/persistence';
 
@@ -45,7 +45,7 @@ const MessageItem: Component<{
     const markdownRenderer = createMarkdownRenderer();
 
     const textContent = createMemo(() => {
-        let { text } = adaptIMessageContentGetter(props.messageItem.message.content);
+        let { text } = extractMessageContent(props.messageItem.message.content);
         if (props.messageItem.userPromptSlice) {
             //隐藏 context prompt，现在 context 在用户输入前面
             text = text.slice(props.messageItem.userPromptSlice[0], props.messageItem.userPromptSlice[1]);
@@ -58,7 +58,7 @@ const MessageItem: Component<{
     });
 
     const imageUrls = createMemo(() => {
-        let { images } = adaptIMessageContentGetter(props.messageItem.message.content);
+        let { images } = extractMessageContent(props.messageItem.message.content);
         images = images || [];
         images = images.map(image => {
             if (image.startsWith('data:image')) {
@@ -93,7 +93,7 @@ const MessageItem: Component<{
     });
 
     const msgLength = createMemo(() => {
-        let { text } = adaptIMessageContentGetter(props.messageItem.message.content);
+        let { text } = extractMessageContent(props.messageItem.message.content);
         return text.length;
     });
 
@@ -467,7 +467,7 @@ const MessageItem: Component<{
             icon: 'iconPreview',
             label: '查看原始 Prompt',
             click: () => {
-                const { text } = adaptIMessageContentGetter(props.messageItem.message.content);
+                const { text } = extractMessageContent(props.messageItem.message.content);
                 inputDialog({
                     title: '原始 Prompt',
                     defaultText: text,

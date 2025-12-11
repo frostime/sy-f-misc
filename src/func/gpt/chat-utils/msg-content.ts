@@ -25,7 +25,7 @@ export interface ExtractedContent {
 /**
  * 从消息内容中提取各类媒体
  */
-export function extractMessageContent(content: TMessageContent): ExtractedContent {
+export function extractMessageContent(content: Readonly<TMessageContent>): ExtractedContent {
     if (typeof content === 'string') {
         return {
             text: content,
@@ -61,7 +61,7 @@ export function extractMessageContent(content: TMessageContent): ExtractedConten
 /**
  * 从消息中提取纯文本
  */
-export function extractContentText(content: TMessageContent): string {
+export function extractContentText(content: Readonly<TMessageContent>): string {
     if (typeof content === 'string') return content;
 
     return content
@@ -73,7 +73,7 @@ export function extractContentText(content: TMessageContent): string {
 /**
  * 从消息中提取图片 URLs
  */
-export function extractContentImages(content: TMessageContent): string[] {
+export function extractContentImages(content: Readonly<TMessageContent>): string[] {
     if (typeof content === 'string') return [];
 
     return content
@@ -84,7 +84,7 @@ export function extractContentImages(content: TMessageContent): string[] {
 /**
  * 从消息中提取音频
  */
-export function extractContentAudios(content: TMessageContent): Array<{ data: string; format: 'wav' | 'mp3' }> {
+export function extractContentAudios(content: Readonly<TMessageContent>): Array<{ data: string; format: 'wav' | 'mp3' }> {
     if (typeof content === 'string') return [];
 
     return content
@@ -98,7 +98,7 @@ export function extractContentAudios(content: TMessageContent): Array<{ data: st
 /**
  * 从消息中提取文件
  */
-export function extractContentFiles(content: TMessageContent): Array<{ data?: string; id?: string; filename?: string }> {
+export function extractContentFiles(content: Readonly<TMessageContent>): Array<{ data?: string; id?: string; filename?: string }> {
     if (typeof content === 'string') return [];
 
     return content
@@ -121,7 +121,7 @@ export function extractContentFiles(content: TMessageContent): Array<{ data?: st
  * @param partIndex 要更新的文本部分的索引，默认为 0（第一个）
  */
 export function updateContentText(
-    content: TMessageContent,
+    content: Readonly<TMessageContent>,
     newText: string,
     partIndex: number = 0
 ): TMessageContent {
@@ -152,7 +152,7 @@ export function updateContentText(
 /**
  * 追加文本到消息
  */
-export function appendContentText(content: TMessageContent, appendText: string): TMessageContent {
+export function appendContentText(content: Readonly<TMessageContent>, appendText: string): TMessageContent {
     if (typeof content === 'string') {
         return content + appendText;
     }
@@ -167,7 +167,7 @@ export function appendContentText(content: TMessageContent, appendText: string):
  * 移除指定类型的内容
  */
 export function removeContentType(
-    content: TMessageContent,
+    content: Readonly<TMessageContent>,
     type: 'text' | 'image_url' | 'input_audio' | 'file'
 ): TMessageContent {
     if (typeof content === 'string') {
@@ -187,7 +187,7 @@ export function removeContentType(
 /**
  * 统计各类型内容数量
  */
-export function countContentTypes(content: TMessageContent): {
+export function countContentTypes(content: Readonly<TMessageContent>): {
     text: number;
     images: number;
     audios: number;
@@ -208,7 +208,7 @@ export function countContentTypes(content: TMessageContent): {
 /**
  * 检查消息是否包含多模态内容
  */
-export function isMultimodal(content: TMessageContent): boolean {
+export function isMultimodal(content: Readonly<TMessageContent>): boolean {
     if (typeof content === 'string') return false;
     const counts = countContentTypes(content);
     return counts.images > 0 || counts.audios > 0 || counts.files > 0;
@@ -217,7 +217,7 @@ export function isMultimodal(content: TMessageContent): boolean {
 /**
  * 获取消息的模态类型列表
  */
-export function getModalities(content: TMessageContent): ('text' | 'image' | 'audio' | 'file')[] {
+export function getModalities(content: Readonly<TMessageContent>): ('text' | 'image' | 'audio' | 'file')[] {
     const modalities: Set<'text' | 'image' | 'audio' | 'file'> = new Set();
 
     if (typeof content === 'string') {
@@ -243,7 +243,7 @@ export function getModalities(content: TMessageContent): ('text' | 'image' | 'au
  * 兼容旧的 adaptIMessageContentGetter
  * @deprecated 使用 extractContent 代替
  */
-export function adaptIMessageContentGetter(content: TMessageContent) {
+export function adaptIMessageContentGetter(content: Readonly<TMessageContent>) {
     const extracted = extractMessageContent(content);
     return {
         text: extracted.text,

@@ -179,7 +179,7 @@ const executeContextProvider = async (provider: CustomContextProvider, options?:
     return context;
 }
 
-const assembleContext2Prompt = (contexts: IProvidedContext[]) => {
+const assembleContext2Prompt = (contexts: readonly IProvidedContext[]) => {
     if (contexts.length === 0) {
         return '';
     }

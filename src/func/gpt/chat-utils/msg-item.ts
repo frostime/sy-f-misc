@@ -17,7 +17,7 @@ import { formatSingleItem } from '../persistence';  // 保留原有的导入
  * 将当前 message 存储到 versions 中
  */
 export function stageMsgItemVersion(
-    item: IChatSessionMsgItem,
+    item: Readonly<IChatSessionMsgItem>,
     version?: string
 ): IChatSessionMsgItem {
     // if (item.message) {
@@ -61,7 +61,7 @@ export function stageMsgItemVersion(
  * 应用指定版本到当前 message
  */
 export function applyMsgItemVersion(
-    item: IChatSessionMsgItem,
+    item: Readonly<IChatSessionMsgItem>,
     version: string
 ): IChatSessionMsgItem {
     // if (item.versions && item.versions[version]) {
@@ -107,14 +107,14 @@ export function applyMsgItemVersion(
 /**
  * 检查是否有多个版本
  */
-export function isMsgItemWithMultiVersion(item: IChatSessionMsgItem): boolean {
+export function isMsgItemWithMultiVersion(item: Readonly<IChatSessionMsgItem>): boolean {
     return item.versions !== undefined && Object.keys(item.versions).length > 1;
 }
 
 /**
  * 合并所有版本为一个文本（用于显示）
  */
-export function mergeMultiVersion(item: IChatSessionMsgItem): string {
+export function mergeMultiVersion(item: Readonly<IChatSessionMsgItem>): string {
     const allVersions = Object.values(item.versions || {});
     if (!allVersions.length) {
         return extractContentText(item.message!.content);
@@ -146,7 +146,7 @@ export function mergeMultiVersion(item: IChatSessionMsgItem): string {
  */
 export function mergeInputWithContext(
     input: string,
-    contexts: IProvidedContext[]
+    contexts: readonly IProvidedContext[]
 ): {
     content: string;
     userPromptSlice: [number, number];
@@ -171,15 +171,27 @@ export function mergeInputWithContext(
 /**
  * 从 IChatSessionMsgItem 中提取用户实际输入（去除上下文）
  */
-export function extractUserInput(item: IChatSessionMsgItem): string {
+export function splitUserPrompt(item: Readonly<IChatSessionMsgItem>) {
     const content = extractContentText(item.message!.content);
+
+    const parts = {
+        attachedPrompt: '',
+        userPrompt: '',
+        userPromptSlice: [0, 0] as [number, number]
+    }
 
     if (item.userPromptSlice) {
         const [start, end] = item.userPromptSlice;
-        return content.slice(start, end);
+        // return content.slice(start, end);
+        parts.attachedPrompt = content.slice(0, start);
+        parts.userPrompt = content.slice(start, end);
+        parts.userPromptSlice = [start, end];
+    } else {
+        parts.userPrompt = content;
+        parts.userPromptSlice = [0, content.length];
     }
 
-    return content;
+    return parts;
 }
 
 // ============================================================================
@@ -207,8 +219,8 @@ export function countMessageChars(message: IMessage): number {
  * 计算会话项的附加信息
  */
 export function calculateAttachmentInfo(
-    item: IChatSessionMsgItem,
-    previousItems: IChatSessionMsgItem[]
+    item: Readonly<IChatSessionMsgItem>,
+    // previousItems: IChatSessionMsgItem[]
 ): {
     attachedItems: number;
     attachedChars: number;
@@ -269,14 +281,14 @@ function generateId(): string {
 /**
  * 克隆消息项（深拷贝）
  */
-export function cloneMsgItem(item: IChatSessionMsgItem): IChatSessionMsgItem {
+export function cloneMsgItem(item: Readonly<IChatSessionMsgItem>): IChatSessionMsgItem {
     return JSON.parse(JSON.stringify(item));
 }
 
 /**
  * 检查消息项是否为空
  */
-export function isMsgItemEmpty(item: IChatSessionMsgItem): boolean {
+export function isMsgItemEmpty(item: Readonly<IChatSessionMsgItem>): boolean {
     if (item.type !== 'message' || !item.message) return true;
     const text = extractContentText(item.message.content);
     return text.trim() === '';

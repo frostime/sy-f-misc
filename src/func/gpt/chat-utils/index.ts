@@ -13,7 +13,7 @@ export * from './msg-builder';
 export * from './msg-content';
 
 // Session Utils
-export * from './session';
+export * from './msg-item';
 
 // Validation
 // export * from './validation';

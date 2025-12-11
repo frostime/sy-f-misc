@@ -11,12 +11,9 @@ import { createSimpleContext } from '@/libs/simple-context';
 import * as gpt from '@gpt/openai';
 import { globalMiscConfigs, useModel } from '@/func/gpt/model/store';
 import {
-    adaptIMessageContentGetter,
     mergeInputWithContext,
     applyMsgItemVersion,
     stageMsgItemVersion,
-    // convertImgsToBase64Url,
-    adaptIMessageContentSetter,
     isMsgItemWithMultiVersion
 } from '@gpt/data-utils';
 // import { assembleContext2Prompt } from '@gpt/context-provider';
@@ -25,7 +22,7 @@ import { executeToolChain } from '@gpt/tools/toolchain';
 import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
 
-import { extractContentText, MessageBuilder, updateContentText } from '../../chat-utils';
+import { extractContentText, extractMessageContent, MessageBuilder, updateContentText } from '../../chat-utils';
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;
@@ -271,7 +268,8 @@ const useMessageManagement = (params: {
             };
             // 更新当前消息为新版本
             // stagedItem.message.content = content;
-            stagedItem.message.content = adaptIMessageContentSetter(stagedItem.message.content, content);
+            // stagedItem.message.content = adaptIMessageContentSetter(stagedItem.message.content, content);
+            stagedItem.message.content = updateContentText(stagedItem.message.content, content);
             stagedItem.author = 'User';
             stagedItem.timestamp = new Date().getTime();
             stagedItem.currentVersion = newVersionId;
@@ -462,7 +460,7 @@ const useGptCommunication = (params: {
         let averageLimit = Math.floor(sizeLimit / histories.length);
 
         let inputContent = histories.map(item => {
-            let { text } = adaptIMessageContentGetter(item.content);
+            const { text } = extractMessageContent(item.content);
             let clippedContent = text.substring(0, averageLimit);
             if (clippedContent.length < text.length) {
                 clippedContent += '...(clipped as too long)'

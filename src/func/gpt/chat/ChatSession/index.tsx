@@ -46,10 +46,7 @@ import {
 import * as persist from '@gpt/persistence';
 import { getContextProviders, executeContextProvider, executeContextProviderDirect } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
-// import {
-//     adaptIMessageContentGetter,
-//     isMsgItemWithMultiVersion
-// } from '@gpt/data-utils';
+
 import BlocksProvider from '@gpt/context-provider/BlocksProvider';
 import { truncateContent } from '../../tools/utils';
 
