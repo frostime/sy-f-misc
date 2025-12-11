@@ -5,7 +5,7 @@ import { createSignalRef, createStoreRef } from "@frostime/solid-signal-ref";
 import * as api from '@/api';
 import { showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
-import TextInput from "@/libs/components/text-input";
+import TextInput from "@/libs/components/Elements/TextInput";
 import { fb2p } from "@/libs";
 
 function isnot(value: any) {
@@ -269,7 +269,7 @@ const TransferRefs: Component<{
                     display: 'flex', "align-items": 'center',
                     gap: '8px', 'justify-content': 'space-between'
                 }}>
-                    <TextInput text={selectedDst()} update={id => selectedDst(id)} />
+                    <TextInput value={selectedDst()} onChanged={id => selectedDst(id)} />
                     <button class="b3-button b3-button--text" onClick={handleTransfer}>
                         转移引用
                     </button>
