@@ -1,7 +1,8 @@
-import { Component, For, createMemo } from 'solid-js';
+import { Component, For, createMemo, onCleanup } from 'solid-js';
 import { simpleDialog } from '@frostime/siyuan-plugin-kits';
 import { solidDialog } from '@/libs/dialog';
 import styles from './AttachmentList.module.scss';
+import { createObjectURLManager } from '../chat-utils';
 
 type ImageSource = Blob | string;
 
@@ -14,19 +15,26 @@ interface Props {
 }
 
 const AttachmentList: Component<Props> = (props) => {
+
+    const urlManager = createObjectURLManager()
+
     const processedImages = createMemo(() => {
+        // urlManager.revokeAll();
         if (!props.images) return [];
         // 可能存在内存泄漏
         return props.images.map(img => {
             if (img instanceof Blob) {
-                return URL.createObjectURL(img);
-            } else if (img.startsWith('data:image')) {
-                return img;
+                // return URL.createObjectURL(img);
+                return urlManager.create(img);
             } else {
                 // 普通 URL
                 return img;
             }
         });
+    });
+
+    onCleanup(() => {
+        urlManager.revokeAll();
     });
 
     const showFullImage = (url: string) => {

@@ -253,6 +253,7 @@ const useMessageManagement = (params: {
     }
 
     const addMsgItemVersion = (itemId: string, content: string) => {
+        // #BUG 如果是附带了 tool  等；涉及到 prompt sclice 的场景，这里会有 bug
         const index = messages().findIndex(item => item.id === itemId);
         if (index === -1) return;
         messages.update(index, (prev: IChatSessionMsgItem) => {
