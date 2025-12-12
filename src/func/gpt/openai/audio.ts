@@ -1,0 +1,391 @@
+import { appendLog } from "../MessageLogger";
+
+// ============================================================================
+// Audio Transcription Types (Speech-to-Text)
+// ============================================================================
+
+export interface IAudioTranscriptionOptions {
+    file: File | Blob;
+    model?: string;
+    language?: string;
+    prompt?: string;
+    response_format?: "json" | "text" | "srt" | "verbose_json" | "vtt";
+    temperature?: number;
+    timestamp_granularities?: ("word" | "segment")[];
+}
+
+export interface IAudioTranscriptionResult {
+    ok?: boolean;
+    text?: string;
+    language?: string;
+    duration?: number;
+    words?: Array<{
+        word: string;
+        start: number;
+        end: number;
+    }>;
+    segments?: Array<{
+        id: number;
+        start: number;
+        end: number;
+        text: string;
+    }>;
+    error?: string;
+}
+
+// ============================================================================
+// Text-to-Speech Types
+// ============================================================================
+
+export interface ITextToSpeechOptions {
+    input: string;
+    model?: string;
+    voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+    response_format?: "mp3" | "opus" | "aac" | "flac" | "wav" | "pcm";
+    speed?: number;
+}
+
+export interface ITextToSpeechResult {
+    ok?: boolean;
+    audio?: Blob;
+    audioUrl?: string;
+    error?: string;
+    format?: string;
+    duration?: number;
+}
+
+// ============================================================================
+// Audio Transcription Implementation (Speech-to-Text)
+// ============================================================================
+
+/**
+ * Transcribe audio to text using Whisper
+ * @param options - Audio transcription options
+ * @param runtimeModel - Runtime LLM configuration
+ * @returns Promise with transcription result
+ */
+export const transcribeAudio = async (
+    options: IAudioTranscriptionOptions,
+    runtimeModel?: IRuntimeLLM
+): Promise<IAudioTranscriptionResult> => {
+    if (!runtimeModel) {
+        return {
+            ok: false,
+            error: 'Error: 无法获取音频转录模型，请先在设置中添加并选择一个模型。'
+        };
+    }
+
+    try {
+        const { url, apiKey, provider, config } = runtimeModel;
+
+        // Get the endpoint for audio transcriptions
+        const endpoint = provider?.endpoints?.audio_transcriptions || '/audio/transcriptions';
+        const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+
+        // Build FormData for multipart/form-data request
+        const formData = new FormData();
+        formData.append('file', options.file);
+        formData.append('model', options.model || config?.model || 'whisper-1');
+
+        if (options.language) formData.append('language', options.language);
+        if (options.prompt) formData.append('prompt', options.prompt);
+        if (options.response_format) formData.append('response_format', options.response_format);
+        if (options.temperature !== undefined) formData.append('temperature', options.temperature.toString());
+        if (options.timestamp_granularities) {
+            options.timestamp_granularities.forEach(granularity => {
+                formData.append('timestamp_granularities[]', granularity);
+            });
+        }
+
+        appendLog({
+            type: 'request', data: {
+                hasAudioFile: true,
+                model: options.model,
+                language: options.language,
+                response_format: options.response_format
+            }
+        });
+
+        const response = await fetch(fullUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                ...(provider?.customHeaders || {})
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            appendLog({ type: 'response', data: errorData });
+            return {
+                ok: false,
+                error: errorData ? JSON.stringify(errorData) : `HTTP error! status: ${response.status}`
+            };
+        }
+
+        // Handle different response formats
+        const responseFormat = options.response_format || 'json';
+        let result: IAudioTranscriptionResult;
+
+        if (responseFormat === 'text') {
+            const text = await response.text();
+            result = {
+                ok: true,
+                text: text
+            };
+        } else if (responseFormat === 'verbose_json') {
+            const data = await response.json();
+            result = {
+                ok: true,
+                text: data.text,
+                language: data.language,
+                duration: data.duration,
+                words: data.words,
+                segments: data.segments?.map((seg: any) => ({
+                    id: seg.id,
+                    start: seg.start,
+                    end: seg.end,
+                    text: seg.text
+                }))
+            };
+        } else if (responseFormat === 'srt' || responseFormat === 'vtt') {
+            const text = await response.text();
+            result = {
+                ok: true,
+                text: text
+            };
+        } else {
+            const data = await response.json();
+            result = {
+                ok: true,
+                text: data.text
+            };
+        }
+
+        appendLog({ type: 'response', data: result });
+        return result;
+
+    } catch (error) {
+        return {
+            ok: false,
+            error: `Failed to transcribe audio: ${error}`
+        };
+    }
+};
+
+// ============================================================================
+// Text-to-Speech Implementation
+// ============================================================================
+
+/**
+ * Generate speech from text using TTS
+ * @param options - Text-to-speech options
+ * @param runtimeModel - Runtime LLM configuration
+ * @returns Promise with audio result
+ */
+export const textToSpeech = async (
+    options: ITextToSpeechOptions,
+    runtimeModel?: IRuntimeLLM
+): Promise<ITextToSpeechResult> => {
+    if (!runtimeModel) {
+        return {
+            ok: false,
+            error: 'Error: 无法获取语音合成模型，请先在设置中添加并选择一个模型。'
+        };
+    }
+
+    try {
+        const { url, apiKey, provider, config } = runtimeModel;
+
+        // Get the endpoint for audio speech
+        const endpoint = provider?.endpoints?.audio_speech || '/audio/speech';
+        const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+
+        // Build request payload
+        const payload: any = {
+            input: options.input,
+            model: options.model || config?.model || 'tts-1',
+            voice: options.voice,
+        };
+
+        if (options.response_format) payload.response_format = options.response_format;
+        if (options.speed !== undefined) payload.speed = options.speed;
+
+        appendLog({ type: 'request', data: payload });
+
+        const response = await fetch(fullUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                ...(provider?.customHeaders || {})
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            appendLog({ type: 'response', data: errorData });
+            return {
+                ok: false,
+                error: errorData ? JSON.stringify(errorData) : `HTTP error! status: ${response.status}`
+            };
+        }
+
+        // Get audio as Blob
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        appendLog({ type: 'response', data: { audioGenerated: true, size: audioBlob.size } });
+
+        return {
+            ok: true,
+            audio: audioBlob,
+            audioUrl: audioUrl,
+            format: options.response_format || 'mp3'
+        };
+
+    } catch (error) {
+        return {
+            ok: false,
+            error: `Failed to generate speech: ${error}`
+        };
+    }
+};
+
+// ============================================================================
+// Conversion to ICompletionResult
+// ============================================================================
+
+/**
+ * Convert IAudioTranscriptionResult to ICompletionResult for display in chat
+ * @param transcriptionResult - Audio transcription result
+ * @param options - Conversion options
+ * @returns ICompletionResult with transcribed text and timestamps
+ */
+export const transcriptionResultToCompletion = (
+    transcriptionResult: IAudioTranscriptionResult,
+    options?: {
+        showTimestamps?: boolean;
+        showSegments?: boolean;
+    }
+): ICompletionResult => {
+    if (!transcriptionResult.ok) {
+        return {
+            ok: false,
+            content: `**音频转录失败**\n\n${transcriptionResult.error}`,
+            usage: null
+        };
+    }
+
+    const lines: string[] = [];
+
+    // Add metadata
+    const metadata: string[] = [];
+    if (transcriptionResult.language) metadata.push(`语言: ${transcriptionResult.language}`);
+    if (transcriptionResult.duration) {
+        const minutes = Math.floor(transcriptionResult.duration / 60);
+        const seconds = Math.floor(transcriptionResult.duration % 60);
+        metadata.push(`时长: ${minutes}:${seconds.toString().padStart(2, '0')}`);
+    }
+
+    if (metadata.length > 0) {
+        lines.push(`*${metadata.join(' | ')}*\n`);
+    }
+
+    // Add transcribed text
+    lines.push(`### 转录文本\n`);
+    lines.push(transcriptionResult.text || '');
+
+    // Add timestamps if requested and available
+    if (options?.showTimestamps && transcriptionResult.words && transcriptionResult.words.length > 0) {
+        lines.push(`\n### 词级时间戳\n`);
+        lines.push('<details><summary>展开查看</summary>\n');
+        transcriptionResult.words.forEach(word => {
+            const start = word.start.toFixed(2);
+            const end = word.end.toFixed(2);
+            lines.push(`- **${word.word}** \`[${start}s - ${end}s]\``);
+        });
+        lines.push('</details>');
+    }
+
+    // Add segments if requested and available
+    if (options?.showSegments && transcriptionResult.segments && transcriptionResult.segments.length > 0) {
+        lines.push(`\n### 段落分段\n`);
+        lines.push('<details><summary>展开查看</summary>\n');
+        transcriptionResult.segments.forEach(segment => {
+            const start = segment.start.toFixed(2);
+            const end = segment.end.toFixed(2);
+            lines.push(`\n**段落 ${segment.id}** \`[${start}s - ${end}s]\`\n`);
+            lines.push(`${segment.text}\n`);
+        });
+        lines.push('</details>');
+    }
+
+    return {
+        ok: true,
+        content: lines.join('\n'),
+        usage: null
+    };
+};
+
+/**
+ * Convert ITextToSpeechResult to ICompletionResult for display in chat
+ * @param ttsResult - Text-to-speech result
+ * @param options - Conversion options
+ * @returns ICompletionResult with audio player and download link
+ */
+export const ttsResultToCompletion = (
+    ttsResult: ITextToSpeechResult,
+    options?: {
+        showInputText?: boolean;
+        inputText?: string;
+    }
+): ICompletionResult => {
+    if (!ttsResult.ok) {
+        return {
+            ok: false,
+            content: `**语音合成失败**\n\n${ttsResult.error}`,
+            usage: null
+        };
+    }
+
+    const lines: string[] = [];
+
+    // Show input text if requested
+    if (options?.showInputText && options.inputText) {
+        lines.push(`### 输入文本\n`);
+        lines.push(`> ${options.inputText}\n`);
+    }
+
+    // Add audio player
+    lines.push(`### 生成的语音\n`);
+
+    // HTML5 audio player
+    const format = ttsResult.format || 'mp3';
+    lines.push(`<audio controls src="${ttsResult.audioUrl}" type="audio/${format}">`);
+    lines.push(`您的浏览器不支持音频播放。`);
+    lines.push(`</audio>\n`);
+
+    // Download link
+    lines.push(`[🔗 下载音频文件](${ttsResult.audioUrl})\n`);
+
+    // Add metadata
+    const metadata: string[] = [];
+    if (ttsResult.format) metadata.push(`格式: ${ttsResult.format}`);
+    if (ttsResult.audio) {
+        const sizeKB = (ttsResult.audio.size / 1024).toFixed(2);
+        metadata.push(`大小: ${sizeKB} KB`);
+    }
+
+    if (metadata.length > 0) {
+        lines.push(`\n*${metadata.join(' | ')}*`);
+    }
+
+    return {
+        ok: true,
+        content: lines.join('\n'),
+        usage: null
+    };
+};
