@@ -14,7 +14,10 @@ import Heading from "./Heading";
 // import { Button } from "@frostime/siyuan-plugin-kits/element";
 import { ButtonInput } from "@/libs/components/Elements";
 import { LeftRight } from "@/libs/components/Elements/Flex";
-// import { deepMerge } from "@frostime/siyuan-plugin-kits";
+import { TextAreaWithActionButton } from "@/libs/components/Elements/TextArea";
+import * as agent from "../openai/tiny-agent";
+
+
 
 // ============================================
 // Types
@@ -337,7 +340,7 @@ const ModelConfigPanel: Component<{
                     />
                 </Form.Wrap>
 
-                <Form.Wrap
+                {/* <Form.Wrap
                     title="自定义参数覆盖"
                     description={`强制覆盖的参数，JSON 格式（如: {\" reasoning_effort\": \"medium\"}）`}
                     direction="row"
@@ -347,6 +350,38 @@ const ModelConfigPanel: Component<{
                         value={JSON.stringify(model().options?.customOverride || {}, null, 2)}
                         changed={updateCustomOverride}
                         style={{ width: '100%', height: '100px', 'font-family': 'monospace' }}
+                    />
+                </Form.Wrap> */}
+
+                <Form.Wrap
+                    title="自定义参数覆盖"
+                    description={`强制覆盖的参数，JSON 格式（如: {\" reasoning_effort\": \"medium\"}）; 便利起见, 可以点击按钮 'JSON' 辅助生成 JSON`}
+                    direction="row"
+                >
+                    <TextAreaWithActionButton
+                        // value={JSON.stringify(model().options?.customOverride, null, 2)}
+                        value={(function () {
+                            const value = model().options?.customOverride;
+                            if (!value || Object.keys(value).length === 0) {
+                                return ''
+                            }
+                            return JSON.stringify(value, null, 2);
+                        })()}
+                        onChanged={updateCustomOverride}
+                        // style={{ width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)' }}
+                        actionText="JSON"
+                        action={
+                            async function (text: string) {
+                                if (!text.trim()) return;
+                                const formalized = await agent.jsonAgent({
+                                    text: text,
+                                    schema: '遵循 OpenAI Completion Option 格式',
+                                });
+                                if (formalized.ok) {
+                                    updateCustomOverride(formalized.content);
+                                }
+                            }
+                        }
                     />
                 </Form.Wrap>
             </div>
@@ -468,14 +503,31 @@ const ProviderBasicConfig: Component = () => {
             <Heading>其他自定义</Heading>
             <Form.Wrap
                 title="自定义请求头 (可选)"
-                description="额外的 HTTP 请求头，JSON 格式"
+                description="额外的 HTTP 请求头，JSON 格式; 可以点击按钮 'JSON' 辅助生成 JSON"
                 direction="row"
             >
-                <Form.Input
-                    type="textarea"
-                    value={JSON.stringify(provider().customHeaders || {}, null, 2)}
-                    changed={updateCustomHeaders}
+                <TextAreaWithActionButton
+                    value={(function () {
+                        if (!provider().customHeaders || Object.keys(provider().customHeaders).length === 0) {
+                            return ''
+                        }
+                        return JSON.stringify(provider().customHeaders, null, 2);
+                    })()}
+                    onChanged={updateCustomHeaders}
                     style={{ width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)' }}
+                    actionText="JSON"
+                    action={
+                        async function (text: string) {
+                            if (!text.trim()) return;
+                            const formalized = await agent.jsonAgent({
+                                text: text,
+                                schema: '遵循 HTTP Header 请求头的 JSON 格式',
+                            });
+                            if (formalized.ok) {
+                                updateCustomHeaders(formalized.content);
+                            }
+                        }
+                    }
                 />
             </Form.Wrap>
         </div>

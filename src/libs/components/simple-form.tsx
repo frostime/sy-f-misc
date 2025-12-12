@@ -81,7 +81,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                 return (
                     <TextArea
                         value={value}
-                        changed={(v) => updateField(field.key, v)}
+                        onChanged={(v) => updateField(field.key, v)}
                     />
                 );
             case 'number':

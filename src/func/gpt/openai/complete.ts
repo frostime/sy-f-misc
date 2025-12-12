@@ -243,6 +243,8 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
         results['time'].throughput = completion_tokens / seconds;
     }
 
+    results['ok'] = true;
+
     return results;
 }
 

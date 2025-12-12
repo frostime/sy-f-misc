@@ -13,6 +13,7 @@ import { inputDialog, openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-
 
 import { render } from "solid-js/web";
 
+import * as openai from './openai';
 import ChatSession from "./chat/ChatSession";
 import { translateHotkey } from "@/libs/hotkey";
 import * as setting from "./setting";
@@ -25,7 +26,6 @@ import HistoryList from "./chat/HistoryList";
 import { globalMiscConfigs } from "./model/store";
 import { showMessageLog } from "./MessageLogger";
 
-import * as openai from './openai';
 import * as chatInDoc from './chat-in-doc';
 
 export { openai };

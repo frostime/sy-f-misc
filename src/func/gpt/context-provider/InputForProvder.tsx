@@ -19,7 +19,7 @@ const UserInput = (props: {
                 <Match when={props.type === 'area'}>
                     <TextArea
                         value={props.text()}
-                        changed={(v) => { props.text.update(v) }}
+                        onChanged={(v) => { props.text.update(v) }}
                         spellcheck={false}
                     />
                 </Match>

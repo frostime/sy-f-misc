@@ -41,7 +41,7 @@ export const FloatingEditor: Component<{
         <div style={{ 'display': 'flex', 'flex-direction': 'column', 'gap': '8px', 'width': '100%', 'height': '100%' }}>
             <TextArea
                 value={text()}
-                changed={setText}
+                onChanged={setText}
                 spellcheck={false}
                 style={{
                     'flex': '1',
