@@ -572,7 +572,7 @@ const MODEL_PRESETS: IModelPreset[] = [
                 streaming: false,
                 reasoning: false,
                 jsonMode: false,
-            },
+            }
         },
     },
 ];

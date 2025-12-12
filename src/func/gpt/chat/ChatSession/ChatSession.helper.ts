@@ -1,7 +1,7 @@
 // External libraries
 import { showMessage } from 'siyuan';
 import { Accessor, batch, createMemo } from 'solid-js';
-import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 import { ToolChainResult } from '@gpt/tools/toolchain';
 
 // Local components and utilities
@@ -29,6 +29,7 @@ import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
 
 import { extractContentText, extractMessageContent, MessageBuilder, splitPromptFromContext, updateContentText } from '../../chat-utils';
+import { deepMerge } from '@frostime/siyuan-plugin-kits';
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;
@@ -321,6 +322,7 @@ const useGptCommunication = (params: {
     config: IStoreRef<IChatSessionConfig>;
     messages: IStoreRef<IChatSessionMsgItem[]>;
     systemPrompt: ReturnType<typeof useSignalRef<string>>;
+    customOptions: ISignalRef<IChatCompleteOption>;
     loading: ReturnType<typeof useSignalRef<boolean>>;
     attachments: ReturnType<typeof useSignalRef<Blob[]>>;
     contexts: IStoreRef<IProvidedContext[]>;
@@ -328,12 +330,25 @@ const useGptCommunication = (params: {
     newID: () => string;
     getAttachedHistory: (itemNum?: number, fromIndex?: number) => IMessage[];
 }) => {
-    const { model, config, messages, systemPrompt, loading, newID, getAttachedHistory } = params;
+    const { model, config, messages, systemPrompt, loading, newID, getAttachedHistory, customOptions } = params;
 
     let controller: AbortController;
 
-    const gptOption = () => {
+    const chatCompletionOption = () => {
         let option = { ...config().chatOption };
+
+        // 添加自定义选项，作为最高优先级覆盖所有默认设置
+        if (customOptions()) {
+            try {
+                const optVal = customOptions() || {};
+                // option = { ...option, ...customOptions };
+                option = deepMerge(option, optVal);
+            } catch (error) {
+                console.error('Failed to parse customOptions:', error);
+                // 如果解析失败，继续使用默认选项
+            }
+        }
+
         if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
             let tools = params.toolExecutor.getEnabledToolDefinitions();
             if (tools && tools.length > 0) {
@@ -360,7 +375,7 @@ const useGptCommunication = (params: {
     }) => {
         try {
             const modelToUse = options?.model ?? model();
-            const baseOption = gptOption();
+            const baseOption = chatCompletionOption();
             let opt = options?.chatOption ? { ...baseOption, ...options.chatOption } : baseOption;
             opt['tool_choice'] = 'none'; // 自定义完成不使用工具
             const { content } = await gpt.complete(messageToSend, {
@@ -440,7 +455,7 @@ ${inputContent}
                 abortController: controller,
                 model: model(),
                 systemPrompt: currentSystemPrompt(),
-                chatOption: gptOption(),
+                chatOption: chatCompletionOption(),
                 checkToolResults: true,
                 callbacks: {
                     onToolCallStart: (toolName, args, callId) => {
@@ -538,7 +553,7 @@ ${inputContent}
             controller = new AbortController();
             const msgToSend = getAttachedHistory(config().attachedHistory, atIndex);
             let modelToUse = model();
-            let option = gptOption();
+            let option = chatCompletionOption();
             // 更新或插入 assistant 消息
             const nextIndex = atIndex + 1;
             // const nextMsg = messages()[nextIndex];
@@ -686,7 +701,7 @@ ${inputContent}
             controller = new AbortController();
             const msgToSend = getAttachedHistory();
             let modelToUse = model();
-            let option = gptOption();
+            let option = chatCompletionOption();
 
             // 添加助手消息占位
             const assistantMsg: IChatSessionMsgItem = {
@@ -792,7 +807,7 @@ ${inputContent}
     }
 
     return {
-        gptOption,
+        gptOption: chatCompletionOption,
         customComplete,
         autoGenerateTitle,
         reRunMessage,
@@ -817,6 +832,8 @@ export const useSession = (props: {
     // 当前的 attachments
     const attachments = useSignalRef<Blob[]>([]);
     const contexts = useStoreRef<IProvidedContext[]>([]);
+
+    const modelCustomOptions = useSignalRef<Partial<IChatCompleteOption>>({});
 
     let timestamp = new Date().getTime();
     let updated = timestamp; // Initialize updated time to match creation time
@@ -981,6 +998,7 @@ export const useSession = (props: {
         config: props.config,
         messages,
         systemPrompt,
+        customOptions: modelCustomOptions,
         loading,
         attachments,
         contexts,
@@ -1078,7 +1096,8 @@ export const useSession = (props: {
             title: title(),
             items: messages.unwrap(),
             sysPrompt: systemPrompt(),
-            tags: sessionTags()
+            tags: sessionTags(),
+            customOptions: modelCustomOptions.unwrap()
         }
     }
 
@@ -1091,6 +1110,7 @@ export const useSession = (props: {
         history.items && (messages.update(history.items));
         history.sysPrompt && (systemPrompt.update(history.sysPrompt));
         history.tags && (sessionTags.update(history.tags));
+        history.customOptions && (modelCustomOptions.update(history.customOptions));
 
         // 清空删除历史（加载新历史记录时）
         deleteHistory.clearRecords();
@@ -1108,6 +1128,7 @@ export const useSession = (props: {
         sessionTags.update([]);
         loading.update(false);
         hasStarted = false;
+        modelCustomOptions.value = {};
 
         // 清空删除历史（新建会话时）
         deleteHistory.clearRecords();
@@ -1117,6 +1138,7 @@ export const useSession = (props: {
         sessionId,
         systemPrompt,
         messages,
+        modelCustomOptions: modelCustomOptions,
         loading,
         title,
         attachments,

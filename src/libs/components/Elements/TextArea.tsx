@@ -48,7 +48,8 @@ export default function TextArea(props: {
 export const TextAreaWithActionButton = (props: {
     value?: string;
     onChanged?: (value: string) => void;
-    style?: JSX.CSSProperties;
+    containerStyle?: JSX.CSSProperties
+    textareaStyle?: JSX.CSSProperties;
     spellcheck?: boolean;
     action?: (text: string) => void;
     actionText?: string;
@@ -60,10 +61,10 @@ export const TextAreaWithActionButton = (props: {
     }
     const style = {
         width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)',
-        ...props.style
+        ...props.textareaStyle
     }
     return (
-        <div>
+        <div style={props.containerStyle}>
             <TextArea
                 value={props.value}
                 onChanged={changed}

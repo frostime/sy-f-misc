@@ -271,7 +271,8 @@ const MessageItem: Component<{
                 id: newSessionId,
                 title: newSessionTitle,
                 items: branchMessages,
-                sysPrompt: session.systemPrompt()
+                sysPrompt: session.systemPrompt(),
+                customOptions: session.modelCustomOptions()
             };
 
             // 3. Switch

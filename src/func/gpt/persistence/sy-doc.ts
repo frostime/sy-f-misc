@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-05-10 20:25:37
+ * @LastEditTime : 2025-12-12 16:22:55
  * @Description  :
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -373,7 +373,8 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
         title: `Chat ${formatDateTime(null, new Date(now))}`,
         timestamp: now,
         updated: now,
-        type: 'history'
+        type: 'history',
+        customOptions: {}
     };
 }
 

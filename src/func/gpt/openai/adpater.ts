@@ -90,9 +90,9 @@ export const adaptChatOptions = (target: {
     chatOption = structuredClone(chatOption);
 
     // Step 1: Apply customOverride (highest priority)
-    if (config?.options?.customOverride) {
-        Object.assign(chatOption, config.options.customOverride);
-    }
+    // if (config?.options?.customOverride) {
+    //     Object.assign(chatOption, config.options.customOverride);
+    // }
 
     // Step 2: Remove null/undefined values
     for (const key in chatOption) {

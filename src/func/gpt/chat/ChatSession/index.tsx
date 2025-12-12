@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/ChatSession/index.tsx
- * @LastEditTime : 2025-08-24 16:52:55
+ * @LastEditTime : 2025-12-12 17:35:25
  * @Description  :
  */
 // External libraries
@@ -16,7 +16,7 @@ import {
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 import { Constants, Menu, showMessage } from 'siyuan';
-import { inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits';
+import { debounce, inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits';
 
 // UI Components
 import Form from '@/libs/components/Form';
@@ -49,6 +49,8 @@ import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 
 import BlocksProvider from '@gpt/context-provider/BlocksProvider';
 import { truncateContent } from '../../tools/utils';
+import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
+import { jsonAgent } from '../../openai/tiny-agent';
 
 
 const ChatSession: Component<{
@@ -73,6 +75,13 @@ const ChatSession: Component<{
 
     // 删除历史面板状态管理
     // const showDeleteHistoryPanel = useSignalRef(false);
+
+    createEffect(() => {
+        const customOptions = model().config?.options?.customOverride;
+        if (customOptions) {
+            session.modelCustomOptions(customOptions);
+        }
+    })
 
     const modelDisplayLable = createMemo(() => {
         const runtimeLLM = model();
@@ -883,6 +892,65 @@ const ChatSession: Component<{
         });
     }
 
+    const editCustomOptions = () => {
+
+        const _updateOption = (text: string) => {
+            try {
+                const parsed = text.trim() ? JSON.parse(text) : {};
+                session.modelCustomOptions(parsed);
+            } catch (e) {
+                showMessage('自定义参数格式错误，请使用 JSON 格式');
+            }
+        }
+
+        const updateOption = debounce(_updateOption, 1000);
+
+        solidDialog({
+            title: '自定义对话 Options',
+            loader: () => (
+                <Form.Wrap
+                    title="Options"
+                    description="自定义对话中的 Option (JSON 格式), 作为最高优先级覆盖所有默认设置; 你可以使用 'Json' 按钮辅助格式化"
+                    direction="row"
+                >
+                    <TextAreaWithActionButton
+                        value={(function () {
+                            const value = session.modelCustomOptions() || {};
+                            if (!value || Object.keys(value).length === 0) {
+                                return ''
+                            }
+                            return JSON.stringify(value, null, 2);
+                        })()}
+                        onChanged={updateOption}
+                        action={
+                            async function (text: string) {
+                                if (!text.trim()) return;
+                                const formalized = await jsonAgent({
+                                    text: text,
+                                    schema: '遵循 OpenAI Completion Option 格式',
+                                });
+                                if (formalized.ok) {
+                                    updateOption(formalized.content);
+                                }
+                            }
+                        }
+                        actionText="Json"
+                        containerStyle={{
+                            'flex': 1
+                        }}
+                        textareaStyle={{
+                            'font-family': 'var(--b3-font-family-code)',
+                            'font-size': '14px',
+                            height: '320px'
+                        }}
+                    />
+                </Form.Wrap>
+            ),
+            width: '680px',
+            height: '480px'
+        });
+    }
+
     const ChatContainer = () => (
         <div class={`${styles.chatContainer} ${isReadingMode() ? styles.readingMode : ''}`} style={styleVars()}>
             {/* 添加顶部工具栏 */}
@@ -1100,6 +1168,9 @@ const ChatSession: Component<{
                         <SvgSymbol size="15px">iconBazaar</SvgSymbol>
                     </ToolbarLabel>
                     <div data-role="spacer" style={{ flex: 1 }}></div>
+                    <ToolbarLabel onclick={editCustomOptions} label='自定义对话参数' role='chat-options' >
+                        <SvgSymbol size="15px">iconSparkles</SvgSymbol>
+                    </ToolbarLabel>
                     <ToolbarLabel onclick={editSystemPrompt} label='系统提示' role="system-prompt" >
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
                     </ToolbarLabel>

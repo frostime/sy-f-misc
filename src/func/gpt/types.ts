@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-05-30 19:32:40
+ * @LastEditTime : 2025-12-12 16:21:13
  * @Description  :
  */
 // ============================================================================
@@ -561,6 +561,7 @@ interface IChatSessionHistory {
     items: IChatSessionMsgItem[];
     sysPrompt?: string;
     tags?: string[];
+    customOptions?: Record<string, any>;
 }
 
 /**

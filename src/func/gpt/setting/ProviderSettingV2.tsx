@@ -514,7 +514,7 @@ const ProviderBasicConfig: Component = () => {
                         return JSON.stringify(provider().customHeaders, null, 2);
                     })()}
                     onChanged={updateCustomHeaders}
-                    style={{ width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)' }}
+                    textareaStyle={{ width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)' }}
                     actionText="JSON"
                     action={
                         async function (text: string) {
