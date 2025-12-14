@@ -6,7 +6,6 @@
  * @FilePath     : /src/func/gpt/tools/file-system/index.ts
  */
 import { mkdirTool, moveFileTool, copyFileTool } from "./shutil";
-import { markitdownTool } from "./markitdown";
 
 // --- 变更点：引入新的 viewer 和 editor ---
 import { viewerTools } from "./viewer";
@@ -25,7 +24,6 @@ export const fileSystemTools = {
         mkdirTool,
         moveFileTool,
         copyFileTool,
-        markitdownTool,
     ] : [],
     // 组合 viewerTools 的提示词和其他工具的提示词
     rulePrompt: fs ? `
@@ -33,7 +31,6 @@ ${viewerTools.rulePrompt}
 
 ## 其他文件操作
 **基础操作**: Mkdir (创建目录) | MoveFile (移动/重命名) | CopyFile (复制)
-**文档转换**: MarkitdownRead (将 docx/pdf 转换为 Markdown)
 `.trim() : ''
 };
 
