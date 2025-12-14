@@ -3,12 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 20:11:55
  * @FilePath     : /src/func/gpt/tools/web/webpage.ts
- * @LastEditTime : 2025-08-03 21:28:32
+ * @LastEditTime : 2025-12-14 14:14:00
  * @Description  : 网页内容获取工具
  */
 import { addScript } from "../../utils";
-import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
-import { normalizeLimit, truncateContent } from '../utils';
 
 /**
  * 验证URL是否有效
@@ -331,6 +329,10 @@ export interface WebPageContent {
     title: string;
     /** 网页描述 */
     description: string;
+    /** 网页关键词 */
+    keywords?: string;
+    /** 作者 */
+    author?: string;
     /** 网页主要内容 */
     content: string;
     /** 原始 URL */
@@ -348,6 +350,8 @@ async function handleJsonResponse(response: Response, url: string): Promise<WebP
     return {
         title: `JSON: ${url}`,
         description: `JSON 数据 (${content.length} 字符)`,
+        keywords: '',
+        author: '',
         content,
         url,
         contentType: response.headers.get('content-type')
@@ -391,6 +395,8 @@ async function handleHtmlResponseRaw(response: Response, url: string, querySelec
     return {
         title,
         description: `Raw HTML 内容，选择器: "${querySelector}"，找到 ${elements.length} 个元素`,
+        keywords: '',
+        author: '',
         content,
         url,
         contentType: response.headers.get('content-type')
@@ -513,44 +519,6 @@ function searchKeywordsInRawHtml(content: string, options: KeywordSearchOptions)
 /**
  * 格式化关键词查找结果
  */
-function formatKeywordSearchResult(searchResult: KeywordSearchResult, mode: 'markdown' | 'raw'): string {
-    const { keywords, joinType, matchCount, totalCount, matches } = searchResult;
-
-    const result: string[] = [];
-
-    // 统计信息
-    result.push('# 关键词查找统计');
-    result.push(`- 查找关键词: [${keywords.join(', ')}]`);
-    result.push(`- 连接方式: ${joinType}`);
-    result.push(`- 匹配${mode === 'markdown' ? '段落' : '元素'}数: ${matchCount}`);
-    result.push(`- 总${mode === 'markdown' ? '段落' : '元素'}数: ${totalCount}`);
-    result.push('');
-
-    if (matches.length === 0) {
-        result.push('未找到匹配的内容。');
-        return result.join('\n');
-    }
-
-    // 匹配内容
-    result.push('# 匹配内容');
-
-    matches.forEach((match, index) => {
-        result.push(`## 匹配位置 ${index + 1} (${mode === 'markdown' ? '段落' : '元素'} ${match.index + 1})`);
-        result.push(`**匹配关键词**: ${match.matchedKeywords.join(', ')}`);
-
-        // 在 markdown 模式下显示字符位置信息
-        if (mode === 'markdown' && match.startPosition !== undefined && match.endPosition !== undefined) {
-            result.push(`**字符位置**: ${match.startPosition} - ${match.endPosition} (可用于 begin/limit 参数)`);
-        }
-
-        result.push('');
-        result.push(match.content);
-        result.push('');
-    });
-
-    return result.join('\n');
-}
-
 /**
  * 处理 HTML 响应
  */
@@ -567,6 +535,8 @@ async function handleHtmlResponse(response: Response, url: string, options?: Fet
     return {
         title: parsedContent.title || `网页: ${url}`,
         description: parsedContent.description,
+        keywords: parsedContent.keywords,
+        author: parsedContent.author,
         content: parsedContent.mainContent,
         url,
         contentType: response.headers.get('content-type')
@@ -581,6 +551,8 @@ async function handleTextResponse(response: Response, url: string): Promise<WebP
     return {
         title: `文本: ${url}`,
         description: `纯文本内容 (${text.length} 字符)`,
+        keywords: '',
+        author: '',
         content: text,
         url,
         contentType: response.headers.get('content-type')
@@ -595,6 +567,8 @@ async function handleUnknownResponse(response: Response, url: string): Promise<W
     return {
         title: `未知类型: ${url}`,
         description: `未知内容类型 ${response.headers.get('content-type') || '无'} (${text.length} 字符)`,
+        keywords: '',
+        author: '',
         content: text,
         url,
         contentType: response.headers.get('content-type')
@@ -651,215 +625,3 @@ export const webUtils = {
 
 // 导出类型
 export type { ParsedHtmlContent };
-
-const WEB_PAGE_LIMIT = 7000;
-// 网页内容工具
-export const webPageContentTool: Tool = {
-
-    DEFAULT_OUTPUT_LIMIT_CHAR: WEB_PAGE_LIMIT,
-    SKIP_EXTERNAL_TRUNCATE: true, // 工具内部自己处理，关闭外部的截断截止
-
-    declaredReturnType: {
-        type: 'string[]',
-        note: '元信息 + Markdown/HTML 内容的字符串数组（每个 URL 一个元素），可能带截断提示'
-    },
-
-    definition: {
-        type: 'function',
-        function: {
-            name: 'WebPageContent',
-            description: '获取给定 URL 链接的网页内容。支持两种模式：markdown模式（默认）返回解析的Markdown文本，raw模式返回原始HTML结构。支持关键词查找功能，可以查找包含特定关键词的内容块并返回统计结果。',
-            parameters: {
-                type: 'object',
-                properties: {
-                    url: {
-                        type: 'string',
-                        description: '网页 URL'
-                    },
-                    mode: {
-                        type: 'string',
-                        enum: ['markdown', 'raw'],
-                        description: '返回模式：markdown（默认，返回解析的markdown文本）或 raw（返回HTML结构）'
-                    },
-                    begin: {
-                        type: 'integer',
-                        description: '开始的字符位置，默认为 0'
-                    },
-                    limit: {
-                        type: 'integer',
-                        description: `可选, 返回的网页内容字符数量的限制; 默认 ${WEB_PAGE_LIMIT}; 如果小于等于 0, 则不限制; 注意是字符数量(string.length)`
-                    },
-                    keepLink: {
-                        type: 'boolean',
-                        description: '（markdown模式）是否保留链接的URL，默认false（只保留锚文本节省空间）; 如果你在文中看到了你想要知道的链接，但是内容为 "(URL链接: anchor-text)"，那么你可以把这设置为 true 看到完整链接'
-                    },
-                    keepImg: {
-                        type: 'boolean',
-                        description: '（markdown模式）是否保留图片链接，默认false（移除所有图片）'
-                    },
-                    querySelector: {
-                        type: 'string',
-                        description: '（raw模式）CSS选择器，默认为"body"；会执行querySelectorAll获取页面元素'
-                    },
-                    findKeywords: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
-                        description: '要查找的关键词数组，如果提供此参数，将返回关键词查找结果而非完整内容'
-                    },
-                    joinKeywords: {
-                        type: 'string',
-                        enum: ['AND', 'OR'],
-                        description: '关键词连接方式：AND（所有关键词都必须匹配）或OR（任意一个关键词匹配即可），默认OR'
-                    }
-                },
-                required: ['url']
-            }
-        },
-        permissionLevel: ToolPermissionLevel.MODERATE,
-        requireResultApproval: true
-    },
-
-    execute: async (args: {
-        url?: string,
-        mode?: 'markdown' | 'raw',
-        begin?: number,
-        limit?: number,
-        keepLink?: boolean,
-        keepImg?: boolean,
-        querySelector?: string,
-        findKeywords?: string[],
-        joinKeywords?: 'AND' | 'OR'
-    }): Promise<ToolExecuteResult> => {
-        const begin = args.begin ?? 0;
-        const limit = normalizeLimit(args.limit, WEB_PAGE_LIMIT);
-        const mode = args.mode ?? 'markdown';
-        const options = {
-            keepLink: args.keepLink,
-            keepImg: args.keepImg
-        };
-        const querySelector = args.querySelector ?? 'body';
-        const urls: string[] = [];
-
-        if (args.url) {
-            urls.push(args.url);
-        } else {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: '必须提供 url 参数'
-            };
-        }
-
-        const results: string[] = [];
-
-        for (const url of urls) {
-            try {
-                if (!isValidUrl(url)) {
-                    results.push(`[错误] 无效的 URL: ${url}`);
-                    continue;
-                }
-
-                const content = await fetchWebContent(url, mode, options, querySelector);
-                let resultText = content.content;
-                const originalLength = resultText.length;
-
-                // 关键词查找功能
-                if (args.findKeywords && args.findKeywords.length > 0) {
-                    const keywordOptions: KeywordSearchOptions = {
-                        findKeywords: args.findKeywords,
-                        joinKeywords: args.joinKeywords || 'OR'
-                    };
-
-                    let searchResult: KeywordSearchResult;
-                    if (mode === 'markdown') {
-                        searchResult = searchKeywordsInMarkdown(resultText, keywordOptions);
-                    } else {
-                        searchResult = searchKeywordsInRawHtml(resultText, keywordOptions);
-                    }
-
-                    // 格式化关键词查找结果
-                    resultText = formatKeywordSearchResult(searchResult, mode);
-
-                    // 对关键词查找结果也应用字数限制
-                    // const truncResult = truncateContent(resultText, limit);
-                    // resultText = truncResult.content;
-                    // if (truncResult.isTruncated) {
-                    //     resultText += `\n\n[关键词查找结果被截断: 原始长度 ${truncResult.originalLength} 字符, 显示 ${truncResult.shownLength} 字符]`;
-                    // }
-                } else {
-                    // 应用起始位置和长度限制（仅在非关键词查找模式下）
-                    // 先应用 begin 偏移
-                    if (begin > 0) {
-                        const startPos = Math.min(begin, originalLength);
-                        resultText = resultText.substring(startPos);
-                    }
-
-                    // 然后应用截断
-                    const truncResult = truncateContent(resultText, limit);
-                    resultText = truncResult.content;
-
-                    // 添加截断信息
-                    // if (begin > 0 || truncResult.isTruncated) {
-                    //     const displayStart = begin;
-                    //     const displayEnd = begin + truncResult.shownLength;
-                    //     resultText += `\n\n[原始内容长度: ${originalLength} 字符, 显示范围: ${displayStart} - ${displayEnd}]`;
-                    // }
-                }
-
-                // 组装元信息和内容
-                const metaInfo = [];
-                if (content.title) metaInfo.push(`# ${content.title}`);
-                if (content.description) metaInfo.push(`> ${content.description}`);
-                if (content.url) metaInfo.push(`URL: ${content.url}`);
-                if (content.contentType) metaInfo.push(`内容类型: ${content.contentType}`);
-
-                // 将元信息和内容合并
-                const formattedResult = [...metaInfo, '', resultText].join('\n');
-
-                results.push(formattedResult);
-            } catch (error) {
-                console.error(`处理 URL 失败: ${url}`, error);
-                results.push(`[错误] 处理 URL 失败: ${url}\n${error.message}`);
-            }
-        }
-
-        if (results.length === 0) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: '未能获取任何网页内容'
-            };
-        }
-
-        // 返回原始数据数组
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: results.join('\n')
-        };
-    },
-
-    // 格式化器：将原始结果数组转换为适合 LLM 的文本
-    // formatForLLM: (data: any[]) => {
-    //     if (!Array.isArray(data)) {
-    //         return String(data);
-    //     }
-    //     return data.join('\n\n---\n\n');
-    // },
-
-    // 截断器：考虑 begin 和 limit 参数
-    // truncateForLLM: (formatted: string, args: Record<string, any>) => {
-    //     const begin = args.begin ?? 0;
-    //     const limit = normalizeLimit(args.limit, 5000);
-
-    //     // 应用 begin 偏移
-    //     let content = begin > 0 ? formatted.substring(begin) : formatted;
-
-    //     // 应用 limit 截断
-    //     if (limit > 0 && content.length > limit) {
-    //         content = content.substring(0, limit);
-    //         content += `\n\n[内容过长，已从位置 ${begin} 截断为 ${limit} 字符]`;
-    //     }
-
-    //     return content;
-    // }
-};

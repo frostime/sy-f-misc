@@ -1,13 +1,14 @@
 import { getFrontend } from "siyuan";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { forwardProxy } from "@/api";
+import { BingSearchResult, BingSearchItem, WebToolError, WebToolErrorCode } from "./types";
 
 /*
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
- * @LastEditTime : 2025-08-03 22:58:12
+ * @LastEditTime : 2025-12-14 12:17:31
  * @Description  : 
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
@@ -97,7 +98,7 @@ const fetchWeb = async (url: string) => {
     }
 }
 
-export async function bingSearch(query: string, pageIdx: number = 1, site?: string, filetype?: string, dateFilter?: 'day' | 'week' | 'month'): Promise<{ title: string; link: string; description: string }[]> {
+export async function bingSearch(query: string, pageIdx: number = 1, site?: string, filetype?: string, dateFilter?: 'day' | 'week' | 'month'): Promise<BingSearchResult> {
     // 构建查询字符串
     let searchQuery = query.trim();
 
@@ -145,7 +146,24 @@ export async function bingSearch(query: string, pageIdx: number = 1, site?: stri
         const html = result.content;
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        return extractSearchResults(doc);
+        const results = extractSearchResults(doc);
+
+        // 标记直接回答
+        const items: BingSearchItem[] = results.map(item => ({
+            ...item,
+            isDirectAnswer: item.title === 'Bing 直接回答' && !item.link
+        }));
+
+        return {
+            query,
+            results: items,
+            pageIndex: pageIdx,
+            filters: {
+                site,
+                filetype,
+                dateFilter
+            }
+        };
     } catch (error) {
         throw error;
     }
@@ -191,8 +209,22 @@ export function formatBingResultsToReport(data: BingSearchReportInput): string {
 
 export const bingSearchTool: Tool = {
     declaredReturnType: {
-        type: 'Array<{ title, link, description }>',
-        note: '搜索结果数组，可能包含 "Bing 直接回答" 特殊条目（link 为空）'
+        type: `{
+    query: string;
+    results: Array<{
+        title: string;
+        link: string;
+        description: string;
+        isDirectAnswer?: boolean;
+    }>;
+    pageIndex: number;
+    filters?: {
+        site?: string;
+        filetype?: string;
+        dateFilter?: 'day' | 'week' | 'month';
+    };
+}`,
+        note: 'Bing 搜索结果，results 中的第一条可能是 isDirectAnswer=true 的直接回答（link 为空字符串）'
     },
 
     definition: {
@@ -234,30 +266,71 @@ export const bingSearchTool: Tool = {
     execute: async (args: { query: string; site?: string; filetype?: string; dateFilter?: 'day' | 'week' | 'month'; pageIdx?: number }): Promise<ToolExecuteResult> => {
         try {
             const result = await bingSearch(args.query, args.pageIdx || 1, args.site, args.filetype, args.dateFilter);
-            // 直接返回原始结果
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: result
             };
         } catch (error) {
             console.error('Bing search error:', error);
+            const webError: WebToolError = {
+                code: WebToolErrorCode.FETCH_FAILED,
+                message: error.message || 'Bing 搜索失败',
+                details: error
+            };
             return {
                 status: ToolExecuteStatus.ERROR,
-                data: error
+                data: webError
             };
         }
     },
 
-    formatForLLM: (data: {
-        title: string;
-        link: string;
-        description: string;
-    }[]): string => {
-        if (!data || data.length === 0) {
-            return 'No search results found.';
+    formatForLLM: (data: BingSearchResult): string => {
+        if (!data || !data.results || data.results.length === 0) {
+            return `**No search results found for: "${data?.query || 'unknown'}"**`;
         }
-        return data.map((item, index) => {
-            return `Title: ${item.title}\nLink: ${item.link}\nDescription: ${item.description}`;
-        }).join('\n---\n');
+
+        const parts: string[] = [];
+
+        // 标题部分
+        parts.push(`## Bing 搜索结果: "${data.query}"`);
+
+        // 添加过滤器信息（如果有）
+        if (data.filters) {
+            const filterInfo: string[] = [];
+            if (data.filters.site) filterInfo.push(`site:${data.filters.site}`);
+            if (data.filters.filetype) filterInfo.push(`filetype:${data.filters.filetype}`);
+            if (data.filters.dateFilter) {
+                const dateMap = { day: '过去24小时', week: '过去一周', month: '过去一个月' };
+                filterInfo.push(dateMap[data.filters.dateFilter]);
+            }
+            if (filterInfo.length > 0) {
+                parts.push(`**过滤条件**: ${filterInfo.join(', ')}`);
+            }
+        }
+
+        parts.push(''); // 空行
+
+        // 处理搜索结果
+        let regularIndex = 0;
+        data.results.forEach((item) => {
+            if (item.isDirectAnswer) {
+                // 直接回答特别突出显示
+                parts.push('### 📌 Bing 直接回答');
+                parts.push(item.description);
+                parts.push(''); // 空行
+            } else {
+                regularIndex++;
+                parts.push(`### ${regularIndex}. [${item.title}](${item.link})`);
+                parts.push(item.description);
+                parts.push(''); // 空行
+            }
+        });
+
+        // 页码信息
+        if (data.pageIndex > 1) {
+            parts.push(`*第 ${data.pageIndex} 页结果*`);
+        }
+
+        return parts.join('\n');
     }
 };

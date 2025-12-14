@@ -1,204 +1,182 @@
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 
-/**
- * 文件编辑工具组
- * 提供类似 Cursor/Copilot 的文件编辑能力
- */
-
-// 通过 window.require 引入 Node.js 模块
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 
-if (!fs || !path) {
-    console.warn('[editor] Node.js fs/path module not found. Editor tools are disabled.');
+/**
+ * Unified Diff Hunk 结构（简化版）
+ */
+interface DiffHunk {
+    oldStart: number;   // 旧文件起始行号（1-based）
+    oldLines: number;   // 旧文件涉及的行数
+    newStart: number;   // 新文件起始行号（1-based）
+    newLines: number;   // 新文件涉及的行数
+    oldContent: string[]; // 旧文件的完整内容（包含上下文和待删除行）
+    newContent: string[]; // 新文件的完整内容（包含上下文和新增行）
+    header?: string;    // 可选的 hunk header（如函数名）
 }
 
 /**
- * 辅助函数：读取文件并分割成行数组
- */
-const readFileLines = (filePath: string): string[] => {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    return content.split('\n');
-};
-
-/**
- * 辅助函数：将行数组写入文件
- */
-const writeFileLines = (filePath: string, lines: string[]): void => {
-    const content = lines.join('\n');
-    fs.writeFileSync(filePath, content, 'utf-8');
-};
-
-/**
- * 辅助函数：格式化行范围显示
- */
-const formatLineRange = (lines: string[], start: number, end: number, highlight?: number): string => {
-    const result: string[] = [];
-    for (let i = start; i <= end; i++) {
-        const prefix = (i + 1) === highlight ? '→' : ' ';
-        result.push(`${prefix} ${(i + 1).toString().padStart(4)}: ${lines[i]}`);
-    }
-    return result.join('\n');
-};
-
-/**
- * 编辑操作接口
- */
-interface EditOperation {
-    type: 'replace' | 'insert' | 'delete';
-    line: number;           // 起始行号（1-based，基于原始文件）
-    endLine?: number;       // 结束行号（仅用于 replace/delete，1-based）
-    position?: 'before' | 'after';  // 插入位置（仅用于 insert）
-    content?: string;       // 新内容（用于 replace/insert）
-}
-
-/**
- * 批量编辑结果
- */
-interface BatchEditResult {
-    success: boolean;
-    lines?: string[];
-    error?: string;
-    details: string;
-}
-
-/**
- * 核心函数：批量应用编辑操作
+ * 解析 Unified Diff
  * 
- * 关键算法：从后向前执行操作，确保所有操作都基于原始行号
- * 
- * @param lines 原始文件行数组
- * @param operations 编辑操作列表
- * @param totalLines 原始文件总行数
- * @returns 批量编辑结果
+ * 核心逻辑：
+ * - 空格/空行 开头 → 同时加入 oldContent 和 newContent（上下文）
+ * - `-` 开头 → 仅加入 oldContent（待删除）
+ * - `+` 开头 → 仅加入 newContent（新增）
  */
-const applyBatchEdits = (
-    lines: string[],
-    operations: EditOperation[],
-    totalLines: number
-): BatchEditResult => {
-    const getAffectedPosition = (op: EditOperation): number => {
-        const baseLine = op.line - 1;
-        if (op.type === 'insert') {
-            return baseLine + (op.position === 'after' ? 1 : 0);
-        }
-        return (op.endLine ?? op.line) - 1;
-    };
+function parseUnifiedDiff(diffText: string): DiffHunk[] {
+    const lines = diffText.split('\n');
+    const hunks: DiffHunk[] = [];
+    let current: DiffHunk | null = null;
 
-    // 验证阶段：检查所有操作的行号是否有效
-    for (const op of operations) {
-        if (op.line < 1 || op.line > totalLines) {
-            return {
-                success: false,
-                error: `操作 ${op.type} 的行号 ${op.line} 超出范围 [1, ${totalLines}]`,
-                details: ''
+    for (const line of lines) {
+        // 匹配 hunk header: @@ -l,s +l,s @@
+        const match = line.match(/^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@(.*)$/);
+
+        if (match) {
+            // 保存上一个 hunk
+            if (current) hunks.push(current);
+
+            // 创建新 hunk
+            current = {
+                oldStart: parseInt(match[1]),
+                oldLines: parseInt(match[2] || '1'),
+                newStart: parseInt(match[3]),
+                newLines: parseInt(match[4] || '1'),
+                oldContent: [],
+                newContent: [],
+                header: match[5]?.trim() || undefined
             };
+            continue;
         }
 
-        if (op.type === 'replace' || op.type === 'delete') {
-            if (op.endLine === undefined) {
-                return {
-                    success: false,
-                    error: `操作 ${op.type} 缺少 endLine 参数`,
-                    details: ''
-                };
-            }
-            if (op.endLine < op.line || op.endLine > totalLines) {
-                return {
-                    success: false,
-                    error: `操作 ${op.type} 的 endLine ${op.endLine} 无效（line: ${op.line}, totalLines: ${totalLines}）`,
-                    details: ''
-                };
-            }
-        }
+        if (!current) continue;
 
-        if (op.type === 'insert') {
-            if (!op.position || !['before', 'after'].includes(op.position)) {
-                return {
-                    success: false,
-                    error: `操作 insert 的 position 参数必须是 'before' 或 'after'`,
-                    details: ''
-                };
-            }
-            if (op.content === undefined) {
-                return {
-                    success: false,
-                    error: `操作 insert 缺少 content 参数`,
-                    details: ''
-                };
-            }
+        // 解析内容行
+        if (line.startsWith(' ') || line === '') {
+            // 上下文行：同时存在于旧文件和新文件
+            const content = line.startsWith(' ') ? line.substring(1) : '';
+            current.oldContent.push(content);
+            current.newContent.push(content);
+        } else if (line.startsWith('-')) {
+            // 删除行：仅存在于旧文件
+            current.oldContent.push(line.substring(1));
+        } else if (line.startsWith('+')) {
+            // 新增行：仅存在于新文件
+            current.newContent.push(line.substring(1));
         }
+        // 其他行（如 diff header）忽略
+    }
 
-        if (op.type === 'replace' && op.content === undefined) {
+    if (current) hunks.push(current);
+    return hunks;
+}
+
+/**
+ * 验证 hunk 是否可以应用到文件
+ * 
+ * @param fileLines 文件的所有行
+ * @param hunk 要验证的 hunk
+ * @param fuzzy 是否启用模糊匹配（忽略空白符差异）
+ */
+function verifyHunk(
+    fileLines: string[],
+    hunk: DiffHunk,
+    fuzzy: boolean = true
+): { success: boolean; error?: string } {
+    const startIdx = hunk.oldStart - 1; // 转为 0-based
+
+    // 检查边界
+    if (startIdx < 0 || startIdx + hunk.oldLines > fileLines.length) {
+        return {
+            success: false,
+            error: `行号越界：文件有 ${fileLines.length} 行，hunk 要求从第 ${hunk.oldStart} 行开始取 ${hunk.oldLines} 行`
+        };
+    }
+
+    // 检查行数是否匹配预期
+    if (hunk.oldContent.length !== hunk.oldLines) {
+        return {
+            success: false,
+            error: `Hunk 内部不一致：header 声明 ${hunk.oldLines} 行，实际解析到 ${hunk.oldContent.length} 行`
+        };
+    }
+
+    // 逐行验证
+    const normalize = (s: string) => fuzzy ? s.trim().replace(/\s+/g, ' ') : s;
+
+    for (let i = 0; i < hunk.oldLines; i++) {
+        const expected = normalize(hunk.oldContent[i]);
+        const actual = normalize(fileLines[startIdx + i] || '');
+
+        if (expected !== actual) {
             return {
                 success: false,
-                error: `操作 replace 缺少 content 参数`,
-                details: ''
+                error: [
+                    `第 ${hunk.oldStart + i} 行内容不匹配`,
+                    `期望: "${hunk.oldContent[i]}"`,
+                    `实际: "${fileLines[startIdx + i] || ''}"`
+                ].join('\n')
             };
         }
     }
 
-    // 排序阶段：按照"影响位置"降序排序（从文件末尾向开头处理）
-    const sortedOps = [...operations].sort((a, b) => getAffectedPosition(b) - getAffectedPosition(a));
-
-    // 执行阶段：依次执行排序后的操作
-    const resultLines = [...lines];
-    const details: string[] = [];
-
-    for (const op of sortedOps) {
-        const lineIndex = op.line - 1;
-        const endLineIndex = op.endLine !== undefined ? op.endLine - 1 : undefined;
-        switch (op.type) {
-            case 'replace': {
-                const originalLines = resultLines.slice(lineIndex, endLineIndex! + 1);
-                const newLines = op.content!.split('\n');
-                resultLines.splice(lineIndex, endLineIndex! - lineIndex + 1, ...newLines);
-                details.push(
-                    `✓ Replace [${op.line}-${op.endLine}]: ${originalLines.length} 行 → ${newLines.length} 行`
-                );
-                break;
-            }
-            case 'insert': {
-                const insertIndex = op.position === 'before' ? lineIndex : lineIndex + 1;
-                const newLines = op.content!.split('\n');
-                resultLines.splice(insertIndex, 0, ...newLines);
-                details.push(
-                    `✓ Insert at ${op.line} (${op.position}): ${newLines.length} 行`
-                );
-                break;
-            }
-            case 'delete': {
-                const deletedLines = resultLines.slice(lineIndex, endLineIndex! + 1);
-                resultLines.splice(lineIndex, endLineIndex! - lineIndex + 1);
-                details.push(
-                    `✓ Delete [${op.line}-${op.endLine}]: ${deletedLines.length} 行`
-                );
-                break;
-            }
-        }
-    }
-
-    return {
-        success: true,
-        lines: resultLines,
-        details: details.reverse().join('\n') // 反转以恢复原始顺序显示
-    };
-};
+    return { success: true };
+}
 
 /**
- * BatchEdit 工具：批量执行多个编辑操作
+ * 应用单个 hunk
+ * 
+ * 核心操作：splice(startIdx, oldLines, ...newContent)
  */
-export const batchEditTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: '操作摘要：包含操作列表、行数变化、执行详情'
-    },
+function applyHunk(fileLines: string[], hunk: DiffHunk): string[] {
+    const startIdx = hunk.oldStart - 1;
+    const result = [...fileLines];
 
+    // ✅ 关键修复：使用 oldLines 而非手动计算
+    result.splice(startIdx, hunk.oldLines, ...hunk.newContent);
+
+    return result;
+}
+
+// ============================================================
+// Tool Definitions
+// ============================================================
+
+/**
+ * ApplyDiff 工具
+ */
+export const applyDiffTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'BatchEdit',
-            description: '批量执行多个文件编辑操作。所有操作基于原始文件的行号，自动处理行号偏移问题。这是执行多个编辑的推荐方式。',
+            name: 'fs.ApplyDiff',
+            description: `应用 Unified Diff 格式的补丁到文件。支持一次修改多处（多个 @@ hunk）
+
+**Header 计算规则 (重要！)**：
+\`@@ -oldStart,oldLines +newStart,newLines @@\`
+
+计算方法：
+1. 数 **空格开头** 和 **空行** → 上下文行数 (C)
+2. 数 **-** 开头 → 删除行数 (D)  
+3. 数 **+** 开头 → 新增行数 (A)
+4. oldLines = C + D
+5. newLines = C + A
+
+**示例**：
+\`\`\`diff
+@@ -5,5 +5,3 @@
+ function foo() {     # 上下文 (1)
+-  const x = 1;       # 删除 (1)
+-  const y = 2;       # 删除 (2)
+-  return x + y;      # 删除 (3)
++  return 3;          # 新增 (1)
+ }                    # 上下文 (2)
+\`\`\`
+上下文=2, 删除=3, 新增=1
+→ oldLines=2+3=5, newLines=2+1=3
+→ Header: \`@@ -5,5 +5,3 @@\`
+`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -206,42 +184,16 @@ export const batchEditTool: Tool = {
                         type: 'string',
                         description: '文件路径'
                     },
-                    operations: {
-                        type: 'array',
-                        description: '编辑操作列表，将按照从后向前的顺序自动执行',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                type: {
-                                    type: 'string',
-                                    enum: ['replace', 'insert', 'delete'],
-                                    description: '操作类型：replace=替换, insert=插入, delete=删除'
-                                },
-                                line: {
-                                    type: 'number',
-                                    description: '起始行号（从1开始计数，基于原始文件）',
-                                    minimum: 1
-                                },
-                                endLine: {
-                                    type: 'number',
-                                    description: '结束行号（仅 replace/delete 需要，1-based）',
-                                    minimum: 1
-                                },
-                                position: {
-                                    type: 'string',
-                                    enum: ['before', 'after'],
-                                    description: '插入位置（仅 insert 需要）：before=行前, after=行后'
-                                },
-                                content: {
-                                    type: 'string',
-                                    description: '新内容（replace/insert 需要）'
-                                }
-                            },
-                            required: ['type', 'line']
-                        }
+                    diff: {
+                        type: 'string',
+                        description: 'Unified diff 内容（可包含多个 @@ hunk）'
+                    },
+                    fuzzy: {
+                        type: 'boolean',
+                        description: '是否启用模糊匹配（忽略空白符差异），默认 true'
                     }
                 },
-                required: ['path', 'operations']
+                required: ['path', 'diff']
             }
         },
         permissionLevel: ToolPermissionLevel.SENSITIVE,
@@ -250,13 +202,18 @@ export const batchEditTool: Tool = {
 
     execute: async (args: {
         path: string;
-        operations: EditOperation[]
+        diff: string;
+        fuzzy?: boolean;
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
-            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: '当前环境不支持文件系统操作'
+            };
         }
 
         const filePath = path.resolve(args.path);
+        const useFuzzy = args.fuzzy ?? true;
 
         if (!fs.existsSync(filePath)) {
             return {
@@ -265,203 +222,85 @@ export const batchEditTool: Tool = {
             };
         }
 
-        if (!args.operations || args.operations.length === 0) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: '操作列表不能为空'
-            };
-        }
-
         try {
-            const lines = readFileLines(filePath);
-            const totalLines = lines.length;
+            // 1. 读取文件
+            const content = fs.readFileSync(filePath, 'utf-8');
+            let lines = content.split('\n');
 
-            // 执行批量编辑
-            const result = applyBatchEdits(lines, args.operations, totalLines);
+            // 2. 解析 diff
+            const hunks = parseUnifiedDiff(args.diff);
 
-            if (!result.success) {
+            if (hunks.length === 0) {
                 return {
                     status: ToolExecuteStatus.ERROR,
-                    error: result.error!
+                    error: '未找到有效的 diff hunk（需要以 @@ 开头）'
                 };
             }
 
-            // 写入文件
-            writeFileLines(filePath, result.lines!);
+            // 3. 逆序应用（从文件末尾向前，避免行号偏移影响）
+            const sorted = [...hunks].sort((a, b) => b.oldStart - a.oldStart);
 
-            // 构建结果信息
-            let resultMsg = `✓ 成功在 ${path.basename(filePath)} 中执行 ${args.operations.length} 个批量操作\n\n`;
-            resultMsg += `文件变化: ${totalLines} 行 → ${result.lines!.length} 行\n\n`;
-            resultMsg += `--- 执行详情 ---\n${result.details}`;
+            for (const hunk of sorted) {
+                // 验证
+                const check = verifyHunk(lines, hunk, useFuzzy);
+                if (!check.success) {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: `Hunk 应用失败（起始行 ${hunk.oldStart}）:\n${check.error}`
+                    };
+                }
+
+                // 应用
+                lines = applyHunk(lines, hunk);
+            }
+
+            // 4. 写回文件
+            fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+
+            // 5. 统计变更
+            const stats = {
+                file: path.basename(filePath),
+                hunks: hunks.length,
+                removed: hunks.reduce((sum, h) => sum + (h.oldLines - h.oldContent.filter((_, i) => h.newContent[i] === undefined).length), 0),
+                added: hunks.reduce((sum, h) => sum + (h.newLines - h.newContent.filter((_, i) => h.oldContent[i] === undefined).length), 0)
+            };
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: resultMsg
+                data: stats
             };
 
         } catch (error: any) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `批量编辑失败: ${error.message}`
+                error: `Diff 应用失败: ${error.message}`
             };
         }
+    },
+
+    formatForLLM: (data: any) => {
+        return `✓ ${data.file}: 应用了 ${data.hunks} 个 hunk (-${data.removed} +${data.added})`;
     }
 };
 
 /**
- * ReplaceLines 工具：替换指定行范围的内容
+ * ReplaceLine 工具：单行快速替换
  */
-export const replaceLinesTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: '包含原始内容与新内容对比的摘要'
-    },
-
+export const replaceLineTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'ReplaceLines',
-            description: '替换文件中指定行范围的内容（闭区间），这是最核心的编辑操作',
+            name: 'fs.ReplaceLine',
+            description: '快速替换单行内容（需提供原始内容验证）。适用于简单的单行修改。',
             parameters: {
                 type: 'object',
                 properties: {
-                    path: {
-                        type: 'string',
-                        description: '文件路径'
-                    },
-                    beginLine: {
-                        type: 'number',
-                        description: '起始行号（从 1 开始，闭区间）',
-                        minimum: 1
-                    },
-                    endLine: {
-                        type: 'number',
-                        description: '结束行号（从 1 开始，闭区间）',
-                        minimum: 1
-                    },
-                    newContent: {
-                        type: 'string',
-                        description: '新内容（多行文本，将替换指定行范围）'
-                    }
+                    path: { type: 'string', description: '文件路径' },
+                    line: { type: 'number', description: '行号（1-based）', minimum: 1 },
+                    expected: { type: 'string', description: '当前行的期望内容（用于验证）' },
+                    newContent: { type: 'string', description: '新的行内容' }
                 },
-                required: ['path', 'beginLine', 'endLine', 'newContent']
-            }
-        },
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
-    },
-
-    execute: async (args: {
-        path: string;
-        beginLine: number;
-        endLine: number;
-        newContent: string
-    }): Promise<ToolExecuteResult> => {
-        if (!fs || !path) {
-            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
-        }
-
-        const filePath = path.resolve(args.path);
-
-        // 检查文件是否存在
-        if (!fs.existsSync(filePath)) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `文件不存在: ${filePath}`
-            };
-        }
-
-        try {
-            const lines = readFileLines(filePath);
-            const totalLines = lines.length;
-
-            // 验证行号范围
-            const beginIndex = args.beginLine - 1;
-            const endIndex = args.endLine - 1;
-            if (beginIndex < 0 || endIndex >= totalLines) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `行号超出范围。文件总行数: ${totalLines}，请求范围: [${args.beginLine}, ${args.endLine}]`
-                };
-            }
-
-            if (args.beginLine > args.endLine) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `起始行号(${args.beginLine})不能大于结束行号(${args.endLine})`
-                };
-            }
-
-            // 保存原始内容（用于显示）
-            const originalLines = lines.slice(beginIndex, endIndex + 1);
-
-            // 执行替换
-            const newLines = args.newContent.split('\n');
-            lines.splice(beginIndex, endIndex - beginIndex + 1, ...newLines);
-
-            // 写入文件
-            writeFileLines(filePath, lines);
-
-            // 构建结果信息
-            const replacedCount = args.endLine - args.beginLine + 1;
-            const newCount = newLines.length;
-
-            let resultMsg = `✓ 成功替换 ${path.basename(filePath)} 的第 ${args.beginLine}-${args.endLine} 行\n`;
-            resultMsg += `  原始: ${replacedCount} 行 → 新内容: ${newCount} 行\n\n`;
-            resultMsg += `--- 原始内容 ---\n${originalLines.join('\n')}\n\n`;
-            resultMsg += `--- 新内容 ---\n${args.newContent}`;
-
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: resultMsg
-            };
-
-        } catch (error: any) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `替换失败: ${error.message}`
-            };
-        }
-    }
-};
-
-/**
- * InsertLines 工具：在指定位置插入内容
- */
-export const insertLinesTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: '包含插入位置上下文和新文本的摘要'
-    },
-
-    definition: {
-        type: 'function',
-        function: {
-            name: 'InsertLines',
-            description: '在文件的指定行之前或之后插入新内容',
-            parameters: {
-                type: 'object',
-                properties: {
-                    path: {
-                        type: 'string',
-                        description: '文件路径'
-                    },
-                    line: {
-                        type: 'number',
-                        description: '插入位置的行号（从 1 开始）',
-                        minimum: 1
-                    },
-                    position: {
-                        type: 'string',
-                        enum: ['before', 'after'],
-                        description: '在该行之前(before)还是之后(after)插入'
-                    },
-                    content: {
-                        type: 'string',
-                        description: '要插入的内容（多行文本）'
-                    }
-                },
-                required: ['path', 'line', 'position', 'content']
+                required: ['path', 'line', 'expected', 'newContent']
             }
         },
         permissionLevel: ToolPermissionLevel.SENSITIVE,
@@ -471,336 +310,188 @@ export const insertLinesTool: Tool = {
     execute: async (args: {
         path: string;
         line: number;
-        position: 'before' | 'after';
-        content: string
+        expected: string;
+        newContent: string;
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
-            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
+            return { status: ToolExecuteStatus.ERROR, error: 'FS not available' };
         }
 
         const filePath = path.resolve(args.path);
-
         if (!fs.existsSync(filePath)) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `文件不存在: ${filePath}`
-            };
-        }
-
-        try {
-            const lines = readFileLines(filePath);
-            const totalLines = lines.length;
-
-            // 验证行号
-            if (args.line < 1 || args.line > totalLines) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `行号超出范围。文件总行数: ${totalLines}，请求行号: ${args.line}`
-                };
-            }
-
-            const lineIndex = args.line - 1;
-            // 计算实际插入位置
-            const insertIndex = args.position === 'before' ? lineIndex : lineIndex + 1;
-
-            // 插入内容
-            const newLines = args.content.split('\n');
-            lines.splice(insertIndex, 0, ...newLines);
-
-            // 写入文件
-            writeFileLines(filePath, lines);
-
-            // 构建结果信息
-            let resultMsg = `✓ 成功在 ${path.basename(filePath)} 的第 ${args.line} 行${args.position === 'before' ? '前' : '后'}插入 ${newLines.length} 行内容\n\n`;
-            resultMsg += `--- 插入位置上下文 ---\n`;
-
-            const contextStart = Math.max(0, lineIndex - 2);
-            const contextEnd = Math.min(totalLines - 1, lineIndex + 2);
-            resultMsg += formatLineRange(lines.slice(0, totalLines), contextStart, contextEnd, lineIndex);
-
-            resultMsg += `\n\n--- 插入的内容 ---\n${args.content}`;
-
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: resultMsg
-            };
-
-        } catch (error: any) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `插入失败: ${error.message}`
-            };
-        }
-    }
-};
-
-/**
- * DeleteLines 工具：删除指定行范围
- */
-export const deleteLinesTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: '被删除的文本内容'
-    },
-
-    definition: {
-        type: 'function',
-        function: {
-            name: 'DeleteLines',
-            description: '删除文件中指定行范围的内容（闭区间）',
-            parameters: {
-                type: 'object',
-                properties: {
-                    path: {
-                        type: 'string',
-                        description: '文件路径'
-                    },
-                    beginLine: {
-                        type: 'number',
-                        description: '起始行号（从 1 开始，闭区间）',
-                        minimum: 1
-                    },
-                    endLine: {
-                        type: 'number',
-                        description: '结束行号（从 1 开始，闭区间）',
-                        minimum: 1
-                    }
-                },
-                required: ['path', 'beginLine', 'endLine']
-            }
-        },
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
-
-    },
-
-    execute: async (args: {
-        path: string;
-        beginLine: number;
-        endLine: number
-    }): Promise<ToolExecuteResult> => {
-        if (!fs || !path) {
-            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
-        }
-
-        const filePath = path.resolve(args.path);
-
-        if (!fs.existsSync(filePath)) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `文件不存在: ${filePath}`
-            };
-        }
-
-        try {
-            const lines = readFileLines(filePath);
-            const totalLines = lines.length;
-
-            // 验证行号范围
-            const beginIndex = args.beginLine - 1;
-            const endIndex = args.endLine - 1;
-            if (beginIndex < 0 || endIndex >= totalLines) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `行号超出范围。文件总行数: ${totalLines}，请求范围: [${args.beginLine}, ${args.endLine}]`
-                };
-            }
-
-            if (args.beginLine > args.endLine) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `起始行号(${args.beginLine})不能大于结束行号(${args.endLine})`
-                };
-            }
-
-            // 保存被删除的内容
-            const deletedLines = lines.slice(beginIndex, endIndex + 1);
-
-            // 删除行
-            lines.splice(beginIndex, endIndex - beginIndex + 1);
-
-            // 写入文件
-            writeFileLines(filePath, lines);
-
-            // 构建结果信息
-            const deletedCount = args.endLine - args.beginLine + 1;
-            let resultMsg = `✓ 成功删除 ${path.basename(filePath)} 的第 ${args.beginLine}-${args.endLine} 行（共 ${deletedCount} 行）\n\n`;
-            resultMsg += `--- 已删除的内容 ---\n${deletedLines.join('\n')}`;
-
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: resultMsg
-            };
-
-        } catch (error: any) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `删除失败: ${error.message}`
-            };
-        }
-    }
-};
-
-/**
- * ReplaceString 工具：字符串查找替换
- */
-export const replaceStringTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: '包含匹配/替换次数及示例的摘要'
-    },
-
-    definition: {
-        type: 'function',
-        function: {
-            name: 'ReplaceString',
-            description: '在文件中查找并替换字符串（支持正则表达式）',
-            parameters: {
-                type: 'object',
-                properties: {
-                    path: {
-                        type: 'string',
-                        description: '文件路径'
-                    },
-                    search: {
-                        type: 'string',
-                        description: '要查找的字符串或正则表达式'
-                    },
-                    replace: {
-                        type: 'string',
-                        description: '替换为的内容'
-                    },
-                    regex: {
-                        type: 'boolean',
-                        description: '是否使用正则表达式，默认 false'
-                    },
-                    replaceAll: {
-                        type: 'boolean',
-                        description: '是否替换所有匹配（默认只替换第一个），默认 false'
-                    }
-                },
-                required: ['path', 'search', 'replace']
-            }
-        },
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
-
-    },
-
-    execute: async (args: {
-        path: string;
-        search: string;
-        replace: string;
-        regex?: boolean;
-        replaceAll?: boolean
-    }): Promise<ToolExecuteResult> => {
-        if (!fs || !path) {
-            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
-        }
-
-        const filePath = path.resolve(args.path);
-
-        if (!fs.existsSync(filePath)) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `文件不存在: ${filePath}`
-            };
+            return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
         }
 
         try {
             const content = fs.readFileSync(filePath, 'utf-8');
-            const useRegex = args.regex ?? false;
-            const replaceAll = args.replaceAll ?? false;
+            const lines = content.split('\n');
+            const idx = args.line - 1;
 
-            let newContent: string;
-            let matchCount = 0;
-
-            if (useRegex) {
-                // 使用正则表达式
-                try {
-                    const flags = replaceAll ? 'g' : '';
-                    const regex = new RegExp(args.search, flags);
-
-                    // 统计匹配次数
-                    const matches = content.match(new RegExp(args.search, 'g'));
-                    matchCount = matches ? matches.length : 0;
-
-                    newContent = content.replace(regex, args.replace);
-                } catch (error: any) {
-                    return {
-                        status: ToolExecuteStatus.ERROR,
-                        error: `无效的正则表达式: ${error.message}`
-                    };
-                }
-            } else {
-                // 普通字符串替换
-                if (replaceAll) {
-                    // 统计匹配次数
-                    matchCount = (content.match(new RegExp(args.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
-                    newContent = content.split(args.search).join(args.replace);
-                } else {
-                    matchCount = content.includes(args.search) ? 1 : 0;
-                    newContent = content.replace(args.search, args.replace);
-                }
-            }
-
-            // 检查是否有变化
-            if (newContent === content) {
+            if (idx < 0 || idx >= lines.length) {
                 return {
-                    status: ToolExecuteStatus.SUCCESS,
-                    data: `未找到匹配的内容，文件未修改`
+                    status: ToolExecuteStatus.ERROR,
+                    error: `行号越界: 文件有 ${lines.length} 行，请求第 ${args.line} 行`
                 };
             }
 
-            // 写入文件
-            fs.writeFileSync(filePath, newContent, 'utf-8');
+            const normalize = (s: string) => s.trim().replace(/\s+/g, ' ');
+            if (normalize(lines[idx]) !== normalize(args.expected)) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `第 ${args.line} 行内容不匹配\n期望: "${args.expected}"\n实际: "${lines[idx]}"`
+                };
+            }
 
-            // 构建结果信息
-            const actualReplaced = replaceAll ? matchCount : 1;
-            let resultMsg = `✓ 成功在 ${path.basename(filePath)} 中完成替换\n`;
-            resultMsg += `  匹配模式: ${useRegex ? '正则表达式' : '字符串'}\n`;
-            resultMsg += `  替换次数: ${actualReplaced} 处\n`;
-            resultMsg += `  总匹配数: ${matchCount}\n\n`;
-            resultMsg += `查找: ${args.search}\n`;
-            resultMsg += `替换: ${args.replace}`;
+            lines[idx] = args.newContent;
+            fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: resultMsg
+                data: { file: path.basename(filePath), line: args.line }
             };
-
         } catch (error: any) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `替换失败: ${error.message}`
-            };
+            return { status: ToolExecuteStatus.ERROR, error: error.message };
         }
-    }
+    },
+
+    formatForLLM: (data: any) => `✓ ${data.file}:${data.line} 已替换`
 };
 
 /**
- * 文件编辑工具组
+ * WriteFile 工具：全新写入或重写文件
+ */
+export const writeFileTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'fs.WriteFile',
+            description: '写入完整文件内容。适用于：(1) 创建新文件 (2) 大规模重写（>50% 变更）',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: { type: 'string', description: '文件路径' },
+                    content: { type: 'string', description: '完整的文件内容' },
+                    mode: { type: 'string', 'enum': ['append', 'overwrite', 'create'], description: '写入模式，追加或覆盖，默认 create; create 会在文件存在时报错, 而 overwrite 会覆盖文件' }
+                },
+                required: ['path', 'content']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.SENSITIVE,
+        requireResultApproval: true
+    },
+
+    execute: async (args: { path: string; content: string, mode?: 'append' | 'overwrite' | 'create' }): Promise<ToolExecuteResult> => {
+        if (!fs || !path) {
+            return { status: ToolExecuteStatus.ERROR, error: 'FS not available' };
+        }
+
+        const mode = args.mode || 'create';
+
+        try {
+            const filePath = path.resolve(args.path);
+            const dir = path.dirname(filePath);
+
+            // 确保目录存在
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            if (mode === 'create' && fs.existsSync(filePath)) {
+                return { status: ToolExecuteStatus.ERROR, error: `文件已存在: ${filePath}, 无法 create` };
+            }
+
+            let content = args.content;
+            if (mode === 'append' && fs.existsSync(filePath)) {
+                const existing = fs.readFileSync(filePath, 'utf-8');
+                content = existing + '\n' + args.content;
+            }
+
+            fs.writeFileSync(filePath, content, 'utf-8');
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: {
+                    file: path.basename(filePath),
+                    lines: args.content.split('\n').length,
+                    bytes: Buffer.byteLength(args.content, 'utf8')
+                }
+            };
+        } catch (error: any) {
+            return { status: ToolExecuteStatus.ERROR, error: error.message };
+        }
+    },
+
+    formatForLLM: (data: any) => `✓ ${data.file}: 已写入 ${data.lines} 行 (${data.bytes} bytes)`
+};
+
+/**
+ * 导出工具组
  */
 export const editorTools = {
     name: '文件编辑工具组',
-    tools: fs ? [
-        batchEditTool,          // 批量编辑（推荐）
-        replaceLinesTool,
-        insertLinesTool,
-        deleteLinesTool,
-        replaceStringTool
-    ] : [],
+    tools: fs ? [applyDiffTool, replaceLineTool, writeFileTool] : [],
     rulePrompt: `
-## 文件编辑工具组 ##
+## 文件编辑工具使用指南
 
-**单次操作**: ReplaceLines | InsertLines | DeleteLines | ReplaceString(支持正则)
+### 工具选择策略
 
-**多次操作**: BatchEdit —— 批量修改时优先使用，不过务必确保行号正确
+1. **ApplyDiff** (首选，90% 场景)
+   - 适用：几乎所有代码修改
+   - 格式：Unified Diff (标准 @@ 格式)
+   - 上下文：**2-3 行即可**（除非代码高度重复）
+   - 优势：Token 效率最高，支持一次修改多处
 
-## 实践 Skills ##
-1. FileState 查看文件大小/行数
-2. ReadFile 或 SearchInFile 定位目标位置; 未知文件避免盲目全量读取
-3. 执行编辑（行号从 1 开始）
-4. 复杂修改分步进行，每步验证
+2. **ReplaceLine** (快速微调)
+   - 适用：单行简单修改（改变量名、修正拼写）
+   - 必须：提供原始内容验证
+
+3. **WriteFile** (新建/重写)
+   - **新建文件**: 默认模式 (mode='create')，文件存在会报错
+   - **完全重写**: 必须指定 \`mode: 'overwrite'\`
+   - **追加内容**: 指定 \`mode: 'append'\
+
+### ApplyDiff 最佳实践
+
+**上下文行数选择**：
+\`\`\`diff
+# 一般情况：2-3 行足够
+@@ -42,3 +42,3 @@
+ function foo() {
+   const x = 1;
+-  return x + 1;
++  return x + 2;
+ }
+
+# 代码有重复：增加上下文
+@@ -42,7 +42,7 @@
+ // Component: UserProfile
+ function foo() {
+   const x = 1;
+-  return x + 1;
++  return x + 2;
+ }
+ // End Component
+\`\`\`
+
+**多处修改**：
+\`\`\`diff
+@@ -10,2 +10,2 @@
+ import React from 'react';
+-import { Button } from './old';
++import { Button } from './new';
+
+@@ -50,3 +50,3 @@
+ function App() {
+-  return <OldButton />;
++  return <NewButton />;
+ }
+\`\`\`
+
+### 操作流程
+
+1. **Read/Search** 定位目标代码
+2. **选择工具**：优先 ApplyDiff
+3. **构造 Diff**：包含必要上下文
+4. **执行**：工具会自动验证并应用
 `.trim()
 };
