@@ -85,7 +85,7 @@ export const viewTool: Tool = {
                         // minItems: 2,
                         // maxItems: 2
                     },
-                    lineNumbers: {
+                    showLineNumbers: {
                         type: 'boolean',
                         description: '是否显示行号（默认 false）'
                     }
@@ -102,7 +102,7 @@ export const viewTool: Tool = {
         mode?: 'preview' | 'full' | 'head' | 'tail' | 'range';
         lines?: number;
         range?: [number, number];
-        lineNumbers?: boolean;
+        showLineNumbers?: boolean;
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: '文件系统不可用' };
@@ -111,7 +111,7 @@ export const viewTool: Tool = {
         try {
             const filePath = path.resolve(args.path);
             const mode = args.mode || 'preview';
-            const showLineNumbers = args.lineNumbers || false;
+            const showLineNumbers = args.showLineNumbers || false;
 
             // 检查文件是否存在
             if (!fs.existsSync(filePath)) {

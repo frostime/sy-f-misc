@@ -3,180 +3,501 @@ import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
 
-/**
- * Unified Diff Hunk 结构（简化版）
- */
+// ============================================================
+// 类型定义
+// ============================================================
+
+interface SearchReplaceBlock {
+    search: string;
+    replace: string;
+    lineNumber?: number;  // 匹配到的起始行号（用于报告）
+}
+
 interface DiffHunk {
-    oldStart: number;   // 旧文件起始行号（1-based）
-    oldLines: number;   // 旧文件涉及的行数
-    newStart: number;   // 新文件起始行号（1-based）
-    newLines: number;   // 新文件涉及的行数
-    oldContent: string[]; // 旧文件的完整内容（包含上下文和待删除行）
-    newContent: string[]; // 新文件的完整内容（包含上下文和新增行）
-    header?: string;    // 可选的 hunk header（如函数名）
+    oldContent: string[];   // 旧文件内容（上下文 + 删除行）
+    newContent: string[];   // 新文件内容（上下文 + 新增行）
+    lineNumber?: number;    // 匹配到的起始行号
+}
+
+interface MatchResult {
+    found: boolean;
+    startIdx: number;       // 行索引（0-based）
+    endIdx: number;         // 结束行索引（exclusive）
+    matchType: 'exact' | 'normalized' | 'fuzzy';
+    confidence: number;     // 0-1 匹配置信度
+}
+
+interface RangeSpec {
+    startLine?: number;     // 起始行号（1-based，inclusive）
+    endLine?: number;       // 结束行号（1-based，inclusive）
+}
+
+// ============================================================
+// 核心匹配算法
+// ============================================================
+
+/**
+ * 标准化字符串（用于模糊匹配）
+ * 注意：保留相对缩进结构，只做轻度标准化
+ */
+function normalizeForMatch(s: string): string {
+    return s
+        .replace(/\r\n/g, '\n')         // 统一换行符
+        .replace(/\t/g, '  ')           // Tab 转 2 空格（保持缩进结构）
+        .replace(/\s+$/gm, '')          // 移除行尾空白
+        .replace(/[ ]+/g, ' ')          // 多个空格压缩为一个（行内）
+        .trim();
 }
 
 /**
- * 解析 Unified Diff
- * 
- * 核心逻辑：
- * - 空格/空行 开头 → 同时加入 oldContent 和 newContent（上下文）
- * - `-` 开头 → 仅加入 oldContent（待删除）
- * - `+` 开头 → 仅加入 newContent（新增）
+ * 计算两个字符串的相似度（基于 Levenshtein 距离）
+ * 注意：此函数仅用于诊断，不会在实际编辑中使用模糊匹配结果
  */
-function parseUnifiedDiff(diffText: string): DiffHunk[] {
-    const lines = diffText.split('\n');
-    const hunks: DiffHunk[] = [];
-    let current: DiffHunk | null = null;
+function similarity(a: string, b: string): number {
+    if (a === b) return 1;
+    if (a.length === 0 || b.length === 0) return 0;
 
-    for (const line of lines) {
-        // 匹配 hunk header: @@ -l,s +l,s @@
-        const match = line.match(/^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@(.*)$/);
+    const lenDiff = Math.abs(a.length - b.length);
+    const maxLen = Math.max(a.length, b.length);
 
-        if (match) {
-            // 保存上一个 hunk
-            if (current) hunks.push(current);
+    // 早期退出：长度差异太大（>20%）直接返回低相似度
+    if (lenDiff / maxLen > 0.2) {
+        return 0.5;
+    }
 
-            // 创建新 hunk
-            current = {
-                oldStart: parseInt(match[1]),
-                oldLines: parseInt(match[2] || '1'),
-                newStart: parseInt(match[3]),
-                newLines: parseInt(match[4] || '1'),
-                oldContent: [],
-                newContent: [],
-                header: match[5]?.trim() || undefined
-            };
+    // 性能保护：超长字符串用简化算法
+    if (maxLen > 500) {
+        const aWords = new Set(a.split(/\s+/));
+        const bWords = new Set(b.split(/\s+/));
+        const intersection = [...aWords].filter(w => bWords.has(w)).length;
+        const union = new Set([...aWords, ...bWords]).size;
+        return union > 0 ? intersection / union : 0;
+    }
+
+    // 标准 Levenshtein（带早期退出）
+    const matrix: number[][] = [];
+    for (let i = 0; i <= a.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= b.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= a.length; i++) {
+        let minInRow = Infinity;
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+            );
+            minInRow = Math.min(minInRow, matrix[i][j]);
+        }
+        // 早期退出：当前行的最小编辑距离已经太大
+        if (minInRow > maxLen * 0.15) {
+            return 1 - minInRow / maxLen;
+        }
+    }
+
+    const distance = matrix[a.length][b.length];
+    return 1 - distance / maxLen;
+}
+
+/**
+ * 在文件行中查找匹配的代码块
+ * 
+ * 匹配策略（按优先级）：
+ * 1. 精确匹配（confidence = 1.0）
+ * 2. 标准化匹配（confidence = 0.95，忽略空白差异）
+ * 3. 模糊匹配（confidence < 0.95，仅用于诊断，不会被应用）
+ * 
+ * 注意：只有精确匹配和标准化匹配会被实际应用到文件。
+ * 模糊匹配仅用于生成错误诊断信息，提示 LLM 查看文件内容。
+ */
+function findBlockInLines(
+    fileLines: string[],
+    searchLines: string[],
+    range?: RangeSpec
+): MatchResult[] {
+    const results: MatchResult[] = [];
+
+    // 确定搜索范围
+    const startLine = Math.max(0, (range?.startLine ?? 1) - 1);
+    const endLine = Math.min(fileLines.length, range?.endLine ?? fileLines.length);
+
+    const searchText = searchLines.join('\n');
+    const searchNormalized = normalizeForMatch(searchText);
+    const searchLen = searchLines.length;
+
+    if (searchLen === 0) return results;
+
+    let hasExactOrNormalized = false;
+
+    // 第一遍：找精确和标准化匹配
+    for (let i = startLine; i <= endLine - searchLen; i++) {
+        const windowLines = fileLines.slice(i, i + searchLen);
+        const windowText = windowLines.join('\n');
+
+        // 策略 1: 精确匹配
+        if (windowText === searchText) {
+            results.push({
+                found: true,
+                startIdx: i,
+                endIdx: i + searchLen,
+                matchType: 'exact',
+                confidence: 1.0
+            });
+            hasExactOrNormalized = true;
             continue;
         }
 
-        if (!current) continue;
-
-        // 解析内容行
-        if (line.startsWith(' ') || line === '') {
-            // 上下文行：同时存在于旧文件和新文件
-            const content = line.startsWith(' ') ? line.substring(1) : '';
-            current.oldContent.push(content);
-            current.newContent.push(content);
-        } else if (line.startsWith('-')) {
-            // 删除行：仅存在于旧文件
-            current.oldContent.push(line.substring(1));
-        } else if (line.startsWith('+')) {
-            // 新增行：仅存在于新文件
-            current.newContent.push(line.substring(1));
+        // 策略 2: 标准化匹配
+        const windowNormalized = normalizeForMatch(windowText);
+        if (windowNormalized === searchNormalized) {
+            results.push({
+                found: true,
+                startIdx: i,
+                endIdx: i + searchLen,
+                matchType: 'normalized',
+                confidence: 0.95
+            });
+            hasExactOrNormalized = true;
         }
-        // 其他行（如 diff header）忽略
     }
 
-    if (current) hunks.push(current);
+    // 如果已找到精确/标准化匹配，不再进行模糊匹配
+    if (hasExactOrNormalized) {
+        results.sort((a, b) => b.confidence - a.confidence);
+        return results;
+    }
+
+    // 第二遍：模糊匹配（仅当没有精确匹配且搜索内容较长时）
+    if (searchLines.length >= 3) {
+        for (let i = startLine; i <= endLine - searchLen; i++) {
+            const windowLines = fileLines.slice(i, i + searchLen);
+            const windowText = windowLines.join('\n');
+            const windowNormalized = normalizeForMatch(windowText);
+
+            const sim = similarity(windowNormalized, searchNormalized);
+            if (sim > 0.92) {
+                results.push({
+                    found: true,
+                    startIdx: i,
+                    endIdx: i + searchLen,
+                    matchType: 'fuzzy',
+                    confidence: sim
+                });
+            }
+        }
+    }
+
+    // 按置信度排序
+    results.sort((a, b) => b.confidence - a.confidence);
+
+    // 去重：移除同位置的重复匹配
+    const seen = new Set<number>();
+    const dedupedResults: MatchResult[] = [];
+    for (const r of results) {
+        if (!seen.has(r.startIdx)) {
+            seen.add(r.startIdx);
+            dedupedResults.push(r);
+        }
+    }
+
+    return dedupedResults;
+}
+
+/**
+ * 查找唯一匹配（如果有多个高置信度匹配则报错）
+ * 注意：仅接受精确匹配和标准化匹配，模糊匹配会返回诊断信息
+ */
+function findUniqueMatch(
+    fileLines: string[],
+    searchLines: string[],
+    range?: RangeSpec
+): { match: MatchResult | null; error?: string } {
+    const matches = findBlockInLines(fileLines, searchLines, range);
+
+    if (matches.length === 0) {
+        return { match: null, error: '未找到匹配的代码块' };
+    }
+
+    // 只接受精确匹配和标准化匹配（置信度 >= 0.95）
+    const acceptableMatches = matches.filter(m => m.confidence >= 0.95);
+
+    if (acceptableMatches.length === 0) {
+        // 只找到模糊匹配，提供诊断信息
+        const bestMatch = matches[0];
+        const matchedLines = fileLines.slice(bestMatch.startIdx, bestMatch.endIdx);
+
+        return {
+            match: null,
+            error: `未找到精确匹配，但在第 ${bestMatch.startIdx + 1} 行发现相似代码（相似度 ${(bestMatch.confidence * 100).toFixed(1)}%）：\n\n${matchedLines.join('\n')}\n\n请先用 ReadFile 查看文件，然后使用实际的代码内容重新提交。`
+        };
+    }
+
+    // 检查是否有多个高置信度匹配
+    if (acceptableMatches.length > 1) {
+        const locations = acceptableMatches
+            .map(m => `第 ${m.startIdx + 1} 行`)
+            .join(', ');
+        return {
+            match: null,
+            error: `发现 ${acceptableMatches.length} 个匹配位置（${locations}），无法确定修改哪一个。请增加上下文或使用 withinRange 缩小范围。`
+        };
+    }
+
+    return { match: acceptableMatches[0] };
+}
+
+// ============================================================
+// Search/Replace 解析器
+// ============================================================
+
+/**
+ * 解析 Search/Replace 格式的编辑块
+ * 
+ * 格式：
+ * <<<<<<< SEARCH
+ * 要查找的代码
+ * =======
+ * 替换后的代码
+ * >>>>>>> REPLACE
+ */
+function parseSearchReplaceBlocks(text: string): SearchReplaceBlock[] {
+    const blocks: SearchReplaceBlock[] = [];
+
+    // 支持多种分隔符风格
+    const blockRegex = /<<<<<<<?(?:\s*SEARCH)?\s*\n([\s\S]*?)\n?={4,}\s*\n([\s\S]*?)\n?>>>>>>>?(?:\s*REPLACE)?/g;
+
+    let match;
+    while ((match = blockRegex.exec(text)) !== null) {
+        const search = match[1];
+        const replace = match[2];
+
+        // 移除首尾的空行但保留中间结构
+        blocks.push({
+            search: search.replace(/^\n+|\n+$/g, ''),
+            replace: replace.replace(/^\n+|\n+$/g, '')
+        });
+    }
+
+    return blocks;
+}
+
+// ============================================================
+// Unified Diff 解析器（优化版，忽略 header 行号）
+// ============================================================
+
+/**
+ * 解析 Unified Diff（宽松模式，不依赖 header 中的行号）
+ */
+function parseUnifiedDiffRelaxed(diffText: string): DiffHunk[] {
+    const lines = diffText.split('\n');
+    const hunks: DiffHunk[] = [];
+    let current: DiffHunk | null = null;
+    let inHunk = false;
+
+    for (const line of lines) {
+        // 宽松匹配 hunk header：接受 @@ ... @@ 或 @@ -x,y +a,b @@
+        // 关键：我们不使用 header 中的数字，只用它作为分隔符
+        if (line.match(/^@@\s.*\s*@@/) || line.match(/^@@\s*@@/)) {
+            if (current && (current.oldContent.length > 0 || current.newContent.length > 0)) {
+                hunks.push(current);
+            }
+            current = {
+                oldContent: [],
+                newContent: []
+            };
+            inHunk = true;
+            continue;
+        }
+
+        if (!current || !inHunk) continue;
+
+        // 解析内容行
+        if (line.startsWith('-')) {
+            // 删除行：仅存在于旧版本
+            current.oldContent.push(line.substring(1));
+        } else if (line.startsWith('+')) {
+            // 新增行：仅存在于新版本
+            current.newContent.push(line.substring(1));
+        } else if (line.startsWith(' ')) {
+            // 上下文行（必须以空格开头）：两边都有
+            current.oldContent.push(line.substring(1));
+            current.newContent.push(line.substring(1));
+        } else if (line === '' && (current.oldContent.length > 0 || current.newContent.length > 0)) {
+            // 空行在 hunk 内容中间时作为上下文
+            // 但如果 hunk 还没有内容，则忽略前导空行
+            current.oldContent.push('');
+            current.newContent.push('');
+        }
+        // 其他行（如 diff --git, ---, +++, 或 hunk 之间的空行）忽略
+    }
+
+    if (current && (current.oldContent.length > 0 || current.newContent.length > 0)) {
+        hunks.push(current);
+    }
+
+    // 清理：移除尾部的空行
+    for (const hunk of hunks) {
+        while (hunk.oldContent.length > 0 && hunk.oldContent[hunk.oldContent.length - 1] === '') {
+            hunk.oldContent.pop();
+        }
+        while (hunk.newContent.length > 0 && hunk.newContent[hunk.newContent.length - 1] === '') {
+            hunk.newContent.pop();
+        }
+    }
+
     return hunks;
 }
 
-/**
- * 验证 hunk 是否可以应用到文件
- * 
- * @param fileLines 文件的所有行
- * @param hunk 要验证的 hunk
- * @param fuzzy 是否启用模糊匹配（忽略空白符差异）
- */
-function verifyHunk(
-    fileLines: string[],
-    hunk: DiffHunk,
-    fuzzy: boolean = true
-): { success: boolean; error?: string } {
-    const startIdx = hunk.oldStart - 1; // 转为 0-based
+// ============================================================
+// Tool: SearchReplace
+// ============================================================
 
-    // 检查边界
-    if (startIdx < 0 || startIdx + hunk.oldLines > fileLines.length) {
-        return {
-            success: false,
-            error: `行号越界：文件有 ${fileLines.length} 行，hunk 要求从第 ${hunk.oldStart} 行开始取 ${hunk.oldLines} 行`
-        };
-    }
+export const searchReplaceTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'fs.SearchReplace',
+            description: `基于内容匹配的代码替换工具。格式为 SEARCH/REPLACE 块，支持批量操作。详见使用指南。`,
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: {
+                        type: 'string',
+                        description: '文件路径'
+                    },
+                    blocks: {
+                        type: 'string',
+                        description: '一个或多个 SEARCH/REPLACE 块（格式见使用指南）'
+                    },
+                    withinRange: {
+                        type: 'object',
+                        description: '可选，限定搜索范围（行号 1-based）',
+                        properties: {
+                            startLine: { type: 'number', description: '起始行号' },
+                            endLine: { type: 'number', description: '结束行号' }
+                        }
+                    }
+                },
+                required: ['path', 'blocks']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.SENSITIVE,
+        requireResultApproval: true
+    },
 
-    // 检查行数是否匹配预期
-    if (hunk.oldContent.length !== hunk.oldLines) {
-        return {
-            success: false,
-            error: `Hunk 内部不一致：header 声明 ${hunk.oldLines} 行，实际解析到 ${hunk.oldContent.length} 行`
-        };
-    }
-
-    // 逐行验证
-    const normalize = (s: string) => fuzzy ? s.trim().replace(/\s+/g, ' ') : s;
-
-    for (let i = 0; i < hunk.oldLines; i++) {
-        const expected = normalize(hunk.oldContent[i]);
-        const actual = normalize(fileLines[startIdx + i] || '');
-
-        if (expected !== actual) {
-            return {
-                success: false,
-                error: [
-                    `第 ${hunk.oldStart + i} 行内容不匹配`,
-                    `期望: "${hunk.oldContent[i]}"`,
-                    `实际: "${fileLines[startIdx + i] || ''}"`
-                ].join('\n')
-            };
+    execute: async (args: {
+        path: string;
+        blocks: string;
+        withinRange?: RangeSpec;
+    }): Promise<ToolExecuteResult> => {
+        if (!fs || !path) {
+            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
         }
+
+        const filePath = path.resolve(args.path);
+        if (!fs.existsSync(filePath)) {
+            return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
+        }
+
+        try {
+            // 1. 读取文件
+            const content = fs.readFileSync(filePath, 'utf-8');
+            let lines = content.split('\n');
+
+            // 2. 解析 blocks
+            const blocks = parseSearchReplaceBlocks(args.blocks);
+            if (blocks.length === 0) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: '未找到有效的 SEARCH/REPLACE 块。格式：<<<<<<< SEARCH\\n...\\n=======\\n...\\n>>>>>>> REPLACE'
+                };
+            }
+
+            // 3. 预处理：为每个 block 找到匹配位置
+            const operations: Array<{
+                block: SearchReplaceBlock;
+                match: MatchResult;
+            }> = [];
+
+            for (let i = 0; i < blocks.length; i++) {
+                const block = blocks[i];
+                const searchLines = block.search.split('\n');
+                const result = findUniqueMatch(lines, searchLines, args.withinRange);
+
+                if (result.error) {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: `Block #${i + 1} 匹配失败：${result.error}\n\n搜索内容前 3 行：\n${searchLines.slice(0, 3).join('\n')}`
+                    };
+                }
+
+                operations.push({ block, match: result.match! });
+            }
+
+            // 4. 检查操作是否有重叠
+            operations.sort((a, b) => b.match.startIdx - a.match.startIdx);
+            for (let i = 1; i < operations.length; i++) {
+                const prev = operations[i - 1];
+                const curr = operations[i];
+                if (curr.match.endIdx > prev.match.startIdx) {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: `Block 操作范围重叠：第 ${curr.match.startIdx + 1}-${curr.match.endIdx} 行与第 ${prev.match.startIdx + 1}-${prev.match.endIdx} 行`
+                    };
+                }
+            }
+
+            // 5. 从后向前应用（避免行号偏移）
+            const changes: string[] = [];
+            for (const op of operations) {
+                const replaceLines = op.block.replace.split('\n');
+                const removed = op.match.endIdx - op.match.startIdx;
+                const added = replaceLines.length;
+
+                lines.splice(op.match.startIdx, removed, ...replaceLines);
+
+                changes.push(
+                    `行 ${op.match.startIdx + 1}: -${removed} +${added} (${op.match.matchType})`
+                );
+            }
+
+            // 6. 写回文件
+            fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: {
+                    file: path.basename(filePath),
+                    blocksApplied: blocks.length,
+                    changes
+                }
+            };
+
+        } catch (error: any) {
+            return { status: ToolExecuteStatus.ERROR, error: `替换失败: ${error.message}` };
+        }
+    },
+
+    formatForLLM: (data: any) => {
+        return `✓ ${data.file}: 应用了 ${data.blocksApplied} 个替换块\n${data.changes.join('\n')}`;
     }
-
-    return { success: true };
-}
-
-/**
- * 应用单个 hunk
- * 
- * 核心操作：splice(startIdx, oldLines, ...newContent)
- */
-function applyHunk(fileLines: string[], hunk: DiffHunk): string[] {
-    const startIdx = hunk.oldStart - 1;
-    const result = [...fileLines];
-
-    // ✅ 关键修复：使用 oldLines 而非手动计算
-    result.splice(startIdx, hunk.oldLines, ...hunk.newContent);
-
-    return result;
-}
+};
 
 // ============================================================
-// Tool Definitions
+// Tool: ApplyDiff（优化版）
 // ============================================================
 
-/**
- * ApplyDiff 工具
- */
 export const applyDiffTool: Tool = {
     definition: {
         type: 'function',
         function: {
             name: 'fs.ApplyDiff',
-            description: `应用 Unified Diff 格式的补丁到文件。支持一次修改多处（多个 @@ hunk）
-
-**Header 计算规则 (重要！)**：
-\`@@ -oldStart,oldLines +newStart,newLines @@\`
-
-计算方法：
-1. 数 **空格开头** 和 **空行** → 上下文行数 (C)
-2. 数 **-** 开头 → 删除行数 (D)  
-3. 数 **+** 开头 → 新增行数 (A)
-4. oldLines = C + D
-5. newLines = C + A
-
-**示例**：
-\`\`\`diff
-@@ -5,5 +5,3 @@
- function foo() {     # 上下文 (1)
--  const x = 1;       # 删除 (1)
--  const y = 2;       # 删除 (2)
--  return x + y;      # 删除 (3)
-+  return 3;          # 新增 (1)
- }                    # 上下文 (2)
-\`\`\`
-上下文=2, 删除=3, 新增=1
-→ oldLines=2+3=5, newLines=2+1=3
-→ Header: \`@@ -5,5 +5,3 @@\`
-`,
+            description: `应用 Unified Diff 格式补丁。基于内容匹配，header 行号可随意填写。详见使用指南。`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -188,9 +509,13 @@ export const applyDiffTool: Tool = {
                         type: 'string',
                         description: 'Unified diff 内容（可包含多个 @@ hunk）'
                     },
-                    fuzzy: {
-                        type: 'boolean',
-                        description: '是否启用模糊匹配（忽略空白符差异），默认 true'
+                    withinRange: {
+                        type: 'object',
+                        description: '可选，限定搜索范围（行号 1-based）',
+                        properties: {
+                            startLine: { type: 'number' },
+                            endLine: { type: 'number' }
+                        }
                     }
                 },
                 required: ['path', 'diff']
@@ -203,23 +528,15 @@ export const applyDiffTool: Tool = {
     execute: async (args: {
         path: string;
         diff: string;
-        fuzzy?: boolean;
+        withinRange?: RangeSpec;
     }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: '当前环境不支持文件系统操作'
-            };
+            return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
         }
 
         const filePath = path.resolve(args.path);
-        const useFuzzy = args.fuzzy ?? true;
-
         if (!fs.existsSync(filePath)) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `文件不存在: ${filePath}`
-            };
+            return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
         }
 
         try {
@@ -227,65 +544,100 @@ export const applyDiffTool: Tool = {
             const content = fs.readFileSync(filePath, 'utf-8');
             let lines = content.split('\n');
 
-            // 2. 解析 diff
-            const hunks = parseUnifiedDiff(args.diff);
-
+            // 2. 解析 diff（宽松模式）
+            const hunks = parseUnifiedDiffRelaxed(args.diff);
             if (hunks.length === 0) {
                 return {
                     status: ToolExecuteStatus.ERROR,
-                    error: '未找到有效的 diff hunk（需要以 @@ 开头）'
+                    error: '未找到有效的 diff hunk（需要 @@ 标记）'
                 };
             }
 
-            // 3. 逆序应用（从文件末尾向前，避免行号偏移影响）
-            const sorted = [...hunks].sort((a, b) => b.oldStart - a.oldStart);
+            // 3. 为每个 hunk 找到匹配位置
+            const operations: Array<{
+                hunk: DiffHunk;
+                match: MatchResult;
+            }> = [];
 
-            for (const hunk of sorted) {
-                // 验证
-                const check = verifyHunk(lines, hunk, useFuzzy);
-                if (!check.success) {
+            for (let i = 0; i < hunks.length; i++) {
+                const hunk = hunks[i];
+
+                if (hunk.oldContent.length === 0) {
                     return {
                         status: ToolExecuteStatus.ERROR,
-                        error: `Hunk 应用失败（起始行 ${hunk.oldStart}）:\n${check.error}`
+                        error: `Hunk #${i + 1} 没有旧内容，无法定位`
                     };
                 }
 
-                // 应用
-                lines = applyHunk(lines, hunk);
+                const result = findUniqueMatch(lines, hunk.oldContent, args.withinRange);
+                if (result.error) {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: `Hunk #${i + 1} 匹配失败：${result.error}\n\n旧内容前 3 行：\n${hunk.oldContent.slice(0, 3).join('\n')}`
+                    };
+                }
+
+                operations.push({ hunk, match: result.match! });
             }
 
-            // 4. 写回文件
-            fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+            // 4. 检查重叠
+            operations.sort((a, b) => b.match.startIdx - a.match.startIdx);
+            for (let i = 1; i < operations.length; i++) {
+                const prev = operations[i - 1];
+                const curr = operations[i];
+                if (curr.match.endIdx > prev.match.startIdx) {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: `Hunk 操作范围重叠`
+                    };
+                }
+            }
 
-            // 5. 统计变更
-            const stats = {
-                file: path.basename(filePath),
-                hunks: hunks.length,
-                removed: hunks.reduce((sum, h) => sum + (h.oldLines - h.oldContent.filter((_, i) => h.newContent[i] === undefined).length), 0),
-                added: hunks.reduce((sum, h) => sum + (h.newLines - h.newContent.filter((_, i) => h.oldContent[i] === undefined).length), 0)
-            };
+            // 5. 从后向前应用
+            const stats = { removed: 0, added: 0 };
+            const changes: string[] = [];
+
+            for (const op of operations) {
+                const removed = op.match.endIdx - op.match.startIdx;
+                const added = op.hunk.newContent.length;
+
+                lines.splice(op.match.startIdx, removed, ...op.hunk.newContent);
+
+                stats.removed += removed;
+                stats.added += added;
+                changes.push(
+                    `行 ${op.match.startIdx + 1}: -${removed} +${added} (${op.match.matchType})`
+                );
+            }
+
+            // 6. 写回
+            fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: stats
+                data: {
+                    file: path.basename(filePath),
+                    hunks: hunks.length,
+                    removed: stats.removed,
+                    added: stats.added,
+                    changes
+                }
             };
 
         } catch (error: any) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `Diff 应用失败: ${error.message}`
-            };
+            return { status: ToolExecuteStatus.ERROR, error: `Diff 应用失败: ${error.message}` };
         }
     },
 
     formatForLLM: (data: any) => {
-        return `✓ ${data.file}: 应用了 ${data.hunks} 个 hunk (-${data.removed} +${data.added})`;
+        return `✓ ${data.file}: 应用了 ${data.hunks} 个 hunk (-${data.removed} +${data.added})\n${data.changes.join('\n')}`;
     }
 };
 
-/**
- * ReplaceLine 工具：单行快速替换
- */
+// ============================================================
+// Tool: ReplaceLine（保留，用于简单单行修改）
+// ============================================================
+
 export const replaceLineTool: Tool = {
     definition: {
         type: 'function',
@@ -334,6 +686,7 @@ export const replaceLineTool: Tool = {
                 };
             }
 
+            // 模糊验证
             const normalize = (s: string) => s.trim().replace(/\s+/g, ' ');
             if (normalize(lines[idx]) !== normalize(args.expected)) {
                 return {
@@ -357,9 +710,10 @@ export const replaceLineTool: Tool = {
     formatForLLM: (data: any) => `✓ ${data.file}:${data.line} 已替换`
 };
 
-/**
- * WriteFile 工具：全新写入或重写文件
- */
+// ============================================================
+// Tool: WriteFile
+// ============================================================
+
 export const writeFileTool: Tool = {
     definition: {
         type: 'function',
@@ -371,7 +725,11 @@ export const writeFileTool: Tool = {
                 properties: {
                     path: { type: 'string', description: '文件路径' },
                     content: { type: 'string', description: '完整的文件内容' },
-                    mode: { type: 'string', 'enum': ['append', 'overwrite', 'create'], description: '写入模式，追加或覆盖，默认 create; create 会在文件存在时报错, 而 overwrite 会覆盖文件' }
+                    mode: {
+                        type: 'string',
+                        enum: ['append', 'overwrite', 'create'],
+                        description: '写入模式：create（默认，文件存在报错）、overwrite（覆盖）、append（追加）'
+                    }
                 },
                 required: ['path', 'content']
             }
@@ -380,7 +738,11 @@ export const writeFileTool: Tool = {
         requireResultApproval: true
     },
 
-    execute: async (args: { path: string; content: string, mode?: 'append' | 'overwrite' | 'create' }): Promise<ToolExecuteResult> => {
+    execute: async (args: {
+        path: string;
+        content: string;
+        mode?: 'append' | 'overwrite' | 'create';
+    }): Promise<ToolExecuteResult> => {
         if (!fs || !path) {
             return { status: ToolExecuteStatus.ERROR, error: 'FS not available' };
         }
@@ -391,13 +753,12 @@ export const writeFileTool: Tool = {
             const filePath = path.resolve(args.path);
             const dir = path.dirname(filePath);
 
-            // 确保目录存在
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
             }
 
             if (mode === 'create' && fs.existsSync(filePath)) {
-                return { status: ToolExecuteStatus.ERROR, error: `文件已存在: ${filePath}, 无法 create` };
+                return { status: ToolExecuteStatus.ERROR, error: `文件已存在: ${filePath}，请使用 mode: 'overwrite'` };
             }
 
             let content = args.content;
@@ -412,8 +773,9 @@ export const writeFileTool: Tool = {
                 status: ToolExecuteStatus.SUCCESS,
                 data: {
                     file: path.basename(filePath),
-                    lines: args.content.split('\n').length,
-                    bytes: Buffer.byteLength(args.content, 'utf8')
+                    lines: content.split('\n').length,
+                    bytes: Buffer.byteLength(content, 'utf8'),
+                    mode
                 }
             };
         } catch (error: any) {
@@ -421,77 +783,114 @@ export const writeFileTool: Tool = {
         }
     },
 
-    formatForLLM: (data: any) => `✓ ${data.file}: 已写入 ${data.lines} 行 (${data.bytes} bytes)`
+    formatForLLM: (data: any) => `✓ ${data.file}: 已写入 ${data.lines} 行 (${data.bytes} bytes, mode=${data.mode})`
 };
 
-/**
- * 导出工具组
- */
+// ============================================================
+// 导出工具组
+// ============================================================
+
 export const editorTools = {
     name: '文件编辑工具组',
-    tools: fs ? [applyDiffTool, replaceLineTool, writeFileTool] : [],
+    tools: fs ? [searchReplaceTool, applyDiffTool, replaceLineTool, writeFileTool] : [],
     rulePrompt: `
 ## 文件编辑工具使用指南
 
 ### 工具选择策略
 
-1. **ApplyDiff** (首选，90% 场景)
-   - 适用：几乎所有代码修改
-   - 格式：Unified Diff (标准 @@ 格式)
-   - 上下文：**2-3 行即可**（除非代码高度重复）
-   - 优势：Token 效率最高，支持一次修改多处
+| 场景 | 推荐工具 | 说明 |
+|------|----------|------|
+| 修改 1-3 处代码 | SearchReplace | 最可靠，基于内容匹配；可能更消耗 Token |
+| 熟悉 diff 格式 | ApplyDiff | 同样基于内容匹配，忽略 header 行号 |
+| 单行微调 | ReplaceLine | 最快，但需要知道行号 |
+| 新建文件/大改 | WriteFile | 超过 50% 变更时使用 |
 
-2. **ReplaceLine** (快速微调)
-   - 适用：单行简单修改（改变量名、修正拼写）
-   - 必须：提供原始内容验证
 
-3. **WriteFile** (新建/重写)
-   - **新建文件**: 默认模式 (mode='create')，文件存在会报错
-   - **完全重写**: 必须指定 \`mode: 'overwrite'\`
-   - **追加内容**: 指定 \`mode: 'append'\
+### ApplyDiff 工具
 
-### ApplyDiff 最佳实践
-
-**上下文行数选择**：
+**格式**：
 \`\`\`diff
-# 一般情况：2-3 行足够
-@@ -42,3 +42,3 @@
+@@ ... @@
  function foo() {
    const x = 1;
 -  return x + 1;
 +  return x + 2;
  }
-
-# 代码有重复：增加上下文
-@@ -42,7 +42,7 @@
- // Component: UserProfile
- function foo() {
-   const x = 1;
--  return x + 1;
-+  return x + 2;
- }
- // End Component
 \`\`\`
 
-**多处修改**：
-\`\`\`diff
-@@ -10,2 +10,2 @@
- import React from 'react';
--import { Button } from './old';
-+import { Button } from './new';
+**要点**：
+- Header 写 \`@@ ... @@\` 即可，无需计算行号
+- 上下文行（空格开头）建议 3-5 行
+- 工具通过内容自动定位
 
-@@ -50,3 +50,3 @@
- function App() {
--  return <OldButton />;
-+  return <NewButton />;
- }
+### SearchReplace 工具
+
+**格式**：
+\`\`\`
+<<<<<<< SEARCH
+// 包含 3-5 行上下文
+function example() {
+  const x = 1;
+  return x;
+}
+=======
+function example() {
+  const x = 2;
+  return x * 2;
+}
+>>>>>>> REPLACE
 \`\`\`
 
-### 操作流程
+**关键规则**：
+1. SEARCH 必须是文件中**实际存在**的代码（精确匹配）
+2. 包含 3-5 行上下文确保唯一性
+3. 多处修改写多个 SEARCH/REPLACE 块
+4. REPLACE 留空表示删除
 
-1. **Read/Search** 定位目标代码
-2. **选择工具**：优先 ApplyDiff
-3. **构造 Diff**：包含必要上下文
-4. **执行**：工具会自动验证并应用
+**重复代码处理**：
+- 使用 \`withinRange: { startLine: 100, endLine: 200 }\`
+- 或增加更多上下文行
+
+
+### 错误处理流程
+
+**错误类型 1：未找到匹配**
+- 原因：SEARCH 内容与文件不符
+- 处理：先用 ReadFile 查看实际内容，复制粘贴到 SEARCH
+
+**错误类型 2：发现相似代码（非精确匹配）**
+- 工具会显示相似代码的位置和内容
+- **必须**先用 ReadFile 查看文件
+- 用文件中的实际代码重新提交
+- **禁止**凭记忆修改或猜测内容
+
+**错误类型 3：多个匹配位置**
+- 增加上下文行（如改为 5-7 行）
+- 或使用 withinRange 限定范围
+
+### 最佳实践
+
+✅ **推荐做法**：
+- 不确定时先 ReadFile 确认
+- 复制文件中的真实代码到 SEARCH
+- 保持充足的上下文（3-5 行）
+
+❌ **避免错误**：
+- 凭记忆猜测代码内容
+- SEARCH 内容有空格/注释差异
+- 只写要改的那一行，无上下文
 `.trim()
+};
+
+// ============================================================
+// 测试辅助函数（仅开发环境使用）
+// ============================================================
+
+export const _testUtils = {
+    parseSearchReplaceBlocks,
+    parseUnifiedDiffRelaxed,
+    findBlockInLines,
+    findUniqueMatch,
+    similarity,
+    normalizeForMatch
 };
