@@ -69,6 +69,17 @@ export function createViewerUtils(vfs: IVFS) {
      */
     async function isBinaryFile(filePath: string): Promise<boolean> {
         try {
+            // 简化：基于扩展名判断
+            const ext = vfs.extname(filePath).slice(1).toLowerCase();
+            const KNOWN_BINARY_EXT = new Set(['exe', 'dll', 'so', 'dylib', 'bin', 'obj', 'o',
+                'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp',
+                'mp3', 'mp4', 'wav', 'avi', 'mkv', 'mov',
+                'zip', 'tar', 'gz', 'rar', '7z', 'pdf', 'doc', 'docx', 'xls', 'xlsx']);
+
+            if (KNOWN_BINARY_EXT.has(ext)) {
+                return true;
+            }
+
             // 如果 VFS 支持二进制读取，使用 readFileBytes
             if (capabilities.supportsBinary && vfs.readFileBytes) {
                 const buffer = await vfs.readFileBytes(filePath, 0, LIMITS.BINARY_DETECT_BYTES);
@@ -96,7 +107,6 @@ export function createViewerUtils(vfs: IVFS) {
                 // 如果控制字符超过 10%，视为二进制
                 return controlBytes / buffer.length > 0.1;
             }
-
             // Fallback: 读取文本内容检测
             const stat = await vfs.stat(filePath);
             if (stat.size > LIMITS.BINARY_DETECT_BYTES) {
@@ -110,7 +120,9 @@ export function createViewerUtils(vfs: IVFS) {
 
             // 最终fallback：读取全文
             const content = await vfs.readFile(filePath);
-            return content.includes('\0') || /[\x00-\x08\x0E-\x1F]/.test(content.substring(0, LIMITS.BINARY_DETECT_BYTES));
+            const sample = content.slice(0, 8192);
+            // eslint-disable-next-line no-control-regex
+            return /[\x00-\x08\x0E-\x1F]/.test(sample);
 
         } catch (error) {
             // 无法读取时保守处理

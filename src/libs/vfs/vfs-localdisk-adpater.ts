@@ -72,12 +72,22 @@ export class LocalDiskVFS implements IVFS {
         if (!this.basePath) {
             return this.pathModule.resolve(...paths);
         }
-        // 使用沙箱的 resolve 方法
-        const resolved = this.pathModule.resolve(this.basePath, ...paths.map(p => p.replace(/^\/+/, '')));
-        if (!resolved.startsWith(this.pathModule.resolve(this.basePath))) {
-            throw new Error(`Path escape detected: ${paths.join(', ')}`);
+
+        const normalizedBase = this.pathModule.resolve(this.basePath);
+        const resolved = this.pathModule.resolve(normalizedBase, ...paths.map(p =>
+            p.replace(/^[/\\]+/, '')  // 移除开头斜杠
+        ));
+
+        // 规范化后比较，并确保是目录边界（防止 /base-other 被误判为 /base 子目录）
+        const resolvedNorm = this.pathModule.resolve(resolved);
+        const baseWithSep = normalizedBase.endsWith(this.pathModule.sep)
+            ? normalizedBase
+            : normalizedBase + this.pathModule.sep;
+
+        if (resolvedNorm !== normalizedBase && !resolvedNorm.startsWith(baseWithSep)) {
+            throw new Error(`Path escape detected: ${paths.join(', ')} -> ${resolvedNorm}`);
         }
-        return resolved;
+        return resolvedNorm;
     }
 
     /** 确保环境可用 */
@@ -240,7 +250,7 @@ export class LocalDiskVFS implements IVFS {
         this.ensureAvailable();
         const target = this.resolve(path);
         const buffer = Buffer.alloc(length);
-        
+
         return new Promise((resolve, reject) => {
             const fd = this.fs.openSync(target, 'r');
             try {
@@ -283,7 +293,7 @@ export class LocalDiskVFS implements IVFS {
     async readLastLines(path: string, count: number): Promise<string[]> {
         this.ensureAvailable();
         const target = this.resolve(path);
-        
+
         return new Promise((resolve, reject) => {
             const stats = this.fs.statSync(target);
             const bufferSize = Math.min(64 * 1024, stats.size); // 64KB 或文件大小

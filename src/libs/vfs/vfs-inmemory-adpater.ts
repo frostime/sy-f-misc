@@ -57,9 +57,25 @@ export class InMemoryVFS implements IVFS {
         };
     }
 
-    /** 路径规范化：统一将反斜杠转为正斜杠 */
+    /** 路径规范化：统一将反斜杠转为正斜杠，处理 . 和 .. */
     normalizePath(path: string): string {
-        return path.replace(/\\/g, '/');
+        let result = path
+            .replace(/\\/g, '/')           // 统一斜杠
+            .replace(/\/+/g, '/')          // 合并连续斜杠
+            .replace(/\/\.\//g, '/')       // 移除 /./
+            .replace(/\/\.$/, '/');        // 移除末尾 /.
+
+        // 处理 ..
+        const parts = result.split('/').filter(Boolean);
+        const stack: string[] = [];
+        for (const part of parts) {
+            if (part === '..') {
+                stack.pop();
+            } else if (part !== '.') {
+                stack.push(part);
+            }
+        }
+        return '/' + stack.join('/');
     }
 
     // ========== 路径操作 ==========
@@ -90,7 +106,7 @@ export class InMemoryVFS implements IVFS {
         if (!result.startsWith('/') && normalized[0]?.startsWith('/')) {
             result = '/' + result;
         }
-        return result;
+        return this.normalizePath(result);
     }
 
     extname(path: string): string {
@@ -100,15 +116,21 @@ export class InMemoryVFS implements IVFS {
         return idx > 0 ? base.slice(idx) : '';
     }
 
+    /**
+     * 解析路径为绝对路径
+     * 区分原始路径是否为绝对路径
+     */
     resolve(...paths: string[]): string {
-        // InMemory 文件系统始终使用绝对路径
         let result = '/';
         for (const p of paths) {
-            const normalized = this.normalizePath(p);
-            if (normalized.startsWith('/')) {
-                result = normalized;
+            // 检查原始路径是否是绝对路径（以 / 或 \ 开头）
+            const isAbsolute = /^[/\\]/.test(p);
+
+            if (isAbsolute) {
+                result = this.normalizePath(p);
             } else {
-                result = this.join(result, normalized);
+                // 相对路径：直接拼接后规范化
+                result = this.normalizePath(result + '/' + p);
             }
         }
         return result;
@@ -121,6 +143,11 @@ export class InMemoryVFS implements IVFS {
 
         this.writeFileSync('/README.md', `# Memory System
 
+当前 Agent 使用的 Memory 虚拟文件系统，用于存储运行时数据。
+
+请使用 memory:// 作为协议前缀访问此文件系统。
+例如: memory:///README.md
+
 ## 目录结构
 - /context   - 当前任务上下文
 - /knowledge - 长期知识存储
@@ -132,7 +159,6 @@ export class InMemoryVFS implements IVFS {
     // ========== 内部工具方法 ==========
 
     private parsePath(p: string): string[] {
-        // 规范化路径，支持 Windows 反斜杠
         const normalized = this.normalizePath(p);
         return normalized.split('/').filter(s => s.length > 0);
     }
@@ -163,6 +189,10 @@ export class InMemoryVFS implements IVFS {
         return { parent, name };
     }
 
+    /**
+     * 同步创建目录
+     * 修复：禁止目录覆盖已存在的文件
+     */
     private mkdirSync(path: string) {
         const parts = this.parsePath(path);
         let node = this.root;
@@ -171,11 +201,18 @@ export class InMemoryVFS implements IVFS {
             if (!child) {
                 child = new VNode('directory');
                 node.children.set(part, child);
+            } else if (child.type !== 'directory') {
+                // 已存在同名文件，无法创建目录
+                throw new Error(`EEXIST: ${path} (file exists)`);
             }
             node = child;
         }
     }
 
+    /**
+     * 同步写入文件
+     * 禁止文件覆盖已存在的目录
+     */
     private writeFileSync(path: string, content: string) {
         const parts = this.parsePath(path);
         const fileName = parts.pop();
@@ -188,11 +225,20 @@ export class InMemoryVFS implements IVFS {
             if (!child) {
                 child = new VNode('directory');
                 node.children.set(part, child);
+            } else if (child.type !== 'directory') {
+                // 路径中存在同名文件，无法作为目录使用
+                throw new Error(`ENOTDIR: ${part} is not a directory`);
             }
             node = child;
         }
 
         let fileNode = node.children.get(fileName);
+
+        // 修复：检查是否试图用文件覆盖目录
+        if (fileNode && fileNode.type === 'directory') {
+            throw new Error(`EISDIR: ${path}`);
+        }
+
         if (!fileNode) {
             fileNode = new VNode('file');
             node.children.set(fileName, fileNode);
@@ -229,11 +275,15 @@ export class InMemoryVFS implements IVFS {
         return this.getNode(path) !== null;
     }
 
+    /**
+     * 获取文件/目录信息
+     * 修复：明确目录 size 为 0
+     */
     async stat(path: string): Promise<IFileStat> {
         const node = this.getNode(path);
         if (!node) throw new Error(`ENOENT: ${path}`);
         return {
-            size: node.content.length,
+            size: node.type === 'file' ? node.content.length : 0,
             isDirectory: node.type === 'directory',
             isFile: node.type === 'file',
             mtime: node.modified,
@@ -252,16 +302,46 @@ export class InMemoryVFS implements IVFS {
         this.mkdirSync(path);
     }
 
+    /**
+     * 删除文件
+     */
     async unlink(path: string): Promise<void> {
         const res = this.getParent(path);
         if (!res) throw new Error(`ENOENT: ${path}`);
-        if (!res.parent.children.delete(res.name)) {
-            throw new Error(`ENOENT: ${path}`);
+
+        const node = res.parent.children.get(res.name);
+        if (!node) throw new Error(`ENOENT: ${path}`);
+
+        // unlink 不能删除目录
+        if (node.type === 'directory') {
+            throw new Error(`EISDIR: ${path} (use rmdir for directories)`);
         }
+
+        res.parent.children.delete(res.name);
     }
 
+    /**
+     * 删除空目录
+     * 修复：rmdir 只能删除空目录
+     */
     async rmdir(path: string): Promise<void> {
-        await this.unlink(path);
+        const res = this.getParent(path);
+        if (!res) throw new Error(`ENOENT: ${path}`);
+
+        const node = res.parent.children.get(res.name);
+        if (!node) throw new Error(`ENOENT: ${path}`);
+
+        // 修复：rmdir 只能删除目录
+        if (node.type !== 'directory') {
+            throw new Error(`ENOTDIR: ${path}`);
+        }
+
+        // 修复：目录必须为空
+        if (node.children.size > 0) {
+            throw new Error(`ENOTEMPTY: ${path}`);
+        }
+
+        res.parent.children.delete(res.name);
     }
 
     async readLines(path: string, start: number, end: number): Promise<string> {
@@ -296,6 +376,10 @@ export class InMemoryVFS implements IVFS {
         await this.writeFile(dest, srcNode.content);
     }
 
+    /**
+     * 移动/重命名
+     * 修复：检查类型冲突
+     */
     async rename(oldPath: string, newPath: string): Promise<void> {
         const node = this.getNode(oldPath);
         if (!node) throw new Error(`ENOENT: ${oldPath}`);
@@ -317,6 +401,17 @@ export class InMemoryVFS implements IVFS {
                 newParentNode.children.set(part, child);
             }
             newParentNode = child;
+        }
+
+        // 修复：检查目标是否已存在且类型冲突
+        const existingNode = newParentNode.children.get(newName);
+        if (existingNode) {
+            if (existingNode.type === 'directory' && node.type === 'file') {
+                throw new Error(`EISDIR: cannot overwrite directory with file`);
+            }
+            if (existingNode.type === 'file' && node.type === 'directory') {
+                throw new Error(`ENOTDIR: cannot overwrite file with directory`);
+            }
         }
 
         // 从旧父节点删除

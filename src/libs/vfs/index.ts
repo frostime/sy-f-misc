@@ -1,18 +1,13 @@
 /**
  * 虚拟文件系统 - 统一入口
  *
- * 使用方式：
- *   import { vfs, createVFS } from './vfs';
- *
- *   // 使用全局单例
- *   vfs.mount('memory', new InMemoryVFS(true));
- *   await vfs.writeFile('memory:///context/task.md', '...');
- *
- *   // 或创建独立实例
- *   const myVFS = createVFS({ mountMemory: true });
+ * 设计原则：
+ * 1. 所有 FS 都通过 mount 统一管理，包括默认 FS（协议为空字符串）
+ * 2. 路径格式：`protocol://path` 或直接 `/path`（使用默认 FS）
+ * 3. VFSManager 实现 IVFS 接口，可作为普通 FS 使用
  */
 
-import type { IVFS, IFileStat } from './types';
+import type { IVFS, IFileStat, VFSCapabilities } from './types';
 import { InMemoryVFS } from './vfs-inmemory-adpater';
 import { LocalDiskVFS } from './vfs-localdisk-adpater';
 
@@ -21,351 +16,430 @@ export type { IVFS, IFileStat, VFSSnapshot, VFSCapabilities } from './types';
 export { InMemoryVFS } from './vfs-inmemory-adpater';
 export { LocalDiskVFS } from './vfs-localdisk-adpater';
 
-// ========== 文件系统管理器 ==========
+// ========== 常量 ==========
+
+/** 默认 FS 的协议标识（空字符串） */
+const DEFAULT_PROTOCOL = '';
+
+// ========== 类型定义 ==========
+
+/** 路径解析结果（内部使用） */
+interface ParsedPath {
+    fs: IVFS;
+    path: string;
+    protocol: string;
+}
+
+/** 挂载点信息 */
+export interface MountInfo {
+    protocol: string;
+    fs: IVFS;
+    isDefault: boolean;
+}
+
+// ========== VFS 管理器 ==========
 
 export class VFSManager implements IVFS {
-    private mounts = new Map<string, IVFS>();
-    private defaultFS: IVFS | null = null;
+    /** 所有挂载点，key 为协议名（空字符串表示默认） */
+    private readonly mounts = new Map<string, IVFS>();
+
+    // ═══════════════════════════════════════════════════════════════
+    // 挂载管理
+    // ═══════════════════════════════════════════════════════════════
 
     /**
      * 挂载文件系统
-     * @param protocol 协议名（如 'memory', 'siyuan'），传 null 设为默认
+     * @param protocol 协议名（如 'memory', 'disk'），空字符串或 null 表示默认 FS
+     * @param fs 文件系统实例
      */
     mount(protocol: string | null, fs: IVFS): this {
-        if (!protocol) {
-            this.defaultFS = fs;
-        } else {
-            this.mounts.set(protocol.replace(/:\/\/$/, ''), fs);
-        }
+        const key = this.normalizeProtocol(protocol);
+        this.mounts.set(key, fs);
         return this;
     }
 
-    /** 卸载 */
-    unmount(protocol: string): boolean {
-        return this.mounts.delete(protocol);
+    /** 卸载文件系统 */
+    unmount(protocol: string | null): boolean {
+        const key = this.normalizeProtocol(protocol);
+        return this.mounts.delete(key);
     }
 
-    /** 获取已挂载的协议列表 */
-    getMountedProtocols(): string[] {
-        return Array.from(this.mounts.keys());
+    /** 检查协议是否已挂载 */
+    has(protocol: string | null): boolean {
+        const key = this.normalizeProtocol(protocol);
+        return this.mounts.has(key);
     }
+
+    /** 获取指定协议的文件系统 */
+    get(protocol: string | null): IVFS | undefined {
+        const key = this.normalizeProtocol(protocol);
+        return this.mounts.get(key);
+    }
+
+    /** 获取所有挂载信息 */
+    listMounts(): MountInfo[] {
+        return Array.from(this.mounts.entries()).map(([protocol, fs]) => ({
+            protocol,
+            fs,
+            isDefault: protocol === DEFAULT_PROTOCOL,
+        }));
+    }
+
+    /** 获取已挂载的协议列表（不含默认） */
+    getProtocols(): string[] {
+        return Array.from(this.mounts.keys()).filter(p => p !== DEFAULT_PROTOCOL);
+    }
+
+    /** 规范化协议名 */
+    private normalizeProtocol(protocol: string | null | undefined): string {
+        if (protocol === null || protocol === undefined) {
+            return DEFAULT_PROTOCOL;
+        }
+        return protocol.replace(/:\/\/$/, '').toLowerCase();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 路径解析（内部）
+    // ═══════════════════════════════════════════════════════════════
 
     /**
-     * 解析路径，返回对应的 FS 和相对路径
-     * 支持格式：memory:///path 或 memory://path 或 /path（默认 FS）
+     * 解析 VFS 路径，返回对应的 FS 和相对路径
+     * 
+     * 支持格式：
+     * - `memory:///path` 或 `memory://path` → 使用 memory 协议
+     * - `/path` → 使用默认 FS
      */
-    private resolveTarget(fullPath: string): { fs: IVFS; path: string } {
-        const match = fullPath.match(/^([a-zA-Z0-9_-]+):\/\/\/?(.*)$/);
+    parsePath(fullPath: string): ParsedPath {
+        // 尝试匹配 protocol://path 格式
+        const match = fullPath.match(/^([a-zA-Z][a-zA-Z0-9_-]*):\/\/\/?(.*)$/);
 
         if (match) {
-            const [, protocol, relativePath] = match;
-            const adapter = this.mounts.get(protocol);
-            if (!adapter) {
-                throw new Error(`Unknown protocol: ${protocol}://`);
+            const [, rawProtocol, relativePath] = match;
+            const protocol = this.normalizeProtocol(rawProtocol);
+            const fs = this.mounts.get(protocol);
+
+            if (!fs) {
+                throw new Error(`[VFS] Unknown protocol: ${rawProtocol}://`);
             }
+
             return {
-                fs: adapter,
+                fs,
                 path: '/' + relativePath.replace(/^\/+/, ''),
+                protocol,
             };
         }
 
-        if (this.defaultFS) {
-            return { fs: this.defaultFS, path: fullPath };
+        // 无协议前缀，使用默认 FS
+        const defaultFS = this.mounts.get(DEFAULT_PROTOCOL);
+        if (!defaultFS) {
+            throw new Error(`[VFS] No default filesystem mounted for path: ${fullPath}`);
         }
 
-        throw new Error(`No default filesystem mounted for: ${fullPath}`);
+        return {
+            fs: defaultFS,
+            path: fullPath,
+            protocol: DEFAULT_PROTOCOL,
+        };
     }
 
-    // ========== IFileSystem 代理实现 ==========
+    /**
+     * 执行文件操作的通用辅助方法
+     */
+    private async exec<T>(
+        path: string,
+        operation: (fs: IVFS, resolvedPath: string) => Promise<T>
+    ): Promise<T> {
+        const { fs, path: resolvedPath } = this.parsePath(path);
+        return operation(fs, resolvedPath);
+    }
+
+    /**
+     * 执行需要检查可选方法的操作
+     */
+    private async execOptional<T>(
+        path: string,
+        methodName: keyof IVFS,
+        operation: (fs: IVFS, resolvedPath: string) => Promise<T>
+    ): Promise<T> {
+        const { fs, path: resolvedPath, protocol } = this.parsePath(path);
+
+        if (typeof fs[methodName] !== 'function') {
+            const name = protocol || 'default';
+            throw new Error(`[VFS] Method '${methodName}' not supported by '${name}' filesystem`);
+        }
+
+        return operation(fs, resolvedPath);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // IVFS 核心接口实现
+    // ═══════════════════════════════════════════════════════════════
 
     async readFile(path: string): Promise<string> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.readFile(p);
+        return this.exec(path, (fs, p) => fs.readFile(p));
     }
 
     async writeFile(path: string, content: string): Promise<void> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.writeFile(p, content);
+        return this.exec(path, (fs, p) => fs.writeFile(p, content));
     }
 
     async appendFile(path: string, content: string): Promise<void> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.appendFile(p, content);
+        return this.exec(path, (fs, p) => fs.appendFile(p, content));
     }
 
     async exists(path: string): Promise<boolean> {
         try {
-            const { fs, path: p } = this.resolveTarget(path);
-            return await fs.exists(p);
+            return await this.exec(path, (fs, p) => fs.exists(p));
         } catch {
             return false;
         }
     }
 
     async stat(path: string): Promise<IFileStat> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.stat(p);
+        return this.exec(path, (fs, p) => fs.stat(p));
     }
 
     async readdir(path: string): Promise<string[]> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.readdir(p);
+        return this.exec(path, (fs, p) => fs.readdir(p));
     }
 
     async mkdir(path: string): Promise<void> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.mkdir(p);
+        return this.exec(path, (fs, p) => fs.mkdir(p));
     }
 
     async unlink(path: string): Promise<void> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.unlink(p);
+        return this.exec(path, (fs, p) => fs.unlink(p));
     }
 
     async rmdir(path: string): Promise<void> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.rmdir(p);
+        return this.exec(path, (fs, p) => fs.rmdir(p));
     }
 
     async readLines(path: string, start: number, end: number): Promise<string> {
-        const { fs, path: p } = this.resolveTarget(path);
-        return fs.readLines(p, start, end);
+        return this.exec(path, (fs, p) => fs.readLines(p, start, end));
     }
 
     async copyFile(src: string, dest: string): Promise<void> {
-        const { fs: srcFs, path: srcPath } = this.resolveTarget(src);
-        const { fs: destFs, path: destPath } = this.resolveTarget(dest);
+        const srcParsed = this.parsePath(src);
+        const destParsed = this.parsePath(dest);
 
-        // 如果源和目标在同一文件系统，直接调用
-        if (srcFs === destFs) {
-            return srcFs.copyFile(srcPath, destPath);
+        // 同一 FS 内复制
+        if (srcParsed.fs === destParsed.fs) {
+            return srcParsed.fs.copyFile(srcParsed.path, destParsed.path);
         }
 
-        // 跨文件系统复制：读取后写入
-        const content = await srcFs.readFile(srcPath);
-        await destFs.writeFile(destPath, content);
+        // 跨 FS 复制：读取 → 写入
+        const content = await srcParsed.fs.readFile(srcParsed.path);
+        await destParsed.fs.writeFile(destParsed.path, content);
     }
 
     async rename(oldPath: string, newPath: string): Promise<void> {
-        const { fs: oldFs, path: oldP } = this.resolveTarget(oldPath);
-        const { fs: newFs, path: newP } = this.resolveTarget(newPath);
+        const oldParsed = this.parsePath(oldPath);
+        const newParsed = this.parsePath(newPath);
 
-        // 如果在同一文件系统，直接调用
-        if (oldFs === newFs) {
-            return oldFs.rename(oldP, newP);
+        // 同一 FS 内重命名
+        if (oldParsed.fs === newParsed.fs) {
+            return oldParsed.fs.rename(oldParsed.path, newParsed.path);
         }
 
-        // 跨文件系统移动：复制后删除
+        // 跨 FS 移动：复制 → 删除
         await this.copyFile(oldPath, newPath);
-        await oldFs.unlink(oldP);
+        await oldParsed.fs.unlink(oldParsed.path);
     }
 
-    isAvailable(): boolean {
-        // VFSManager 本身总是可用的
-        return true;
-    }
-
-    getCapabilities() {
-        // 返回所有已挂载适配器的能力并集
-        const capabilities = {
-            supportsRealPath: false,
-            supportsBinary: false,
-            supportsWatch: false,
-            supportsStream: false,
-            supportsAdvancedStream: false
-        };
-
-        for (const adapter of this.mounts.values()) {
-            if (adapter.getCapabilities) {
-                const caps = adapter.getCapabilities();
-                capabilities.supportsRealPath = capabilities.supportsRealPath || caps.supportsRealPath;
-                capabilities.supportsBinary = capabilities.supportsBinary || caps.supportsBinary;
-                capabilities.supportsWatch = capabilities.supportsWatch || caps.supportsWatch;
-                capabilities.supportsStream = capabilities.supportsStream || caps.supportsStream;
-                capabilities.supportsAdvancedStream = capabilities.supportsAdvancedStream || caps.supportsAdvancedStream;
-            }
-        }
-
-        return capabilities;
-    }
+    // ═══════════════════════════════════════════════════════════════
+    // 路径操作（IVFS 接口）
+    // ═══════════════════════════════════════════════════════════════
 
     normalizePath(path: string): string {
-        const { fs, path: p } = this.resolveTarget(path);
-        if (fs.normalizePath) {
-            return fs.normalizePath(p);
-        }
-        // 默认：统一使用正斜杠
-        return p.replace(/\\/g, '/');
+        const { fs, path: p } = this.parsePath(path);
+        return fs.normalizePath?.(p) ?? p.replace(/\\/g, '/');
     }
 
-    // ============ Path Operations ============
     basename(path: string, ext?: string): string {
-        const { fs, path: p } = this.resolveTarget(path);
+        const { fs, path: p } = this.parsePath(path);
         return fs.basename(p, ext);
     }
 
     dirname(path: string): string {
-        const { fs, path: p } = this.resolveTarget(path);
+        const { fs, path: p } = this.parsePath(path);
         return fs.dirname(p);
     }
 
     join(...paths: string[]): string {
-        // 使用默认 FS 或第一个路径的 FS
-        const firstPath = paths[0] || '/';
-        const { fs, path: base } = this.resolveTarget(firstPath);
-        const rest = paths.slice(1);
-        return fs.join(base, ...rest);
+        if (paths.length === 0) return '/';
+
+        const { fs, path: base } = this.parsePath(paths[0]);
+        return fs.join(base, ...paths.slice(1));
     }
 
     extname(path: string): string {
-        const { fs, path: p } = this.resolveTarget(path);
+        const { fs, path: p } = this.parsePath(path);
         return fs.extname(p);
     }
 
+    /** IVFS 接口：路径解析（类似 path.resolve） */
     resolve(...paths: string[]): string {
-        // 使用默认 FS 或第一个路径的 FS
-        const firstPath = paths[0] || '/';
-        const { fs, path: base } = this.resolveTarget(firstPath);
-        const rest = paths.slice(1);
-        return fs.resolve(base, ...rest);
+        if (paths.length === 0) return '/';
+
+        const { fs, path: base } = this.parsePath(paths[0]);
+        return fs.resolve(base, ...paths.slice(1));
     }
 
-    // ============ Binary Operations ============
+    // ═══════════════════════════════════════════════════════════════
+    // 二进制操作（可选）
+    // ═══════════════════════════════════════════════════════════════
+
     async readFileBuffer(path: string): Promise<Buffer> {
-        const { fs, path: resolvedPath } = this.resolveTarget(path);
-        if (!fs.readFileBuffer) {
-            throw new Error(`readFileBuffer not supported by ${path} filesystem`);
-        }
-        return await fs.readFileBuffer(resolvedPath);
+        return this.execOptional(path, 'readFileBuffer',
+            (fs, p) => fs.readFileBuffer!(p));
     }
 
     async writeFileBuffer(path: string, buffer: Buffer): Promise<void> {
-        const { fs, path: resolvedPath } = this.resolveTarget(path);
-        if (!fs.writeFileBuffer) {
-            throw new Error(`writeFileBuffer not supported by ${path} filesystem`);
-        }
-        await fs.writeFileBuffer(resolvedPath, buffer);
+        return this.execOptional(path, 'writeFileBuffer',
+            (fs, p) => fs.writeFileBuffer!(p, buffer));
     }
 
     async readFileBytes(path: string, start: number, length: number): Promise<Buffer> {
-        const { fs, path: resolvedPath } = this.resolveTarget(path);
-        if (!fs.readFileBytes) {
-            throw new Error(`readFileBytes not supported by ${path} filesystem`);
-        }
-        return await fs.readFileBytes(resolvedPath, start, length);
+        return this.execOptional(path, 'readFileBytes',
+            (fs, p) => fs.readFileBytes!(p, start, length));
     }
 
-    // ============ Advanced Stream Operations ============
+    // ═══════════════════════════════════════════════════════════════
+    // 高级流操作（可选）
+    // ═══════════════════════════════════════════════════════════════
+
     async readFirstLines(path: string, count: number): Promise<string[]> {
-        const { fs, path: resolvedPath } = this.resolveTarget(path);
-        if (!fs.readFirstLines) {
-            throw new Error(`readFirstLines not supported by ${path} filesystem`);
-        }
-        return await fs.readFirstLines(resolvedPath, count);
+        return this.execOptional(path, 'readFirstLines',
+            (fs, p) => fs.readFirstLines!(p, count));
     }
 
     async readLastLines(path: string, count: number): Promise<string[]> {
-        const { fs, path: resolvedPath } = this.resolveTarget(path);
-        if (!fs.readLastLines) {
-            throw new Error(`readLastLines not supported by ${path} filesystem`);
-        }
-        return await fs.readLastLines(resolvedPath, count);
+        return this.execOptional(path, 'readLastLines',
+            (fs, p) => fs.readLastLines!(p, count));
     }
 
     async countLines(path: string): Promise<number> {
-        const { fs, path: resolvedPath } = this.resolveTarget(path);
-        if (!fs.countLines) {
-            throw new Error(`countLines not supported by ${path} filesystem`);
-        }
-        return await fs.countLines(resolvedPath);
+        return this.execOptional(path, 'countLines',
+            (fs, p) => fs.countLines!(p));
     }
 
-    async materialize(virtualPath: string, targetDir?: string): Promise<string> {
-        const { fs, path: p } = this.resolveTarget(virtualPath);
+    // ═══════════════════════════════════════════════════════════════
+    // 物化（虚拟文件 → 真实文件）
+    // ═══════════════════════════════════════════════════════════════
 
-        // 如果适配器支持 materialize，直接调用
+    async materialize(virtualPath: string, targetDir?: string): Promise<string> {
+        const { fs, path: p } = this.parsePath(virtualPath);
+
+        // 优先使用适配器自己的实现
         if (fs.materialize) {
             return fs.materialize(p, targetDir);
         }
 
-        // 否则，读取内容并写入到临时目录
-        const os = window?.require?.('os');
-        const pathModule = window?.require?.('path');
+        // 降级：读取内容写入临时文件
+        const os = globalThis.require?.('os');
+        const pathModule = globalThis.require?.('path');
+        const nodeFs = globalThis.require?.('fs');
 
-        if (!os || !pathModule) {
-            throw new Error('Cannot materialize: Node.js modules not available');
+        if (!os || !pathModule || !nodeFs) {
+            throw new Error('[VFS] Cannot materialize: Node.js modules not available');
         }
 
         const tmpdir = targetDir || os.tmpdir();
         const filename = pathModule.basename(virtualPath);
         const tempPath = pathModule.join(tmpdir, `vfs_${Date.now()}_${filename}`);
 
-        // 读取虚拟文件内容并写入真实文件
         const content = await fs.readFile(p);
-        const localFs = window?.require?.('fs');
-        if (!localFs) {
-            throw new Error('Cannot materialize: fs module not available');
+        await nodeFs.promises.writeFile(tempPath, content, 'utf-8');
+
+        return tempPath;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 元信息
+    // ═══════════════════════════════════════════════════════════════
+
+    isAvailable(): boolean {
+        return true; // VFSManager 本身总是可用
+    }
+
+    getCapabilities(): VFSCapabilities {
+        // 合并所有已挂载适配器的能力
+        const caps: VFSCapabilities = {
+            supportsRealPath: false,
+            supportsBinary: false,
+            supportsWatch: false,
+            supportsStream: false,
+            supportsAdvancedStream: false,
+        };
+
+        for (const fs of this.mounts.values()) {
+            const fsCaps = fs.getCapabilities?.();
+            if (fsCaps) {
+                caps.supportsRealPath ||= fsCaps.supportsRealPath;
+                caps.supportsBinary ||= fsCaps.supportsBinary;
+                caps.supportsWatch ||= fsCaps.supportsWatch;
+                caps.supportsStream ||= fsCaps.supportsStream;
+                caps.supportsAdvancedStream ||= fsCaps.supportsAdvancedStream;
+            }
         }
 
-        await localFs.promises.writeFile(tempPath, content, 'utf-8');
-        return tempPath;
+        return caps;
     }
 }
 
-// ========== 工厂函数 ==========
+// ═══════════════════════════════════════════════════════════════════════
+// 工厂函数
+// ═══════════════════════════════════════════════════════════════════════
 
-/** 挂载点配置 */
-export interface MountOption {
-    /** 协议名，传 null 表示默认 FS（无协议路径） */
+/** 挂载配置 */
+export interface MountConfig {
+    /** 协议名，null 或空字符串表示默认 FS */
     protocol: string | null;
     /** VFS 实例 */
     fs: IVFS;
 }
 
-/** 快捷配置选项（向后兼容 + 灵活扩展） */
+/** 内存 FS 快捷配置 */
+export interface MemoryFSConfig {
+    /** 协议名，默认 'memory' */
+    protocol?: string;
+    /** 初始化模式 */
+    initMode?: 'default' | 'empty' | ((fs: InMemoryVFS) => void);
+}
+
+/** 本地磁盘 FS 快捷配置 */
+export interface LocalFSConfig {
+    /** 协议名，null 表示作为默认 FS */
+    protocol?: string | null;
+    /** 基础路径（沙箱根目录） */
+    basePath?: string;
+}
+
+/** createVFS 选项 */
 export interface CreateVFSOptions {
-    /** 自定义挂载列表（优先级最高） */
-    mounts?: MountOption[];
-
-    /** 快捷：挂载内存 FS 到 memory:// */
-    memory?: boolean | {
-        protocol?: string;  // 默认 'memory'，可自定义如 'ram'
-        initMode?: 'default' | 'empty' | ((fs: InMemoryVFS) => void);
-    };
-
-    /** 快捷：挂载本地磁盘 */
-    local?: boolean | {
-        protocol?: string | null;  // 默认 null（作为默认 FS），可指定如 'disk'
-        basePath?: string;
-    };
+    /** 自定义挂载列表 */
+    mounts?: MountConfig[];
+    /** 快捷：挂载内存 FS */
+    memory?: boolean | MemoryFSConfig;
+    /** 快捷：挂载本地磁盘 FS */
+    local?: boolean | LocalFSConfig;
 }
 
 /**
  * 创建 VFS 管理器
- * 
+ *
  * @example
- * // 方式1：完全自定义
+ * // 最简配置
+ * const vfs = createVFS({ memory: true });
+ *
+ * @example
+ * // 完整配置
  * const vfs = createVFS({
+ *     memory: { protocol: 'mem', initMode: 'default' },
+ *     local: { protocol: null, basePath: '/data' },  // 作为默认 FS
  *     mounts: [
- *         { protocol: 'memory', fs: new InMemoryVFS('default') },
- *         { protocol: 'project', fs: new LocalDiskVFS('/my/project') },
- *         { protocol: null, fs: new LocalDiskVFS() }  // 默认 FS
- *     ]
- * });
- * 
- * @example
- * // 方式2：快捷配置
- * const vfs = createVFS({
- *     memory: { protocol: 'ram', initMode: 'default' },
- *     local: { protocol: 'disk', basePath: '/data' }
- * });
- * 
- * @example
- * // 方式3：混合（快捷 + 自定义）
- * const vfs = createVFS({
- *     memory: true,  // 自动挂载到 memory://
- *     mounts: [
- *         { protocol: 'siyuan', fs: new SiYuanVFS({ token: 'xxx' }) }
+ *         { protocol: 'custom', fs: new MyCustomVFS() }
  *     ]
  * });
  */
@@ -373,62 +447,65 @@ export function createVFS(options: CreateVFSOptions = {}): VFSManager {
     const manager = new VFSManager();
     const { mounts = [], memory, local } = options;
 
-    // 1. 处理快捷配置：Memory（任何环境都可用）
+    // 1. 处理内存 FS（任何环境可用）
     if (memory) {
-        const memConfig = typeof memory === 'boolean' ? {} : memory;
-        const protocol = memConfig.protocol ?? 'memory';
-        const initMode = memConfig.initMode ?? 'default';
+        const config: MemoryFSConfig = memory === true ? {} : memory;
+        const protocol = config.protocol ?? 'memory';
+        const initMode = config.initMode ?? 'default';
 
-        const memFS = new InMemoryVFS(initMode);
-        manager.mount(protocol, memFS);
+        manager.mount(protocol, new InMemoryVFS(initMode));
     }
 
-    // 2. 处理快捷配置：Local（仅桌面端可用）
+    // 2. 处理本地磁盘 FS（仅桌面端可用）
     if (local) {
-        const localConfig = typeof local === 'boolean' ? {} : local;
-        const protocol = localConfig.protocol ?? null;
-        const basePath = localConfig.basePath ?? '';
+        const config: LocalFSConfig = local === true ? {} : local;
+        const protocol = config.protocol ?? null;
+        const basePath = config.basePath ?? '';
 
         const localFS = new LocalDiskVFS(basePath);
 
-        // ✅ 检查环境可用性
         if (localFS.isAvailable()) {
             manager.mount(protocol, localFS);
         } else {
-            console.warn('[VFS] LocalDiskVFS not available in current environment (browser or Node.js modules missing)');
+            console.warn('[VFS] LocalDiskVFS not available in current environment');
         }
     }
 
-    // 3. 处理自定义挂载列表（优先级最高，可覆盖快捷配置）
-    mounts.forEach(({ protocol, fs }) => {
-        // 检查适配器是否可用
-        if ('isAvailable' in fs && typeof fs.isAvailable === 'function') {
-            if (!fs.isAvailable()) {
-                console.warn(`[VFS] Skipping unavailable FS adapter: ${protocol || 'default'}`);
-                return;
-            }
+    // 3. 处理自定义挂载（可覆盖前面的配置）
+    for (const { protocol, fs } of mounts) {
+        if (fs.isAvailable?.() === false) {
+            const name = protocol ?? 'default';
+            console.warn(`[VFS] Skipping unavailable adapter: ${name}`);
+            continue;
         }
         manager.mount(protocol, fs);
-    });
+    }
 
     return manager;
 }
 
-// ========== 全局单例 ==========
+// ═══════════════════════════════════════════════════════════════════════
+// 全局单例
+// ═══════════════════════════════════════════════════════════════════════
 
-/** 全局 VFS 实例（延迟初始化） */
-let _globalVFS: VFSManager | null = null;
+// let globalVFS: VFSManager | null = null;
 
-export function getGlobalVFS(): VFSManager {
-    if (!_globalVFS) {
-        _globalVFS = createVFS();
-    }
-    return _globalVFS;
-}
+// /** 获取全局 VFS 实例（惰性初始化） */
+// export function getGlobalVFS(): VFSManager {
+//     if (!globalVFS) {
+//         globalVFS = createVFS({ memory: true });
+//     }
+//     return globalVFS;
+// }
 
-/** 便捷导出：全局 VFS */
-export const vfs = new Proxy({} as VFSManager, {
-    get(_, prop) {
-        return (getGlobalVFS() as any)[prop];
-    },
-});
+// /** 设置全局 VFS 实例 */
+// export function setGlobalVFS(vfs: VFSManager): void {
+//     globalVFS = vfs;
+// }
+
+// /** 便捷导出：全局 VFS 代理 */
+// export const vfs: VFSManager = new Proxy({} as VFSManager, {
+//     get(_, prop: string | symbol) {
+//         return Reflect.get(getGlobalVFS(), prop);
+//     },
+// });

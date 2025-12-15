@@ -1,5 +1,5 @@
 import { IVFS } from '../../../../libs/vfs';
-import { Tool, ToolGroup, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 
 export function createShutilTools(vfs: IVFS): Tool[] {
     /**
@@ -9,7 +9,7 @@ export function createShutilTools(vfs: IVFS): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'Mkdir',
+                name: 'fs.Mkdir',
                 description: '创建目录 (可选 recursive 类似于 mkdir -p)',
                 parameters: {
                     type: 'object',
@@ -50,7 +50,7 @@ export function createShutilTools(vfs: IVFS): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'MoveFile',
+                name: 'fs.MoveFile',
                 description: '移动文件或目录到新位置',
                 parameters: {
                     type: 'object',
@@ -70,7 +70,7 @@ export function createShutilTools(vfs: IVFS): Tool[] {
             try {
                 const src = vfs.resolve(args.from);
                 let dst = vfs.resolve(args.to);
-                
+
                 // 如果目标路径已存在且为目录，则在该目录下使用源项同名作为目标
                 if (await vfs.exists(dst)) {
                     const dstStat = await vfs.stat(dst);
@@ -78,7 +78,7 @@ export function createShutilTools(vfs: IVFS): Tool[] {
                         dst = vfs.join(dst, vfs.basename(src));
                     }
                 }
-                
+
                 await vfs.rename(src, dst);
                 return { status: ToolExecuteStatus.SUCCESS, data: `已移动: ${src} -> ${dst}` };
             } catch (err: any) {
@@ -94,7 +94,7 @@ export function createShutilTools(vfs: IVFS): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'CopyFile',
+                name: 'fs.CopyFile',
                 description: '复制文件或目录 (可递归)',
                 parameters: {
                     type: 'object',
@@ -115,7 +115,7 @@ export function createShutilTools(vfs: IVFS): Tool[] {
             try {
                 const src = vfs.resolve(args.from);
                 let dst = vfs.resolve(args.to);
-                
+
                 // 如果目标路径已存在且为目录，则在该目录下使用源项同名作为目标
                 if (await vfs.exists(dst)) {
                     const dstStat = await vfs.stat(dst);
@@ -123,10 +123,10 @@ export function createShutilTools(vfs: IVFS): Tool[] {
                         dst = vfs.join(dst, vfs.basename(src));
                     }
                 }
-                
+
                 // 检查源类型
                 const srcStat = await vfs.stat(src);
-                
+
                 if (srcStat.isDirectory) {
                     if (!args.recursive) {
                         throw new Error('源为目录，请设置 recursive 为 true');
@@ -137,7 +137,7 @@ export function createShutilTools(vfs: IVFS): Tool[] {
                     // 复制单个文件
                     await vfs.copyFile(src, dst);
                 }
-                
+
                 return { status: ToolExecuteStatus.SUCCESS, data: `已复制: ${src} -> ${dst}` };
             } catch (e: any) {
                 return { status: ToolExecuteStatus.ERROR, error: e?.message ?? String(e) };
@@ -154,16 +154,16 @@ export function createShutilTools(vfs: IVFS): Tool[] {
 async function copyRecursive(vfs: IVFS, src: string, dst: string): Promise<void> {
     // 确保目标目录存在
     await vfs.mkdir(dst);
-    
+
     // 读取源目录内容
     const items = await vfs.readdir(src);
-    
+
     for (const item of items) {
         const srcPath = vfs.join(src, item);
         const dstPath = vfs.join(dst, item);
-        
+
         const stat = await vfs.stat(srcPath);
-        
+
         if (stat.isDirectory) {
             // 递归复制子目录
             await copyRecursive(vfs, srcPath, dstPath);
@@ -179,7 +179,7 @@ async function copyRecursive(vfs: IVFS, src: string, dst: string): Promise<void>
  */
 async function removeRecursive(vfs: IVFS, target: string): Promise<void> {
     const stat = await vfs.stat(target);
-    
+
     if (stat.isDirectory) {
         const items = await vfs.readdir(target);
         for (const item of items) {
