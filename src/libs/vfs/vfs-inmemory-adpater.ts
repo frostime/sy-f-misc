@@ -62,6 +62,58 @@ export class InMemoryVFS implements IVFS {
         return path.replace(/\\/g, '/');
     }
 
+    // ========== 路径操作 ==========
+
+    basename(path: string, ext?: string): string {
+        const normalized = this.normalizePath(path);
+        const parts = normalized.split('/');
+        let base = parts[parts.length - 1] || '';
+        if (ext && base.endsWith(ext)) {
+            base = base.slice(0, -ext.length);
+        }
+        return base;
+    }
+
+    dirname(path: string): string {
+        const normalized = this.normalizePath(path);
+        const parts = normalized.split('/');
+        parts.pop();
+        return parts.length > 0 ? parts.join('/') || '/' : '/';
+    }
+
+    join(...paths: string[]): string {
+        const normalized = paths.map(p => this.normalizePath(p));
+        let result = normalized.join('/');
+        // 移除多余的斜杠
+        result = result.replace(/\/+/g, '/');
+        // 处理开头和结尾
+        if (!result.startsWith('/') && normalized[0]?.startsWith('/')) {
+            result = '/' + result;
+        }
+        return result;
+    }
+
+    extname(path: string): string {
+        const normalized = this.normalizePath(path);
+        const base = this.basename(normalized);
+        const idx = base.lastIndexOf('.');
+        return idx > 0 ? base.slice(idx) : '';
+    }
+
+    resolve(...paths: string[]): string {
+        // InMemory 文件系统始终使用绝对路径
+        let result = '/';
+        for (const p of paths) {
+            const normalized = this.normalizePath(p);
+            if (normalized.startsWith('/')) {
+                result = normalized;
+            } else {
+                result = this.join(result, normalized);
+            }
+        }
+        return result;
+    }
+
     /** 初始化 Agent 推荐的目录结构 */
     private initDefaultStructure() {
         const dirs = ['/context', '/knowledge', '/state', '/history'];

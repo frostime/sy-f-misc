@@ -65,6 +65,13 @@ export interface IVFS {
     // 路径规范化（可选）
     normalizePath?(path: string): string;
 
+    // 路径操作（必需，用于完全抽象化）
+    basename(path: string, ext?: string): string;
+    dirname(path: string): string;
+    join(...paths: string[]): string;
+    extname(path: string): string;
+    resolve(...paths: string[]): string;
+
     // 环境检测
     isAvailable(): boolean;
 

@@ -54,7 +54,7 @@ export class VFSManager implements IVFS {
      * 解析路径，返回对应的 FS 和相对路径
      * 支持格式：memory:///path 或 memory://path 或 /path（默认 FS）
      */
-    resolve(fullPath: string): { fs: IVFS; path: string } {
+    private resolveTarget(fullPath: string): { fs: IVFS; path: string } {
         const match = fullPath.match(/^([a-zA-Z0-9_-]+):\/\/\/?(.*)$/);
 
         if (match) {
@@ -79,23 +79,23 @@ export class VFSManager implements IVFS {
     // ========== IFileSystem 代理实现 ==========
 
     async readFile(path: string): Promise<string> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.readFile(p);
     }
 
     async writeFile(path: string, content: string): Promise<void> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.writeFile(p, content);
     }
 
     async appendFile(path: string, content: string): Promise<void> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.appendFile(p, content);
     }
 
     async exists(path: string): Promise<boolean> {
         try {
-            const { fs, path: p } = this.resolve(path);
+            const { fs, path: p } = this.resolveTarget(path);
             return await fs.exists(p);
         } catch {
             return false;
@@ -103,38 +103,38 @@ export class VFSManager implements IVFS {
     }
 
     async stat(path: string): Promise<IFileStat> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.stat(p);
     }
 
     async readdir(path: string): Promise<string[]> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.readdir(p);
     }
 
     async mkdir(path: string): Promise<void> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.mkdir(p);
     }
 
     async unlink(path: string): Promise<void> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.unlink(p);
     }
 
     async rmdir(path: string): Promise<void> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.rmdir(p);
     }
 
     async readLines(path: string, start: number, end: number): Promise<string> {
-        const { fs, path: p } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         return fs.readLines(p, start, end);
     }
 
     async copyFile(src: string, dest: string): Promise<void> {
-        const { fs: srcFs, path: srcPath } = this.resolve(src);
-        const { fs: destFs, path: destPath } = this.resolve(dest);
+        const { fs: srcFs, path: srcPath } = this.resolveTarget(src);
+        const { fs: destFs, path: destPath } = this.resolveTarget(dest);
 
         // 如果源和目标在同一文件系统，直接调用
         if (srcFs === destFs) {
@@ -147,8 +147,8 @@ export class VFSManager implements IVFS {
     }
 
     async rename(oldPath: string, newPath: string): Promise<void> {
-        const { fs: oldFs, path: oldP } = this.resolve(oldPath);
-        const { fs: newFs, path: newP } = this.resolve(newPath);
+        const { fs: oldFs, path: oldP } = this.resolveTarget(oldPath);
+        const { fs: newFs, path: newP } = this.resolveTarget(newPath);
 
         // 如果在同一文件系统，直接调用
         if (oldFs === newFs) {
@@ -190,17 +190,49 @@ export class VFSManager implements IVFS {
     }
 
     normalizePath(path: string): string {
-        const { fs } = this.resolve(path);
+        const { fs, path: p } = this.resolveTarget(path);
         if (fs.normalizePath) {
-            return fs.normalizePath(path);
+            return fs.normalizePath(p);
         }
         // 默认：统一使用正斜杠
-        return path.replace(/\\/g, '/');
+        return p.replace(/\\/g, '/');
+    }
+
+    // ============ Path Operations ============
+    basename(path: string, ext?: string): string {
+        const { fs, path: p } = this.resolveTarget(path);
+        return fs.basename(p, ext);
+    }
+
+    dirname(path: string): string {
+        const { fs, path: p } = this.resolveTarget(path);
+        return fs.dirname(p);
+    }
+
+    join(...paths: string[]): string {
+        // 使用默认 FS 或第一个路径的 FS
+        const firstPath = paths[0] || '/';
+        const { fs, path: base } = this.resolveTarget(firstPath);
+        const rest = paths.slice(1);
+        return fs.join(base, ...rest);
+    }
+
+    extname(path: string): string {
+        const { fs, path: p } = this.resolveTarget(path);
+        return fs.extname(p);
+    }
+
+    resolve(...paths: string[]): string {
+        // 使用默认 FS 或第一个路径的 FS
+        const firstPath = paths[0] || '/';
+        const { fs, path: base } = this.resolveTarget(firstPath);
+        const rest = paths.slice(1);
+        return fs.resolve(base, ...rest);
     }
 
     // ============ Binary Operations ============
     async readFileBuffer(path: string): Promise<Buffer> {
-        const { fs, path: resolvedPath } = this.resolve(path);
+        const { fs, path: resolvedPath } = this.resolveTarget(path);
         if (!fs.readFileBuffer) {
             throw new Error(`readFileBuffer not supported by ${path} filesystem`);
         }
@@ -208,7 +240,7 @@ export class VFSManager implements IVFS {
     }
 
     async writeFileBuffer(path: string, buffer: Buffer): Promise<void> {
-        const { fs, path: resolvedPath } = this.resolve(path);
+        const { fs, path: resolvedPath } = this.resolveTarget(path);
         if (!fs.writeFileBuffer) {
             throw new Error(`writeFileBuffer not supported by ${path} filesystem`);
         }
@@ -216,7 +248,7 @@ export class VFSManager implements IVFS {
     }
 
     async readFileBytes(path: string, start: number, length: number): Promise<Buffer> {
-        const { fs, path: resolvedPath } = this.resolve(path);
+        const { fs, path: resolvedPath } = this.resolveTarget(path);
         if (!fs.readFileBytes) {
             throw new Error(`readFileBytes not supported by ${path} filesystem`);
         }
@@ -225,7 +257,7 @@ export class VFSManager implements IVFS {
 
     // ============ Advanced Stream Operations ============
     async readFirstLines(path: string, count: number): Promise<string[]> {
-        const { fs, path: resolvedPath } = this.resolve(path);
+        const { fs, path: resolvedPath } = this.resolveTarget(path);
         if (!fs.readFirstLines) {
             throw new Error(`readFirstLines not supported by ${path} filesystem`);
         }
@@ -233,7 +265,7 @@ export class VFSManager implements IVFS {
     }
 
     async readLastLines(path: string, count: number): Promise<string[]> {
-        const { fs, path: resolvedPath } = this.resolve(path);
+        const { fs, path: resolvedPath } = this.resolveTarget(path);
         if (!fs.readLastLines) {
             throw new Error(`readLastLines not supported by ${path} filesystem`);
         }
@@ -241,7 +273,7 @@ export class VFSManager implements IVFS {
     }
 
     async countLines(path: string): Promise<number> {
-        const { fs, path: resolvedPath } = this.resolve(path);
+        const { fs, path: resolvedPath } = this.resolveTarget(path);
         if (!fs.countLines) {
             throw new Error(`countLines not supported by ${path} filesystem`);
         }
@@ -249,7 +281,7 @@ export class VFSManager implements IVFS {
     }
 
     async materialize(virtualPath: string, targetDir?: string): Promise<string> {
-        const { fs, path: p } = this.resolve(virtualPath);
+        const { fs, path: p } = this.resolveTarget(virtualPath);
 
         // 如果适配器支持 materialize，直接调用
         if (fs.materialize) {

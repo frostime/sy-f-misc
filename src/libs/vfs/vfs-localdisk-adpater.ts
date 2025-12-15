@@ -45,6 +45,41 @@ export class LocalDiskVFS implements IVFS {
         return this.pathModule.normalize(path);
     }
 
+    // ========== 路径操作 ==========
+
+    basename(path: string, ext?: string): string {
+        this.ensureAvailable();
+        return this.pathModule.basename(path, ext);
+    }
+
+    dirname(path: string): string {
+        this.ensureAvailable();
+        return this.pathModule.dirname(path);
+    }
+
+    join(...paths: string[]): string {
+        this.ensureAvailable();
+        return this.pathModule.join(...paths);
+    }
+
+    extname(path: string): string {
+        this.ensureAvailable();
+        return this.pathModule.extname(path);
+    }
+
+    resolve(...paths: string[]): string {
+        this.ensureAvailable();
+        if (!this.basePath) {
+            return this.pathModule.resolve(...paths);
+        }
+        // 使用沙箱的 resolve 方法
+        const resolved = this.pathModule.resolve(this.basePath, ...paths.map(p => p.replace(/^\/+/, '')));
+        if (!resolved.startsWith(this.pathModule.resolve(this.basePath))) {
+            throw new Error(`Path escape detected: ${paths.join(', ')}`);
+        }
+        return resolved;
+    }
+
     /** 确保环境可用 */
     private ensureAvailable(): void {
         if (!this.isAvailable()) {
@@ -53,18 +88,18 @@ export class LocalDiskVFS implements IVFS {
     }
 
     /** 解析并限制路径 */
-    private resolve(p: string): string {
-        this.ensureAvailable();
-        if (!this.basePath) {
-            return this.pathModule.resolve(p);
-        }
-        // 沙箱限制：确保路径在 basePath 内
-        const resolved = this.pathModule.resolve(this.basePath, p.replace(/^\/+/, ''));
-        if (!resolved.startsWith(this.pathModule.resolve(this.basePath))) {
-            throw new Error(`Path escape detected: ${p}`);
-        }
-        return resolved;
-    }
+    // private resolve(p: string): string {
+    //     this.ensureAvailable();
+    //     if (!this.basePath) {
+    //         return this.pathModule.resolve(p);
+    //     }
+    //     // 沙箱限制：确保路径在 basePath 内
+    //     const resolved = this.pathModule.resolve(this.basePath, p.replace(/^\/+/, ''));
+    //     if (!resolved.startsWith(this.pathModule.resolve(this.basePath))) {
+    //         throw new Error(`Path escape detected: ${p}`);
+    //     }
+    //     return resolved;
+    // }
 
     async readFile(path: string): Promise<string> {
         this.ensureAvailable();
