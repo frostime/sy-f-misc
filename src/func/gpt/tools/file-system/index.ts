@@ -8,12 +8,12 @@
 import { createShutilTools } from "./shutil-vfs";
 import { createViewerTools } from "./viewer-vfs";
 import { createEditorTools, editorToolsRulePrompt } from "./editor-vfs";
-import { IVFS } from '@/libs/vfs';
+import { VFSManager } from '@/libs/vfs';
 
 /**
  * 文件系统工具组 (Viewer + Basic Ops)
  */
-export const createFileSystemToolGroup = (vfs: IVFS) => {
+export const createFileSystemToolGroup = (vfs: VFSManager) => {
     const viewerTools = createViewerTools(vfs);
     const shutilTools = createShutilTools(vfs);
 
@@ -71,7 +71,7 @@ ${viewerTools.rulePrompt}
 /**
  * 文件编辑工具组 (Editor)
  */
-export const createFileEditorToolGroup = (vfs: IVFS) => {
+export const createFileEditorToolGroup = (vfs: VFSManager) => {
     const editorTools = createEditorTools(vfs);
 
     const fileEditorTools = {

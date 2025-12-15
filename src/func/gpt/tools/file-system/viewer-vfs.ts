@@ -1,8 +1,8 @@
-import { IVFS } from '../../../../libs/vfs';
+import { VFSManager, IVFS } from '@/libs/vfs';
 import { Tool, ToolGroup, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 import { createViewerUtils } from './viewer-utils-vfs';
 
-export function createViewerTools(vfs: IVFS): ToolGroup {
+export function createViewerTools(vfs: VFSManager): ToolGroup {
     const {
         LIMITS,
         EXCLUDED_DIRS,
@@ -44,14 +44,15 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
         execute: async (args): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) return { status: ToolExecuteStatus.ERROR, error: '文件系统不可用' };
             try {
-                const filePath = vfs.resolve(args.path);
-                if (!await vfs.exists(filePath)) return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
+                const { fs, path } = vfs.route(args.path);
+                const filePath = fs.resolve(path);
+                if (!await fs.exists(filePath)) return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
 
                 const mode = args.mode || 'preview';
                 const showLineNumbers = !!args.showLineNumbers;
 
-                const stats = await vfs.stat(filePath);
-                const fileType = await detectFileType(filePath);
+                const stats = await fs.stat(filePath);
+                const fileType = await detectFileType(args.path); // detectFileType handles parsePath internally
                 if (fileType === 'directory') return { status: ToolExecuteStatus.ERROR, error: '目录，请用 List' };
                 if (fileType === 'binary') return { status: ToolExecuteStatus.ERROR, error: `二进制文件（${formatFileSize(stats.size)}），无法文本查看` };
 
@@ -60,22 +61,22 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                 let displayRange = '';
 
                 if (mode === 'full') {
-                    const res = await safeReadFile(filePath, LIMITS.MAX_FILE_SIZE);
+                    const res = await safeReadFile(args.path, LIMITS.MAX_FILE_SIZE); // safeReadFile handles parsePath
                     if (res.error) return { status: ToolExecuteStatus.ERROR, error: res.error };
                     content = res.content!;
                     totalLines = content.split('\n').length;
                     displayRange = `1-${totalLines}`;
                 } else if (mode === 'head') {
                     const n = Math.min(args.lines || 50, 1000);
-                    const lines = await readFirstLines(filePath, n);
+                    const lines = await readFirstLines(args.path, n); // handles parsePath
                     content = lines.join('\n');
-                    totalLines = await countLines(filePath);
+                    totalLines = await countLines(args.path); // handles parsePath
                     displayRange = `1-${lines.length}`;
                 } else if (mode === 'tail') {
                     const n = Math.min(args.lines || 50, 1000);
-                    const lines = await readLastLines(filePath, n);
+                    const lines = await readLastLines(args.path, n); // handles parsePath
                     content = lines.join('\n');
-                    totalLines = await countLines(filePath);
+                    totalLines = await countLines(args.path); // handles parsePath
                     const startLine = Math.max(1, totalLines - lines.length + 1);
                     displayRange = `${startLine}-${totalLines}`;
                 } else if (mode === 'range') {
@@ -84,17 +85,17 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                     }
                     const [start, end] = args.range;
                     if (start < 1 || end < start) return { status: ToolExecuteStatus.ERROR, error: '无效行范围' };
-                    const res = await readLineRange(filePath, start, end);
+                    const res = await readLineRange(args.path, start, end); // handles parsePath
                     content = res.lines.join('\n');
                     totalLines = res.totalLines;
                     displayRange = `${start}-${Math.min(end, totalLines || end)}`;
                 } else {
                     if (stats.size <= LIMITS.MAX_FILE_SIZE) {
-                        const res = await safeReadFile(filePath);
+                        const res = await safeReadFile(args.path); // handles parsePath
                         if (res.error) {
-                            const lines = await readFirstLines(filePath, LIMITS.MAX_PREVIEW_LINES);
+                            const lines = await readFirstLines(args.path, LIMITS.MAX_PREVIEW_LINES); // handles parsePath
                             content = lines.join('\n');
-                            totalLines = await countLines(filePath);
+                            totalLines = await countLines(args.path); // handles parsePath
                             displayRange = `1-${lines.length}`;
                         } else {
                             content = res.content!;
@@ -119,6 +120,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                     status: ToolExecuteStatus.SUCCESS,
                     data: {
                         path: filePath,
+                        fileName: fs.basename(path),
                         content,
                         mode,
                         range: { start: rs, end: re },
@@ -133,7 +135,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
             }
         },
         formatForLLM: (data: any) => {
-            const fileName = vfs.basename(data.path);
+            const fileName = data.fileName || data.path;
             let header = `📄 ${fileName}`;
             if (data.totalLines) header += ` (显示 ${data.range.start}-${data.range.end} / 共 ${data.totalLines} 行)`;
             if (data.mode === 'preview' && data.range.end !== data.totalLines) header += ' [预览模式]';
@@ -172,7 +174,8 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
             if (!args.name && !args.content) return { status: ToolExecuteStatus.ERROR, error: '需指定 name 或 content' };
 
             try {
-                const root = vfs.resolve(args.path);
+                const { fs: rootFS, path: rootPath } = vfs.route(args.path);
+                const root = rootFS.resolve(rootPath);
                 const maxDepth = Math.min(args.maxDepth || 5, LIMITS.MAX_SEARCH_DEPTH);
                 const maxResults = Math.min(args.maxResults || 50, LIMITS.MAX_SEARCH_RESULTS);
                 const exclude = [...EXCLUDED_DIRS, ...(args.exclude || [])];
@@ -182,19 +185,19 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                 const results: any[] = [];
                 let filesScanned = 0;
 
-                const walk = async (dir: string, depth: number, rel: string) => {
+                const walk = async (currentFS: IVFS, dir: string, depth: number, rel: string) => {
                     if (depth > maxDepth || results.length >= maxResults) return;
                     let items: string[];
-                    try { items = await vfs.readdir(dir); } catch { return; }
+                    try { items = await currentFS.readdir(dir); } catch { return; }
 
                     for (const item of items) {
                         if (results.length >= maxResults) break;
-                        const full = vfs.join(dir, item);
+                        const full = currentFS.join(dir, item);
                         const rpath = rel ? `${rel}/${item}` : item;
-                        let st; try { st = await vfs.stat(full); } catch { continue; }
+                        let st; try { st = await currentFS.stat(full); } catch { continue; }
                         if (st.isDirectory) {
                             if (shouldExclude(item, exclude)) continue;
-                            await walk(full, depth + 1, rpath);
+                            await walk(currentFS, full, depth + 1, rpath);
                         } else if (st.isFile) {
                             filesScanned++;
                             if (include.length && !include.some(p => matchPattern(item, p, false))) continue;
@@ -203,7 +206,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                                 continue;
                             }
                             if (args.content && st.size <= LIMITS.MAX_FILE_SIZE) {
-                                const ft = await detectFileType(full);
+                                const ft = await detectFileType(full, currentFS);
                                 if (ft !== 'text') continue;
                                 try {
                                     const matches = await searchInFile(full, args.content, {
@@ -211,7 +214,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                                         caseSensitive: args.caseSensitive,
                                         contextLines: args.contextLines || 2,
                                         maxMatches: 5
-                                    });
+                                    }, currentFS);
                                     if (matches.length) {
                                         results.push({
                                             file: rpath,
@@ -229,11 +232,12 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                     }
                 };
 
-                await walk(root, 0, '');
+                await walk(rootFS, root, 0, '');
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: {
                         directory: root,
+                        dirName: rootFS.basename(root),
                         searchName: args.name,
                         searchContent: args.content,
                         results,
@@ -247,7 +251,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
             }
         },
         formatForLLM: (data: any) => {
-            const dirName = vfs.basename(data.directory) || data.directory;
+            const dirName = data.dirName || data.directory;
             if (!data.results.length) return `在 ${dirName} 未找到匹配（扫描 ${data.filesScanned} 个文件）`;
             let out = `🔍 在 ${dirName} 找到 ${data.results.length} 个匹配`;
             if (data.reachedLimit) out += '（已达上限）';
@@ -298,12 +302,12 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
         execute: async (args): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) return { status: ToolExecuteStatus.ERROR, error: '文件系统不可用' };
             try {
-                const dirPath = vfs.resolve(args.path);
-                if (!await vfs.exists(dirPath)) return { status: ToolExecuteStatus.ERROR, error: `目录不存在: ${dirPath}` };
-                const stat = await vfs.stat(dirPath);
+                const { fs, path } = vfs.route(args.path);
+                const dirPath = fs.resolve(path);
+                if (!await fs.exists(dirPath)) return { status: ToolExecuteStatus.ERROR, error: `目录不存在: ${dirPath}` };
+                const stat = await fs.stat(dirPath);
                 if (!stat.isDirectory) return { status: ToolExecuteStatus.ERROR, error: `不是目录: ${dirPath}` };
 
-                const useTree = args.tree !== false;
                 const maxDepth = Math.min(args.depth || 2, 8);
                 const showSize = args.showSize !== false;
                 const showHidden = !!args.showHidden;
@@ -315,7 +319,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
 
                 const build = async (cur: string, depth: number, name: string): Promise<TreeNode | null> => {
                     if (depth > maxDepth || itemCount >= LIMITS.MAX_LIST_ITEMS) return null;
-                    let s; try { s = await vfs.stat(cur); } catch { return null; }
+                    let s; try { s = await fs.stat(cur); } catch { return null; }
                     const isDir = s.isDirectory;
                     if (!showHidden && name.startsWith('.')) return null;
                     if (onlyFiles && isDir) return null;
@@ -325,11 +329,11 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                     if (isDir) {
                         if (EXCLUDED_DIRS.includes(name)) return { name, type: 'dir' };
                         let items: string[];
-                        try { items = await vfs.readdir(cur); } catch { return { name, type: 'dir' }; }
+                        try { items = await fs.readdir(cur); } catch { return { name, type: 'dir' }; }
                         const children: TreeNode[] = [];
                         for (const it of items) {
                             if (itemCount >= LIMITS.MAX_LIST_ITEMS) break;
-                            const child = await build(vfs.join(cur, it), depth + 1, it);
+                            const child = await build(fs.join(cur, it), depth + 1, it);
                             if (child) children.push(child);
                         }
                         return { name, type: 'dir', children };
@@ -337,7 +341,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                     return { name, type: 'file', size: showSize ? s.size : undefined, sizeFormatted: showSize ? formatFileSize(s.size) : undefined };
                 };
 
-                const root = await build(dirPath, 0, vfs.basename(dirPath));
+                const root = await build(dirPath, 0, fs.basename(dirPath));
                 const formatTree = (node: TreeNode, prefix = '', last = true): string[] => {
                     const conn = last ? '└── ' : '├── ';
                     const next = prefix + (last ? '    ' : '│   ');
@@ -350,7 +354,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
 
                 return {
                     status: ToolExecuteStatus.SUCCESS,
-                    data: { directory: dirPath, tree: root, itemCount, truncated: itemCount >= LIMITS.MAX_LIST_ITEMS }
+                    data: { directory: dirPath, dirName: fs.basename(dirPath), tree: root, itemCount, truncated: itemCount >= LIMITS.MAX_LIST_ITEMS }
                 };
             } catch (error) {
                 const err = handleFileError(error, args.path);
@@ -358,7 +362,7 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
             }
         },
         formatForLLM: (data: any) => {
-            const dirName = vfs.basename(data.directory) || data.directory;
+            const dirName = data.dirName || data.directory;
             const formatTree = (node: any, prefix = '', last = true): string[] => {
                 const conn = last ? '└── ' : '├── ';
                 const next = prefix + (last ? '    ' : '│   ');
@@ -389,13 +393,14 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
         execute: async (args): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) return { status: ToolExecuteStatus.ERROR, error: '文件系统不可用' };
             try {
-                const filePath = vfs.resolve(args.path);
-                if (!await vfs.exists(filePath)) return { status: ToolExecuteStatus.ERROR, error: `路径不存在: ${filePath}` };
-                const stats = await vfs.stat(filePath);
-                const fileType = await detectFileType(filePath);
+                const { fs, path } = vfs.route(args.path);
+                const filePath = fs.resolve(path);
+                if (!await fs.exists(filePath)) return { status: ToolExecuteStatus.ERROR, error: `路径不存在: ${filePath}` };
+                const stats = await fs.stat(filePath);
+                const fileType = await detectFileType(args.path); // handles parsePath
                 const info: any = {
                     path: filePath,
-                    name: vfs.basename(filePath),
+                    name: fs.basename(filePath),
                     type: fileType,
                     size: formatFileSize(stats.size),
                     sizeBytes: stats.size,
@@ -403,10 +408,10 @@ export function createViewerTools(vfs: IVFS): ToolGroup {
                     modified: stats.mtime.toISOString()
                 };
                 if (fileType === 'directory') {
-                    try { info.itemCount = (await vfs.readdir(filePath)).length; } catch { info.itemCount = 0; }
+                    try { info.itemCount = (await fs.readdir(filePath)).length; } catch { info.itemCount = 0; }
                 } else if (fileType === 'text') {
-                    try { info.lines = await countLines(filePath); } catch { info.lines = null; }
-                    const ext = vfs.extname(filePath).slice(1).toLowerCase();
+                    try { info.lines = await countLines(args.path); } catch { info.lines = null; } // handles parsePath
+                    const ext = fs.extname(filePath).slice(1).toLowerCase();
                     const langMap: Record<string, string> = {
                         js: 'JavaScript', ts: 'TypeScript', jsx: 'React', tsx: 'React/TypeScript',
                         py: 'Python', rb: 'Ruby', java: 'Java', cpp: 'C++', c: 'C', h: 'C/C++', go: 'Go', rs: 'Rust', php: 'PHP', swift: 'Swift',

@@ -35,29 +35,37 @@ async function testVFS() {
 
     // 测试3: 内存文件系统基础操作
     console.log('3. 测试内存文件系统...');
-    await vfs.writeFile('memory:///test.txt', 'Hello VFS!');
-    const content = await vfs.readFile('memory:///test.txt');
+    const { fs: memFS, path: memPath } = vfs.route('memory:///test.txt');
+    await memFS.writeFile(memPath, 'Hello VFS!');
+    const content = await memFS.readFile(memPath);
     console.log('   读取内容:', content);
     console.log('✅ 内存 FS 读写成功\n');
 
     // 测试4: copyFile
     console.log('4. 测试文件复制...');
     await vfs.copyFile('memory:///test.txt', 'memory:///test_copy.txt');
-    const copiedContent = await vfs.readFile('memory:///test_copy.txt');
+    const { fs: copyFS, path: copyPath } = vfs.route('memory:///test_copy.txt');
+    const copiedContent = await copyFS.readFile(copyPath);
     console.log('   复制后内容:', copiedContent);
     console.log('✅ 文件复制成功\n');
 
     // 测试5: rename
     console.log('5. 测试文件重命名...');
     await vfs.rename('memory:///test_copy.txt', 'memory:///test_renamed.txt');
-    const exists = await vfs.exists('memory:///test_renamed.txt');
+    const { fs: renamedFS, path: renamedPath } = vfs.route('memory:///test_renamed.txt');
+    const exists = await renamedFS.exists(renamedPath);
     console.log('   重命名后存在:', exists);
     console.log('✅ 文件重命名成功\n');
 
     // 测试6: toRealPath
     console.log('6. 测试获取真实路径...');
-    const realPath = await vfs.toRealPath('memory:///test.txt');
-    console.log('   内存文件真实路径:', realPath);
+    // VFSManager no longer has toRealPath, check capability or use FS directly
+    if (memFS.toRealPath) {
+        const realPath = await memFS.toRealPath(memPath);
+        console.log('   内存文件真实路径:', realPath);
+    } else {
+        console.log('   内存文件系统不支持 toRealPath (预期内)');
+    }
     console.log('✅ toRealPath 测试成功\n');
 
     // 测试7: materialize
@@ -79,23 +87,27 @@ async function testVFS() {
     }
 
     // 测试8: 本地文件系统（如果可用）
-    if (vfs.toRealPath) {
+    // Check if local fs is mounted
+    const localProtocol = vfs.getProtocols().find(p => p !== 'memory');
+    if (localProtocol || vfs.has(null)) {
         console.log('8. 测试本地文件系统...');
         const os = require('os');
         const path = require('path');
         const testFile = path.join(os.tmpdir(), 'vfs_test_' + Date.now() + '.txt');
         
-        await vfs.writeFile(testFile, 'Local FS Test');
-        const localContent = await vfs.readFile(testFile);
+        const { fs: localFS, path: localPath } = vfs.route(testFile);
+        
+        await localFS.writeFile(localPath, 'Local FS Test');
+        const localContent = await localFS.readFile(localPath);
         console.log('   本地文件内容:', localContent);
         
         // 清理
-        await vfs.unlink(testFile);
+        await localFS.unlink(localPath);
         console.log('✅ 本地 FS 测试成功\n');
     }
 
     // 测试9: 跨文件系统复制
-    if (vfs.toRealPath) {
+    if (localProtocol || vfs.has(null)) {
         console.log('9. 测试跨文件系统复制...');
         const os = require('os');
         const path = require('path');

@@ -1,7 +1,7 @@
-import { IVFS } from '../../../../libs/vfs';
+import { VFSManager, IVFS } from '@/libs/vfs';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 
-export function createShutilTools(vfs: IVFS): Tool[] {
+export function createShutilTools(vfs: VFSManager): Tool[] {
     /**
      * Mkdir tool – create directory, supports recursive ("-p") option.
      */
@@ -27,12 +27,13 @@ export function createShutilTools(vfs: IVFS): Tool[] {
                 return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
             }
             try {
-                const target = vfs.resolve(args.path);
-                if (await vfs.exists(target)) {
+                const { fs, path } = vfs.route(args.path);
+                const target = fs.resolve(path);
+                if (await fs.exists(target)) {
                     return { status: ToolExecuteStatus.SUCCESS, data: `目录 ${args.path} 已存在` };
                 }
                 // VFS mkdir always recursive
-                await vfs.mkdir(target);
+                await fs.mkdir(target);
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: `目录创建成功: ${target}`
@@ -68,18 +69,37 @@ export function createShutilTools(vfs: IVFS): Tool[] {
                 return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
             }
             try {
-                const src = vfs.resolve(args.from);
-                let dst = vfs.resolve(args.to);
+                const { fs: srcFS, path: srcPathRaw } = vfs.route(args.from);
+                const { fs: dstFS, path: dstPathRaw } = vfs.route(args.to);
+
+                if (srcFS !== dstFS) {
+                    return { status: ToolExecuteStatus.ERROR, error: '跨文件系统复制文件暂不支持' };
+                }
+
+                const src = srcFS.resolve(srcPathRaw);
+                let dst = dstFS.resolve(dstPathRaw);
 
                 // 如果目标路径已存在且为目录，则在该目录下使用源项同名作为目标
-                if (await vfs.exists(dst)) {
-                    const dstStat = await vfs.stat(dst);
+                if (await dstFS.exists(dst)) {
+                    const dstStat = await dstFS.stat(dst);
                     if (dstStat.isDirectory) {
-                        dst = vfs.join(dst, vfs.basename(src));
+                        dst = dstFS.join(dst, srcFS.basename(src));
                     }
                 }
 
-                await vfs.rename(src, dst);
+                await srcFS.rename(src, dst);
+
+                // if (srcFS === dstFS) {
+                //     await srcFS.rename(src, dst);
+                // } else {
+                //     // 跨 FS 移动：复制 → 删除
+                //     // 简单实现：读取全部内容写入（注意：大文件可能内存溢出，但 VFS 接口目前只有 readFile）
+                //     // 如果 VFS 支持流式复制更好，但这里先用 readFile
+                //     const content = await srcFS.readFile(src);
+                //     await dstFS.writeFile(dst, content);
+                //     await srcFS.unlink(src);
+                // }
+
                 return { status: ToolExecuteStatus.SUCCESS, data: `已移动: ${src} -> ${dst}` };
             } catch (err: any) {
                 return { status: ToolExecuteStatus.ERROR, error: err?.message ?? String(err) };
@@ -113,29 +133,46 @@ export function createShutilTools(vfs: IVFS): Tool[] {
                 return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
             }
             try {
-                const src = vfs.resolve(args.from);
-                let dst = vfs.resolve(args.to);
+                const { fs: srcFS, path: srcPathRaw } = vfs.route(args.from);
+                const { fs: dstFS, path: dstPathRaw } = vfs.route(args.to);
+
+                if (srcFS !== dstFS) {
+                    return { status: ToolExecuteStatus.ERROR, error: '跨文件系统复制文件暂不支持' };
+                }
+
+                const src = srcFS.resolve(srcPathRaw);
+                let dst = dstFS.resolve(dstPathRaw);
 
                 // 如果目标路径已存在且为目录，则在该目录下使用源项同名作为目标
-                if (await vfs.exists(dst)) {
-                    const dstStat = await vfs.stat(dst);
+                if (await dstFS.exists(dst)) {
+                    const dstStat = await dstFS.stat(dst);
                     if (dstStat.isDirectory) {
-                        dst = vfs.join(dst, vfs.basename(src));
+                        dst = dstFS.join(dst, srcFS.basename(src));
                     }
                 }
 
                 // 检查源类型
-                const srcStat = await vfs.stat(src);
+                const srcStat = await srcFS.stat(src);
 
                 if (srcStat.isDirectory) {
                     if (!args.recursive) {
                         throw new Error('源为目录，请设置 recursive 为 true');
                     }
                     // 递归复制目录
-                    await copyRecursive(vfs, src, dst);
+                    await copyRecursive(srcFS, src, dstFS, dst);
                 } else {
                     // 复制单个文件
-                    await vfs.copyFile(src, dst);
+                    await srcFS.copyFile(src, dst);
+                    // if (srcFS === dstFS) {
+
+                    // } else {
+                    //     // const content = await srcFS.readFile(src);
+                    //     // await dstFS.writeFile(dst, content);
+                    //     return {
+                    //         status: ToolExecuteStatus.ERROR,
+                    //         error: '跨文件系统复制文件暂不支持'
+                    //     }
+                    // }
                 }
 
                 return { status: ToolExecuteStatus.SUCCESS, data: `已复制: ${src} -> ${dst}` };
@@ -151,42 +188,35 @@ export function createShutilTools(vfs: IVFS): Tool[] {
 /**
  * 递归复制目录
  */
-async function copyRecursive(vfs: IVFS, src: string, dst: string): Promise<void> {
+async function copyRecursive(
+    srcFS: IVFS, srcPath: string,
+    dstFS: IVFS, dstPath: string
+): Promise<void> {
     // 确保目标目录存在
-    await vfs.mkdir(dst);
+    await dstFS.mkdir(dstPath);
 
     // 读取源目录内容
-    const items = await vfs.readdir(src);
+    const items = await srcFS.readdir(srcPath);
 
     for (const item of items) {
-        const srcPath = vfs.join(src, item);
-        const dstPath = vfs.join(dst, item);
+        const childSrc = srcFS.join(srcPath, item);
+        const childDst = dstFS.join(dstPath, item);
 
-        const stat = await vfs.stat(srcPath);
+        const stat = await srcFS.stat(childSrc);
 
         if (stat.isDirectory) {
             // 递归复制子目录
-            await copyRecursive(vfs, srcPath, dstPath);
+            await copyRecursive(srcFS, childSrc, dstFS, childDst);
         } else {
             // 复制文件
-            await vfs.copyFile(srcPath, dstPath);
+            if (srcFS === dstFS) {
+                await srcFS.copyFile(childSrc, childDst);
+            } else {
+                const content = await srcFS.readFile(childSrc);
+                await dstFS.writeFile(childDst, content);
+            }
         }
     }
 }
 
-/**
- * 递归删除目录
- */
-async function removeRecursive(vfs: IVFS, target: string): Promise<void> {
-    const stat = await vfs.stat(target);
 
-    if (stat.isDirectory) {
-        const items = await vfs.readdir(target);
-        for (const item of items) {
-            await removeRecursive(vfs, vfs.join(target, item));
-        }
-        await vfs.rmdir(target);
-    } else {
-        await vfs.unlink(target);
-    }
-}

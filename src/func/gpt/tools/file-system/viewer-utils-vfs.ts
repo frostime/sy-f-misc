@@ -4,7 +4,7 @@
  * 完全基于 IVFS 抽象，不依赖 Node.js
  */
 
-import { IVFS } from '../../../../libs/vfs';
+import { IVFS, VFSManager } from '@/libs/vfs';
 
 // ============================================================
 // 常量定义
@@ -50,8 +50,8 @@ const TEXT_EXTENSIONS = new Set([
 // 创建工具适配器
 // ============================================================
 
-export function createViewerUtils(vfs: IVFS) {
-    const capabilities = vfs.getCapabilities?.() || {
+export function createViewerUtils(vfs: VFSManager) {
+    const getCapabilities = (fs: IVFS) => fs.getCapabilities?.() || {
         supportsRealPath: false,
         supportsBinary: false,
         supportsWatch: false,
@@ -67,10 +67,23 @@ export function createViewerUtils(vfs: IVFS) {
      * 检测文件是否为二进制文件
      * 方法：读取前 8KB，检查是否包含 null 字节或过多控制字符
      */
-    async function isBinaryFile(filePath: string): Promise<boolean> {
+    async function isBinaryFile(filePath: string, fs?: IVFS): Promise<boolean> {
         try {
+            let resolvedPath = filePath;
+            let targetFS = fs;
+
+            if (!targetFS) {
+                const parsed = vfs.route(filePath);
+                targetFS = parsed.fs;
+                resolvedPath = targetFS.resolve(parsed.path);
+            } else {
+                resolvedPath = targetFS.resolve(filePath);
+            }
+
+            const capabilities = getCapabilities(targetFS);
+
             // 简化：基于扩展名判断
-            const ext = vfs.extname(filePath).slice(1).toLowerCase();
+            const ext = targetFS.extname(resolvedPath).slice(1).toLowerCase();
             const KNOWN_BINARY_EXT = new Set(['exe', 'dll', 'so', 'dylib', 'bin', 'obj', 'o',
                 'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp',
                 'mp3', 'mp4', 'wav', 'avi', 'mkv', 'mov',
@@ -81,8 +94,8 @@ export function createViewerUtils(vfs: IVFS) {
             }
 
             // 如果 VFS 支持二进制读取，使用 readFileBytes
-            if (capabilities.supportsBinary && vfs.readFileBytes) {
-                const buffer = await vfs.readFileBytes(filePath, 0, LIMITS.BINARY_DETECT_BYTES);
+            if (capabilities.supportsBinary && targetFS.readFileBytes) {
+                const buffer = await targetFS.readFileBytes(resolvedPath, 0, LIMITS.BINARY_DETECT_BYTES);
 
                 if (buffer.length === 0) return false; // 空文件视为文本
 
@@ -108,18 +121,18 @@ export function createViewerUtils(vfs: IVFS) {
                 return controlBytes / buffer.length > 0.1;
             }
             // Fallback: 读取文本内容检测
-            const stat = await vfs.stat(filePath);
+            const stat = await targetFS.stat(resolvedPath);
             if (stat.size > LIMITS.BINARY_DETECT_BYTES) {
                 // 对于大文件，读取前N行检测
-                if (capabilities.supportsAdvancedStream && vfs.readFirstLines) {
-                    const lines = await vfs.readFirstLines(filePath, 10);
+                if (capabilities.supportsAdvancedStream && targetFS.readFirstLines) {
+                    const lines = await targetFS.readFirstLines(resolvedPath, 10);
                     const sample = lines.join('\n');
                     return sample.includes('\0') || /[\x00-\x08\x0E-\x1F]/.test(sample);
                 }
             }
 
             // 最终fallback：读取全文
-            const content = await vfs.readFile(filePath);
+            const content = await targetFS.readFile(resolvedPath);
             const sample = content.slice(0, 8192);
             // eslint-disable-next-line no-control-regex
             return /[\x00-\x08\x0E-\x1F]/.test(sample);
@@ -133,22 +146,33 @@ export function createViewerUtils(vfs: IVFS) {
     /**
      * 检测文件类型
      */
-    async function detectFileType(filePath: string): Promise<'text' | 'binary' | 'directory'> {
+    async function detectFileType(filePath: string, fs?: IVFS): Promise<'text' | 'binary' | 'directory'> {
         try {
-            const stat = await vfs.stat(filePath);
+            let resolvedPath = filePath;
+            let targetFS = fs;
+
+            if (!targetFS) {
+                const parsed = vfs.route(filePath);
+                targetFS = parsed.fs;
+                resolvedPath = targetFS.resolve(parsed.path);
+            } else {
+                resolvedPath = targetFS.resolve(filePath);
+            }
+
+            const stat = await targetFS.stat(resolvedPath);
 
             if (stat.isDirectory) {
                 return 'directory';
             }
 
             // 快速路径：检查扩展名
-            const ext = vfs.extname(filePath).slice(1).toLowerCase();
+            const ext = targetFS.extname(resolvedPath).slice(1).toLowerCase();
             if (TEXT_EXTENSIONS.has(ext)) {
                 return 'text';
             }
 
             // 没有扩展名的常见文本文件
-            const basename = vfs.basename(filePath).toLowerCase();
+            const basename = targetFS.basename(resolvedPath).toLowerCase();
             const noExtTextFiles = [
                 'readme', 'license', 'changelog', 'authors', 'contributors',
                 'makefile', 'dockerfile', 'gemfile', 'rakefile', 'vagrantfile'
@@ -158,7 +182,7 @@ export function createViewerUtils(vfs: IVFS) {
             }
 
             // 深度检测
-            return await isBinaryFile(filePath) ? 'binary' : 'text';
+            return await isBinaryFile(resolvedPath, targetFS) ? 'binary' : 'text';
         } catch (error: any) {
             throw new Error(`无法检测文件类型: ${error.message}`);
         }
@@ -179,7 +203,9 @@ export function createViewerUtils(vfs: IVFS) {
         size: number;
     }> {
         try {
-            const stat = await vfs.stat(filePath);
+            const { fs, path } = vfs.route(filePath);
+            const resolvedPath = fs.resolve(path);
+            const stat = await fs.stat(resolvedPath);
             const size = stat.size;
 
             // 检查大小
@@ -210,7 +236,7 @@ export function createViewerUtils(vfs: IVFS) {
             }
 
             // 读取内容
-            const content = await vfs.readFile(filePath);
+            const content = await fs.readFile(resolvedPath);
             return { content, size, fileType: 'text' };
 
         } catch (error: any) {
@@ -225,11 +251,15 @@ export function createViewerUtils(vfs: IVFS) {
      * 读取文件的前 N 行
      */
     async function readFirstLines(filePath: string, count: number): Promise<string[]> {
-        if (capabilities.supportsAdvancedStream && vfs.readFirstLines) {
-            return await vfs.readFirstLines(filePath, count);
+        const { fs, path } = vfs.route(filePath);
+        const resolvedPath = fs.resolve(path);
+        const capabilities = getCapabilities(fs);
+
+        if (capabilities.supportsAdvancedStream && fs.readFirstLines) {
+            return await fs.readFirstLines(resolvedPath, count);
         }
         // Fallback: 读取全文并切片
-        const content = await vfs.readFile(filePath);
+        const content = await fs.readFile(resolvedPath);
         return content.split('\n').slice(0, count);
     }
 
@@ -237,11 +267,15 @@ export function createViewerUtils(vfs: IVFS) {
      * 读取文件的后 N 行
      */
     async function readLastLines(filePath: string, count: number): Promise<string[]> {
-        if (capabilities.supportsAdvancedStream && vfs.readLastLines) {
-            return await vfs.readLastLines(filePath, count);
+        const { fs, path } = vfs.route(filePath);
+        const resolvedPath = fs.resolve(path);
+        const capabilities = getCapabilities(fs);
+
+        if (capabilities.supportsAdvancedStream && fs.readLastLines) {
+            return await fs.readLastLines(resolvedPath, count);
         }
         // Fallback: 读取全文并切片
-        const content = await vfs.readFile(filePath);
+        const content = await fs.readFile(resolvedPath);
         const lines = content.split('\n');
         return lines.slice(-count);
     }
@@ -254,14 +288,18 @@ export function createViewerUtils(vfs: IVFS) {
         start: number,
         end: number
     ): Promise<{ lines: string[]; totalLines?: number }> {
+        const { fs, path } = vfs.route(filePath);
+        const resolvedPath = fs.resolve(path);
+        const capabilities = getCapabilities(fs);
+
         // 使用 VFS 的 readLines 方法（0-based）
-        const content = await vfs.readLines(filePath, start - 1, end);
+        const content = await fs.readLines(resolvedPath, start - 1, end);
         const lines = content.split('\n');
 
         // 计算总行数（如果支持）
         let totalLines: number | undefined;
-        if (capabilities.supportsAdvancedStream && vfs.countLines) {
-            totalLines = await vfs.countLines(filePath);
+        if (capabilities.supportsAdvancedStream && fs.countLines) {
+            totalLines = await fs.countLines(resolvedPath);
         }
 
         return { lines, totalLines };
@@ -271,11 +309,15 @@ export function createViewerUtils(vfs: IVFS) {
      * 快速统计文件行数
      */
     async function countLines(filePath: string): Promise<number> {
-        if (capabilities.supportsAdvancedStream && vfs.countLines) {
-            return await vfs.countLines(filePath);
+        const { fs, path } = vfs.route(filePath);
+        const resolvedPath = fs.resolve(path);
+        const capabilities = getCapabilities(fs);
+
+        if (capabilities.supportsAdvancedStream && fs.countLines) {
+            return await fs.countLines(resolvedPath);
         }
         // Fallback: 读取全文计数
-        const content = await vfs.readFile(filePath);
+        const content = await fs.readFile(resolvedPath);
         return content.split('\n').length;
     }
 
@@ -380,7 +422,8 @@ export function createViewerUtils(vfs: IVFS) {
             caseSensitive?: boolean;
             contextLines?: number;
             maxMatches?: number;
-        } = {}
+        } = {},
+        fs?: IVFS
     ): Promise<Array<{ lineNum: number; line: string; context?: string[] }>> {
         const {
             regex = false,
@@ -405,7 +448,18 @@ export function createViewerUtils(vfs: IVFS) {
         }
 
         // 读取文件内容
-        const content = await vfs.readFile(filePath);
+        let resolvedPath = filePath;
+        let targetFS = fs;
+
+        if (!targetFS) {
+            const parsed = vfs.route(filePath);
+            targetFS = parsed.fs;
+            resolvedPath = targetFS.resolve(parsed.path);
+        } else {
+            resolvedPath = targetFS.resolve(filePath);
+        }
+
+        const content = await targetFS.readFile(resolvedPath);
         const lines = content.split('\n');
         const matches: Array<{ lineNum: number; line: string; context?: string[] }> = [];
         const recentLines: string[] = [];  // 用于上下文

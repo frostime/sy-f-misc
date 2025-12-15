@@ -7,7 +7,7 @@
  * 3. VFSManager 实现 IVFS 接口，可作为普通 FS 使用
  */
 
-import type { IVFS, IFileStat, VFSCapabilities } from './types';
+import type { IVFS, VFSCapabilities } from './types';
 import { InMemoryVFS } from './vfs-inmemory-adpater';
 import { LocalDiskVFS } from './vfs-localdisk-adpater';
 
@@ -24,7 +24,7 @@ const DEFAULT_PROTOCOL = '';
 // ========== 类型定义 ==========
 
 /** 路径解析结果（内部使用） */
-interface ParsedPath {
+interface PathHandler {
     fs: IVFS;
     path: string;
     protocol: string;
@@ -39,7 +39,7 @@ export interface MountInfo {
 
 // ========== VFS 管理器 ==========
 
-export class VFSManager implements IVFS {
+export class VFSManager {
     /** 所有挂载点，key 为协议名（空字符串表示默认） */
     private readonly mounts = new Map<string, IVFS>();
 
@@ -90,6 +90,11 @@ export class VFSManager implements IVFS {
         return Array.from(this.mounts.keys()).filter(p => p !== DEFAULT_PROTOCOL);
     }
 
+    /** 检查是否有任何文件系统可用 */
+    isAvailable(): boolean {
+        return this.mounts.size > 0;
+    }
+
     /** 规范化协议名 */
     private normalizeProtocol(protocol: string | null | undefined): string {
         if (protocol === null || protocol === undefined) {
@@ -109,7 +114,7 @@ export class VFSManager implements IVFS {
      * - `memory:///path` 或 `memory://path` → 使用 memory 协议
      * - `/path` → 使用默认 FS
      */
-    parsePath(fullPath: string): ParsedPath {
+    route(fullPath: string): PathHandler {
         // 尝试匹配 protocol://path 格式
         const match = fullPath.match(/^([a-zA-Z][a-zA-Z0-9_-]*):\/\/\/?(.*)$/);
 
@@ -142,86 +147,13 @@ export class VFSManager implements IVFS {
         };
     }
 
-    /**
-     * 执行文件操作的通用辅助方法
-     */
-    private async exec<T>(
-        path: string,
-        operation: (fs: IVFS, resolvedPath: string) => Promise<T>
-    ): Promise<T> {
-        const { fs, path: resolvedPath } = this.parsePath(path);
-        return operation(fs, resolvedPath);
-    }
 
-    /**
-     * 执行需要检查可选方法的操作
-     */
-    private async execOptional<T>(
-        path: string,
-        methodName: keyof IVFS,
-        operation: (fs: IVFS, resolvedPath: string) => Promise<T>
-    ): Promise<T> {
-        const { fs, path: resolvedPath, protocol } = this.parsePath(path);
 
-        if (typeof fs[methodName] !== 'function') {
-            const name = protocol || 'default';
-            throw new Error(`[VFS] Method '${methodName}' not supported by '${name}' filesystem`);
-        }
 
-        return operation(fs, resolvedPath);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // IVFS 核心接口实现
-    // ═══════════════════════════════════════════════════════════════
-
-    async readFile(path: string): Promise<string> {
-        return this.exec(path, (fs, p) => fs.readFile(p));
-    }
-
-    async writeFile(path: string, content: string): Promise<void> {
-        return this.exec(path, (fs, p) => fs.writeFile(p, content));
-    }
-
-    async appendFile(path: string, content: string): Promise<void> {
-        return this.exec(path, (fs, p) => fs.appendFile(p, content));
-    }
-
-    async exists(path: string): Promise<boolean> {
-        try {
-            return await this.exec(path, (fs, p) => fs.exists(p));
-        } catch {
-            return false;
-        }
-    }
-
-    async stat(path: string): Promise<IFileStat> {
-        return this.exec(path, (fs, p) => fs.stat(p));
-    }
-
-    async readdir(path: string): Promise<string[]> {
-        return this.exec(path, (fs, p) => fs.readdir(p));
-    }
-
-    async mkdir(path: string): Promise<void> {
-        return this.exec(path, (fs, p) => fs.mkdir(p));
-    }
-
-    async unlink(path: string): Promise<void> {
-        return this.exec(path, (fs, p) => fs.unlink(p));
-    }
-
-    async rmdir(path: string): Promise<void> {
-        return this.exec(path, (fs, p) => fs.rmdir(p));
-    }
-
-    async readLines(path: string, start: number, end: number): Promise<string> {
-        return this.exec(path, (fs, p) => fs.readLines(p, start, end));
-    }
 
     async copyFile(src: string, dest: string): Promise<void> {
-        const srcParsed = this.parsePath(src);
-        const destParsed = this.parsePath(dest);
+        const srcParsed = this.route(src);
+        const destParsed = this.route(dest);
 
         // 同一 FS 内复制
         if (srcParsed.fs === destParsed.fs) {
@@ -234,8 +166,8 @@ export class VFSManager implements IVFS {
     }
 
     async rename(oldPath: string, newPath: string): Promise<void> {
-        const oldParsed = this.parsePath(oldPath);
-        const newParsed = this.parsePath(newPath);
+        const oldParsed = this.route(oldPath);
+        const newParsed = this.route(newPath);
 
         // 同一 FS 内重命名
         if (oldParsed.fs === newParsed.fs) {
@@ -248,88 +180,11 @@ export class VFSManager implements IVFS {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // 路径操作（IVFS 接口）
-    // ═══════════════════════════════════════════════════════════════
-
-    normalizePath(path: string): string {
-        const { fs, path: p } = this.parsePath(path);
-        return fs.normalizePath?.(p) ?? p.replace(/\\/g, '/');
-    }
-
-    basename(path: string, ext?: string): string {
-        const { fs, path: p } = this.parsePath(path);
-        return fs.basename(p, ext);
-    }
-
-    dirname(path: string): string {
-        const { fs, path: p } = this.parsePath(path);
-        return fs.dirname(p);
-    }
-
-    join(...paths: string[]): string {
-        if (paths.length === 0) return '/';
-
-        const { fs, path: base } = this.parsePath(paths[0]);
-        return fs.join(base, ...paths.slice(1));
-    }
-
-    extname(path: string): string {
-        const { fs, path: p } = this.parsePath(path);
-        return fs.extname(p);
-    }
-
-    /** IVFS 接口：路径解析（类似 path.resolve） */
-    resolve(...paths: string[]): string {
-        if (paths.length === 0) return '/';
-
-        const { fs, path: base } = this.parsePath(paths[0]);
-        return fs.resolve(base, ...paths.slice(1));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // 二进制操作（可选）
-    // ═══════════════════════════════════════════════════════════════
-
-    async readFileBuffer(path: string): Promise<Buffer> {
-        return this.execOptional(path, 'readFileBuffer',
-            (fs, p) => fs.readFileBuffer!(p));
-    }
-
-    async writeFileBuffer(path: string, buffer: Buffer): Promise<void> {
-        return this.execOptional(path, 'writeFileBuffer',
-            (fs, p) => fs.writeFileBuffer!(p, buffer));
-    }
-
-    async readFileBytes(path: string, start: number, length: number): Promise<Buffer> {
-        return this.execOptional(path, 'readFileBytes',
-            (fs, p) => fs.readFileBytes!(p, start, length));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // 高级流操作（可选）
-    // ═══════════════════════════════════════════════════════════════
-
-    async readFirstLines(path: string, count: number): Promise<string[]> {
-        return this.execOptional(path, 'readFirstLines',
-            (fs, p) => fs.readFirstLines!(p, count));
-    }
-
-    async readLastLines(path: string, count: number): Promise<string[]> {
-        return this.execOptional(path, 'readLastLines',
-            (fs, p) => fs.readLastLines!(p, count));
-    }
-
-    async countLines(path: string): Promise<number> {
-        return this.execOptional(path, 'countLines',
-            (fs, p) => fs.countLines!(p));
-    }
-
-    // ═══════════════════════════════════════════════════════════════
     // 物化（虚拟文件 → 真实文件）
     // ═══════════════════════════════════════════════════════════════
 
     async materialize(virtualPath: string, targetDir?: string): Promise<string> {
-        const { fs, path: p } = this.parsePath(virtualPath);
+        const { fs, path: p } = this.route(virtualPath);
 
         // 优先使用适配器自己的实现
         if (fs.materialize) {
@@ -358,10 +213,6 @@ export class VFSManager implements IVFS {
     // ═══════════════════════════════════════════════════════════════
     // 元信息
     // ═══════════════════════════════════════════════════════════════
-
-    isAvailable(): boolean {
-        return true; // VFSManager 本身总是可用
-    }
 
     getCapabilities(): VFSCapabilities {
         // 合并所有已挂载适配器的能力

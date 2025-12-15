@@ -7,7 +7,7 @@
  * @LastEditTime : 2025-12-15 02:18:59
  */
 
-import { IVFS } from '../../../../libs/vfs';
+import { VFSManager } from '@/libs/vfs';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
 
 // ============================================================
@@ -293,12 +293,7 @@ function parseUnifiedDiffRelaxed(diffText: string): DiffHunk[] {
 // 工具工厂
 // ============================================================
 
-export function createEditorTools(vfs: IVFS): Tool[] {
-    const vpath = {
-        basename: (p: string) => vfs.basename(p),
-        resolve: (...p: string[]) => vfs.resolve(...p)
-    };
-
+export function createEditorTools(vfs: VFSManager): Tool[] {
     const searchReplaceTool: Tool = {
         definition: {
             type: 'function',
@@ -341,13 +336,14 @@ export function createEditorTools(vfs: IVFS): Tool[] {
                 return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
             }
 
-            const filePath = vpath.resolve(args.path);
-            if (!await vfs.exists(filePath)) {
+            const { fs, path } = vfs.route(args.path);
+            const filePath = fs.resolve(path);
+            if (!await fs.exists(filePath)) {
                 return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
             }
 
             try {
-                const content = await vfs.readFile(filePath);
+                const content = await fs.readFile(filePath);
                 let lines = content.split('\n');
 
                 const blocks = parseSearchReplaceBlocks(args.blocks);
@@ -403,12 +399,12 @@ export function createEditorTools(vfs: IVFS): Tool[] {
                     );
                 }
 
-                await vfs.writeFile(filePath, lines.join('\n'));
+                await fs.writeFile(filePath, lines.join('\n'));
 
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: {
-                        file: vpath.basename(filePath),
+                        file: fs.basename(filePath),
                         blocksApplied: blocks.length,
                         changes
                     }
@@ -466,13 +462,14 @@ export function createEditorTools(vfs: IVFS): Tool[] {
                 return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
             }
 
-            const filePath = vpath.resolve(args.path);
-            if (!await vfs.exists(filePath)) {
+            const { fs, path } = vfs.route(args.path);
+            const filePath = fs.resolve(path);
+            if (!await fs.exists(filePath)) {
                 return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
             }
 
             try {
-                const content = await vfs.readFile(filePath);
+                const content = await fs.readFile(filePath);
                 let lines = content.split('\n');
 
                 const hunks = parseUnifiedDiffRelaxed(args.diff);
@@ -537,12 +534,12 @@ export function createEditorTools(vfs: IVFS): Tool[] {
                     );
                 }
 
-                await vfs.writeFile(filePath, lines.join('\n'));
+                await fs.writeFile(filePath, lines.join('\n'));
 
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: {
-                        file: vpath.basename(filePath),
+                        file: fs.basename(filePath),
                         hunks: hunks.length,
                         removed: stats.removed,
                         added: stats.added,
@@ -591,13 +588,14 @@ export function createEditorTools(vfs: IVFS): Tool[] {
                 return { status: ToolExecuteStatus.ERROR, error: 'FS not available' };
             }
 
-            const filePath = vpath.resolve(args.path);
-            if (!await vfs.exists(filePath)) {
+            const { fs, path } = vfs.route(args.path);
+            const filePath = fs.resolve(path);
+            if (!await fs.exists(filePath)) {
                 return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
             }
 
             try {
-                const content = await vfs.readFile(filePath);
+                const content = await fs.readFile(filePath);
                 const lines = content.split('\n');
                 const idx = args.line - 1;
 
@@ -617,11 +615,11 @@ export function createEditorTools(vfs: IVFS): Tool[] {
                 }
 
                 lines[idx] = args.newContent;
-                await vfs.writeFile(filePath, lines.join('\n'));
+                await fs.writeFile(filePath, lines.join('\n'));
 
                 return {
                     status: ToolExecuteStatus.SUCCESS,
-                    data: { file: vpath.basename(filePath), line: args.line }
+                    data: { file: fs.basename(filePath), line: args.line }
                 };
             } catch (error: any) {
                 return { status: ToolExecuteStatus.ERROR, error: error.message };
@@ -667,8 +665,9 @@ export function createEditorTools(vfs: IVFS): Tool[] {
             const mode = args.mode || 'create';
 
             try {
-                const filePath = vpath.resolve(args.path);
-                const exists = await vfs.exists(filePath);
+                const { fs, path } = vfs.route(args.path);
+                const filePath = fs.resolve(path);
+                const exists = await fs.exists(filePath);
 
                 if (mode === 'create' && exists) {
                     return { status: ToolExecuteStatus.ERROR, error: `文件已存在: ${filePath}，请使用 mode: 'overwrite'` };
@@ -676,16 +675,16 @@ export function createEditorTools(vfs: IVFS): Tool[] {
 
                 let content = args.content;
                 if (mode === 'append' && exists) {
-                    const existing = await vfs.readFile(filePath);
+                    const existing = await fs.readFile(filePath);
                     content = existing + '\n' + args.content;
                 }
 
-                await vfs.writeFile(filePath, content);
+                await fs.writeFile(filePath, content);
 
                 return {
                     status: ToolExecuteStatus.SUCCESS,
                     data: {
-                        file: vpath.basename(filePath),
+                        file: fs.basename(filePath),
                         lines: content.split('\n').length,
                         bytes: new TextEncoder().encode(content).length,
                         mode
