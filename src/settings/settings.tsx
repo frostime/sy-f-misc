@@ -1,10 +1,44 @@
-import { Component, For, JSX, Show, createSignal, onCleanup } from "solid-js";
+import { Component, For, JSX, Show, createSignal, onCleanup, onMount } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
 
-import Form, { FormWrap as SettingItemWrap } from '@/libs/components/Form';
+import Form from '@/libs/components/Form';
 
 // import TogglSetting from "@/func/toggl/setting";
 import { Dynamic } from "solid-js/web";
+
+
+/**
+ * 外部元素包装组件
+ * 支持 JSX.Element、HTMLElement 或 ExternalElementWithDispose
+ */
+const ExternalElementWrapper: Component<{
+    element: () => FlexibleElement
+}> = (props) => {
+    const result = props.element();
+
+    // JSX 元素直接返回
+    if (!(result instanceof HTMLElement) &&
+        !(typeof result === 'object' && result !== null && 'element' in result)) {
+        return result as JSX.Element;
+    }
+
+    // 处理 HTMLElement
+    let containerRef: HTMLDivElement;
+
+    onMount(() => {
+        const element = result instanceof HTMLElement ? result : result.element;
+        const dispose = result instanceof HTMLElement ? undefined : result.dispose;
+
+        containerRef.appendChild(element);
+
+        onCleanup(() => {
+            dispose?.();
+            element.remove();
+        });
+    });
+
+    return <div ref={containerRef} style={{ display: 'contents' }} />;
+};
 
 
 /********** Events **********/
@@ -21,7 +55,7 @@ interface IArgs {
     customPanels?: {
         key: string;
         title: string;
-        element: () => JSX.Element;
+        element: () => FlexibleElement;
     }[];
     customModuleConfigs?: IFuncModule['declareModuleConfig'][];
 }
@@ -109,7 +143,7 @@ const App: Component<IArgs> = (props) => {
                             )}
                         </For>
                         <Show when={config.customPanel}>
-                            {config.customPanel()}
+                            <ExternalElementWrapper element={config.customPanel!} />
                         </Show>
                     </div>
                 )}
@@ -123,7 +157,9 @@ const App: Component<IArgs> = (props) => {
     }
 
     props.customPanels?.forEach(panel => {
-        showGroups[panel.key] = panel.element;
+        showGroups[panel.key] = () => (
+            <ExternalElementWrapper element={panel.element} />
+        );
     });
 
     return (

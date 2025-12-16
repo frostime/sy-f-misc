@@ -3,13 +3,20 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 21:39:30
  * @FilePath     : /src/func/types.d.ts
- * @LastEditTime : 2025-01-05 21:03:26
+ * @LastEditTime : 2025-12-17 01:29:21
  * @Description  : 
  */
 interface IConfigItem<T> extends Omit<ISettingItem, 'value'> {
     get: () => T;
     set: (value: T) => void;
 }
+
+type ExternalElementWithDispose = {
+    element: HTMLElement;
+    dispose?: () => void;
+};
+
+type FlexibleElement = JSX.Element | HTMLElement | ExternalElementWithDispose;
 
 interface IFuncModule {
     name: string;
@@ -28,7 +35,7 @@ interface IFuncModule {
     declareSettingPanel?: {
         key: string;
         title: string;
-        element: () => JSX.Element;
+        element: () => FlexibleElement;
     }[];
     //如果模块的配置比较简单，可以用这个
     declareModuleConfig?: {
@@ -37,6 +44,6 @@ interface IFuncModule {
         items: IConfigItem<any>[];
         load: (itemValues?: Record<string, any>) => void;
         dump?: () => Record<string, any>;
-        customPanel?: () => JSX.Element;
+        customPanel?: () => FlexibleElement;
     };
 }
