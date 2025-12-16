@@ -3,18 +3,19 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 16:59:06
  * @FilePath     : /src/func/gpt/tools/index.ts
- * @LastEditTime : 2025-06-04 17:21:11
+ * @LastEditTime : 2025-12-15 19:47:57
  * @Description  :
  */
 // 导出类型和工具执行器
 export * from './types';
 export { ToolExecutor } from './executor';
 
+import { createVFS } from '@/libs/vfs';
 // 导入工具
 import { ToolExecutor } from './executor';
 import { basicTool } from './basic';
 import { toolGroupWeb } from './web';
-import { fileSystemTools, fileEditorTools } from './file-system';
+import { createFileEditorToolGroup, createFileSystemToolGroup } from './file-system';
 import { scriptTools } from './script-tools';
 import { ApprovalUIAdapter } from './types';
 import { DefaultUIAdapter } from './approval-ui';
@@ -38,8 +39,15 @@ export const toolExecutorFactory = (options: {
     // 注册工具组
     toolExecutor.registerToolGroup(basicTool);
     toolExecutor.registerToolGroup(toolGroupWeb);
-    toolExecutor.registerToolGroup(fileSystemTools);
-    toolExecutor.registerToolGroup(fileEditorTools);
+
+    // vfs
+    const vfs = createVFS({
+        local: true,
+        memory: true,
+    });
+    toolExecutor.registerToolGroup(createFileSystemToolGroup(vfs));
+    toolExecutor.registerToolGroup(createFileEditorToolGroup(vfs));
+
     IS_IN_APP && toolExecutor.registerToolGroup(scriptTools);
     toolExecutor.registerToolGroup(siyuanTool);
 

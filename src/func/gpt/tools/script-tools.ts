@@ -1,33 +1,28 @@
-// src/func/gpt/tools/script/index.ts
+// src/func/gpt/tools/script-tools.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
 import { DEFAULT_LIMIT_CHAR } from './utils';
+import { 
+    execScript, 
+    execPython, 
+    execFile, 
+    getPlatform, 
+    getScriptName,
+    ExecResult 
+} from "@/libs/system-utils";
 
-/**
- * 脚本执行工具组
- * 包含 Shell、Python 和 JavaScript 执行工具
- */
-
-// 通过 window.require 引入 Node.js 模块
+// Import Node.js modules for file operations
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
-const childProcess = window?.require?.('child_process');
-const os = window?.require?.('os');
-
-const platform = os?.platform();
-
-const testHasCommand = async (command: string) => {
-    try {
-        childProcess.execSync(`where ${command}`, { stdio: 'ignore' });
-        return true;
-    } catch (_) {
-        return false;
-    }
-}
-
-let hasPwsh: boolean | null = null;
 
 /**
- * 执行 Shell 命令工具
+ * Format execution result as output string
+ */
+const formatOutput = (result: ExecResult): string => {
+    return `[stdout]\n${result.stdout}\n\n[stderr]\n${result.stderr}`;
+};
+
+/**
+ * Shell command execution tool
  */
 const shellTool: Tool = {
     declaredReturnType: {
@@ -39,7 +34,7 @@ const shellTool: Tool = {
         type: 'function',
         function: {
             name: 'Shell',
-            description: `在${platform} 运行 ${platform === 'win32' ? 'PowerShell' : 'Bash'} 指令/脚本\n返回 \`string\`（stdout/stderr 摘要，完整输出保存于历史记录）`,
+            description: `在 ${getPlatform()} 运行 ${getScriptName()} 指令/脚本\n返回 \`string\`（stdout/stderr 摘要，完整输出保存于历史记录）`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -64,85 +59,34 @@ const shellTool: Tool = {
     },
 
     execute: async (args: { command: string; directory?: string; limit?: number }): Promise<ToolExecuteResult> => {
-        // 确定执行目录
-        const cwd = args.directory ? path.resolve(args.directory) : process.cwd();
-
-        // 创建临时脚本文件
-        const isWindows = os.platform() === 'win32';
-        const tempDir = os.tmpdir();
-        const timestamp = new Date().getTime();
-        const scriptExt = isWindows ? 'ps1' : 'sh';
-        const scriptPath = path.join(tempDir, `shell_script_${timestamp}.${scriptExt}`);
-
-        let shellCode = args.command;
-        if (isWindows) {
-            // PowerShell 脚本头，防止中文乱码并禁用颜色输出
-            shellCode = `# Set UTF-8 encoding for output
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-# Disable color output to avoid ANSI escape sequences
-$PSStyle.OutputRendering = [System.Management.Automation.OutputRendering]::PlainText;
-# 禁用外部程序的 ANSI 颜色输出（通过环境变量）
-$env:NO_COLOR = '1'                     # 通用标准（越来越多工具支持）
-$env:CLICOLOR = '0'                     # macOS / BSD 工具
-$env:CLICOLOR_FORCE = '0'               # 强制禁用
-
-# 用户命令开始
-${args.command}
-            `.trim();
-        }
-
-        // 写入脚本内容
-        fs.writeFileSync(scriptPath, shellCode, 'utf-8');
-
-        // 确定使用的 shell 和参数
-        let shell: string;
-        const shellArgs = [];
-
-        if (isWindows) {
-            // 优先使用 PowerShell Core (pwsh) 如果存在，否则退回到 powershell.exe
-            if (hasPwsh === null) {
-                hasPwsh = await testHasCommand('pwsh');
+        try {
+            const cwd = args.directory ? path.resolve(args.directory) : process.cwd();
+            const result = await execScript(args.command, { cwd });
+            
+            const output = formatOutput(result);
+            
+            if (!result.success) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `Shell execution error: ${result.error}\n${output}`
+                };
             }
-            shell = hasPwsh ? 'pwsh' : 'powershell.exe';
-            shellArgs.push('-NoProfile', '-NonInteractive', '-File', scriptPath);
-        } else {
-            shell = 'bash';
-            shellArgs.push(scriptPath);
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: output
+            };
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `Shell execution error: ${error.message}`
+            };
         }
-
-        // 执行脚本
-        return new Promise((resolve) => {
-            childProcess.execFile(shell, shellArgs, { cwd }, (error, stdout, stderr) => {
-                try {
-                    fs.unlinkSync(scriptPath);
-                } catch (e) {
-                    console.error('Failed to delete temporary shell script:', e);
-                }
-
-                stdout = stdout.trim();
-                stderr = stderr.trim();
-                const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
-
-                if (error) {
-                    resolve({
-                        status: ToolExecuteStatus.ERROR,
-                        error: `Shell execution error: ${error.message}\n${fullOutput}`
-                    });
-                    return;
-                }
-
-                // 直接返回原始 fullOutput
-                resolve({
-                    status: ToolExecuteStatus.SUCCESS,
-                    data: fullOutput
-                });
-            });
-        });
     }
 };
 
 /**
- * 执行 Python 脚本工具
+ * Python script execution tool
  */
 const pythonTool: Tool = {
     declaredReturnType: {
@@ -154,7 +98,7 @@ const pythonTool: Tool = {
         type: 'function',
         function: {
             name: 'Python',
-            description: '在本地运行 Python 代码 (默认假设本地安装已经安装了 Python)',
+            description: '在本地运行 Python 代码（默认假设本地已安装 Python）',
             parameters: {
                 type: 'object',
                 properties: {
@@ -183,67 +127,37 @@ const pythonTool: Tool = {
     },
 
     execute: async (args: { code: string; directory?: string; keepFile?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
-        // 创建临时文件
-        let tempDir = args.directory;
-        if (!tempDir) {
-            tempDir = path.join(os.tmpdir(), 'siyuan_temp');
-        }
-        const timestamp = new Date().getTime();
-        const scriptPath = path.join(tempDir, `script_${timestamp}.py`);
-
-        // 在 Python 代码前添加编码设置，防止中文乱码
-        const fixedCode = `
-# -*- coding: utf-8 -*-
-import sys
-import io
-
-# 设置标准输出的编码为UTF-8，避免中文乱码
-if hasattr(sys.stdout, 'buffer') and sys.stdout.encoding != 'utf-8':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-
-# 用户代码开始
-${args.code}
-        `.trim();
-
-        // 写入 Python 代码
-        fs.writeFileSync(scriptPath, fixedCode, 'utf-8');
-
-        // 执行 Python 脚本
-        return new Promise((resolve) => {
-            childProcess.execFile('python', [scriptPath], (error, stdout, stderr) => {
-                // 如果不保留文件，则删除
-                if (!args.keepFile) {
-                    try {
-                        fs.unlinkSync(scriptPath);
-                    } catch (e) {
-                        console.error('Failed to delete temporary Python script:', e);
-                    }
-                }
-
-                stdout = stdout.trim();
-                stderr = stderr.trim();
-                const fullOutput = `[stdout]\n${stdout}\n\n[stderr]\n${stderr}`;
-
-                if (error) {
-                    resolve({
-                        status: ToolExecuteStatus.ERROR,
-                        error: `Python execution error: ${error.message}\n${fullOutput}`
-                    });
-                    return;
-                }
-
-                // 直接返回原始 fullOutput
-                resolve({
-                    status: ToolExecuteStatus.SUCCESS,
-                    data: fullOutput
-                });
+        try {
+            const cwd = args.directory ? path.resolve(args.directory) : undefined;
+            const result = await execPython(args.code, { 
+                cwd, 
+                keepFile: args.keepFile 
             });
-        });
+
+            const output = formatOutput(result);
+
+            if (!result.success) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `Python execution error: ${result.error}\n${output}`
+                };
+            }
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: output
+            };
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `Python execution error: ${error.message}`
+            };
+        }
     }
 };
 
 /**
- * 执行 JavaScript 代码工具
+ * JavaScript code execution tool
  */
 const javascriptTool: Tool = {
     declaredReturnType: {
@@ -272,50 +186,57 @@ const javascriptTool: Tool = {
     },
 
     execute: async (args: { code: string }): Promise<ToolExecuteResult> => {
-        // 创建沙盒环境
-        const sandbox = {
-            console: {
-                log: (...args: any[]) => sandbox._output.push(args.map(arg => String(arg)).join(' ')),
-                error: (...args: any[]) => sandbox._errors.push(args.map(arg => String(arg)).join(' ')),
-                warn: (...args: any[]) => sandbox._warnings.push(args.map(arg => String(arg)).join(' '))
-            },
-            _output: [] as string[],
-            _errors: [] as string[],
-            _warnings: [] as string[],
-            document: undefined
-        };
+        try {
+            // Create sandbox environment
+            const sandbox = {
+                console: {
+                    log: (...args: any[]) => sandbox._output.push(args.map(arg => String(arg)).join(' ')),
+                    error: (...args: any[]) => sandbox._errors.push(args.map(arg => String(arg)).join(' ')),
+                    warn: (...args: any[]) => sandbox._warnings.push(args.map(arg => String(arg)).join(' '))
+                },
+                _output: [] as string[],
+                _errors: [] as string[],
+                _warnings: [] as string[],
+                document: undefined
+            };
 
-        // 执行代码
-        const scriptFn = new Function('sandbox', `
-            with (sandbox) {
-                ${args.code}
+            // Execute code in sandbox
+            const scriptFn = new Function('sandbox', `
+                with (sandbox) {
+                    ${args.code}
+                }
+                return sandbox;
+            `);
+
+            const result = scriptFn(sandbox);
+
+            // Build output
+            let output = '';
+            if (result._output.length > 0) {
+                output += result._output.join('\n');
             }
-            return sandbox;
-        `);
+            if (result._warnings.length > 0) {
+                output += '\n\nWarnings:\n' + result._warnings.join('\n');
+            }
+            if (result._errors.length > 0) {
+                output += '\n\nErrors:\n' + result._errors.join('\n');
+            }
 
-        const result = scriptFn(sandbox);
-
-        // 构建输出
-        let output = '';
-        if (result._output.length > 0) {
-            output += result._output.join('\n');
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: output || '代码执行成功，无输出'
+            };
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `JavaScript execution error: ${error.message}`
+            };
         }
-        if (result._warnings.length > 0) {
-            output += '\n\nWarnings:\n' + result._warnings.join('\n');
-        }
-        if (result._errors.length > 0) {
-            output += '\n\nErrors:\n' + result._errors.join('\n');
-        }
-
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: output || '代码执行成功，无输出'
-        };
     }
 };
 
 /**
- * 执行 Pandoc 转换工具
+ * Pandoc document conversion tool
  */
 const pandocTool: Tool = {
     declaredReturnType: {
@@ -327,7 +248,7 @@ const pandocTool: Tool = {
         type: 'function',
         function: {
             name: 'Pandoc',
-            description: '使用思源自带的 Pandoc 命令，默认会执行 `pandoc -s <file> --to markdown`; 也可以自行指定完整的 pandoc 命令',
+            description: '使用思源自带的 Pandoc 命令，默认执行 `pandoc -s <file> --to markdown`；也可自定义完整命令',
             parameters: {
                 type: 'object',
                 properties: {
@@ -337,7 +258,7 @@ const pandocTool: Tool = {
                     },
                     customCommand: {
                         type: 'string',
-                        description: '自定义的 pandoc 命令，如果提供则忽略其他参数直接执行该命令'
+                        description: '自定义的 pandoc 参数，如果提供则替换默认参数'
                     }
                 },
                 required: ['file']
@@ -348,60 +269,52 @@ const pandocTool: Tool = {
     },
 
     execute: async (params: { file: string; customCommand?: string }): Promise<ToolExecuteResult> => {
-        // 获取思源工作空间目录下的 pandoc 路径
-        const pandocPath = path.join(globalThis.siyuan.config.system.workspaceDir, 'temp/pandoc/bin/pandoc.exe');
+        try {
+            // Get Pandoc path from SiYuan workspace
+            const pandocPath = path.join(
+                globalThis.siyuan.config.system.workspaceDir, 
+                'temp/pandoc/bin/pandoc.exe'
+            );
 
-        // 检查 pandoc 是否存在
-        if (!fs.existsSync(pandocPath)) {
+            // Check if Pandoc exists
+            if (!fs.existsSync(pandocPath)) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `Pandoc 未找到: ${pandocPath}`
+                };
+            }
+
+            // Build arguments
+            const args = params.customCommand 
+                ? params.customCommand.split(/\s+/)
+                : ['-s', params.file, '--to', 'markdown'];
+
+            // Execute Pandoc
+            const fileDir = path.dirname(params.file);
+            const result = await execFile(pandocPath, args, { cwd: fileDir });
+
+            if (!result.success) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `Pandoc 执行错误: ${result.error}\n${result.stderr}`
+                };
+            }
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: result.stdout || 'Pandoc 运行完成，无输出'
+            };
+        } catch (error) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `Pandoc 未找到: ${pandocPath}`
+                error: `Pandoc 执行错误: ${error.message}`
             };
         }
-
-        // file 所在目录
-        const fileDir = path.dirname(params.file);
-
-        // 构建命令
-        let command: string;
-        let cmdArgs: string[];
-
-        if (params.customCommand) {
-            // 使用自定义命令
-            const cmdParts = params.customCommand.split(' ');
-            command = pandocPath;
-            cmdArgs = cmdParts;
-        } else {
-            // 使用默认命令: pandoc -s <file> --to markdown
-            command = pandocPath;
-            cmdArgs = ['-s', params.file, '--to', 'markdown'];
-        }
-
-        // 执行 pandoc 命令
-        return new Promise((resolve) => {
-            // 指定工作目录
-            childProcess.execFile(command, cmdArgs, { cwd: fileDir }, (error, stdout, stderr) => {
-                if (error) {
-                    resolve({
-                        status: ToolExecuteStatus.ERROR,
-                        error: `Pandoc 执行错误: ${error.message}\n${stderr}`
-                    });
-                    return;
-                }
-
-                resolve({
-                    status: ToolExecuteStatus.SUCCESS,
-                    data: stdout || 'Pandoc 运行完成，无输出'
-                });
-            });
-        });
     }
 };
 
-const scriptName = platform === 'win32' ? 'PowerShell' : 'Bash';
-
 /**
- * 脚本工具组
+ * Script tools group
  */
 export const scriptTools: ToolGroup = {
     name: '脚本执行工具组',
@@ -412,7 +325,7 @@ export const scriptTools: ToolGroup = {
 适用场景：系统交互、数学计算、统计分析、批量处理等 LLM 不擅长的精确计算任务
 
 **工具选择**:
-- Shell: ${scriptName} 命令/脚本（传入完整代码）
+- Shell: ${getScriptName()} 命令/脚本（传入完整代码）
 - Python: 需系统已安装，返回 stdout
 - JavaScript: 沙盒环境（禁用 document），返回 console 输出
 - Pandoc: 文档格式转换（docx→Markdown 等），使用思源自带 Pandoc

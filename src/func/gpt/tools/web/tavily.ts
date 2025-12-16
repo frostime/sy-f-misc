@@ -8,6 +8,7 @@
 import { globalMiscConfigs } from '../../model/store';
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
 import { formatWithXMLTags, normalizeLimit, truncateContent } from '../utils';
+import { WebToolError, WebToolErrorCode, TavilySearchResult as ITavilySearchResult } from './types';
 
 export interface TavilySearchResponse {
     query: string;
@@ -197,38 +198,38 @@ export function formatTavilyResults(results: TavilySearchResponse): string {
  * @param result The extract result
  * @returns Formatted markdown string
  */
-export function formatTavilyExtractResult(result: TavilyExtractResponse): string {
-    if (!result || !result.content || result.content.length === 0) {
-        return '**No content extracted**';
-    }
+// export function formatTavilyExtractResult(result: TavilyExtractResponse): string {
+//     if (!result || !result.content || result.content.length === 0) {
+//         return '**No content extracted**';
+//     }
 
-    let markdown = `## Extracted Content\n\n`;
+//     let markdown = `## Extracted Content\n\n`;
 
-    result.content.forEach((item, index) => {
-        markdown += `### ${index + 1}. [${item.url}](${item.url})\n\n`;
-        markdown += `${item.content.substring(0, 500)}...\n\n`;
+//     result.content.forEach((item, index) => {
+//         markdown += `### ${index + 1}. [${item.url}](${item.url})\n\n`;
+//         markdown += `${item.content.substring(0, 500)}...\n\n`;
 
-        if (item.images && item.images.length > 0) {
-            markdown += `#### Images\n`;
-            item.images.forEach((imageUrl, imgIndex) => {
-                markdown += `${imgIndex + 1}. ![Image](${imageUrl})\n`;
-            });
-            markdown += '\n';
-        }
-    });
+//         if (item.images && item.images.length > 0) {
+//             markdown += `#### Images\n`;
+//             item.images.forEach((imageUrl, imgIndex) => {
+//                 markdown += `${imgIndex + 1}. ![Image](${imageUrl})\n`;
+//             });
+//             markdown += '\n';
+//         }
+//     });
 
-    if (result.failed_urls && result.failed_urls.length > 0) {
-        markdown += `### Failed URLs\n`;
-        result.failed_urls.forEach((failedUrl, index) => {
-            markdown += `${index + 1}. ${failedUrl.url} - Error: ${failedUrl.error}\n`;
-        });
-        markdown += '\n';
-    }
+//     if (result.failed_urls && result.failed_urls.length > 0) {
+//         markdown += `### Failed URLs\n`;
+//         result.failed_urls.forEach((failedUrl, index) => {
+//             markdown += `${index + 1}. ${failedUrl.url} - Error: ${failedUrl.error}\n`;
+//         });
+//         markdown += '\n';
+//     }
 
-    markdown += `*Extraction completed in ${result.time}s*\n`;
+//     markdown += `*Extraction completed in ${result.time}s*\n`;
 
-    return markdown;
-}
+//     return markdown;
+// }
 
 const TAVILY_LIMIT = 6000;
 
@@ -236,8 +237,25 @@ export const tavilySearchTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: TAVILY_LIMIT,
 
     declaredReturnType: {
-        type: 'TavilySearchResponse',
-        note: '{ query, answer?, results: Array<{ url, title, content, score }>, images?, search_id, created_at, time }'
+        type: `{
+    query: string;
+    answer?: string;
+    results: Array<{
+        url: string;
+        title: string;
+        content: string;
+        score: number;
+        raw_content?: string;
+    }>;
+    images?: Array<{
+        url: string;
+        description?: string;
+    }>;
+    search_id: string;
+    created_at: string;
+    time: string;
+}`,
+        note: 'Tavily 搜索结果，包含可选的 LLM 生成的 answer 和按相关性排序的 results'
     },
 
     definition: {
@@ -297,10 +315,14 @@ export const tavilySearchTool: Tool = {
     }): Promise<ToolExecuteResult> => {
         let tavilyApiKey = globalMiscConfigs().tavilyApiKey;
         if (!tavilyApiKey) {
+            const error: WebToolError = {
+                code: WebToolErrorCode.API_KEY_MISSING,
+                message: 'Tavily API key 未配置'
+            };
             return {
                 status: ToolExecuteStatus.ERROR,
-                data: "Tavily API key is not configured"
-            }
+                data: error
+            };
         }
 
         const result = await tavilySearch(args.query, {
@@ -311,9 +333,13 @@ export const tavilySearchTool: Tool = {
         });
 
         if (result === null) {
+            const error: WebToolError = {
+                code: WebToolErrorCode.API_ERROR,
+                message: 'Tavily 搜索失败，API 请求错误'
+            };
             return {
                 status: ToolExecuteStatus.ERROR,
-                data: { error: "Tavily search failed. API key may be missing or invalid." }
+                data: error
             };
         }
 
@@ -326,10 +352,56 @@ export const tavilySearchTool: Tool = {
 
     formatForLLM: (data: TavilySearchResponse): string => {
         if (!data || !data.results || data.results.length === 0) {
-            return 'No search results found.';
+            return `**No search results found for: "${data?.query || 'unknown'}"**`;
         }
 
-        return formatTavilyResults(data);
+        const parts: string[] = [];
+
+        // 标题
+        parts.push(`>> Tavily 搜索结果: "${data.query}"`);
+        parts.push('');
+
+        // AI 生成的答案（如果有）
+        if (data.answer) {
+            parts.push('>> 🤖 AI 简要回答');
+            parts.push(data.answer);
+            parts.push('');
+            parts.push('---');
+            parts.push('');
+        }
+
+        // 搜索结果
+        parts.push('>> 🔍 相关结果');
+        parts.push('');
+
+        data.results.forEach((result, index) => {
+            parts.push(`>> ${index + 1}. [${result.title}](${result.url})`);
+            parts.push(`**相关度**: ${(result.score * 100).toFixed(1)}%`);
+            parts.push('');
+            parts.push(result.content);
+            parts.push('');
+        });
+
+        // 图片（如果有）
+        if (data.images && data.images.length > 0) {
+            parts.push('---');
+            parts.push('');
+            parts.push('>> 🖼️ 相关图片');
+            parts.push('');
+            data.images.forEach((image, index) => {
+                parts.push(`${index + 1}. ![Image](${image.url})`);
+                if (image.description) {
+                    parts.push(`   *${image.description}*`);
+                }
+            });
+            parts.push('');
+        }
+
+        // 元信息
+        parts.push('---');
+        parts.push(`*搜索时间: ${new Date(data.created_at).toLocaleString()} | 耗时: ${data.time}s | ID: ${data.search_id}*`);
+
+        return parts.join('\n');
     },
 
     truncateForLLM: (formatted: string, args: Record<string, any>): string => {
