@@ -5,9 +5,9 @@
  * @Description  : File System Tools Entry (Updated)
  * @FilePath     : /src/func/gpt/tools/file-system/index.ts
  */
-import { createShutilTools } from "./shutil-vfs";
-import { createViewerTools } from "./viewer-vfs";
-import { createEditorTools, editorToolsRulePrompt } from "./editor-vfs";
+import { createShutilTools } from "./shutil";
+import { createViewerTools } from "./viewer";
+import { createEditorTools, editorToolsRulePrompt } from "./editor";
 import { VFSManager } from '@/libs/vfs';
 
 /**
