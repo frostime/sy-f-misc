@@ -6,9 +6,32 @@
  * @Description  : HTML 元素提取工具 - 使用 CSS 选择器提取特定 HTML 元素
  */
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
-import { normalizeLimit, truncateContent } from '../utils';
+import { normalizeLimit } from '../utils';
 import { WebToolError, WebToolErrorCode } from './types';
 import { fetchWebContent, isValidUrl } from './webpage';
+
+/**
+ * DOM 节点信息
+ */
+interface DOMNode {
+    tagName: string;
+    attributes: Record<string, string>;
+    selector: string;
+    textPreview?: string;
+    children: DOMNode[];
+    childrenCount: number;
+}
+
+/**
+ * DOM 结构探索结果
+ */
+interface InspectDOMResult {
+    title: string;
+    url: string;
+    entrySelector: string;
+    maxDepth: number;
+    tree: DOMNode[];
+}
 
 /**
  * HTML 元素提取结果
@@ -29,6 +52,406 @@ interface ExtractHTMLResult {
 }
 
 const EXTRACT_HTML_LIMIT = 5000;
+const INSPECT_DOM_LIMIT = 8000;
+
+/**
+ * 过滤无意义的 class 名称
+ * - 去除动态生成的 hash 类名（如 css-1xg5j4k-MuiButton）
+ * - 去除过长的类名
+ * - 保留前 3 个有意义的类名
+ */
+function filterClassNames(classNames: string): string {
+    if (!classNames) return '';
+    
+    const classes = classNames.split(/\s+/)
+        .filter(cls => {
+            // 过滤掉明显的 hash 类名
+            if (/^[a-z]+-[0-9a-z]{6,}$/i.test(cls)) return false;
+            // 过滤掉过长的类名（超过 30 字符）
+            if (cls.length > 30) return false;
+            return true;
+        })
+        .slice(0, 3); // 只保留前 3 个
+    
+    return classes.join(' ');
+}
+
+/**
+ * 过滤元素属性，只保留有语义价值的属性
+ */
+function filterAttributes(element: Element): Record<string, string> {
+    const attrs: Record<string, string> = {};
+    const meaningfulAttrs = ['id', 'class', 'role', 'aria-label', 'name', 'type', 'href', 'src'];
+    
+    meaningfulAttrs.forEach(attrName => {
+        const value = element.getAttribute(attrName);
+        if (value) {
+            if (attrName === 'class') {
+                const filtered = filterClassNames(value);
+                if (filtered) attrs[attrName] = filtered;
+            } else {
+                attrs[attrName] = value;
+            }
+        }
+    });
+    
+    return attrs;
+}
+
+/**
+ * 生成元素的 CSS 选择器路径
+ */
+function generateSelector(element: Element): string {
+    const parts: string[] = [];
+    let current: Element | null = element;
+    
+    while (current && current.tagName.toLowerCase() !== 'html') {
+        let selector = current.tagName.toLowerCase();
+        
+        // 添加 id
+        if (current.id) {
+            selector += `#${current.id}`;
+            parts.unshift(selector);
+            break; // id 是唯一的，可以停止
+        }
+        
+        // 添加主要的 class
+        const classes = filterClassNames(current.className);
+        if (classes) {
+            selector += `.${classes.split(' ').join('.')}`;
+        }
+        
+        parts.unshift(selector);
+        current = current.parentElement;
+        
+        // 限制路径长度
+        if (parts.length >= 5) break;
+    }
+    
+    return parts.join(' > ');
+}
+
+/**
+ * 获取元素的文本预览
+ */
+function getTextPreview(element: Element, maxLength: number = 50): string | undefined {
+    // 只获取直接子文本节点
+    let text = '';
+    for (const node of Array.from(element.childNodes)) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.textContent || '';
+        }
+    }
+    
+    text = text.trim().replace(/\s+/g, ' ');
+    
+    if (!text) return undefined;
+    if (text.length <= maxLength) return text;
+    
+    return text.substring(0, maxLength) + '...';
+}
+
+/**
+ * 递归构建 DOM 树
+ */
+function buildDOMTree(
+    element: Element,
+    currentDepth: number,
+    maxDepth: number,
+    includeText: boolean
+): DOMNode {
+    const children: DOMNode[] = [];
+    const childElements = Array.from(element.children);
+    
+    // 递归处理子元素
+    if (currentDepth < maxDepth) {
+        for (const child of childElements) {
+            // 跳过 script, style, noscript 等无意义标签
+            if (['script', 'style', 'noscript', 'svg'].includes(child.tagName.toLowerCase())) {
+                continue;
+            }
+            children.push(buildDOMTree(child, currentDepth + 1, maxDepth, includeText));
+        }
+    }
+    
+    const node: DOMNode = {
+        tagName: element.tagName.toLowerCase(),
+        attributes: filterAttributes(element),
+        selector: generateSelector(element),
+        children,
+        childrenCount: childElements.length
+    };
+    
+    if (includeText) {
+        node.textPreview = getTextPreview(element);
+    }
+    
+    return node;
+}
+
+/**
+ * 将 DOM 树转换为易读的树形文本（返回字符串数组）
+ */
+function formatDOMTree(nodes: DOMNode[], depth: number = 0, isLast: boolean[] = []): string[] {
+    const lines: string[] = [];
+    
+    nodes.forEach((node, index) => {
+        const isLastNode = index === nodes.length - 1;
+        const newIsLast = [...isLast, isLastNode];
+        
+        // 构建缩进前缀
+        let prefix = '';
+        for (let i = 0; i < depth; i++) {
+            prefix += isLast[i] ? '    ' : '│   ';
+        }
+        prefix += isLastNode ? '└── ' : '├── ';
+        
+        // 构建节点信息
+        let nodeLine = `${prefix}${node.tagName}`;
+        
+        // 添加属性
+        if (node.attributes.id) {
+            nodeLine += `#${node.attributes.id}`;
+        }
+        if (node.attributes.class) {
+            nodeLine += `.${node.attributes.class.split(' ').join('.')}`;
+        }
+        
+        // 添加其他重要属性
+        const otherAttrs = Object.entries(node.attributes)
+            .filter(([key]) => key !== 'id' && key !== 'class')
+            .map(([key, value]) => `${key}="${value}"`)
+            .join(' ');
+        if (otherAttrs) {
+            nodeLine += ` [${otherAttrs}]`;
+        }
+        
+        // 添加文本预览
+        if (node.textPreview) {
+            nodeLine += ` ("${node.textPreview}")`;
+        }
+        
+        // 添加子元素数量提示
+        if (node.childrenCount > node.children.length) {
+            nodeLine += ` (${node.children.length}/${node.childrenCount} 子元素已显示)`;
+        } else if (node.childrenCount > 0 && node.children.length === 0) {
+            nodeLine += ` (${node.childrenCount} 子元素未展开)`;
+        }
+        
+        lines.push(nodeLine);
+        
+        // 添加选择器提示
+        if (depth < 2) { // 只在前两层显示选择器
+            const selectorPrefix = prefix.replace(/[├└]──/, '│   ').replace(/    /, '    ');
+            lines.push(`${selectorPrefix}→ [选择器: ${node.selector}]`);
+        }
+        
+        // 递归处理子节点
+        if (node.children.length > 0) {
+            lines.push(...formatDOMTree(node.children, depth + 1, newIsLast));
+        }
+    });
+    
+    return lines;
+}
+
+/**
+ * InspectDOMStructure 工具 - 探索网页 DOM 结构
+ * 
+ * 职责：
+ * 1. 获取网页的 DOM 树形结构概览
+ * 2. 帮助 LLM 理解页面结构，构建精确的 CSS 选择器
+ * 3. 支持指定入口节点和探索深度
+ */
+export const inspectDOMStructureTool: Tool = {
+    DEFAULT_OUTPUT_LIMIT_CHAR: INSPECT_DOM_LIMIT,
+
+    declaredReturnType: {
+        type: `{
+    title: string;
+    url: string;
+    entrySelector: string;
+    maxDepth: number;
+    tree: Array<{
+        tagName: string;
+        attributes: Record<string, string>;
+        selector: string;
+        textPreview?: string;
+        children: DOMNode[];
+        childrenCount: number;
+    }>;
+}`,
+        note: '网页 DOM 树形结构，包含标签名、属性、CSS 选择器路径和文本预览'
+    },
+
+    definition: {
+        type: 'function',
+        function: {
+            name: 'InspectDOMStructure',
+            description: '探索网页的 DOM 结构，获取树形结构概览。用于理解页面结构并构建精确的 CSS 选择器。适用于首次访问网页，不确定如何提取内容时。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    url: {
+                        type: 'string',
+                        description: '网页 URL'
+                    },
+                    entrySelector: {
+                        type: 'string',
+                        description: 'DOM 树的起始选择器，默认为 "body"。可指定为 "main"、"article"、"#content" 等来聚焦特定区域。'
+                    },
+                    maxDepth: {
+                        type: 'integer',
+                        description: '遍历的最大深度，默认为 4。较小的值返回更简洁的结构，较大的值提供更详细的信息。建议：首次探索用 3-4，深入分析用 5-6。'
+                    },
+                    includeText: {
+                        type: 'boolean',
+                        description: '是否包含文本内容预览，默认 true。文本预览有助于判断元素的实际内容。'
+                    }
+                },
+                required: ['url']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.MODERATE,
+        requireResultApproval: true
+    },
+
+    execute: async (args: {
+        url?: string,
+        entrySelector?: string,
+        maxDepth?: number,
+        includeText?: boolean
+    }): Promise<ToolExecuteResult> => {
+        if (!args.url) {
+            const error: WebToolError = {
+                code: WebToolErrorCode.INVALID_URL,
+                message: '必须提供 url 参数'
+            };
+            return {
+                status: ToolExecuteStatus.ERROR,
+                data: error
+            };
+        }
+
+        const entrySelector = args.entrySelector || 'body';
+        const maxDepth = args.maxDepth || 4;
+        const includeText = args.includeText !== false;
+
+        try {
+            if (!isValidUrl(args.url)) {
+                const error: WebToolError = {
+                    code: WebToolErrorCode.INVALID_URL,
+                    message: '无效的 URL 格式',
+                    url: args.url
+                };
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    data: error
+                };
+            }
+
+            // 获取网页内容（Raw 模式）
+            const content = await fetchWebContent(args.url, 'raw', {}, entrySelector);
+
+            // 解析 HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(content.content, 'text/html');
+            const entryElements = doc.querySelectorAll('body > *');
+
+            if (entryElements.length === 0) {
+                const error: WebToolError = {
+                    code: WebToolErrorCode.PARSE_FAILED,
+                    message: `未找到匹配选择器 "${entrySelector}" 的元素`,
+                    url: args.url
+                };
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    data: error
+                };
+            }
+
+            // 构建 DOM 树
+            const tree: DOMNode[] = [];
+            for (const element of Array.from(entryElements)) {
+                tree.push(buildDOMTree(element, 0, maxDepth, includeText));
+            }
+
+            const result: InspectDOMResult = {
+                title: content.title,
+                url: content.url,
+                entrySelector,
+                maxDepth,
+                tree
+            };
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: result
+            };
+        } catch (error) {
+            console.error(`探索 DOM 结构失败: ${args.url}`, error);
+            const webError: WebToolError = {
+                code: error.message.includes('二进制') ? WebToolErrorCode.BINARY_CONTENT :
+                    error.message.includes('超时') ? WebToolErrorCode.TIMEOUT :
+                        error.message.includes('获取') ? WebToolErrorCode.FETCH_FAILED :
+                            WebToolErrorCode.PARSE_FAILED,
+                message: error.message,
+                url: args.url,
+                details: error
+            };
+            return {
+                status: ToolExecuteStatus.ERROR,
+                data: webError
+            };
+        }
+    },
+
+    formatForLLM: (data: InspectDOMResult): string => {
+        const parts: string[] = [];
+
+        // 标题
+        parts.push(`# 🔍 DOM 结构探索: ${data.title}`);
+        parts.push('');
+
+        // 元信息
+        parts.push('| 属性 | 值 |');
+        parts.push('|------|-----|');
+        parts.push(`| URL | ${data.url} |`);
+        parts.push(`| 入口选择器 | \`${data.entrySelector}\` |`);
+        parts.push(`| 最大深度 | ${data.maxDepth} |`);
+        parts.push(`| 根节点数 | ${data.tree.length} |`);
+        parts.push('');
+
+        parts.push('---');
+        parts.push('');
+        parts.push('## 📊 DOM 树形结构');
+        parts.push('');
+        parts.push('```');
+        
+        // formatDOMTree 现在返回 string[]，需要逐行添加
+        const treeLines = formatDOMTree(data.tree);
+        parts.push(...treeLines);
+        
+        parts.push('```');
+        parts.push('');
+
+        parts.push('---');
+        parts.push('');
+        parts.push('## 💡 使用提示');
+        parts.push('');
+        parts.push('根据上述结构，你可以：');
+        parts.push('1. **使用 ExtractHTML 工具**：复制 [选择器: ...] 中的选择器来精确提取元素');
+        parts.push('2. **深入探索**：对感兴趣的区域使用更大的 maxDepth 或指定 entrySelector');
+        parts.push('3. **搜索关键词**：使用 SearchInWebPage 在特定区域搜索关键词');
+        parts.push('4. **获取全文**：使用 FetchWebPage 获取整个页面的 Markdown 内容');
+
+        return parts.join('\n');
+    },
+
+    truncateForLLM: (formatted: string, args: Record<string, any>): string => {
+        return formatted;
+    }
+};
 
 /**
  * ExtractHTML 工具 - 提取网页中特定的 HTML 元素
@@ -63,7 +486,7 @@ export const extractHTMLTool: Tool = {
         type: 'function',
         function: {
             name: 'ExtractHTML',
-            description: '使用 CSS 选择器从网页中提取特定的 HTML 元素。适用于精确提取网页中的特定部分，如文章内容、评论区、数据表格等。',
+            description: '使用 CSS 选择器从网页中提取特定的 HTML 元素。适用于精确提取网页中的特定部分，如文章内容、评论区、数据表格等。建议先使用 InspectDOMStructure 了解页面结构。',
             parameters: {
                 type: 'object',
                 properties: {
@@ -73,7 +496,7 @@ export const extractHTMLTool: Tool = {
                     },
                     querySelector: {
                         type: 'string',
-                        description: 'CSS 选择器，用于定位要提取的元素。例如："article", ".content", "#main-text", "table.data" 等。会执行 querySelectorAll 获取所有匹配元素。'
+                        description: 'CSS 选择器，用于定位要提取的元素。例如："article", ".content", "#main-text", "table.data" 等。会执行 querySelectorAll 获取所有匹配元素。可以从 InspectDOMStructure 的结果中复制选择器。'
                     },
                     limit: {
                         type: 'integer',
@@ -266,21 +689,7 @@ export const extractHTMLTool: Tool = {
         return parts.join('\n');
     },
 
-    /**
-    * 已经在 formatedForLLM 中处理截断逻辑，因此这里直接返回 formatted 内容, 避免系统重复截断
-    */
     truncateForLLM: (formatted: string, args: Record<string, any>): string => {
-        // const limit = normalizeLimit(args.limit, EXTRACT_HTML_LIMIT);
-
-        // if (limit > 0 && formatted.length > limit) {
-        //     const truncResult = truncateContent(formatted, limit);
-        //     let result = truncResult.content;
-        //     if (truncResult.isTruncated) {
-        //         result += `\n\n[格式化后的内容过长，已截断为 ${limit} 字符]`;
-        //     }
-        //     return result;
-        // }
-
         return formatted;
     }
 };

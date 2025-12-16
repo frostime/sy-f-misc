@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-31 14:51:57
  * @FilePath     : /src/func/gpt/tools/web/index.ts
- * @LastEditTime : 2025-12-14
+ * @LastEditTime : 2025-12-16 15:48:01
  * @Description  : Web 工具组 - 网页搜索和内容获取
  */
 import { ToolGroup } from "../types";
@@ -12,14 +12,14 @@ import { bingSearchTool } from "./bing";
 import { tavilySearchTool } from "./tavily";
 import { bochaSearchTool } from "./bocha";
 import { fetchWebPageTool } from "./fetch-webpage";
-import { extractHTMLTool } from "./extract-html";
+import { extractHTMLTool, inspectDOMStructureTool } from "./extract-html";
 import { searchInWebPageTool } from "./search-in-webpage";
 import { globalMiscConfigs } from "../../setting";
 // import { semanticScholarSearchTool } from "./sematic-scholar";
 
 export const toolGroupWeb = (): ToolGroup => {
     // 基础工具：搜索 + 三个网页内容工具
-    const tools = [bingSearchTool, fetchWebPageTool, searchInWebPageTool, extractHTMLTool];
+    const tools = [bingSearchTool, fetchWebPageTool, searchInWebPageTool, extractHTMLTool, inspectDOMStructureTool];
 
     const tavily = Boolean(globalMiscConfigs().tavilyApiKey);
     const bocha = Boolean(globalMiscConfigs().bochaApiKey);
@@ -60,6 +60,11 @@ export const toolGroupWeb = (): ToolGroup => {
    - 适用场景：提取表格、列表、特定区块等结构化内容
    - 特性：返回原始 HTML 和纯文本
 
+4. **InspectDOMStructure** - 检查网页 DOM 结构
+   - 用途：分析网页 DOM，辅助编写 CSS 选择器
+   - 适用场景：需要提取位置网页的 HTML 结构，可以在前期用这个调研
+   - 特性：返回 DOM 树结构和元素信息
+
 ### 推荐工作流程
 1. **查找信息**：先用搜索工具获取相关 URL
 2. **定位内容**：
@@ -72,6 +77,7 @@ export const toolGroupWeb = (): ToolGroup => {
 - 时效性问题必须使用搜索工具，并确认当前日期
 - 长网页优先使用 SearchInWebPage 定位，避免浪费 token
 - 需要结构化数据时使用 ExtractHTML
+- 默认 FetchWebPage 不保留链接和图片，节省空间；可开启keepLink选项，从网页中获取别的相关链接进行深入阅读
 
 ## 回答要求 ##
 基于网页结果回答时 !IMPORTANT!:
@@ -82,6 +88,6 @@ export const toolGroupWeb = (): ToolGroup => {
 
     // 保留旧的 WebPageContent 工具以保持向后兼容（但不推荐使用）
     // tools.push(webPageContentTool);
-    
+
     return group;
 }
