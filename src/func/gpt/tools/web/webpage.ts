@@ -3,8 +3,14 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 20:11:55
  * @FilePath     : /src/func/gpt/tools/web/webpage.ts
- * @LastEditTime : 2025-12-14 14:14:00
+ * @LastEditTime : 2025-12-16 19:17:04
  * @Description  : 网页内容获取工具
+ * 
+ * 重构说明 (2025-12-16):
+ * - 拆分 API：fetchWebPageAsMarkdown() 和 fetchWebPageAsHTML() 单一职责
+ * - 返回结构化数据：HTMLPageContent 直接返回 Element[] 而不是 HTML 字符串
+ * - 清理历史代码：删除未使用的关键词搜索函数
+ * - 保持向后兼容：fetchWebContent() 继续保留
  */
 import { addScript } from "../../utils";
 
@@ -107,72 +113,6 @@ interface FetchWebContentOptions {
      * 是否保留图片
      */
     keepImg?: boolean;
-}
-
-/**
- * 关键词查找选项
- */
-interface KeywordSearchOptions {
-    /**
-     * 要查找的关键词数组
-     */
-    findKeywords: string[];
-    /**
-     * 关键词连接方式
-     */
-    joinKeywords: 'AND' | 'OR';
-}
-
-/**
- * 关键词匹配结果
- */
-interface KeywordMatch {
-    /**
-     * 匹配的段落/元素索引
-     */
-    index: number;
-    /**
-     * 匹配的内容
-     */
-    content: string;
-    /**
-     * 匹配的关键词
-     */
-    matchedKeywords: string[];
-    /**
-     * 匹配段落在原始文本中的开始位置（仅markdown模式）
-     */
-    startPosition?: number;
-    /**
-     * 匹配段落在原始文本中的结束位置（仅markdown模式）
-     */
-    endPosition?: number;
-}
-
-/**
- * 关键词查找统计结果
- */
-interface KeywordSearchResult {
-    /**
-     * 查找的关键词
-     */
-    keywords: string[];
-    /**
-     * 连接方式
-     */
-    joinType: 'AND' | 'OR';
-    /**
-     * 匹配的数量
-     */
-    matchCount: number;
-    /**
-     * 总数量
-     */
-    totalCount: number;
-    /**
-     * 匹配的内容块
-     */
-    matches: KeywordMatch[];
 }
 
 /**
@@ -322,7 +262,7 @@ export const parseHtmlContent = (doc: Document, options?: FetchWebContentOptions
 };
 
 /**
- * 获取网页内容的返回类型
+ * 获取网页内容的返回类型（Markdown 模式）
  */
 export interface WebPageContent {
     /** 网页标题 */
@@ -337,6 +277,22 @@ export interface WebPageContent {
     content: string;
     /** 原始 URL */
     url: string;
+    /** 内容类型 */
+    contentType: string | null;
+}
+
+/**
+ * HTML 页面内容返回类型（Raw HTML 模式）
+ */
+export interface HTMLPageContent {
+    /** 网页标题 */
+    title: string;
+    /** 原始 URL */
+    url: string;
+    /** 使用的 CSS 选择器 */
+    querySelector: string;
+    /** 匹配的 DOM 元素数组 */
+    elements: Element[];
     /** 内容类型 */
     contentType: string | null;
 }
@@ -359,9 +315,9 @@ async function handleJsonResponse(response: Response, url: string): Promise<WebP
 }
 
 /**
- * 处理 HTML 响应 - Raw 模式
+ * 处理 HTML 响应 - Raw 模式（新版本，返回结构化数据）
  */
-async function handleHtmlResponseRaw(response: Response, url: string, querySelector: string = 'body'): Promise<WebPageContent> {
+async function handleHtmlResponseRaw(response: Response, url: string, querySelector: string = 'body'): Promise<HTMLPageContent> {
     const text = await response.text();
     const doc = html2Document(text, url);
 
@@ -371,20 +327,26 @@ async function handleHtmlResponseRaw(response: Response, url: string, querySelec
     // 使用 querySelector 获取元素
     const elements = doc.querySelectorAll(querySelector);
 
-    if (elements.length === 0) {
-        return {
-            title,
-            description: `未找到匹配选择器 "${querySelector}" 的元素`,
-            content: '',
-            url,
-            contentType: response.headers.get('content-type')
-        };
-    }
+    return {
+        title,
+        url,
+        querySelector,
+        elements: Array.from(elements),
+        contentType: response.headers.get('content-type')
+    };
+}
 
-    // 将所有匹配的元素的 HTML 拼接起来
+/**
+ * 处理 HTML 响应 - Raw 模式（旧版本，用于向后兼容）
+ * @deprecated 请使用 handleHtmlResponseRaw 获取结构化数据
+ */
+async function handleHtmlResponseRawLegacy(response: Response, url: string, querySelector: string = 'body'): Promise<WebPageContent> {
+    const htmlContent = await handleHtmlResponseRaw(response, url, querySelector);
+
+    // 将元素转换为 HTML 字符串（旧格式）
     const htmlParts: string[] = [];
-    elements.forEach((element, index) => {
-        if (elements.length > 1) {
+    htmlContent.elements.forEach((element, index) => {
+        if (htmlContent.elements.length > 1) {
             htmlParts.push(`<!-- Element ${index + 1} -->`);
         }
         htmlParts.push(element.outerHTML);
@@ -393,132 +355,19 @@ async function handleHtmlResponseRaw(response: Response, url: string, querySelec
     const content = htmlParts.join('\n\n');
 
     return {
-        title,
-        description: `Raw HTML 内容，选择器: "${querySelector}"，找到 ${elements.length} 个元素`,
+        title: htmlContent.title,
+        description: `Raw HTML 内容，选择器: "${querySelector}"，找到 ${htmlContent.elements.length} 个元素`,
         keywords: '',
         author: '',
         content,
-        url,
-        contentType: response.headers.get('content-type')
+        url: htmlContent.url,
+        contentType: htmlContent.contentType
     };
 }
 
-/**
- * 检查文本中是否包含关键词
- */
-function checkKeywordMatch(text: string, keywords: string[], joinType: 'AND' | 'OR'): { matched: boolean; matchedKeywords: string[] } {
-    const lowerText = text.toLowerCase();
-    const matchedKeywords: string[] = [];
 
-    for (const keyword of keywords) {
-        const lowerKeyword = keyword.toLowerCase();
-        if (lowerText.includes(lowerKeyword)) {
-            matchedKeywords.push(keyword);
-        }
-    }
 
-    const matched = joinType === 'AND'
-        ? matchedKeywords.length === keywords.length
-        : matchedKeywords.length > 0;
 
-    return { matched, matchedKeywords };
-}
-
-/**
- * 在 Markdown 内容中查找关键词
- */
-function searchKeywordsInMarkdown(content: string, options: KeywordSearchOptions): KeywordSearchResult {
-    // 按双换行符分割段落
-    const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-    const matches: KeywordMatch[] = [];
-
-    // 计算每个段落在原始文本中的位置
-    const paragraphPositions: { start: number; end: number }[] = [];
-    let currentPos = 0;
-
-    for (const paragraph of paragraphs) {
-        const startPos = content.indexOf(paragraph, currentPos);
-        const endPos = startPos + paragraph.length;
-        paragraphPositions.push({ start: startPos, end: endPos });
-        currentPos = endPos;
-    }
-
-    for (let i = 0; i < paragraphs.length; i++) {
-        const paragraph = paragraphs[i];
-        const { matched, matchedKeywords } = checkKeywordMatch(paragraph, options.findKeywords, options.joinKeywords);
-
-        if (matched) {
-            // 获取上下文（前一段 + 当前段 + 后一段）
-            const contextParts: string[] = [];
-
-            // 前一段
-            if (i > 0) {
-                contextParts.push(paragraphs[i - 1]);
-            }
-
-            // 当前段
-            contextParts.push(paragraph);
-
-            // 后一段
-            if (i < paragraphs.length - 1) {
-                contextParts.push(paragraphs[i + 1]);
-            }
-
-            matches.push({
-                index: i,
-                content: contextParts.join('\n\n'),
-                matchedKeywords,
-                startPosition: paragraphPositions[i].start,
-                endPosition: paragraphPositions[i].end
-            });
-        }
-    }
-
-    return {
-        keywords: options.findKeywords,
-        joinType: options.joinKeywords,
-        matchCount: matches.length,
-        totalCount: paragraphs.length,
-        matches
-    };
-}
-
-/**
- * 在 Raw HTML 内容中查找关键词
- */
-function searchKeywordsInRawHtml(content: string, options: KeywordSearchOptions): KeywordSearchResult {
-    // 解析 HTML 内容
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(content, 'text/html');
-    const elements = Array.from(doc.body?.children || []);
-    const matches: KeywordMatch[] = [];
-
-    for (let i = 0; i < elements.length; i++) {
-        const element = elements[i];
-        const text = element.textContent || '';
-        const { matched, matchedKeywords } = checkKeywordMatch(text, options.findKeywords, options.joinKeywords);
-
-        if (matched) {
-            matches.push({
-                index: i,
-                content: element.outerHTML,
-                matchedKeywords
-            });
-        }
-    }
-
-    return {
-        keywords: options.findKeywords,
-        joinType: options.joinKeywords,
-        matchCount: matches.length,
-        totalCount: elements.length,
-        matches
-    };
-}
-
-/**
- * 格式化关键词查找结果
- */
 /**
  * 处理 HTML 响应
  */
@@ -578,7 +427,7 @@ async function handleUnknownResponse(response: Response, url: string): Promise<W
 /**
  * 获取网页内容
  */
-export const fetchWebContent = async (url: string, mode: 'markdown' | 'raw' = 'markdown', options?: FetchWebContentOptions, querySelector?: string): Promise<WebPageContent> => {
+export const fetchWebContentAsMarkdown = async (url: string, options?: FetchWebContentOptions): Promise<WebPageContent> => {
     options = {
         keepLink: false,
         keepImg: false,
@@ -601,11 +450,7 @@ export const fetchWebContent = async (url: string, mode: 'markdown' | 'raw' = 'm
         if (contentType && contentType.includes('json')) {
             return handleJsonResponse(response, url);
         } else if (contentType && contentType.includes('html')) {
-            if (mode === 'raw') {
-                return handleHtmlResponseRaw(response, url, querySelector);
-            } else {
-                return handleHtmlResponse(response, url, options);
-            }
+            return handleHtmlResponse(response, url, options);
         } else if (contentType && contentType.includes('text')) {
             return handleTextResponse(response, url);
         } else {
@@ -613,6 +458,35 @@ export const fetchWebContent = async (url: string, mode: 'markdown' | 'raw' = 'm
         }
     } catch (error) {
         throw new Error(`获取网页内容失败: ${error.message}`);
+    }
+};
+
+
+/**
+ * 获取网页的原始 HTML 元素（新 API，推荐使用）
+ */
+export const fetchWebPageAsHTML = async (url: string, querySelector: string = 'body'): Promise<HTMLPageContent> => {
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+        });
+
+        const contentType = response.headers.get('content-type');
+
+        // 如果是二进制内容，跳过
+        if (contentType && !contentType.includes('text') && !contentType.includes('html')) {
+            throw new Error('不支持的二进制内容类型: ' + contentType);
+        }
+
+        if (contentType && contentType.includes('html')) {
+            return handleHtmlResponseRaw(response, url, querySelector);
+        } else {
+            throw new Error('非 HTML 内容类型: ' + contentType);
+        }
+    } catch (error) {
+        throw new Error(`获取网页 HTML 内容失败: ${error.message}`);
     }
 };
 

@@ -7,7 +7,7 @@
  */
 
 import { showMessage } from "siyuan";
-import { fetchWebContent, webUtils } from "../tools/web/webpage";
+import { fetchWebContentAsMarkdown, webUtils } from "../tools/web/webpage";
 
 const { isValidUrl } = webUtils;
 
@@ -38,7 +38,7 @@ const URLProvider: CustomContextProvider = {
         for (const url of urls) {
             try {
                 // 使用 fetchWebContent 获取网页内容
-                const result = await fetchWebContent(url);
+                const result = await fetchWebContentAsMarkdown(url);
 
                 // 格式化内容
                 const parts = [`URL: ${url}`];

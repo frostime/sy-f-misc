@@ -8,7 +8,7 @@
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { normalizeLimit, truncateContent } from '../utils';
 import { WebToolError, WebToolErrorCode, WebPageContentResult } from './types';
-import { fetchWebContent, isValidUrl } from './webpage';
+import { fetchWebContentAsMarkdown, isValidUrl } from './webpage';
 
 const WEB_PAGE_LIMIT = 7000;
 
@@ -115,7 +115,7 @@ export const fetchWebPageTool: Tool = {
             }
 
             // 获取网页内容（Markdown 模式）
-            const content = await fetchWebContent(args.url, 'markdown', options);
+            const content = await fetchWebContentAsMarkdown(args.url, options);
             let resultContent = content.content;
             const originalLength = resultContent.length;
 

@@ -12,7 +12,7 @@ import { thisPlugin, getBlockByID, getMarkdown } from "@frostime/siyuan-plugin-k
 import { request, updateBlock } from "@frostime/siyuan-plugin-kits/api";
 import { Protyle, showMessage } from "siyuan";
 // import URLProvider, { html2Document, parseHtmlContent } from "./gpt/context-provider/URLProvider";
-import { html2Document, parseHtmlContent, fetchWebContent } from "./gpt/tools/web/webpage";
+import { html2Document, parseHtmlContent, fetchWebContentAsMarkdown } from "./gpt/tools/web/webpage";
 import FMiscPlugin from "..";
 import { addScript } from "./gpt/utils";
 
@@ -77,7 +77,7 @@ async function onOpenMenuLink({ detail }) {
             let dataHref = hrefSpan.getAttribute("data-href");
             let result;
             try {
-                result = await fetchWebContent(dataHref, 'markdown', {
+                result = await fetchWebContentAsMarkdown(dataHref, {
                     keepLink: true,
                     keepImg: true,
                 });

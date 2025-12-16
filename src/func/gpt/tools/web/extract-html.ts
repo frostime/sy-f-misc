@@ -3,12 +3,18 @@
  * @Author       : frostime
  * @Date         : 2025-12-14
  * @FilePath     : /src/func/gpt/tools/web/extract-html.ts
+ * @LastEditTime : 2025-12-16 (重构)
  * @Description  : HTML 元素提取工具 - 使用 CSS 选择器提取特定 HTML 元素
+ * 
+ * 重构说明 (2025-12-16):
+ * - 使用新 API：改用 fetchWebPageAsHTML() 直接获取 Element[]
+ * - 移除重复解析：不再需要重新解析 HTML 字符串
+ * - 代码更清晰：遵循 SOLID 原则，职责单一
  */
 import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { normalizeLimit } from '../utils';
 import { WebToolError, WebToolErrorCode } from './types';
-import { fetchWebContent, isValidUrl } from './webpage';
+import { fetchWebPageAsHTML, isValidUrl, type HTMLPageContent } from './webpage';
 import { createTreeSource, TreeBuilder, formatTree, type Tree, type TreeNode } from '@/libs/tree-model';
 
 /**
@@ -288,15 +294,10 @@ export const inspectDOMStructureTool: Tool = {
                 };
             }
 
-            // 获取网页内容（Raw 模式）
-            const content = await fetchWebContent(args.url, 'raw', {}, entrySelector);
+            // 获取网页 HTML 内容
+            const htmlContent: HTMLPageContent = await fetchWebPageAsHTML(args.url, entrySelector);
 
-            // 解析 HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(content.content, 'text/html');
-            const entryElements = doc.querySelectorAll('body > *');
-
-            if (entryElements.length === 0) {
+            if (htmlContent.elements.length === 0) {
                 const error: WebToolError = {
                     code: WebToolErrorCode.PARSE_FAILED,
                     message: `未找到匹配选择器 "${entrySelector}" 的元素`,
@@ -310,7 +311,7 @@ export const inspectDOMStructureTool: Tool = {
 
             // 使用 tree-model 构建 DOM 树
             const sources = createTreeSource({
-                root: Array.from(entryElements),
+                root: htmlContent.elements,
                 getChildren: (el: Element) =>
                     Array.from(el.children).filter(child => !shouldSkipElement(child)),
                 extract: (el: Element): DOMNodeData => ({
@@ -324,8 +325,8 @@ export const inspectDOMStructureTool: Tool = {
             const tree = await TreeBuilder.build(sources, { maxDepth });
 
             const result: InspectDOMResult = {
-                title: content.title,
-                url: content.url,
+                title: htmlContent.title,
+                url: htmlContent.url,
                 entrySelector,
                 maxDepth,
                 tree
@@ -506,15 +507,10 @@ export const extractHTMLTool: Tool = {
                 };
             }
 
-            // 获取网页内容（Raw 模式）
-            const content = await fetchWebContent(args.url, 'raw', {}, args.querySelector);
+            // 获取网页 HTML 内容
+            const htmlContent: HTMLPageContent = await fetchWebPageAsHTML(args.url, args.querySelector);
 
-            // 解析 HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(content.content, 'text/html');
-            const elements = doc.querySelectorAll('body > *');
-
-            if (elements.length === 0) {
+            if (htmlContent.elements.length === 0) {
                 const error: WebToolError = {
                     code: WebToolErrorCode.PARSE_FAILED,
                     message: `未找到匹配选择器 "${args.querySelector}" 的元素`,
@@ -530,7 +526,7 @@ export const extractHTMLTool: Tool = {
             const extractedElements: ExtractHTMLResult['elements'] = [];
             let totalLength = 0;
 
-            elements.forEach((element, index) => {
+            htmlContent.elements.forEach((element, index) => {
                 const html = element.outerHTML;
                 const text = element.textContent?.trim() || '';
                 extractedElements.push({
@@ -565,10 +561,10 @@ export const extractHTMLTool: Tool = {
             }
 
             const result: ExtractHTMLResult = {
-                title: content.title,
-                url: content.url,
+                title: htmlContent.title,
+                url: htmlContent.url,
                 querySelector: args.querySelector,
-                elementsCount: elements.length,
+                elementsCount: htmlContent.elements.length,
                 elements: extractedElements,
                 originalLength: totalLength,
                 shownLength,
