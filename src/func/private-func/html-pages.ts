@@ -4,7 +4,7 @@
  * @Date         : 2025-11-21 17:19:12
  * @Description  : 
  * @FilePath     : /src/func/private-func/html-pages.ts
- * @LastEditTime : 2025-12-16 22:41:00
+ * @LastEditTime : 2025-12-16 22:48:55
  */
 import FMiscPlugin from "@/index"
 import { getLute, openCustomTab } from "@frostime/siyuan-plugin-kits";
@@ -54,7 +54,7 @@ export const load = async (plugin_: FMiscPlugin) => {
 
     // debugger
     // 1. 读取 HTML 文件
-    const files = await readDir(`data/plugins/${plugin_.name}/pages`);
+    const files = await readDir(DATA_DIR);
     if (files) {
         let filenames = files.filter(f => !f.isDir).map(f => f.name).filter(f => f.endsWith('.html'));
         for (const filename of filenames) {
@@ -66,7 +66,7 @@ export const load = async (plugin_: FMiscPlugin) => {
                         plugin: plugin_,
                         title: filename,
                         render: (container: Element) => {
-                            const href = `/plugins/${plugin_.name}/pages/${filename}`;
+                            const href = `${DATA_DIR.replace('/data', '')}${filename}`;
                             const iframe = document.createElement('iframe');
                             iframe.style.width = '100%';
                             iframe.style.height = '100%';
@@ -102,16 +102,25 @@ export const load = async (plugin_: FMiscPlugin) => {
                                             }
                                         },
                                         loadConfig: async () => {
-                                            const fileName = `${filename}.config.json`;
+                                            const fileName = `conf/${filename}.config.json`;
                                             const filePath = _joinPath(fileName);
-                                            const fileContent = await getFile(filePath);
-                                            return fileContent ? fileContent : {};
+                                            try {
+                                                const fileContent = await getFile(filePath);
+                                                return fileContent ? fileContent : {};
+                                            } catch (e) {
+                                                return {}
+                                            }
                                         },
                                         saveConfig: async (newConfig: Record<string, any>) => {
-                                            const fileName = `${filename}.config.json`;
+                                            const fileName = `conf/${filename}.config.json`;
                                             const filePath = _joinPath(fileName);
                                             const blob = new Blob([JSON.stringify(newConfig, null, 2)], { type: 'application/json' });
-                                            await putFile(filePath, false, blob);
+                                            // await putFile(filePath, false, blob);
+                                            try {
+                                                await putFile(filePath, false, blob);
+                                            } catch (e) {
+                                                console.error('Failed to save config:', e);
+                                            }
                                         },
                                         themeMode: document.body.parentElement.getAttribute('data-theme-mode') as ('light' | 'dark'),
                                         style: style,
@@ -154,9 +163,11 @@ export const load = async (plugin_: FMiscPlugin) => {
     }
 
     // 2. 读取 URL 文件
-    const urlsResponse = await fetch(`/plugins/${plugin_.name}/pages/${URL_FILE}`);
-    if (urlsResponse.ok) {
-        const urlsData = await urlsResponse.json() as IURLs;
+    // const urlsResponse = await fetch(`/plugins/${plugin_.name}/pages/${URL_FILE}`);
+    const urlsPath = _joinPath(URL_FILE);
+    const urlsResponse = await getFile(urlsPath);
+    if (urlsResponse) {
+        const urlsData = urlsResponse as IURLs;
         for (const [name, url] of Object.entries(urlsData)) {
             menus.push({
                 label: `🌐 ${name}`,
