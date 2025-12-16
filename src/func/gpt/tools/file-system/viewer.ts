@@ -342,15 +342,6 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                 };
 
                 const root = await build(dirPath, 0, fs.basename(dirPath));
-                const formatTree = (node: TreeNode, prefix = '', last = true): string[] => {
-                    const conn = last ? '└── ' : '├── ';
-                    const next = prefix + (last ? '    ' : '│   ');
-                    let disp = node.name;
-                    if (node.type === 'dir') disp += '/'; else if (node.sizeFormatted) disp += ` (${node.sizeFormatted})`;
-                    const lines = [prefix + conn + disp];
-                    if (node.children) node.children.forEach((c, i) => { lines.push(...formatTree(c, next, i === node.children!.length - 1)); });
-                    return lines;
-                };
 
                 return {
                     status: ToolExecuteStatus.SUCCESS,

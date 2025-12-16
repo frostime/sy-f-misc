@@ -2,6 +2,7 @@
  * 内存虚拟文件系统实现
  */
 import type { IVFS, IFileStat, VFSSnapshot } from './types';
+import { quickFormatTree } from '../tree-model';
 
 /** 虚拟节点 */
 class VNode {
@@ -451,37 +452,47 @@ export class InMemoryVFS implements IVFS {
     }
 
     /** 生成目录树（用于 System Prompt） */
-    tree(maxDepth = 3): string {
-        const lines: string[] = ['/'];
+    async tree(maxDepth = 3): Promise<string> {
+        // 定义节点数据类型
+        interface VFSNodeData {
+            name: string;
+            type: 'file' | 'directory';
+            title?: string; // Markdown 标题预览
+        }
 
-        const traverse = (node: VNode, prefix: string, depth: number) => {
-            if (depth >= maxDepth || node.type !== 'directory') return;
+        // 使用 tree-model 的 quickFormatTree
+        return await quickFormatTree<VFSNodeData>({
+            root: { name: '/', type: 'directory' as const, node: this.root } as any,
+            getChildren: (data: any) => {
+                const node = data.node as VNode;
+                if (node.type !== 'directory') return [];
 
-            const entries = Array.from(node.children.entries());
-            entries.forEach(([name, child], idx) => {
-                const isLast = idx === entries.length - 1;
-                const connector = isLast ? '└── ' : '├── ';
-                const newPrefix = prefix + (isLast ? '    ' : '│   ');
+                return Array.from(node.children.entries()).map(([name, child]) => {
+                    const result: any = { name, type: child.type, node: child };
 
-                let display = name;
-                if (child.type === 'directory') {
-                    display += '/';
-                } else {
-                    // 提取 Markdown 标题作为注释
-                    const firstLine = child.content.split('\n')[0].trim();
-                    if (firstLine.startsWith('#')) {
-                        const title = firstLine.replace(/^#+\s*/, '').slice(0, 30);
-                        display += ` (${title})`;
+                    // 提取文件的 Markdown 标题
+                    if (child.type === 'file') {
+                        const firstLine = child.content.split('\n')[0].trim();
+                        if (firstLine.startsWith('#')) {
+                            result.title = firstLine.replace(/^#+\s*/, '').slice(0, 30);
+                        }
                     }
+
+                    return result;
+                });
+            },
+            formatter: (data: any) => {
+                let display = data.name;
+                if (data.type === 'directory') {
+                    display += '/';
+                } else if (data.title) {
+                    display += ` (${data.title})`;
                 }
-
-                lines.push(prefix + connector + display);
-                traverse(child, newPrefix, depth + 1);
-            });
-        };
-
-        traverse(this.root, '', 0);
-        return lines.join('\n');
+                return display;
+            },
+            maxDepth,
+            showChildCount: false
+        });
     }
 
     /** 清空 */

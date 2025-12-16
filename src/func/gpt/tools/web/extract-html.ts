@@ -9,17 +9,16 @@ import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from 
 import { normalizeLimit } from '../utils';
 import { WebToolError, WebToolErrorCode } from './types';
 import { fetchWebContent, isValidUrl } from './webpage';
+import { createTreeSource, TreeBuilder, formatTree, type Tree, type TreeNode } from '@/libs/tree-model';
 
 /**
- * DOM 节点信息
+ * DOM 节点数据 - 提取后的纯数据
  */
-interface DOMNode {
+interface DOMNodeData {
     tagName: string;
     attributes: Record<string, string>;
     selector: string;
     textPreview?: string;
-    children: DOMNode[];
-    childrenCount: number;
 }
 
 /**
@@ -30,7 +29,7 @@ interface InspectDOMResult {
     url: string;
     entrySelector: string;
     maxDepth: number;
-    tree: DOMNode[];
+    tree: Tree<DOMNodeData>;
 }
 
 /**
@@ -62,7 +61,7 @@ const INSPECT_DOM_LIMIT = 8000;
  */
 function filterClassNames(classNames: string): string {
     if (!classNames) return '';
-    
+
     const classes = classNames.split(/\s+/)
         .filter(cls => {
             // 过滤掉明显的 hash 类名
@@ -72,7 +71,7 @@ function filterClassNames(classNames: string): string {
             return true;
         })
         .slice(0, 3); // 只保留前 3 个
-    
+
     return classes.join(' ');
 }
 
@@ -82,7 +81,7 @@ function filterClassNames(classNames: string): string {
 function filterAttributes(element: Element): Record<string, string> {
     const attrs: Record<string, string> = {};
     const meaningfulAttrs = ['id', 'class', 'role', 'aria-label', 'name', 'type', 'href', 'src'];
-    
+
     meaningfulAttrs.forEach(attrName => {
         const value = element.getAttribute(attrName);
         if (value) {
@@ -94,7 +93,7 @@ function filterAttributes(element: Element): Record<string, string> {
             }
         }
     });
-    
+
     return attrs;
 }
 
@@ -104,30 +103,30 @@ function filterAttributes(element: Element): Record<string, string> {
 function generateSelector(element: Element): string {
     const parts: string[] = [];
     let current: Element | null = element;
-    
+
     while (current && current.tagName.toLowerCase() !== 'html') {
         let selector = current.tagName.toLowerCase();
-        
+
         // 添加 id
         if (current.id) {
             selector += `#${current.id}`;
             parts.unshift(selector);
             break; // id 是唯一的，可以停止
         }
-        
+
         // 添加主要的 class
         const classes = filterClassNames(current.className);
         if (classes) {
             selector += `.${classes.split(' ').join('.')}`;
         }
-        
+
         parts.unshift(selector);
         current = current.parentElement;
-        
+
         // 限制路径长度
         if (parts.length >= 5) break;
     }
-    
+
     return parts.join(' > ');
 }
 
@@ -142,117 +141,56 @@ function getTextPreview(element: Element, maxLength: number = 50): string | unde
             text += node.textContent || '';
         }
     }
-    
+
     text = text.trim().replace(/\s+/g, ' ');
-    
+
     if (!text) return undefined;
     if (text.length <= maxLength) return text;
-    
+
     return text.substring(0, maxLength) + '...';
 }
 
 /**
- * 递归构建 DOM 树
+ * 过滤元素 - 跳过无意义的标签
  */
-function buildDOMTree(
-    element: Element,
-    currentDepth: number,
-    maxDepth: number,
-    includeText: boolean
-): DOMNode {
-    const children: DOMNode[] = [];
-    const childElements = Array.from(element.children);
-    
-    // 递归处理子元素
-    if (currentDepth < maxDepth) {
-        for (const child of childElements) {
-            // 跳过 script, style, noscript 等无意义标签
-            if (['script', 'style', 'noscript', 'svg'].includes(child.tagName.toLowerCase())) {
-                continue;
-            }
-            children.push(buildDOMTree(child, currentDepth + 1, maxDepth, includeText));
-        }
-    }
-    
-    const node: DOMNode = {
-        tagName: element.tagName.toLowerCase(),
-        attributes: filterAttributes(element),
-        selector: generateSelector(element),
-        children,
-        childrenCount: childElements.length
-    };
-    
-    if (includeText) {
-        node.textPreview = getTextPreview(element);
-    }
-    
-    return node;
+function shouldSkipElement(element: Element): boolean {
+    return ['script', 'style', 'noscript', 'svg'].includes(element.tagName.toLowerCase());
 }
 
 /**
- * 将 DOM 树转换为易读的树形文本（返回字符串数组）
+ * 格式化 DOM 节点显示 - 生成节点的文本表示
  */
-function formatDOMTree(nodes: DOMNode[], depth: number = 0, isLast: boolean[] = []): string[] {
-    const lines: string[] = [];
-    
-    nodes.forEach((node, index) => {
-        const isLastNode = index === nodes.length - 1;
-        const newIsLast = [...isLast, isLastNode];
-        
-        // 构建缩进前缀
-        let prefix = '';
-        for (let i = 0; i < depth; i++) {
-            prefix += isLast[i] ? '    ' : '│   ';
-        }
-        prefix += isLastNode ? '└── ' : '├── ';
-        
-        // 构建节点信息
-        let nodeLine = `${prefix}${node.tagName}`;
-        
-        // 添加属性
-        if (node.attributes.id) {
-            nodeLine += `#${node.attributes.id}`;
-        }
-        if (node.attributes.class) {
-            nodeLine += `.${node.attributes.class.split(' ').join('.')}`;
-        }
-        
-        // 添加其他重要属性
-        const otherAttrs = Object.entries(node.attributes)
-            .filter(([key]) => key !== 'id' && key !== 'class')
-            .map(([key, value]) => `${key}="${value}"`)
-            .join(' ');
-        if (otherAttrs) {
-            nodeLine += ` [${otherAttrs}]`;
-        }
-        
-        // 添加文本预览
-        if (node.textPreview) {
-            nodeLine += ` ("${node.textPreview}")`;
-        }
-        
-        // 添加子元素数量提示
-        if (node.childrenCount > node.children.length) {
-            nodeLine += ` (${node.children.length}/${node.childrenCount} 子元素已显示)`;
-        } else if (node.childrenCount > 0 && node.children.length === 0) {
-            nodeLine += ` (${node.childrenCount} 子元素未展开)`;
-        }
-        
-        lines.push(nodeLine);
-        
-        // 添加选择器提示
-        if (depth < 2) { // 只在前两层显示选择器
-            const selectorPrefix = prefix.replace(/[├└]──/, '│   ').replace(/    /, '    ');
-            lines.push(`${selectorPrefix}→ [选择器: ${node.selector}]`);
-        }
-        
-        // 递归处理子节点
-        if (node.children.length > 0) {
-            lines.push(...formatDOMTree(node.children, depth + 1, newIsLast));
-        }
-    });
-    
-    return lines;
+function formatDOMNode(data: DOMNodeData, node: TreeNode<DOMNodeData>): string {
+    let line = data.tagName;
+
+    // 添加 id 和 class
+    if (data.attributes.id) {
+        line += `#${data.attributes.id}`;
+    }
+    if (data.attributes.class) {
+        line += `.${data.attributes.class.split(' ').join('.')}`;
+    }
+
+    // 添加其他重要属性
+    const otherAttrs = Object.entries(data.attributes)
+        .filter(([key]) => key !== 'id' && key !== 'class')
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(' ');
+    if (otherAttrs) {
+        line += ` [${otherAttrs}]`;
+    }
+
+    // 添加文本预览
+    if (data.textPreview) {
+        line += ` ("${data.textPreview}")`;
+    }
+
+    // 添加选择器提示（仅顶层节点）
+    if (node.depth < 2) {
+        line += `\n${' '.repeat(node.depth * 4)}  → [选择器: ${data.selector}]`;
+    }
+
+    return line;
 }
 
 /**
@@ -272,16 +210,16 @@ export const inspectDOMStructureTool: Tool = {
     url: string;
     entrySelector: string;
     maxDepth: number;
-    tree: Array<{
+    tree: Tree<{
         tagName: string;
         attributes: Record<string, string>;
         selector: string;
         textPreview?: string;
-        children: DOMNode[];
-        childrenCount: number;
     }>;
+    interface Tree<T> {roots: TreeNode<T>[];}
+    interface TreeNode<T> {data: T; children: TreeNode<T>[];}
 }`,
-        note: '网页 DOM 树形结构，包含标签名、属性、CSS 选择器路径和文本预览'
+        note: '网页 DOM 树形结构，使用 Tree 模型包含标签名、属性、CSS 选择器路径和文本预览'
     },
 
     definition: {
@@ -370,11 +308,20 @@ export const inspectDOMStructureTool: Tool = {
                 };
             }
 
-            // 构建 DOM 树
-            const tree: DOMNode[] = [];
-            for (const element of Array.from(entryElements)) {
-                tree.push(buildDOMTree(element, 0, maxDepth, includeText));
-            }
+            // 使用 tree-model 构建 DOM 树
+            const sources = createTreeSource({
+                root: Array.from(entryElements),
+                getChildren: (el: Element) =>
+                    Array.from(el.children).filter(child => !shouldSkipElement(child)),
+                extract: (el: Element): DOMNodeData => ({
+                    tagName: el.tagName.toLowerCase(),
+                    attributes: filterAttributes(el),
+                    selector: generateSelector(el),
+                    textPreview: includeText ? getTextPreview(el) : undefined
+                })
+            });
+
+            const tree = await TreeBuilder.build(sources, { maxDepth });
 
             const result: InspectDOMResult = {
                 title: content.title,
@@ -416,10 +363,13 @@ export const inspectDOMStructureTool: Tool = {
         // 元信息
         parts.push('| 属性 | 值 |');
         parts.push('|------|-----|');
+        const stats = data.tree.getStats();
         parts.push(`| URL | ${data.url} |`);
         parts.push(`| 入口选择器 | \`${data.entrySelector}\` |`);
         parts.push(`| 最大深度 | ${data.maxDepth} |`);
-        parts.push(`| 根节点数 | ${data.tree.length} |`);
+        parts.push(`| 根节点数 | ${data.tree.roots.length} |`);
+        parts.push(`| 总节点数 | ${stats.totalNodes} |`);
+        parts.push(`| 叶子节点 | ${stats.leafNodes} |`);
         parts.push('');
 
         parts.push('---');
@@ -427,11 +377,15 @@ export const inspectDOMStructureTool: Tool = {
         parts.push('## 📊 DOM 树形结构');
         parts.push('');
         parts.push('```');
-        
-        // formatDOMTree 现在返回 string[]，需要逐行添加
-        const treeLines = formatDOMTree(data.tree);
-        parts.push(...treeLines);
-        
+
+        // 使用 tree-model 的格式化功能
+        const formatted = formatTree({
+            tree: data.tree,
+            formatter: formatDOMNode,
+            showChildCount: true
+        });
+        parts.push(formatted);
+
         parts.push('```');
         parts.push('');
 
@@ -448,7 +402,7 @@ export const inspectDOMStructureTool: Tool = {
         return parts.join('\n');
     },
 
-    truncateForLLM: (formatted: string, args: Record<string, any>): string => {
+    truncateForLLM: (formatted: string, _args: Record<string, any>): string => {
         return formatted;
     }
 };
@@ -689,7 +643,7 @@ export const extractHTMLTool: Tool = {
         return parts.join('\n');
     },
 
-    truncateForLLM: (formatted: string, args: Record<string, any>): string => {
+    truncateForLLM: (formatted: string, _args: Record<string, any>): string => {
         return formatted;
     }
 };

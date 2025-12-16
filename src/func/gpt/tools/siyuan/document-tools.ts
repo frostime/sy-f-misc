@@ -9,8 +9,9 @@
 import { getBlockByID, listDailynote } from "@frostime/siyuan-plugin-kits";
 import { listDocsByPath } from "@/api";
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { documentMapper, DocumentSummary, DocumentSummaryWithChildren, getDocument, listSubDocs, formatDocList, formatDocTree } from './utils';
+import { documentMapper, DocumentSummary, DocumentTree, getDocument, listSubDocs, formatDocList, formatDocTree } from './utils';
 import { formatArraysToToon } from "../utils";
+import { Tree } from '@/libs/tree-model';
 
 /**
  * 获取活动文档列表工具
@@ -299,8 +300,8 @@ export const listSubDocsTool: Tool = {
     },
 
     declaredReturnType: {
-        type: 'Array<DocumentSummary & { children?: ... }>',
-        note: '嵌套结构，children 递归包含子文档'
+        type: 'Tree<DocumentSummary>',
+        note: '文档树结构，使用 Tree 模型管理层级关系'
     },
 
     execute: async (args: { docId: string; depth?: number }): Promise<ToolExecuteResult> => {
@@ -318,7 +319,7 @@ export const listSubDocsTool: Tool = {
         }
     },
 
-    formatForLLM: (data: DocumentSummaryWithChildren[]): string => {
+    formatForLLM: (data: DocumentTree): string => {
         return formatDocTree(data);
     }
 };
@@ -463,35 +464,37 @@ export const listNotebookDocsTool: Tool = {
             };
         }
 
+        // 如果 depth > 1, 需要递归获取子文档
         const subDepth = args.depth - 1;
-        const subDocs = await Promise.all(
-            topLevelDocs.map(async (doc) => {
-                const children = doc.subFileCount > 0
-                    ? await listSubDocs(doc.id, subDepth)
-                    : [];
-                return {
-                    ...doc,
-                    children: children.length > 0 ? children : undefined
-                };
-            })
+        const trees = await Promise.all(
+            topLevelDocs
+                .filter(doc => doc.subFileCount > 0)
+                .map(doc => listSubDocs(doc.id, subDepth))
         );
+
+        // 合并所有树的根节点
+        const allRoots = trees.flatMap(tree => tree.roots);
+        // const { Tree } = await import('@/libs/tree-model');
+        const combinedTree = new Tree(allRoots);
 
         return {
             status: ToolExecuteStatus.SUCCESS,
-            data: subDocs
+            data: combinedTree
         };
     },
 
-    formatForLLM: (data: DocumentSummary[] | DocumentSummaryWithChildren[]): string => {
-        if (!data || data.length === 0) {
-            return '(空列表)';
+    formatForLLM: (data: DocumentSummary[] | DocumentTree): string => {
+        if (!data) return '(空列表)';
+
+        // 检查是否为 Tree 类型
+        if ('roots' in data && 'getStats' in data) {
+            return formatDocTree(data as DocumentTree);
         }
-        // 检查是否有 children 字段来决定使用哪种格式
-        const hasChildren = data.some((doc: any) => doc.children !== undefined);
-        if (hasChildren) {
-            return formatDocTree(data as DocumentSummaryWithChildren[]);
-        }
-        return formatDocList(data as DocumentSummary[]);
+
+        // 否则为 DocumentSummary 数组
+        const docs = data as DocumentSummary[];
+        if (!docs.length) return '(空列表)';
+        return formatDocList(docs);
     }
 }
 
