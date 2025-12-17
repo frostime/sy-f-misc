@@ -23,9 +23,17 @@ const AttachmentList: Component<Props> = (props) => {
         if (!props.images) return [];
         return props.images.map(img => {
             if (img instanceof Blob) {
-                return urlManager.create(img);
+                return {
+                    url: urlManager.create(img),
+                    type: img.type || '',
+                    name: img instanceof File ? img.name : undefined
+                };
             } else {
-                return img;
+                return {
+                    url: img,
+                    type: 'image',
+                    name: undefined
+                };
             }
         });
     });
@@ -45,6 +53,12 @@ const AttachmentList: Component<Props> = (props) => {
             width: '800px',
             maxHeight: '80%',
         });
+    };
+
+    const getFileIcon = (mimeType: string) => {
+        if (mimeType.startsWith('audio/')) return 'iconRecord';
+        if (mimeType.startsWith('video/')) return 'iconVideo';
+        return 'iconFile';
     };
 
     const showContextContent = (context: IProvidedContext) => {
@@ -111,13 +125,29 @@ const AttachmentList: Component<Props> = (props) => {
     return (
         <div class={styles.attachmentList}>
             <For each={processedImages()}>
-                {(url, index) => (
+                {(item, index) => (
                     <div class={`${styles.attachmentItem} ${sizeClass()}`}>
-                        <img
-                            src={url}
-                            alt="Attachment"
-                            onclick={() => showFullImage(url)}
-                        />
+                        {item.type.startsWith('image/') || item.type === 'image' ? (
+                            <img
+                                src={item.url}
+                                alt={item.name || "Attachment"}
+                                onclick={() => showFullImage(item.url)}
+                            />
+                        ) : (
+                            <div
+                                class={styles.fileAttachment}
+                                onclick={() => {
+                                    // 对于非图片文件，可以提供下载或预览
+                                    const a = document.createElement('a');
+                                    a.href = item.url;
+                                    a.download = item.name || 'attachment';
+                                    a.click();
+                                }}
+                            >
+                                <svg class="b3-list-item__graphic"><use href={`#${getFileIcon(item.type)}`} /></svg>
+                                <span>{item.name || '未命名文件'}</span>
+                            </div>
+                        )}
                         {props.showDelete && (
                             <button
                                 class="b3-button b3-button--text"

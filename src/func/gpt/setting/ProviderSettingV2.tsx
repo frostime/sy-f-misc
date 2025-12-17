@@ -56,7 +56,7 @@ const ModelConfigPanel: Component<{
 
     // 模态能力选择
     // const availableModalities: LLMModality[] = ['text', 'image', 'file', 'audio', 'video'];
-    const availableModalities: LLMModality[] = ['text', 'image', 'file'];
+    const availableModalities: LLMModality[] = ['text', 'image', 'audio', 'file'];
 
     const toggleModality = (direction: 'input' | 'output', modality: LLMModality) => {
         const current = model().modalities[direction] || [];
@@ -211,7 +211,7 @@ const ModelConfigPanel: Component<{
                         }
                     />
 
-                    <LeftRight
+                    {/* <LeftRight
                         left={<strong>输出</strong>}
                         right={
                             <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
@@ -229,7 +229,7 @@ const ModelConfigPanel: Component<{
                                 </For>
                             </div>
                         }
-                    />
+                    /> */}
 
                 </Form.Wrap>
 

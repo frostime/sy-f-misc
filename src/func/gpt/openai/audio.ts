@@ -297,7 +297,9 @@ export const transcriptionResultToCompletion = (
 
     // Add transcribed text
     lines.push(`### 转录文本\n`);
+    lines.push('```txt');
     lines.push(transcriptionResult.text || '');
+    lines.push('```');
 
     // Add timestamps if requested and available
     if (options?.showTimestamps && transcriptionResult.words && transcriptionResult.words.length > 0) {

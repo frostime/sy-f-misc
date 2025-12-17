@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
- * @FilePath     : /src/func/gpt/chat/index.tsx
- * @LastEditTime : 2025-12-12 19:06:45
+ * @FilePath     : /src/func/gpt/chat/main.tsx
+ * @LastEditTime : 2025-12-13 19:20:25
  * @Description  :
  */
 // External libraries
@@ -1175,7 +1175,7 @@ export const ChatSession: Component<{
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
                     </ToolbarLabel>
                     <ToolbarLabel
-                        label={`模型 ${model().model}`}
+                        label={`模型 ${model().model} | ${model().config?.type ?? 'chat'}`}
                         role="model"
                         onclick={(e: MouseEvent) => {
                             e.stopImmediatePropagation();
@@ -1255,21 +1255,61 @@ export const ChatSession: Component<{
                                 tab.style.opacity = 'unset';
                             }
                         } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            // #TODO 需要优化
                             const files = Array.from(e.dataTransfer.files);
+                            const currentModelId = modelId();
 
-                            // 过滤支持的文件类型
-                            const supportedFiles = files.filter(file => {
-                                if (file.size > 2 * 1024 * 1024) {
-                                    return false;  //限制 2MB 以内
+                            // 分类处理不同类型的文件
+                            const imageFiles: File[] = [];
+                            const audioFiles: File[] = [];
+                            const textFiles: File[] = [];
+
+                            for (const file of files) {
+                                const mimeType = file.type || '';
+
+                                // 图片文件
+                                if (mimeType.startsWith('image/')) {
+                                    if (checkSupportsModality(currentModelId, 'image')) {
+                                        imageFiles.push(file);
+                                    } else {
+                                        showMessage(`当前模型不支持图片输入: ${file.name}`);
+                                    }
                                 }
-                                const ext = file.name.split('.').pop()?.toLowerCase();
-                                return ['txt', 'md', 'py', 'ts', 'js', 'json', 'yaml', 'toml', 'xml', 'html'].includes(ext || '');
-                            });
+                                // 音频文件
+                                else if (mimeType.startsWith('audio/')) {
+                                    if (checkSupportsModality(currentModelId, 'audio')) {
+                                        audioFiles.push(file);
+                                    } else {
+                                        showMessage(`当前模型不支持音频输入: ${file.name}`);
+                                    }
+                                }
+                                // 文本文件
+                                else {
+                                    const ext = file.name.split('.').pop()?.toLowerCase();
+                                    const supportedTextExts = ['txt', 'md', 'py', 'ts', 'js', 'json', 'yaml', 'toml', 'xml', 'html'];
 
-                            if (supportedFiles.length === 0) {
-                                return;
+                                    if (file.size > 2 * 1024 * 1024) {
+                                        showMessage(`文件过大 (>2MB): ${file.name}`);
+                                        continue;
+                                    }
+
+                                    if (supportedTextExts.includes(ext || '')) {
+                                        textFiles.push(file);
+                                    }
+                                }
                             }
 
+                            // 添加图片附件
+                            for (const imageFile of imageFiles) {
+                                session.addAttachment(imageFile);
+                            }
+
+                            // 添加音频附件
+                            for (const audioFile of audioFiles) {
+                                session.addAttachment(audioFile);
+                            }
+
+                            // 处理文本文件为 context
                             const readTextContent = async (file: File): Promise<string> => {
                                 return new Promise((resolve, reject) => {
                                     const reader = new FileReader();
@@ -1280,13 +1320,11 @@ export const ChatSession: Component<{
                                     reader.onerror = () => {
                                         reject(reader.error);
                                     }
-                                    // 关键：添加这一行！
                                     reader.readAsText(file);
                                 });
                             }
 
-
-                            for (const file of supportedFiles) {
+                            for (const file of textFiles) {
                                 try {
                                     let content = await readTextContent(file);
                                     if (content.length > 10000) {
@@ -1325,18 +1363,68 @@ export const ChatSession: Component<{
                             adjustTextareaHeight();
                         }}
                         onPaste={(e) => {
-                            const items = e.clipboardData?.items;
+                            // #TODO 需要优化 
+                            const clipboardData = e.clipboardData;
+                            const items = clipboardData?.items;
                             if (!items) return;
-                            if (!checkSupportsModality(modelId(), 'image')) {
-                                showMessage('当前模型不支持图片输入');
+
+                            // Detect clipboard item types first, then check model modalities accordingly.
+                            let hasText = false;
+                            let hasImage = false;
+                            let hasFile = false; // non-image file
+
+                            for (let i = 0; i < items.length; i++) {
+                                const item = items[i];
+                                const type = (item.type || '').toLowerCase();
+
+                                if (item.kind === 'string') {
+                                    if (type.startsWith('text/')) {
+                                        hasText = true;
+                                    }
+                                    continue;
+                                }
+
+                                if (item.kind === 'file') {
+                                    if (type.startsWith('image/')) {
+                                        hasImage = true;
+                                    } else {
+                                        hasFile = true;
+                                    }
+                                }
+                            }
+
+                            const currentModelId = modelId();
+
+                            // Text paste: block when model doesn't accept text input.
+                            // (Most chat models support text, but some non-chat endpoints may not.)
+                            if (hasText && !checkSupportsModality(currentModelId, 'text')) {
+                                showMessage('当前模型不支持文本输入');
+                                e.preventDefault();
                                 return;
                             }
 
-                            for (let i = 0; i < items.length; i++) {
-                                if (items[i].type.indexOf('image') !== -1) {
-                                    const blob = items[i].getAsFile();
-                                    if (blob) {
-                                        session.addAttachment(blob);
+                            // Image paste: only warn / handle when clipboard actually contains images.
+                            const canPasteImage = !hasImage || checkSupportsModality(currentModelId, 'image');
+                            if (hasImage && !canPasteImage) {
+                                showMessage('当前模型不支持图片输入');
+                            }
+
+                            // File paste: detect non-image files and check modality.
+                            // NOTE: This chat UI currently only supports image attachments.
+                            if (hasFile && !checkSupportsModality(currentModelId, 'file')) {
+                                showMessage('当前模型不支持文件输入');
+                            }
+
+                            // Add image attachments.
+                            if (hasImage && canPasteImage) {
+                                for (let i = 0; i < items.length; i++) {
+                                    const item = items[i];
+                                    const type = (item.type || '').toLowerCase();
+                                    if (item.kind !== 'file') continue;
+                                    if (!type.startsWith('image/')) continue;
+                                    const file = item.getAsFile();
+                                    if (file) {
+                                        session.addAttachment(file);
                                     }
                                 }
                             }

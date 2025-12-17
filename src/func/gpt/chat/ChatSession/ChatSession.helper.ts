@@ -55,9 +55,7 @@ const useMessageManagement = (params: {
         return window.Lute.NewNodeID();
     }
 
-    const appendUserMsg = async (msg: string, images?: Blob[], contexts?: IProvidedContext[]) => {
-        // let content: TMessageContentPart[];
-
+    const appendUserMsg = async (msg: string, assets?: (Blob | File)[], contexts?: IProvidedContext[]) => {
         const builder = new MessageBuilder();
 
         // 附加 context
@@ -69,20 +67,25 @@ const useMessageManagement = (params: {
             optionalFields['userPromptSlice'] = result.userPromptSlice;
         }
 
-        // if (images && images?.length > 0) {
-
-        //     content = [{
-        //         type: "text",
-        //         text: msg
-        //     }];
-
-        //     // 添加所有图片
-        //     const img_urls = await convertImgsToBase64Url(images);
-        //     content.push(...img_urls);
-        // }
+        // 添加文本内容
         builder.addText(msg);
-        if (images && images?.length > 0) {
-            await builder.addImages(images);
+
+        // 处理附件：根据类型调用对应的 builder 方法
+        if (assets && assets?.length > 0) {
+            for (const asset of assets) {
+                const mimeType = asset.type || '';
+                
+                if (mimeType.startsWith('image/')) {
+                    // 图片附件
+                    await builder.addImage(asset);
+                } else if (mimeType.startsWith('audio/')) {
+                    // 音频附件
+                    await builder.addAudio(asset);
+                } else {
+                    // 其他文件附件
+                    await builder.addFile(asset);
+                }
+            }
         }
 
         const userMessage: IUserMessage = builder.buildUser();
@@ -299,7 +302,7 @@ const useContextAndAttachments = (params: {
         attachments.update((prev: Blob[]) => prev.filter((a: Blob) => a !== attachment));
     }
 
-    const addAttachment = (blob: Blob) => {
+    const addAttachment = (blob: Blob | File) => {
         attachments.update((prev: Blob[]) => [...prev, blob]);
     }
 
@@ -1011,8 +1014,8 @@ export const useSession = (props: {
     });
 
     // 包装 appendUserMsg 以更新 updated 时间戳
-    const appendUserMsg = async (msg: string, images?: Blob[], contexts?: IProvidedContext[]) => {
-        const timestamp = await appendUserMsgInternal(msg, images, contexts);
+    const appendUserMsg = async (msg: string, assets?: Blob[], contexts?: IProvidedContext[]) => {
+        const timestamp = await appendUserMsgInternal(msg, assets, contexts);
         renewUpdatedTimestamp();
         return timestamp;
     }

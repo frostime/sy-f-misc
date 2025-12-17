@@ -24,6 +24,16 @@ const siyuanModel = (): IRuntimeLLM & {
     }
 }
 
+const ModelTypeName: Record<LLMServiceType, string> = {
+    chat: '对话',
+    embeddings: '嵌入',
+    'audio-stt': '语音转文字',
+    'audio-tts': '文字转语音',
+    'image-gen': '图像生成',
+    'image-edit': '图像编辑',
+    moderation: '内容审核'
+}
+
 
 export const listAvialableModels = (): Record<string, string> => {
     const availableModels: Record<string, string> = {
@@ -36,7 +46,7 @@ export const listAvialableModels = (): Record<string, string> => {
             if (modelConfig.type === 'embeddings') return;
             const modelId = `${modelConfig.model}@${provider.name}`;
             const displayName = modelConfig.displayName ?? modelConfig.model;
-            availableModels[modelId] = `(${provider.name}) ${displayName}`;
+            availableModels[modelId] = `(${provider.name}) ${displayName} | ${ModelTypeName[modelConfig.type]}`;
         });
     });
     return availableModels;
