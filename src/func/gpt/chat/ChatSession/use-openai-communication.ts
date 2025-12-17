@@ -35,6 +35,7 @@ import { extractContentText, extractMessageContent } from '@gpt/chat-utils';
 // import { useModel } from '@gpt/model';
 import { deepMerge } from '@frostime/siyuan-plugin-kits';
 import { quickComplete } from '../../openai/tiny-agent';
+import { FormatConverter, DataURL, Base64String } from '@gpt/chat-utils/msg-modal';
 // ============================================================================
 // 类型定义
 // ============================================================================
@@ -470,7 +471,6 @@ const useGptCommunication = (params: {
     };
 
     /** Image Edit Executor */
-    // TODO: Implement DataURL to Blob conversion
     const createImageEditExecutor = (
         image: File | Blob,
         prompt: string,
@@ -488,7 +488,6 @@ const useGptCommunication = (params: {
     };
 
     /** Audio Transcribe Executor */
-    // TODO: Implement Base64 to Blob conversion
     const createAudioTranscribeExecutor = (
         audioSource: File | Blob,
         options?: Partial<Omit<IAudioTranscriptionOptions, 'file'>> & {
@@ -556,10 +555,13 @@ const useGptCommunication = (params: {
                     showMessage('图像编辑需要上传图片');
                     return null;
                 }
-                // 需要将 DataURL 转回 Blob（临时方案，后续可优化）
-                // TODO: 需要实现 dataURLToBlob 转换
-                showMessage('图像编辑功能待实现 DataURL → Blob 转换');
-                return null;
+                // 将 DataURL 转回 Blob
+                const imageBlob = FormatConverter.dataURLToBlob(imageAttachment.image_url.url as DataURL);
+                return { 
+                    executor: createImageEditExecutor(imageBlob, userText), 
+                    supportsToolChain: false, 
+                    needsHistory: false 
+                };
             case 'audio-tts':
                 return { executor: createAudioSpeakExecutor(userText, { voice: 'nova' }), supportsToolChain: false, needsHistory: false };
             case 'audio-stt':
@@ -569,9 +571,18 @@ const useGptCommunication = (params: {
                     showMessage('音频转录需要音频文件');
                     return null;
                 }
-                // TODO: 需要实现 Base64 → Blob 转换
-                showMessage('音频转录功能待实现 Base64 → Blob 转换');
-                return null;
+                // 将 Base64 转回 Blob，根据 format 确定 MIME 类型
+                const audioFormat = audioAttachment.input_audio.format || 'wav';
+                const audioMimeType = audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav';
+                const audioBlob = FormatConverter.base64ToBlob(
+                    audioAttachment.input_audio.data as Base64String,
+                    audioMimeType
+                );
+                return { 
+                    executor: createAudioTranscribeExecutor(audioBlob), 
+                    supportsToolChain: false, 
+                    needsHistory: false 
+                };
             case 'chat':
             default:
                 return { executor: createChatExecutor(), supportsToolChain: true, needsHistory: true };
