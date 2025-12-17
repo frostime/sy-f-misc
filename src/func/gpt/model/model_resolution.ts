@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/model/model_resolution.ts
- * @LastEditTime : 2025-12-10
+ * @LastEditTime : 2025-12-12 18:33:00
  * @Description  : Model lookup and endpoint resolution logic
  */
 
-import { DEFAULT_CHAT_ENDPOINT, trimTrailingSlash, ensureLeadingSlash } from "./url_utils";
+import { OPENAI_ENDPONITS, trimTrailingSlash, ensureLeadingSlash } from "./url_utils";
 import { defaultModelId, llmProviders } from "./state";
 
 const siyuanModel = (): IRuntimeLLM & {
@@ -33,6 +33,7 @@ export const listAvialableModels = (): Record<string, string> => {
         if (provider.disabled) return;
         provider.models?.forEach((modelConfig) => {
             if (modelConfig.disabled === true) return;
+            if (modelConfig.type === 'embeddings') return;
             const modelId = `${modelConfig.model}@${provider.name}`;
             const displayName = modelConfig.displayName ?? modelConfig.model;
             availableModels[modelId] = `(${provider.name}) ${displayName}`;
@@ -44,9 +45,9 @@ export const listAvialableModels = (): Record<string, string> => {
 
 
 export const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceType = 'chat') => {
-    const path = provider.endpoints?.[type] || provider.endpoints?.chat || DEFAULT_CHAT_ENDPOINT;
+    const endpoint = provider.endpoints?.[type] || OPENAI_ENDPONITS[type];
     const normalizedBase = trimTrailingSlash(provider.baseUrl || '');
-    const normalizedPath = ensureLeadingSlash(path);
+    const normalizedPath = ensureLeadingSlash(endpoint);
     if (!normalizedBase) return normalizedPath;
     return `${normalizedBase}${normalizedPath}`;
 };

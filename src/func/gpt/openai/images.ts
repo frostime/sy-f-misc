@@ -66,18 +66,18 @@ export const generateImage = async (
     }
 
     try {
-        const { url, apiKey, provider, config } = runtimeModel;
+        const { url: fullUrl, apiKey, provider, config } = runtimeModel;
 
         // Get the endpoint for image generation
-        const endpoint = provider?.endpoints?.image || '/images/generations';
-        const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+        // const endpoint = provider?.endpoints?.image || '/images/generations';
+        // const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
 
         // Build request payload
         const payload: any = {
             prompt: options.prompt,
-            model: options.model || config?.model || 'dall-e-3',
+            model: options.model || config?.model,
             response_format: options.response_format || 'url',
-            size: options.size || '1024x1024'
+            // size: options.size || '1024x1024'
         };
 
         // Add optional parameters
@@ -151,13 +151,13 @@ export const editImage = async (
     }
 
     try {
-        const { url, apiKey, provider } = runtimeModel;
+        const { url: fullUrl, apiKey, provider } = runtimeModel;
 
         // Get the endpoint for image edits
-        const endpoint = provider?.endpoints?.image || '/images/edits';
-        const fullUrl = url.endsWith('/images/edits') ? url :
-            url.endsWith('/images') ? `${url}/edits` :
-                `${url}/images/edits`;
+        // const endpoint = provider?.endpoints?.image || '/images/edits';
+        // const fullUrl = url.endsWith('/images/edits') ? url :
+        //     url.endsWith('/images') ? `${url}/edits` :
+        //         `${url}/images/edits`;
 
         // Build FormData for multipart/form-data request
         const formData = new FormData();

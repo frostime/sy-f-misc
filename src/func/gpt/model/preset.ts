@@ -565,7 +565,7 @@ const MODEL_PRESETS: IModelPreset[] = [
             /cogview/i
         ],
         config: {
-            type: 'image',
+            type: 'image-gen',
             modalities: { input: ['text', 'image'], output: ['image'] },
             capabilities: {
                 tools: false,

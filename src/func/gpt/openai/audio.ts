@@ -79,8 +79,9 @@ export const transcribeAudio = async (
         const { url, apiKey, provider, config } = runtimeModel;
 
         // Get the endpoint for audio transcriptions
-        const endpoint = provider?.endpoints?.audio_transcriptions || '/audio/transcriptions';
-        const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+        // const endpoint = provider?.endpoints?.audio_transcriptions || '/audio/transcriptions';
+        // const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+        const fullUrl = url;
 
         // Build FormData for multipart/form-data request
         const formData = new FormData();
@@ -196,11 +197,11 @@ export const textToSpeech = async (
     }
 
     try {
-        const { url, apiKey, provider, config } = runtimeModel;
+        const { url: fullUrl, apiKey, provider, config } = runtimeModel;
 
         // Get the endpoint for audio speech
-        const endpoint = provider?.endpoints?.audio_speech || '/audio/speech';
-        const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+        // const endpoint = provider?.endpoints?.audio_speech || '/audio/speech';
+        // const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
 
         // Build request payload
         const payload: any = {

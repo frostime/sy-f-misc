@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-12-12 16:21:13
+ * @LastEditTime : 2025-12-12 18:26:10
  * @Description  :
  */
 // ============================================================================
@@ -370,11 +370,12 @@ type ModelBareId = string | 'siyuan';  // <modelName>@<providerName>
 type LLMServiceType =
     | 'chat'          // 对应 /chat/completions
     | 'embeddings'    // 对应 /embeddings
-    | 'image'         // 对应 /images/generations
-    | 'audio_stt'     // 对应 /audio/transcriptions
-    | 'audio_tts'     // 对应 /audio/speech
+    | 'image-gen'         // 对应 /images/generations
+    | 'image-edit'         // 对应 /images/edits
+    | 'audio-stt'     // 对应 /audio/transcriptions
+    | 'audio-tts'     // 对应 /audio/speech
     | 'moderation'    // 对应 /moderations
-    | string;         // 扩展
+    // | string;         // 扩展
 
 type LLMModality = 'text' | 'image' | 'file' | 'audio' | 'video';
 

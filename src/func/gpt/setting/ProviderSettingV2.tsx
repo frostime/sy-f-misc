@@ -16,6 +16,7 @@ import { ButtonInput } from "@/libs/components/Elements";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { TextAreaWithActionButton } from "@/libs/components/Elements/TextArea";
 import * as agent from "../openai/tiny-agent";
+import { OPENAI_ENDPONITS } from "../model/url_utils";
 
 
 
@@ -165,10 +166,11 @@ const ModelConfigPanel: Component<{
                         value={model().type}
                         options={{
                             'chat': '对话 (chat)',
-                            'embeddings': '向量 (embeddings)',
-                            'image': '图像生成 (image)',
-                            'audio_stt': '语音转文本 (audio_stt)',
-                            'audio_tts': '文本转语音 (audio_tts)'
+                            'image-gen': '图像生成 (image-gen)',
+                            // 'image-edit': '图像编辑 (image-edit)',
+                            // 'audio-stt': '语音转文本 (audio-stt)',
+                            'audio-tts': '文本转语音 (audio-tts)',
+                            // 'embeddings': '向量 (embeddings)',
                         }}
                         changed={(v) => updateModel(index(), 'type', v)}
                     />
@@ -478,9 +480,9 @@ const ProviderBasicConfig: Component = () => {
 
 
             <For each={[
-                { key: 'chat', label: 'Chat', default: '/chat/completions' },
-                { key: 'embeddings', label: 'Embeddings', default: '/embeddings' },
-                { key: 'image', label: 'Image', default: '/images/generations' }
+                { key: 'chat', label: 'Chat', default: OPENAI_ENDPONITS['chat'] },
+                // { key: 'embeddings', label: 'Embeddings', default: '/embeddings' },
+                { key: 'image-gen', label: 'Image', default: OPENAI_ENDPONITS['image-gen'] }
             ]}>
                 {(item) => (
                     <Form.Wrap
