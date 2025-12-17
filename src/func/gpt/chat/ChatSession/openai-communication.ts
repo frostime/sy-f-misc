@@ -391,7 +391,7 @@ const useGptCommunication = (params: {
         }
 
         try {
-            const serviceType = (modelToUse?.config?.type || 'chat') as LLMServiceType;
+            const serviceType = (modelToUse?.type || 'chat') as LLMServiceType;
             const ctx: ExecutorContext = {
                 targetIndex,
                 modelToUse,
@@ -595,7 +595,8 @@ const useGptCommunication = (params: {
             return;
         }
 
-        const modelType = model()?.config?.type;
+        // 使用 IRuntimeLLM.type 而非 config.type，因为 config.type 可能是数组
+        const modelType = model()?.type;
         const executorInfo = getExecutorForServiceType(modelType, userMessage, attachments);
         if (!executorInfo) return;
 
@@ -638,8 +639,8 @@ const useGptCommunication = (params: {
             ? userContent
             : extractMessageContent(userContent).text;
 
-        // 获取 executor
-        const modelType = model()?.config?.type;
+        // 获取 executor - 使用 IRuntimeLLM.type 而非 config.type
+        const modelType = model()?.type;
         const executorInfo = getExecutorForServiceType(modelType, userText);
         if (!executorInfo) return;
 

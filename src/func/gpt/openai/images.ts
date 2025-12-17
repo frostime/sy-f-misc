@@ -166,9 +166,9 @@ export const editImage = async (
         const formData = new FormData();
         formData.append('image', options.image);
         formData.append('prompt', options.prompt);
+        formData.append('model', runtimeModel.model);
 
         if (options.mask) formData.append('mask', options.mask);
-        if (options.model) formData.append('model', runtimeModel.model);
         if (options.size) formData.append('size', options.size);
         if (options.background) formData.append('background', options.background);
         if (options.response_format) formData.append('response_format', options.response_format);

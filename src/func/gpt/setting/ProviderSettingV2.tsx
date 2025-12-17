@@ -160,20 +160,66 @@ const ModelConfigPanel: Component<{
                     />
                 </Form.Wrap>
 
-                <Form.Wrap title="服务类型" description="决定使用哪个 endpoint">
-                    <Form.Input
-                        type="select"
-                        value={model().type}
-                        options={{
-                            'chat': '对话 (chat)',
-                            'image-gen': '图像生成 (image-gen)',
-                            'image-edit': '图像编辑 (image-edit)',
-                            'audio-stt': '语音转文本 (audio-stt)',
-                            'audio-tts': '文本转语音 (audio-tts)',
-                            // 'embeddings': '向量 (embeddings)',
-                        }}
-                        changed={(v) => updateModel(index(), 'type', v)}
-                    />
+                <Form.Wrap title="服务类型" description="决定使用哪个 endpoint；可选择多个（多用途模型）" direction="row">
+                    <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
+                        <For each={['chat', 'image-gen', 'image-edit', 'audio-stt', 'audio-tts'] as LLMServiceType[]}>
+                            {(serviceType) => {
+                                const isSelected = () => {
+                                    const types = Array.isArray(model().type) ? model().type : [model().type];
+                                    return types.includes(serviceType);
+                                };
+
+                                const typeLabels: Record<string, string> = {
+                                    'chat': '对话',
+                                    'image-gen': '图像生成',
+                                    'image-edit': '图像编辑',
+                                    'audio-stt': '语音转文本',
+                                    'audio-tts': '文本转语音',
+                                };
+
+                                return (
+                                    <label style={{
+                                        'display': 'flex',
+                                        'align-items': 'center',
+                                        'gap': '4px',
+                                        'padding': '4px 8px',
+                                        'border': '1px solid var(--b3-border-color)',
+                                        'border-radius': '4px',
+                                        'cursor': 'pointer',
+                                        'background': isSelected() ? 'var(--b3-theme-primary-lightest)' : 'transparent'
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected()}
+                                            onChange={(e) => {
+                                                const currentTypes = Array.isArray(model().type)
+                                                    ? [...model().type]
+                                                    : [model().type];
+
+                                                if (e.currentTarget.checked) {
+                                                    // 添加 type
+                                                    if (!currentTypes.includes(serviceType)) {
+                                                        const newTypes = [...currentTypes, serviceType];
+                                                        updateModel(index(), 'type', newTypes.length === 1 ? newTypes[0] : newTypes);
+                                                    }
+                                                } else {
+                                                    // 移除 type
+                                                    const newTypes = currentTypes.filter(t => t !== serviceType);
+                                                    if (newTypes.length > 0) {
+                                                        updateModel(index(), 'type', newTypes.length === 1 ? newTypes[0] : newTypes);
+                                                    } else {
+                                                        // 至少保留一个 type
+                                                        showMessage('至少需要保留一个服务类型');
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <span>{typeLabels[serviceType]}</span>
+                                    </label>
+                                );
+                            }}
+                        </For>
+                    </div>
                 </Form.Wrap>
 
                 <Form.Wrap title="禁用" description="如果禁用, 则在对话模型列表中不会看到这一项">
@@ -646,16 +692,28 @@ const ModelsListPanel: Component = () => {
                     }}
                     renderBadge={(item) => {
                         const model = item as any as ILLMConfigV2;
+                        const types = Array.isArray(model.type) ? model.type : [model.type];
+
                         return (
                             <>
                                 <Show when={item.disabled}>
                                     <SvgSymbol size="15px">iconEyeoff</SvgSymbol>
                                 </Show>
-                                <span style={{ 'background': 'var(--b3-theme-primary)', 'padding': '2px 6px', 'border-radius': '3px', 'color': 'var(--b3-theme-on-primary)' }}>
-                                    {model.type}
-                                </span>
+                                <For each={types}>
+                                    {(type) => (
+                                        <span style={{
+                                            'background': 'var(--b3-theme-primary)',
+                                            'padding': '2px 6px',
+                                            'border-radius': '3px',
+                                            'color': 'var(--b3-theme-on-primary)',
+                                            'margin-left': '4px',
+                                            'font-size': '11px'
+                                        }}>
+                                            {type}
+                                        </span>
+                                    )}
+                                </For>
                             </>
-
                         );
                     }}
                 />

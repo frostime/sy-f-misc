@@ -365,7 +365,7 @@ interface IGPTProvider {
 // LLM V2 版本类型替代
 // ========================================
 
-type ModelBareId = string | 'siyuan';  // <modelName>@<providerName>
+type ModelBareId = string | 'siyuan';  // <modelName>@<providerName> 或 <modelName>@<providerName>:<type>
 
 type LLMServiceType =
     | 'chat'          // 对应 /chat/completions
@@ -409,7 +409,7 @@ interface ILLMConfigV2 {
     model: string;  //模型名称
     displayName?: string; //显示名称; 在火山方舟这种场景下比较有用
 
-    type: LLMServiceType; // 决定使用 provider.endpoints 中的哪个路径
+    type: LLMServiceType | LLMServiceType[]; // 决定使用 provider.endpoints 中的哪个路径; 支持多个
 
     disabled?: boolean;
 
@@ -453,7 +453,8 @@ interface IRuntimeLLM {
     model: string;  //模型名称
     url: string;
     apiKey: string;
-    bareId: ModelBareId;  // model@Provider
+    bareId: ModelBareId;  // model@Provider 或 model@Provider:type
+    type: LLMServiceType;  // 运行时使用的具体服务类型
     config?: ILLMConfigV2;
     provider?: Omit<ILLMProviderV2, 'models'>;
 }

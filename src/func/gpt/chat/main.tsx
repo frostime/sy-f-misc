@@ -1175,7 +1175,7 @@ export const ChatSession: Component<{
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}System
                     </ToolbarLabel>
                     <ToolbarLabel
-                        label={`模型 ${model().model} | ${model().config?.type ?? 'chat'}`}
+                        label={`模型 ${model().model} | ${model().type ?? 'chat'}`}
                         role="model"
                         onclick={(e: MouseEvent) => {
                             e.stopImmediatePropagation();

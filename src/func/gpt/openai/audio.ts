@@ -1,4 +1,5 @@
 import { appendLog } from "../MessageLogger";
+import { FormatConverter, formatFileSize } from "../chat-utils/msg-modal";
 
 // ============================================================================
 // Audio Transcription Types (Speech-to-Text)
@@ -258,14 +259,15 @@ export const textToSpeech = async (
 
         // Get audio as Blob
         const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
+
+        const audioDataURL = await FormatConverter.blobToDataURL(audioBlob);
 
         appendLog({ type: 'response', data: { audioGenerated: true, size: audioBlob.size } });
 
         return {
             ok: true,
             audio: audioBlob,
-            audioUrl: audioUrl,
+            audioUrl: audioDataURL, // 使用 DataURL 代替 blob URL
             format: options.response_format || 'mp3'
         };
 
@@ -401,8 +403,7 @@ export const ttsResultToCompletion = (
     const metadata: string[] = [];
     if (ttsResult.format) metadata.push(`格式: ${ttsResult.format}`);
     if (ttsResult.audio) {
-        const sizeKB = (ttsResult.audio.size / 1024).toFixed(2);
-        metadata.push(`大小: ${sizeKB} KB`);
+        metadata.push(`大小: ${formatFileSize(ttsResult.audio.size)}`);
     }
 
     if (metadata.length > 0) {
