@@ -206,7 +206,7 @@ export const textToSpeech = async (
         // Build request payload
         const payload: any = {
             input: options.input,
-            model: options.model || config?.model || 'tts-1',
+            model: options.model || config?.model,
             voice: options.voice,
         };
 
@@ -357,7 +357,8 @@ export const ttsResultToCompletion = (
     // Show input text if requested
     if (options?.showInputText && options.inputText) {
         lines.push(`### 输入文本\n`);
-        lines.push(`> ${options.inputText}\n`);
+        // lines.push(`> ${options.inputText}\n`);
+        lines.push(`${options.inputText.split('\n').map(l => '> ' + l).join('\n')}\n`);
     }
 
     // Add audio player
@@ -365,9 +366,9 @@ export const ttsResultToCompletion = (
 
     // HTML5 audio player
     const format = ttsResult.format || 'mp3';
-    lines.push(`<audio controls src="${ttsResult.audioUrl}" type="audio/${format}">`);
-    lines.push(`您的浏览器不支持音频播放。`);
-    lines.push(`</audio>\n`);
+    lines.push(`<audio controls src="${ttsResult.audioUrl}" type="audio/${format}" />`);
+    // lines.push(`您的浏览器不支持音频播放。`);
+    // lines.push(`</audio>\n`);
 
     // Download link
     lines.push(`[🔗 下载音频文件](${ttsResult.audioUrl})\n`);

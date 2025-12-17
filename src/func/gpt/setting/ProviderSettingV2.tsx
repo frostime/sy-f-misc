@@ -482,7 +482,8 @@ const ProviderBasicConfig: Component = () => {
             <For each={[
                 { key: 'chat', label: 'Chat', default: OPENAI_ENDPONITS['chat'] },
                 // { key: 'embeddings', label: 'Embeddings', default: '/embeddings' },
-                { key: 'image-gen', label: 'Image', default: OPENAI_ENDPONITS['image-gen'] }
+                { key: 'image-gen', label: 'Image', default: OPENAI_ENDPONITS['image-gen'] },
+                { key: 'audio-tts', label: 'Text-to-Speech', default: OPENAI_ENDPONITS['audio-tts']}
             ]}>
                 {(item) => (
                     <Form.Wrap

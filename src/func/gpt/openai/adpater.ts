@@ -52,6 +52,7 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
     if (options) {
         // const modelId = options?.modelId ?? options?.model;
         // 非视觉模型去掉图片消息字段
+        // #TODO 兼容后面各种输入类型
         if (!checkSupportsModality(options.model.config, 'image')) {
             let hasImage = false;
             messages.forEach(item => {

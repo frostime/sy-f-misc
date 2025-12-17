@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-12-12 18:26:10
+ * @LastEditTime : 2025-12-12 22:54:58
  * @Description  :
  */
 // ============================================================================
