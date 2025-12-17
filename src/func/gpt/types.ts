@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-12-12 16:21:13
+ * @LastEditTime : 2025-12-17 18:39:40
  * @Description  :
  */
 // ============================================================================
@@ -365,16 +365,17 @@ interface IGPTProvider {
 // LLM V2 版本类型替代
 // ========================================
 
-type ModelBareId = string | 'siyuan';  // <modelName>@<providerName>
+type ModelBareId = string | 'siyuan';  // <modelName>@<providerName> 或 <modelName>@<providerName>:<type>
 
 type LLMServiceType =
     | 'chat'          // 对应 /chat/completions
     | 'embeddings'    // 对应 /embeddings
-    | 'image'         // 对应 /images/generations
-    | 'audio_stt'     // 对应 /audio/transcriptions
-    | 'audio_tts'     // 对应 /audio/speech
+    | 'image-gen'         // 对应 /images/generations
+    | 'image-edit'         // 对应 /images/edits
+    | 'audio-stt'     // 对应 /audio/transcriptions
+    | 'audio-tts'     // 对应 /audio/speech
     | 'moderation'    // 对应 /moderations
-    | string;         // 扩展
+    // | string;         // 扩展
 
 type LLMModality = 'text' | 'image' | 'file' | 'audio' | 'video';
 
@@ -408,7 +409,7 @@ interface ILLMConfigV2 {
     model: string;  //模型名称
     displayName?: string; //显示名称; 在火山方舟这种场景下比较有用
 
-    type: LLMServiceType; // 决定使用 provider.endpoints 中的哪个路径
+    type: LLMServiceType | LLMServiceType[]; // 决定使用 provider.endpoints 中的哪个路径; 支持多个
 
     disabled?: boolean;
 
@@ -452,7 +453,8 @@ interface IRuntimeLLM {
     model: string;  //模型名称
     url: string;
     apiKey: string;
-    bareId: ModelBareId;  // model@Provider
+    bareId: ModelBareId;  // model@Provider 或 model@Provider:type
+    type: LLMServiceType;  // 运行时使用的具体服务类型
     config?: ILLMConfigV2;
     provider?: Omit<ILLMProviderV2, 'models'>;
 }
@@ -478,7 +480,20 @@ interface IChatSessionMsgItem {
         token?: IChatSessionMsgItem['token'];
         time?: ICompletionResult['time'];
     }>; //多版本 message 情况下有用
+
+    /**
+     * 文本上下文（保留用于 UI 显示）
+     * 实际发送时会转换为 message.content 的一部分
+     */
     context?: IProvidedContext[];
+
+    /**
+     * 多模态附件（图片、音频、文件等）
+     * 存储为 OpenAI 标准的 TMessageContentPart 格式
+     * 注意：持久化时需要将 Blob URL 转换为 DataURL
+     */
+    multiModalAttachments?: TMessageContentPart[];
+
     // 为了在 MessageItem 当中隐藏 context prompt，在这里记录 prompt 字符串的起止位置
     // 通过 slice 可以 获取 user prompt, 而去掉 context prompt 部分
     userPromptSlice?: [number, number];

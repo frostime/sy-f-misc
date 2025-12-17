@@ -2,14 +2,12 @@ import { Component, For, createMemo, onCleanup } from 'solid-js';
 import { simpleDialog } from '@frostime/siyuan-plugin-kits';
 import { solidDialog } from '@/libs/dialog';
 import styles from './AttachmentList.module.scss';
-import { createObjectURLManager } from '../chat-utils';
-
-type ImageSource = Blob | string;
+import { createObjectURLManager, isImageContent, isAudioContent, isFileContent } from '../../chat-utils';
 
 interface Props {
-    images?: ImageSource[];
+    multiModalAttachments?: TMessageContentPart[];
     contexts?: IProvidedContext[];
-    onDelete?: (key: number | string, type: 'image' | 'context') => void;
+    onDelete?: (key: number | string, type: 'attachment' | 'context') => void;
     showDelete?: boolean;
     size?: 'small' | 'medium' | 'large';
 }
@@ -18,16 +16,39 @@ const AttachmentList: Component<Props> = (props) => {
 
     const urlManager = createObjectURLManager()
 
-    const processedImages = createMemo(() => {
-        // urlManager.revokeAll();
-        if (!props.images) return [];
-        return props.images.map(img => {
-            if (img instanceof Blob) {
-                return urlManager.create(img);
-            } else {
-                return img;
+    /**
+     * 处理多模态附件，提取显示信息
+     */
+    const processedAttachments = createMemo(() => {
+        if (!props.multiModalAttachments) return [];
+
+        return props.multiModalAttachments.map(part => {
+            if (isImageContent(part)) {
+                return {
+                    type: 'image' as const,
+                    url: part.image_url.url,
+                    name: 'Image',
+                    mimeType: 'image'
+                };
+            } else if (isAudioContent(part)) {
+                return {
+                    type: 'audio' as const,
+                    data: part.input_audio.data,
+                    format: part.input_audio.format,
+                    name: `Audio (${part.input_audio.format})`,
+                    mimeType: `audio/${part.input_audio.format}`
+                };
+            } else if (isFileContent(part)) {
+                return {
+                    type: 'file' as const,
+                    filename: part.file.filename || 'Unknown File',
+                    data: part.file.file_data,
+                    name: part.file.filename || 'File',
+                    mimeType: 'application/octet-stream'
+                };
             }
-        });
+            return null;
+        }).filter(Boolean);
     });
 
     onCleanup(() => {
@@ -45,6 +66,12 @@ const AttachmentList: Component<Props> = (props) => {
             width: '800px',
             maxHeight: '80%',
         });
+    };
+
+    const getFileIcon = (mimeType: string) => {
+        if (mimeType.startsWith('audio/')) return 'iconRecord';
+        if (mimeType.startsWith('video/')) return 'iconVideo';
+        return 'iconFile';
     };
 
     const showContextContent = (context: IProvidedContext) => {
@@ -110,18 +137,30 @@ const AttachmentList: Component<Props> = (props) => {
 
     return (
         <div class={styles.attachmentList}>
-            <For each={processedImages()}>
-                {(url, index) => (
+            <For each={processedAttachments()}>
+                {(item, index) => (
                     <div class={`${styles.attachmentItem} ${sizeClass()}`}>
-                        <img
-                            src={url}
-                            alt="Attachment"
-                            onclick={() => showFullImage(url)}
-                        />
+                        {item.type === 'image' ? (
+                            <img
+                                src={item.url}
+                                alt={item.name}
+                                onclick={() => showFullImage(item.url)}
+                            />
+                        ) : item.type === 'audio' ? (
+                            <div class={styles.fileAttachment}>
+                                <svg class="b3-list-item__graphic"><use href="#iconRecord" /></svg>
+                                <span>{item.name}</span>
+                            </div>
+                        ) : item.type === 'file' ? (
+                            <div class={styles.fileAttachment}>
+                                <svg class="b3-list-item__graphic"><use href="#iconFile" /></svg>
+                                <span>{item.filename}</span>
+                            </div>
+                        ) : null}
                         {props.showDelete && (
                             <button
                                 class="b3-button b3-button--text"
-                                onclick={() => props.onDelete?.(index(), 'image')}
+                                onclick={() => props.onDelete?.(index(), 'attachment')}
                             >
                                 <svg><use href="#iconTrashcan" /></svg>
                             </button>

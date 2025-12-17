@@ -9,7 +9,7 @@
 
 import { getLute } from "@frostime/siyuan-plugin-kits";
 import { createEffect, createMemo } from "solid-js";
-import { runMarkdownPostRender } from "@/func/gpt/chat/MessageItem.helper";
+import { runMarkdownPostRender } from "@/func/gpt/chat/components/MessageItem.helper";
 
 
 const Markdown = (props: {

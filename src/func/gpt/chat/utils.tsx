@@ -5,7 +5,7 @@ import {
 import { Protyle } from 'siyuan';
 import { getMarkdown, thisPlugin, useDocumentWithAttr } from '@frostime/siyuan-plugin-kits';
 import * as syDoc from '@gpt/persistence/sy-doc';
-import styles from './ChatSession.module.scss';
+import styles from './main.module.scss';
 // import { solidDialog } from '@/libs/dialog';
 import { floatingContainer } from '@/libs/components/floating-container';
 

@@ -75,6 +75,7 @@ const MessageLog: Component = () => {
         a.href = url;
         a.download = 'chat-message-log.json';
         a.click();
+        URL.revokeObjectURL(url);
     }
 
     let typoRef: HTMLDivElement | null;

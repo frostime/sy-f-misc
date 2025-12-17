@@ -3,11 +3,23 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/model/url_utils.ts
- * @LastEditTime : 2025-12-10
+ * @LastEditTime : 2025-12-12 18:31:45
  * @Description  : URL/path normalization utilities (internal)
  */
 
 export const DEFAULT_CHAT_ENDPOINT = '/chat/completions';
+
+export const OPENAI_ENDPONITS: Record<LLMServiceType, string> = {
+    chat: '/chat/completions',
+    embeddings: '/embeddings',
+    'image-gen': '/images/generations',
+    'image-edit': '/images/edits',
+    'audio-stt': '/audio/transcriptions',
+    'audio-tts': '/audio/speech',
+    // 'image-variation': '/images/variations',
+    'moderation': '/moderations',
+
+}
 
 
 /**

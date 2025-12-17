@@ -3,7 +3,7 @@ import { Constants } from 'siyuan';
 import { debounce, getLute, html2ele, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { addScript, addStyle } from '@gpt/utils';
 
-import { useSimpleContext } from './ChatSession/ChatSession.helper';
+import { useSimpleContext } from '../ChatSession/use-chat-session';
 import styles from './MessageItem.module.scss';
 
 

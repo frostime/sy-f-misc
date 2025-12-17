@@ -1,4 +1,5 @@
 import { appendLog } from "../MessageLogger";
+import { FormatConverter, formatFileSize } from "../chat-utils/msg-modal";
 
 // ============================================================================
 // Audio Transcription Types (Speech-to-Text)
@@ -6,12 +7,13 @@ import { appendLog } from "../MessageLogger";
 
 export interface IAudioTranscriptionOptions {
     file: File | Blob;
-    model?: string;
+    model: string;
     language?: string;
     prompt?: string;
     response_format?: "json" | "text" | "srt" | "verbose_json" | "vtt";
     temperature?: number;
     timestamp_granularities?: ("word" | "segment")[];
+    [key: string]: any;
 }
 
 export interface IAudioTranscriptionResult {
@@ -43,6 +45,7 @@ export interface ITextToSpeechOptions {
     voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
     response_format?: "mp3" | "opus" | "aac" | "flac" | "wav" | "pcm";
     speed?: number;
+    [key: string]: any;
 }
 
 export interface ITextToSpeechResult {
@@ -60,13 +63,13 @@ export interface ITextToSpeechResult {
 
 /**
  * Transcribe audio to text using Whisper
- * @param options - Audio transcription options
  * @param runtimeModel - Runtime LLM configuration
+ * @param options - Audio transcription options
  * @returns Promise with transcription result
  */
 export const transcribeAudio = async (
-    options: IAudioTranscriptionOptions,
-    runtimeModel?: IRuntimeLLM
+    runtimeModel: IRuntimeLLM,
+    options: IAudioTranscriptionOptions
 ): Promise<IAudioTranscriptionResult> => {
     if (!runtimeModel) {
         return {
@@ -76,16 +79,19 @@ export const transcribeAudio = async (
     }
 
     try {
-        const { url, apiKey, provider, config } = runtimeModel;
+        const { url, apiKey, provider } = runtimeModel;
+
+        const knownParams = ['file', 'model', 'language', 'prompt', 'response_format', 'temperature', 'timestamp_granularities'];
 
         // Get the endpoint for audio transcriptions
-        const endpoint = provider?.endpoints?.audio_transcriptions || '/audio/transcriptions';
-        const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+        // const endpoint = provider?.endpoints?.audio_transcriptions || '/audio/transcriptions';
+        // const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+        const fullUrl = url;
 
         // Build FormData for multipart/form-data request
         const formData = new FormData();
         formData.append('file', options.file);
-        formData.append('model', options.model || config?.model || 'whisper-1');
+        formData.append('model', runtimeModel.model);
 
         if (options.language) formData.append('language', options.language);
         if (options.prompt) formData.append('prompt', options.prompt);
@@ -96,6 +102,14 @@ export const transcribeAudio = async (
                 formData.append('timestamp_granularities[]', granularity);
             });
         }
+
+        // Add custom parameters
+        Object.keys(options).forEach(key => {
+            if (!knownParams.includes(key)) {
+                console.log(`[Audio Transcription] Custom parameter passed: ${key}`, options[key]);
+                formData.append(key, options[key]);
+            }
+        });
 
         appendLog({
             type: 'request', data: {
@@ -180,13 +194,13 @@ export const transcribeAudio = async (
 
 /**
  * Generate speech from text using TTS
- * @param options - Text-to-speech options
  * @param runtimeModel - Runtime LLM configuration
+ * @param options - Text-to-speech options
  * @returns Promise with audio result
  */
 export const textToSpeech = async (
-    options: ITextToSpeechOptions,
-    runtimeModel?: IRuntimeLLM
+    runtimeModel: IRuntimeLLM,
+    options: ITextToSpeechOptions
 ): Promise<ITextToSpeechResult> => {
     if (!runtimeModel) {
         return {
@@ -196,21 +210,31 @@ export const textToSpeech = async (
     }
 
     try {
-        const { url, apiKey, provider, config } = runtimeModel;
+        const { url: fullUrl, apiKey, provider } = runtimeModel;
+
+        const knownParams = ['input', 'model', 'voice', 'response_format', 'speed'];
 
         // Get the endpoint for audio speech
-        const endpoint = provider?.endpoints?.audio_speech || '/audio/speech';
-        const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
+        // const endpoint = provider?.endpoints?.audio_speech || '/audio/speech';
+        // const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
 
         // Build request payload
         const payload: any = {
             input: options.input,
-            model: options.model || config?.model || 'tts-1',
+            model: runtimeModel.model,
             voice: options.voice,
         };
 
         if (options.response_format) payload.response_format = options.response_format;
         if (options.speed !== undefined) payload.speed = options.speed;
+
+        // Add custom parameters
+        Object.keys(options).forEach(key => {
+            if (!knownParams.includes(key)) {
+                console.log(`[Text To Speech] Custom parameter passed: ${key}`, options[key]);
+                payload[key] = options[key];
+            }
+        });
 
         appendLog({ type: 'request', data: payload });
 
@@ -235,14 +259,19 @@ export const textToSpeech = async (
 
         // Get audio as Blob
         const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
+
+        // 使用 Blob URL 而不是 DataURL，避免占用大量文本空间
+        // 设置 10 分钟后自动回收，给用户足够时间播放和下载，避免长期占用内存
+        const audioBlobURL = FormatConverter.blobToObjectURL(audioBlob, {
+            seconds: 6000
+        });
 
         appendLog({ type: 'response', data: { audioGenerated: true, size: audioBlob.size } });
 
         return {
             ok: true,
             audio: audioBlob,
-            audioUrl: audioUrl,
+            audioUrl: audioBlobURL, // 使用 Blob URL（轻量级）
             format: options.response_format || 'mp3'
         };
 
@@ -294,14 +323,30 @@ export const transcriptionResultToCompletion = (
         lines.push(`*${metadata.join(' | ')}*\n`);
     }
 
-    // Add transcribed text
+    // Add transcribed text - 使用折叠处理长文本
+    const text = transcriptionResult.text || '';
+    const MAX_PREVIEW_LENGTH = 200;
+
     lines.push(`### 转录文本\n`);
-    lines.push(transcriptionResult.text || '');
+
+    if (text.length <= MAX_PREVIEW_LENGTH) {
+        // 短文本直接显示
+        lines.push(text);
+    } else {
+        // 长文本使用 details 折叠
+        const preview = text.substring(0, MAX_PREVIEW_LENGTH);
+        lines.push(`${preview}...`);
+        lines.push(`\n<details><summary>📄 展开完整文本 (${text.length} 字符)</summary>\n`);
+        lines.push('```txt');
+        lines.push(text);
+        lines.push('```');
+        lines.push('</details>');
+    }
 
     // Add timestamps if requested and available
     if (options?.showTimestamps && transcriptionResult.words && transcriptionResult.words.length > 0) {
         lines.push(`\n### 词级时间戳\n`);
-        lines.push('<details><summary>展开查看</summary>\n');
+        lines.push('<details><summary>📊 展开查看时间戳</summary>\n');
         transcriptionResult.words.forEach(word => {
             const start = word.start.toFixed(2);
             const end = word.end.toFixed(2);
@@ -313,7 +358,7 @@ export const transcriptionResultToCompletion = (
     // Add segments if requested and available
     if (options?.showSegments && transcriptionResult.segments && transcriptionResult.segments.length > 0) {
         lines.push(`\n### 段落分段\n`);
-        lines.push('<details><summary>展开查看</summary>\n');
+        lines.push('<details><summary>📑 展开查看分段</summary>\n');
         transcriptionResult.segments.forEach(segment => {
             const start = segment.start.toFixed(2);
             const end = segment.end.toFixed(2);
@@ -353,10 +398,26 @@ export const ttsResultToCompletion = (
 
     const lines: string[] = [];
 
-    // Show input text if requested
+    // Show input text if requested - 使用折叠处理长文本
     if (options?.showInputText && options.inputText) {
+        const inputText = options.inputText;
+        const MAX_PREVIEW_LENGTH = 100;
+
         lines.push(`### 输入文本\n`);
-        lines.push(`> ${options.inputText}\n`);
+
+        if (inputText.length <= MAX_PREVIEW_LENGTH) {
+            // 短文本直接显示引用格式
+            lines.push(`${inputText.split('\n').map(l => '> ' + l).join('\n')}\n`);
+        } else {
+            // 长文本使用 details 折叠
+            const preview = inputText.substring(0, MAX_PREVIEW_LENGTH).trim();
+            lines.push(`> ${preview}...`);
+            lines.push(`\n<details><summary>📄 展开完整输入 (${inputText.length} 字符)</summary>\n`);
+            lines.push('```txt');
+            lines.push(inputText);
+            lines.push('```');
+            lines.push('</details>\n');
+        }
     }
 
     // Add audio player
@@ -364,24 +425,21 @@ export const ttsResultToCompletion = (
 
     // HTML5 audio player
     const format = ttsResult.format || 'mp3';
-    lines.push(`<audio controls src="${ttsResult.audioUrl}" type="audio/${format}">`);
-    lines.push(`您的浏览器不支持音频播放。`);
-    lines.push(`</audio>\n`);
+    lines.push(`<audio controls src="${ttsResult.audioUrl}" type="audio/${format}" />`);
 
-    // Download link
-    lines.push(`[🔗 下载音频文件](${ttsResult.audioUrl})\n`);
+    lines.push('\n请尽快下载保存, 资源在页面关闭后可能无法访问。');
 
     // Add metadata
     const metadata: string[] = [];
     if (ttsResult.format) metadata.push(`格式: ${ttsResult.format}`);
     if (ttsResult.audio) {
-        const sizeKB = (ttsResult.audio.size / 1024).toFixed(2);
-        metadata.push(`大小: ${sizeKB} KB`);
+        metadata.push(`大小: ${formatFileSize(ttsResult.audio.size)}`);
     }
 
     if (metadata.length > 0) {
         lines.push(`\n*${metadata.join(' | ')}*`);
     }
+
 
     return {
         ok: true,

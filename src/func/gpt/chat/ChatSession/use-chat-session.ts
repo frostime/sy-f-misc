@@ -1,21 +1,14 @@
 // External libraries
 import { showMessage } from 'siyuan';
 import { Accessor, batch, createMemo } from 'solid-js';
-import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { ToolChainResult } from '@gpt/tools/toolchain';
+import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 // Local components and utilities
 import { createSimpleContext } from '@/libs/simple-context';
 
 // GPT-related imports
-import * as gpt from '@gpt/openai';
-import { globalMiscConfigs, useModel } from '@/func/gpt/model/store';
-// import {
-//     mergeInputWithContext,
-//     applyMsgItemVersion,
-//     stageMsgItemVersion,
-//     isMsgItemWithMultiVersion
-// } from '@gpt/data-utils';
+import { globalMiscConfigs } from '@/func/gpt/model/store';
+
 import {
     mergeInputWithContext,
     applyMsgItemVersion,
@@ -23,13 +16,14 @@ import {
     isMsgItemWithMultiVersion
 } from '@gpt/chat-utils/msg-item';
 
-import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
-import { executeToolChain } from '@gpt/tools/toolchain';
+import { toolExecutorFactory } from '@gpt/tools';
 import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
 
-import { extractContentText, extractMessageContent, MessageBuilder, splitPromptFromContext, updateContentText } from '../../chat-utils';
-import { deepMerge } from '@frostime/siyuan-plugin-kits';
+import { extractContentText, MessageBuilder, splitPromptFromContext, updateContentText } from '../../chat-utils';
+
+import { useGptCommunication as useGptCommunicationNew } from './use-openai-communication';
+import { useContextAndAttachments } from './use-attachment-input';
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;
@@ -58,9 +52,7 @@ const useMessageManagement = (params: {
         return window.Lute.NewNodeID();
     }
 
-    const appendUserMsg = async (msg: string, images?: Blob[], contexts?: IProvidedContext[]) => {
-        // let content: TMessageContentPart[];
-
+    const appendUserMsg = async (msg: string, multiModalAttachments?: TMessageContentPart[], contexts?: IProvidedContext[]) => {
         const builder = new MessageBuilder();
 
         // 附加 context
@@ -72,21 +64,14 @@ const useMessageManagement = (params: {
             optionalFields['userPromptSlice'] = result.userPromptSlice;
         }
 
-        // if (images && images?.length > 0) {
-
-        //     content = [{
-        //         type: "text",
-        //         text: msg
-        //     }];
-
-        //     // 添加所有图片
-        //     const img_urls = await convertImgsToBase64Url(images);
-        //     content.push(...img_urls);
-        // }
-        builder.addText(msg);
-        if (images && images?.length > 0) {
-            await builder.addImages(images);
+        // 添加多模态附件（已经是 TMessageContentPart 格式）
+        if (multiModalAttachments && multiModalAttachments.length > 0) {
+            builder.addParts(multiModalAttachments);
+            optionalFields['multiModalAttachments'] = multiModalAttachments;
         }
+
+        // 添加文本内容（用户输入）
+        builder.addText(msg);
 
         const userMessage: IUserMessage = builder.buildUser();
 
@@ -276,545 +261,508 @@ const useMessageManagement = (params: {
 };
 
 /**
- * 上下文和附件管理相关的 hook
- */
-const useContextAndAttachments = (params: {
-    contexts: IStoreRef<IProvidedContext[]>;
-    attachments: ReturnType<typeof useSignalRef<Blob[]>>;
-}) => {
-    const { contexts, attachments } = params;
-
-    const setContext = (context: IProvidedContext) => {
-        const currentIds = contexts().map(c => c.id);
-        if (currentIds.includes(context.id)) {
-            const index = currentIds.indexOf(context.id);
-            contexts.update(index, context);
-        } else {
-            contexts.update(prev => [...prev, context]);
-        }
-    }
-
-    const delContext = (id: IProvidedContext['id']) => {
-        contexts.update(prev => prev.filter(c => c.id !== id));
-    }
-
-    const removeAttachment = (attachment: Blob) => {
-        attachments.update((prev: Blob[]) => prev.filter((a: Blob) => a !== attachment));
-    }
-
-    const addAttachment = (blob: Blob) => {
-        attachments.update((prev: Blob[]) => [...prev, blob]);
-    }
-
-    return {
-        setContext,
-        delContext,
-        removeAttachment,
-        addAttachment
-    };
-};
-
-/**
  * GPT 通信相关的 hook - 支持工具调用
  */
-const useGptCommunication = (params: {
-    model: Accessor<IRuntimeLLM>;
-    config: IStoreRef<IChatSessionConfig>;
-    messages: IStoreRef<IChatSessionMsgItem[]>;
-    systemPrompt: ReturnType<typeof useSignalRef<string>>;
-    customOptions: ISignalRef<IChatCompleteOption>;
-    loading: ReturnType<typeof useSignalRef<boolean>>;
-    attachments: ReturnType<typeof useSignalRef<Blob[]>>;
-    contexts: IStoreRef<IProvidedContext[]>;
-    toolExecutor?: ToolExecutor;
-    newID: () => string;
-    getAttachedHistory: (itemNum?: number, fromIndex?: number) => IMessage[];
-}) => {
-    const { model, config, messages, systemPrompt, loading, newID, getAttachedHistory, customOptions } = params;
 
-    let controller: AbortController;
+// const useGptCommunication = (params: {
+//     model: Accessor<IRuntimeLLM>;
+//     config: IStoreRef<IChatSessionConfig>;
+//     messages: IStoreRef<IChatSessionMsgItem[]>;
+//     systemPrompt: ReturnType<typeof useSignalRef<string>>;
+//     customOptions: ISignalRef<IChatCompleteOption>;
+//     loading: ReturnType<typeof useSignalRef<boolean>>;
+//     attachments: ReturnType<typeof useSignalRef<Blob[]>>;
+//     contexts: IStoreRef<IProvidedContext[]>;
+//     toolExecutor?: ToolExecutor;
+//     newID: () => string;
+//     getAttachedHistory: (itemNum?: number, fromIndex?: number) => IMessage[];
+// }) => {
+//     const { model, config, messages, systemPrompt, loading, newID, getAttachedHistory, customOptions } = params;
 
-    const chatCompletionOption = () => {
-        let option = { ...config().chatOption };
+//     let controller: AbortController;
 
-        // 添加自定义选项，作为最高优先级覆盖所有默认设置
-        if (customOptions()) {
-            try {
-                const optVal = customOptions() || {};
-                // option = { ...option, ...customOptions };
-                option = deepMerge(option, optVal);
-            } catch (error) {
-                console.error('Failed to parse customOptions:', error);
-                // 如果解析失败，继续使用默认选项
-            }
-        }
+//     const chatCompletionOption = () => {
+//         let option = { ...config().chatOption };
 
-        if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
-            let tools = params.toolExecutor.getEnabledToolDefinitions();
-            if (tools && tools.length > 0) {
-                option['tools'] = tools;
-                option['tool_choice'] = 'auto';
-            }
-        }
-        return option;
-    }
+//         // 添加自定义选项，作为最高优先级覆盖所有默认设置
+//         if (customOptions()) {
+//             try {
+//                 const optVal = customOptions() || {};
+//                 // option = { ...option, ...customOptions };
+//                 option = deepMerge(option, optVal);
+//             } catch (error) {
+//                 console.error('Failed to parse customOptions:', error);
+//                 // 如果解析失败，继续使用默认选项
+//             }
+//         }
 
-    const currentSystemPrompt = () => {
-        let ptime = `It's: ${new Date().toString()}`;
-        let prompt = systemPrompt().trim() || '';
-        if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
-            prompt += params.toolExecutor.toolRules();
-        }
-        return `${ptime}\n\n${prompt}`;
-    }
+//         if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
+//             let tools = params.toolExecutor.getEnabledToolDefinitions();
+//             if (tools && tools.length > 0) {
+//                 option['tools'] = tools;
+//                 option['tool_choice'] = 'auto';
+//             }
+//         }
+//         return option;
+//     }
 
-    const customComplete = async (messageToSend: IMessage[] | string, options?: {
-        stream?: boolean;
-        model?: IRuntimeLLM;
-        chatOption?: Partial<IChatCompleteOption>;
-    }) => {
-        try {
-            const modelToUse = options?.model ?? model();
-            const baseOption = chatCompletionOption();
-            let opt = options?.chatOption ? { ...baseOption, ...options.chatOption } : baseOption;
-            opt['tool_choice'] = 'none'; // 自定义完成不使用工具
-            const { content } = await gpt.complete(messageToSend, {
-                model: modelToUse,
-                option: opt,
-                stream: options?.stream ?? false,
-            });
-            return content;
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    }
+//     const currentSystemPrompt = () => {
+//         let ptime = `It's: ${new Date().toString()}`;
+//         let prompt = systemPrompt().trim() || '';
+//         if (params.toolExecutor && params.toolExecutor.hasEnabledTools()) {
+//             prompt += params.toolExecutor.toolRules();
+//         }
+//         return `${ptime}\n\n${prompt}`;
+//     }
 
-    const autoGenerateTitle = async () => {
-        let attachedHistory = config().attachedHistory;
-        attachedHistory = Math.max(attachedHistory, 0);
-        attachedHistory = Math.min(attachedHistory, 6);
-        const histories = getAttachedHistory(attachedHistory);
-        if (histories.length == 0) return;
-        let sizeLimit = config().maxInputLenForAutoTitle;
-        let averageLimit = Math.floor(sizeLimit / histories.length);
+//     const customComplete = async (messageToSend: IMessage[] | string, options?: {
+//         stream?: boolean;
+//         model?: IRuntimeLLM;
+//         chatOption?: Partial<IChatCompleteOption>;
+//     }) => {
+//         try {
+//             const modelToUse = options?.model ?? model();
+//             const baseOption = chatCompletionOption();
+//             let opt = options?.chatOption ? { ...baseOption, ...options.chatOption } : baseOption;
+//             opt['tool_choice'] = 'none'; // 自定义完成不使用工具
+//             const { content } = await gpt.complete(messageToSend, {
+//                 model: modelToUse,
+//                 option: opt,
+//                 stream: options?.stream ?? false,
+//             });
+//             return content;
+//         } catch (error) {
+//             console.error('Error:', error);
+//         }
+//     }
 
-        let inputContent = histories.map(item => {
-            const { text } = extractMessageContent(item.content);
-            let clippedContent = text.substring(0, averageLimit);
-            if (clippedContent.length < text.length) {
-                clippedContent += '...(clipped as too long)'
-            }
-            return `<${item.role}>:\n${clippedContent}`;
-        }).join('\n\n');
-        const messageToSend = `
-请根据以下对话生成唯一一个最合适的对话主题标题，字数控制在 15 字之内; 除了标题之外不要回复任何别的信息
----
-${inputContent}
-`.trim();
-        let autoTitleModel = config().utilityModelId;
-        let modelToUse = null;
-        if (autoTitleModel) {
-            modelToUse = useModel(autoTitleModel);
-        }
-        const newTitle = await customComplete(messageToSend, {
-            model: modelToUse,
-            stream: false,
-            chatOption: {
-                'max_tokens': 128,
-                'temperature': 0.7,
-                'frequency_penalty': null,
-                'presence_penalty': null,
-                'top_p': null
-            }
-        });
-        return newTitle?.trim();
-    }
+//     const autoGenerateTitle = async () => {
+//         let attachedHistory = config().attachedHistory;
+//         attachedHistory = Math.max(attachedHistory, 0);
+//         attachedHistory = Math.min(attachedHistory, 6);
+//         const histories = getAttachedHistory(attachedHistory);
+//         if (histories.length == 0) return;
+//         let sizeLimit = config().maxInputLenForAutoTitle;
+//         let averageLimit = Math.floor(sizeLimit / histories.length);
 
-    /**
-     * 处理工具调用链
-     * @param initialResponse 初始GPT响应（可能包含工具调用）
-     * @param contextMessages 上下文消息
-     * @param targetIndex 目标消息索引
-     * @param scrollToBottom 滚动函数
-     */
-    const handleToolChain = async (
-        initialResponse: ICompletionResult,
-        contextMessages: IMessage[],
-        targetIndex: number,
-        scrollToBottom?: (force?: boolean) => void
-    ): Promise<ICompletionResult & { hintSize?: number; toolChainData?: IChatSessionMsgItem['toolChainResult'] }> => {
-        if (!params.toolExecutor || !initialResponse.tool_calls?.length) {
-            return initialResponse;
-        }
+//         let inputContent = histories.map(item => {
+//             const { text } = extractMessageContent(item.content);
+//             let clippedContent = text.substring(0, averageLimit);
+//             if (clippedContent.length < text.length) {
+//                 clippedContent += '...(clipped as too long)'
+//             }
+//             return `<${item.role}>:\n${clippedContent}`;
+//         }).join('\n\n');
+//         const messageToSend = `
+// 请根据以下对话生成唯一一个最合适的对话主题标题，字数控制在 15 字之内; 除了标题之外不要回复任何别的信息
+// ---
+// ${inputContent}
+// `.trim();
+//         let autoTitleModel = config().utilityModelId;
+//         let modelToUse = null;
+//         if (autoTitleModel) {
+//             modelToUse = useModel(autoTitleModel);
+//         }
+//         const newTitle = await customComplete(messageToSend, {
+//             model: modelToUse,
+//             stream: false,
+//             chatOption: {
+//                 'max_tokens': 128,
+//                 'temperature': 0.7,
+//                 'frequency_penalty': null,
+//                 'presence_penalty': null,
+//                 'top_p': null
+//             }
+//         });
+//         return newTitle?.trim();
+//     }
 
-        try {
-            // 执行工具调用链
-            const toolChainResult = await executeToolChain(params.toolExecutor, initialResponse, {
-                contextMessages,
-                maxRounds: config().toolCallMaxRounds,
-                abortController: controller,
-                model: model(),
-                systemPrompt: currentSystemPrompt(),
-                chatOption: chatCompletionOption(),
-                checkToolResults: true,
-                callbacks: {
-                    onToolCallStart: (toolName, args, callId) => {
-                        console.log(`Tool call started: ${toolName}`, { args, callId });
-                    },
+//     /**
+//      * 处理工具调用链
+//      * @param initialResponse 初始GPT响应（可能包含工具调用）
+//      * @param contextMessages 上下文消息
+//      * @param targetIndex 目标消息索引
+//      * @param scrollToBottom 滚动函数
+//      */
+//     const handleToolChain = async (
+//         initialResponse: ICompletionResult,
+//         contextMessages: IMessage[],
+//         targetIndex: number,
+//         scrollToBottom?: (force?: boolean) => void
+//     ): Promise<ICompletionResult & { hintSize?: number; toolChainData?: IChatSessionMsgItem['toolChainResult'] }> => {
+//         if (!params.toolExecutor || !initialResponse.tool_calls?.length) {
+//             return initialResponse;
+//         }
 
-                    onToolCallComplete: (result, callId) => {
-                        console.log(`Tool call completed:`, { result, callId });
-                    },
+//         try {
+//             // 执行工具调用链
+//             const toolChainResult = await executeToolChain(params.toolExecutor, initialResponse, {
+//                 contextMessages,
+//                 maxRounds: config().toolCallMaxRounds,
+//                 abortController: controller,
+//                 model: model(),
+//                 systemPrompt: currentSystemPrompt(),
+//                 chatOption: chatCompletionOption(),
+//                 checkToolResults: true,
+//                 callbacks: {
+//                     onToolCallStart: (toolName, args, callId) => {
+//                         console.log(`Tool call started: ${toolName}`, { args, callId });
+//                     },
 
-                    onLLMResponseUpdate: (content, toolCalls) => {
-                        // 更新目标消息内容（流式）
-                        messages.update(targetIndex, 'message', 'content', content);
-                        scrollToBottom && scrollToBottom(false);
-                    },
+//                     onToolCallComplete: (result, callId) => {
+//                         console.log(`Tool call completed:`, { result, callId });
+//                     },
 
-                    onLLMResponseComplete: (response) => {
-                        console.log('LLM response completed:', response);
-                    },
+//                     onLLMResponseUpdate: (content, toolCalls) => {
+//                         // 更新目标消息内容（流式）
+//                         messages.update(targetIndex, 'message', 'content', content);
+//                         scrollToBottom && scrollToBottom(false);
+//                     },
 
-                    onError: (error, phase) => {
-                        console.error(`Tool chain error in ${phase}:`, error);
-                        showMessage(`工具调用出错 (${phase}): ${error.message}`);
-                    }
-                }
-            });
+//                     onLLMResponseComplete: (response) => {
+//                         console.log('LLM response completed:', response);
+//                     },
 
-            return processToolChainResult(toolChainResult, initialResponse);
-        } catch (error) {
-            console.error('Tool chain execution failed:', error);
-            showMessage(`工具调用失败: ${error.message}`);
-            return initialResponse;
-        }
-    };
+//                     onError: (error, phase) => {
+//                         console.error(`Tool chain error in ${phase}:`, error);
+//                         showMessage(`工具调用出错 (${phase}): ${error.message}`);
+//                     }
+//                 }
+//             });
 
-    /**
-     * 处理工具调用链结果
-     * @param toolChainResult 工具调用链结果
-     * @param initialResponse 初始响应
-     * @returns 处理后的响应
-     */
-    const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: ICompletionResult): ICompletionResult & {
-        hintSize?: number;
-        toolChainData?: IChatSessionMsgItem['toolChainResult'];
-    } => {
-        // #NOTE: 目前的方案，只会保留最后的一个结果，不会被大量工具调用存放在 history 中
-        if (toolChainResult.status === 'completed') {
-            return {
-                content: toolChainResult.toolChainContent + toolChainResult.responseContent,
-                usage: toolChainResult.usage,
-                reasoning_content: initialResponse.reasoning_content,
-                time: initialResponse.time,
-                hintSize: toolChainResult.toolChainContent.length,
-                // 附加工具调用数据
-                toolChainData: {
-                    toolCallHistory: toolChainResult.toolCallHistory,
-                    stats: toolChainResult.stats,
-                    status: toolChainResult.status,
-                    error: toolChainResult.error
-                }
-            } as ICompletionResult & {
-                hintSize?: number;
-                toolChainData?: IChatSessionMsgItem['toolChainResult'];
-            };
-        } else {
-            // 工具调用链失败，返回原始响应
-            console.warn('Tool chain failed:', toolChainResult.error);
-            return initialResponse;
-        }
-    };
+//             return processToolChainResult(toolChainResult, initialResponse);
+//         } catch (error) {
+//             console.error('Tool chain execution failed:', error);
+//             showMessage(`工具调用失败: ${error.message}`);
+//             return initialResponse;
+//         }
+//     };
 
-    /**
-     * 重新运行消息（支持工具调用）
-     */
-    const reRunMessage = async (atIndex: number) => {
-        if (atIndex < 0 || atIndex >= messages().length) return;
-        const targetMsg = messages()[atIndex];
-        if (targetMsg.type !== 'message' || targetMsg.hidden) {
-            if (targetMsg.hidden) showMessage('无法重新生成此消息：已隐藏');
-            return;
-        }
+//     /**
+//      * 处理工具调用链结果
+//      * @param toolChainResult 工具调用链结果
+//      * @param initialResponse 初始响应
+//      * @returns 处理后的响应
+//      */
+//     const processToolChainResult = (toolChainResult: ToolChainResult, initialResponse: ICompletionResult): ICompletionResult & {
+//         hintSize?: number;
+//         toolChainData?: IChatSessionMsgItem['toolChainResult'];
+//     } => {
+//         // #NOTE: 目前的方案，只会保留最后的一个结果，不会被大量工具调用存放在 history 中
+//         if (toolChainResult.status === 'completed') {
+//             return {
+//                 content: toolChainResult.toolChainContent + toolChainResult.responseContent,
+//                 usage: toolChainResult.usage,
+//                 reasoning_content: initialResponse.reasoning_content,
+//                 time: initialResponse.time,
+//                 hintSize: toolChainResult.toolChainContent.length,
+//                 // 附加工具调用数据
+//                 toolChainData: {
+//                     toolCallHistory: toolChainResult.toolCallHistory,
+//                     stats: toolChainResult.stats,
+//                     status: toolChainResult.status,
+//                     error: toolChainResult.error
+//                 }
+//             } as ICompletionResult & {
+//                 hintSize?: number;
+//                 toolChainData?: IChatSessionMsgItem['toolChainResult'];
+//             };
+//         } else {
+//             // 工具调用链失败，返回原始响应
+//             console.warn('Tool chain failed:', toolChainResult.error);
+//             return initialResponse;
+//         }
+//     };
 
-        // 如果是 assistant 消息，检查上一条是否为 user 消息
-        if (targetMsg.message.role === 'assistant') {
-            if (atIndex === 0 || messages()[atIndex - 1].message?.role !== 'user' || messages()[atIndex - 1].hidden) {
-                showMessage('无法重新生成此消息：需要用户输入作为前文');
-                return;
-            }
-            atIndex = atIndex - 1; // 将焦点移到上一条 user 消息
-        }
+//     /**
+//      * 重新运行消息（支持工具调用）
+//      */
+//     const reRunMessage = async (atIndex: number) => {
+//         if (atIndex < 0 || atIndex >= messages().length) return;
+//         const targetMsg = messages()[atIndex];
+//         if (targetMsg.type !== 'message' || targetMsg.hidden) {
+//             if (targetMsg.hidden) showMessage('无法重新生成此消息：已隐藏');
+//             return;
+//         }
 
-        loading.update(true);
+//         // 如果是 assistant 消息，检查上一条是否为 user 消息
+//         if (targetMsg.message.role === 'assistant') {
+//             if (atIndex === 0 || messages()[atIndex - 1].message?.role !== 'user' || messages()[atIndex - 1].hidden) {
+//                 showMessage('无法重新生成此消息：需要用户输入作为前文');
+//                 return;
+//             }
+//             atIndex = atIndex - 1; // 将焦点移到上一条 user 消息
+//         }
 
-        try {
-            controller = new AbortController();
-            const msgToSend = getAttachedHistory(config().attachedHistory, atIndex);
-            let modelToUse = model();
-            let option = chatCompletionOption();
-            // 更新或插入 assistant 消息
-            const nextIndex = atIndex + 1;
-            // const nextMsg = messages()[nextIndex];
+//         loading.update(true);
 
-            // 准备或更新目标消息; 如果下一条消息是普通的 assistant 消消息，则更新它
-            if (messages()[nextIndex]?.message?.role === 'assistant' && !messages()[nextIndex].hidden) {
-                messages.update(prev => {
-                    const updated = [...prev];
-                    // const item = structuredClone(updated[nextIndex]);
-                    // item['loading'] = true;
-                    // stageMsgItemVersion(item);
-                    // updated[nextIndex] = item;
-                    // return updated;
-                    const newItem = {
-                        ...stageMsgItemVersion(updated[nextIndex]),
-                        loading: true  // 避免 inplace 操作, 尽量保持 immutable
-                    };
-                    updated[nextIndex] = newItem;
+//         try {
+//             controller = new AbortController();
+//             const msgToSend = getAttachedHistory(config().attachedHistory, atIndex);
+//             let modelToUse = model();
+//             let option = chatCompletionOption();
+//             // 更新或插入 assistant 消息
+//             const nextIndex = atIndex + 1;
+//             // const nextMsg = messages()[nextIndex];
 
-                    return updated;
-                });
-            } else {
-                // 插入新的 assistant 消息
-                const timestamp = new Date().getTime();
-                messages.update(prev => {
-                    const updated = [...prev];
-                    updated.splice(nextIndex, 0, {
-                        type: 'message',
-                        id: newID(),
-                        timestamp: timestamp,
-                        author: modelToUse.model,
-                        loading: true,
-                        message: {
-                            role: 'assistant',
-                            content: ''
-                        },
-                        currentVersion: timestamp.toString(),
-                        versions: {}
-                    });
-                    return updated;
-                });
-            }
+//             // 准备或更新目标消息; 如果下一条消息是普通的 assistant 消消息，则更新它
+//             if (messages()[nextIndex]?.message?.role === 'assistant' && !messages()[nextIndex].hidden) {
+//                 messages.update(prev => {
+//                     const updated = [...prev];
+//                     // const item = structuredClone(updated[nextIndex]);
+//                     // item['loading'] = true;
+//                     // stageMsgItemVersion(item);
+//                     // updated[nextIndex] = item;
+//                     // return updated;
+//                     const newItem = {
+//                         ...stageMsgItemVersion(updated[nextIndex]),
+//                         loading: true  // 避免 inplace 操作, 尽量保持 immutable
+//                     };
+//                     updated[nextIndex] = newItem;
 
-            params.attachments.update([]);
-            params.contexts.update([]);
+//                     return updated;
+//                 });
+//             } else {
+//                 // 插入新的 assistant 消息
+//                 const timestamp = new Date().getTime();
+//                 messages.update(prev => {
+//                     const updated = [...prev];
+//                     updated.splice(nextIndex, 0, {
+//                         type: 'message',
+//                         id: newID(),
+//                         timestamp: timestamp,
+//                         author: modelToUse.model,
+//                         loading: true,
+//                         message: {
+//                             role: 'assistant',
+//                             content: ''
+//                         },
+//                         currentVersion: timestamp.toString(),
+//                         versions: {}
+//                     });
+//                     return updated;
+//                 });
+//             }
 
-            // 获取初始响应
-            const initialResponse = await gpt.complete(msgToSend, {
-                model: modelToUse,
-                systemPrompt: currentSystemPrompt(),
-                stream: option.stream ?? true,
-                streamInterval: 2,
-                streamMsg(msg) {
-                    messages.update(nextIndex, 'message', 'content', msg);
-                },
-                abortControler: controller,
-                option: option,
-            });
+//             params.attachments.update([]);
+//             params.contexts.update([]);
 
-            // 处理工具调用链
-            const finalResponse = await handleToolChain(
-                initialResponse,
-                msgToSend,
-                nextIndex
-            );
+//             // 获取初始响应
+//             const initialResponse = await gpt.complete(msgToSend, {
+//                 model: modelToUse,
+//                 systemPrompt: currentSystemPrompt(),
+//                 stream: option.stream ?? true,
+//                 streamInterval: 2,
+//                 streamMsg(msg) {
+//                     messages.update(nextIndex, 'message', 'content', msg);
+//                 },
+//                 abortControler: controller,
+//                 option: option,
+//             });
 
-            // 更新最终内容
-            const vid = new Date().getTime().toString();
-            messages.update(nextIndex, (msgItem: IChatSessionMsgItem) => {
-                const newMessageContent: IMessage = {
-                    role: 'assistant',
-                    content: finalResponse.content,
-                };
-                if (finalResponse.reasoning_content) {
-                    newMessageContent['reasoning_content'] = finalResponse.reasoning_content;
-                }
+//             // 处理工具调用链
+//             const finalResponse = await handleToolChain(
+//                 initialResponse,
+//                 msgToSend,
+//                 nextIndex
+//             );
 
-                msgItem = {
-                    ...msgItem,
-                    loading: false,
-                    usage: finalResponse.usage,
-                    time: finalResponse.time,
-                    message: newMessageContent,
-                    author: modelToUse.model,
-                    timestamp: new Date().getTime(),
-                    attachedItems: msgToSend.length,
-                    attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
-                };
+//             // 更新最终内容
+//             const vid = new Date().getTime().toString();
+//             messages.update(nextIndex, (msgItem: IChatSessionMsgItem) => {
+//                 const newMessageContent: IMessage = {
+//                     role: 'assistant',
+//                     content: finalResponse.content,
+//                 };
+//                 if (finalResponse.reasoning_content) {
+//                     newMessageContent['reasoning_content'] = finalResponse.reasoning_content;
+//                 }
 
-                if (finalResponse.usage && finalResponse.usage.completion_tokens) {
-                    msgItem['token'] = finalResponse.usage.completion_tokens;
-                }
+//                 msgItem = {
+//                     ...msgItem,
+//                     loading: false,
+//                     usage: finalResponse.usage,
+//                     time: finalResponse.time,
+//                     message: newMessageContent,
+//                     author: modelToUse.model,
+//                     timestamp: new Date().getTime(),
+//                     attachedItems: msgToSend.length,
+//                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0)
+//                 };
 
-                if (finalResponse.hintSize) {
-                    msgItem.userPromptSlice = [finalResponse.hintSize, finalResponse.content.length];
-                }
+//                 if (finalResponse.usage && finalResponse.usage.completion_tokens) {
+//                     msgItem['token'] = finalResponse.usage.completion_tokens;
+//                 }
 
-                // 保存工具调用数据
-                if (finalResponse.toolChainData) {
-                    msgItem.toolChainResult = finalResponse.toolChainData;
-                }
+//                 if (finalResponse.hintSize) {
+//                     msgItem.userPromptSlice = [finalResponse.hintSize, finalResponse.content.length];
+//                 }
 
-                msgItem = stageMsgItemVersion(msgItem, vid);
-                return msgItem;
-            });
+//                 // 保存工具调用数据
+//                 if (finalResponse.toolChainData) {
+//                     msgItem.toolChainResult = finalResponse.toolChainData;
+//                 }
 
-            // #BUG 这个貌似是多余的吧？需要测试研究一下怎么回事。
-            messages.update(nextIndex, (item: IChatSessionMsgItem) => {
-                let newItem = structuredClone(item);
-                return stageMsgItemVersion(newItem);
-            });
+//                 msgItem = stageMsgItemVersion(msgItem, vid);
+//                 return msgItem;
+//             });
 
-            if (finalResponse.usage) {
-                batch(() => {
-                    messages.update(nextIndex, 'token', finalResponse.usage?.completion_tokens);
-                    messages.update(atIndex, 'token', finalResponse.usage?.prompt_tokens);
-                });
-            }
+//             // #BUG 这个貌似是多余的吧？需要测试研究一下怎么回事。
+//             messages.update(nextIndex, (item: IChatSessionMsgItem) => {
+//                 let newItem = structuredClone(item);
+//                 return stageMsgItemVersion(newItem);
+//             });
 
-        } catch (error) {
-            console.error('Error:', error);
-        } finally {
-            loading.update(false);
-            controller = null;
-        }
-    };
+//             if (finalResponse.usage) {
+//                 batch(() => {
+//                     messages.update(nextIndex, 'token', finalResponse.usage?.completion_tokens);
+//                     messages.update(atIndex, 'token', finalResponse.usage?.prompt_tokens);
+//                 });
+//             }
 
-    /**
-     * 发送用户消息（支持工具调用）
-     */
-    const sendMessage = async (
-        userMessage: string,
-        attachments: Blob[],
-        contexts: IProvidedContext[],
-        scrollToBottom?: (force?: boolean) => void,
-        options?: {
-            tavily?: boolean;
-        }
-    ) => {
-        if (!userMessage.trim() && attachments.length === 0 && contexts.length === 0) return;
+//         } catch (error) {
+//             console.error('Error:', error);
+//         } finally {
+//             loading.update(false);
+//             controller = null;
+//         }
+//     };
 
-        loading.update(true);
+//     /**
+//      * 发送用户消息（支持工具调用）
+//      */
+//     const sendMessage = async (
+//         userMessage: string,
+//         attachments: Blob[],
+//         contexts: IProvidedContext[],
+//         scrollToBottom?: (force?: boolean) => void,
+//         options?: {
+//             tavily?: boolean;
+//         }
+//     ) => {
+//         if (!userMessage.trim() && attachments.length === 0 && contexts.length === 0) return;
 
-        try {
-            controller = new AbortController();
-            const msgToSend = getAttachedHistory();
-            let modelToUse = model();
-            let option = chatCompletionOption();
+//         loading.update(true);
 
-            // 添加助手消息占位
-            const assistantMsg: IChatSessionMsgItem = {
-                type: 'message',
-                id: newID(),
-                token: null,
-                time: null,
-                message: { role: 'assistant', content: '' },
-                author: modelToUse.model,
-                timestamp: new Date().getTime(),
-                loading: true,
-                versions: {}
-            };
-            messages.update(prev => [...prev, assistantMsg]);
-            const updatedTimestamp = new Date().getTime();
+//         try {
+//             controller = new AbortController();
+//             const msgToSend = getAttachedHistory();
+//             let modelToUse = model();
+//             let option = chatCompletionOption();
 
-            params.attachments.update([]);
-            params.contexts.update([]);
-            const lastIdx = messages().length - 1;
+//             // 添加助手消息占位
+//             const assistantMsg: IChatSessionMsgItem = {
+//                 type: 'message',
+//                 id: newID(),
+//                 token: null,
+//                 time: null,
+//                 message: { role: 'assistant', content: '' },
+//                 author: modelToUse.model,
+//                 timestamp: new Date().getTime(),
+//                 loading: true,
+//                 versions: {}
+//             };
+//             messages.update(prev => [...prev, assistantMsg]);
+//             const updatedTimestamp = new Date().getTime();
 
-            // 获取初始响应
-            const initialResponse = await gpt.complete(msgToSend, {
-                model: modelToUse,
-                systemPrompt: currentSystemPrompt(),
-                stream: option.stream ?? true,
-                streamInterval: 2,
-                streamMsg(msg) {
-                    messages.update(lastIdx, 'message', 'content', msg);
-                    scrollToBottom && scrollToBottom(false);
-                },
-                abortControler: controller,
-                option: option,
-            });
+//             params.attachments.update([]);
+//             params.contexts.update([]);
+//             const lastIdx = messages().length - 1;
 
-            // 处理工具调用链
-            const finalResponse = await handleToolChain(
-                initialResponse,
-                msgToSend,
-                lastIdx,
-                scrollToBottom
-            );
+//             // 获取初始响应
+//             const initialResponse = await gpt.complete(msgToSend, {
+//                 model: modelToUse,
+//                 systemPrompt: currentSystemPrompt(),
+//                 stream: option.stream ?? true,
+//                 streamInterval: 2,
+//                 streamMsg(msg) {
+//                     messages.update(lastIdx, 'message', 'content', msg);
+//                     scrollToBottom && scrollToBottom(false);
+//                 },
+//                 abortControler: controller,
+//                 option: option,
+//             });
 
-            const vid = new Date().getTime().toString();
-            const newMessageContent: IMessage = {
-                role: 'assistant',
-                content: finalResponse.content
-            }
-            if (finalResponse.reasoning_content) {
-                newMessageContent['reasoning_content'] = finalResponse.reasoning_content;
-            }
+//             // 处理工具调用链
+//             const finalResponse = await handleToolChain(
+//                 initialResponse,
+//                 msgToSend,
+//                 lastIdx,
+//                 scrollToBottom
+//             );
 
-            // 更新最终内容
-            messages.update(prev => {
-                const lastIdx = prev.length - 1;
-                const updated = [...prev];
-                updated[lastIdx] = {
-                    ...updated[lastIdx],
-                    usage: finalResponse.usage,
-                    time: finalResponse.time,
-                    loading: false,
-                    message: newMessageContent,
-                    author: modelToUse.model,
-                    timestamp: new Date().getTime(),
-                    attachedItems: msgToSend.length,
-                    attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0),
-                    currentVersion: vid,
-                    versions: {}
-                };
-                if (finalResponse.hintSize) {
-                    updated[lastIdx].userPromptSlice = [finalResponse.hintSize, finalResponse.content.length];
-                }
-                // 保存工具调用数据
-                if (finalResponse.toolChainData) {
-                    updated[lastIdx].toolChainResult = finalResponse.toolChainData;
-                }
-                delete updated[lastIdx]['loading'];
-                return updated;
-            });
+//             const vid = new Date().getTime().toString();
+//             const newMessageContent: IMessage = {
+//                 role: 'assistant',
+//                 content: finalResponse.content
+//             }
+//             if (finalResponse.reasoning_content) {
+//                 newMessageContent['reasoning_content'] = finalResponse.reasoning_content;
+//             }
 
-            if (finalResponse.usage) {
-                batch(() => {
-                    const lastIdx = messages().length - 1;
-                    if (lastIdx < 1) return;
-                    messages.update(lastIdx, 'token', finalResponse.usage?.completion_tokens);
-                    messages.update(lastIdx - 1, 'token', finalResponse.usage?.prompt_tokens);
-                });
-            }
+//             // 更新最终内容
+//             messages.update(prev => {
+//                 const lastIdx = prev.length - 1;
+//                 const updated = [...prev];
+//                 updated[lastIdx] = {
+//                     ...updated[lastIdx],
+//                     usage: finalResponse.usage,
+//                     time: finalResponse.time,
+//                     loading: false,
+//                     message: newMessageContent,
+//                     author: modelToUse.model,
+//                     timestamp: new Date().getTime(),
+//                     attachedItems: msgToSend.length,
+//                     attachedChars: msgToSend.map(i => i.content.length).reduce((a, b) => a + b, 0),
+//                     currentVersion: vid,
+//                     versions: {}
+//                 };
+//                 if (finalResponse.hintSize) {
+//                     updated[lastIdx].userPromptSlice = [finalResponse.hintSize, finalResponse.content.length];
+//                 }
+//                 // 保存工具调用数据
+//                 if (finalResponse.toolChainData) {
+//                     updated[lastIdx].toolChainResult = finalResponse.toolChainData;
+//                 }
+//                 delete updated[lastIdx]['loading'];
+//                 return updated;
+//             });
 
-            return { updatedTimestamp, hasResponse: true };
-        } catch (error) {
-            console.error('Error:', error);
-            return { updatedTimestamp: new Date().getTime(), hasResponse: false };
-        } finally {
-            loading.update(false);
-            controller = null;
-        }
-    }
+//             if (finalResponse.usage) {
+//                 batch(() => {
+//                     const lastIdx = messages().length - 1;
+//                     if (lastIdx < 1) return;
+//                     messages.update(lastIdx, 'token', finalResponse.usage?.completion_tokens);
+//                     messages.update(lastIdx - 1, 'token', finalResponse.usage?.prompt_tokens);
+//                 });
+//             }
 
-    const abortMessage = () => {
-        if (loading()) {
-            controller && controller.abort();
-        }
-    }
+//             return { updatedTimestamp, hasResponse: true };
+//         } catch (error) {
+//             console.error('Error:', error);
+//             return { updatedTimestamp: new Date().getTime(), hasResponse: false };
+//         } finally {
+//             loading.update(false);
+//             controller = null;
+//         }
+//     }
 
-    return {
-        gptOption: chatCompletionOption,
-        customComplete,
-        autoGenerateTitle,
-        reRunMessage,
-        sendMessage,
-        abortMessage
-    };
-};
+//     const abortMessage = () => {
+//         if (loading()) {
+//             controller && controller.abort();
+//         }
+//     }
+
+//     return {
+//         chatCompletionOption,
+//         customComplete,
+//         autoGenerateTitle,
+//         reRunMessage,
+//         sendMessage,
+//         abortMessage
+//     };
+// };
+
 
 /**
  * 主会话 hook
@@ -829,8 +777,8 @@ export const useSession = (props: {
     const toolExecutor = toolExecutorFactory({});
 
     const systemPrompt = useSignalRef<string>(globalMiscConfigs().defaultSystemPrompt || '');
-    // 当前的 attachments
-    const attachments = useSignalRef<Blob[]>([]);
+    // 当前的多模态附件 (使用 OpenAI 标准格式)
+    const multiModalAttachments = useSignalRef<TMessageContentPart[]>([]);
     const contexts = useStoreRef<IProvidedContext[]>([]);
 
     const modelCustomOptions = useSignalRef<Partial<IChatCompleteOption>>({});
@@ -982,25 +930,29 @@ export const useSession = (props: {
         addAttachment
     } = useContextAndAttachments({
         contexts,
-        attachments
+        multiModalAttachments
     });
+
+    // ================================================================
+    // 测试对比替换
+    // ================================================================
+    // let communication = useGptCommunication;
+    let communication = useGptCommunicationNew;
 
     // 使用 GPT 通信 hook
     const {
-        // gptOption,
-        // customComplete,
         autoGenerateTitle: autoGenerateTitleInternal,
         reRunMessage: reRunMessageInternal,
         sendMessage: sendMessageInternal,
         abortMessage
-    } = useGptCommunication({
+    } = communication({
         model: props.model,
         config: props.config,
         messages,
         systemPrompt,
         customOptions: modelCustomOptions,
         loading,
-        attachments,
+        multiModalAttachments,
         contexts,
         toolExecutor,
         newID,
@@ -1008,8 +960,8 @@ export const useSession = (props: {
     });
 
     // 包装 appendUserMsg 以更新 updated 时间戳
-    const appendUserMsg = async (msg: string, images?: Blob[], contexts?: IProvidedContext[]) => {
-        const timestamp = await appendUserMsgInternal(msg, images, contexts);
+    const appendUserMsg = async (msg: string, multiModalAttachments?: TMessageContentPart[], contexts?: IProvidedContext[]) => {
+        const timestamp = await appendUserMsgInternal(msg, multiModalAttachments, contexts);
         renewUpdatedTimestamp();
         return timestamp;
     }
@@ -1029,19 +981,16 @@ export const useSession = (props: {
     }
 
     // 包装 sendMessage 以处理用户消息和更新状态
-    const sendMessage = async (userMessage: string, options?: {
-        tavily?: boolean;
-    }) => {
-        if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
+    const sendMessage = async (userMessage: string) => {
+        if (!userMessage.trim() && multiModalAttachments().length === 0 && contexts().length === 0) return;
 
-        await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
+        await appendUserMsg(userMessage, multiModalAttachments(), [...contexts.unwrap()]);
 
         const result = await sendMessageInternal(
             userMessage,
-            attachments(),
+            multiModalAttachments(),
             [...contexts.unwrap()],
             props.scrollToBottom,
-            options
         );
 
         if (result?.updatedTimestamp) {
@@ -1049,7 +998,7 @@ export const useSession = (props: {
         }
 
         // Clear attachments after sending
-        attachments.update([]);
+        multiModalAttachments.update([]);
         contexts.update([]);
 
         if (!hasStarted && result?.hasResponse) {
@@ -1141,7 +1090,7 @@ export const useSession = (props: {
         modelCustomOptions: modelCustomOptions,
         loading,
         title,
-        attachments,
+        multiModalAttachments,
         contexts,
         toolExecutor,
         sessionTags,

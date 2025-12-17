@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-08-23 15:42:57
+ * @LastEditTime : 2025-12-17 17:19:19
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
@@ -14,7 +14,7 @@ import { inputDialog, openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-
 import { render } from "solid-js/web";
 
 import * as openai from './openai';
-import ChatSession from "./chat/ChatSession";
+import { ChatSession } from "./chat";
 import { translateHotkey } from "@/libs/hotkey";
 import * as setting from "./setting";
 import { ISignalRef, useSignalRef } from "@frostime/solid-signal-ref";
@@ -22,7 +22,7 @@ import { id2block } from "./utils";
 
 import * as persist from './persistence';
 import { solidDialog } from "@/libs/dialog";
-import HistoryList from "./chat/HistoryList";
+import HistoryList from "./chat/components/HistoryList";
 import { globalMiscConfigs } from "./model/store";
 import { showMessageLog } from "./MessageLogger";
 

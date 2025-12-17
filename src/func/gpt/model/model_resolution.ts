@@ -3,12 +3,38 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/model/model_resolution.ts
- * @LastEditTime : 2025-12-10
+ * @LastEditTime : 2025-12-12 18:33:00
  * @Description  : Model lookup and endpoint resolution logic
  */
 
-import { DEFAULT_CHAT_ENDPOINT, trimTrailingSlash, ensureLeadingSlash } from "./url_utils";
+import { OPENAI_ENDPONITS, trimTrailingSlash, ensureLeadingSlash } from "./url_utils";
 import { defaultModelId, llmProviders } from "./state";
+
+/**
+ * 解析 bareId 格式
+ * @param bareId - model@provider 或 model@provider:type
+ * @returns 解析后的对象
+ */
+const parseBareId = (bareId: string): {
+    modelName: string;
+    providerName: string;
+    serviceType?: LLMServiceType;
+} => {
+    const colonIndex = bareId.lastIndexOf(':');
+    const atIndex = bareId.lastIndexOf('@');
+    
+    if (colonIndex > atIndex && colonIndex !== -1) {
+        // 包含 type: model@provider:type
+        const modelProvider = bareId.substring(0, colonIndex);
+        const serviceType = bareId.substring(colonIndex + 1) as LLMServiceType;
+        const [modelName, providerName] = modelProvider.split('@');
+        return { modelName, providerName, serviceType };
+    } else {
+        // 不包含 type: model@provider
+        const [modelName, providerName] = bareId.split('@');
+        return { modelName, providerName };
+    }
+};
 
 const siyuanModel = (): IRuntimeLLM & {
     baseUrl: string;
@@ -20,8 +46,19 @@ const siyuanModel = (): IRuntimeLLM & {
         url,
         baseUrl: apiBaseURL,
         model: apiModel,
-        apiKey: apiKey
+        apiKey: apiKey,
+        type: 'chat'  // 思源内置模型默认为 chat 类型
     }
+}
+
+const ModelTypeName: Record<LLMServiceType, string> = {
+    chat: '对话',
+    embeddings: '嵌入',
+    'audio-stt': '语音转文字',
+    'audio-tts': '文字转语音',
+    'image-gen': '图像生成',
+    'image-edit': '图像编辑',
+    moderation: '内容审核'
 }
 
 
@@ -33,9 +70,24 @@ export const listAvialableModels = (): Record<string, string> => {
         if (provider.disabled) return;
         provider.models?.forEach((modelConfig) => {
             if (modelConfig.disabled === true) return;
-            const modelId = `${modelConfig.model}@${provider.name}`;
-            const displayName = modelConfig.displayName ?? modelConfig.model;
-            availableModels[modelId] = `(${provider.name}) ${displayName}`;
+            
+            // 将 type 统一处理为数组
+            const types = Array.isArray(modelConfig.type) 
+                ? modelConfig.type 
+                : [modelConfig.type];
+            
+            // 遍历每个 type，生成对应的 modelId
+            types.forEach(type => {
+                if (type === 'embeddings') return;
+                
+                // 如果是单 type，使用旧格式；多 type 则附加 :type
+                const modelId = types.length === 1
+                    ? `${modelConfig.model}@${provider.name}`
+                    : `${modelConfig.model}@${provider.name}:${type}`;
+                
+                const displayName = modelConfig.displayName ?? modelConfig.model;
+                availableModels[modelId] = `(${provider.name}) ${displayName} | ${ModelTypeName[type]}`;
+            });
         });
     });
     return availableModels;
@@ -44,9 +96,9 @@ export const listAvialableModels = (): Record<string, string> => {
 
 
 export const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceType = 'chat') => {
-    const path = provider.endpoints?.[type] || provider.endpoints?.chat || DEFAULT_CHAT_ENDPOINT;
+    const endpoint = provider.endpoints?.[type] || OPENAI_ENDPONITS[type];
     const normalizedBase = trimTrailingSlash(provider.baseUrl || '');
-    const normalizedPath = ensureLeadingSlash(path);
+    const normalizedPath = ensureLeadingSlash(endpoint);
     if (!normalizedBase) return normalizedPath;
     return `${normalizedBase}${normalizedPath}`;
 };
@@ -61,33 +113,57 @@ export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw')
     if (targetId === 'siyuan') {
         return siyuanModel();
     }
-    // const { provider, model } = findModelConfigById(targetId);
-    const [modelName, providerName] = targetId.split('@');
+    
+    // 解析 bareId
+    const { modelName, providerName, serviceType } = parseBareId(targetId);
+    
     if (!modelName || !providerName) {
-        // return null;
         if (error === 'throw') {
             throw new Error(`Invalid model ID: ${bareId}`);
         } else {
             return null;
         }
     }
+    
     const provider = llmProviders().find(item => item.name === providerName);
-    const model = provider?.models?.find(item => item.model === modelName);
+    const modelConfig = provider?.models?.find(item => item.model === modelName);
 
-    if (!provider || !model) {
-        // throw new Error(`Model not found: ${targetId}`);
+    if (!provider || !modelConfig) {
         if (error === 'throw') {
             throw new Error(`Model not found: ${bareId}`);
         } else {
             return null;
         }
     }
+    
+    // 确定实际使用的 type
+    let actualType: LLMServiceType;
+    const supportedTypes = Array.isArray(modelConfig.type) 
+        ? modelConfig.type 
+        : [modelConfig.type];
+    
+    if (serviceType) {
+        // bareId 中明确指定了 type
+        if (!supportedTypes.includes(serviceType)) {
+            if (error === 'throw') {
+                throw new Error(`Model ${modelName} does not support type ${serviceType}`);
+            } else {
+                return null;
+            }
+        }
+        actualType = serviceType;
+    } else {
+        // 未指定 type，使用默认（第一个或唯一的）
+        actualType = supportedTypes[0];
+    }
+    
     return {
         bareId: targetId,
-        model: model.model,
-        url: resolveEndpointUrl(provider, model.type),
+        model: modelConfig.model,
+        type: actualType,
+        url: resolveEndpointUrl(provider, actualType),
         apiKey: provider.apiKey,
-        config: model,
+        config: modelConfig,
         provider: provider
     };
 }

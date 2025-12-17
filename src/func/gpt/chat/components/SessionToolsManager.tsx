@@ -2,14 +2,14 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-06-05 21:05:45
- * @FilePath     : /src/func/gpt/chat/SessionToolsManager.tsx
+ * @FilePath     : /src/func/gpt/chat/components/SessionToolsManager.tsx
  * @Description  : 会话级别的工具管理器组件
  */
 
 
 import { Component, For, Show, createSignal, onMount } from 'solid-js';
-import { ToolExecutor } from '../tools';
-import '../setting/ToolsManagerSetting.scss';
+import { ToolExecutor } from '../../tools';
+import '@gpt/setting/ToolsManagerSetting.scss';
 
 /**
  * 会话级别的工具管理器组件

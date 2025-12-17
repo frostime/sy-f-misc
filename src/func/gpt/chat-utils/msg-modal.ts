@@ -147,8 +147,16 @@ export const FormatConverter = {
     },
 
     /** Blob → ObjectURL */
-    blobToObjectURL(blob: Blob): BlobURL {
-        return URL.createObjectURL(blob) as BlobURL;
+    blobToObjectURL(blob: Blob, declareAutoRevoke?: {
+        seconds: number;
+    }): BlobURL {
+        const url = URL.createObjectURL(blob) as BlobURL;
+        if (declareAutoRevoke) {
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, declareAutoRevoke.seconds * 1000);
+        }
+        return url;
     }
 } as const;
 

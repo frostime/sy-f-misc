@@ -4,7 +4,7 @@ import { llmProviders, resolveEndpointUrl } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
-import { SvgSymbol } from "../chat/Elements";
+import SvgSymbol from "@/libs/components/Elements/IconSymbol";
 import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { showMessage } from "siyuan";
@@ -16,6 +16,7 @@ import { ButtonInput } from "@/libs/components/Elements";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { TextAreaWithActionButton } from "@/libs/components/Elements/TextArea";
 import * as agent from "../openai/tiny-agent";
+import { OPENAI_ENDPONITS } from "../model/url_utils";
 
 
 
@@ -55,7 +56,7 @@ const ModelConfigPanel: Component<{
 
     // 模态能力选择
     // const availableModalities: LLMModality[] = ['text', 'image', 'file', 'audio', 'video'];
-    const availableModalities: LLMModality[] = ['text', 'image', 'file'];
+    const availableModalities: LLMModality[] = ['text', 'image', 'audio', 'file'];
 
     const toggleModality = (direction: 'input' | 'output', modality: LLMModality) => {
         const current = model().modalities[direction] || [];
@@ -159,19 +160,66 @@ const ModelConfigPanel: Component<{
                     />
                 </Form.Wrap>
 
-                <Form.Wrap title="服务类型" description="决定使用哪个 endpoint">
-                    <Form.Input
-                        type="select"
-                        value={model().type}
-                        options={{
-                            'chat': '对话 (chat)',
-                            'embeddings': '向量 (embeddings)',
-                            'image': '图像生成 (image)',
-                            'audio_stt': '语音转文本 (audio_stt)',
-                            'audio_tts': '文本转语音 (audio_tts)'
-                        }}
-                        changed={(v) => updateModel(index(), 'type', v)}
-                    />
+                <Form.Wrap title="服务类型" description="决定使用哪个 endpoint；可选择多个（多用途模型）" direction="row">
+                    <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
+                        <For each={['chat', 'image-gen', 'image-edit', 'audio-stt', 'audio-tts'] as LLMServiceType[]}>
+                            {(serviceType) => {
+                                const isSelected = () => {
+                                    const types = Array.isArray(model().type) ? model().type : [model().type];
+                                    return types.includes(serviceType);
+                                };
+
+                                const typeLabels: Record<string, string> = {
+                                    'chat': '对话',
+                                    'image-gen': '图像生成',
+                                    'image-edit': '图像编辑',
+                                    'audio-stt': '语音转文本',
+                                    'audio-tts': '文本转语音',
+                                };
+
+                                return (
+                                    <label style={{
+                                        'display': 'flex',
+                                        'align-items': 'center',
+                                        'gap': '4px',
+                                        'padding': '4px 8px',
+                                        'border': '1px solid var(--b3-border-color)',
+                                        'border-radius': '4px',
+                                        'cursor': 'pointer',
+                                        'background': isSelected() ? 'var(--b3-theme-primary-lightest)' : 'transparent'
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected()}
+                                            onChange={(e) => {
+                                                const currentTypes = Array.isArray(model().type)
+                                                    ? [...model().type]
+                                                    : [model().type];
+
+                                                if (e.currentTarget.checked) {
+                                                    // 添加 type
+                                                    if (!currentTypes.includes(serviceType)) {
+                                                        const newTypes = [...currentTypes, serviceType];
+                                                        updateModel(index(), 'type', newTypes.length === 1 ? newTypes[0] : newTypes);
+                                                    }
+                                                } else {
+                                                    // 移除 type
+                                                    const newTypes = currentTypes.filter(t => t !== serviceType);
+                                                    if (newTypes.length > 0) {
+                                                        updateModel(index(), 'type', newTypes.length === 1 ? newTypes[0] : newTypes);
+                                                    } else {
+                                                        // 至少保留一个 type
+                                                        showMessage('至少需要保留一个服务类型');
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <span>{typeLabels[serviceType]}</span>
+                                    </label>
+                                );
+                            }}
+                        </For>
+                    </div>
                 </Form.Wrap>
 
                 <Form.Wrap title="禁用" description="如果禁用, 则在对话模型列表中不会看到这一项">
@@ -209,7 +257,7 @@ const ModelConfigPanel: Component<{
                         }
                     />
 
-                    <LeftRight
+                    {/* <LeftRight
                         left={<strong>输出</strong>}
                         right={
                             <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
@@ -227,35 +275,37 @@ const ModelConfigPanel: Component<{
                                 </For>
                             </div>
                         }
-                    />
+                    /> */}
 
                 </Form.Wrap>
 
 
             </div>
 
-            {/* 能力标记 */}
-            <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
-                {/* <h4 style={{ 'margin-top': '0' }}>功能支持 (Capabilities)</h4> */}
+            {/* 能力标记 - 仅当模型类型为 chat 时显示 */}
+            <Show when={model().type === 'chat'}>
+                <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
+                    {/* <h4 style={{ 'margin-top': '0' }}>功能支持 (Capabilities)</h4> */}
 
-                <For each={[
-                    { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
-                    { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
-                    { key: 'reasoningEffort', label: 'reasoning_effort', desc: '部分模型允许设置 reasoning_effort 参数' },
-                    // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
-                    // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
-                ] as const}>
-                    {(item) => (
-                        <Form.Wrap title={item.label} description={item.desc}>
-                            <Form.Input
-                                type="checkbox"
-                                value={model().capabilities[item.key] ?? false}
-                                changed={(v) => updateCapability(item.key, v)}
-                            />
-                        </Form.Wrap>
-                    )}
-                </For>
-            </div>
+                    <For each={[
+                        { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
+                        { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
+                        { key: 'reasoningEffort', label: 'reasoning_effort', desc: '部分模型允许设置 reasoning_effort 参数' },
+                        // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
+                        // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
+                    ] as const}>
+                        {(item) => (
+                            <Form.Wrap title={item.label} description={item.desc}>
+                                <Form.Input
+                                    type="checkbox"
+                                    value={model().capabilities[item.key] ?? false}
+                                    changed={(v) => updateCapability(item.key, v)}
+                                />
+                            </Form.Wrap>
+                        )}
+                    </For>
+                </div>
+            </Show>
 
             {/* 限制参数 */}
             {/* #TODO 暂时隐藏 */}
@@ -478,9 +528,12 @@ const ProviderBasicConfig: Component = () => {
 
 
             <For each={[
-                { key: 'chat', label: 'Chat', default: '/chat/completions' },
-                { key: 'embeddings', label: 'Embeddings', default: '/embeddings' },
-                { key: 'image', label: 'Image', default: '/images/generations' }
+                { key: 'chat', label: 'Chat', default: OPENAI_ENDPONITS['chat'] },
+                // { key: 'embeddings', label: 'Embeddings', default: '/embeddings' },
+                { key: 'image-gen', label: 'Image', default: OPENAI_ENDPONITS['image-gen'] },
+                { key: 'image-edit', label: 'Image Edit', default: OPENAI_ENDPONITS['image-edit'] },
+                { key: 'audio-stt', label: 'Speech-to-Text', default: OPENAI_ENDPONITS['audio-stt'] },
+                { key: 'audio-tts', label: 'Text-to-Speech', default: OPENAI_ENDPONITS['audio-tts'] }
             ]}>
                 {(item) => (
                     <Form.Wrap
@@ -639,16 +692,28 @@ const ModelsListPanel: Component = () => {
                     }}
                     renderBadge={(item) => {
                         const model = item as any as ILLMConfigV2;
+                        const types = Array.isArray(model.type) ? model.type : [model.type];
+
                         return (
                             <>
                                 <Show when={item.disabled}>
                                     <SvgSymbol size="15px">iconEyeoff</SvgSymbol>
                                 </Show>
-                                <span style={{ 'background': 'var(--b3-theme-primary)', 'padding': '2px 6px', 'border-radius': '3px', 'color': 'var(--b3-theme-on-primary)' }}>
-                                    {model.type}
-                                </span>
+                                <For each={types}>
+                                    {(type) => (
+                                        <span style={{
+                                            'background': 'var(--b3-theme-primary)',
+                                            'padding': '2px 6px',
+                                            'border-radius': '3px',
+                                            'color': 'var(--b3-theme-on-primary)',
+                                            'margin-left': '4px',
+                                            'font-size': '11px'
+                                        }}>
+                                            {type}
+                                        </span>
+                                    )}
+                                </For>
                             </>
-
                         );
                     }}
                 />

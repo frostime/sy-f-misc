@@ -16,7 +16,7 @@ import { createSignalRef } from '@frostime/solid-signal-ref';
 
 import { extractMessageContent } from '@gpt/chat-utils';
 import { UIConfig } from '@/func/gpt/model/store';
-import { type useSession } from './ChatSession/ChatSession.helper';
+import { type useSession } from '../ChatSession/use-chat-session';
 import styles from './SessionItemsManager.module.scss';
 
 const MAX_PREVIEW_LENGTH = 1000;

@@ -12,6 +12,7 @@ export interface IImageGenerationOptions {
     quality?: "auto" | "standard" | "hd" | "high" | "medium" | "low";
     style?: "vivid" | "natural";
     user?: string;
+    [key: string]: any;
 }
 
 export interface IImageEditOptions {
@@ -23,6 +24,7 @@ export interface IImageEditOptions {
     background?: 'transparent' | 'opaque' | 'auto';
     mask?: File | Blob;
     user?: string;
+    [key: string]: any;
 }
 
 export interface IImageResult {
@@ -49,13 +51,13 @@ export interface IImageResult {
 
 /**
  * Generate images using DALL-E
- * @param options - Image generation options
  * @param runtimeModel - Runtime LLM configuration
+ * @param options - Image generation options
  * @returns Promise with generated image results
  */
 export const generateImage = async (
-    options: IImageGenerationOptions,
-    runtimeModel?: IRuntimeLLM
+    runtimeModel: IRuntimeLLM,
+    options: IImageGenerationOptions
 ): Promise<IImageResult> => {
     if (!runtimeModel) {
         return {
@@ -66,24 +68,29 @@ export const generateImage = async (
     }
 
     try {
-        const { url, apiKey, provider, config } = runtimeModel;
+        const { url: fullUrl, apiKey, provider } = runtimeModel;
 
-        // Get the endpoint for image generation
-        const endpoint = provider?.endpoints?.image || '/images/generations';
-        const fullUrl = url.endsWith(endpoint) ? url : `${url}${endpoint}`;
-
+        const knownParams = ['prompt', 'model', 'response_format', 'quality', 'style', 'user'];
         // Build request payload
         const payload: any = {
             prompt: options.prompt,
-            model: options.model || config?.model || 'dall-e-3',
+            model: runtimeModel.model,
             response_format: options.response_format || 'url',
-            size: options.size || '1024x1024'
+            // size: options.size || '1024x1024'
         };
 
         // Add optional parameters
         if (options.quality) payload.quality = options.quality;
         if (options.style) payload.style = options.style;
         if (options.user) payload.user = options.user;
+
+        // Add custom parameters
+        Object.keys(options).forEach(key => {
+            if (!knownParams.includes(key)) {
+                console.log(`[Image Generation] Custom parameter passed: ${key}`, options[key]);
+                payload[key] = options[key];
+            }
+        });
 
         appendLog({ type: 'request', data: payload });
 
@@ -134,13 +141,13 @@ export const generateImage = async (
 
 /**
  * Edit images using DALL-E
- * @param options - Image edit options
  * @param runtimeModel - Runtime LLM configuration
+ * @param options - Image edit options
  * @returns Promise with edited image results
  */
 export const editImage = async (
-    options: IImageEditOptions,
-    runtimeModel?: IRuntimeLLM
+    runtimeModel: IRuntimeLLM,
+    options: IImageEditOptions
 ): Promise<IImageResult> => {
     if (!runtimeModel) {
         return {
@@ -151,25 +158,29 @@ export const editImage = async (
     }
 
     try {
-        const { url, apiKey, provider } = runtimeModel;
+        const { url: fullUrl, apiKey, provider } = runtimeModel;
 
-        // Get the endpoint for image edits
-        const endpoint = provider?.endpoints?.image || '/images/edits';
-        const fullUrl = url.endsWith('/images/edits') ? url :
-            url.endsWith('/images') ? `${url}/edits` :
-                `${url}/images/edits`;
+        const knownParams = ['image', 'prompt', 'mask', 'model', 'size', 'background', 'response_format', 'user'];
 
         // Build FormData for multipart/form-data request
         const formData = new FormData();
         formData.append('image', options.image);
         formData.append('prompt', options.prompt);
+        formData.append('model', runtimeModel.model);
 
         if (options.mask) formData.append('mask', options.mask);
-        if (options.model) formData.append('model', options.model);
         if (options.size) formData.append('size', options.size);
         if (options.background) formData.append('background', options.background);
         if (options.response_format) formData.append('response_format', options.response_format);
         if (options.user) formData.append('user', options.user);
+
+        // Add custom parameters
+        Object.keys(options).forEach(key => {
+            if (!knownParams.includes(key)) {
+                console.log(`[Image Edit] Custom parameter passed: ${key}`, options[key]);
+                formData.append(key, options[key]);
+            }
+        });
 
         appendLog({ type: 'request', data: { prompt: options.prompt, hasImage: true, hasMask: !!options.mask } });
 

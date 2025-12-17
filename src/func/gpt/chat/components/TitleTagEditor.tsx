@@ -8,7 +8,7 @@
 import { Component, createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { on } from "solid-js";
 import Form from "@/libs/components/Form";
-import * as persist from "../persistence";
+import * as persist from "../../persistence";
 
 
 

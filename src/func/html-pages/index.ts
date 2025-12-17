@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-17 16:17:43
+ * @LastEditTime : 2025-12-17 17:10:45
  * @Description  : HTML Pages Module - Display custom HTML pages and URLs
  */
 import FMiscPlugin from "@/index";
@@ -218,13 +218,13 @@ export const unload = () => {
 
 export const declareToggleEnabled = {
     title: '📝 HTML Pages',
-    description: '自定义单页面 HTML 应用，自行扩展功能',
+    description: '自定义单页面 HTML 应用, 页面可使用 window.pluginSdk 实现与思源交互',
     defaultEnabled: false
 }
 
 export const declareModuleConfig = {
     key: name,
-    title: '自定义单页面 HTML 应用, 页面可使用 window.pluginSdk 实现与思源交互',
+    title: '自定义单页面 HTML 应用',
     items: [],
     customPanel: () => {
         return createConfigPanel();

@@ -48,6 +48,7 @@ const importDialog = (title: string, markdown: string) => {
         a.download = title + '.md';
         a.click();
         showMessage('下载成功');
+        URL.revokeObjectURL(url);
     }
 
     (ele.querySelector('button#download') as HTMLButtonElement).onclick = download
