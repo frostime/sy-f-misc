@@ -260,14 +260,18 @@ export const textToSpeech = async (
         // Get audio as Blob
         const audioBlob = await response.blob();
 
-        const audioDataURL = await FormatConverter.blobToDataURL(audioBlob);
+        // 使用 Blob URL 而不是 DataURL，避免占用大量文本空间
+        // 设置 10 分钟后自动回收，给用户足够时间播放和下载，避免长期占用内存
+        const audioBlobURL = FormatConverter.blobToObjectURL(audioBlob, {
+            seconds: 6000
+        });
 
         appendLog({ type: 'response', data: { audioGenerated: true, size: audioBlob.size } });
 
         return {
             ok: true,
             audio: audioBlob,
-            audioUrl: audioDataURL, // 使用 DataURL 代替 blob URL
+            audioUrl: audioBlobURL, // 使用 Blob URL（轻量级）
             format: options.response_format || 'mp3'
         };
 
@@ -319,16 +323,30 @@ export const transcriptionResultToCompletion = (
         lines.push(`*${metadata.join(' | ')}*\n`);
     }
 
-    // Add transcribed text
+    // Add transcribed text - 使用折叠处理长文本
+    const text = transcriptionResult.text || '';
+    const MAX_PREVIEW_LENGTH = 200;
+
     lines.push(`### 转录文本\n`);
-    lines.push('```txt');
-    lines.push(transcriptionResult.text || '');
-    lines.push('```');
+
+    if (text.length <= MAX_PREVIEW_LENGTH) {
+        // 短文本直接显示
+        lines.push(text);
+    } else {
+        // 长文本使用 details 折叠
+        const preview = text.substring(0, MAX_PREVIEW_LENGTH);
+        lines.push(`${preview}...`);
+        lines.push(`\n<details><summary>📄 展开完整文本 (${text.length} 字符)</summary>\n`);
+        lines.push('```txt');
+        lines.push(text);
+        lines.push('```');
+        lines.push('</details>');
+    }
 
     // Add timestamps if requested and available
     if (options?.showTimestamps && transcriptionResult.words && transcriptionResult.words.length > 0) {
         lines.push(`\n### 词级时间戳\n`);
-        lines.push('<details><summary>展开查看</summary>\n');
+        lines.push('<details><summary>📊 展开查看时间戳</summary>\n');
         transcriptionResult.words.forEach(word => {
             const start = word.start.toFixed(2);
             const end = word.end.toFixed(2);
@@ -340,7 +358,7 @@ export const transcriptionResultToCompletion = (
     // Add segments if requested and available
     if (options?.showSegments && transcriptionResult.segments && transcriptionResult.segments.length > 0) {
         lines.push(`\n### 段落分段\n`);
-        lines.push('<details><summary>展开查看</summary>\n');
+        lines.push('<details><summary>📑 展开查看分段</summary>\n');
         transcriptionResult.segments.forEach(segment => {
             const start = segment.start.toFixed(2);
             const end = segment.end.toFixed(2);
@@ -380,11 +398,26 @@ export const ttsResultToCompletion = (
 
     const lines: string[] = [];
 
-    // Show input text if requested
+    // Show input text if requested - 使用折叠处理长文本
     if (options?.showInputText && options.inputText) {
+        const inputText = options.inputText;
+        const MAX_PREVIEW_LENGTH = 100;
+
         lines.push(`### 输入文本\n`);
-        // lines.push(`> ${options.inputText}\n`);
-        lines.push(`${options.inputText.split('\n').map(l => '> ' + l).join('\n')}\n`);
+
+        if (inputText.length <= MAX_PREVIEW_LENGTH) {
+            // 短文本直接显示引用格式
+            lines.push(`${inputText.split('\n').map(l => '> ' + l).join('\n')}\n`);
+        } else {
+            // 长文本使用 details 折叠
+            const preview = inputText.substring(0, MAX_PREVIEW_LENGTH).trim();
+            lines.push(`> ${preview}...`);
+            lines.push(`\n<details><summary>📄 展开完整输入 (${inputText.length} 字符)</summary>\n`);
+            lines.push('```txt');
+            lines.push(inputText);
+            lines.push('```');
+            lines.push('</details>\n');
+        }
     }
 
     // Add audio player
@@ -393,11 +426,8 @@ export const ttsResultToCompletion = (
     // HTML5 audio player
     const format = ttsResult.format || 'mp3';
     lines.push(`<audio controls src="${ttsResult.audioUrl}" type="audio/${format}" />`);
-    // lines.push(`您的浏览器不支持音频播放。`);
-    // lines.push(`</audio>\n`);
 
-    // Download link
-    lines.push(`[🔗 下载音频文件](${ttsResult.audioUrl})\n`);
+    lines.push('\n请尽快下载保存, 资源在页面关闭后可能无法访问。');
 
     // Add metadata
     const metadata: string[] = [];
@@ -409,6 +439,7 @@ export const ttsResultToCompletion = (
     if (metadata.length > 0) {
         lines.push(`\n*${metadata.join(' | ')}*`);
     }
+
 
     return {
         ok: true,

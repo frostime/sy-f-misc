@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2025-12-13 23:03:38
+ * @LastEditTime : 2025-12-17 20:00:21
  * @Description  :
  */
 // External libraries
@@ -34,7 +34,7 @@ import SessionItemsManager from './components/SessionItemsManager';
 import { SessionToolsManager } from './components/SessionToolsManager';
 
 import { useSession, SimpleProvider } from './ChatSession/use-chat-session';
-import { useSessionSetting } from './ChatSessionSetting';
+import { useSessionSetting } from './session-setting';
 import { floatSiYuanTextEditor } from './utils';
 import { useAttachmentInputHandler } from './ChatSession/use-attachment-input';
 import styles from './main.module.scss';
