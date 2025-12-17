@@ -5,40 +5,10 @@ import Form from '@/libs/components/Form';
 
 // import TogglSetting from "@/func/toggl/setting";
 import { Dynamic } from "solid-js/web";
+import { SolidContainerWrapper } from "@/libs/components/solid-component-wrapper";
 
 
-/**
- * 外部元素包装组件
- * 支持 JSX.Element、HTMLElement 或 ExternalElementWithDispose
- */
-const ExternalElementWrapper: Component<{
-    element: () => FlexibleElement
-}> = (props) => {
-    const result = props.element();
 
-    // JSX 元素直接返回
-    if (!(result instanceof HTMLElement) &&
-        !(typeof result === 'object' && result !== null && 'element' in result)) {
-        return result as JSX.Element;
-    }
-
-    // 处理 HTMLElement
-    let containerRef: HTMLDivElement;
-
-    onMount(() => {
-        const element = result instanceof HTMLElement ? result : result.element;
-        const dispose = result instanceof HTMLElement ? undefined : result.dispose;
-
-        containerRef.appendChild(element);
-
-        onCleanup(() => {
-            dispose?.();
-            element.remove();
-        });
-    });
-
-    return <div ref={containerRef} style={{ display: 'contents' }} />;
-};
 
 
 /********** Events **********/
@@ -143,7 +113,7 @@ const App: Component<IArgs> = (props) => {
                             )}
                         </For>
                         <Show when={config.customPanel}>
-                            <ExternalElementWrapper element={config.customPanel!} />
+                            <SolidContainerWrapper element={config.customPanel!} />
                         </Show>
                     </div>
                 )}
@@ -158,7 +128,7 @@ const App: Component<IArgs> = (props) => {
 
     props.customPanels?.forEach(panel => {
         showGroups[panel.key] = () => (
-            <ExternalElementWrapper element={panel.element} />
+            <SolidContainerWrapper element={panel.element} />
         );
     });
 

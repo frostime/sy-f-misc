@@ -3,16 +3,15 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-17 15:44:17
+ * @LastEditTime : 2025-12-17 16:17:43
  * @Description  : HTML Pages Module - Display custom HTML pages and URLs
  */
 import FMiscPlugin from "@/index";
-import { getLute, openCustomTab } from "@frostime/siyuan-plugin-kits";
+import { getLute, openCustomTab, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { getFile, putFile, getFileBlob, request } from "@frostime/siyuan-plugin-kits/api";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
-import { IMenu } from "siyuan";
-import { simpleFormDialog, solidDialog } from "@/libs/dialog";
-import Markdown from "@/libs/components/Elements/Markdown";
+import { IMenu, showMessage } from "siyuan";
+import { simpleFormDialog } from "@/libs/dialog";
 
 interface IPageConfig {
     id: string;
@@ -297,15 +296,33 @@ function createConfigPanel(): ExternalElementWithDispose {
         container.appendChild(element);
 
         element.querySelector('[data-action="show-prompt"]')?.addEventListener('click', async () => {
-            const { container } = solidDialog({
+            const lute = getLute();
+            // @ts-ignore
+            const promptHtml = lute.Md2HTML(Prompt);
+            const html = `
+                    <div style="width: 100%; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: inline-flex; gap: 8px; align-items: center; justify-content: flex-end;">
+                            <button class="b3-button b3-button--outline" data-action="copy-prompt">
+                                复制
+                            </button>
+                        </div>
+                        <div class="item__readme b3-typography">
+                            ${promptHtml}
+                        </div>
+                    </div>
+                    `;
+            const ele = html2ele(html) as HTMLElement;
+            ele.querySelector('button').onclick = () => {
+                navigator.clipboard.writeText(Prompt);
+                showMessage('Prompt 已复制到剪贴板');
+            }
+            simpleDialog({
                 title: '你可以使用这个 Prompt',
-                loader: () => {
-                    return Markdown({
-                        markdown: Prompt
-                    });
-                }
+                ele: ele,
+                width: '960px',
+                maxHeight: '75vh',
             });
-            container.style.padding = '16px';
+            // container.style.padding = '16px';
         });
 
         // Bind events
@@ -445,7 +462,7 @@ function createConfigPanel(): ExternalElementWithDispose {
     };
 }
 
-export const Prompt = String.raw`
+export const Prompt = `
 请你根据用户的指令需要编写一个单 HTML 页面应用以满足他的需求。
 
 页面会从外部注入 \`window.pluginSdk\` 对象，包含以下方法：
