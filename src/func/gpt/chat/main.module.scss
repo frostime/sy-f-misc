@@ -165,9 +165,17 @@ $chat-very-narrow-container: 400px;
             }
         }
 
-        >span[data-role="model"] {
+        span.toolbarLabel[data-role="model"] {
             max-width: 10em !important;
             justify-content: flex-start;
+
+            &>span[data-role="full-name"] {
+                display: inherit;
+            }
+
+            &>span[data-role="symbol"] {
+                display: none;
+            }
         }
 
         @container (max-width: #{$chat-narrow-container}) {
@@ -179,6 +187,16 @@ $chat-very-narrow-container: 400px;
 
             span[data-hint="true"] {
                 display: none;
+            }
+
+            span.toolbarLabel[data-role="model"] {
+                &>span[data-role="full-name"] {
+                    display: none;
+                }
+
+                &>span[data-role="symbol"] {
+                    display: inherit;
+                }
             }
         }
 
@@ -226,9 +244,11 @@ $chat-very-narrow-container: 400px;
                 0% {
                     opacity: 0.6;
                 }
+
                 50% {
                     opacity: 0.8;
                 }
+
                 100% {
                     opacity: 0.6;
                 }
