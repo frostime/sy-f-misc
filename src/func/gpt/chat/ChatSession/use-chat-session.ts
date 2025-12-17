@@ -26,7 +26,7 @@ import { snapshotSignal } from '../../persistence/json-files';
 import { extractContentText, extractMessageContent, MessageBuilder, splitPromptFromContext, updateContentText } from '../../chat-utils';
 import { deepMerge } from '@frostime/siyuan-plugin-kits';
 
-import { useGptCommunication as useGptCommunicationNew } from './openai-communication';
+import { useGptCommunication as useGptCommunicationNew } from './use-openai-communication';
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;

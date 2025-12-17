@@ -10,7 +10,7 @@ import { mergeMultiVersion } from '@gpt/chat-utils/msg-item';
 import { UIConfig } from '@/func/gpt/model/store';
 
 import styles from './MessageItem.module.scss';
-import { type useSession } from '../ChatSession/ChatSession.helper';
+import { type useSession } from '../ChatSession/use-chat-session';
 import { showMessage } from 'siyuan';
 
 const MessageVersionView: Component<{

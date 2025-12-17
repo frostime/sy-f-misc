@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2025-12-13 19:20:25
+ * @LastEditTime : 2025-12-13 23:03:38
  * @Description  :
  */
 // External libraries
@@ -15,7 +15,7 @@ import {
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { Constants, Menu, showMessage } from 'siyuan';
+import { Menu, showMessage } from 'siyuan';
 import { debounce, inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits';
 
 // UI Components
@@ -33,22 +33,21 @@ import SvgSymbol from '@/libs/components/Elements/IconSymbol';
 import SessionItemsManager from './components/SessionItemsManager';
 import { SessionToolsManager } from './components/SessionToolsManager';
 
-import { useSession, SimpleProvider } from './ChatSession/ChatSession.helper';
+import { useSession, SimpleProvider } from './ChatSession/use-chat-session';
 import { useSessionSetting } from './ChatSessionSetting';
 import { floatSiYuanTextEditor } from './utils';
+import { useAttachmentInputHandler } from './ChatSession/use-attachment-input';
 import styles from './main.module.scss';
 
 // GPT and settings related
 import {
     defaultConfig, UIConfig, useModel, defaultModelId,
-    listAvialableModels, promptTemplates, globalMiscConfigs, checkSupportsModality
+    listAvialableModels, promptTemplates, globalMiscConfigs
 } from '@/func/gpt/model/store';
 import * as persist from '@gpt/persistence';
-import { getContextProviders, executeContextProvider, executeContextProviderDirect } from '@gpt/context-provider';
+import { getContextProviders, executeContextProvider } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 
-import BlocksProvider from '@gpt/context-provider/BlocksProvider';
-import { truncateContent } from '../tools/utils';
 import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
 import { jsonAgent } from '../openai/tiny-agent';
 
@@ -103,6 +102,13 @@ export const ChatSession: Component<{
     const session = useSession({ model, config, scrollToBottom });
 
     const hasToolEnabled = createSignalRef(session.toolExecutor.hasEnabledTools());
+
+    // 文件输入处理 Hook
+    const attachmentInputHandler = useAttachmentInputHandler({
+        modelId,
+        addAttachment: (file) => session.addAttachment(file),
+        setContext: (context) => session.setContext(context)
+    });
 
     // 移除 useSiYuanEditor，改用 floatSiYuanTextEditor
     // const siyuanEditor = useSiYuanEditor({
@@ -983,7 +989,7 @@ export const ChatSession: Component<{
                                         session.reRunMessage(index());
                                     }}
                                     multiSelect={multiSelect()}
-                                    onSelect={(id) => {
+                                    onSelect={(_id) => {
                                         // This function is now only used in the SessionItemsManager component
                                     }}
                                     toggleSeperator={() => {
@@ -1205,156 +1211,7 @@ export const ChatSession: Component<{
                     </ToolbarLabel>
                 </div>
                 <div class={styles.inputWrapper}
-                    onDragOver={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.currentTarget.classList.add(styles.dropTarget);
-                    }}
-                    onDragLeave={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.currentTarget.classList.remove(styles.dropTarget);
-                    }}
-                    onDrop={async (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.currentTarget.classList.remove(styles.dropTarget);
-
-                        if (!e.dataTransfer.types.length) return;
-
-                        const type = e.dataTransfer.types[0];
-                        if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
-                            let meta = type.replace(Constants.SIYUAN_DROP_GUTTER, '');
-                            const info = meta.split(Constants.ZWSP);
-                            const nodeIds = info[2].split(',');
-                            if (nodeIds.length > 1) {
-                                const context = await executeContextProviderDirect(SelectedTextProvider, {
-                                    query: ''
-                                });
-                                session.setContext(context);
-                            } else if (nodeIds.length === 1) {
-                                const id = nodeIds[0];
-                                const context = await executeContextProviderDirect(BlocksProvider, {
-                                    query: id
-                                });
-                                session.setContext(context);
-                            }
-
-                        } else if (e.dataTransfer.types.includes(Constants.SIYUAN_DROP_TAB)) {
-                            const data = e.dataTransfer.getData(Constants.SIYUAN_DROP_TAB)
-                            const payload = JSON.parse(data);
-                            const rootId = payload?.children?.rootId;
-                            if (rootId) {
-                                const context = await executeContextProviderDirect(BlocksProvider, {
-                                    query: rootId
-                                });
-                                session.setContext(context);
-                            }
-                            const tab = document.querySelector(`li[data-type="tab-header"][data-id="${payload.id}"]`) as HTMLElement;
-                            if (tab) {
-                                tab.style.opacity = 'unset';
-                            }
-                        } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                            // #TODO 需要优化
-                            const files = Array.from(e.dataTransfer.files);
-                            const currentModelId = modelId();
-
-                            // 分类处理不同类型的文件
-                            const imageFiles: File[] = [];
-                            const audioFiles: File[] = [];
-                            const textFiles: File[] = [];
-
-                            for (const file of files) {
-                                const mimeType = file.type || '';
-
-                                // 图片文件
-                                if (mimeType.startsWith('image/')) {
-                                    if (checkSupportsModality(currentModelId, 'image')) {
-                                        imageFiles.push(file);
-                                    } else {
-                                        showMessage(`当前模型不支持图片输入: ${file.name}`);
-                                    }
-                                }
-                                // 音频文件
-                                else if (mimeType.startsWith('audio/')) {
-                                    if (checkSupportsModality(currentModelId, 'audio')) {
-                                        audioFiles.push(file);
-                                    } else {
-                                        showMessage(`当前模型不支持音频输入: ${file.name}`);
-                                    }
-                                }
-                                // 文本文件
-                                else {
-                                    const ext = file.name.split('.').pop()?.toLowerCase();
-                                    const supportedTextExts = ['txt', 'md', 'py', 'ts', 'js', 'json', 'yaml', 'toml', 'xml', 'html'];
-
-                                    if (file.size > 2 * 1024 * 1024) {
-                                        showMessage(`文件过大 (>2MB): ${file.name}`);
-                                        continue;
-                                    }
-
-                                    if (supportedTextExts.includes(ext || '')) {
-                                        textFiles.push(file);
-                                    }
-                                }
-                            }
-
-                            // 添加图片附件
-                            for (const imageFile of imageFiles) {
-                                session.addAttachment(imageFile);
-                            }
-
-                            // 添加音频附件
-                            for (const audioFile of audioFiles) {
-                                session.addAttachment(audioFile);
-                            }
-
-                            // 处理文本文件为 context
-                            const readTextContent = async (file: File): Promise<string> => {
-                                return new Promise((resolve, reject) => {
-                                    const reader = new FileReader();
-                                    reader.onload = (e) => {
-                                        const result = e.target?.result as string;
-                                        resolve(result);
-                                    }
-                                    reader.onerror = () => {
-                                        reject(reader.error);
-                                    }
-                                    reader.readAsText(file);
-                                });
-                            }
-
-                            for (const file of textFiles) {
-                                try {
-                                    let content = await readTextContent(file);
-                                    if (content.length > 10000) {
-                                        const len = content.length;
-                                        const result = truncateContent(content, 10000);
-                                        content = result.content;
-                                        if (result.isTruncated) {
-                                            content += `\n\n...（内容过长，已截断，原始长度 ${len} 字符）`;
-                                        }
-                                    }
-                                    const context: IProvidedContext = {
-                                        id: `file-${Date.now()}-${file.name}`,
-                                        name: 'ReadLocalFile',
-                                        displayTitle: '本地文件',
-                                        description: '用户提交的本地文件内容',
-                                        contextItems: [
-                                            {
-                                                name: file.name,
-                                                description: `${file.name}的内容`,
-                                                content: content
-                                            }
-                                        ]
-                                    };
-                                    session.setContext(context);
-                                } catch (error) {
-                                    console.error('文件读取失败:', error);
-                                }
-                            }
-                        }
-                    }}>
+                    {...attachmentInputHandler.createDropHandlers(styles.dropTarget)}>
                     <textarea
                         ref={textareaRef}
                         value={input()}
@@ -1363,82 +1220,11 @@ export const ChatSession: Component<{
                             adjustTextareaHeight();
                         }}
                         onPaste={(e) => {
-                            // #TODO 需要优化 
-                            const clipboardData = e.clipboardData;
-                            const items = clipboardData?.items;
-                            if (!items) return;
-
-                            // Detect clipboard item types first, then check model modalities accordingly.
-                            let hasText = false;
-                            let hasImage = false;
-                            let hasFile = false; // non-image file
-
-                            for (let i = 0; i < items.length; i++) {
-                                const item = items[i];
-                                const type = (item.type || '').toLowerCase();
-
-                                if (item.kind === 'string') {
-                                    if (type.startsWith('text/')) {
-                                        hasText = true;
-                                    }
-                                    continue;
-                                }
-
-                                if (item.kind === 'file') {
-                                    if (type.startsWith('image/')) {
-                                        hasImage = true;
-                                    } else {
-                                        hasFile = true;
-                                    }
-                                }
-                            }
-
-                            const currentModelId = modelId();
-
-                            // Text paste: block when model doesn't accept text input.
-                            // (Most chat models support text, but some non-chat endpoints may not.)
-                            if (hasText && !checkSupportsModality(currentModelId, 'text')) {
-                                showMessage('当前模型不支持文本输入');
-                                e.preventDefault();
-                                return;
-                            }
-
-                            // Image paste: only warn / handle when clipboard actually contains images.
-                            const canPasteImage = !hasImage || checkSupportsModality(currentModelId, 'image');
-                            if (hasImage && !canPasteImage) {
-                                showMessage('当前模型不支持图片输入');
-                            }
-
-                            // File paste: detect non-image files and check modality.
-                            // NOTE: This chat UI currently only supports image attachments.
-                            if (hasFile && !checkSupportsModality(currentModelId, 'file')) {
-                                showMessage('当前模型不支持文件输入');
-                            }
-
-                            // Add image attachments.
-                            if (hasImage && canPasteImage) {
-                                for (let i = 0; i < items.length; i++) {
-                                    const item = items[i];
-                                    const type = (item.type || '').toLowerCase();
-                                    if (item.kind !== 'file') continue;
-                                    if (!type.startsWith('image/')) continue;
-                                    const file = item.getAsFile();
-                                    if (file) {
-                                        session.addAttachment(file);
-                                    }
-                                }
-                            }
+                            attachmentInputHandler.handlePaste(e);
                         }}
                         placeholder="输入消息..."
                         class={`${styles.input}`}
                         onKeyDown={onKeyDown}
-                        onDragOver={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            // Add visual feedback for drag over textarea
-                            const wrapper = e.currentTarget.closest(`.${styles.inputWrapper}`);
-                            if (wrapper) wrapper.classList.add(styles.dropTarget);
-                        }}
                     />
                     <div style={{
                         position: 'absolute',
