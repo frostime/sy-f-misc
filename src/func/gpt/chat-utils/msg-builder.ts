@@ -20,13 +20,29 @@ import {
 // ============================================================================
 
 export class MessageBuilder {
-    private parts: TMessageContentPart[] = [];
+    public parts: TMessageContentPart[] = [];
 
     /**
      * 添加文本
      */
     addText(content: string): this {
         this.parts.push({ type: 'text', text: content });
+        return this;
+    }
+
+    /**
+     * 直接添加已处理好的 TMessageContentPart
+     */
+    addPart(part: TMessageContentPart): this {
+        this.parts.push(part);
+        return this;
+    }
+
+    /**
+     * 批量添加 TMessageContentPart[]
+     */
+    addParts(parts: TMessageContentPart[]): this {
+        this.parts.push(...parts);
         return this;
     }
 

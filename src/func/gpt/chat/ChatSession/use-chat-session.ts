@@ -1,15 +1,13 @@
 // External libraries
 import { showMessage } from 'siyuan';
 import { Accessor, batch, createMemo } from 'solid-js';
-import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { ToolChainResult } from '@gpt/tools/toolchain';
+import { IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 // Local components and utilities
 import { createSimpleContext } from '@/libs/simple-context';
 
 // GPT-related imports
-import * as gpt from '@gpt/openai';
-import { globalMiscConfigs, useModel } from '@/func/gpt/model/store';
+import { globalMiscConfigs } from '@/func/gpt/model/store';
 
 import {
     mergeInputWithContext,
@@ -54,7 +52,7 @@ const useMessageManagement = (params: {
         return window.Lute.NewNodeID();
     }
 
-    const appendUserMsg = async (msg: string, assets?: (Blob | File)[], contexts?: IProvidedContext[]) => {
+    const appendUserMsg = async (msg: string, multiModalAttachments?: TMessageContentPart[], contexts?: IProvidedContext[]) => {
         const builder = new MessageBuilder();
 
         // 附加 context
@@ -66,26 +64,14 @@ const useMessageManagement = (params: {
             optionalFields['userPromptSlice'] = result.userPromptSlice;
         }
 
-        // 添加文本内容
-        builder.addText(msg);
-
-        // 处理附件：根据类型调用对应的 builder 方法
-        if (assets && assets?.length > 0) {
-            for (const asset of assets) {
-                const mimeType = asset.type || '';
-
-                if (mimeType.startsWith('image/')) {
-                    // 图片附件
-                    await builder.addImage(asset);
-                } else if (mimeType.startsWith('audio/')) {
-                    // 音频附件
-                    await builder.addAudio(asset);
-                } else {
-                    // 其他文件附件
-                    await builder.addFile(asset);
-                }
-            }
+        // 添加多模态附件（已经是 TMessageContentPart 格式）
+        if (multiModalAttachments && multiModalAttachments.length > 0) {
+            builder.addParts(multiModalAttachments);
+            optionalFields['multiModalAttachments'] = multiModalAttachments;
         }
+
+        // 添加文本内容（用户输入）
+        builder.addText(msg);
 
         const userMessage: IUserMessage = builder.buildUser();
 
@@ -791,8 +777,8 @@ export const useSession = (props: {
     const toolExecutor = toolExecutorFactory({});
 
     const systemPrompt = useSignalRef<string>(globalMiscConfigs().defaultSystemPrompt || '');
-    // 当前的 attachments
-    const attachments = useSignalRef<Blob[]>([]);
+    // 当前的多模态附件 (使用 OpenAI 标准格式)
+    const multiModalAttachments = useSignalRef<TMessageContentPart[]>([]);
     const contexts = useStoreRef<IProvidedContext[]>([]);
 
     const modelCustomOptions = useSignalRef<Partial<IChatCompleteOption>>({});
@@ -944,7 +930,7 @@ export const useSession = (props: {
         addAttachment
     } = useContextAndAttachments({
         contexts,
-        attachments
+        multiModalAttachments
     });
 
     // ================================================================
@@ -966,7 +952,7 @@ export const useSession = (props: {
         systemPrompt,
         customOptions: modelCustomOptions,
         loading,
-        attachments,
+        multiModalAttachments,
         contexts,
         toolExecutor,
         newID,
@@ -974,8 +960,8 @@ export const useSession = (props: {
     });
 
     // 包装 appendUserMsg 以更新 updated 时间戳
-    const appendUserMsg = async (msg: string, assets?: Blob[], contexts?: IProvidedContext[]) => {
-        const timestamp = await appendUserMsgInternal(msg, assets, contexts);
+    const appendUserMsg = async (msg: string, multiModalAttachments?: TMessageContentPart[], contexts?: IProvidedContext[]) => {
+        const timestamp = await appendUserMsgInternal(msg, multiModalAttachments, contexts);
         renewUpdatedTimestamp();
         return timestamp;
     }
@@ -996,13 +982,13 @@ export const useSession = (props: {
 
     // 包装 sendMessage 以处理用户消息和更新状态
     const sendMessage = async (userMessage: string) => {
-        if (!userMessage.trim() && attachments().length === 0 && contexts().length === 0) return;
+        if (!userMessage.trim() && multiModalAttachments().length === 0 && contexts().length === 0) return;
 
-        await appendUserMsg(userMessage, attachments(), [...contexts.unwrap()]);
+        await appendUserMsg(userMessage, multiModalAttachments(), [...contexts.unwrap()]);
 
         const result = await sendMessageInternal(
             userMessage,
-            attachments(),
+            multiModalAttachments(),
             [...contexts.unwrap()],
             props.scrollToBottom,
         );
@@ -1012,7 +998,7 @@ export const useSession = (props: {
         }
 
         // Clear attachments after sending
-        attachments.update([]);
+        multiModalAttachments.update([]);
         contexts.update([]);
 
         if (!hasStarted && result?.hasResponse) {
@@ -1104,7 +1090,7 @@ export const useSession = (props: {
         modelCustomOptions: modelCustomOptions,
         loading,
         title,
-        attachments,
+        multiModalAttachments,
         contexts,
         toolExecutor,
         sessionTags,

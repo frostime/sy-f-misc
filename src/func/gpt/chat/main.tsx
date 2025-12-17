@@ -1262,19 +1262,17 @@ export const ChatSession: Component<{
                     </div>
                 </div>
                 <div class={styles.attachmentArea} style={{
-                    display: session.attachments()?.length > 0 || session.contexts()?.length > 0 ? "block" : "none",
+                    display: session.multiModalAttachments()?.length > 0 || session.contexts()?.length > 0 ? "block" : "none",
                 }}>
                     <AttachmentList
-                        images={session.attachments()}
+                        multiModalAttachments={session.multiModalAttachments()}
                         contexts={session.contexts()}
                         showDelete={true}
                         size="medium"
-                        onDelete={(key: string | number, type: 'image' | 'context') => {
-                            if (type === 'image') {
-                                const attachments = session.attachments();
-                                session.removeAttachment(attachments[key]);
+                        onDelete={(key: number | string, type: 'attachment' | 'context') => {
+                            if (type === 'attachment') {
+                                session.removeAttachment(key as number);
                             } else {
-                                // const contexts = session.contexts();
                                 session.delContext(key as IProvidedContext['id']);
                             }
                         }}

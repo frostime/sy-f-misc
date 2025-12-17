@@ -15,10 +15,11 @@ import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import BlocksProvider from '@gpt/context-provider/BlocksProvider';
 import { truncateContent } from '@gpt/tools/utils';
 import { IStoreRef, useSignalRef } from '@frostime/solid-signal-ref';
+import { ImageProcess, AudioProcess, FileProcess } from '@gpt/chat-utils/msg-modal';
 
 interface AttachmentInputOptions {
     modelId: Accessor<string>;
-    addAttachment: (file: Blob) => void;
+    addAttachment: (part: TMessageContentPart) => void;
     setContext: (context: IProvidedContext) => void;
 }
 
@@ -34,9 +35,9 @@ interface FileClassification {
  */
 export const useContextAndAttachments = (params: {
     contexts: IStoreRef<IProvidedContext[]>;
-    attachments: ReturnType<typeof useSignalRef<Blob[]>>;
+    multiModalAttachments: ReturnType<typeof useSignalRef<TMessageContentPart[]>>;
 }) => {
-    const { contexts, attachments } = params;
+    const { contexts, multiModalAttachments } = params;
 
     const setContext = (context: IProvidedContext) => {
         const currentIds = contexts().map(c => c.id);
@@ -52,12 +53,18 @@ export const useContextAndAttachments = (params: {
         contexts.update(prev => prev.filter(c => c.id !== id));
     }
 
-    const removeAttachment = (attachment: Blob) => {
-        attachments.update((prev: Blob[]) => prev.filter((a: Blob) => a !== attachment));
+    /**
+     * 移除多模态附件（通过索引）
+     */
+    const removeAttachment = (index: number) => {
+        multiModalAttachments.update((prev: TMessageContentPart[]) => prev.filter((_, i) => i !== index));
     }
 
-    const addAttachment = (blob: Blob | File) => {
-        attachments.update((prev: Blob[]) => [...prev, blob]);
+    /**
+     * 添加多模态附件
+     */
+    const addAttachment = (part: TMessageContentPart) => {
+        multiModalAttachments.update((prev: TMessageContentPart[]) => [...prev, part]);
     }
 
     return {
@@ -266,19 +273,59 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
         const files = Array.from(e.dataTransfer.files);
         const { imageFiles, audioFiles, documentFiles, textFiles } = classifyFiles(files);
 
-        // 添加图片附件
+        // 添加图片附件 - 转换为 IImageContentPart
         for (const imageFile of imageFiles) {
-            addAttachment(imageFile);
+            try {
+                const dataURL = await ImageProcess.toDataURL(imageFile, {
+                    maxWidth: 2048,
+                    maxHeight: 2048,
+                    quality: 0.9
+                });
+                addAttachment({
+                    type: 'image_url',
+                    image_url: {
+                        url: dataURL,
+                        detail: 'auto'
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to process image:', error);
+                showMessage(`图片处理失败: ${error.message}`);
+            }
         }
 
-        // 添加音频附件
+        // 添加音频附件 - 转换为 IAudioContentPart
         for (const audioFile of audioFiles) {
-            addAttachment(audioFile);
+            try {
+                const { data, format } = await AudioProcess.toBase64(audioFile);
+                addAttachment({
+                    type: 'input_audio',
+                    input_audio: {
+                        data,
+                        format
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to process audio:', error);
+                showMessage(`音频处理失败: ${error.message}`);
+            }
         }
 
-        // 添加文档附件 (新增)
+        // 添加文档附件 - 转换为 IFileContentPart
         for (const docFile of documentFiles) {
-            addAttachment(docFile);
+            try {
+                const fileData = await FileProcess.toBase64(docFile);
+                addAttachment({
+                    type: 'file',
+                    file: {
+                        file_data: fileData.data,
+                        filename: fileData.filename,
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to process document:', error);
+                showMessage(`文档处理失败: ${error.message}`);
+            }
         }
 
         // 处理文本文件为 context
@@ -333,7 +380,23 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
 
                 const file = item.getAsFile();
                 if (file) {
-                    addAttachment(file);
+                    try {
+                        const dataURL = await ImageProcess.toDataURL(file, {
+                            maxWidth: 2048,
+                            maxHeight: 2048,
+                            quality: 0.9
+                        });
+                        addAttachment({
+                            type: 'image_url',
+                            image_url: {
+                                url: dataURL,
+                                detail: 'auto'
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Failed to process pasted image:', error);
+                        showMessage(`图片处理失败: ${error.message}`);
+                    }
                 }
             }
         }

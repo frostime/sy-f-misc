@@ -98,7 +98,7 @@ const useGptCommunication = (params: {
     systemPrompt: ReturnType<typeof useSignalRef<string>>;
     customOptions: ISignalRef<IChatCompleteOption>;
     loading: ReturnType<typeof useSignalRef<boolean>>;
-    attachments: ReturnType<typeof useSignalRef<Blob[]>>;
+    multiModalAttachments: ReturnType<typeof useSignalRef<TMessageContentPart[]>>;
     contexts: IStoreRef<IProvidedContext[]>;
     toolExecutor?: ToolExecutor;
     newID: () => string;
@@ -386,7 +386,7 @@ const useGptCommunication = (params: {
         const modelToUse = model();
 
         if (options.clearAttachments !== false) {
-            params.attachments.update([]);
+            params.multiModalAttachments.update([]);
             params.contexts.update([]);
         }
 
@@ -470,6 +470,7 @@ const useGptCommunication = (params: {
     };
 
     /** Image Edit Executor */
+    // TODO: Implement DataURL to Blob conversion
     const createImageEditExecutor = (
         image: File | Blob,
         prompt: string,
@@ -487,6 +488,7 @@ const useGptCommunication = (params: {
     };
 
     /** Audio Transcribe Executor */
+    // TODO: Implement Base64 to Blob conversion
     const createAudioTranscribeExecutor = (
         audioSource: File | Blob,
         options?: Partial<Omit<IAudioTranscriptionOptions, 'file'>> & {
@@ -542,25 +544,34 @@ const useGptCommunication = (params: {
     const getExecutorForServiceType = (
         serviceType: string | undefined,
         userText: string,
-        attachments?: Blob[]
+        multiModalAttachments?: TMessageContentPart[]
     ): { executor: Executor; supportsToolChain: boolean; needsHistory: boolean } | null => {
         switch (serviceType) {
             case 'image-gen':
                 return { executor: createImageGenerateExecutor(userText), supportsToolChain: false, needsHistory: false };
             case 'image-edit':
-                if (!attachments?.[0]) {
+                // 从 multiModalAttachments 中提取第一个图片
+                const imageAttachment = multiModalAttachments?.find(part => part.type === 'image_url') as IImageContentPart | undefined;
+                if (!imageAttachment) {
                     showMessage('图像编辑需要上传图片');
                     return null;
                 }
-                return { executor: createImageEditExecutor(attachments[0], userText), supportsToolChain: false, needsHistory: false };
+                // 需要将 DataURL 转回 Blob（临时方案，后续可优化）
+                // TODO: 需要实现 dataURLToBlob 转换
+                showMessage('图像编辑功能待实现 DataURL → Blob 转换');
+                return null;
             case 'audio-tts':
                 return { executor: createAudioSpeakExecutor(userText, { voice: 'nova' }), supportsToolChain: false, needsHistory: false };
             case 'audio-stt':
-                if (!attachments?.[0]) {
+                // 从 multiModalAttachments 中提取第一个音频
+                const audioAttachment = multiModalAttachments?.find(part => part.type === 'input_audio') as IAudioContentPart | undefined;
+                if (!audioAttachment) {
                     showMessage('音频转录需要音频文件');
                     return null;
                 }
-                return { executor: createAudioTranscribeExecutor(attachments[0]), supportsToolChain: false, needsHistory: false };
+                // TODO: 需要实现 Base64 → Blob 转换
+                showMessage('音频转录功能待实现 Base64 → Blob 转换');
+                return null;
             case 'chat':
             default:
                 return { executor: createChatExecutor(), supportsToolChain: true, needsHistory: true };
@@ -573,7 +584,7 @@ const useGptCommunication = (params: {
 
     const sendMessage = async (
         userMessage: string,
-        attachments: Blob[],
+        multiModalAttachments: TMessageContentPart[],
         contexts: IProvidedContext[],
         scrollToBottom?: (force?: boolean) => void
     ): Promise<RunResult | undefined> => {
@@ -591,13 +602,13 @@ const useGptCommunication = (params: {
         //         return await chatCompletion(userMessage, attachments, contexts, scrollToBottom);
         // }
 
-        if (!userMessage.trim() && attachments.length === 0 && contexts.length === 0) {
+        if (!userMessage.trim() && multiModalAttachments.length === 0 && contexts.length === 0) {
             return;
         }
 
         // 使用 IRuntimeLLM.type 而非 config.type，因为 config.type 可能是数组
         const modelType = model()?.type;
-        const executorInfo = getExecutorForServiceType(modelType, userMessage, attachments);
+        const executorInfo = getExecutorForServiceType(modelType, userMessage, multiModalAttachments);
         if (!executorInfo) return;
 
         return runCompletion(executorInfo.executor, {

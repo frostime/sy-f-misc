@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-12-12 22:54:58
+ * @LastEditTime : 2025-12-17 18:39:40
  * @Description  :
  */
 // ============================================================================
@@ -480,7 +480,20 @@ interface IChatSessionMsgItem {
         token?: IChatSessionMsgItem['token'];
         time?: ICompletionResult['time'];
     }>; //多版本 message 情况下有用
+
+    /**
+     * 文本上下文（保留用于 UI 显示）
+     * 实际发送时会转换为 message.content 的一部分
+     */
     context?: IProvidedContext[];
+
+    /**
+     * 多模态附件（图片、音频、文件等）
+     * 存储为 OpenAI 标准的 TMessageContentPart 格式
+     * 注意：持久化时需要将 Blob URL 转换为 DataURL
+     */
+    multiModalAttachments?: TMessageContentPart[];
+
     // 为了在 MessageItem 当中隐藏 context prompt，在这里记录 prompt 字符串的起止位置
     // 通过 slice 可以 获取 user prompt, 而去掉 context prompt 部分
     userPromptSlice?: [number, number];

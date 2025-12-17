@@ -57,12 +57,26 @@ const MessageItem: Component<{
         return text;
     });
 
-    const imageUrls = createMemo(() => {
-        let { images } = extractMessageContent(props.messageItem.message.content);
-        if (!images || images.length === 0) {
+    /**
+     * 提取多模态附件
+     * 优先从 messageItem.multiModalAttachments 读取（新格式）
+     * 如果不存在，则从 message.content 中提取（兼容旧格式）
+     */
+    const multiModalAttachments = createMemo(() => {
+        // 优先使用存储的 multiModalAttachments
+        if (props.messageItem.multiModalAttachments) {
+            return props.messageItem.multiModalAttachments;
+        }
+
+        // 兼容旧格式：从 message.content 中提取
+        const content = props.messageItem.message.content;
+        if (typeof content === 'string') {
             return [];
         }
-        return images;
+
+        // 过滤出非文本的内容部分（图片、音频、文件）
+        const parts = content.filter(part => part.type !== 'text');
+        return parts.length > 0 ? parts : [];
     });
 
     // Use the hook to render markdown
@@ -879,9 +893,9 @@ const MessageItem: Component<{
                         ref={msgRef}
                     />
                 </div>
-                <Show when={imageUrls().length > 0 || props.messageItem.context?.length > 0}>
+                <Show when={multiModalAttachments().length > 0 || props.messageItem.context?.length > 0}>
                     <AttachmentList
-                        images={imageUrls()}
+                        multiModalAttachments={multiModalAttachments()}
                         contexts={props.messageItem.context}
                         size="small"
                     />
