@@ -167,8 +167,8 @@ const ModelConfigPanel: Component<{
                         options={{
                             'chat': '对话 (chat)',
                             'image-gen': '图像生成 (image-gen)',
-                            // 'image-edit': '图像编辑 (image-edit)',
-                            // 'audio-stt': '语音转文本 (audio-stt)',
+                            'image-edit': '图像编辑 (image-edit)',
+                            'audio-stt': '语音转文本 (audio-stt)',
                             'audio-tts': '文本转语音 (audio-tts)',
                             // 'embeddings': '向量 (embeddings)',
                         }}
@@ -236,28 +236,30 @@ const ModelConfigPanel: Component<{
 
             </div>
 
-            {/* 能力标记 */}
-            <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
-                {/* <h4 style={{ 'margin-top': '0' }}>功能支持 (Capabilities)</h4> */}
+            {/* 能力标记 - 仅当模型类型为 chat 时显示 */}
+            <Show when={model().type === 'chat'}>
+                <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
+                    {/* <h4 style={{ 'margin-top': '0' }}>功能支持 (Capabilities)</h4> */}
 
-                <For each={[
-                    { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
-                    { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
-                    { key: 'reasoningEffort', label: 'reasoning_effort', desc: '部分模型允许设置 reasoning_effort 参数' },
-                    // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
-                    // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
-                ] as const}>
-                    {(item) => (
-                        <Form.Wrap title={item.label} description={item.desc}>
-                            <Form.Input
-                                type="checkbox"
-                                value={model().capabilities[item.key] ?? false}
-                                changed={(v) => updateCapability(item.key, v)}
-                            />
-                        </Form.Wrap>
-                    )}
-                </For>
-            </div>
+                    <For each={[
+                        { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
+                        { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
+                        { key: 'reasoningEffort', label: 'reasoning_effort', desc: '部分模型允许设置 reasoning_effort 参数' },
+                        // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
+                        // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
+                    ] as const}>
+                        {(item) => (
+                            <Form.Wrap title={item.label} description={item.desc}>
+                                <Form.Input
+                                    type="checkbox"
+                                    value={model().capabilities[item.key] ?? false}
+                                    changed={(v) => updateCapability(item.key, v)}
+                                />
+                            </Form.Wrap>
+                        )}
+                    </For>
+                </div>
+            </Show>
 
             {/* 限制参数 */}
             {/* #TODO 暂时隐藏 */}
@@ -483,7 +485,9 @@ const ProviderBasicConfig: Component = () => {
                 { key: 'chat', label: 'Chat', default: OPENAI_ENDPONITS['chat'] },
                 // { key: 'embeddings', label: 'Embeddings', default: '/embeddings' },
                 { key: 'image-gen', label: 'Image', default: OPENAI_ENDPONITS['image-gen'] },
-                { key: 'audio-tts', label: 'Text-to-Speech', default: OPENAI_ENDPONITS['audio-tts']}
+                { key: 'image-edit', label: 'Image Edit', default: OPENAI_ENDPONITS['image-edit'] },
+                { key: 'audio-stt', label: 'Speech-to-Text', default: OPENAI_ENDPONITS['audio-stt'] },
+                { key: 'audio-tts', label: 'Text-to-Speech', default: OPENAI_ENDPONITS['audio-tts'] }
             ]}>
                 {(item) => (
                     <Form.Wrap

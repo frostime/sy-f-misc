@@ -6,12 +6,13 @@ import { appendLog } from "../MessageLogger";
 
 export interface IAudioTranscriptionOptions {
     file: File | Blob;
-    model?: string;
+    model: string;
     language?: string;
     prompt?: string;
     response_format?: "json" | "text" | "srt" | "verbose_json" | "vtt";
     temperature?: number;
     timestamp_granularities?: ("word" | "segment")[];
+    [key: string]: any;
 }
 
 export interface IAudioTranscriptionResult {
@@ -43,6 +44,7 @@ export interface ITextToSpeechOptions {
     voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
     response_format?: "mp3" | "opus" | "aac" | "flac" | "wav" | "pcm";
     speed?: number;
+    [key: string]: any;
 }
 
 export interface ITextToSpeechResult {
@@ -60,13 +62,13 @@ export interface ITextToSpeechResult {
 
 /**
  * Transcribe audio to text using Whisper
- * @param options - Audio transcription options
  * @param runtimeModel - Runtime LLM configuration
+ * @param options - Audio transcription options
  * @returns Promise with transcription result
  */
 export const transcribeAudio = async (
-    options: IAudioTranscriptionOptions,
-    runtimeModel?: IRuntimeLLM
+    runtimeModel: IRuntimeLLM,
+    options: IAudioTranscriptionOptions
 ): Promise<IAudioTranscriptionResult> => {
     if (!runtimeModel) {
         return {
@@ -76,7 +78,9 @@ export const transcribeAudio = async (
     }
 
     try {
-        const { url, apiKey, provider, config } = runtimeModel;
+        const { url, apiKey, provider } = runtimeModel;
+
+        const knownParams = ['file', 'model', 'language', 'prompt', 'response_format', 'temperature', 'timestamp_granularities'];
 
         // Get the endpoint for audio transcriptions
         // const endpoint = provider?.endpoints?.audio_transcriptions || '/audio/transcriptions';
@@ -86,7 +90,7 @@ export const transcribeAudio = async (
         // Build FormData for multipart/form-data request
         const formData = new FormData();
         formData.append('file', options.file);
-        formData.append('model', options.model || config?.model || 'whisper-1');
+        formData.append('model', runtimeModel.model);
 
         if (options.language) formData.append('language', options.language);
         if (options.prompt) formData.append('prompt', options.prompt);
@@ -97,6 +101,14 @@ export const transcribeAudio = async (
                 formData.append('timestamp_granularities[]', granularity);
             });
         }
+
+        // Add custom parameters
+        Object.keys(options).forEach(key => {
+            if (!knownParams.includes(key)) {
+                console.log(`[Audio Transcription] Custom parameter passed: ${key}`, options[key]);
+                formData.append(key, options[key]);
+            }
+        });
 
         appendLog({
             type: 'request', data: {
@@ -181,13 +193,13 @@ export const transcribeAudio = async (
 
 /**
  * Generate speech from text using TTS
- * @param options - Text-to-speech options
  * @param runtimeModel - Runtime LLM configuration
+ * @param options - Text-to-speech options
  * @returns Promise with audio result
  */
 export const textToSpeech = async (
-    options: ITextToSpeechOptions,
-    runtimeModel?: IRuntimeLLM
+    runtimeModel: IRuntimeLLM,
+    options: ITextToSpeechOptions
 ): Promise<ITextToSpeechResult> => {
     if (!runtimeModel) {
         return {
@@ -197,7 +209,9 @@ export const textToSpeech = async (
     }
 
     try {
-        const { url: fullUrl, apiKey, provider, config } = runtimeModel;
+        const { url: fullUrl, apiKey, provider } = runtimeModel;
+
+        const knownParams = ['input', 'model', 'voice', 'response_format', 'speed'];
 
         // Get the endpoint for audio speech
         // const endpoint = provider?.endpoints?.audio_speech || '/audio/speech';
@@ -206,12 +220,20 @@ export const textToSpeech = async (
         // Build request payload
         const payload: any = {
             input: options.input,
-            model: options.model || config?.model,
+            model: runtimeModel.model,
             voice: options.voice,
         };
 
         if (options.response_format) payload.response_format = options.response_format;
         if (options.speed !== undefined) payload.speed = options.speed;
+
+        // Add custom parameters
+        Object.keys(options).forEach(key => {
+            if (!knownParams.includes(key)) {
+                console.log(`[Text To Speech] Custom parameter passed: ${key}`, options[key]);
+                payload[key] = options[key];
+            }
+        });
 
         appendLog({ type: 'request', data: payload });
 

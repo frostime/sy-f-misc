@@ -32,7 +32,7 @@ import { stageMsgItemVersion } from '@gpt/chat-utils/msg-item';
 import { ToolExecutor } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
 import { extractContentText, extractMessageContent } from '@gpt/chat-utils';
-import { useModel } from '@gpt/model';
+// import { useModel } from '@gpt/model';
 import { deepMerge } from '@frostime/siyuan-plugin-kits';
 import { quickComplete } from '../../openai/tiny-agent';
 // ============================================================================
@@ -462,7 +462,7 @@ const useGptCommunication = (params: {
         const runtimeOption = ctx.runtimeOption as Partial<IImageGenerationOptions>;
         // customOptions() 最高优先级：运行时 option 覆盖 options
         const mergedOptions = deepMerge({ ...(options || {}) }, runtimeOption);
-        const result = await generateImage({ prompt, ...(mergedOptions as any) }, ctx.modelToUse);
+        const result = await generateImage(ctx.modelToUse, { prompt, ...(mergedOptions as any) });
         return imageResultToCompletion(result, {
             showRevisedPrompt: options?.showRevisedPrompt ?? true,
             imageTitle: options?.imageTitle
@@ -479,7 +479,7 @@ const useGptCommunication = (params: {
     ): Executor => async (ctx) => {
         const runtimeOption = ctx.runtimeOption as Partial<IImageEditOptions>;
         const mergedOptions = deepMerge({ ...(options || {}) }, runtimeOption);
-        const result = await editImage({ image, prompt, ...(mergedOptions as any) }, ctx.modelToUse);
+        const result = await editImage(ctx.modelToUse, { image, prompt, ...(mergedOptions as any) });
         return imageResultToCompletion(result, {
             showRevisedPrompt: false,
             imageTitle: options?.imageTitle ?? '编辑后的图像'
@@ -496,7 +496,7 @@ const useGptCommunication = (params: {
     ): Executor => async (ctx) => {
         const runtimeOption = ctx.runtimeOption as Partial<IAudioTranscriptionOptions>;
         const mergedOptions = deepMerge({ ...(options || {}) }, runtimeOption);
-        const result = await transcribeAudio({ file: audioSource, ...(mergedOptions as any) }, ctx.modelToUse);
+        const result = await transcribeAudio(ctx.modelToUse, { file: audioSource, ...(mergedOptions as any) });
         return transcriptionResultToCompletion(result, {
             showTimestamps: options?.showTimestamps,
             showSegments: options?.showSegments
@@ -511,7 +511,7 @@ const useGptCommunication = (params: {
         const runtimeOption = ctx.runtimeOption as Partial<ITextToSpeechOptions>;
         // 默认 voice 允许被 customOptions 覆盖
         const mergedOptions = deepMerge({ ...(options || {}) }, runtimeOption);
-        const result = await textToSpeech({ input: text, ...(mergedOptions as any) }, ctx.modelToUse);
+        const result = await textToSpeech(ctx.modelToUse, { input: text, ...(mergedOptions as any) });
         return ttsResultToCompletion(result, {
             showInputText: options?.showInputText ?? true,
             inputText: text
@@ -547,6 +547,12 @@ const useGptCommunication = (params: {
         switch (serviceType) {
             case 'image-gen':
                 return { executor: createImageGenerateExecutor(userText), supportsToolChain: false, needsHistory: false };
+            case 'image-edit':
+                if (!attachments?.[0]) {
+                    showMessage('图像编辑需要上传图片');
+                    return null;
+                }
+                return { executor: createImageEditExecutor(attachments[0], userText), supportsToolChain: false, needsHistory: false };
             case 'audio-tts':
                 return { executor: createAudioSpeakExecutor(userText, { voice: 'nova' }), supportsToolChain: false, needsHistory: false };
             case 'audio-stt':

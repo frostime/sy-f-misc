@@ -74,7 +74,7 @@ const useMessageManagement = (params: {
         if (assets && assets?.length > 0) {
             for (const asset of assets) {
                 const mimeType = asset.type || '';
-                
+
                 if (mimeType.startsWith('image/')) {
                     // 图片附件
                     await builder.addImage(asset);
