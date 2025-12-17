@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-13
  * @FilePath     : /src/func/gpt/chat/ChatSession/use-attachment-input.ts
- * @LastEditTime : 2025-12-14 01:54:16
+ * @LastEditTime : 2025-12-17 17:21:08
  * @Description  : 统一处理文件输入的 Hook (paste/drag/drop)
  */
 
@@ -14,6 +14,7 @@ import { executeContextProviderDirect } from '@gpt/context-provider';
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import BlocksProvider from '@gpt/context-provider/BlocksProvider';
 import { truncateContent } from '@gpt/tools/utils';
+import { IStoreRef, useSignalRef } from '@frostime/solid-signal-ref';
 
 interface AttachmentInputOptions {
     modelId: Accessor<string>;
@@ -27,6 +28,45 @@ interface FileClassification {
     documentFiles: File[];  // 新增：doc, docx, pdf
     textFiles: File[];
 }
+
+/**
+ * 上下文和附件管理相关的 hook
+ */
+export const useContextAndAttachments = (params: {
+    contexts: IStoreRef<IProvidedContext[]>;
+    attachments: ReturnType<typeof useSignalRef<Blob[]>>;
+}) => {
+    const { contexts, attachments } = params;
+
+    const setContext = (context: IProvidedContext) => {
+        const currentIds = contexts().map(c => c.id);
+        if (currentIds.includes(context.id)) {
+            const index = currentIds.indexOf(context.id);
+            contexts.update(index, context);
+        } else {
+            contexts.update(prev => [...prev, context]);
+        }
+    }
+
+    const delContext = (id: IProvidedContext['id']) => {
+        contexts.update(prev => prev.filter(c => c.id !== id));
+    }
+
+    const removeAttachment = (attachment: Blob) => {
+        attachments.update((prev: Blob[]) => prev.filter((a: Blob) => a !== attachment));
+    }
+
+    const addAttachment = (blob: Blob | File) => {
+        attachments.update((prev: Blob[]) => [...prev, blob]);
+    }
+
+    return {
+        setContext,
+        delContext,
+        removeAttachment,
+        addAttachment
+    };
+};
 
 export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
     const { modelId, addAttachment, setContext } = options;

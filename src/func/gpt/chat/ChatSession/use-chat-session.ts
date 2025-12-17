@@ -18,15 +18,14 @@ import {
     isMsgItemWithMultiVersion
 } from '@gpt/chat-utils/msg-item';
 
-import { ToolExecutor, toolExecutorFactory } from '@gpt/tools';
-import { executeToolChain } from '@gpt/tools/toolchain';
+import { toolExecutorFactory } from '@gpt/tools';
 import { useDeleteHistory } from './DeleteHistory';
 import { snapshotSignal } from '../../persistence/json-files';
 
-import { extractContentText, extractMessageContent, MessageBuilder, splitPromptFromContext, updateContentText } from '../../chat-utils';
-import { deepMerge } from '@frostime/siyuan-plugin-kits';
+import { extractContentText, MessageBuilder, splitPromptFromContext, updateContentText } from '../../chat-utils';
 
 import { useGptCommunication as useGptCommunicationNew } from './use-openai-communication';
+import { useContextAndAttachments } from './use-attachment-input';
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;
@@ -272,45 +271,6 @@ const useMessageManagement = (params: {
         addMsgItemVersion,
         switchMsgItemVersion,
         delMsgItemVersion
-    };
-};
-
-/**
- * 上下文和附件管理相关的 hook
- */
-const useContextAndAttachments = (params: {
-    contexts: IStoreRef<IProvidedContext[]>;
-    attachments: ReturnType<typeof useSignalRef<Blob[]>>;
-}) => {
-    const { contexts, attachments } = params;
-
-    const setContext = (context: IProvidedContext) => {
-        const currentIds = contexts().map(c => c.id);
-        if (currentIds.includes(context.id)) {
-            const index = currentIds.indexOf(context.id);
-            contexts.update(index, context);
-        } else {
-            contexts.update(prev => [...prev, context]);
-        }
-    }
-
-    const delContext = (id: IProvidedContext['id']) => {
-        contexts.update(prev => prev.filter(c => c.id !== id));
-    }
-
-    const removeAttachment = (attachment: Blob) => {
-        attachments.update((prev: Blob[]) => prev.filter((a: Blob) => a !== attachment));
-    }
-
-    const addAttachment = (blob: Blob | File) => {
-        attachments.update((prev: Blob[]) => [...prev, blob]);
-    }
-
-    return {
-        setContext,
-        delContext,
-        removeAttachment,
-        addAttachment
     };
 };
 
