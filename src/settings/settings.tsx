@@ -1,10 +1,14 @@
-import { Component, For, JSX, Show, createSignal, onCleanup } from "solid-js";
+import { Component, For, JSX, Show, createSignal, onCleanup, onMount } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
 
-import Form, { FormWrap as SettingItemWrap } from '@/libs/components/Form';
+import Form from '@/libs/components/Form';
 
 // import TogglSetting from "@/func/toggl/setting";
 import { Dynamic } from "solid-js/web";
+import { SolidContainerWrapper } from "@/libs/components/solid-component-wrapper";
+
+
+
 
 
 /********** Events **********/
@@ -21,7 +25,7 @@ interface IArgs {
     customPanels?: {
         key: string;
         title: string;
-        element: () => JSX.Element;
+        element: () => FlexibleElement;
     }[];
     customModuleConfigs?: IFuncModule['declareModuleConfig'][];
 }
@@ -109,7 +113,7 @@ const App: Component<IArgs> = (props) => {
                             )}
                         </For>
                         <Show when={config.customPanel}>
-                            {config.customPanel()}
+                            <SolidContainerWrapper element={config.customPanel!} />
                         </Show>
                     </div>
                 )}
@@ -123,7 +127,9 @@ const App: Component<IArgs> = (props) => {
     }
 
     props.customPanels?.forEach(panel => {
-        showGroups[panel.key] = panel.element;
+        showGroups[panel.key] = () => (
+            <SolidContainerWrapper element={panel.element} />
+        );
     });
 
     return (

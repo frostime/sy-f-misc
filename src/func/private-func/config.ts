@@ -12,7 +12,7 @@ export const config = {
     AutoSyncAfterLongWait: false,
     WAIT_INTERVAL_HOURS: 4,
     EnableCtrlSFixTab: true,
-    zoom: 1
+    // zoom: 1
 }
 
 // Optional: Declare simple module config
@@ -55,21 +55,21 @@ export const declareModuleConfig = {
                 config.EnableCtrlSFixTab = value;
             }
         },
-        {
-            key: 'IFrameZoom',
-            title: 'IFrame 缩放',
-            description: '设置 IFrame 缩放比例',
-            type: 'number',
-            number: {
-                min: 0.5,
-                max: 3,
-                step: 0.1
-            },
-            get: () => config.zoom,
-            set: (value: number) => {
-                config.zoom = value;
-            }
-        }
+        // {
+        //     key: 'IFrameZoom',
+        //     title: 'IFrame 缩放',
+        //     description: '设置 IFrame 缩放比例',
+        //     type: 'number',
+        //     number: {
+        //         min: 0.5,
+        //         max: 3,
+        //         step: 0.1
+        //     },
+        //     get: () => config.zoom,
+        //     set: (value: number) => {
+        //         config.zoom = value;
+        //     }
+        // }
     ] as IConfigItem<any>[],
     load: (itemValues?: Record<string, any>) => {
         if (itemValues?.AutoSyncAfterLongWait !== undefined) {
@@ -81,8 +81,8 @@ export const declareModuleConfig = {
         if (itemValues?.EnableCtrlSHandler !== undefined) {
             config.EnableCtrlSFixTab = itemValues.EnableCtrlSHandler;
         }
-        if (itemValues?.IFrameZoom !== undefined) {
-            config.zoom = parseFloat(itemValues.IFrameZoom);
-        }
+        // if (itemValues?.IFrameZoom !== undefined) {
+        //     config.zoom = parseFloat(itemValues.IFrameZoom);
+        // }
     }
 };
