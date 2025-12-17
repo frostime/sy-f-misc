@@ -155,6 +155,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     if (storage) {
         CustomModuleConfigs.forEach(config => {
             if (!storage[config.key]) return;
+            if (!config.load) return;
             config.load(storage[config.key]);
         });
     }

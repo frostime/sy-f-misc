@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2025-04-17 15:20:21
  * @FilePath     : /src/func/private-func/index.ts
- * @LastEditTime : 2025-06-13 12:11:56
+ * @LastEditTime : 2025-12-17 02:20:36
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
 import { toggleDisable, toggleEnable } from "./auto-sync";
 import * as toQuickDn from "./to-quick-dn";
-import * as htmlPages from "./html-pages";
+// import * as htmlPages from "./html-pages";
 // import { showMessage } from "siyuan";
 
 import { config } from './config';
@@ -63,7 +63,7 @@ export const load = (plugin_: FMiscPlugin) => {
     }
 
     toQuickDn.load();
-    htmlPages.load(plugin_);
+    // htmlPages.load(plugin_);
 };
 
 export const unload = (_plugin: FMiscPlugin) => {

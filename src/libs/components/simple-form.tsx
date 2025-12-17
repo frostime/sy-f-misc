@@ -27,7 +27,8 @@ export interface SimpleFormProps {
     onSave?: (values: Record<string, any>) => void;
     onCancel?: () => void;
     labelWidth?: string;  // 标签列宽度
-    style?: JSX.CSSProperties;
+    styles?: JSX.CSSProperties;
+    inputStyles?: JSX.CSSProperties;
 }
 
 export default function SimpleForm(props: SimpleFormProps) {
@@ -64,6 +65,11 @@ export default function SimpleForm(props: SimpleFormProps) {
         return type === 'textarea' || type === 'radio';
     };
 
+    const inputStyles = {
+        'width': '100%',
+        ...props.inputStyles
+    }
+
     // 渲染输入控件
     const renderInput = (field: SimpleFormField) => {
         const value = formValues()[field.key];
@@ -74,7 +80,8 @@ export default function SimpleForm(props: SimpleFormProps) {
                     <TextInput
                         value={value}
                         placeholder={field.placeholder}
-                        onInput={(v) => updateField(field.key, v)}
+                        onChanged={(v) => updateField(field.key, v)}
+                        style={inputStyles}
                     />
                 );
             case 'textarea':
@@ -82,6 +89,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                     <TextArea
                         value={value}
                         onChanged={(v) => updateField(field.key, v)}
+                        style={inputStyles}
                     />
                 );
             case 'number':
@@ -92,6 +100,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                         max={field.max}
                         step={field.step}
                         changed={(v) => updateField(field.key, v)}
+                        style={inputStyles}
                     />
                 );
             case 'checkbox':
@@ -99,6 +108,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                     <CheckboxInput
                         checked={value}
                         changed={(v) => updateField(field.key, v)}
+                        style={inputStyles}
                     />
                 );
             case 'select':
@@ -107,6 +117,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                         value={value}
                         options={field.options || {}}
                         changed={(v) => updateField(field.key, v)}
+                        style={inputStyles}
                     />
                 );
             case 'slider':
@@ -123,7 +134,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                             step={field.step ?? 1}
                             tooltip={true}
                             changed={(v) => updateField(field.key, v)}
-                            style={{ flex: '1' }}
+                            style={{ flex: '1', ...inputStyles }}
                         />
                         <span style={{
                             'min-width': '40px',
@@ -141,6 +152,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                         value={value}
                         options={field.options || {}}
                         changed={(v) => updateField(field.key, v)}
+                        style={inputStyles}
                     />
                 );
             case 'upload':
@@ -150,6 +162,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                         accept={field.accept}
                         placeholder={field.placeholder}
                         changed={(v) => updateField(field.key, v)}
+                        style={inputStyles}
                     />
                 );
             default:
@@ -164,7 +177,7 @@ export default function SimpleForm(props: SimpleFormProps) {
             display: 'flex',
             'flex-direction': 'column',
             gap: '12px',
-            ...props.style
+            ...props.styles
         }}>
             {/* 表单字段 */}
             <For each={props.fields}>

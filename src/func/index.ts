@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-04-17 18:15:02
+ * @LastEditTime : 2025-12-17 15:47:10
  * @Description  :
  */
 // import { type JSX } from "solid-js";
@@ -40,14 +40,16 @@ import * as srdb from './super-ref-db';
 import * as dft from './docfile-tools';
 
 import * as priv from './private-func';
+import * as htmlPages from './html-pages';
 
 let _ModulesToEnable: IFuncModule[] = [
-// #if [PRIVATE_ADD]
+    // #if [PRIVATE_ADD]
     priv,
-// #endif
+    // #endif
     gpt,
     css,
     srdb,
+    htmlPages,
     mw,
     gp,
     md,
@@ -63,9 +65,9 @@ let _ModulesToEnable: IFuncModule[] = [
     tr,
     mr,
     ws,
-// #if [!PRIVATE_REMOVE]
+    // #if [!PRIVATE_REMOVE]
     docky,
-// #endif
+    // #endif
 ];
 
 let _ModulesAlwaysEnable: IFuncModule[] = [sc];
@@ -85,7 +87,7 @@ export const load = (plugin: FMiscPlugin) => {
             module.load(plugin);
             console.debug(`Load ${module.name}`);
         }
-    }); 
+    });
 
     ModulesAlwaysEnable.forEach(module => {
         module.load(plugin);
