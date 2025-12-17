@@ -4,7 +4,7 @@ import { llmProviders, resolveEndpointUrl } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
-import { SvgSymbol } from "../chat/Elements";
+import SvgSymbol from "@/libs/components/Elements/IconSymbol";
 import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { showMessage } from "siyuan";

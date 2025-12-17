@@ -7,3 +7,4 @@
  */
 
 // 从 tools 导出 ChatUIAdapter
+export { ChatSession } from './main';

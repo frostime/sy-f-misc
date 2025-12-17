@@ -12,12 +12,12 @@ import * as persist from '@gpt/persistence';
 
 import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
-import { useSimpleContext } from './ChatSession/ChatSession.helper';
+import { useSimpleContext } from '../ChatSession/ChatSession.helper';
 import MessageVersionView from './MessageVersionView';
 import ToolChainIndicator from './ToolChainIndicator';
 
 import { createMarkdownRenderer } from './MessageItem.helper';
-import { floatSiYuanTextEditor } from './ChatSession/utils';
+import { floatSiYuanTextEditor } from '../utils';
 
 
 

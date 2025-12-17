@@ -37,10 +37,10 @@
     "solid-js": "^1.9.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2",
-    "vite": "^5.2.13",
+    "vite": "^6.4.1",
     "vite-plugin-conditional-compile": "^1.4.5",
     "vite-plugin-solid": "^2.11.0",
-    "vite-plugin-static-copy": "^1.0.5",
+    "vite-plugin-static-copy": "^3.1.4",
     "vite-plugin-zip-pack": "^1.2.2"
   },
   "dependencies": {

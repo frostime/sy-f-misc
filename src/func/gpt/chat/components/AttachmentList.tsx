@@ -2,7 +2,7 @@ import { Component, For, createMemo, onCleanup } from 'solid-js';
 import { simpleDialog } from '@frostime/siyuan-plugin-kits';
 import { solidDialog } from '@/libs/dialog';
 import styles from './AttachmentList.module.scss';
-import { createObjectURLManager } from '../chat-utils';
+import { createObjectURLManager } from '../../chat-utils';
 
 type ImageSource = Blob | string;
 

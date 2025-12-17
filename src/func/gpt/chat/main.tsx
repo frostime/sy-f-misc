@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
- * @FilePath     : /src/func/gpt/chat/ChatSession/index.tsx
- * @LastEditTime : 2025-12-12 17:35:25
+ * @FilePath     : /src/func/gpt/chat/index.tsx
+ * @LastEditTime : 2025-12-12 19:06:45
  * @Description  :
  */
 // External libraries
@@ -11,7 +11,7 @@ import {
     Accessor, Component, JSX,
     createMemo, createEffect, createRenderEffect,
     For, Match, Show, Switch,
-    on, onMount, onCleanup, batch
+    on, onMount, onCleanup
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
@@ -24,19 +24,19 @@ import { SliderInput } from '@/libs/components/Elements';
 import { solidDialog } from '@/libs/dialog';
 
 // Local components
-import MessageItem from '../MessageItem';
-import AttachmentList from '../AttachmentList';
-import TitleTagEditor from '../TitleTagEditor';
-import HistoryList from '../HistoryList';
-import { DeleteHistoryPanel } from './DeleteHistory';
-import { SvgSymbol } from '../Elements';
-import SessionItemsManager from '../SessionItemsManager';
-import { SessionToolsManager } from '../SessionToolsManager';
+import MessageItem from './components/MessageItem';
+import AttachmentList from './components/AttachmentList';
+import TitleTagEditor from './components/TitleTagEditor';
+import HistoryList from './components/HistoryList';
+import { DeleteHistoryPanel } from './ChatSession/DeleteHistory';
+import SvgSymbol from '@/libs/components/Elements/IconSymbol';
+import SessionItemsManager from './components/SessionItemsManager';
+import { SessionToolsManager } from './components/SessionToolsManager';
 
-import { useSession, SimpleProvider } from './ChatSession.helper';
+import { useSession, SimpleProvider } from './ChatSession/ChatSession.helper';
 import { useSessionSetting } from './ChatSessionSetting';
 import { floatSiYuanTextEditor } from './utils';
-import styles from './ChatSession.module.scss';
+import styles from './main.module.scss';
 
 // GPT and settings related
 import {
@@ -48,12 +48,12 @@ import { getContextProviders, executeContextProvider, executeContextProviderDire
 import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 
 import BlocksProvider from '@gpt/context-provider/BlocksProvider';
-import { truncateContent } from '../../tools/utils';
+import { truncateContent } from '../tools/utils';
 import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
-import { jsonAgent } from '../../openai/tiny-agent';
+import { jsonAgent } from '../openai/tiny-agent';
 
 
-const ChatSession: Component<{
+export const ChatSession: Component<{
     input?: ReturnType<typeof useSignalRef<string>>;
     systemPrompt?: string;
     history?: IChatSessionHistory;
@@ -1431,5 +1431,3 @@ const ChatSession: Component<{
         </div>
     );
 };
-
-export default ChatSession;
