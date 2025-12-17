@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-12-13
- * @FilePath     : /src/func/gpt/chat/ChatSession/attachment-input.ts
- * @LastEditTime : 2025-12-13 22:58:30
+ * @FilePath     : /src/func/gpt/chat/ChatSession/use-attachment-input.ts
+ * @LastEditTime : 2025-12-14 01:54:16
  * @Description  : 统一处理文件输入的 Hook (paste/drag/drop)
  */
 
@@ -24,6 +24,7 @@ interface AttachmentInputOptions {
 interface FileClassification {
     imageFiles: File[];
     audioFiles: File[];
+    documentFiles: File[];  // 新增：doc, docx, pdf
     textFiles: File[];
 }
 
@@ -58,10 +59,12 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
         const currentModelId = modelId();
         const imageFiles: File[] = [];
         const audioFiles: File[] = [];
+        const documentFiles: File[] = [];  // 新增
         const textFiles: File[] = [];
 
         for (const file of files) {
             const mimeType = file.type || '';
+            const ext = file.name.split('.').pop()?.toLowerCase() || '';
 
             // 图片文件
             if (mimeType.startsWith('image/')) {
@@ -79,23 +82,39 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
                     showMessage(`当前模型不支持音频输入: ${file.name}`);
                 }
             }
+            // 文档文件 (新增)
+            else if (['pdf', 'doc', 'docx'].includes(ext)) {
+                if (file.size > 20 * 1024 * 1024) {  // 20MB 限制
+                    showMessage(`文档文件过大 (>20MB): ${file.name}`);
+                    continue;
+                }
+                documentFiles.push(file);
+            }
             // 文本文件
             else {
-                const ext = file.name.split('.').pop()?.toLowerCase();
-                const supportedTextExts = ['txt', 'md', 'py', 'ts', 'js', 'json', 'yaml', 'toml', 'xml', 'html'];
+                const supportedTextExts = [
+                    'txt', 'md', 'markdown',
+                    'py', 'ts', 'js', 'jsx', 'tsx',
+                    'json', 'yaml', 'yml', 'toml',
+                    'xml', 'html', 'css', 'scss',
+                    'c', 'cpp', 'h', 'java', 'go', 'rs'
+                ];
 
-                if (file.size > 2 * 1024 * 1024) {
-                    showMessage(`文件过大 (>2MB): ${file.name}`);
+                if (!supportedTextExts.includes(ext)) {
+                    showMessage(`不支持的文件类型: ${file.name}`);
                     continue;
                 }
 
-                if (supportedTextExts.includes(ext || '')) {
-                    textFiles.push(file);
+                if (file.size > 2 * 1024 * 1024) {
+                    showMessage(`文本文件过大 (>2MB): ${file.name}`);
+                    continue;
                 }
+
+                textFiles.push(file);
             }
         }
 
-        return { imageFiles, audioFiles, textFiles };
+        return { imageFiles, audioFiles, documentFiles, textFiles };
     };
 
     /**
@@ -114,7 +133,7 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
                     }
                 }
                 const context: IProvidedContext = {
-                    id: `file-${Date.now()}-${file.name}`,
+                    id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${file.name}`,
                     name: 'ReadLocalFile',
                     displayTitle: '本地文件',
                     description: '用户提交的本地文件内容',
@@ -131,26 +150,6 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
                 console.error('文件读取失败:', error);
             }
         }
-    };
-
-    /**
-     * 处理普通文件列表
-     */
-    const handleFiles = async (files: File[]) => {
-        const { imageFiles, audioFiles, textFiles } = classifyFiles(files);
-
-        // 添加图片附件
-        for (const imageFile of imageFiles) {
-            addAttachment(imageFile);
-        }
-
-        // 添加音频附件
-        for (const audioFile of audioFiles) {
-            addAttachment(audioFile);
-        }
-
-        // 处理文本文件为 context
-        await processTextFiles(textFiles);
     };
 
     /**
@@ -213,16 +212,37 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
         // 思源块拖放
         if (type.startsWith(Constants.SIYUAN_DROP_GUTTER)) {
             await handleSiYuanDrop(type);
+            return;  // 添加 return，避免继续执行
         }
         // 思源标签页拖放
-        else if (e.dataTransfer.types.includes(Constants.SIYUAN_DROP_TAB)) {
+        if (e.dataTransfer.types.includes(Constants.SIYUAN_DROP_TAB)) {
             await handleSiYuanTabDrop(e.dataTransfer);
+            return;  // 添加 return
         }
+
         // 文件拖放
-        else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const files = Array.from(e.dataTransfer.files);
-            await handleFiles(files);
+        if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+
+        const files = Array.from(e.dataTransfer.files);
+        const { imageFiles, audioFiles, documentFiles, textFiles } = classifyFiles(files);
+
+        // 添加图片附件
+        for (const imageFile of imageFiles) {
+            addAttachment(imageFile);
         }
+
+        // 添加音频附件
+        for (const audioFile of audioFiles) {
+            addAttachment(audioFile);
+        }
+
+        // 添加文档附件 (新增)
+        for (const docFile of documentFiles) {
+            addAttachment(docFile);
+        }
+
+        // 处理文本文件为 context
+        await processTextFiles(textFiles);
     };
 
     /**
@@ -233,75 +253,44 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
         const items = clipboardData?.items;
         if (!items) return;
 
-        // 检测剪贴板项目类型
+        // 只检测图片和文本
         let hasText = false;
         let hasImage = false;
-        let hasFile = false; // 非图片文件
 
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
             const type = (item.type || '').toLowerCase();
 
-            if (item.kind === 'string') {
-                if (type.startsWith('text/')) {
-                    hasText = true;
-                }
-                continue;
+            if (item.kind === 'string' && type.startsWith('text/')) {
+                hasText = true;
             }
-
-            if (item.kind === 'file') {
-                if (type.startsWith('image/')) {
-                    hasImage = true;
-                } else if (type.startsWith('audio/')) {
-                    hasFile = true;
-                } else {
-                    hasFile = true;
-                }
+            if (item.kind === 'file' && type.startsWith('image/')) {
+                hasImage = true;
             }
         }
 
         const currentModelId = modelId();
 
-        // 文本粘贴：当模型不支持文本输入时阻止
+        // 文本检查
         if (hasText && !checkSupportsModality(currentModelId, 'text', 'input')) {
             showMessage('当前模型不支持文本输入');
             e.preventDefault();
             return;
         }
 
-        // 图片粘贴：仅当剪贴板包含图片时警告/处理
-        const canPasteImage = !hasImage || checkSupportsModality(currentModelId, 'image', 'input');
-        if (hasImage && !canPasteImage) {
-            showMessage('当前模型不支持图片输入');
-        }
-
-        // 文件粘贴：检测非图片文件并检查模态
-        const canPasteFile = !hasFile || checkSupportsModality(currentModelId, 'audio', 'input');
-        if (hasFile && !canPasteFile) {
-            showMessage('当前模型不支持文件输入');
-        }
-
-        // 添加图片附件
-        if (hasImage && canPasteImage) {
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                const type = (item.type || '').toLowerCase();
-                if (item.kind !== 'file') continue;
-                if (!type.startsWith('image/')) continue;
-                const file = item.getAsFile();
-                if (file) {
-                    addAttachment(file);
-                }
+        // 图片处理
+        if (hasImage) {
+            const canPasteImage = checkSupportsModality(currentModelId, 'image', 'input');
+            if (!canPasteImage) {
+                showMessage('当前模型不支持图片输入');
+                return;
             }
-        }
 
-        // 添加音频附件
-        if (hasFile && canPasteFile) {
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
-                const type = (item.type || '').toLowerCase();
                 if (item.kind !== 'file') continue;
-                if (!type.startsWith('audio/')) continue;
+                if (!item.type.startsWith('image/')) continue;
+
                 const file = item.getAsFile();
                 if (file) {
                     addAttachment(file);
