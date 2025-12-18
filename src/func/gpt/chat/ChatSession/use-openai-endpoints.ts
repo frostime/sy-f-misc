@@ -1,43 +1,5 @@
 /**
- * use-openai-communication.ts - 重构版本
- *
- * ============================================================================
- * 行为一致性说明
- * ============================================================================
- * 
- * 1. 预检查失败时不创建消息占位符
- *    - preValidateModalType / preValidateRerunModalType 在 prepareSlot 之前执行
- *    - 检查失败时直接 return undefined，不调用 prepareSlot
- * 
- * 2. reRunMessage 对 image-edit / audio-stt 的错误消息
- *    - 原代码：调用 getExecutorForServiceType(modelType, userText) 不传 attachments
- *    - 导致 find() 返回 undefined，触发 "需要上传图片/音频文件" 的消息
- *    - 重构代码保持相同的错误消息，以确保行为一致
- * 
- * 3. 返回值
- *    - 预检查失败时返回 undefined（而非 { hasResponse: false }）
- *    - 与原代码的调用方兼容
- * 
- * ============================================================================
- * 后续改进建议（在确认行为一致后可考虑）
- * ============================================================================
- * 
- * 1. 错误消息语义优化
- *    - reRunMessage 中 image-edit/audio-stt 的错误消息可改为更准确的：
- *      "图像编辑不支持重新生成" / "音频转录不支持重新生成"
- *    - 需要与调用方确认是否依赖具体的错误消息文本
- * 
- * 2. 返回值规范化
- *    - 考虑统一返回 { success: boolean; error?: string } 结构
- *    - 便于调用方处理不同的失败场景
- * 
- * 3. 类型进一步收紧
- *    - ImageHandler/AudioHandler 的 buildRuntimeOption 仍返回 Record<string, any>
- *    - 可以定义更精确的 IImageRuntimeOption / IAudioRuntimeOption 接口
- * 
- * 4. 错误处理增强
- *    - 当前 markError 只显示错误消息文本
- *    - 可以增加错误类型区分（网络错误、API 错误、用户取消等）
+ * 同 OpenAI 端点的通信管理
  */
 
 import { batch, Accessor } from 'solid-js';
@@ -492,6 +454,80 @@ const createAudioHandler = (deps: AudioHandlerDeps) => {
 type AudioHandler = ReturnType<typeof createAudioHandler>;
 
 // ============================================================================
+// 辅助函数：从消息内容中提取图片
+// ============================================================================
+
+/**
+ * 从消息内容中提取图片 Blob
+ * 支持三种格式：
+ * 1. TMessageContentPart[] 中的 image_url 类型
+ * 2. Markdown 字符串中的 data URL 图片链接
+ * 3. Markdown 字符串中的 http/https 图片链接（需要 fetch）
+ */
+const extractImageFromMessageContent = async (content: string | TMessageContentPart[]): Promise<Blob | null> => {
+    if (Array.isArray(content)) {
+        // 从 content parts 中提取
+        const imagePart = content.find(p => p.type === 'image_url') as IImageContentPart | undefined;
+        if (imagePart) {
+            try {
+                return FormatConverter.dataURLToBlob(imagePart.image_url.url as DataURL);
+            } catch (error) {
+                console.warn('Failed to extract image from content part:', error);
+                return null;
+            }
+        }
+    } else if (typeof content === 'string') {
+        // 匹配格式: ![](data:image/...)
+        const dataUrlRegex = /!\[.*?\]\((data:image\/[^;]+;base64,[^)]+)\)/;
+        const dataUrlMatch = content.match(dataUrlRegex);
+        if (dataUrlMatch && dataUrlMatch[1]) {
+            try {
+                return FormatConverter.dataURLToBlob(dataUrlMatch[1] as DataURL);
+            } catch (error) {
+                console.warn('Failed to extract data URL image:', error);
+            }
+        }
+
+        // 匹配格式 ![](https?://...)
+        const urlRegex = /!\[.*?\]\((https?:\/\/[^)]+)\)/;
+        const urlMatch = content.match(urlRegex);
+        if (urlMatch && urlMatch[1]) {
+            try {
+                const response = await fetch(urlMatch[1]);
+                if (!response.ok) {
+                    console.warn('Failed to fetch image:', response.statusText);
+                    return null;
+                }
+                return await response.blob();
+            } catch (error) {
+                console.warn('Failed to fetch image from URL:', error);
+                return null;
+            }
+        }
+    }
+    return null;
+};
+
+/**
+ * 从消息列表中查找最近的包含图片的消息
+ */
+const findImageFromRecentMessages = async (messages: IChatSessionMsgItem[], atIndex: number): Promise<Blob | null> => {
+    // 从 beforeIndex 向前查找
+    let msg = null;
+    for (let i = atIndex; i >= 0; i--) {
+        msg = messages[i];
+        if (msg.type !== 'message') continue;
+
+        break;
+    }
+    const image = await extractImageFromMessageContent(msg.message.content);
+    if (image) {
+        return image;
+    }
+    return null;
+};
+
+// ============================================================================
 // 3. Tool Chain Handler
 // ============================================================================
 
@@ -685,7 +721,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
     /**
      * 预检查：验证模态类型和必要的 attachments
-     * 与原代码 getExecutorForServiceType 返回 null 的逻辑等价
+     * 对于 image-edit，如果没有附件，允许稍后从上一条消息提取
      * 
      * @returns true 表示检查通过，false 表示检查失败
      */
@@ -695,11 +731,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     ): boolean => {
         switch (modelType) {
             case 'image-edit': {
-                const image = imageHandler.extractImage(attachments);
-                if (!image) {
-                    showMessage('图像编辑需要上传图片');
-                    return false;
-                }
+                // 允许没有附件，稍后从上一条消息提取
                 return true;
             }
             case 'audio-stt': {
@@ -736,8 +768,18 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
             }
 
             case 'image-edit': {
-                // 预检查已确保 image 存在
-                const image = imageHandler.extractImage(attachments)!;
+                // 尝试从附件提取图片
+                let image = imageHandler.extractImage(attachments);
+
+                // 如果没有附件，尝试从上一条消息提取
+                if (!image) {
+                    // targetIndex 是新消息的占位符, 所以要从本消息往前走
+                    image = await findImageFromRecentMessages(messages(), targetIndex - 2);
+                    if (!image) {
+                        throw new Error('图像编辑需要上传图片，或在上一条消息中包含图片');
+                    }
+                }
+
                 const result = await imageHandler.edit(image, userText);
                 return { result, msgToSend };
             }
@@ -765,11 +807,6 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     /**
      * 预检查 rerun 模态
      * 
-     * 注意：原代码 reRunMessage 调用 getExecutorForServiceType(modelType, userText) 
-     * 不传递 multiModalAttachments，导致 image-edit 和 audio-stt 检查失败。
-     * 错误消息为 "需要上传图片/音频文件"（虽然语义上"不支持重新生成"更准确，
-     * 但为了行为一致，保持原有消息）。
-     * 
      * @returns true 表示检查通过，false 表示检查失败
      */
     const preValidateRerunModalType = (
@@ -777,14 +814,11 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     ): boolean => {
         switch (modelType) {
             case 'image-edit':
-                // 原代码：multiModalAttachments 为 undefined，find 返回 undefined
-                // 触发 "图像编辑需要上传图片" 消息
-                showMessage('图像编辑需要上传图片');
-                return false;
+                // 允许 rerun，稍后从原始消息中提取图片
+                return true;
             case 'audio-stt':
-                // 原代码：multiModalAttachments 为 undefined，find 返回 undefined
-                // 触发 "音频转录需要音频文件" 消息
-                showMessage('音频转录需要音频文件');
+                // 音频转录不支持 rerun（无法从消息中恢复音频数据）
+                showMessage('音频转录不支持重新生成');
                 return false;
             default:
                 return true;
@@ -806,6 +840,16 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
         switch (modelType) {
             case 'image-gen': {
                 const result = await imageHandler.generate(userText);
+                return { result, msgToSend };
+            }
+
+            case 'image-edit': {
+                // 从消息历史中查找图片
+                const image = await findImageFromRecentMessages(messages(), targetIndex - 2);
+                if (!image) {
+                    throw new Error('无法找到用于编辑的图片，请确保之前的消息中包含图片');
+                }
+                const result = await imageHandler.edit(image, userText);
                 return { result, msgToSend };
             }
 
@@ -853,8 +897,8 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
         // 先获取历史消息（在创建占位符之前）
         // 这样 msgToSend 不会包含即将创建的 loading 占位符
-        const msgToSend = (modelType === 'chat' || !modelType) 
-            ? getAttachedHistory() 
+        const msgToSend = (modelType === 'chat' || !modelType)
+            ? getAttachedHistory()
             : [];
 
         // 创建占位符

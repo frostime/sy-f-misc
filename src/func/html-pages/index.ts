@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-18 11:22:21
+ * @LastEditTime : 2025-12-18 21:20:46
  * @Description  : HTML Pages Module - Display custom HTML pages and URLs
  */
 import FMiscPlugin from "@/index";
@@ -60,6 +60,7 @@ const loadConfig = async (): Promise<IPageConfig[]> => {
     const configPath = joinPath(CONFIG_FILE);
     try {
         const content = await getFile(configPath);
+        //@ts-ignore
         if (!content || content.code === 404) return [];
         if (content) return content as IPageConfig[];
     } catch (e) {
