@@ -70,22 +70,6 @@ const MODEL_PRESETS: IModelPreset[] = [
         },
     },
 
-    // o-系列推理模型
-    {
-        keywords: [/^o[34][-_](mini|pro)/i, /^o[34]\b/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                reasoningEffort: true,
-                jsonMode: false,
-            },
-        },
-    },
-
     // GPT-4.1 系列 (代码优化)
     {
         keywords: [/^gpt-4\.1\b/i, /gpt-4\.1[-_]/i],
@@ -121,69 +105,6 @@ const MODEL_PRESETS: IModelPreset[] = [
     // Anthropic Claude
     // ================
 
-    // Claude 4.5 系列 (最新)
-    {
-        keywords: [
-            /^claude[-_]?(opus|sonnet|haiku)[-_]?4[._]5\b/i,
-            /^claude[-_]?4[._]5[-_]?(opus|sonnet|haiku)/i
-        ],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
-            limits: { maxContext: 200_000 },
-            options: {
-                unsupported: ['frequency_penalty', 'presence_penalty'],
-            },
-        },
-    },
-
-    // Claude 4 系列
-    {
-        keywords: [
-            /^claude[-_]?(opus|sonnet|haiku)[-_]?4\b/i,
-            /^claude[-_]?4[-_]?(opus|sonnet|haiku)/i
-        ],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
-            limits: { maxContext: 200_000 },
-            options: {
-                unsupported: ['frequency_penalty', 'presence_penalty'],
-            },
-        },
-    },
-
-    // Claude 3.7 (混合推理模型)
-    {
-        keywords: [/^claude[-_]?3[._]7\b/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
-            limits: { maxContext: 200_000 },
-            options: {
-                unsupported: ['frequency_penalty', 'presence_penalty'],
-            },
-        },
-    },
-
     // Claude 通用兜底
     {
         keywords: [/^claude[-_]/i],
@@ -209,10 +130,10 @@ const MODEL_PRESETS: IModelPreset[] = [
 
     // Gemini 3 Pro (最新)
     {
-        keywords: [/^gemini[-_]?3(\.0)?[-_]?pro/i],
+        keywords: [/^gemini[-_]/i],
         config: {
             type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
+            modalities: { input: ['text', 'image', 'file'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
@@ -222,50 +143,6 @@ const MODEL_PRESETS: IModelPreset[] = [
         },
     },
 
-    // Gemini 2.5 系列
-    {
-        keywords: [/^gemini[-_]?2[._]5[-_]?(pro|flash)/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,
-            },
-        },
-    },
-
-    // Gemini 2.5 Flash-Lite
-    {
-        keywords: [/^gemini[-_]?2[._]5[-_]?flash[-_]?lite/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,
-            },
-        },
-    },
-
-    // Gemini 2.0 Flash
-    {
-        keywords: [/^gemini[-_]?2(\.0)?[-_]?flash/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: false,
-                jsonMode: true,
-            },
-        },
-    },
 
     // =========
     // DeepSeek
@@ -335,9 +212,8 @@ const MODEL_PRESETS: IModelPreset[] = [
     // GLM 系列
     // =========
 
-    // GLM-4.6 (最强编码)
     {
-        keywords: [/^glm[-_]?4[._]6/i],
+        keywords: [/^glm[-_]?4[._]/i],
         config: {
             type: 'chat',
             modalities: { input: ['text'], output: ['text'] },
@@ -351,21 +227,6 @@ const MODEL_PRESETS: IModelPreset[] = [
         },
     },
 
-    // GLM-4.5 系列
-    {
-        keywords: [/^glm[-_]?4[._]5/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
-            limits: { maxContext: 128_000 },
-        },
-    },
 
     // GLM-4.xv (多模态)
     {
@@ -430,51 +291,6 @@ const MODEL_PRESETS: IModelPreset[] = [
                 streaming: true,
                 reasoning: true,
                 jsonMode: false,
-            },
-        },
-    },
-
-    // QVQ (视觉推理)
-    {
-        keywords: [/^qvq[-_]/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
-        },
-    },
-
-    // Qwen3 Omni 系列 (多模态)
-    {
-        keywords: [/^qwen3[-_]?omni/i, /^qwen[-_]?omni/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: false,
-                jsonMode: true,
-            },
-        },
-    },
-
-    // Qwen2.5 / Qwen2
-    {
-        keywords: [/^qwen2[._]5/i, /^qwen2\b/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: false,
-                jsonMode: true,
             },
         },
     },

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/model/model_resolution.ts
- * @LastEditTime : 2025-12-12 18:33:00
+ * @LastEditTime : 2025-12-18 16:09:38
  * @Description  : Model lookup and endpoint resolution logic
  */
 
@@ -22,7 +22,7 @@ const parseBareId = (bareId: string): {
 } => {
     const colonIndex = bareId.lastIndexOf(':');
     const atIndex = bareId.lastIndexOf('@');
-    
+
     if (colonIndex > atIndex && colonIndex !== -1) {
         // 包含 type: model@provider:type
         const modelProvider = bareId.substring(0, colonIndex);
@@ -70,21 +70,21 @@ export const listAvialableModels = (): Record<string, string> => {
         if (provider.disabled) return;
         provider.models?.forEach((modelConfig) => {
             if (modelConfig.disabled === true) return;
-            
+
             // 将 type 统一处理为数组
-            const types = Array.isArray(modelConfig.type) 
-                ? modelConfig.type 
+            const types = Array.isArray(modelConfig.type)
+                ? modelConfig.type
                 : [modelConfig.type];
-            
+
             // 遍历每个 type，生成对应的 modelId
             types.forEach(type => {
                 if (type === 'embeddings') return;
-                
+
                 // 如果是单 type，使用旧格式；多 type 则附加 :type
                 const modelId = types.length === 1
                     ? `${modelConfig.model}@${provider.name}`
                     : `${modelConfig.model}@${provider.name}:${type}`;
-                
+
                 const displayName = modelConfig.displayName ?? modelConfig.model;
                 availableModels[modelId] = `(${provider.name}) ${displayName} | ${ModelTypeName[type]}`;
             });
@@ -113,10 +113,10 @@ export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw')
     if (targetId === 'siyuan') {
         return siyuanModel();
     }
-    
+
     // 解析 bareId
     const { modelName, providerName, serviceType } = parseBareId(targetId);
-    
+
     if (!modelName || !providerName) {
         if (error === 'throw') {
             throw new Error(`Invalid model ID: ${bareId}`);
@@ -124,7 +124,7 @@ export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw')
             return null;
         }
     }
-    
+
     const provider = llmProviders().find(item => item.name === providerName);
     const modelConfig = provider?.models?.find(item => item.model === modelName);
 
@@ -135,13 +135,13 @@ export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw')
             return null;
         }
     }
-    
+
     // 确定实际使用的 type
     let actualType: LLMServiceType;
-    const supportedTypes = Array.isArray(modelConfig.type) 
-        ? modelConfig.type 
+    const supportedTypes = Array.isArray(modelConfig.type)
+        ? modelConfig.type
         : [modelConfig.type];
-    
+
     if (serviceType) {
         // bareId 中明确指定了 type
         if (!supportedTypes.includes(serviceType)) {
@@ -156,7 +156,7 @@ export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw')
         // 未指定 type，使用默认（第一个或唯一的）
         actualType = supportedTypes[0];
     }
-    
+
     return {
         bareId: targetId,
         model: modelConfig.model,
