@@ -1,6 +1,6 @@
 import { defaultModelId, useModel } from "../model/store";
 import { appendLog } from "../MessageLogger";
-import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage } from './adpater';
+import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage, adaptToolCalls } from './adpater';
 
 interface StreamChunkData {
     content: string;
@@ -110,8 +110,8 @@ const handleStreamResponse = async (
 
     let t1 = null;
 
-    // 用于跟踪和合并 tool_calls
-    const toolCallsMap = new Map<number, IToolCallResponse>();
+    // 收集所有原始的 tool_calls chunks，最后统一合并
+    const allToolCallsChunks: any[][] = [];
 
     try {
         while (true) {
@@ -143,19 +143,9 @@ const handleStreamResponse = async (
                 responseContent.reasoning_content += reasoning_content;
             }
 
-            // 处理 tool_calls
+            // 收集原始 tool_calls chunks
             if (tool_calls) {
-                for (const call of tool_calls) {
-                    if (toolCallsMap.has(call.index)) {
-                        // 合并参数
-                        const existing = toolCallsMap.get(call.index);
-                        existing.function.arguments += call.function.arguments;
-                    } else {
-                        toolCallsMap.set(call.index, { ...call });
-                    }
-                }
-                // 更新响应中的 tool_calls
-                responseContent.tool_calls = Array.from(toolCallsMap.values());
+                allToolCallsChunks.push(tool_calls);
             }
 
             // 构建流式消息
@@ -167,8 +157,8 @@ const handleStreamResponse = async (
                 streamingMsg += responseContent.content;
             }
 
-            // 调用回调，添加 tool_calls 参数
-            options.streamMsg?.(streamingMsg, responseContent.tool_calls);
+            // 调用回调
+            options.streamMsg?.(streamingMsg);
 
             // 引用
             const refers = adaptResponseReferences(readResult.value as StreamChunkData);
@@ -187,6 +177,11 @@ const handleStreamResponse = async (
         responseContent.ok = false;
     }
     let t2 = new Date().getTime();
+
+    // 循环结束后，统一合并所有 tool_calls chunks
+    if (allToolCallsChunks.length > 0) {
+        responseContent.tool_calls = adaptToolCalls(allToolCallsChunks);
+    }
 
     responseContent['time'] = {
         latency: t1 - options.t0,

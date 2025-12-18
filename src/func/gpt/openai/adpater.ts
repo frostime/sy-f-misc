@@ -252,3 +252,51 @@ export const adaptChunkMessage = (messageInChoices: Record<string, any>): {
 } => {
     return adaptResponseMessage(messageInChoices);
 }
+
+/**
+ * 统一处理和合并 tool calls 的适配器
+ * 用于在流式响应中累积合并多个 chunk 中的 tool_calls
+ * 
+ * @param allChunks 所有收集到的 tool_calls chunks
+ * @returns 合并后的 tool_calls 数组
+ * 
+ * 标准 OpenAI 格式; 需要合并 arguments 字段
+```json
+[
+  // 第一条 tool 开始
+  [{"function":{"arguments":"{\"format\": \"YYYY-MM-DD HH:mm:ss\", \"timezone\": \"Asia/Shanghai\"}","name":"datetime"},"id":"call_kbKHaPTeeYcqie9QXC8MgcsS","index":0,"type":"function"}],
+  [{"function":{"arguments":"{\"fo"},"index":0}],
+  // ... 第二条 tool
+  [{"function":{"arguments":"{\"input\": \"这是一个测试文本123abc。\", \"operation\": \"find\", \"search\": \"\\\\d+\"}","name":"text"},"id":"call_PM0hVYGDBYzdTZ8VsDWtejuL","index":1,"type":"function"}],
+  [{"function":{"arguments":"{\"in"},"index":1}]
+]
+```
+ */
+export const adaptToolCalls = (
+    allChunks: any[][]
+): IToolCallResponse[] => {
+    // console.log(allChunks)
+    const toolCallsMap = new Map<number, IToolCallResponse>();
+
+    // 先展开成一维数组
+    const flattenedChunks = allChunks.flat();
+
+    const toolCallIdNumber = flattenedChunks.filter(call => call.id).length;
+    if (toolCallIdNumber === flattenedChunks.length) {
+        //特殊情况：所有 chunk 都有 id，说明每个 chunk 都是完整的 tool call，不需要合并，直接返回
+        //某平台适配 gemini 格式不到位，返回了 chunck 格式和标准格式不同
+        return flattenedChunks;
+    }
+
+    for (const call of flattenedChunks) {
+        if (toolCallsMap.has(call.index)) {
+            // 合并参数
+            const existing = toolCallsMap.get(call.index);
+            existing.function.arguments += call.function.arguments;
+        } else {
+            toolCallsMap.set(call.index, { ...call });
+        }
+    }
+
+    return Array.from(toolCallsMap.values());
+}

@@ -3,15 +3,16 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-17 17:10:45
+ * @LastEditTime : 2025-12-18 09:16:50
  * @Description  : HTML Pages Module - Display custom HTML pages and URLs
  */
 import FMiscPlugin from "@/index";
-import { getLute, openCustomTab, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { getLute, getMarkdown, openCustomTab, simpleDialog } from "@frostime/siyuan-plugin-kits";
 import { getFile, putFile, getFileBlob, request } from "@frostime/siyuan-plugin-kits/api";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
 import { IMenu, showMessage } from "siyuan";
 import { simpleFormDialog } from "@/libs/dialog";
+import { sql } from "@/api";
 
 interface IPageConfig {
     id: string;
@@ -137,6 +138,14 @@ const openPage = (config: IPageConfig) => {
                                     console.error('Failed to save config:', e);
                                 }
                             },
+                            searchSQL: async (query: string) => {
+                                // const code = parseSQLInput(args.sql);
+                                let results = await sql(query);
+                                return results;
+                            },
+                            getMarkdown: async (blockId: string) => {
+                                return getMarkdown(blockId);
+                            },
                             themeMode: document.body.parentElement.getAttribute('data-theme-mode') as ('light' | 'dark'),
                             style: style,
                             lute: getLute()
@@ -231,6 +240,19 @@ export const declareModuleConfig = {
     }
 }
 
+let Prompt = '';
+
+const fetchPrompt = async () => {
+    if (Prompt) {
+        return Prompt;
+    }
+    const file = await fetch('/plugins/sy-f-misc/prompt/html-page.md')
+    const text = await file.text()
+    Prompt = text;
+    return Prompt;
+}
+
+
 function createConfigPanel(): ExternalElementWithDispose {
     let configs: IPageConfig[] = [];
     let container: HTMLElement;
@@ -296,6 +318,11 @@ function createConfigPanel(): ExternalElementWithDispose {
         container.appendChild(element);
 
         element.querySelector('[data-action="show-prompt"]')?.addEventListener('click', async () => {
+
+            if (!Prompt) {
+                await fetchPrompt();
+            }
+
             const lute = getLute();
             // @ts-ignore
             const promptHtml = lute.Md2HTML(Prompt);
@@ -461,32 +488,3 @@ function createConfigPanel(): ExternalElementWithDispose {
         }
     };
 }
-
-export const Prompt = `
-请你根据用户的指令需要编写一个单 HTML 页面应用以满足他的需求。
-
-页面会从外部注入 \`window.pluginSdk\` 对象，包含以下方法：
-- \`request(endpoint: string, data: any): Promise<{ok: boolean, data: any}>\`：用于向思源笔记的后端 API 发起请求
-  - 注: /api/file/getFile 接口同思源官方 API 不同，会返回 Blob 对象
-- \`loadConfig(): Promise<Record<string, any>>\`：用于加载当前页面的配置数据
-- \`saveConfig(newConfig: Record<string, any>): Promise<void>\`：用于保存当前页面的配置数据
-- \`themeMode: 'light' | 'dark'\`：当前主题模式
-- \`style: Record<string, string>\`：包含当前主题要求的样式变量，例如字体、字号等
-    - keys: 'font-family', 'font-size', 'font-family-code'
-
-SDK 会在页面加载时自动注入，你可以监听 \`pluginSdkReady\` 事件来确保 SDK 已就绪：
-
-\`\`\`javascript
-window.addEventListener('pluginSdkReady', () => {
-    console.log('SDK 已就绪');
-    // 可以开始使用 window.pluginSdk
-    // init()
-});
-
-// 或者直接使用（如果不确定时机，建议用事件）
-const result = await window.pluginSdk.request('/api/notebook/lsNotebooks', {});
-\`\`\`
-
-用户的需求如下
-------
-`;
