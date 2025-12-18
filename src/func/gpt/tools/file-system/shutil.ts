@@ -9,7 +9,7 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.Mkdir',
+                name: 'fs-Mkdir',
                 description: '创建目录 (可选 recursive 类似于 mkdir -p)',
                 parameters: {
                     type: 'object',
@@ -51,7 +51,7 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.MoveFile',
+                name: 'fs-MoveFile',
                 description: '移动文件或目录到新位置',
                 parameters: {
                     type: 'object',
@@ -114,7 +114,7 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.CopyFile',
+                name: 'fs-CopyFile',
                 description: '复制文件或目录 (可递归)',
                 parameters: {
                     type: 'object',

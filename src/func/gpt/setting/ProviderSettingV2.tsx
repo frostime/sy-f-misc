@@ -1,6 +1,6 @@
-import { Component, createSignal, For, Show, onMount, Accessor, createMemo } from "solid-js";
+import { Component, createSignal, For, Show, Accessor, createMemo } from "solid-js";
 import Form from "@/libs/components/Form";
-import { llmProviders, resolveEndpointUrl } from "../model/store";
+import { llmProviders, resolveEndpointUrl, defaultModelId, defaultConfig } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { solidDialog } from "@/libs/dialog";
@@ -620,6 +620,24 @@ const ModelsListPanel: Component = () => {
 
     const handleRemoveModel = (index: number) => {
         const model = models()[index];
+        const modelBareId = `${model.model}@${provider().name}`;
+        const currentDefaultId = defaultModelId();
+        const utilityModelId = defaultConfig().utilityModelId;
+
+        // 检查是否为默认模型（支持 model@provider 和 model@provider:type 格式）
+        const isDefaultModel = currentDefaultId === modelBareId || currentDefaultId.startsWith(modelBareId + ':');
+        const isUtilityModel = utilityModelId === modelBareId || utilityModelId?.startsWith(modelBareId + ':');
+
+        if (isDefaultModel) {
+            showMessage(`无法删除：该模型 "${model.displayName || model.model}" 是当前的默认模型`, 4000, 'error');
+            return;
+        }
+
+        if (isUtilityModel) {
+            showMessage(`无法删除：该模型 "${model.displayName || model.model}" 是当前的工具模型`, 4000, 'error');
+            return;
+        }
+
         confirmDialog({
             title: '确认删除模型',
             content: `确定要删除模型 "${model.displayName || model.model}" 吗？`,
@@ -907,6 +925,31 @@ const ProviderSettingV2 = () => {
 
     const removeProvider = (index: number) => {
         const provider = llmProviders()[index];
+        const currentDefaultId = defaultModelId();
+        const utilityModelId = defaultConfig().utilityModelId;
+
+        // 检查该 Provider 下的模型是否包含默认模型
+        const hasDefaultModel = provider.models?.some(model => {
+            const modelBareId = `${model.model}@${provider.name}`;
+            return currentDefaultId === modelBareId || currentDefaultId.startsWith(modelBareId + ':');
+        });
+
+        // 检查该 Provider 下的模型是否包含工具模型
+        const hasUtilityModel = provider.models?.some(model => {
+            const modelBareId = `${model.model}@${provider.name}`;
+            return utilityModelId === modelBareId || utilityModelId?.startsWith(modelBareId + ':');
+        });
+
+        if (hasDefaultModel) {
+            showMessage(`无法删除：Provider "${provider.name}" 包含当前的默认模型`, 4000, 'error');
+            return;
+        }
+
+        if (hasUtilityModel) {
+            showMessage(`无法删除：Provider "${provider.name}" 包含当前的工具模型`, 4000, 'error');
+            return;
+        }
+
         confirmDialog({
             title: `确认删除 Provider: ${provider.name}?`,
             content: `该 Provider 下的 ${provider.models?.length || 0} 个模型将会被删除`,

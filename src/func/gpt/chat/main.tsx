@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2025-12-17 21:43:46
+ * @LastEditTime : 2025-12-18 16:14:13
  * @Description  :
  */
 // External libraries
@@ -63,7 +63,53 @@ export const ChatSession: Component<{
     updateTitleCallback?: (title: string) => void;
 }> = (props) => {
     const modelId = useSignalRef(defaultModelId());
-    const model = createMemo(() => useModel(modelId()));
+
+
+    const model: Accessor<IRuntimeLLM> = createMemo(() => {
+        const llm = useModel(modelId(), 'null');
+        if (llm !== null) return llm;  // 如果正在对话的模型突然在面板中被删掉就会出现这种奇葩情况
+
+        const defaultModel = useModel(defaultModelId(), 'null');
+        if (defaultModel !== null) {
+            setTimeout(() => {
+                modelId(defaultModelId());
+            });
+            showMessage('当前模型不可用，已切换回默认模型');
+            return defaultModel;
+        }
+
+        const siyuanModel = useModel('siyuan', 'null');
+        if (siyuanModel !== null) {
+            // 避免在 memo 重复更改 modelId()
+            setTimeout(() => {
+                modelId('siyuan');
+            });
+            showMessage('当前模型不可用，已切换回 SiYuan 内置模型');
+            return siyuanModel;
+        }
+
+        const utilModel = defaultConfig().utilityModelId;
+        const utilLLM = useModel(utilModel, 'null');
+        if (utilLLM !== null) {
+            setTimeout(() => {
+                modelId(utilModel);
+            });
+            showMessage('当前模型不可用，已切换回备用工具模型');
+            return utilLLM;
+        }
+
+        showMessage('当前模型不可用，请重新手动指定模型');
+
+        return {
+            bareId: 'none',
+            url: 'http://api.openai.com/v1/chat/completions',
+            model: 'gpt-3.5-turbo',
+            apiKey: '',
+            type: 'chat',
+            // config: null
+        } satisfies IRuntimeLLM;
+    });
+
     //Detach from the solidjs store's reactive system
     let defaultConfigVal = JSON.parse(JSON.stringify(defaultConfig.unwrap()));
     defaultConfigVal = { ...defaultConfigVal, ...props.config };
