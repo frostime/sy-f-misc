@@ -192,6 +192,66 @@ const injectPluginSdk = (iframe: HTMLIFrameElement, config: IPageConfig) => {
     }
 };
 
+// Forward pointer/mouse events from the iframe to the parent so tab drag/resize can still work.
+const forwardIframePointerEvents = (iframe: HTMLIFrameElement) => {
+    const forwardTypes: Array<keyof WindowEventMap> = [
+        'pointerdown', 'pointermove', 'pointerup',
+        'mousedown', 'mousemove', 'mouseup'
+    ];
+
+    const handler = (event: MouseEvent | PointerEvent) => {
+        const rect = iframe.getBoundingClientRect();
+        const clientX = event.clientX + rect.left;
+        const clientY = event.clientY + rect.top;
+
+        const init: PointerEventInit = {
+            bubbles: true,
+            cancelable: true,
+            clientX,
+            clientY,
+            screenX: event.screenX,
+            screenY: event.screenY,
+            ctrlKey: event.ctrlKey,
+            shiftKey: event.shiftKey,
+            altKey: event.altKey,
+            metaKey: event.metaKey,
+            button: event.button,
+            buttons: (event as PointerEvent).buttons,
+            pointerId: (event as PointerEvent).pointerId,
+            pointerType: (event as PointerEvent).pointerType,
+            pressure: (event as PointerEvent).pressure,
+            tiltX: (event as PointerEvent).tiltX,
+            tiltY: (event as PointerEvent).tiltY,
+            isPrimary: (event as PointerEvent).isPrimary
+        };
+
+        const SyntheticEvent = (window.PointerEvent && event instanceof PointerEvent)
+            ? PointerEvent
+            : MouseEvent;
+
+        const forwarded = new SyntheticEvent(event.type, init);
+        iframe.dispatchEvent(forwarded);
+    };
+
+    try {
+        const win = iframe.contentWindow;
+        if (!win) return;
+        forwardTypes.forEach(type => win.addEventListener(type, handler, { passive: true }));
+    } catch (e) {
+        console.warn('Failed to forward iframe events:', e);
+    }
+
+    return () => {
+        try {
+            const win = iframe.contentWindow;
+            if (!win) return;
+            forwardTypes.forEach(type => win.removeEventListener(type, handler));
+        } catch (e) {
+            console.warn('Failed to remove iframe event forwarding:', e);
+        }
+    }
+};
+
 // ============ Page Operations ============
 
 const openPage = (config: IPageConfig) => {
@@ -200,6 +260,8 @@ const openPage = (config: IPageConfig) => {
         : 'html-' + config.id;
 
     const title = config.title || (config.type === 'url' ? config.source : config.id);
+
+    let cleanupForwardEvents: (() => void) | null = null;
 
     openCustomTab({
         tabId,
@@ -218,6 +280,7 @@ const openPage = (config: IPageConfig) => {
                 iframe.addEventListener('load', () => {
                     console.log('Iframe loaded, injecting pluginSdk...');
                     injectPluginSdk(iframe, config);
+                    cleanupForwardEvents = forwardIframePointerEvents(iframe);
                 });
                 iframe.src = href;
             } else {
@@ -225,6 +288,9 @@ const openPage = (config: IPageConfig) => {
             }
 
             container.appendChild(iframe);
+        },
+        beforeDestroy: () => {
+            cleanupForwardEvents?.();
         }
     });
 };
