@@ -24,7 +24,7 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.View',
+                name: 'fs-View',
                 description: '智能查看文件内容，处理大文件、二进制与范围读取',
                 parameters: {
                     type: 'object',
@@ -147,7 +147,7 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.Search',
+                name: 'fs-Search',
                 description: '在目录中按文件名或内容搜索',
                 parameters: {
                     type: 'object',
@@ -279,7 +279,7 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.List',
+                name: 'fs-List',
                 description: '列出目录内容，支持树状/扁平',
                 parameters: {
                     type: 'object',
@@ -375,7 +375,7 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.Inspect',
+                name: 'fs-Inspect',
                 description: '查看文件或目录元信息',
                 parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] }
             },

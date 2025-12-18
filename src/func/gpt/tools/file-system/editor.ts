@@ -298,7 +298,7 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.SearchReplace',
+                name: 'fs-SearchReplace',
                 description: '基于内容匹配的代码替换工具。格式为 SEARCH/REPLACE 块，支持批量操作。详见使用指南。',
                 parameters: {
                     type: 'object',
@@ -424,7 +424,7 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.ApplyDiff',
+                name: 'fs-ApplyDiff',
                 description: '应用 Unified Diff 格式补丁。基于内容匹配，header 行号可随意填写。详见使用指南。',
                 parameters: {
                     type: 'object',
@@ -561,7 +561,7 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.ReplaceLine',
+                name: 'fs-ReplaceLine',
                 description: '快速替换单行内容（需提供原始内容验证）。适用于简单的单行修改。',
                 parameters: {
                     type: 'object',
@@ -633,7 +633,7 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
         definition: {
             type: 'function',
             function: {
-                name: 'fs.WriteFile',
+                name: 'fs-WriteFile',
                 description: '写入完整文件内容。适用于：(1) 创建新文件 (2) 大规模重写（>50% 变更）',
                 parameters: {
                     type: 'object',
