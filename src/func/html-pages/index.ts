@@ -3,18 +3,19 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-18 21:20:46
- * @Description  : HTML Pages Module - Display custom HTML pages and URLs
+ * @LastEditTime : 2025-12-18 22:38:44
+ * @Description  : HTML Pages 功能模块 - 管理自定义 HTML 页面和 URL
  */
 import FMiscPlugin from "@/index";
-import { createDailynote, getLute, getMarkdown, getParentDoc, inputDialog, listDailynote, openBlock, openCustomTab, searchBacklinks, searchChildDocs, simpleDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { getFile, getFileBlob, request } from "@frostime/siyuan-plugin-kits/api";
+import { getLute, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { getFile, getFileBlob } from "@frostime/siyuan-plugin-kits/api";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
 import { IMenu, showMessage } from "siyuan";
 import { simpleFormDialog } from "@/libs/dialog";
-import { putFile, sql } from "@/api";
+import { putFile } from "@/api";
+import { openIframeTab, IIframePageConfig } from "./core";
 
-// ============ Types & Constants ============
+// ============ 类型与常量 ============
 
 interface IPageConfig {
     id: string;
@@ -30,7 +31,7 @@ let plugin: FMiscPlugin;
 let zoom: number = 1;
 let Prompt = '';
 
-// ============ Utility Functions ============
+// ============ 工具函数 ============
 
 const joinPath = (...parts: string[]) => {
     const endpoint = parts.map((part, index) => {
@@ -38,12 +39,6 @@ const joinPath = (...parts: string[]) => {
         return part.replace(/^\/+|\/+$/g, '');
     }).join('/');
     return DATA_DIR + endpoint;
-};
-
-const getCSSVariable = (variableName: string) => {
-    return getComputedStyle(document.documentElement)
-        .getPropertyValue(variableName)
-        .trim();
 };
 
 const fetchPrompt = async () => {
@@ -54,7 +49,7 @@ const fetchPrompt = async () => {
     return Prompt;
 };
 
-// ============ Config Management ============
+// ============ 配置管理 ============
 
 const loadConfig = async (): Promise<IPageConfig[]> => {
     const configPath = joinPath(CONFIG_FILE);
@@ -64,7 +59,7 @@ const loadConfig = async (): Promise<IPageConfig[]> => {
         if (!content || content.code === 404) return [];
         if (content) return content as IPageConfig[];
     } catch (e) {
-        console.warn('Failed to load config:', e);
+        console.warn('加载配置失败:', e);
     }
     return [];
 };
@@ -75,185 +70,11 @@ const saveConfig = async (config: IPageConfig[]) => {
     try {
         await putFile(configPath, false, blob);
     } catch (e) {
-        console.error('Failed to save config:', e);
+        console.error('保存配置失败:', e);
     }
 };
 
-// ============ SDK Injection ============
-
-const injectPluginSdk = (iframe: HTMLIFrameElement, config: IPageConfig) => {
-    const style = {
-        'font-family': getCSSVariable('--b3-font-family'),
-        'font-size': getCSSVariable('--b3-font-size'),
-        'font-family-code': getCSSVariable('--b3-font-family-code'),
-    };
-
-    try {
-        // @ts-ignore
-        iframe.contentWindow.pluginSdk = {
-            request: async (endpoint: string, data: any) => {
-                if (endpoint === '/api/file/getFile') {
-                    const blob = await getFileBlob(data.path);
-                    return blob ? { ok: true, data: blob } : { ok: false, data: null };
-                }
-                const response = await request(endpoint, data, 'response');
-                return { ok: response.code === 0, data: response.data };
-            },
-            loadConfig: async () => {
-                const filePath = joinPath(`conf/${config.source}.config.json`);
-                try {
-                    const fileContent = await getFile(filePath);
-                    return fileContent ?? {};
-                } catch (e) {
-                    return {};
-                }
-            },
-            saveConfig: async (newConfig: Record<string, any>) => {
-                const filePath = joinPath(`conf/${config.source}.config.json`);
-                const blob = new Blob([JSON.stringify(newConfig, null, 2)], { type: 'application/json' });
-                try {
-                    await putFile(filePath, false, blob);
-                } catch (e) {
-                    console.error('Failed to save config:', e);
-                }
-            },
-            querySQL: async (query: string) => await sql(query),
-            queryDailyNote: async (options: {
-                boxId?: NotebookId;
-                before?: Date;
-                after?: Date;
-                limit?: number;
-            }) => {
-                return listDailynote(options);
-            },
-            queryChildDocs: async (docId: string) => {
-                return searchChildDocs(docId);
-            },
-            queryParentDoc: async (docId: string) => {
-                const doc = await getParentDoc(docId);
-                return doc ?? null;
-            },
-            queryBacklinks: async (blockId: string) => {
-                return searchBacklinks(blockId);
-            },
-
-            getMarkdown: async (blockId: string) => getMarkdown(blockId),
-            lsNotebooks: () => {
-                return window.siyuan.notebooks
-                    .filter((notebook) => notebook.closed !== true)
-                    .map((notebook) => {
-                        return {
-                            name: notebook.name,
-                            id: notebook.id,
-                            closed: notebook.closed || false
-                        }
-                    });
-            },
-            openBlock: (blockId) => {
-                openBlock(blockId, {
-                    app: thisPlugin().app
-                });
-            },
-
-            createDailynote: async (options: {
-                notebookId: string;
-                date?: Date;
-                content?: string;
-            }) => {
-                return createDailynote(options.notebookId, options.date ?? new Date(), options.content ?? '', thisPlugin().app.appId);
-            },
-
-            argApp: () => thisPlugin().app.appId,
-            themeMode: document.body.parentElement.getAttribute('data-theme-mode') as ('light' | 'dark'),
-            style,
-            lute: getLute()
-        };
-
-        // Inject styles
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = `
-            body {
-                font-family: ${style['font-family']};
-                font-size: ${style['font-size']};
-            }
-            pre, code {
-                font-family: ${style['font-family-code']};
-            }
-        `;
-        iframe.contentDocument.head.appendChild(styleSheet);
-
-        iframe.contentWindow.dispatchEvent(new CustomEvent('pluginSdkReady'));
-
-        const script = iframe.contentWindow.document.createElement('script');
-        script.type = 'text/javascript';
-        script.text = "console.log('SiYuan SDK successfully injected!')";
-        iframe.contentWindow.document.head.appendChild(script);
-    } catch (e) {
-        console.error('Failed to inject pluginSdk:', e);
-    }
-};
-
-// Forward pointer/mouse events from the iframe to the parent so tab drag/resize can still work.
-const forwardIframePointerEvents = (iframe: HTMLIFrameElement) => {
-    const forwardTypes: Array<keyof WindowEventMap> = [
-        'pointerdown', 'pointermove', 'pointerup',
-        'mousedown', 'mousemove', 'mouseup'
-    ];
-
-    const handler = (event: MouseEvent | PointerEvent) => {
-        const rect = iframe.getBoundingClientRect();
-        const clientX = event.clientX + rect.left;
-        const clientY = event.clientY + rect.top;
-
-        const init: PointerEventInit = {
-            bubbles: true,
-            cancelable: true,
-            clientX,
-            clientY,
-            screenX: event.screenX,
-            screenY: event.screenY,
-            ctrlKey: event.ctrlKey,
-            shiftKey: event.shiftKey,
-            altKey: event.altKey,
-            metaKey: event.metaKey,
-            button: event.button,
-            buttons: (event as PointerEvent).buttons,
-            pointerId: (event as PointerEvent).pointerId,
-            pointerType: (event as PointerEvent).pointerType,
-            pressure: (event as PointerEvent).pressure,
-            tiltX: (event as PointerEvent).tiltX,
-            tiltY: (event as PointerEvent).tiltY,
-            isPrimary: (event as PointerEvent).isPrimary
-        };
-
-        const SyntheticEvent = (window.PointerEvent && event instanceof PointerEvent)
-            ? PointerEvent
-            : MouseEvent;
-
-        const forwarded = new SyntheticEvent(event.type, init);
-        iframe.dispatchEvent(forwarded);
-    };
-
-    try {
-        const win = iframe.contentWindow;
-        if (!win) return;
-        forwardTypes.forEach(type => win.addEventListener(type, handler, { passive: true }));
-    } catch (e) {
-        console.warn('Failed to forward iframe events:', e);
-    }
-
-    return () => {
-        try {
-            const win = iframe.contentWindow;
-            if (!win) return;
-            forwardTypes.forEach(type => win.removeEventListener(type, handler));
-        } catch (e) {
-            console.warn('Failed to remove iframe event forwarding:', e);
-        }
-    }
-};
-
-// ============ Page Operations ============
+// ============ 页面操作 ============
 
 const openPage = (config: IPageConfig) => {
     const tabId = config.type === 'url'
@@ -262,37 +83,49 @@ const openPage = (config: IPageConfig) => {
 
     const title = config.title || (config.type === 'url' ? config.source : config.id);
 
-    let cleanupForwardEvents: (() => void) | null = null;
-
-    openCustomTab({
-        tabId,
-        plugin,
-        title,
-        render: (container: Element) => {
-            const iframe = document.createElement('iframe');
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            if (zoom && zoom !== 1) {
-                iframe.style.zoom = String(zoom);
-            }
-
-            if (config.type === 'html') {
-                const href = `${DATA_DIR.replace('/data', '')}${config.source}`;
-                iframe.addEventListener('load', () => {
-                    console.log('Iframe loaded, injecting pluginSdk...');
-                    injectPluginSdk(iframe, config);
-                    cleanupForwardEvents = forwardIframePointerEvents(iframe);
-                });
-                iframe.src = href;
-            } else {
-                iframe.src = config.source;
-            }
-
-            container.appendChild(iframe);
+    const iframeConfig: IIframePageConfig = {
+        type: 'url',
+        source: config.type === 'html'
+            ? `${DATA_DIR.replace('/data', '')}${config.source}`
+            : config.source,
+        iframeStyle: {
+            zoom: zoom
         },
-        beforeDestroy: () => {
-            cleanupForwardEvents?.();
-        }
+        inject: config.type === 'html' ? {
+            presetSdk: true,
+            siyuanCss: true,
+            customSdk: {
+                // 覆盖默认的 loadConfig 和 saveConfig
+                loadConfig: async () => {
+                    const filePath = joinPath(`conf/${config.source}.config.json`);
+                    try {
+                        //@ts-ignore
+                        const fileContent: object = await getFile(filePath);
+                        //@ts-ignore
+                        if (!fileContent || fileContent.code === 404) return [];
+                        return fileContent ?? {};
+                    } catch (e) {
+                        return {};
+                    }
+                },
+                saveConfig: async (newConfig: Record<string, any>) => {
+                    const filePath = joinPath(`conf/${config.source}.config.json`);
+                    const blob = new Blob([JSON.stringify(newConfig, null, 2)], { type: 'application/json' });
+                    try {
+                        await putFile(filePath, false, blob);
+                    } catch (e) {
+                        console.error('保存配置失败:', e);
+                    }
+                }
+            }
+        } : undefined
+    };
+
+    openIframeTab({
+        tabId,
+        title,
+        plugin,
+        iframeConfig
     });
 };
 
@@ -314,20 +147,20 @@ const registerMenus = async () => {
     }, 500);
 };
 
-// ============ Config Panel ============
+// ============ 文件编辑 ============
 
 const editFile = async (config: IPageConfig) => {
-    let fname = config.source;
+    const fname = config.source;
     const filePath = joinPath(fname);
     const blob = await getFileBlob(filePath);
     if (!blob) {
-        showMessage('Failed to load file for editing');
+        showMessage('加载文件失败');
         return;
     }
     let text = await blob.text();
     text = window.Lute.EscapeHTMLStr(text);
     inputDialog({
-        title: `Edit ${filePath.split('/').pop()}`,
+        title: `编辑 ${filePath.split('/').pop()}`,
         defaultText: text,
         confirm(newText: string) {
             if (newText === text) return;
@@ -338,8 +171,10 @@ const editFile = async (config: IPageConfig) => {
         type: 'textarea',
         width: '1000px',
         height: '720px'
-    })
-}
+    });
+};
+
+// ============ 配置面板 ============
 
 const createConfigPanel = (): ExternalElementWithDispose => {
     let configs: IPageConfig[] = [];
@@ -349,7 +184,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
         if (configs.length === 0) {
             return `
                 <div style="padding: 32px; text-align: center; color: var(--b3-theme-on-surface-light);">
-                    No pages configured yet
+                    暂无配置的页面
                 </div>
             `;
         }
@@ -371,10 +206,10 @@ const createConfigPanel = (): ExternalElementWithDispose => {
                         ${config.source}
                     </div>
                 </div>
-                <button class="b3-button b3-button--outline" data-action="edit" data-id="${config.id}" title="Edit">
+                <button class="b3-button b3-button--outline" data-action="edit" data-id="${config.id}" title="编辑">
                     <svg class="b3-button__icon"><use xlink:href="#iconEdit"></use></svg>
                 </button>
-                <button class="b3-button b3-button--outline" data-action="delete" data-id="${config.id}" title="Delete">
+                <button class="b3-button b3-button--outline" data-action="delete" data-id="${config.id}" title="删除">
                     <svg class="b3-button__icon"><use xlink:href="#iconTrashcan"></use></svg>
                 </button>
             </div>
@@ -405,7 +240,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
             showMessage('Prompt 已复制到剪贴板');
         };
         simpleDialog({
-            title: '你可以使用这个 Prompt',
+            title: '辅助 Prompt',
             ele,
             width: '960px',
             maxHeight: '75vh',
@@ -441,10 +276,10 @@ const createConfigPanel = (): ExternalElementWithDispose => {
 
     const handleAddUrl = async () => {
         const result = await simpleFormDialog({
-            title: 'Add URL',
+            title: '添加 URL',
             fields: [
                 { key: 'url', type: 'text', value: '', label: 'URL' },
-                { key: 'title', type: 'text', value: '', label: 'Title (optional)' }
+                { key: 'title', type: 'text', value: '', label: '标题（可选）' }
             ]
         });
 
@@ -466,11 +301,11 @@ const createConfigPanel = (): ExternalElementWithDispose => {
 
     const handleAddHtmlText = async () => {
         const result = await simpleFormDialog({
-            title: 'Add HTML',
+            title: '添加 HTML',
             fields: [
-                { key: 'title', type: 'text', value: '', label: 'Title' },
-                { key: 'content', type: 'textarea', value: '', label: 'Content', placeholder: 'HTML 内容' },
-                { key: 'filename', type: 'text', value: `page-${Date.now()}.html`, label: '文件名(可选)' }
+                { key: 'title', type: 'text', value: '', label: '标题' },
+                { key: 'content', type: 'textarea', value: '', label: '内容', placeholder: 'HTML 内容' },
+                { key: 'filename', type: 'text', value: `page-${Date.now()}.html`, label: '文件名（可选）' }
             ]
         });
 
@@ -506,11 +341,11 @@ const createConfigPanel = (): ExternalElementWithDispose => {
         const config = configs.find(c => c.id === id);
         if (!config) return;
         if (config.type === 'url') {
-            showMessage('URL 类型的页面暂支持编辑');
+            showMessage('URL 类型的页面暂不支持编辑');
             return;
         }
         editFile(config);
-    }
+    };
 
     const render = async () => {
         configs = await loadConfig();
@@ -520,15 +355,15 @@ const createConfigPanel = (): ExternalElementWithDispose => {
                 <div style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
                     <button class="b3-button b3-button--outline" data-action="add-html">
                         <svg class="b3-button__icon"><use xlink:href="#iconAdd"></use></svg>
-                        Add HTML File
+                        添加 HTML 文件
                     </button>
                     <button class="b3-button b3-button--outline" data-action="add-url">
                         <svg class="b3-button__icon"><use xlink:href="#iconLink"></use></svg>
-                        Add URL
+                        添加 URL
                     </button>
                     <button class="b3-button b3-button--outline" data-action="add-html-text">
                         <svg class="b3-button__icon"><use xlink:href="#iconEdit"></use></svg>
-                        Add HTML Content
+                        添加 HTML 内容
                     </button>
                     <span style="flex: 1;"></span>
                     <button class="b3-button b3-button--outline" data-action="show-prompt">
@@ -546,7 +381,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
         const element = html2ele(html) as HTMLElement;
         container.appendChild(element);
 
-        // Event bindings
+        // 事件绑定
         element.querySelector('[data-action="show-prompt"]')?.addEventListener('click', showPromptDialog);
         element.querySelector('[data-action="add-html"]')?.addEventListener('click', handleAddHtmlFile);
         element.querySelector('[data-action="add-url"]')?.addEventListener('click', handleAddUrl);
@@ -576,7 +411,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
     };
 };
 
-// ============ Module Exports ============
+// ============ 模块导出 ============
 
 export const name = 'HTMLPages';
 export const enabled = false;
@@ -588,7 +423,7 @@ export const load = async (plugin_: FMiscPlugin) => {
         const blob = new Blob([]);
         await putFile(DATA_DIR, true, blob);
     } catch (e) {
-        console.warn('Data directory may already exist:', e);
+        console.warn('数据目录可能已存在:', e);
     }
 
     registerMenus();

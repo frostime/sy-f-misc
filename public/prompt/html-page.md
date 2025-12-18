@@ -115,7 +115,7 @@ interface PluginSdk {
     /**
      * 当前主题的样式变量
      */
-    style: {
+    styleVar: {
         'font-family': string;
         'font-size': string;
         'font-family-code': string;
