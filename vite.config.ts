@@ -8,6 +8,8 @@ import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
 import sass from 'sass'; // Use import instead of require
 import { visualizer } from 'rollup-plugin-visualizer';
+import fs from 'fs';
+import path from 'path';
 
 import vitePluginConditionalCompile from "vite-plugin-conditional-compile";
 
@@ -53,7 +55,8 @@ export default defineConfig({
         }),
 
         solidPlugin(),
-
+        copyHtmlFilesPlugin(),
+        copyMdFilesPlugin(),
         viteStaticCopy({
             targets: [
                 {
@@ -79,10 +82,10 @@ export default defineConfig({
             ],
         }),
         process.env.ANALYZE_BUNDLE === 'true' &&
-          visualizer({
+        visualizer({
             open: true,
             filename: './tmp/stats.html',
-          }),
+        }),
     ].filter(Boolean),
 
     define: {
@@ -142,4 +145,164 @@ export default defineConfig({
             },
         },
     }
-})
+});
+
+// Custom plugin to copy HTML files from src to pages directory
+function copyHtmlFilesPlugin() {
+    return {
+        name: 'copy-html-files',
+        async buildStart() {
+            // Find all HTML files in src directory
+            const htmlFiles = await fg('src/**/*.html', {
+                absolute: false,
+                onlyFiles: true
+            });
+
+            if (htmlFiles.length === 0) {
+                return;
+            }
+
+            // Check for duplicate filenames
+            const filenameMap = new Map<string, string[]>();
+
+            for (const file of htmlFiles) {
+                const filename = path.basename(file);
+                if (!filenameMap.has(filename)) {
+                    filenameMap.set(filename, []);
+                }
+                filenameMap.get(filename)!.push(file);
+            }
+
+            // Report error if duplicates found
+            const duplicates = Array.from(filenameMap.entries())
+                .filter(([_, paths]) => paths.length > 1);
+
+            if (duplicates.length > 0) {
+                const errorMsg = duplicates
+                    .map(([filename, paths]) =>
+                        `  - ${filename}:\n${paths.map(p => `    * ${p}`).join('\n')}`
+                    )
+                    .join('\n');
+
+                throw new Error(
+                    `Duplicate HTML filenames found in src directory:\n${errorMsg}\n\n` +
+                    `Please rename the files to avoid conflicts.`
+                );
+            }
+
+            console.log(`Found ${htmlFiles.length} HTML file(s) to copy to pages directory`);
+        },
+        async writeBundle() {
+            // Find all HTML files again for copying
+            const htmlFiles = await fg('src/**/*.html', {
+                absolute: false,
+                onlyFiles: true
+            });
+
+            if (htmlFiles.length === 0) {
+                return;
+            }
+
+            const targetDir = path.join(outputDir, 'pages');
+
+            // Ensure target directory exists
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
+
+            // Copy each HTML file
+            for (const file of htmlFiles) {
+                const filename = path.basename(file);
+                const targetPath = path.join(targetDir, filename);
+
+                fs.copyFileSync(file, targetPath);
+                console.log(`Copied: ${file} -> ${targetPath}`);
+            }
+        }
+    };
+}
+
+// Custom plugin to copy MD files from src to docs directory (excluding README.md)
+function copyMdFilesPlugin() {
+    return {
+        name: 'copy-md-files',
+        async buildStart() {
+            // Find all MD files in src directory (excluding README.md)
+            const mdFiles = await fg('src/**/*.md', {
+                absolute: false,
+                onlyFiles: true
+            });
+
+            const filteredMdFiles = mdFiles.filter(file => {
+                const filename = path.basename(file);
+                return filename !== 'README.md';
+            });
+
+            if (filteredMdFiles.length === 0) {
+                return;
+            }
+
+            // Check for duplicate filenames
+            const filenameMap = new Map<string, string[]>();
+
+            for (const file of filteredMdFiles) {
+                const filename = path.basename(file);
+                if (!filenameMap.has(filename)) {
+                    filenameMap.set(filename, []);
+                }
+                filenameMap.get(filename)!.push(file);
+            }
+
+            // Report error if duplicates found
+            const duplicates = Array.from(filenameMap.entries())
+                .filter(([_, paths]) => paths.length > 1);
+
+            if (duplicates.length > 0) {
+                const errorMsg = duplicates
+                    .map(([filename, paths]) =>
+                        `  - ${filename}:\n${paths.map(p => `    * ${p}`).join('\n')}`
+                    )
+                    .join('\n');
+
+                throw new Error(
+                    `Duplicate MD filenames found in src directory:\n${errorMsg}\n\n` +
+                    `Please rename the files to avoid conflicts.`
+                );
+            }
+
+            console.log(`Found ${filteredMdFiles.length} MD file(s) to copy to docs directory`);
+        },
+        async writeBundle() {
+            // Find all MD files again for copying
+            const mdFiles = await fg('src/**/*.md', {
+                absolute: false,
+                onlyFiles: true
+            });
+
+            const filteredMdFiles = mdFiles.filter(file => {
+                const filename = path.basename(file);
+                return filename !== 'README.md';
+            });
+
+            if (filteredMdFiles.length === 0) {
+                return;
+            }
+
+            const targetDir = path.join(outputDir, 'docs');
+
+            // Ensure target directory exists
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
+
+            // Copy each MD file
+            for (const file of filteredMdFiles) {
+                const filename = path.basename(file);
+                const targetPath = path.join(targetDir, filename);
+
+                fs.copyFileSync(file, targetPath);
+                console.log(`Copied: ${file} -> ${targetPath}`);
+            }
+        }
+    };
+}

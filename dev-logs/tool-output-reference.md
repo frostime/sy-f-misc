@@ -122,7 +122,7 @@
 | `searchDocument` | `DocumentSummary[]` | 根据 `name` 或 `hpath`（可选 `match`=`=`/`like` 与 `notebook` 过滤）。|
 | `querySQL` | `Array<Record<string, any>>` | 直接返回 SQL 查询结果（数组，每行是字典），调用前会把 `_esc_newline_` 还原为换行。仅支持 `SELECT`，需要人工设置 `limit` 以免爆量。|
 | `searchKeyword` | `KeywordSearchResult[]` | 调用 `/api/search/fullTextSearchBlock`，默认搜索常见块类型。返回结构含块、根文档、所属笔记本信息。|
-| `sqlUsageHelper` *(目前未注册成工具组)* | `string` | `/plugins/sy-f-misc/prompt/sql-helper.md` 的完整 Markdown，用作 LLM 学习资料。|
+| `sqlUsageHelper` *(目前未注册成工具组)* | `string` | `/plugins/sy-f-misc/docs/sql-helper.md` 的完整 Markdown，用作 LLM 学习资料。|
 
 ---
 

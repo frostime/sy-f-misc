@@ -3,15 +3,15 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-18 22:38:44
+ * @LastEditTime : 2025-12-19 00:45:58
  * @Description  : HTML Pages 功能模块 - 管理自定义 HTML 页面和 URL
  */
 import FMiscPlugin from "@/index";
-import { getLute, inputDialog, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { inputDialog } from "@frostime/siyuan-plugin-kits";
 import { getFile, getFileBlob } from "@frostime/siyuan-plugin-kits/api";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
 import { IMenu, showMessage } from "siyuan";
-import { simpleFormDialog } from "@/libs/dialog";
+import { documentDialog, simpleFormDialog } from "@/libs/dialog";
 import { putFile } from "@/api";
 import { openIframeTab, IIframePageConfig } from "./core";
 
@@ -43,7 +43,7 @@ const joinPath = (...parts: string[]) => {
 
 const fetchPrompt = async () => {
     if (Prompt) return Prompt;
-    const file = await fetch('/plugins/sy-f-misc/prompt/html-page.md');
+    const file = await fetch('/plugins/sy-f-misc/docs/html-page.md');
     const text = await file.text();
     Prompt = text;
     return Prompt;
@@ -219,31 +219,9 @@ const createConfigPanel = (): ExternalElementWithDispose => {
     const showPromptDialog = async () => {
         if (!Prompt) await fetchPrompt();
 
-        const lute = getLute();
-        // @ts-ignore
-        const promptHtml = lute.Md2HTML(Prompt);
-        const html = `
-            <div style="width: 100%; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
-                <div style="display: inline-flex; gap: 8px; align-items: center; justify-content: flex-end;">
-                    <button class="b3-button b3-button--outline" data-action="copy-prompt">
-                        复制
-                    </button>
-                </div>
-                <div class="item__readme b3-typography">
-                    ${promptHtml}
-                </div>
-            </div>
-        `;
-        const ele = html2ele(html) as HTMLElement;
-        ele.querySelector('button').onclick = () => {
-            navigator.clipboard.writeText(Prompt);
-            showMessage('Prompt 已复制到剪贴板');
-        };
-        simpleDialog({
+        documentDialog({
+            markdown: Prompt,
             title: '辅助 Prompt',
-            ele,
-            width: '960px',
-            maxHeight: '75vh',
         });
     };
 

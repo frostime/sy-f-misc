@@ -3,9 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
- * @LastEditTime : 2025-08-13 02:01:34
+ * @LastEditTime : 2025-12-19 00:22:51
  * @Description  : 
  */
+import { importJavascriptFile } from '@frostime/siyuan-plugin-kits';
 import {
     Tool,
     ToolPermissionLevel,
@@ -226,15 +227,90 @@ const textTool: Tool = {
     }
 };
 
+const jsonInterfaceTool: Tool = {
+    declaredReturnType: {
+        type: 'string',
+        note: 'TypeScript 接口定义字符串'
+    },
+
+    SKIP_EXTERNAL_TRUNCATE: true,
+
+    definition: {
+        type: 'function',
+        function: {
+            name: 'json2interface',
+            description: '将 JSON 对象转换为 TypeScript 接口定义。支持嵌套对象、数组、可选字段等，自动生成类型定义。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    json: {
+                        type: 'string',
+                        description: '要转换的 JSON 字符串'
+                    },
+                    interfaceName: {
+                        type: 'string',
+                        description: '生成的根接口名称，默认为 "Root"'
+                    }
+                },
+                required: ['json']
+            }
+        },
+        permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    execute: async (args: {
+        json: string;
+        interfaceName?: string;
+    }): Promise<ToolExecuteResult> => {
+        const { json, interfaceName = 'Root' } = args;
+
+        try {
+            // 解析 JSON
+            let jsonObj: any;
+            try {
+                jsonObj = JSON.parse(json);
+            } catch (parseError) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `JSON 解析失败: ${parseError.message}`
+                };
+            }
+
+            // 导入 json2type 模块
+            const module = await importJavascriptFile('json2type.js', '/data/storage/petal/{{plugin}}/scripts');
+
+            if (!module || !module.convertJsonToTs) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: '无法加载 json2type 模块或找不到 convertJsonToTs 函数'
+                };
+            }
+
+            // 转换 JSON 为 TypeScript 接口
+            const tsInterface = module.convertJsonToTs(jsonObj, interfaceName);
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: tsInterface
+            };
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `JSON 转换失败: ${error.message}`
+            };
+        }
+    }
+}
 
 // 导出工具列表
 export const basicTool = {
     name: 'basic-tools',
-    tools: [datetimeTool, textTool],
+    tools: [datetimeTool, textTool, jsonInterfaceTool],
     rulePrompt: `
 ## 基础工具组 ##
 
 - **datetime**: 涉及时效性信息（"最近"、"近期"、"XX月前"等）时，必须先调用确认当前时间
 - **text**: 文本查找、替换、长度计算，支持正则表达式
+- **json2interface**: 将 JSON 对象转换为 TypeScript 接口定义，自动处理嵌套对象、数组和可选字段
 `.trim()
 }
