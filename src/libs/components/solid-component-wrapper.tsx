@@ -1,11 +1,34 @@
 /**
- * 节省组件开销, 避免 solidjs 组件太多
- * 这样可以很方便把外部生成的 HTMLElement 或 JSX.Element 包装成 Solid 组件使用
+ * 方便把外部生成的 HTMLElement 或 JSX.Element 包装成 Solid 组件使用
  * 
  * 适合轻量级微型组件, 避免写 tsx
  */
 import { html2ele } from "@frostime/siyuan-plugin-kits";
 import { Component, JSX, onCleanup, onMount } from "solid-js";
+import { render, renderToString } from "solid-js/web";
+
+
+export const Div = (props: JSX.IntrinsicElements['div']) => {
+
+    return <div
+        {...props}
+    >
+        {props.children}
+    </div>
+}
+
+export const Empty = (props: {
+    children: JSX.Element
+}) => {
+    <>
+        {props.children}
+    </>
+}
+
+
+// ================================================================
+// Wrapper
+// ================================================================
 
 /**
  * 外部元素包装组件
@@ -73,3 +96,45 @@ export const html2solid = (options: {
         };
     }} />;
 }
+
+
+// ================================================================
+// Solid Component --> HTMLElement
+// ================================================================
+/**
+ * 将 Solid 组件转换为 HTML 字符串（静态快照）
+ * 注意：返回的是字符串，会丢失所有事件绑定和响应式连接
+ */
+export const solid2html = (component: () => JSX.Element): string => {
+    const container = document.createElement("div");
+    // 使用 createRoot 的简化版 render
+    const dispose = render(component, container);
+    const html = container.innerHTML;
+    dispose();
+    return html;
+};
+
+/**
+ * 本质就是直接调用 renderToString, 更加轻量, 不触发 onMount 等生命周期
+ * 不过对复杂组件处理可能会出现问题
+ * @param component 
+ * @returns 
+ */
+export const solid2string = (component: () => JSX.Element): string => {
+    return renderToString(component);
+};
+
+/**
+ * 将 Solid 组件转换为真实的 HTMLElement
+ * @param component 组件函数
+ * @returns 返回包含组件内容的 div 容器
+ */
+export const solid2element = (component: () => JSX.Element): { element: HTMLElement, dispose: () => void } => {
+    const container = document.createElement("div");
+    container.style.display = "contents"; // 使容器在布局上透明
+    const dispose = render(component, container);
+
+    // return Object.assign(container, { dispose });
+    return { element: container, dispose };
+};
+

@@ -17,6 +17,7 @@ import { createBlankSuperRefDatabase, getSuperRefDb, syncDatabaseFromBacklinks }
 import { showDynamicDatabaseDialog, updateDynamicDatabase, DYNAMIC_DB_ATTR, addRowsToDatabaseFromQuery } from "./dynamic-db";
 import { debounce } from "@frostime/siyuan-plugin-kits";
 import "./index.css";
+import { documentDialog } from "@/libs/dialog";
 
 export let name = "SuperRefDB";
 export let enabled = false;
@@ -132,6 +133,11 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             }
         },
     ],
+    help: () => {
+        documentDialog({
+            sourceUrl: `{{docs}}/super-ref-help.md`,
+        });
+    }
 };
 
 

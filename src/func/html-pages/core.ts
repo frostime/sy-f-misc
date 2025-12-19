@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-18 23:02:07
+ * @LastEditTime : 2025-12-19 20:03:33
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
-import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID } from "@frostime/siyuan-plugin-kits";
 import { getFileBlob, request } from "@frostime/siyuan-plugin-kits/api";
 import { sql } from "@/api";
 
@@ -47,38 +47,6 @@ export interface IIframePageConfig {
     onDestroy?: () => void;
 }
 
-/**
- * 预设 SDK 接口
- */
-export interface IPresetSdk {
-    request: (endpoint: string, data: any) => Promise<{ ok: boolean; data: any }>;
-    loadConfig: () => Promise<Record<string, any>>;
-    saveConfig: (config: Record<string, any>) => Promise<void>;
-    querySQL: (query: string) => Promise<any>;
-    queryDailyNote: (options: {
-        boxId?: NotebookId;
-        before?: Date;
-        after?: Date;
-        limit?: number;
-    }) => Promise<any>;
-    queryChildDocs: (docId: string) => Promise<any>;
-    queryParentDoc: (docId: string) => Promise<any>;
-    queryBacklinks: (blockId: string) => Promise<any>;
-    getMarkdown: (blockId: string) => Promise<string>;
-    lsNotebooks: () => Array<{ name: string; id: string; closed: boolean }>;
-    openBlock: (blockId: string) => void;
-    createDailynote: (options: {
-        notebookId: string;
-        date?: Date;
-        content?: string;
-    }) => Promise<any>;
-    argApp: () => string;
-    themeMode: 'light' | 'dark';
-
-    styleVar: Record<string, string>;
-    lute: any;
-}
-
 // ============ 工具函数 ============
 
 const getCSSVariable = (variableName: string): string => {
@@ -90,12 +58,28 @@ const getCSSVariable = (variableName: string): string => {
 /**
  * 构建预设 SDK
  */
-const buildPresetSdk = (): IPresetSdk => {
+const buildPresetSdk = () => {
     const styleVar = {
+        // 字体相关
         'font-family': getCSSVariable('--b3-font-family'),
         'font-size': getCSSVariable('--b3-font-size'),
         'font-family-code': getCSSVariable('--b3-font-family-code'),
+        'font-family-emoji': getCSSVariable('--b3-font-family-emoji'),
+
+        // 主题颜色
+        'theme-primary': getCSSVariable('--b3-theme-primary'),
+        'theme-primary-light': getCSSVariable('--b3-theme-primary-light'),
+        'theme-primary-lightest': getCSSVariable('--b3-theme-primary-lightest'),
+        'theme-background': getCSSVariable('--b3-theme-background'),
+        'theme-surface': getCSSVariable('--b3-theme-surface'),
+        'theme-surface-light': getCSSVariable('--b3-theme-surface-light'),
+        'theme-surface-lighter': getCSSVariable('--b3-theme-surface-lighter'),
+        'theme-on-surface': getCSSVariable('--b3-theme-on-surface'),
+        'theme-on-surface-light': getCSSVariable('--b3-theme-on-surface-light'),
     };
+
+    let themeMode = document.body.parentElement.getAttribute('data-theme-mode') as 'light' | 'dark';
+    styleVar['theme-mode'] = themeMode;
 
     return {
         request: async (endpoint: string, data: any) => {
@@ -118,6 +102,10 @@ const buildPresetSdk = (): IPresetSdk => {
             return doc ?? null;
         },
         queryBacklinks: async (blockId: string) => searchBacklinks(blockId),
+
+        getBlockByID: async (blockId: string) => {
+            return getBlockByID(blockId);
+        },
         getMarkdown: async (blockId: string) => getMarkdown(blockId),
 
         lsNotebooks: () => {
@@ -144,30 +132,66 @@ const buildPresetSdk = (): IPresetSdk => {
         },
 
         argApp: () => thisPlugin().app.appId,
-        themeMode: document.body.parentElement.getAttribute('data-theme-mode') as 'light' | 'dark',
+        lute: getLute(),
+
+        themeMode: themeMode,
         styleVar: styleVar,
-        lute: getLute()
     };
 };
+
+type IPresetSdk = ReturnType<typeof buildPresetSdk>;
 
 /**
  * 注入思源样式到 iframe
  */
 const injectSiyuanStyles = (iframe: HTMLIFrameElement, style: Record<string, string>) => {
+    const doc = iframe.contentDocument;
+    if (!doc?.head) {
+        console.error('无法访问 iframe.contentDocument.head，可能是跨域或尚未加载');
+        return false;
+    }
+
     try {
-        const styleSheet = document.createElement('style');
+        // 检查是否已注入
+        const existing = doc.head.querySelector('#siyuan-injected-styles');
+        if (existing) {
+            existing.remove();
+        }
+
+        const styleSheet = doc.createElement('style');
+        styleSheet.id = 'siyuan-injected-styles';
+
+        // 构建 CSS 变量，带值清理和防御性检查
+        const cssVariables = Object.entries(style)
+            .filter(([_key, value]) => value && String(value).trim() !== '')
+            .map(([key, value]) => {
+                // 移除可能存在的 -- 前缀，统一处理
+                const cleanKey = key.startsWith('--') ? key.slice(2) : key;
+                // CSS 变量值不需要转义引号，直接使用原始值
+                // 只需要移除可能的换行符和控制字符以保证 CSS 语法正确
+                const cleanValue = String(value).replace(/[\r\n\t]/g, ' ');
+                return `--${cleanKey}: ${cleanValue};`;
+            })
+            .join('\n    ');
+
         styleSheet.textContent = `
+            :root {
+                ${cssVariables}
+            }
             body {
-                font-family: ${style['font-family']};
-                font-size: ${style['font-size']};
+                font-family: var(--b3-font-family, sans-serif);
+                font-size: var(--b3-font-size, 16px);
             }
             pre, code {
-                font-family: ${style['font-family-code']};
+                font-family: var(--b3-font-family-code, monospace);
             }
         `;
-        iframe.contentDocument?.head.appendChild(styleSheet);
+
+        doc.head.prepend(styleSheet);
+        return true;
     } catch (e) {
-        console.warn('注入思源样式失败:', e);
+        console.error('注入思源样式失败:', e);
+        return false;
     }
 };
 
@@ -264,27 +288,23 @@ const forwardIframePointerEvents = (iframe: HTMLIFrameElement): (() => void) => 
 export const openIframeTab = (options: {
     /** Tab ID，用于标识唯一的 tab */
     tabId: string;
-
-    /** Tab 标题 */
     title: string;
+    icon?: string;
 
     /** Iframe 页面配置 */
     iframeConfig: IIframePageConfig;
 
-    /** 插件实例 */
-    plugin: any;
-
-    /** Tab 销毁前的额外清理逻辑（可选） */
     onTabDestroy?: () => void;
+
 }): void => {
-    const { tabId, title, plugin, iframeConfig, onTabDestroy } = options;
+    const { tabId, title, iframeConfig, onTabDestroy } = options;
 
     // 用于存储 iframe 清理函数
     let cleanupIframeFunc: (() => void) | null = null;
 
     openCustomTab({
         tabId,
-        plugin,
+        plugin: thisPlugin(),
         title,
         render: (container: Element) => {
             // 创建 iframe 并获取清理函数
@@ -298,7 +318,8 @@ export const openIframeTab = (options: {
             cleanupIframeFunc?.();
             // 执行额外的清理逻辑
             onTabDestroy?.();
-        }
+        },
+        icon: options.icon,
     });
 };
 

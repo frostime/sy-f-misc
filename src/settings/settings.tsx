@@ -45,6 +45,16 @@ const App: Component<IArgs> = (props) => {
         });
     });
 
+    const helps = {};
+    props.customModuleConfigs?.forEach(config => {
+        if (config.help) {
+            // Enable 面板的 key 格式是 Enable${moduleName}
+            helps[`Enable${config.key}`] = config.help;
+            // CustomModuleConfigs 中也需要
+            helps[config.key] = config.help;
+        }
+    });
+
     let [focus, setFocus] = createSignal(groups[0].key);
 
     const changed = props.changed;
@@ -58,6 +68,7 @@ const App: Component<IArgs> = (props) => {
             group={groups[0].key}
             settingItems={props.GroupEnabled}
             onChanged={changed}
+            helps={helps}
         />
     );
 

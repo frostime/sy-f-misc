@@ -64,6 +64,18 @@ interface PluginSdk {
     queryParentDoc(docId: string): Promise<Block | null>;
 
     /**
+     * 查询指定块的引用（反向链接）
+     * @param blockId - 块 ID
+     * @returns 引用该块的块列表
+     */
+    queryBacklinks(blockId: string): Promise<Block[]>;
+
+    /**
+     * 获取指定 ID 的块; 如果不存在可能返回 null]
+     */
+    getBlockByID(blockId: string): Promise<Block>;
+
+    /**
      * 获取指定块/文档的 Markdown 内容
      * @param blockId - 块 ID
      * @returns Markdown 字符串
@@ -105,7 +117,7 @@ interface PluginSdk {
     /**
      * 部分后端 API 需要传入 app 常量, 可以使用这个 api 获取
      */
-    argApp: () => any,
+    argApp: () => string,
 
     /**
      * 当前主题模式
@@ -113,12 +125,31 @@ interface PluginSdk {
     themeMode: 'light' | 'dark';
 
     /**
-     * 当前主题的样式变量
+     * 外部思源的样式变量
      */
     styleVar: {
+        // 字体相关
+        // 必须使用!
         'font-family': string;
         'font-size': string;
         'font-family-code': string;
+        'font-family-emoji': string;
+
+        // 主题模式
+        // 必须使用!
+        'theme-mode': 'light' | 'dark';
+
+        // 主题颜色
+        // 参考即可
+        'theme-primary': string;
+        'theme-primary-light': string;
+        'theme-primary-lightest': string;
+        'theme-background': string;
+        'theme-surface': string;
+        'theme-surface-light': string;
+        'theme-surface-lighter': string;
+        'theme-on-surface': string;
+        'theme-on-surface-light': string;
     };
 }
 
@@ -143,6 +174,34 @@ interface Lute {
      * @returns Markdown 字符串
      */
     HTML2Md(html: string): string;
+}
+
+// 类型定义
+type BlockId = string;
+type DailyNote = Block;
+
+type Block = {
+    id: BlockId;
+    parent_id?: BlockId;
+    root_id: string;
+    hash: string;
+    box: string;
+    path: string;
+    hpath: string;
+    name: string;
+    alias: string;
+    memo: string;
+    tag: string;
+    content: string;
+    fcontent?: string;
+    markdown: string;
+    length: number;
+    type: string;
+    subtype: string;
+    ial?: string;
+    sort: number;
+    created: string;
+    updated: string;
 }
 ```
 
@@ -226,14 +285,34 @@ const pageSize = config.pageSize || 10;
 
 ## 🎨 UI 设计建议
 
-**主题适配**：
-- 使用 `pluginSdk.themeMode` 判断当前主题
-- 使用 CSS 变量（如 `var(--b3-theme-background)`）实现自动适配
-- 或根据 `themeMode` 动态切换样式
+**告知**
 
-**字体字号统一**：
-- 应用 `pluginSdk.style` 中的字体和字号配置
-- 确保与思源界面风格一致
+- `pluginSdk` 中有 `themeMode`，指明了主题亮暗模式
+- `styleVar` 中所有 CSS 变量会被注入 `:root`，你可以使用 CSS 变量引用，也可以使用 `window.pluginSdk.styleVar[name]` 来获取
+- 插件会自动给 iframe 页面 `body>head` 中注入 (`head.prepend`）如下 `<style id="siyuan-injected-style">`
+
+    ```css
+    :root {
+        /* 自动注入所有 CSS 变量 */
+        ${cssVariables}
+    }
+
+    /* 默认缺省用，你可以自己覆盖 */
+   body {
+        font-family: var(--b3-font-family, sans-serif);
+        font-size: var(--b3-font-size, 16px);
+    }
+    pre, code {
+        font-family: var(--b3-font-family-code, monospace);
+    }
+    ```
+
+**要求**
+
+- **务必**设计两套主题色，并根据进入时候的 light or dark 选择当前的显示模式
+- **务必**使用注入的 font 字体和字号配置
+- 注入的 `theme-xxx` 颜色，不强求使用；可参考，也可以自行设计更好看优雅的配色方案
+
 
 
 ## 📚 参考资源

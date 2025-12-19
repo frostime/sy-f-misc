@@ -1,6 +1,7 @@
 import { deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { ZoteroDBModal } from "./zoteroModal";
 import { showMessage } from "siyuan";
+import { documentDialog } from "@/libs/dialog";
 
 let configs = {
     zoteroPassword: 'CTT',
@@ -77,5 +78,10 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
                 }
             }
         }
-    ]
+    ],
+    help: () => {
+        documentDialog({
+            sourceUrl: `{{docs}}/zotero-desc.md`,
+        });
+    }
 }

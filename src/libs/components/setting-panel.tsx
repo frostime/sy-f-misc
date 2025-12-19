@@ -13,7 +13,8 @@ interface SettingPanelProps {
     settingItems: ISettingItem[];
     // display: boolean;
     onChanged: (e: { group: string, key: string, value: any }) => void;
-    children?: JSXElement
+    children?: JSXElement;
+    helps?: Record<string, (event: MouseEvent) => void>;
 }
 
 const SettingPanel: Component<SettingPanelProps> = (props) => {
@@ -28,6 +29,7 @@ const SettingPanel: Component<SettingPanelProps> = (props) => {
                         title={item.title}
                         description={item.description}
                         direction={item?.direction}
+                        help={props.helps ? props.helps[item.key] : undefined}
                     >
                         <Form.Input
                             type={item.type}

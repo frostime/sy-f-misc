@@ -13,4 +13,17 @@
 .title {
     font-weight: bold;
     color: var(--b3-theme-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.help-icon {
+    cursor: pointer;
+    padding: 0px;
+    opacity: 0.6;
+
+    &:hover {
+        opacity: 1;
+    }
 }

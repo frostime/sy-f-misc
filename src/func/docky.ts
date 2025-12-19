@@ -1,40 +1,10 @@
-import { Protyle, Dialog, showMessage, openTab } from "siyuan";
+import { Protyle, openTab } from "siyuan";
 import type FMiscPlugin from "@/index";
 
 import { deepMerge, html2ele } from "@frostime/siyuan-plugin-kits";
 import { updateStyleDom, removeStyleDom } from "@frostime/siyuan-plugin-kits";
+import { selectIconDialog } from "@/libs/dialog";
 // import * as api from '../api';
-
-export const selectIconDialog = () => {
-    const symbols = document.querySelectorAll('symbol');
-    const html = `
-    <div class="icons" style="margin: 10px;">
-        ${Array.from(symbols).map(symbol => {
-        return `<svg style="width: 20px; height: 20px; padding: 5px; cursor: pointer;"><use xlink:href="#${symbol.id}"></use></svg>`
-    }).join('\n')}
-    </div>
-    `;
-    const dialog = new Dialog({
-        title: '选择图标',
-        content: html,
-        width: '500px',
-        height: '400px',
-    });
-    dialog.element.querySelector('.icons').addEventListener('click', (e) => {
-        const target = e.target as SVGElement;
-        let icon = '';
-        if (target.tagName === 'svg') {
-            icon = target.querySelector('use').getAttribute('xlink:href').replace('#', '');
-        } else if (target.tagName === 'use') {
-            icon = target.getAttribute('xlink:href').replace('#', '');
-        } else {
-            return;
-        }
-        navigator.clipboard.writeText(icon).then(() => {
-            showMessage(`复制到剪贴板: #${icon}`, 2000);
-        });
-    });
-}
 
 const initDockPanel = (docky: IDockyBlock, ele: HTMLElement, plugin: FMiscPlugin) => {
     const id: BlockId = docky.id;

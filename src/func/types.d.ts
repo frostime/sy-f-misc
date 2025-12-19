@@ -45,5 +45,6 @@ interface IFuncModule {
         load?: (itemValues?: Record<string, any>) => void;
         dump?: () => Record<string, any>;
         customPanel?: () => FlexibleElement;
+        help?: (...args: any[]) => void;  // 点击帮助按钮弹出帮助文档
     };
 }

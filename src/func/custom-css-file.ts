@@ -12,6 +12,7 @@ import type FMiscPlugin from "@/index";
 import { showMessage } from "siyuan";
 import { sharedConfigs } from "./shared-configs";
 import { updateStyleDom } from "@frostime/siyuan-plugin-kits";
+import { documentDialog } from "@/libs/dialog";
 // import { showMessage } from "siyuan";
 
 let cp: any;
@@ -150,17 +151,28 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     title: 'CSS Files',
     load: () => { },
     items: [
-        {
-            type: 'hint',
-            title: '说明',
-            description: `<ul>
-                <li>默认样式文件位于 /data/public/custom.css，可通过顶栏快速编辑，并随时更新</li>
-                <li>可以将一些其他的自定义 CSS 文件放入 /data/public/styles/ 目录，插件会在启动时自动加载样式</li>
-            </ul>`,
-            key: 'hint',
-            get: () => '',
-            set: () => { }
-        }
-    ]
+        // {
+        //     type: 'hint',
+        //     title: '说明',
+        //     description: `<ul>
+        //         <li>默认样式文件位于 /data/public/custom.css，可通过顶栏快速编辑，并随时更新</li>
+        //         <li>可以将一些其他的自定义 CSS 文件放入 /data/public/styles/ 目录，插件会在启动时自动加载样式</li>
+        //     </ul>`,
+        //     key: 'hint',
+        //     get: () => '',
+        //     set: () => { }
+        // }
+    ],
+    help: () => {
+        documentDialog({
+            markdown: `
+**在 CSS 文件中自定义样式**
+
+开启后，可在顶部菜单栏中点击“编辑自定义 CSS”，插件将打开一个 CSS 文件供你配置自定义的思源样式，点击“刷新”即可更新样式。
+
+你也可以将其他自定义 CSS 文件放入 /data/public/styles/ 目录，插件会在启动时自动加载这些样式。
+`
+        });
+    }
 }
 

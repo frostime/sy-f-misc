@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-19 18:30:12
  * @FilePath     : /src/types/setting.d.ts
- * @LastEditTime : 2024-06-12 22:14:51
+ * @LastEditTime : 2025-12-19 01:05:36
  * @Description  : 
  */
 type TSettingItemType = "checkbox" | "select" | "textinput" | "textarea" | "number" | "slider" | "button" | "hint" | "custom";
