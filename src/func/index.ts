@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-03-23 21:30:38
  * @FilePath     : /src/func/index.ts
- * @LastEditTime : 2025-12-19 20:20:50
+ * @LastEditTime : 2025-12-20 00:33:16
  * @Description  :
  */
 // import { type JSX } from "solid-js";
 
 import type FMiscPlugin from "@/index";
 // import * as nf from './new-file/legacy';
-import * as nf from './new-file';
+import * as nf from './asset-file';
 import * as it from './insert-time';
 import * as tl from './titled-link';
 import * as zt from './zotero';

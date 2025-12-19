@@ -1,13 +1,11 @@
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { sql } from "@frostime/siyuan-plugin-kits/api";
-import { request } from "@/api";
 import { openIframDialog } from "@/func/html-pages/core";
 
 export const declareToggleEnabled = {
-    title: '📄 新建附件文件',
-    description: '附件管理工具 (创建新附件，移动附件)',
+    title: '📄 附件文件',
+    description: '创建空白附件文件, 查看所有附件等...',
     defaultEnabled: true
 };
 
@@ -201,7 +199,7 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
 
 // ============ 模块加载 ============
 
-export let name = 'NewFile';
+export let name = 'AssetFile';
 export let enabled = false;
 
 const HTML = `
