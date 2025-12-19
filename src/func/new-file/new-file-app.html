@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>附件管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family, sans-serif);
+            font-size: var(--font-size, 16px);
+            background: var(--theme-background, #fff);
+            color: var(--theme-on-surface, #333);
+            padding: 16px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+        }
+
+        /* Tab 样式 */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            border-bottom: 2px solid var(--theme-surface-lighter, #e0e0e0);
+            margin-bottom: 8px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: var(--theme-on-surface-light, #666);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 15px;
+        }
+
+        .tab:hover {
+            background: var(--theme-surface-light, #f5f5f5);
+            color: var(--theme-on-surface, #333);
+        }
+
+        .tab.active {
+            color: var(--theme-primary, #4285f4);
+            border-bottom-color: var(--theme-primary, #4285f4);
+            background: transparent;
+        }
+
+        /* Tab 内容 */
+        .tab-content {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        /* 表格样式 */
+        .table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        .table td {
+            padding: 8px;
+            vertical-align: middle;
+        }
+
+        .table td:first-child {
+            padding-left: 0;
+        }
+
+        .table td:last-child {
+            padding-right: 0;
+        }
+
+        /* 输入框样式 */
+        .text-field {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--theme-surface-lighter, #ddd);
+            border-radius: 4px;
+            background: var(--theme-surface, #fff);
+            color: var(--theme-on-surface, #333);
+            font-family: var(--font-family, sans-serif);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .text-field:hover {
+            border-color: var(--theme-surface-light, #ccc);
+        }
+
+        .text-field:focus {
+            outline: none;
+            border-color: var(--theme-primary, #4285f4);
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
+        }
+
+        .text-field::placeholder {
+            color: var(--theme-on-surface-light, #999);
+        }
+
+        /* 下拉选择框样式 */
+        .select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--theme-surface-lighter, #ddd);
+            border-radius: 4px;
+            background: var(--theme-surface, #fff);
+            color: var(--theme-on-surface, #333);
+            font-family: var(--font-family, sans-serif);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .select:hover {
+            border-color: var(--theme-surface-light, #ccc);
+        }
+
+        .select:focus {
+            outline: none;
+            border-color: var(--theme-primary, #4285f4);
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
+        }
+
+        /* Checkbox 样式 */
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--theme-primary, #4285f4);
+        }
+
+        /* 按钮样式 */
+        .button {
+            padding: 10px 20px;
+            border: 1px solid var(--theme-surface-lighter, #ddd);
+            border-radius: 4px;
+            background: var(--theme-surface, #fff);
+            color: var(--theme-on-surface, #333);
+            cursor: pointer;
+            font-family: var(--font-family, sans-serif);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .button:hover:not(:disabled) {
+            background: var(--theme-surface-light, #f5f5f5);
+            border-color: var(--theme-surface-light, #ccc);
+        }
+
+        .button--text {
+            background: var(--theme-primary, #4285f4);
+            color: white;
+            border-color: var(--theme-primary, #4285f4);
+        }
+
+        .button--text:hover:not(:disabled) {
+            background: var(--theme-primary-light, #5a95f5);
+            border-color: var(--theme-primary-light, #5a95f5);
+        }
+
+        .button--small {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 按钮组 */
+        .fn__flex {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .fn__flex-1 {
+            flex: 1;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        /* 预览区域 */
+        .preview {
+            padding: 14px 16px;
+            background: var(--theme-surface-light, #f8f9fa);
+            border: 1px solid var(--theme-surface-lighter, #e9ecef);
+            border-radius: 6px;
+            font-family: var(--font-family-code, 'Consolas', 'Monaco', monospace);
+            font-size: 13px;
+            word-break: break-all;
+            color: var(--theme-on-surface, #333);
+            line-height: 1.6;
+        }
+
+        .preview span {
+            color: var(--theme-primary, #4285f4);
+            font-weight: 500;
+        }
+
+        /* 消息提示 */
+        .message {
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.5;
+            border: 1px solid;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .message.warning {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+
+        /* 卡片样式 */
+        .card {
+            padding: 12px;
+            background: var(--theme-surface, #fff);
+            border: 1px solid var(--theme-surface-lighter, #e0e0e0);
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-color: var(--theme-surface-light, #ccc);
+        }
+
+        /* 块列表 */
+        .block-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .block-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .block-list::-webkit-scrollbar-track {
+            background: var(--theme-surface-light, #f1f1f1);
+            border-radius: 4px;
+        }
+
+        .block-list::-webkit-scrollbar-thumb {
+            background: var(--theme-surface-lighter, #c1c1c1);
+            border-radius: 4px;
+        }
+
+        .block-list::-webkit-scrollbar-thumb:hover {
+            background: var(--theme-on-surface-light, #a8a8a8);
+        }
+
+        /* Label 样式 */
+        label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--theme-on-surface, #333);
+        }
+
+        /* 暗色主题适配 */
+        [data-theme-mode="dark"] {
+            --theme-background: #1e1e1e;
+            --theme-surface: #2d2d2d;
+            --theme-surface-light: #3d3d3d;
+            --theme-surface-lighter: #4d4d4d;
+            --theme-on-surface: #e0e0e0;
+            --theme-on-surface-light: #a0a0a0;
+        }
+
+        [data-theme-mode="dark"] .preview {
+            background: var(--theme-surface, #2d2d2d);
+            border-color: var(--theme-surface-light, #3d3d3d);
+        }
+
+        [data-theme-mode="dark"] .message.success {
+            background: rgba(40, 167, 69, 0.15);
+            border-color: rgba(40, 167, 69, 0.3);
+            color: #5cb85c;
+        }
+
+        [data-theme-mode="dark"] .message.error {
+            background: rgba(220, 53, 69, 0.15);
+            border-color: rgba(220, 53, 69, 0.3);
+            color: #f5c6cb;
+        }
+
+        [data-theme-mode="dark"] .message.warning {
+            background: rgba(255, 193, 7, 0.15);
+            border-color: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+        }
+
+        /* 响应式优化 */
+        @media (max-width: 600px) {
+            .table td {
+                display: block;
+                width: 100%;
+                padding: 4px 0;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Tab 导航 -->
+        <div class="tabs">
+            <button class="tab active" data-tab="create">新建文件</button>
+            <button class="tab" data-tab="rename">重命名资源</button>
+        </div>
+
+        <!-- 新建文件 Tab -->
+        <div class="tab-content active" data-tab-content="create">
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td style="width: 60%; text-align: left;">
+                            <label>添加 ID 到文件名</label>
+                        </td>
+                        <td style="width: 40%; text-align: right;">
+                            <input type="checkbox" id="addId" checked>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" class="text-field" id="pathPrefix" placeholder="自定义路径前缀">
+                        </td>
+                        <td>
+                            <select class="select" id="pathPrefixPreset">
+                                <option value="">选择预设...</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <input type="text" class="text-field" id="fileName" placeholder="文件名">
+                        </td>
+                        <td>
+                            <select class="select" id="fileExt">
+                                <option value="">自定义</option>
+                            </select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="preview">
+                完整路径: <span id="fullPath">(请填写文件名)</span>
+            </div>
+
+            <div id="createMessage"></div>
+
+            <div class="button-group">
+                <button class="button button--text" id="createAndInsertBtn">创建并插入</button>
+            </div>
+        </div>
+
+        <!-- 重命名资源 Tab -->
+        <div class="tab-content" data-tab-content="rename">
+            <div class="fn__flex" style="margin-bottom: 12px;">
+                <label style="min-width: 90px;">原文件路径</label>
+                <input type="text" class="text-field fn__flex-1" id="oldAssetPath" placeholder="assets/...">
+            </div>
+
+            <div class="fn__flex" style="margin-bottom: 12px;">
+                <label style="min-width: 90px;">新文件路径</label>
+                <input type="text" class="text-field fn__flex-1" id="newAssetPath" placeholder="assets/...">
+            </div>
+
+            <div class="button-group">
+                <button class="button" id="searchBlocksBtn">查找引用块</button>
+                <button class="button button--text" id="renameBtn" disabled>确认重命名</button>
+            </div>
+
+            <div id="renameMessage"></div>
+
+            <div id="blockListContainer" style="display: none; margin-top: 16px;">
+                <div class="fn__flex" style="justify-content: space-between; margin-bottom: 12px;">
+                    <label>引用块列表 (<span id="blockCount">0</span>)</label>
+                    <div class="fn__flex">
+                        <button class="button button--small" id="selectAllBtn">全选</button>
+                        <button class="button button--small" id="deselectAllBtn">取消全选</button>
+                    </div>
+                </div>
+                <div class="block-list" id="blockList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ 全局状态 ============
+        let currentPath = '';
+        let addId = true;
+        let blocks = [];
+        let selectedBlocks = new Set();
+        let hasInserted = false;
+
+        // ============ SDK 初始化 ============
+        window.addEventListener('pluginSdkReady', async () => {
+            console.log('SDK 已就绪');
+            await initUI();
+            handleInitialState();
+
+            const initialState = window.pluginSdk?.initialState;
+            if (initialState?.tab === 'rename') {
+                // hide data-tab="create"
+                document.querySelector(`[data-tab="create"]`).style.display = 'none';
+            } else if (initialState?.tab === 'create') {
+                switchToTab('create');
+                document.querySelector(`[data-tab="rename"]`).style.display = 'none';
+            }
+        });
+
+        // ============ 处理初始状态 ============
+        function handleInitialState() {
+            const params = new URLSearchParams(window.location.search);
+            const tab = params.get('tab');
+            const asset = params.get('asset');
+            const initialState = window.pluginSdk?.initialState;
+
+            if (tab === 'rename' || initialState?.tab === 'rename') {
+                switchToTab('rename');
+            }
+
+            if (asset || initialState?.assetPath) {
+                const assetPath = asset || initialState?.assetPath;
+                document.getElementById('oldAssetPath').value = decodeURIComponent(assetPath);
+                switchToTab('rename');
+            }
+        }
+
+        function switchToTab(tabName) {
+            const tabBtn = document.querySelector(`[data-tab="${tabName}"]`);
+            if (tabBtn) tabBtn.click();
+        }
+
+        // ============ UI 初始化 ============
+        async function initUI() {
+            const config = await window.pluginSdk.getConfig();
+
+            const pathPreset = document.getElementById('pathPrefixPreset');
+            pathPreset.innerHTML = '<option value="">选择预设...</option>';
+            config.paths.forEach(path => {
+                const option = document.createElement('option');
+                option.value = path;
+                option.textContent = path;
+                pathPreset.appendChild(option);
+            });
+
+            const extSelect = document.getElementById('fileExt');
+            extSelect.innerHTML = '<option value="">自定义</option>';
+            config.exts.forEach(ext => {
+                const cleanExt = ext.startsWith('.') ? ext.slice(1) : ext;
+                const option = document.createElement('option');
+                option.value = cleanExt;
+                option.textContent = '.' + cleanExt;
+                extSelect.appendChild(option);
+            });
+
+            updatePathPreview();
+            setTimeout(() => document.getElementById('fileName')?.focus(), 100);
+        }
+
+        // ============ Tab 切换 ============
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.querySelector(`[data-tab-content="${targetTab}"]`).classList.add('active');
+            });
+        });
+
+        // ============ 新建文件 ============
+        function updatePathPreview() {
+            const prefix = document.getElementById('pathPrefix').value.trim();
+            const fileName = document.getElementById('fileName').value.trim();
+            const extSelect = document.getElementById('fileExt').value;
+
+            let ext = extSelect || 'md';
+            ext = ext.startsWith('.') ? ext.slice(1) : ext;
+
+            const idSuffix = addId ? '-<ID>' : '';
+            const pathPrefix = prefix ? `${prefix}/` : '';
+
+            currentPath = `${pathPrefix}${fileName}.${ext}`;
+            const displayPath = `assets/user/${pathPrefix}${fileName}${idSuffix}.${ext}`;
+
+            document.getElementById('fullPath').textContent = displayPath || '(请填写文件名)';
+        }
+
+        document.getElementById('addId').addEventListener('change', (e) => {
+            addId = e.target.checked;
+            updatePathPreview();
+        });
+
+        document.getElementById('pathPrefix').addEventListener('input', updatePathPreview);
+        document.getElementById('fileName').addEventListener('input', updatePathPreview);
+        document.getElementById('fileExt').addEventListener('change', updatePathPreview);
+
+        document.getElementById('pathPrefixPreset').addEventListener('change', (e) => {
+            document.getElementById('pathPrefix').value = e.target.value;
+            updatePathPreview();
+        });
+
+        // ============ 创建并插入 ============
+        document.getElementById('createAndInsertBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('createAndInsertBtn');
+
+            if (hasInserted) {
+                showMessage('文件已插入，请勿重复操作', 'warning', 'createMessage');
+                return;
+            }
+
+            if (!currentPath || !document.getElementById('fileName').value.trim()) {
+                showMessage('请填写文件名', 'error', 'createMessage');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '创建中...';
+
+            try {
+                const result = await window.pluginSdk.createFile(currentPath, addId);
+
+                if (result) {
+                    const { name, route } = result;
+                    const insertSuccess = await window.pluginSdk.insertAssetFile(route, name);
+
+                    if (insertSuccess) {
+                        hasInserted = true;
+                        showMessage(`文件 ${name} 已创建并插入`, 'success', 'createMessage');
+                        btn.textContent = '已插入';
+                        btn.disabled = true;
+                        document.getElementById('fileName').value = '';
+                        updatePathPreview();
+                    } else {
+                        showMessage('文件创建成功，但插入失败', 'warning', 'createMessage');
+                    }
+                } else {
+                    showMessage('文件创建失败', 'error', 'createMessage');
+                }
+            } catch (error) {
+                console.error('创建文件失败:', error);
+                showMessage('创建文件失败: ' + error.message, 'error', 'createMessage');
+            } finally {
+                if (!hasInserted) {
+                    btn.disabled = false;
+                    btn.textContent = '创建并插入';
+                }
+            }
+        });
+
+        // ============ 重命名资源 ============
+        document.getElementById('searchBlocksBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('searchBlocksBtn');
+            btn.disabled = true;
+            btn.textContent = '查找中...';
+
+            try {
+                const assetPath = document.getElementById('oldAssetPath').value.trim();
+                if (!assetPath) {
+                    showMessage('请输入原文件路径', 'error', 'renameMessage');
+                    return;
+                }
+
+                blocks = await window.pluginSdk.findAssetBlocks(assetPath);
+                selectedBlocks = new Set(blocks.map(b => b.id));
+
+                renderBlockList();
+                document.getElementById('renameBtn').disabled = blocks.length === 0;
+            } catch (error) {
+                console.error('查找块出错:', error);
+                showMessage('查找块出错: ' + error.message, 'error', 'renameMessage');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '查找引用块';
+            }
+        });
+
+        function renderBlockList() {
+            const container = document.getElementById('blockListContainer');
+            const list = document.getElementById('blockList');
+            const count = document.getElementById('blockCount');
+
+            if (blocks.length === 0) {
+                container.style.display = 'none';
+                showMessage('未找到引用块', 'warning', 'renameMessage');
+                return;
+            }
+
+            container.style.display = 'block';
+            count.textContent = blocks.length;
+            list.innerHTML = '';
+
+            blocks.forEach(block => {
+                const item = document.createElement('div');
+                item.className = 'card';
+                item.style.cssText = 'display: flex; gap: 12px; align-items: flex-start;';
+                item.innerHTML = `
+                    <input type="checkbox" data-block-id="${block.id}" ${selectedBlocks.has(block.id) ? 'checked' : ''} style="margin-top: 4px;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 13px; color: var(--theme-on-surface-light, #666); margin-bottom: 6px; font-weight: 500;">${block.hpath}</div>
+                        <div style="font-family: var(--font-family-code, monospace); font-size: 12px; color: var(--theme-on-surface, #333); white-space: pre-wrap; word-break: break-all; max-height: 100px; overflow-y: auto; line-height: 1.5;">${block.markdown}</div>
+                    </div>
+                `;
+
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        selectedBlocks.add(block.id);
+                    } else {
+                        selectedBlocks.delete(block.id);
+                    }
+                });
+
+                list.appendChild(item);
+            });
+        }
+
+        document.getElementById('selectAllBtn').addEventListener('click', () => {
+            selectedBlocks = new Set(blocks.map(b => b.id));
+            document.querySelectorAll('#blockList input[type="checkbox"]').forEach(cb => cb.checked = true);
+        });
+
+        document.getElementById('deselectAllBtn').addEventListener('click', () => {
+            selectedBlocks.clear();
+            document.querySelectorAll('#blockList input[type="checkbox"]').forEach(cb => cb.checked = false);
+        });
+
+        document.getElementById('renameBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('renameBtn');
+            btn.disabled = true;
+            btn.textContent = '重命名中...';
+
+            try {
+                const oldPath = document.getElementById('oldAssetPath').value.trim();
+                const newPath = document.getElementById('newAssetPath').value.trim();
+
+                if (oldPath === newPath) {
+                    showMessage('新旧路径相同', 'warning', 'renameMessage');
+                    return;
+                }
+
+                if (!newPath.startsWith('assets/')) {
+                    showMessage('新路径必须以 assets/ 开头', 'error', 'renameMessage');
+                    return;
+                }
+
+                const selectedBlockList = blocks.filter(b => selectedBlocks.has(b.id));
+                const result = await window.pluginSdk.renameAsset(oldPath, newPath, selectedBlockList);
+
+                if (result.success) {
+                    showMessage(`重命名成功，已更新 ${result.count} 个块`, 'success', 'renameMessage');
+                    document.getElementById('oldAssetPath').value = newPath;
+                    document.getElementById('searchBlocksBtn').click();
+                } else {
+                    showMessage(`重命名失败: ${result.error}`, 'error', 'renameMessage');
+                }
+            } catch (error) {
+                console.error('重命名出错:', error);
+                showMessage('重命名出错: ' + error.message, 'error', 'renameMessage');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '确认重命名';
+            }
+        });
+
+        // ============ 工具函数 ============
+        function showMessage(message, type = 'success', targetId = null) {
+            const container = targetId ? document.getElementById(targetId) : document.body;
+
+            if (targetId) {
+                container.innerHTML = `<div class="message ${type}">${message}</div>`;
+                setTimeout(() => container.innerHTML = '', 3000);
+            } else {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${type}`;
+                msgDiv.textContent = message;
+                msgDiv.style.cssText = `position: fixed; top: 20px; right: 20px; z-index: 10000; max-width: 400px;`;
+                document.body.appendChild(msgDiv);
+                setTimeout(() => msgDiv.remove(), 3000);
+            }
+        }
+    </script>
+</body>
+
+</html>

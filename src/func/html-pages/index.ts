@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-19 19:50:44
+ * @LastEditTime : 2025-12-20 00:18:24
  * @Description  : HTML Pages 功能模块 - 管理自定义 HTML 页面和 URL
  */
 import FMiscPlugin from "@/index";
@@ -467,23 +467,44 @@ const initializeDefaults = async () => {
     console.log('初始化默认 HTML Pages 配置...');
 
     // 1. 创建默认的 demo HTML 文件
-    const demoFilename = 'siyuan-tree.html';
-    const demoFilePath = joinPath(demoFilename);
-    const response = await getFileBlob('/data/plugins/sy-f-misc/pages/siyuan-tree.html');
-    //@ts-ignore
-    if (response || response.code !== 404) {
-        const presetHtml = await response.text();
-        const demoBlob = new Blob([presetHtml], { type: 'text/html' });
-        await putFile(demoFilePath, false, demoBlob);
+    // const demoFilename = 'siyuan-tree.html';
+    // const demoFilePath = joinPath(demoFilename);
+    // const response = await getFileBlob('/data/plugins/sy-f-misc/pages/siyuan-tree.html');
+    // //@ts-ignore
+    // if (response || response.code !== 404) {
+    //     const presetHtml = await response.text();
+    //     const demoBlob = new Blob([presetHtml], { type: 'text/html' });
+    //     await putFile(demoFilePath, false, demoBlob);
+    // }
+    const moveDefault = async (fname: string) => {
+        const sourcePath = `/data/plugins/sy-f-misc/pages/${fname}`;
+        const destPath = joinPath(fname);
+        const response = await getFileBlob(sourcePath);
+        //@ts-ignore
+        if (response && response.code !== 404) {
+            const content = await response.text();
+            const demoBlob = new Blob([content], { type: 'text/html' });
+            await putFile(destPath, false, demoBlob);
+        }
     }
+    moveDefault('siyuan-tree.html');
+    moveDefault('docs-calendar.html');
 
     // 2. 创建默认配置
     const defaultConfigs: IPageConfig[] = [
         {
             id: 'demo-siyuan-tree',
             type: 'html',
-            source: demoFilename,
-            title: '思源文件查看器'
+            source: 'siyuan-tree.html',
+            title: '思源文件查看器',
+            icon: 'iconSiYuan'
+        },
+        {
+            id: 'demo-docs-calendar',
+            type: 'html',
+            source: 'docs-calendar.html',
+            title: '文档日历视图',
+            icon: 'iconCalendar'
         },
         {
             id: 'default-url-docs',

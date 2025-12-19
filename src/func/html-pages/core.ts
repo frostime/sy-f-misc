@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-19 20:03:33
+ * @LastEditTime : 2025-12-20 00:07:55
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID } from "@frostime/siyuan-plugin-kits";
@@ -93,6 +93,63 @@ const buildPresetSdk = () => {
 
         loadConfig: async () => ({}),
         saveConfig: async () => { },
+
+        /**
+         * 保存 Blob/File 到完整路径
+         */
+        saveBlob: async (path: string, data: string | Blob | File | object): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }> => {
+            let dataBlob: Blob;
+
+            if (data instanceof Blob) {
+                dataBlob = data;
+            } else if (data instanceof File) {
+                dataBlob = data;
+            } else if (typeof data === 'object') {
+                dataBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+            } else if (typeof data === 'string') {
+                dataBlob = new Blob([data], { type: 'text/plain' });
+            } else {
+                // throw new Error('Unsupported data type');
+                return { ok: false, error: 'Unsupported Data' };
+            }
+
+            const fileName = path.split('/').pop() || 'file';
+            const file = new File([dataBlob], fileName);
+            const fullPath = path.startsWith('/') ? path : `/${path}`;
+
+            try {
+                const formData = new FormData();
+                formData.append('path', fullPath);
+                formData.append('file[]', file);
+                formData.append('isDir', 'false');
+
+                const response = await request('/api/file/putFile', formData, 'response');
+                // return response.code === 0;
+                let ok = response.code === 0;
+                return { ok, error: ok ? null : 'Save Error' };
+            } catch (error) {
+                console.error('saveBlob error:', error);
+                return { ok: false, error: 'Save Error' };
+            }
+        },
+
+        /**
+         * 从完整路径加载 Blob
+         */
+        loadBlob: async (path: string): Promise<{ ok: boolean; data: Blob | null }> => {
+            const fullPath = path.startsWith('/') ? path : `/${path}`;
+
+            try {
+                const blob = await getFileBlob(fullPath);
+                // return blob || null;
+                let ok = !!blob;
+                return { ok, data: blob || null };
+            } catch (error) {
+                console.error('loadBlob error:', error);
+                // return null;
+                return { ok: false, data: null };
+            }
+        },
 
         querySQL: async (query: string) => await sql(query),
         queryDailyNote: async (options) => listDailynote(options),
@@ -302,6 +359,11 @@ export const openIframeTab = (options: {
     // 用于存储 iframe 清理函数
     let cleanupIframeFunc: (() => void) | null = null;
 
+    options.iframeConfig.iframeStyle = options.iframeConfig.iframeStyle || {};
+    Object.assign(options.iframeConfig.iframeStyle, {
+        border: 'none'
+    });
+
     openCustomTab({
         tabId,
         plugin: thisPlugin(),
@@ -330,15 +392,24 @@ export const openIframDialog = (options: {
     height?: string;
     maxWidth?: string;
     maxHeight?: string;
-    callback?: () => void;
+    // callback?: () => void;
 }) => {
     const container = document.createElement('div');
+    container.style.display = 'contents';
+
+    options.iframeConfig.iframeStyle = options.iframeConfig.iframeStyle || {};
+    Object.assign(options.iframeConfig.iframeStyle, {
+        width: '100%',
+        height: 'unset',
+        border: 'none'
+    });
+
     let cleanupIframeFunc: (() => void) | null = createIframePage(
         container as HTMLElement,
         options.iframeConfig
     );
 
-    simpleDialog({
+    return simpleDialog({
         title: options.title,
         ele: container,
         width: options.width,
@@ -347,7 +418,7 @@ export const openIframDialog = (options: {
         maxHeight: options.maxHeight,
         callback: () => {
             cleanupIframeFunc?.();
-            options.callback?.();
+            // options.callback?.();
         }
     });
 }

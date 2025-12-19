@@ -11,7 +11,6 @@ interface PluginSdk {
      * @param endpoint - API 端点，如 '/api/block/getBlockInfo'
      * @param data - 请求数据
      * @returns 包含 ok 状态和 data 的响应对象
-     * @note `/api/file/getFile` 会直接返回 Blob 对象而非 JSON
      */
     request(endpoint: string, data: any): Promise<{ ok: boolean; data: any }>;
 
@@ -26,6 +25,13 @@ interface PluginSdk {
      * @param newConfig - 要保存的配置对象
      */
     saveConfig(newConfig: Record<string, any>): Promise<void>;
+
+    // 保存文件到完整路径
+    saveBlob(path: string, data: string | Blob | File | object): Promise<{ ok: boolean; error: string | null }>
+
+    // 从完整路径加载文件
+    loadBlob(path: string): Promise<{ ok: boolean; data: Blob | null }>
+
 
     /**
      * 执行 SQL 查询
@@ -243,9 +249,7 @@ if (result.ok) {
 }
 
 // 获取文件
-const fileResult = await window.pluginSdk.request('/api/file/getFile', {
-    path: "data/assets/image-20231010.png"
-});
+const fileResult = await window.pluginSdk.loadBlob('/data/assets/image-20231010.png');
 if (fileResult.ok) {
     const blob = fileResult.data;
     const url = 'assets/image-20231010.png';
@@ -306,6 +310,7 @@ const pageSize = config.pageSize || 10;
         font-family: var(--font-family-code, monospace);
     }
     ```
+- ⚠️ 注意! 为了同思源官方 CSS 变量区分，透传的 CSS 变量没有 `b3` 前缀，是 `--font-size` 而不是 `--b3-font-size`!
 
 **要求**
 
@@ -346,7 +351,7 @@ data/                              # 思源工作空间 data 目录
 
 ### 路径与属性说明
 
-**文件路径**（用于 readDir, getFile 等 API）：
+**文件路径**（用于 readDir 等 后端API）：
 ```
 data/20220112192155-gzmnt6y/20220320150131-kdhgvaj.sy
 ```
@@ -365,6 +370,12 @@ data/20220112192155-gzmnt6y/20220320150131-kdhgvaj.sy
 ```
 /data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy
      └── 笔记本 ID ──┘        └── 文档 ID ──┘
+```
+
+可以使用 sdk 中的 load/saveBlob 方法读写；但是，**绝对禁止 saveBlob 到 .sy 文档!**
+
+```js
+loadBlob(`/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy`);
 ```
 
 ### 静态资源路由
@@ -392,7 +403,7 @@ data/20220112192155-gzmnt6y/20220320150131-kdhgvaj.sy
 **路径类型**：
 - **path**：ID 路径，如 `/<父文档ID>/<当前文档ID>.sy`（笔记本内唯一）
 - **hpath**：名称路径，如 `/<父文档名>/<当前文档名>`（更易读）
-
+- 块路径为 `Block` 中的属性
 
 ## 📝 鲁棒性建议
 

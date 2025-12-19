@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>思源日历 - Bulma版</title>
+
+    <link rel="stylesheet" href="https://cdn.staticfile.org/bulma/0.9.4/css/bulma.min.css">
+    <script src="https://cdn.staticfile.org/fullcalendar/6.1.10/index.global.min.js"></script>
+
+    <style>
+        /* === 明暗模式变量配置 === */
+        :root {
+            --calendar-bg: #ffffff;
+            --calendar-text: #363636;
+            --calendar-border: #dbdbdb;
+            --calendar-hover: #f5f5f5;
+            --calendar-today: #eff5fb;
+            --modal-bg: #ffffff;
+            --input-bg: #ffffff;
+            --list-hover: #f5f5f5;
+            --shadow-color: rgba(10, 10, 10, 0.1);
+        }
+
+        /* 暗色模式变量 */
+        body.dark-mode {
+            --calendar-bg: #1a1a1a;
+            --calendar-text: #e0e0e0;
+            --calendar-border: #404040;
+            --calendar-hover: #2a2a2a;
+            --calendar-today: #1e3a5f;
+            --modal-bg: #242424;
+            --input-bg: #2a2a2a;
+            --list-hover: #2a2a2a;
+            --shadow-color: rgba(0, 0, 0, 0.5);
+        }
+
+        /* === 基础布局 === */
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: var(--calendar-bg);
+            color: var(--calendar-text);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* === 日历容器 === */
+        #calendar-container {
+            flex: 1;
+            padding: 1.5rem;
+            position: relative;
+            overflow: auto;
+        }
+
+        #calendar {
+            height: 100%;
+            background-color: var(--calendar-bg);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 8px var(--shadow-color);
+            transition: all 0.3s ease;
+        }
+
+        /* === FullCalendar 样式定制 === */
+        .fc {
+            color: var(--calendar-text);
+        }
+
+        .fc-theme-standard td,
+        .fc-theme-standard th {
+            border-color: var(--calendar-border);
+        }
+
+        .fc-col-header-cell {
+            background-color: var(--calendar-bg);
+            padding: 0.75rem 0;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        .fc-col-header-cell-cushion,
+        .fc-daygrid-day-number {
+            color: var(--calendar-text);
+            text-decoration: none !important;
+        }
+
+        .fc-daygrid-day {
+            transition: background-color 0.2s ease;
+        }
+
+        .fc-daygrid-day:hover {
+            background-color: var(--calendar-hover);
+        }
+
+        .fc-daygrid-day-top {
+            padding: 0.5rem;
+        }
+
+        .fc-daygrid-day-number {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .fc-day-today {
+            background-color: var(--calendar-today) !important;
+        }
+
+        .fc-day-today .fc-daygrid-day-number {
+            color: #3273dc;
+            font-weight: 700;
+        }
+
+        /* 工具栏按钮 */
+        .fc-button {
+            background-color: #3273dc !important;
+            border-color: #3273dc !important;
+            transition: all 0.2s ease;
+            text-transform: capitalize;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(50, 115, 220, 0.2);
+        }
+
+        .fc-button:hover {
+            background-color: #2366d1 !important;
+            border-color: #2366d1 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(50, 115, 220, 0.3);
+        }
+
+        .fc-button:active,
+        .fc-button:focus {
+            background-color: #1f5bb7 !important;
+            border-color: #1f5bb7 !important;
+        }
+
+        .fc-button-active {
+            background-color: #1f5bb7 !important;
+            border-color: #1f5bb7 !important;
+        }
+
+        .fc-toolbar-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--calendar-text);
+        }
+
+        /* 事件块样式 */
+        .fc-event {
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 2px 4px;
+            margin: 1px 2px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+        }
+
+        .fc-event:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+            opacity: 0.9;
+        }
+
+        .fc-event-content-box {
+            display: flex;
+            align-items: center;
+            font-size: 0.85em;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* === 模态框样式 === */
+        body.dark-mode .modal-card-head,
+        body.dark-mode .modal-card-body,
+        body.dark-mode .modal-card-foot {
+            background-color: var(--modal-bg);
+            border-color: var(--calendar-border);
+        }
+
+        body.dark-mode .modal-card-title,
+        body.dark-mode .title,
+        body.dark-mode .subtitle,
+        body.dark-mode .content {
+            color: var(--calendar-text) !important;
+        }
+
+        .modal-card {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px var(--shadow-color);
+        }
+
+        .modal-card-head {
+            padding: 1.5rem;
+            border-bottom: 2px solid var(--calendar-border);
+        }
+
+        .modal-card-title {
+            font-weight: 700;
+        }
+
+        .modal-card-body {
+            padding: 1.5rem;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        /* === 输入框样式 === */
+        body.dark-mode .input,
+        body.dark-mode .select select {
+            background-color: var(--input-bg);
+            border-color: var(--calendar-border);
+            color: var(--calendar-text);
+        }
+
+        body.dark-mode .input:focus,
+        body.dark-mode .select select:focus {
+            border-color: #3273dc;
+        }
+
+        .select select {
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .select select:focus {
+            box-shadow: 0 0 0 0.125em rgba(50, 115, 220, 0.25);
+        }
+
+        /* === 文档列表项 === */
+        .doc-list-item {
+            padding: 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            margin-bottom: 0.5rem;
+            background-color: var(--calendar-bg);
+        }
+
+        .doc-list-item:hover {
+            background-color: var(--list-hover);
+            border-color: var(--calendar-border);
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        .doc-list-item:last-child {
+            margin-bottom: 0;
+        }
+
+        /* === 分隔线 === */
+        hr {
+            background-color: var(--calendar-border);
+            height: 1px;
+            margin: 1.5rem 0;
+        }
+
+        /* === 按钮增强 === */
+        .button.is-primary {
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(50, 115, 220, 0.2);
+        }
+
+        .button.is-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(50, 115, 220, 0.3);
+        }
+
+        /* === 状态栏 === */
+        #status-bar {
+            border-radius: 0;
+            margin: 0;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* === 小标题样式 === */
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.8;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        /* === 滚动条美化 === */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--calendar-bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--calendar-border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #888;
+        }
+
+        body.dark-mode ::-webkit-scrollbar-thumb {
+            background: #555;
+        }
+
+        body.dark-mode ::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="status-bar" class="notification is-danger is-light p-2 is-hidden" style="margin:0; border-radius:0;">
+        无法加载 FullCalendar 库，请检查网络或更换 CDN。
+    </div>
+
+    <div id='calendar-container'>
+        <div id='calendar'></div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-background" onclick="closeModal()"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title is-size-5" id="modal-title">日期详情</p>
+                <button class="delete" aria-label="close" onclick="closeModal()"></button>
+            </header>
+
+            <section class="modal-card-body">
+                <div class="mb-5">
+                    <h6 class="section-title title is-6">📑 当日已有文档</h6>
+                    <div id="doc-list" class="content">
+                    </div>
+                </div>
+
+                <hr>
+
+                <div>
+                    <h6 class="section-title title is-6">📝 新建日记</h6>
+                    <div class="field has-addons">
+                        <div class="control is-expanded">
+                            <div class="select is-fullwidth">
+                                <select id="notebook-select">
+                                    <option>加载笔记本中...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="control">
+                            <button class="button is-primary" id="btn-create">
+                                <span>新建</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // --- 全局变量 ---
+        let calendar = null;
+        let notebooksCache = [];
+        let boxIdToNameMap = {};
+        let currentSelectedDate = null;
+
+        // --- 初始化入口 ---
+        window.addEventListener('pluginSdkReady', async () => {
+            if (!checkDependencies()) return;
+
+            // 应用主题模式
+            applyThemeMode();
+
+            // 1. 初始化数据
+            await fetchNotebooks();
+
+            // 2. 初始化日历
+            initCalendar();
+        });
+
+        // 应用主题模式
+        function applyThemeMode() {
+            const themeMode = window.pluginSdk?.themeMode || 'light';
+            if (themeMode === 'dark') {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+        }
+
+        // 依赖检查
+        function checkDependencies() {
+            if (typeof FullCalendar === 'undefined') {
+                document.getElementById('status-bar').classList.remove('is-hidden');
+                return false;
+            }
+            return true;
+        }
+
+        // --- 核心逻辑 ---
+
+        async function fetchNotebooks() {
+            try {
+                const notebooks = await window.pluginSdk.lsNotebooks();
+                notebooksCache = notebooks.filter(nb => !nb.closed);
+
+                // 建立映射
+                const select = document.getElementById('notebook-select');
+                select.innerHTML = '';
+
+                notebooksCache.forEach(nb => {
+                    boxIdToNameMap[nb.id] = nb.name;
+                    const option = document.createElement('option');
+                    option.value = nb.id;
+                    option.textContent = nb.name;
+                    select.appendChild(option);
+                });
+
+                if (notebooksCache.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.text = "无可用笔记本";
+                    select.appendChild(opt);
+                }
+            } catch (e) {
+                console.error("获取笔记本失败", e);
+            }
+        }
+
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
+
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                // 视图设置
+                initialView: 'dayGridMonth',
+                locale: 'zh-cn',
+                firstDay: 1, // 周一作为第一天
+                height: '100%',
+
+                // 顶部工具栏
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,dayGridWeek'
+                },
+
+                // 数据源
+                events: fetchEventsSource,
+
+                // 交互
+                dateClick: (info) => openModal(info.date),
+                eventClick: (info) => {
+                    info.jsEvent.preventDefault();
+                    if (info.event.id) window.pluginSdk.openBlock(info.event.id);
+                },
+
+                // 自定义渲染内容
+                eventContent: function (arg) {
+                    const title = arg.event.title;
+                    const notebookName = arg.event.extendedProps.notebookName;
+
+                    return {
+                        html: `
+                        <div class="fc-event-content-box">
+                            <span style="color:rgba(255,255,255,0.7); font-size: 0.8em; margin-right:4px;">[${notebookName}]</span>
+                            <span class="text-truncate">${title}</span>
+                        </div>
+                        `
+                    }
+                }
+            });
+
+            calendar.render();
+        }
+
+        // 数据加载器 (适配 FullCalendar 接口)
+        async function fetchEventsSource(info, successCallback, failureCallback) {
+            try {
+                const startStr = formatDateToSy(info.start);
+                const endStr = formatDateToSy(info.end);
+
+                // 查询：文档类型 (type='d')
+                const sql = `
+                    SELECT id, box, name, content, created 
+                    FROM blocks 
+                    WHERE type = 'd' 
+                    AND created >= '${startStr}' 
+                    AND created < '${endStr}'
+                    LIMIT 2000
+                `;
+
+                const blocks = await window.pluginSdk.querySQL(sql);
+
+                const events = blocks.map(block => {
+                    const color = stringToColor(block.box); // 根据笔记本ID生成颜色
+                    return {
+                        id: block.id,
+                        title: block.name || block.content || '未命名文档',
+                        start: parseSyDate(block.created),
+                        allDay: true,
+                        backgroundColor: color,
+                        borderColor: color,
+                        textColor: '#fff', // 保证事件条内的文字在彩色背景下可见
+                        extendedProps: {
+                            notebookName: boxIdToNameMap[block.box] || '未知'
+                        }
+                    };
+                });
+
+                successCallback(events);
+            } catch (e) {
+                console.error("SQL查询失败", e);
+                failureCallback(e);
+            }
+        }
+
+        // --- 模态框逻辑 ---
+
+        async function openModal(date) {
+            currentSelectedDate = date;
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modal-title');
+            const list = document.getElementById('doc-list');
+
+            // 设置标题
+            title.innerText = date.toLocaleDateString('zh-CN', {
+                year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+            });
+
+            // 显示模态框
+            modal.classList.add('is-active');
+
+            // 加载当日文档
+            list.innerHTML = '<p class="has-text-grey-light is-size-7">查询中...</p>';
+
+            const syDatePrefix = formatDateToSy(date).substring(0, 8);
+            const sql = `
+                SELECT id, box, name, hpath 
+                FROM blocks 
+                WHERE type = 'd' AND created LIKE '${syDatePrefix}%'
+                ORDER BY created DESC
+            `;
+
+            const docs = await window.pluginSdk.querySQL(sql);
+            list.innerHTML = '';
+
+            if (docs.length === 0) {
+                list.innerHTML = '<p class="has-text-grey-light is-size-7 is-italic">📭 这一天没有创建任何文档</p>';
+            } else {
+                docs.forEach(doc => {
+                    const nbName = boxIdToNameMap[doc.box] || '未知';
+                    const el = document.createElement('div');
+                    el.className = 'doc-list-item';
+                    el.innerHTML = `
+                        <div style="font-weight:bold; font-size:0.95em;">${doc.name || '未命名'}</div>
+                        <div style="font-size:0.8em; opacity:0.7;">📓 ${nbName} <span style="margin:0 4px">|</span> 📂 ${doc.hpath}</div>
+                    `;
+                    el.onclick = () => {
+                        window.pluginSdk.openBlock(doc.id);
+                        // closeModal(); // 保持打开以便继续查看
+                    };
+                    list.appendChild(el);
+                });
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('is-active');
+            currentSelectedDate = null;
+        }
+
+        // --- 按钮事件 ---
+
+        document.getElementById('btn-create').addEventListener('click', async function () {
+            if (!currentSelectedDate) return;
+            const select = document.getElementById('notebook-select');
+            const nbId = select.value;
+
+            if (!nbId) return;
+
+            const btn = this;
+            btn.classList.add('is-loading'); // Bulma loading 状态
+
+            try {
+                await window.pluginSdk.createDailynote({
+                    notebookId: nbId,
+                    date: currentSelectedDate
+                });
+
+                // 刷新日历事件
+                calendar.refetchEvents();
+                closeModal();
+            } catch (e) {
+                alert("创建失败: " + e);
+            } finally {
+                btn.classList.remove('is-loading');
+            }
+        });
+
+        // --- 工具函数 ---
+
+        function formatDateToSy(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}${m}${d}000000`;
+        }
+
+        function parseSyDate(str) {
+            if (!str || str.length < 8) return '';
+            return `${str.substring(0, 4)}-${str.substring(4, 6)}-${str.substring(6, 8)}`;
+        }
+
+        // 根据字符串生成较为稳重的颜色 (不那么刺眼)
+        function stringToColor(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            // 使用 HSL 颜色空间生成颜色，保证亮度和饱和度一致，只改变色相
+            // H: 0-360 (hash决定), S: 60-70% (较鲜艳), L: 40-50% (深色模式下清晰，且文字白色可读)
+            const h = Math.abs(hash) % 360;
+            return `hsl(${h}, 65%, 45%)`;
+        }
+
+    </script>
+</body>
+
+</html>
