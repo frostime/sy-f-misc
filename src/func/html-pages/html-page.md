@@ -299,11 +299,11 @@ const pageSize = config.pageSize || 10;
 
     /* 默认缺省用，你可以自己覆盖 */
    body {
-        font-family: var(--b3-font-family, sans-serif);
-        font-size: var(--b3-font-size, 16px);
+        font-family: var(--font-family, sans-serif);
+        font-size: var(--font-size, 16px);
     }
     pre, code {
-        font-family: var(--b3-font-family-code, monospace);
+        font-family: var(--font-family-code, monospace);
     }
     ```
 
