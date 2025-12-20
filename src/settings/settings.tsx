@@ -84,7 +84,7 @@ const App: Component<IArgs> = (props) => {
 
     const CustomModuleConfigs = () => (
         <>
-            <For each={props.customModuleConfigs.filter(config => config.items && config.items.length > 0) || []}>
+            <For each={props.customModuleConfigs.filter(config => config.items || config.customPanel)}>
                 {(config) => (
                     <div style={{
                         margin: '5px 24px',
