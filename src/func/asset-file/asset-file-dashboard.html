@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Dashboard</title>
+    <style>
+        /* ==================== 主题变量定义 ==================== */
+        :root {
+            --sidebar-width: 300px;
+            --detail-width: 450px;
+
+            /* Fallback 字体 */
+            --fallback-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --fallback-font-size: 14px;
+        }
+
+        /* 基础样式 */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family, var(--fallback-font-family));
+            font-size: var(--font-size, var(--fallback-font-size));
+            height: 100vh;
+            display: flex;
+            color: var(--text-primary);
+            background-color: var(--bg-content);
+            overflow: hidden;
+        }
+
+        /* 亮色主题默认值 (会被注入的变量覆盖，这里作为 fallback) */
+        :root {
+            --bg-content: #ffffff;
+            --bg-panel: #f5f5f7;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #e0e0e0;
+            --hover-color: #f0f0f0;
+            --accent-color: #d23f31;
+            --accent-bg: #ffe8e6;
+        }
+
+        /* 暗色主题适配 */
+        :root[data-theme-mode="dark"] {
+            --bg-content: #1e1e1e;
+            --bg-panel: #252526;
+            --text-primary: #d4d4d4;
+            --text-secondary: #969696;
+            --border-color: #3d3d3d;
+            --hover-color: #2a2a2a;
+            --accent-bg: #3d2522;
+        }
+
+        /* 布局 */
+        #main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #toolbar {
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-content);
+            flex-shrink: 0;
+        }
+
+        #file-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: var(--bg-panel);
+        }
+
+        #detail-panel {
+            width: var(--detail-width);
+            background: var(--bg-content);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 10;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+        }
+
+        #detail-panel.open {
+            transform: translateX(0);
+        }
+
+        /* 工具栏组件 */
+        .btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-content);
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--hover-color);
+        }
+
+        .btn.primary {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .btn.primary:hover {
+            opacity: 0.9;
+        }
+
+        .search-box {
+            display: inline-flex;
+            flex: 1;
+            max-width: 500px;
+            position: relative;
+            gap: 5px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 6px 10px;
+            padding-right: 30px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-content);
+            color: var(--text-primary);
+            box-sizing: border-box;
+        }
+
+        /* 文件列表 - 网格模式 */
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .file-item {
+            background: var(--bg-content);
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .file-item:hover {
+            background: var(--hover-color);
+        }
+
+        .file-item.active {
+            background: var(--accent-bg);
+            border-color: var(--accent-color);
+        }
+
+        .file-thumb {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            background: var(--bg-panel);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: var(--text-secondary);
+        }
+
+        .file-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        .file-name {
+            font-size: 12px;
+            text-align: center;
+            word-break: break-all;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.4;
+        }
+
+        /* 文件列表 - 列表模式 */
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .file-list .file-item {
+            flex-direction: row;
+            padding: 8px 12px;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-list .file-thumb {
+            width: 32px;
+            height: 32px;
+            margin-bottom: 0;
+            font-size: 16px;
+        }
+
+        .file-list .file-name {
+            text-align: left;
+            flex: 1;
+            -webkit-line-clamp: 1;
+        }
+
+        .file-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-left: 10px;
+        }
+
+        /* 详情面板 */
+        .panel-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .close-btn {
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .close-btn:hover {
+            background: var(--hover-color);
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .preview-box {
+            width: 100%;
+            height: 200px;
+            background: var(--bg-panel);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .preview-box img {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .info-row {
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .info-label {
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .info-value {
+            word-break: break-all;
+            user-select: text;
+        }
+
+        .action-group {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .ref-list {
+            margin-top: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .ref-item {
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .ref-item:last-child {
+            border-bottom: none;
+        }
+
+        .ref-item:hover {
+            background: var(--hover-color);
+        }
+
+        .ref-path {
+            color: var(--text-secondary);
+            margin-top: 2px;
+            font-size: 11px;
+        }
+
+        /* Loading & Empty */
+        .state-msg {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        /* 隐藏的文件输入框 */
+        #file-input {
+            display: none;
+        }
+
+        /* 全屏预览 */
+        #fullscreen-preview {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        #fullscreen-preview.active {
+            display: flex;
+        }
+
+        #fullscreen-preview .close-fullscreen {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            z-index: 1001;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+        }
+
+        #fullscreen-preview .preview-content {
+            max-width: 90%;
+            max-height: 90%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #fullscreen-preview img,
+        #fullscreen-preview video {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        #fullscreen-preview .text-preview {
+            background: white;
+            color: black;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+            white-space: pre-wrap;
+            font-family: var(--font-family-code, monospace);
+            font-size: 14px;
+        }
+
+        /* 工具栏扩展 */
+        .toolbar-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 24px;
+            background: var(--border-color);
+            margin: 0 5px;
+        }
+
+        select.toolbar-select {
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-content);
+            color: var(--text-primary);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        /* 分页控制 */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 20px;
+            font-size: 12px;
+            flex-wrap: wrap;
+        }
+
+        .pagination .page-info {
+            color: var(--text-secondary);
+        }
+
+        .pagination .page-numbers {
+            display: flex;
+            gap: 5px;
+        }
+
+        .pagination .page-num {
+            min-width: 32px;
+            height: 32px;
+            padding: 0 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-content);
+            color: var(--text-primary);
+            font-size: 12px;
+        }
+
+        .pagination .page-num:hover {
+            background: var(--hover-color);
+        }
+
+        .pagination .page-num.active {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .pagination .page-num.ellipsis {
+            border: none;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .page-jump-input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-content);
+            color: var(--text-primary);
+            font-size: 12px;
+            text-align: center;
+        }
+
+        /* 替换文件对话框 */
+        #replace-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #replace-dialog.active {
+            display: flex;
+        }
+
+        .replace-dialog-content {
+            background: var(--bg-content);
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .replace-dialog-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .replace-upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--bg-panel);
+        }
+
+        .replace-upload-area:hover,
+        .replace-upload-area.drag-over {
+            border-color: var(--accent-color);
+            background: var(--accent-bg);
+        }
+
+        .replace-upload-area .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .replace-upload-area .upload-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .replace-upload-area .upload-hint {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .replace-preview {
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .replace-preview.active {
+            display: block;
+        }
+
+        .replace-preview img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .replace-preview-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .replace-dialog-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .dialog-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-content);
+            color: var(--text-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .dialog-btn:hover {
+            background: var(--hover-color);
+        }
+
+        .dialog-btn.primary {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .dialog-btn.primary:hover {
+            opacity: 0.9;
+        }
+
+        .dialog-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 正则搜索 */
+        .search-options {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .search-options label {
+            min-width: 50px;
+            display: inline-flex;
+        }
+
+        .search-options input[type="checkbox"] {
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="main-container">
+        <div id="toolbar">
+            <div class="search-box">
+                <input type="text" class="search-input" id="search-input" placeholder="搜索文件...">
+                <div class="search-options">
+                    <label style="min-width: 50px;">
+                        <input type="checkbox" id="regex-search"> 正则
+                    </label>
+                </div>
+            </div>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="toolbar-group">
+                <select class="toolbar-select" id="page-size">
+                    <option value="50">50/页</option>
+                    <option value="100" selected>100/页</option>
+                    <option value="200">200/页</option>
+                    <option value="500">500/页</option>
+                </select>
+
+                <select class="toolbar-select" id="type-filter">
+                    <option value="all">所有类型</option>
+                    <option value="image">图片</option>
+                    <option value="video">视频</option>
+                    <option value="audio">音频</option>
+                    <option value="document">文档</option>
+                    <option value="archive">压缩包</option>
+                    <option value="other">其他</option>
+                </select>
+
+                <select class="toolbar-select" id="sort-by">
+                    <option value="updated-desc">修改时间↓</option>
+                    <option value="updated-asc">修改时间↑</option>
+                    <option value="name-asc">名称A-Z</option>
+                    <option value="name-desc">名称Z-A</option>
+                    <!-- <option value="size-desc">大小↓</option>
+                    <option value="size-asc">大小↑</option> -->
+                </select>
+            </div>
+
+            <div style="flex: 1"></div>
+
+            <div class="toolbar-group">
+                <button class="btn" id="view-toggle-btn" title="切换视图">
+                    <span id="view-icon">▤</span>
+                </button>
+                <button class="btn" id="refresh-btn" title="刷新">
+                    ↻
+                </button>
+            </div>
+        </div>
+        <div id="file-list-container">
+            <div id="file-list" class="file-grid">
+                <!-- 文件列表将在这里渲染 -->
+            </div>
+            <div class="pagination">
+                <button class="btn" id="prev-page">上一页</button>
+                <div class="page-numbers" id="page-numbers"></div>
+                <button class="btn" id="next-page">下一页</button>
+                <div class="toolbar-separator"></div>
+                <span class="page-info" id="page-info">第 1 页</span>
+                <input type="number" class="page-jump-input" id="page-jump" placeholder="跳转" min="1">
+                <button class="btn" id="jump-btn">跳转</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="detail-panel">
+        <div class="panel-header">
+            <span class="panel-title">文件详情</span>
+            <span class="close-btn" id="close-panel">✕</span>
+        </div>
+        <div class="panel-content">
+            <div id="detail-content">
+                <!-- 详情内容 -->
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="file-input" style="display: none;">
+
+    <div id="replace-dialog">
+        <div class="replace-dialog-content">
+            <div class="replace-dialog-title">替换文件: <span id="replace-filename"></span></div>
+
+            <div class="replace-upload-area" id="replace-upload-area">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">点击或拖放文件到这里</div>
+                <div class="upload-hint">支持图片粘贴 (Ctrl+V)</div>
+            </div>
+
+            <div class="replace-preview" id="replace-preview">
+                <img id="replace-preview-img" src="" alt="预览">
+                <div class="replace-preview-info" id="replace-preview-info"></div>
+            </div>
+
+            <div class="replace-dialog-actions">
+                <button class="dialog-btn" onclick="app.closeReplaceDialog()">取消</button>
+                <button class="dialog-btn primary" id="confirm-replace-btn" disabled
+                    onclick="app.confirmReplace()">确认替换</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="fullscreen-preview">
+        <div class="close-fullscreen" onclick="app.closeFullscreen()">✕</div>
+        <div class="preview-content" id="fullscreen-content">
+            <!-- 全屏预览内容 -->
+        </div>
+    </div>
+
+    <script>
+        /* ==================== 核心逻辑 ==================== */
+
+        class AssetManager {
+            constructor() {
+                /**
+                 * @type Array<{ "isDir": boolean, "isSymlink": boolean, "name": string, "updated": number }>
+                 */
+                this.assets = [];
+                /**
+                 * @type typeof this.assets
+                 */
+                this.filteredAssets = [];
+                /**
+                 * @type 'grid' | 'list'
+                 */
+                this.currentView = 'grid'; // 'grid' | 'list'
+                this.selectedFile = null;
+                this.filterText = '';
+                this.typeFilter = 'all';
+                this.sortBy = 'updated-desc';
+                this.regexSearch = false;
+
+                // 分页
+                this.currentPage = 1;
+                this.pageSize = 50;
+
+                // 替换文件
+                this.replaceFile = null;
+                this.replaceTargetFilename = '';
+
+                // DOM Elements
+                this.dom = {
+                    listContainer: document.getElementById('file-list'),
+                    detailPanel: document.getElementById('detail-panel'),
+                    detailContent: document.getElementById('detail-content'),
+                    searchInput: document.getElementById('search-input'),
+                    regexSearch: document.getElementById('regex-search'),
+                    pageSize: document.getElementById('page-size'),
+                    typeFilter: document.getElementById('type-filter'),
+                    sortBy: document.getElementById('sort-by'),
+                    viewToggleBtn: document.getElementById('view-toggle-btn'),
+                    refreshBtn: document.getElementById('refresh-btn'),
+                    closePanelBtn: document.getElementById('close-panel'),
+                    fileInput: document.getElementById('file-input'),
+                    prevPageBtn: document.getElementById('prev-page'),
+                    nextPageBtn: document.getElementById('next-page'),
+                    pageNumbers: document.getElementById('page-numbers'),
+                    pageInfo: document.getElementById('page-info'),
+                    pageJump: document.getElementById('page-jump'),
+                    jumpBtn: document.getElementById('jump-btn'),
+                    fullscreenPreview: document.getElementById('fullscreen-preview'),
+                    fullscreenContent: document.getElementById('fullscreen-content'),
+                    replaceDialog: document.getElementById('replace-dialog'),
+                    replaceUploadArea: document.getElementById('replace-upload-area'),
+                    replacePreview: document.getElementById('replace-preview'),
+                    replacePreviewImg: document.getElementById('replace-preview-img'),
+                    replacePreviewInfo: document.getElementById('replace-preview-info'),
+                    replaceFilename: document.getElementById('replace-filename'),
+                    confirmReplaceBtn: document.getElementById('confirm-replace-btn')
+                };
+
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                this.dom.searchInput.addEventListener('input', (e) => {
+                    this.filterText = e.target.value;
+                    this.currentPage = 1;
+                    this.applyFiltersAndSort();
+                });
+
+                this.dom.regexSearch.addEventListener('change', (e) => {
+                    this.regexSearch = e.target.checked;
+                    this.currentPage = 1;
+                    this.applyFiltersAndSort();
+                });
+
+                this.dom.pageSize.addEventListener('change', (e) => {
+                    this.pageSize = parseInt(e.target.value);
+                    this.currentPage = 1;
+                    this.renderList();
+                });
+
+                this.dom.typeFilter.addEventListener('change', (e) => {
+                    this.typeFilter = e.target.value;
+                    this.currentPage = 1;
+                    this.applyFiltersAndSort();
+                });
+
+                this.dom.sortBy.addEventListener('change', (e) => {
+                    this.sortBy = e.target.value;
+                    this.applyFiltersAndSort();
+                });
+
+                this.dom.viewToggleBtn.addEventListener('click', () => {
+                    this.currentView = this.currentView === 'grid' ? 'list' : 'grid';
+                    this.dom.listContainer.className = this.currentView === 'grid' ? 'file-grid' : 'file-list';
+                    document.getElementById('view-icon').textContent = this.currentView === 'grid' ? '▤' : '▦';
+                    this.renderList();
+                });
+
+                this.dom.refreshBtn.addEventListener('click', () => this.loadAssets());
+                this.dom.closePanelBtn.addEventListener('click', () => this.closePanel());
+
+                this.dom.prevPageBtn.addEventListener('click', () => {
+                    if (this.currentPage > 1) {
+                        this.currentPage--;
+                        this.renderList();
+                    }
+                });
+
+                this.dom.nextPageBtn.addEventListener('click', () => {
+                    const totalPages = Math.ceil(this.filteredAssets.length / this.pageSize);
+                    if (this.currentPage < totalPages) {
+                        this.currentPage++;
+                        this.renderList();
+                    }
+                });
+
+                this.dom.jumpBtn.addEventListener('click', () => {
+                    const page = parseInt(this.dom.pageJump.value);
+                    const totalPages = Math.ceil(this.filteredAssets.length / this.pageSize);
+                    if (page >= 1 && page <= totalPages) {
+                        this.currentPage = page;
+                        this.renderList();
+                    }
+                });
+
+                this.dom.pageJump.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.dom.jumpBtn.click();
+                    }
+                });
+
+                // 替换对话框事件
+                this.dom.replaceUploadArea.addEventListener('click', () => {
+                    this.dom.fileInput.click();
+                });
+
+                this.dom.fileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        this.handleReplaceFileSelect(file);
+                    }
+                });
+
+                this.dom.replaceUploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.dom.replaceUploadArea.classList.add('drag-over');
+                });
+
+                this.dom.replaceUploadArea.addEventListener('dragleave', () => {
+                    this.dom.replaceUploadArea.classList.remove('drag-over');
+                });
+
+                this.dom.replaceUploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.dom.replaceUploadArea.classList.remove('drag-over');
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        this.handleReplaceFileSelect(file);
+                    }
+                });
+
+                // 粘贴图片
+                document.addEventListener('paste', (e) => {
+                    if (!this.dom.replaceDialog.classList.contains('active')) return;
+                    const items = e.clipboardData.items;
+                    for (let item of items) {
+                        if (item.type.indexOf('image') !== -1) {
+                            const file = item.getAsFile();
+                            this.handleReplaceFileSelect(file);
+                            break;
+                        }
+                    }
+                });
+
+                // ESC 键关闭
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.closeFullscreen();
+                        this.closeReplaceDialog();
+                    }
+                });
+            }
+
+            async init() {
+                // 应用主题
+                const themeMode = window.pluginSdk.themeMode || 'light';
+                document.documentElement.setAttribute('data-theme-mode', themeMode);
+
+                await this.loadAssets();
+            }
+
+            /**
+             * 获取文件大小
+             * 注意: readDir API 不返回文件大小，此方法为占位符
+             * TODO: 未来可通过其他方式实现（如单独的 stat API 或 loadBlob 获取大小）
+             * @param {string} filename - 文件名
+             * @returns {Promise<number|null>} 文件大小（字节），如果无法获取则返回 null
+             */
+            async getFileSize(filename) {
+                // 占位实现：未来可通过以下方式之一实现
+                // 1. 调用专门的 stat API（如果存在）
+                // 2. 通过 loadBlob 获取 Blob 对象，读取 size 属性（但会加载整个文件，不适合大文件）
+                // 3. 通过其他插件 API
+                if (window.pluginSdk.getFileSize) {
+                    const ans = await window.pluginSdk.getFileSize(`/data/assets/${filename}`);
+                    return ans.size;
+                }
+                return null;
+            }
+
+            async loadAssets() {
+                this.dom.listContainer.innerHTML = '<div class="state-msg">加载中...</div>';
+                try {
+                    const res = await window.pluginSdk.request('/api/file/readDir', { path: '/data/assets' });
+                    if (!res.ok) throw new Error(res.msg);
+
+                    // 过滤掉非文件（虽然 assets 下通常都是文件）
+                    this.assets = res.data.filter(item => !item.isDir).map(item => {
+                        // debugger
+                        return item;
+                    })
+
+                    this.applyFiltersAndSort();
+                } catch (e) {
+                    this.dom.listContainer.innerHTML = `<div class="state-msg" style="color:var(--error-color)">加载失败: ${e.message}</div>`;
+                }
+            }
+
+            applyFiltersAndSort() {
+                // 先过滤
+                this.filteredAssets = this.assets.filter(file => {
+                    // 搜索过滤
+                    if (this.filterText) {
+                        if (this.regexSearch) {
+                            try {
+                                const regex = new RegExp(this.filterText, 'i');
+                                if (!regex.test(file.name)) {
+                                    return false;
+                                }
+                            } catch (e) {
+                                // 正则表达式无效，fallback 到普通搜索
+                                if (!file.name.toLowerCase().includes(this.filterText.toLowerCase())) {
+                                    return false;
+                                }
+                            }
+                        } else {
+                            if (!file.name.toLowerCase().includes(this.filterText.toLowerCase())) {
+                                return false;
+                            }
+                        }
+                    }
+
+                    // 类型过滤
+                    if (this.typeFilter !== 'all') {
+                        const fileType = this.getFileType(file.name);
+                        if (fileType !== this.typeFilter) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+
+                // 再排序
+                // 注意: readDir API 不返回文件大小，按大小排序可能不准确
+                // TODO: 未来如果实现了 getFileSize，可以先批量获取大小后再排序
+                this.filteredAssets.sort((a, b) => {
+                    switch (this.sortBy) {
+                        case 'updated-desc':
+                            return (b.updated || 0) - (a.updated || 0);
+                        case 'updated-asc':
+                            return (a.updated || 0) - (b.updated || 0);
+                        case 'name-asc':
+                            return a.name.localeCompare(b.name);
+                        case 'name-desc':
+                            return b.name.localeCompare(a.name);
+                        // case 'size-desc':
+                        //     // 当前无法获取准确文件大小，排序结果可能不正确
+                        //     return (b.size || 0) - (a.size || 0);
+                        // case 'size-asc':
+                        //     // 当前无法获取准确文件大小，排序结果可能不正确
+                        //     return (a.size || 0) - (b.size || 0);
+                        default:
+                            return 0;
+                    }
+                });
+
+                this.renderList();
+            }
+
+            getFileType(filename) {
+                const ext = filename.split('.').pop().toLowerCase();
+                const types = {
+                    image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+                    video: ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'],
+                    audio: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'],
+                    document: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md'],
+                    archive: ['zip', 'rar', '7z', 'tar', 'gz']
+                };
+
+                for (const [type, exts] of Object.entries(types)) {
+                    if (exts.includes(ext)) return type;
+                }
+                return 'other';
+            }
+
+            renderList() {
+                const totalPages = Math.ceil(this.filteredAssets.length / this.pageSize) || 1;
+
+                // 更新分页信息
+                this.dom.pageInfo.textContent = `共 ${this.filteredAssets.length} 个文件`;
+                this.dom.prevPageBtn.disabled = this.currentPage === 1;
+                this.dom.nextPageBtn.disabled = this.currentPage >= totalPages;
+                this.dom.pageJump.max = totalPages;
+
+                // 渲染页码
+                this.renderPageNumbers(totalPages);
+
+                if (this.filteredAssets.length === 0) {
+                    this.dom.listContainer.innerHTML = '<div class="state-msg">没有找到文件</div>';
+                    return;
+                }
+
+                // 计算当前页的数据
+                const startIdx = (this.currentPage - 1) * this.pageSize;
+                const endIdx = Math.min(startIdx + this.pageSize, this.filteredAssets.length);
+                const pageData = this.filteredAssets.slice(startIdx, endIdx);
+
+                this.dom.listContainer.innerHTML = '';
+                const fragment = document.createDocumentFragment();
+
+                pageData.forEach(file => {
+                    const el = document.createElement('div');
+                    el.className = `file-item ${this.selectedFile?.name === file.name ? 'active' : ''}`;
+                    el.onclick = () => this.selectFile(file, el);
+
+                    const isImage = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(file.name);
+                    const thumbContent = isImage
+                        ? `<img src="/assets/${file.name}" loading="lazy" alt="${file.name}">`
+                        : this.getFileIcon(file.name);
+
+                    let metaHtml = '';
+                    if (this.currentView === 'list') {
+                        const date = file.updated !== undefined ? this.formatDate(file.updated) : '-';
+                        metaHtml = `<div class="file-meta">${date}</div>`;
+                    }
+
+                    el.innerHTML = `
+                        <div class="file-thumb">${thumbContent}</div>
+                        <div class="file-name" title="${file.name}">${file.name}</div>
+                        ${metaHtml}
+                    `;
+                    fragment.appendChild(el);
+                });
+
+                this.dom.listContainer.appendChild(fragment);
+            }
+
+            renderPageNumbers(totalPages) {
+                this.dom.pageNumbers.innerHTML = '';
+
+                if (totalPages <= 1) return;
+
+                const maxVisible = 7;
+                let pages = [];
+
+                if (totalPages <= maxVisible) {
+                    pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+                } else {
+                    if (this.currentPage <= 4) {
+                        pages = [1, 2, 3, 4, 5, '...', totalPages];
+                    } else if (this.currentPage >= totalPages - 3) {
+                        pages = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+                    } else {
+                        pages = [1, '...', this.currentPage - 1, this.currentPage, this.currentPage + 1, '...', totalPages];
+                    }
+                }
+
+                pages.forEach(page => {
+                    const btn = document.createElement('div');
+                    btn.className = 'page-num';
+                    if (page === '...') {
+                        btn.className += ' ellipsis';
+                        btn.textContent = '...';
+                    } else {
+                        btn.textContent = page;
+                        if (page === this.currentPage) {
+                            btn.classList.add('active');
+                        }
+                        btn.onclick = () => {
+                            this.currentPage = page;
+                            this.renderList();
+                        };
+                    }
+                    this.dom.pageNumbers.appendChild(btn);
+                });
+            }
+
+            getFileIcon(filename) {
+                const ext = filename.split('.').pop().toLowerCase();
+                const icons = {
+                    pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊',
+                    ppt: '📑', pptx: '📑', txt: '📃', md: '📝', zip: '📦',
+                    rar: '📦', '7z': '📦', mp3: '🎵', wav: '🎵', mp4: '🎬',
+                    mov: '🎬', webm: '🎬', json: '📋', xml: '📋', csv: '📊',
+                    html: '🌐', css: '🎨', js: '📜', ts: '📜'
+                };
+                return icons[ext] || '📄';
+            }
+
+            selectFile(file, el) {
+                // Update UI selection
+                document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+                el.classList.add('active');
+
+                this.selectedFile = file;
+                this.renderDetail(file);
+                this.openPanel();
+            }
+
+            async renderDetail(file) {
+                const fileType = this.getFileType(file.name);
+                const isImage = fileType === 'image';
+                const isVideo = fileType === 'video';
+                const isText = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'csv'].includes(file.name.split('.').pop().toLowerCase());
+                const url = `/assets/${file.name}`; // Web URL
+
+                let previewHtml = '';
+                if (isImage) {
+                    previewHtml = `
+                        <div class="preview-box" style="cursor: zoom-in;" onclick="app.openFullscreen('${file.name}', 'image')">
+                            <img src="${url}">
+                        </div>`;
+                } else if (isVideo) {
+                    previewHtml = `
+                        <div class="preview-box" style="cursor: pointer;" onclick="app.openFullscreen('${file.name}', 'video')">
+                            <video src="${url}" controls style="max-width:100%;max-height:100%;">
+                                您的浏览器不支持视频播放
+                            </video>
+                        </div>`;
+                } else if (isText) {
+                    previewHtml = `
+                        <div class="preview-box" style="cursor: pointer; align-items: flex-start; justify-content: flex-start; padding: 10px;" onclick="app.openFullscreen('${file.name}', 'text')">
+                            <div style="font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; width: 100%;">
+                                点击查看全文
+                            </div>
+                        </div>`;
+                } else {
+                    previewHtml = `<div class="preview-box" style="font-size:48px">${this.getFileIcon(file.name)}</div>`;
+                }
+
+                // 先显示占位符，然后异步获取文件大小
+                let fileSizeText = '计算中...';
+                const fileDate = file.updated !== undefined ? this.formatDate(file.updated) : '未知';
+
+                this.dom.detailContent.innerHTML = `
+                    ${previewHtml}
+                    <div class="info-row">
+                        <span class="info-label">文件名</span>
+                        <div class="info-value">${this.escapeHtml(file.name)}</div>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">类型</span>
+                        <div class="info-value">${this.getFileTypeLabel(fileType)}</div>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">大小</span>
+                        <div class="info-value" id="file-size-display">${fileSizeText}</div>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">修改时间</span>
+                        <div class="info-value">${fileDate}</div>
+                    </div>
+
+                    <div class="action-group">
+                        <button class="btn" onclick="app.checkReferences('${this.escapeAttribute(file.name)}')">
+                            🔍 查找引用
+                        </button>
+                        <button class="btn" onclick="app.copyLink('${this.escapeAttribute(file.name)}')">
+                            📋 复制链接
+                        </button>
+                        <button class="btn" onclick="app.downloadFile('${this.escapeAttribute(file.name)}')">
+                            ⬇️ 下载文件
+                        </button>
+                        <button class="btn" onclick="app.triggerReplace('${this.escapeAttribute(file.name)}')">
+                            🔄 替换文件
+                        </button>
+                    </div>
+
+                    <div id="ref-results"></div>
+                `;
+
+                // 异步获取文件大小
+                this.getFileSize(file.name).then(size => {
+                    const sizeDisplay = document.getElementById('file-size-display');
+                    if (sizeDisplay) {
+                        sizeDisplay.textContent = size !== null ? this.formatSize(size) : '未知';
+                    }
+                });
+            }
+
+            getFileTypeLabel(type) {
+                const labels = {
+                    image: '图片',
+                    video: '视频',
+                    audio: '音频',
+                    document: '文档',
+                    archive: '压缩包',
+                    other: '其他'
+                };
+                return labels[type] || '未知';
+            }
+
+            async openFullscreen(filename, type) {
+                const url = `/assets/${filename}`;
+                this.dom.fullscreenContent.innerHTML = '';
+
+                if (type === 'image') {
+                    this.dom.fullscreenContent.innerHTML = `<img src="${url}" alt="${filename}">`;
+                } else if (type === 'video') {
+                    this.dom.fullscreenContent.innerHTML = `<video src="${url}" controls autoplay style="max-width:90vw;max-height:90vh;">您的浏览器不支持视频播放</video>`;
+                } else if (type === 'text') {
+                    try {
+                        const res = await window.pluginSdk.loadBlob(`/data/assets/${filename}`);
+                        if (res.ok) {
+                            const text = await res.data.text();
+                            this.dom.fullscreenContent.innerHTML = `<div class="text-preview">${this.escapeHtml(text)}</div>`;
+                        } else {
+                            this.dom.fullscreenContent.innerHTML = `<div class="text-preview">无法加载文件内容</div>`;
+                        }
+                    } catch (e) {
+                        this.dom.fullscreenContent.innerHTML = `<div class="text-preview">加载失败: ${e.message}</div>`;
+                    }
+                }
+
+                this.dom.fullscreenPreview.classList.add('active');
+            }
+
+            closeFullscreen() {
+                this.dom.fullscreenPreview.classList.remove('active');
+                this.dom.fullscreenContent.innerHTML = '';
+            }
+
+            async checkReferences(filename) {
+                const container = document.getElementById('ref-results');
+                container.innerHTML = '<div class="state-msg" style="padding:10px">正在搜索引用...</div>';
+
+                try {
+                    // 简单的 SQL 查询，查找包含文件名的块
+                    // 转义文件名中的单引号
+                    const safeFilename = filename.replace(/'/g, "''");
+                    // 同时搜索 assets/ 和 /assets/ 两种形式
+                    const sql = `SELECT * FROM blocks WHERE (markdown LIKE '%/assets/${safeFilename}%' OR markdown LIKE '%assets/${safeFilename}%') LIMIT 50`;
+                    const blocks = await window.pluginSdk.querySQL(sql);
+
+                    if (blocks.length === 0) {
+                        container.innerHTML = '<div class="state-msg" style="padding:10px">未找到引用, 也可能是所引用的笔记本关闭, 不在思源数据索引中</div>';
+                        return;
+                    }
+
+                    let html = '<div class="ref-list">';
+                    for (const block of blocks) {
+                        // 获取文档标题（如果块本身不是文档）
+                        let docTitle = "未知文档";
+                        if (block.type === 'd') {
+                            docTitle = block.content;
+                        } else {
+                            // 尝试查询父文档信息，或者直接显示 hpath
+                            docTitle = block.hpath;
+                        }
+
+                        html += `
+                            <div class="ref-item" onclick="window.pluginSdk.openBlock('${block.id}')">
+                                <div>${this.escapeHtml(block.content || '无内容')}</div>
+                                <div class="ref-path">${this.escapeHtml(block.hpath || '/')}</div>
+                            </div>
+                        `;
+                    }
+                    html += '</div>';
+                    container.innerHTML = html;
+
+                } catch (e) {
+                    container.innerHTML = `<div class="state-msg" style="color:var(--error-color)">查询出错: ${e.message}</div>`;
+                }
+            }
+
+            copyLink(filename) {
+                const link = `![${filename}](/assets/${filename})`;
+                navigator.clipboard.writeText(link).then(() => {
+                    alert('链接已复制到剪贴板');
+                }).catch(() => {
+                    alert('复制失败');
+                });
+            }
+
+            downloadFile(filename) {
+                const link = document.createElement('a');
+                link.href = `/assets/${filename}`;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            triggerReplace(filename) {
+                this.replaceTargetFilename = filename;
+                this.replaceFile = null;
+                this.dom.replaceFilename.textContent = filename;
+                this.dom.replacePreview.classList.remove('active');
+                this.dom.confirmReplaceBtn.disabled = true;
+                this.dom.fileInput.value = '';
+                this.dom.replaceDialog.classList.add('active');
+            }
+
+            closeReplaceDialog() {
+                this.dom.replaceDialog.classList.remove('active');
+                this.replaceFile = null;
+                this.replaceTargetFilename = '';
+            }
+
+            handleReplaceFileSelect(file) {
+                if (!file || !this.replaceTargetFilename) return;
+
+                // 类型检查
+                const originalExt = this.replaceTargetFilename.split('.').pop().toLowerCase();
+                const newExt = file.name.split('.').pop().toLowerCase();
+
+                if (originalExt !== newExt) {
+                    alert(`文件类型不匹配！\n原文件类型: .${originalExt}\n新文件类型: .${newExt}\n\n请选择 .${originalExt} 类型的文件`);
+                    return;
+                }
+
+                this.replaceFile = file;
+
+                // 显示预览
+                const fileType = this.getFileType(file.name);
+                if (fileType === 'image') {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.dom.replacePreviewImg.src = e.target.result;
+                        this.dom.replacePreview.classList.add('active');
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    this.dom.replacePreview.classList.remove('active');
+                }
+
+                this.dom.replacePreviewInfo.textContent = `文件名: ${file.name} | 大小: ${this.formatSize(file.size)}`;
+                this.dom.confirmReplaceBtn.disabled = false;
+            }
+
+            async confirmReplace() {
+                if (!this.replaceFile || !this.replaceTargetFilename) return;
+
+                try {
+                    this.dom.confirmReplaceBtn.disabled = true;
+                    this.dom.confirmReplaceBtn.textContent = '替换中...';
+
+                    const res = await window.pluginSdk.saveBlob(`/data/assets/${this.replaceTargetFilename}`, this.replaceFile);
+                    if (res.ok) {
+                        alert('替换成功！');
+                        this.closeReplaceDialog();
+                        // 刷新列表和预览
+                        await this.loadAssets();
+                        if (this.selectedFile?.name === this.replaceTargetFilename) {
+                            // 如果当前选中的就是被替换的文件，刷新预览
+                            const file = this.filteredAssets.find(f => f.name === this.replaceTargetFilename);
+                            if (file) {
+                                this.renderDetail(file);
+                            }
+                        }
+                    } else {
+                        throw new Error(res.error || '未知错误');
+                    }
+                } catch (err) {
+                    alert(`替换失败: ${err.message}`);
+                } finally {
+                    this.dom.confirmReplaceBtn.disabled = false;
+                    this.dom.confirmReplaceBtn.textContent = '确认替换';
+                }
+            }
+
+
+
+            openPanel() {
+                this.dom.detailPanel.classList.add('open');
+            }
+
+            closePanel() {
+                this.dom.detailPanel.classList.remove('open');
+                this.selectedFile = null;
+                document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+            }
+
+            // Utils
+            formatSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            formatDate(timestamp) {
+                if (!timestamp) return '-';
+                try {
+                    // 判断是否为 Unix 时间戳（秒）还是毫秒
+                    const ts = timestamp.toString().length === 10 ? timestamp * 1000 : timestamp;
+                    const date = new Date(ts);
+                    // 检查日期是否有效
+                    if (isNaN(date.getTime())) return '-';
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                } catch (e) {
+                    return '-';
+                }
+            }
+
+            escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            escapeAttribute(str) {
+                return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+            }
+        }
+
+        const app = new AssetManager();
+
+        window.addEventListener('pluginSdkReady', () => {
+            app.init();
+        });
+
+    </script>
+</body>
+
+</html>

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-20 00:07:55
+ * @LastEditTime : 2025-12-20 16:31:32
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID } from "@frostime/siyuan-plugin-kits";
@@ -353,11 +353,14 @@ export const openIframeTab = (options: {
 
     onTabDestroy?: () => void;
 
-}): void => {
+}) => {
     const { tabId, title, iframeConfig, onTabDestroy } = options;
 
-    // 用于存储 iframe 清理函数
-    let cleanupIframeFunc: (() => void) | null = null;
+    // 用于存储 iframe API
+    let iframeApi: ReturnType<typeof createIframePage> = {
+        cleanup: () => { },
+        dispatchEvent: (eventName: string, detail?: ScalarType | Record<string, any>) => { }
+    };
 
     options.iframeConfig.iframeStyle = options.iframeConfig.iframeStyle || {};
     Object.assign(options.iframeConfig.iframeStyle, {
@@ -369,20 +372,24 @@ export const openIframeTab = (options: {
         plugin: thisPlugin(),
         title,
         render: (container: Element) => {
-            // 创建 iframe 并获取清理函数
-            cleanupIframeFunc = createIframePage(
+            // 创建 iframe 并获取 API
+            const iframe = createIframePage(
                 container as HTMLElement,
                 iframeConfig
             );
+            Object.assign(iframeApi, iframe);
         },
         beforeDestroy: () => {
             // 清理 iframe 资源
-            cleanupIframeFunc?.();
+            iframeApi?.cleanup();
             // 执行额外的清理逻辑
             onTabDestroy?.();
         },
         icon: options.icon,
     });
+    return {
+        dispatchEvent: iframeApi.dispatchEvent
+    };
 };
 
 export const openIframDialog = (options: {
@@ -404,12 +411,12 @@ export const openIframDialog = (options: {
         border: 'none'
     });
 
-    let cleanupIframeFunc: (() => void) | null = createIframePage(
+    let iframeApi = createIframePage(
         container as HTMLElement,
         options.iframeConfig
     );
 
-    return simpleDialog({
+    const dialog = simpleDialog({
         title: options.title,
         ele: container,
         width: options.width,
@@ -417,10 +424,14 @@ export const openIframDialog = (options: {
         maxWidth: options.maxWidth,
         maxHeight: options.maxHeight,
         callback: () => {
-            cleanupIframeFunc?.();
+            iframeApi?.cleanup();
             // options.callback?.();
         }
     });
+    return {
+        ...dialog,
+        dispatchEvent: iframeApi.dispatchEvent
+    }
 }
 
 // ============ 核心功能 ============
@@ -468,7 +479,10 @@ const injectSdk = (iframe: HTMLIFrameElement, config: IIframePageConfig) => {
 export const createIframePage = (
     container: HTMLElement,
     config: IIframePageConfig
-): (() => void) => {
+): {
+    cleanup: () => void,
+    dispatchEvent: (eventName: string, detail?: ScalarType | Record<string, any>) => void
+} => {
     const iframe = document.createElement('iframe');
     iframe.style.width = '100%';
     iframe.style.height = '100%';
@@ -506,9 +520,28 @@ export const createIframePage = (
 
     container.appendChild(iframe);
 
-    // 返回清理函数
-    return () => {
-        cleanupForwardEvents?.();
-        config.onDestroy?.();
+    // 返回 API 对象
+    return {
+        cleanup: () => {
+            cleanupForwardEvents?.();
+            config.onDestroy?.();
+        },
+        dispatchEvent: (eventName: string, detail?: ScalarType | Record<string, any>) => {
+            try {
+                const win = iframe.contentWindow;
+                if (!win) {
+                    console.warn('无法向 iframe 发送事件：contentWindow 不可用');
+                    return;
+                }
+                const event = new CustomEvent(eventName, {
+                    detail,
+                    bubbles: true,
+                    cancelable: true
+                });
+                win.dispatchEvent(event);
+            } catch (e) {
+                console.error('向 iframe 发送事件失败:', e);
+            }
+        }
     };
 };

@@ -3,10 +3,17 @@
  */
 import type { IVFS, IFileStat } from './types';
 
+export const SIYUAN_DISK_PATH = {
+    WORKSPACE: String(window.siyuan.config.system.workspaceDir),
+    DATA_DIR: String(window.siyuan.config.system.dataDir),
+}
+
 export class LocalDiskVFS implements IVFS {
     private basePath: string;
     private fs: any = null;
     private pathModule: any = null;
+
+    readonly SIYUAN_DISK_PATH = SIYUAN_DISK_PATH;
 
     /**
      * @param basePath 根目录路径，所有操作都限制在此目录内。传空则不限制。

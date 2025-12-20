@@ -1,7 +1,8 @@
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { openIframDialog } from "@/func/html-pages/core";
+import { openIframDialog, openIframeTab } from "@/func/html-pages/core";
+import { LocalDiskVFS } from "@/libs/vfs";
 
 export const declareToggleEnabled = {
     title: '📄 附件文件',
@@ -268,6 +269,41 @@ const openAssetDialog = (protyle: Protyle, initialState?: { tab?: 'create' | 're
     });
 };
 
+const openAssetDashboard = () => {
+    const vfs = new LocalDiskVFS();
+    const handler = {};
+    if (vfs.isAvailable()) {
+        handler['getFileSize'] = async (path: string) => {
+
+            let target = vfs.join(vfs.SIYUAN_DISK_PATH.WORKSPACE, path);
+
+            const exists = await vfs.exists(target)
+            if (!exists) return {
+                ok: false, size: null
+            };
+            const stat = await vfs.stat(target);
+            return {
+                ok: true,
+                size: stat.size
+            };
+        }
+    }
+    openIframeTab({
+        tabId: 'asset-file-dashboard',
+        title: '附件管理',
+        icon: 'iconFiles',
+        iframeConfig: {
+            type: 'url',
+            source: '/plugins/sy-f-misc/pages/asset-file-dashboard.html',
+            inject: {
+                presetSdk: true,
+                siyuanCss: true,
+                customSdk: handler
+            }
+        }
+    });
+}
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
 
@@ -282,6 +318,20 @@ export const load = (plugin: FMiscPlugin) => {
     } catch (error) {
         console.warn('加载预定义空白文件索引失败', error);
     }
+
+    // 注册顶部菜单
+    plugin.registerMenuTopMenu('asset-file', [{
+        label: '附件管理 Dashboard',
+        icon: 'iconFiles',
+        click: () => {
+            // 不延迟 menu 会无法自动关闭
+            // 怀疑是 mouse 进入 iframe 区域导致鼠标事件无法 bubble 回去
+            // 把任务放到下一个事件循环似乎可以解决
+            setTimeout(() => {
+                openAssetDashboard();
+            });
+        }
+    }]);
 
     // 斜杠命令
     const slash = {
@@ -337,6 +387,7 @@ export const unload = (plugin: FMiscPlugin) => {
     }
     disposers = [];
     plugin.delProtyleSlash('new-file');
+    plugin.unRegisterMenuTopMenu('asset-file');
     enabled = false;
 }
 
