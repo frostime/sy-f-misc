@@ -4,7 +4,8 @@ import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { openIframDialog, openIframeTab } from "@/func/html-pages/core";
 import { LocalDiskVFS } from "@/libs/vfs";
 import { documentDialog } from "@/libs/dialog";
-import { ResultData } from "@/libs/simple-monad";
+import { err, ok, ResultData } from "@/libs/simple-fp";
+import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
 
 export const declareToggleEnabled = {
     title: '📄 附件文件',
@@ -12,10 +13,32 @@ export const declareToggleEnabled = {
     defaultEnabled: true
 };
 
+const BLANK_FILE_DIR = '/data/public/blank-files';
 
-// const tryToFindBlankFile = async (fname: string): Promise<ResultData<File, string>> => {
+const tryToFindBlankFile = async (ext: string): Promise<ResultData<Blob, string>> => {
 
-// }
+    const hasDir = await siyuanVfs.exists(BLANK_FILE_DIR);
+    if (!hasDir) {
+        return err('思源 public/blank-files 目录不存在');
+    }
+
+    const ans = await siyuanVfs.readdir(BLANK_FILE_DIR);
+    if (!ans.ok) {
+        return err('无法读取思源 public/blank-files 目录');
+    }
+
+    const target = ans.items.find(item => item.name.endsWith(`.${ext}`));
+    if (!target) {
+        return err(`思源 public/blank-files 目录下不存在 .${ext} 的空白文件模板`);
+    }
+
+    const fileAns = await siyuanVfs.readFile(siyuanVfs.join(BLANK_FILE_DIR, target.name), 'blob');
+    if (!fileAns.ok) {
+        return err(`无法读取思源 public/blank-files/${target.name} 文件`);
+    }
+
+    return ok(fileAns.data as Blob);
+}
 
 // ============ 核心业务逻辑（完全不变）============
 
@@ -69,35 +92,7 @@ const createEmptyFileObject = (fname: string): File => {
     return emptyFile;
 };
 
-let USE_DEFINED_FILES = {};
-
-const useBlankFile = async (fname: string): Promise<File | null> => {
-    const blankFiles = {
-        'docx': `/public/blank-files/blank-word.docx`,
-        'xlsx': `/public/blank-files/blank-excel.xlsx`,
-        'pptx': `/public/blank-files/blank-ppt.pptx`,
-        'prg': `/public/blank-files/blank-prg.prg`,
-        ...USE_DEFINED_FILES
-    };
-    const ext = fname.split('.').pop() || '';
-
-    const res = await fetch(blankFiles[ext]);
-    if (!res.ok) {
-        console.warn(`空白文件 ${blankFiles[ext]} 不存在!`);
-        confirmDialog({
-            title: `空白文件 ${blankFiles[ext]} 不存在!`,
-            content: `⚠️ 注意，如果你想要创建一个空白的 Office 文件，
-            你首先需要在 <工作空间>/data/public/blank-files/ 目录下创建对应的空白模板文件 blank-word.docx, blank-excel.xlsx, blank-ppt.pptx`
-        })
-        return null;
-    }
-    const blob = await res.blob();
-    const file = new File([blob], fname, {
-        type: mimeTypes[ext],
-        lastModified: Date.now()
-    });
-    return file;
-}
+// let USE_DEFINED_FILES = {};
 
 /**
  * 新建空白的文件, 上传到思源的附件中
@@ -119,20 +114,42 @@ const addNewEmptyFile = async (fname: string, addId: boolean = true) => {
     let ext = name.split('.').pop() || '';
 
     let file: File | null = null;
-    if (['docx', 'xlsx', 'pptx'].includes(ext)) {
-        file = await useBlankFile(name);
-        if (!file) return {
-            ok: false,
-            error: `无法获取预定义的 ${name} 的空白模板文件`
-        };
-    } else {
-        file = createEmptyFileObject(name);
-        if (!file) return {
-            ok: false,
-            error: '无法创建空白文件'
-        };
-    }
 
+    // 步骤1-2: 首先尝试获取空白模板文件
+    const blankFileResult = await tryToFindBlankFile(ext);
+
+    if (!blankFileResult.ok) {
+        // 步骤4: 如果没有模板，检查是否必须要模板
+        const errorMsg = blankFileResult.error;
+        if (SHOULD_USE_BLANK_FILE.includes(ext)) {
+            // 步骤5: 必须要模板，弹出警告并返回失败
+            confirmDialog({
+                title: `无法创建 .${ext} 文件`,
+                content: `⚠️ 创建 .${ext} 文件需要空白模板文件。\n${errorMsg}\n\n请在 <工作空间>/data/public/blank-files/ 目录下放置对应的空白模板文件。`
+            });
+            return {
+                ok: false,
+                error: `${errorMsg}，且该文件类型必须使用模板`
+            };
+        } else {
+            // 步骤6: 不是必须要模板，fallback 到创建空白文件
+            file = createEmptyFileObject(name);
+            if (!file) {
+                return {
+                    ok: false,
+                    error: '无法创建空白文件'
+                };
+            }
+        }
+    } else {
+        // 步骤3: 如果有模板，使用模板
+        const blob = blankFileResult.data;
+        const mimeType = mimeTypes[ext.toLowerCase()] || 'application/octet-stream';
+        file = new File([blob], name, {
+            type: mimeType,
+            lastModified: Date.now()
+        });
+    }
 
     let newFname = '';
     if (addId) {
@@ -158,8 +175,11 @@ const addNewEmptyFile = async (fname: string, addId: boolean = true) => {
 
 // ============ 配置管理（完全不变）============
 
-let PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'prg', 'js', ...(Object.keys(USE_DEFINED_FILES))];
+let PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'prg', 'js'];
 let PredefinedPaths = ['Markdown', 'Office', 'Chart'];
+
+
+const SHOULD_USE_BLANK_FILE = ['docx', 'xlsx', 'pptx', 'prg'];
 
 
 export let name = 'AssetFile';
@@ -213,7 +233,54 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             set: (value: string) => {
                 PredefinedExt = value.split(',').map(ext => ext.trim());
             }
-        }
+        },
+        {
+            key: 'uploadBlank',
+            type: 'button' as const,
+            title: '上传空白模板文件',
+            description: `
+                上传的文件会被存放到 <code>public/blank-files/</code> 目录下作为 blank-template.<ext> 模板文件使用。
+            `,
+            direction: 'row',
+            get: () => {
+
+            },
+            set: (value: string) => {
+
+            },
+            button: {
+                label: '上传文件',
+                callback: () => {
+                    openIframDialog({
+                        title: '上传空白模板文件',
+                        iframeConfig: {
+                            type: 'url',
+                            source: '/plugins/sy-f-misc/pages/upload-blank-file.html',
+                            inject: {
+                                presetSdk: true,
+                                siyuanCss: true,
+                                customSdk: {
+                                    uploadBlankFile: async (ext: string, file: File): Promise<ResultData<null, string>> => {
+                                        const result = await siyuanVfs.writeFile(siyuanVfs.join(BLANK_FILE_DIR, `blank-template.${ext}`), file);
+                                        return result.ok ? ok(null) : err(result.error || '保存失败');
+                                    },
+                                    listBlankFiles: async (): Promise<ResultData<string[], string>> => {
+                                        const result = await siyuanVfs.readdir(BLANK_FILE_DIR);
+                                        if (!result.ok) {
+                                            return err('无法读取 blank-files 目录');
+                                        }
+                                        const item = result.items.map(i => i.name);
+                                        return ok(item);
+                                    }
+                                }
+                            },
+                        },
+                        width: '700px',
+                        height: '550px'
+                    })
+                }
+            }
+        },
     ],
     help: () => {
         documentDialog({
@@ -328,17 +395,19 @@ const openAssetDashboard = () => {
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
 
-    try {
-        const INDEX_FILE = '/public/blank-files/index.json';
-        fetch(INDEX_FILE).then(async (res) => {
-            if (!res.ok) {
-                return;
-            }
-            USE_DEFINED_FILES = await res.json();
-        });
-    } catch (error) {
-        console.warn('加载预定义空白文件索引失败', error);
-    }
+    siyuanVfs.mkdir(BLANK_FILE_DIR); // 确保空白文件目录存在
+
+    // try {
+    //     const INDEX_FILE = '/public/blank-files/index.json';
+    //     fetch(INDEX_FILE).then(async (res) => {
+    //         if (!res.ok) {
+    //             return;
+    //         }
+    //         USE_DEFINED_FILES = await res.json();
+    //     });
+    // } catch (error) {
+    //     console.warn('加载预定义空白文件索引失败', error);
+    // }
 
     // 注册顶部菜单
     plugin.registerMenuTopMenu('asset-file', [{
@@ -366,36 +435,6 @@ export const load = (plugin: FMiscPlugin) => {
         }
     };
     plugin.addProtyleSlash(slash);
-
-    // 右键菜单 - 更改 Asset
-    // 发现思源支持重命名附件，那就干脆不要这个功能算了
-    // const dispose = thisPlugin().registerEventbusHandler('open-menu-link', (detail) => {
-    //     let menu = detail.menu;
-    //     const hrefSpan = detail.element;
-
-    //     let href = hrefSpan.getAttribute("data-href");
-    //     if (!href?.startsWith("assets/") && !href?.startsWith("/assets/")) {
-    //         return;
-    //     }
-
-    //     menu.addItem({
-    //         icon: "iconImage",
-    //         label: '更改 Asset',
-    //         click: async () => {
-    //             // 获取当前的 protyle 实例
-    //             const protyle = detail.protyle;
-
-    //             // 打开对话框并导航到重命名 tab
-    //             openAssetDialog(
-    //                 { protyle: protyle, insert: () => { } } as unknown as Protyle,
-    //                 {
-    //                     tab: 'rename',
-    //                     assetPath: href
-    //                 });
-    //         }
-    //     });
-    // });
-    // disposers.push(dispose);
 
     enabled = true;
 }

@@ -35,11 +35,12 @@ import { request, putFile, removeFile } from '@frostime/siyuan-plugin-kits/api';
 export class SiYuanVFS {
 
     /** 路径常量 */
-    readonly SIYUAN_PATH = {
-        DATA_DIR: '/data',
-        PLUGIN_DIR: '/data/plugins',
-        PETAL_DIR: '/data/storage/petals',
-        THIS_PLUGIN_DIR: `/data/plugins/sy-f-misc`,
+    readonly SIYUAN_DIR = {
+        DATA: '/data',
+        PUBLIC: '/data/public',
+        PLUGIN: '/data/plugins',
+        PETAL: '/data/storage/petals',
+        THIS_PLUGIN: `/data/plugins/sy-f-misc`,
     } as const;
 
     constructor() {
@@ -179,8 +180,15 @@ export class SiYuanVFS {
         const fullPath = path.startsWith('/') ? path : `/${path}`;
 
         try {
-            const response = await putFile(fullPath, false, file);
-            let ok = !!response;
+            // const response = await putFile(fullPath, false, file);
+            let form = new FormData();
+            form.append('path', fullPath);
+            form.append('isDir', 'false');
+            form.append('modTime', Math.floor(Date.now()).toString());
+            form.append('file', file);
+            let url = '/api/file/putFile';
+            const response = await request(url, form, 'response');
+            let ok = response.code === 0;
             return { ok, error: ok ? null : 'Save Error' };
         } catch (error) {
             console.error('saveBlob error:', error);
@@ -188,25 +196,21 @@ export class SiYuanVFS {
         }
     }
 
-    async exists(path: string, delegate: 'readfile' | 'readdir'): Promise<boolean> {
+    async exists(path: string): Promise<boolean> {
         const actualPath = this.resolve(path);
-        if (delegate === 'readdir') {
-            const ans = await this.readFile(actualPath);
-            return ans.ok || (ans.code === 405); // 405 means it is dir
-        } else if (delegate === 'readfile') {
-
-        } else {
-            throw new Error(`Unsupported delegate type: ${delegate}`);
-        }
+        const ans = await this.readFile(actualPath);
+        return ans.ok || (ans.code === 405); // 405 means it is dir
     }
 
     async readdir(path: string): Promise<{ ok: boolean; items: { name: string; isDir: boolean; updated: number; }[]; msg?: string; }> {
         const actualPath = this.resolve(path);
-        const result = await request('/api/file/readDir', {
+        const response = await request('/api/file/readDir', {
             path: actualPath
-        })
-        result['ok'] = result.code === 0;
-        return result;
+        }, 'response');
+        return {
+            ok: response.code === 0,
+            items: response.data
+        }
     }
 
     async mkdir(path: string): Promise<boolean> {
