@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
- * @LastEditTime : 2025-01-06 22:04:27
+ * @LastEditTime : 2025-12-20 19:32:05
  * @Description  : 
  */
 import type FMiscPlugin from '@/index';
@@ -189,7 +189,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
      * Inject set function, to get the change event
      */
     CustomModuleConfigs.forEach(config => {
-        config.items.forEach(item => {
+        config.items?.forEach(item => {
             let initialSetCb = item.set.bind(item);
             item.set = (value: any) => {
                 initialSetCb(value);

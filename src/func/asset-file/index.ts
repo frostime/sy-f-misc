@@ -3,12 +3,19 @@ import type FMiscPlugin from "@/index";
 import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { openIframDialog, openIframeTab } from "@/func/html-pages/core";
 import { LocalDiskVFS } from "@/libs/vfs";
+import { documentDialog } from "@/libs/dialog";
+import { ResultData } from "@/libs/simple-monad";
 
 export const declareToggleEnabled = {
     title: '📄 附件文件',
     description: '创建空白附件文件, 查看所有附件等...',
     defaultEnabled: true
 };
+
+
+// const tryToFindBlankFile = async (fname: string): Promise<ResultData<File, string>> => {
+
+// }
 
 // ============ 核心业务逻辑（完全不变）============
 
@@ -73,7 +80,6 @@ const useBlankFile = async (fname: string): Promise<File | null> => {
         ...USE_DEFINED_FILES
     };
     const ext = fname.split('.').pop() || '';
-    if (!blankFiles[ext]) return null;
 
     const res = await fetch(blankFiles[ext]);
     if (!res.ok) {
@@ -115,10 +121,18 @@ const addNewEmptyFile = async (fname: string, addId: boolean = true) => {
     let file: File | null = null;
     if (['docx', 'xlsx', 'pptx'].includes(ext)) {
         file = await useBlankFile(name);
+        if (!file) return {
+            ok: false,
+            error: `无法获取预定义的 ${name} 的空白模板文件`
+        };
     } else {
         file = createEmptyFileObject(name);
+        if (!file) return {
+            ok: false,
+            error: '无法创建空白文件'
+        };
     }
-    if (!file) return null;
+
 
     let newFname = '';
     if (addId) {
@@ -135,6 +149,7 @@ const addNewEmptyFile = async (fname: string, addId: boolean = true) => {
     const route = `assets/user/${prefix}${newFname}`;
 
     return {
+        ok: true,
         name: basename + '.' + ext,
         route: route
     };
@@ -146,9 +161,13 @@ const addNewEmptyFile = async (fname: string, addId: boolean = true) => {
 let PredefinedExt = ['docx', 'xlsx', 'pptx', 'md', 'json', 'drawio', 'prg', 'js', ...(Object.keys(USE_DEFINED_FILES))];
 let PredefinedPaths = ['Markdown', 'Office', 'Chart'];
 
+
+export let name = 'AssetFile';
+export let enabled = false;
+
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
-    key: "new-file",
-    title: "新建文件",
+    key: name,
+    title: "新建附件文件",
     load: (itemValues: any) => {
         if (itemValues.predefinedPaths) {
             PredefinedPaths = itemValues.predefinedPaths.split(',').map(path => path.trim());
@@ -196,12 +215,14 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             }
         }
     ],
+    help: () => {
+        documentDialog({
+            sourceUrl: '{{docs}}/asset-file-help.md'
+        });
+    }
 };
 
 // ============ 模块加载 ============
-
-export let name = 'AssetFile';
-export let enabled = false;
 
 const HTML = `
 <div class="b3-list-item__first">

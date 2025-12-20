@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-03 17:23:30
  * @FilePath     : /src/func/markdown.ts
- * @LastEditTime : 2025-06-14 21:20:36
+ * @LastEditTime : 2025-12-20 20:09:56
  * @Description  : 
  */
 
@@ -22,7 +22,7 @@ export let enabled = false;
 // Optional: Configure module settings
 export const declareToggleEnabled = {
     title: "✏️ Markdown",
-    description: "Markdown 文档相关功能",
+    description: "Markdown 文档相关功能; 查看文档完整的 Markdown 内容",
     defaultEnabled: true
 };
 

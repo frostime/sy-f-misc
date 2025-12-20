@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-02 21:39:30
  * @FilePath     : /src/func/types.d.ts
- * @LastEditTime : 2025-12-17 01:47:41
+ * @LastEditTime : 2025-12-20 19:29:38
  * @Description  : 
  */
 interface IConfigItem<T> extends Omit<ISettingItem, 'value'> {
@@ -41,7 +41,7 @@ interface IFuncModule {
     declareModuleConfig?: {
         key: string;
         title?: string;
-        items: IConfigItem<any>[];
+        items?: IConfigItem<any>[];
         load?: (itemValues?: Record<string, any>) => void;
         dump?: () => Record<string, any>;
         customPanel?: () => FlexibleElement;

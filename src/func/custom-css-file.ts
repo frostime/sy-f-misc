@@ -150,19 +150,8 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: name,
     title: 'CSS Files',
     load: () => { },
-    items: [
-        // {
-        //     type: 'hint',
-        //     title: '说明',
-        //     description: `<ul>
-        //         <li>默认样式文件位于 /data/public/custom.css，可通过顶栏快速编辑，并随时更新</li>
-        //         <li>可以将一些其他的自定义 CSS 文件放入 /data/public/styles/ 目录，插件会在启动时自动加载样式</li>
-        //     </ul>`,
-        //     key: 'hint',
-        //     get: () => '',
-        //     set: () => { }
-        // }
-    ],
+    // items: [
+    // ],
     help: () => {
         documentDialog({
             markdown: `

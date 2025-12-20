@@ -594,7 +594,7 @@
             try {
                 const result = await window.pluginSdk.createFile(currentPath, addId);
 
-                if (result) {
+                if (result.ok) {
                     const { name, route } = result;
                     const insertSuccess = await window.pluginSdk.insertAssetFile(route, name);
 
