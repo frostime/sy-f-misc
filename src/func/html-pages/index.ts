@@ -3,18 +3,18 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-20 00:18:24
+ * @LastEditTime : 2025-12-20 19:16:25
  * @Description  : HTML Pages 功能模块 - 管理自定义 HTML 页面和 URL
  */
 import FMiscPlugin from "@/index";
 import { inputDialog } from "@frostime/siyuan-plugin-kits";
-import { getFile, getFileBlob, readDir } from "@frostime/siyuan-plugin-kits/api";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
 import { IMenu, showMessage } from "siyuan";
 import { documentDialog, selectIconDialog, simpleFormDialog } from "@/libs/dialog";
+
+import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
 import { putFile } from "@/api";
 import { openIframeTab, IIframePageConfig } from "./core";
-// import presetHtml from "./preset/siyuan-tree.html?raw";
 
 // ============ 类型与常量 ============
 
@@ -35,11 +35,12 @@ let zoom: number = 1;
 // ============ 工具函数 ============
 
 const joinPath = (...parts: string[]) => {
-    const endpoint = parts.map((part, index) => {
-        if (index === 0) return part.replace(/\/+$/g, '');
-        return part.replace(/^\/+|\/+$/g, '');
-    }).join('/');
-    return DATA_DIR + endpoint;
+    // const endpoint = parts.map((part, index) => {
+    //     if (index === 0) return part.replace(/\/+$/g, '');
+    //     return part.replace(/^\/+|\/+$/g, '');
+    // }).join('/');
+    // return DATA_DIR + endpoint;
+    return siyuanVfs.join(DATA_DIR, ...parts);
 };
 
 
@@ -47,25 +48,14 @@ const joinPath = (...parts: string[]) => {
 
 const loadConfig = async (): Promise<IPageConfig[]> => {
     const configPath = joinPath(CONFIG_FILE);
-    try {
-        const content = await getFile(configPath);
-        //@ts-ignore
-        if (!content || content.code === 404) return [];
-        if (content) return content as IPageConfig[];
-    } catch (e) {
-        console.warn('加载配置失败:', e);
-    }
-    return [];
+    const result = await siyuanVfs.readFile(configPath);
+    if (!result.ok) return [];
+    return result.data as IPageConfig[];
 };
 
 const saveConfig = async (config: IPageConfig[]) => {
     const configPath = joinPath(CONFIG_FILE);
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-    try {
-        await putFile(configPath, false, blob);
-    } catch (e) {
-        console.error('保存配置失败:', e);
-    }
+    siyuanVfs.writeFile(configPath, config);
 };
 
 // ============ 页面操作 ============
@@ -91,25 +81,29 @@ const openPage = (config: IPageConfig) => {
             customSdk: {
                 // 覆盖默认的 loadConfig 和 saveConfig
                 loadConfig: async () => {
-                    const filePath = joinPath(`conf/${config.source}.config.json`);
-                    try {
-                        //@ts-ignore
-                        const fileContent: object = await getFile(filePath);
-                        //@ts-ignore
-                        if (!fileContent || fileContent.code === 404) return [];
-                        return fileContent ?? {};
-                    } catch (e) {
-                        return {};
-                    }
+                    // const filePath = joinPath(`conf/${config.source}.config.json`);
+                    // try {
+                    //     //@ts-ignore
+                    //     const fileContent: object = await getFile(filePath);
+                    //     //@ts-ignore
+                    //     if (!fileContent || fileContent.code === 404) return [];
+                    //     return fileContent ?? {};
+                    // } catch (e) {
+                    //     return {};
+                    // }
+                    const filePath = joinPath(`conf/${config.id}.config.json`);
+                    const result = await siyuanVfs.readFile(filePath, 'json');
+                    return result.ok ? result.data : {};
                 },
                 saveConfig: async (newConfig: Record<string, any>) => {
-                    const filePath = joinPath(`conf/${config.source}.config.json`);
-                    const blob = new Blob([JSON.stringify(newConfig, null, 2)], { type: 'application/json' });
-                    try {
-                        await putFile(filePath, false, blob);
-                    } catch (e) {
-                        console.error('保存配置失败:', e);
-                    }
+                    const filePath = joinPath(`conf/${config.id}.config.json`);
+                    // const blob = new Blob([JSON.stringify(newConfig, null, 2)], { type: 'application/json' });
+                    // try {
+                    //     await putFile(filePath, false, blob);
+                    // } catch (e) {
+                    //     console.error('保存配置失败:', e);
+                    // }
+                    await siyuanVfs.writeFile(filePath, newConfig);
                 }
             }
         } : undefined
@@ -163,20 +157,28 @@ const registerMenus = async () => {
 const editFile = async (config: IPageConfig) => {
     const fname = config.source;
     const filePath = joinPath(fname);
-    const blob = await getFileBlob(filePath);
-    if (!blob) {
+    // const blob = await getFileBlob(filePath);
+    // if (!blob) {
+    //     showMessage('加载文件失败');
+    //     return;
+    // }
+    // let text = await blob.text();
+    // text = window.Lute.EscapeHTMLStr(text);
+
+    const { ok, data} = await siyuanVfs.readFile(filePath, 'text');
+    if (!ok) {
         showMessage('加载文件失败');
         return;
     }
-    let text = await blob.text();
-    text = window.Lute.EscapeHTMLStr(text);
+    const text = window.Lute.EscapeHTMLStr(data);
+
     inputDialog({
         title: `编辑 ${filePath.split('/').pop()}`,
         defaultText: text,
         confirm(newText: string) {
             if (newText === text) return;
             const blob = new Blob([newText], { type: 'text/html' });
-            putFile(filePath, false, blob);
+            siyuanVfs.writeFile(filePath, blob);
             showMessage('文件已更新');
         },
         type: 'textarea',
@@ -477,18 +479,21 @@ const initializeDefaults = async () => {
     //     await putFile(demoFilePath, false, demoBlob);
     // }
     const moveDefault = async (fname: string) => {
+        // const sourcePath = `/data/plugins/sy-f-misc/pages/${fname}`;
+        // const destPath = joinPath(fname);
+        // const response = await getFileBlob(sourcePath);
+        // //@ts-ignore
+        // if (response && response.code !== 404) {
+        //     const content = await response.text();
+        //     const demoBlob = new Blob([content], { type: 'text/html' });
+            // await putFile(destPath, false, demoBlob);
+        // }
         const sourcePath = `/data/plugins/sy-f-misc/pages/${fname}`;
         const destPath = joinPath(fname);
-        const response = await getFileBlob(sourcePath);
-        //@ts-ignore
-        if (response && response.code !== 404) {
-            const content = await response.text();
-            const demoBlob = new Blob([content], { type: 'text/html' });
-            await putFile(destPath, false, demoBlob);
-        }
+        await siyuanVfs.copyFile(sourcePath, destPath);
     }
     moveDefault('siyuan-tree.html');
-    moveDefault('docs-calendar.html');
+    // moveDefault('docs-calendar.html');
 
     // 2. 创建默认配置
     const defaultConfigs: IPageConfig[] = [
@@ -499,13 +504,13 @@ const initializeDefaults = async () => {
             title: '思源文件查看器',
             icon: 'iconSiYuan'
         },
-        {
-            id: 'demo-docs-calendar',
-            type: 'html',
-            source: 'docs-calendar.html',
-            title: '文档日历视图',
-            icon: 'iconCalendar'
-        },
+        // {
+        //     id: 'demo-docs-calendar',
+        //     type: 'html',
+        //     source: 'docs-calendar.html',
+        //     title: '文档日历视图',
+        //     icon: 'iconCalendar'
+        // },
         {
             id: 'default-url-docs',
             type: 'url',
@@ -526,17 +531,18 @@ export const enabled = false;
 export const load = async (plugin_: FMiscPlugin) => {
     plugin = plugin_;
 
-    try {
-        const blob = new Blob([]);
-        await putFile(DATA_DIR, true, blob);
-    } catch (e) {
-        console.warn('数据目录可能已存在:', e);
-    }
+    // try {
+    //     const blob = new Blob([]);
+    //     await putFile(DATA_DIR, true, blob);
+    // } catch (e) {
+    //     console.warn('数据目录可能已存在:', e);
+    // }
+    await siyuanVfs.mkdir(DATA_DIR);
 
     // 初始化默认配置
     await initializeDefaults();
 
-    await readDir(DATA_DIR);
+    // await readDir(DATA_DIR);
 
     registerMenus();
 };

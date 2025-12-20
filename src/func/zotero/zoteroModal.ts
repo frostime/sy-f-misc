@@ -15,10 +15,11 @@ import {
     showMessage
 } from "siyuan";
 
-import * as api from '@/api';
+// import * as api from '@/api';
 // import type FMiscPlugin from "@/index";
 import { getPassword } from "./config";
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
 
 
 // function processKey(key: string): [number, string] {
@@ -173,7 +174,12 @@ export class ZoteroDBModal {
     }
 
     private async _callZoteroJS(filename: string, prefix: string) {
-        const jsContent = await api.getFile(this.absZoteroJSPath + filename + ".js", "text");
+        const path = siyuanVfs.join(this.absZoteroJSPath, filename + ".js")
+        const { ok, data: jsContent } = await siyuanVfs.readFile(path, 'text');
+        if (!ok) {
+            showMessage(`无法加载 Zotero 脚本文件: ${filename}.js`, 5000, 'error');
+            return null;
+        }
         const code = prefix + "\n" + jsContent;
         return await this.executeZoteroJS(code);
     }

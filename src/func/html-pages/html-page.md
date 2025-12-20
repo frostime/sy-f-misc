@@ -27,7 +27,7 @@ interface PluginSdk {
     saveConfig(newConfig: Record<string, any>): Promise<void>;
 
     // 保存文件到完整路径
-    saveBlob(path: string, data: string | Blob | File | object): Promise<{ ok: boolean; error: string | null }>
+    saveBlob(path: string, data: string | Blob | File | object): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }>
 
     // 从完整路径加载文件
     loadBlob(path: string): Promise<{ ok: boolean; data: Blob | null }>
@@ -36,10 +36,10 @@ interface PluginSdk {
     /**
      * 执行 SQL 查询
      * @param query - SQL 查询语句
-     * @returns 查询结果数组
+     * @returns 查询结果（返回值由内部 SQL 接口决定，可能不是严格的 Block 数组）
      * @note 如果查询中未指定 LIMIT，默认限制为 32 条
      */
-    querySQL(query: string): Promise<Block[]>;
+    querySQL(query: string): Promise<Block[] | any>;
 
     /**
      * 查询日记文档
@@ -77,9 +77,9 @@ interface PluginSdk {
     queryBacklinks(blockId: string): Promise<Block[]>;
 
     /**
-     * 获取指定 ID 的块; 如果不存在可能返回 null]
+     * 获取指定 ID 的块; 如果不存在可能返回 null
      */
-    getBlockByID(blockId: string): Promise<Block>;
+    getBlockByID(blockId: string): Promise<Block | null>;
 
     /**
      * 获取指定块/文档的 Markdown 内容

@@ -10,11 +10,13 @@
 import type { IVFS, VFSCapabilities } from './types';
 import { InMemoryVFS } from './vfs-inmemory-adpater';
 import { LocalDiskVFS } from './vfs-localdisk-adpater';
+// import { SiYuanVFS } from './vfs-siyuan-adapter';
 
 // ========== 导出类型和实现 ==========
 export type { IVFS, IFileStat, VFSSnapshot, VFSCapabilities } from './types';
 export { InMemoryVFS } from './vfs-inmemory-adpater';
 export { LocalDiskVFS } from './vfs-localdisk-adpater';
+export { SiYuanVFS } from './vfs-siyuan-adapter';
 
 // ========== 常量 ==========
 
@@ -35,6 +37,22 @@ export interface MountInfo {
     protocol: string;
     fs: IVFS;
     isDefault: boolean;
+}
+
+
+export const formatFilesize = (bytes: number) => {
+    let kb = bytes / 1024;
+    if (kb < 1024) {
+        return `${kb.toFixed(2).padStart(6)} KB`;
+    } else {
+        let mb = kb / 1024;
+        if (mb < 1024) {
+            return `${mb.toFixed(2).padStart(6)} MB`;
+        } else {
+            let gb = mb / 1024;
+            return `${gb.toFixed(2).padStart(6)} GB`;
+        }
+    }
 }
 
 // ========== VFS 管理器 ==========

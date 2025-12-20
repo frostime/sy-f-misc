@@ -3,12 +3,13 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-20 16:31:32
+ * @LastEditTime : 2025-12-20 19:07:58
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID } from "@frostime/siyuan-plugin-kits";
-import { getFileBlob, request } from "@frostime/siyuan-plugin-kits/api";
+import { request } from "@frostime/siyuan-plugin-kits/api";
 import { sql } from "@/api";
+import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
 
 // ============ 类型定义 ============
 
@@ -83,10 +84,6 @@ const buildPresetSdk = () => {
 
     return {
         request: async (endpoint: string, data: any) => {
-            if (endpoint === '/api/file/getFile') {
-                const blob = await getFileBlob(data.path);
-                return blob ? { ok: true, data: blob } : { ok: false, data: null };
-            }
             const response = await request(endpoint, data, 'response');
             return { ok: response.code === 0, data: response.data };
         },
@@ -98,61 +95,24 @@ const buildPresetSdk = () => {
          * 保存 Blob/File 到完整路径
          */
         saveBlob: async (path: string, data: string | Blob | File | object): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }> => {
-            let dataBlob: Blob;
-
-            if (data instanceof Blob) {
-                dataBlob = data;
-            } else if (data instanceof File) {
-                dataBlob = data;
-            } else if (typeof data === 'object') {
-                dataBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-            } else if (typeof data === 'string') {
-                dataBlob = new Blob([data], { type: 'text/plain' });
-            } else {
-                // throw new Error('Unsupported data type');
-                return { ok: false, error: 'Unsupported Data' };
-            }
-
-            const fileName = path.split('/').pop() || 'file';
-            const file = new File([dataBlob], fileName);
-            const fullPath = path.startsWith('/') ? path : `/${path}`;
-
-            try {
-                const formData = new FormData();
-                formData.append('path', fullPath);
-                formData.append('file[]', file);
-                formData.append('isDir', 'false');
-
-                const response = await request('/api/file/putFile', formData, 'response');
-                // return response.code === 0;
-                let ok = response.code === 0;
-                return { ok, error: ok ? null : 'Save Error' };
-            } catch (error) {
-                console.error('saveBlob error:', error);
-                return { ok: false, error: 'Save Error' };
-            }
+            return siyuanVfs.writeFile(path, data);
         },
 
         /**
          * 从完整路径加载 Blob
          */
         loadBlob: async (path: string): Promise<{ ok: boolean; data: Blob | null }> => {
-            const fullPath = path.startsWith('/') ? path : `/${path}`;
-
-            try {
-                const blob = await getFileBlob(fullPath);
-                // return blob || null;
-                let ok = !!blob;
-                return { ok, data: blob || null };
-            } catch (error) {
-                console.error('loadBlob error:', error);
-                // return null;
-                return { ok: false, data: null };
-            }
+            const result = await siyuanVfs.readFile(path, 'blob');
+            return result;
         },
 
         querySQL: async (query: string) => await sql(query),
-        queryDailyNote: async (options) => listDailynote(options),
+        queryDailyNote: async (options: {
+            boxId?: NotebookId;
+            before?: Date;
+            after?: Date;
+            limit?: number;
+        }) => listDailynote(options),
         queryChildDocs: async (docId: string) => searchChildDocs(docId),
         queryParentDoc: async (docId: string) => {
             const doc = await getParentDoc(docId);
