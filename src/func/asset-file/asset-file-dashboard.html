@@ -39,6 +39,14 @@
             --hover-color: #f0f0f0;
             --accent-color: #d23f31;
             --accent-bg: #ffe8e6;
+            --error-color: #d23f31;
+            --text-on-accent: #ffffff;
+            --bg-mask: rgba(0, 0, 0, 0.6);
+            --bg-mask-dark: rgba(0, 0, 0, 0.95);
+            --bg-toast: rgba(0, 0, 0, 0.8);
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --bg-preview-text: #ffffff;
+            --text-preview-text: #333333;
         }
 
         /* 暗色主题适配 */
@@ -49,7 +57,16 @@
             --text-secondary: #969696;
             --border-color: #3d3d3d;
             --hover-color: #2a2a2a;
+            --accent-color: #d23f31;
             --accent-bg: #3d2522;
+            --error-color: #f44336;
+            --text-on-accent: #ffffff;
+            --bg-mask: rgba(0, 0, 0, 0.8);
+            --bg-mask-dark: rgba(0, 0, 0, 0.95);
+            --bg-toast: rgba(0, 0, 0, 0.9);
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            --bg-preview-text: #252526;
+            --text-preview-text: #d4d4d4;
         }
 
         /* 布局 */
@@ -90,7 +107,7 @@
             top: 0;
             bottom: 0;
             z-index: 10;
-            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+            box-shadow: -2px 0 5px var(--shadow-color);
         }
 
         #detail-panel.open {
@@ -118,7 +135,7 @@
 
         .btn.primary {
             background: var(--accent-color);
-            color: white;
+            color: var(--text-on-accent);
             border-color: var(--accent-color);
         }
 
@@ -357,7 +374,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.95);
+            background: var(--bg-mask-dark);
             z-index: 1000;
             display: none;
             align-items: center;
@@ -398,8 +415,8 @@
         }
 
         #fullscreen-preview .text-preview {
-            background: white;
-            color: black;
+            background: var(--bg-preview-text);
+            color: var(--text-preview-text);
             padding: 20px;
             border-radius: 8px;
             max-width: 90%;
@@ -475,7 +492,7 @@
 
         .pagination .page-num.active {
             background: var(--accent-color);
-            color: white;
+            color: var(--text-on-accent);
             border-color: var(--accent-color);
         }
 
@@ -503,7 +520,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.6);
+            background: var(--bg-mask);
             z-index: 999;
             display: none;
             align-items: center;
@@ -520,7 +537,7 @@
             padding: 30px;
             max-width: 500px;
             width: 90%;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 20px var(--shadow-color);
         }
 
         .replace-dialog-title {
@@ -606,7 +623,7 @@
 
         .dialog-btn.primary {
             background: var(--accent-color);
-            color: white;
+            color: var(--text-on-accent);
             border-color: var(--accent-color);
         }
 
@@ -617,6 +634,53 @@
         .dialog-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        /* 图片查看器 */
+        #fullscreen-preview .preview-content img {
+            cursor: grab;
+            transition: none;
+        }
+
+        #fullscreen-preview .preview-content img.dragging {
+            cursor: grabbing;
+        }
+
+        #fullscreen-preview .zoom-controls {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 25px;
+            z-index: 1001;
+        }
+
+        #fullscreen-preview .zoom-btn {
+            color: white;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        #fullscreen-preview .zoom-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        #fullscreen-preview .zoom-info {
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+            min-width: 80px;
+            text-align: center;
         }
 
         /* 正则搜索 */
@@ -635,6 +699,58 @@
 
         .search-options input[type="checkbox"] {
             cursor: pointer;
+        }
+
+        /* Toast Notifications */
+        #toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--bg-toast);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            animation: toast-in-out 3s ease forwards;
+            pointer-events: auto;
+            white-space: nowrap;
+        }
+
+        .toast.error {
+            background: var(--accent-color);
+            color: var(--text-on-accent);
+        }
+
+        @keyframes toast-in-out {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            10% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            90% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
         }
     </style>
 </head>
@@ -751,10 +867,140 @@
         <div class="preview-content" id="fullscreen-content">
             <!-- 全屏预览内容 -->
         </div>
+        <div class="zoom-controls" id="zoom-controls" style="display: none;">
+            <button class="zoom-btn" onclick="app.imageViewer.zoomOut()">-</button>
+            <div class="zoom-info" id="zoom-info">100%</div>
+            <button class="zoom-btn" onclick="app.imageViewer.zoomIn()">+</button>
+            <button class="zoom-btn" onclick="app.imageViewer.resetZoom()">重置</button>
+        </div>
     </div>
+
+    <div id="toast-container"></div>
 
     <script>
         /* ==================== 核心逻辑 ==================== */
+
+        class ImageViewer {
+            constructor(imgElement) {
+                this.img = imgElement;
+                this.scale = 1;
+                this.translateX = 0;
+                this.translateY = 0;
+                this.isDragging = false;
+                this.startX = 0;
+                this.startY = 0;
+                this.minScale = 0.1;
+                this.maxScale = 10;
+                this.scaleStep = 0.2;
+
+                this.bindEvents();
+                this.updateTransform();
+            }
+
+            bindEvents() {
+                // 滚轮缩放
+                this.wheelHandler = (e) => {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? -this.scaleStep : this.scaleStep;
+                    this.zoom(delta);
+                };
+                this.img.addEventListener('wheel', this.wheelHandler, { passive: false });
+
+                // 鼠标拖动
+                this.mouseDownHandler = (e) => {
+                    e.preventDefault();
+                    this.isDragging = true;
+                    this.startX = e.clientX - this.translateX;
+                    this.startY = e.clientY - this.translateY;
+                    this.img.classList.add('dragging');
+                };
+                this.img.addEventListener('mousedown', this.mouseDownHandler);
+
+                this.mouseMoveHandler = (e) => {
+                    if (!this.isDragging) return;
+                    e.preventDefault();
+                    this.translateX = e.clientX - this.startX;
+                    this.translateY = e.clientY - this.startY;
+                    this.updateTransform();
+                };
+                document.addEventListener('mousemove', this.mouseMoveHandler);
+
+                this.mouseUpHandler = () => {
+                    this.isDragging = false;
+                    this.img.classList.remove('dragging');
+                };
+                document.addEventListener('mouseup', this.mouseUpHandler);
+
+                // 触摸支持
+                this.touchStartHandler = (e) => {
+                    if (e.touches.length === 1) {
+                        e.preventDefault();
+                        this.isDragging = true;
+                        this.startX = e.touches[0].clientX - this.translateX;
+                        this.startY = e.touches[0].clientY - this.translateY;
+                    }
+                };
+                this.img.addEventListener('touchstart', this.touchStartHandler, { passive: false });
+
+                this.touchMoveHandler = (e) => {
+                    if (!this.isDragging || e.touches.length !== 1) return;
+                    e.preventDefault();
+                    this.translateX = e.touches[0].clientX - this.startX;
+                    this.translateY = e.touches[0].clientY - this.startY;
+                    this.updateTransform();
+                };
+                this.img.addEventListener('touchmove', this.touchMoveHandler, { passive: false });
+
+                this.touchEndHandler = () => {
+                    this.isDragging = false;
+                };
+                this.img.addEventListener('touchend', this.touchEndHandler);
+            }
+
+            zoom(delta) {
+                const newScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale + delta));
+                this.scale = newScale;
+                this.updateTransform();
+                this.updateZoomInfo();
+            }
+
+            zoomIn() {
+                this.zoom(this.scaleStep);
+            }
+
+            zoomOut() {
+                this.zoom(-this.scaleStep);
+            }
+
+            resetZoom() {
+                this.scale = 1;
+                this.translateX = 0;
+                this.translateY = 0;
+                this.updateTransform();
+                this.updateZoomInfo();
+            }
+
+            updateTransform() {
+                this.img.style.transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
+            }
+
+            updateZoomInfo() {
+                const zoomInfo = document.getElementById('zoom-info');
+                if (zoomInfo) {
+                    zoomInfo.textContent = `${Math.round(this.scale * 100)}%`;
+                }
+            }
+
+            destroy() {
+                this.img.removeEventListener('wheel', this.wheelHandler);
+                this.img.removeEventListener('mousedown', this.mouseDownHandler);
+                document.removeEventListener('mousemove', this.mouseMoveHandler);
+                document.removeEventListener('mouseup', this.mouseUpHandler);
+                this.img.removeEventListener('touchstart', this.touchStartHandler);
+                this.img.removeEventListener('touchmove', this.touchMoveHandler);
+                this.img.removeEventListener('touchend', this.touchEndHandler);
+            }
+        }
 
         class AssetManager {
             constructor() {
@@ -784,6 +1030,9 @@
                 this.replaceFile = null;
                 this.replaceTargetFilename = '';
 
+                // 图片查看器
+                this.imageViewer = null;
+
                 // DOM Elements
                 this.dom = {
                     listContainer: document.getElementById('file-list'),
@@ -812,7 +1061,8 @@
                     replacePreviewImg: document.getElementById('replace-preview-img'),
                     replacePreviewInfo: document.getElementById('replace-preview-info'),
                     replaceFilename: document.getElementById('replace-filename'),
-                    confirmReplaceBtn: document.getElementById('confirm-replace-btn')
+                    confirmReplaceBtn: document.getElementById('confirm-replace-btn'),
+                    toastContainer: document.getElementById('toast-container')
                 };
 
                 this.bindEvents();
@@ -1095,7 +1345,7 @@
 
                     const isImage = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(file.name);
                     const thumbContent = isImage
-                        ? `<img src="/assets/${file.name}" loading="lazy" alt="${file.name}">`
+                        ? `<img src="/assets/${file.name}?t=${file.updated || ''}" loading="lazy" alt="${file.name}">`
                         : this.getFileIcon(file.name);
 
                     let metaHtml = '';
@@ -1182,7 +1432,7 @@
                 const isImage = fileType === 'image';
                 const isVideo = fileType === 'video';
                 const isText = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'csv'].includes(file.name.split('.').pop().toLowerCase());
-                const url = `/assets/${file.name}`; // Web URL
+                const url = `/assets/${file.name}?t=${file.updated || ''}`; // Web URL
 
                 let previewHtml = '';
                 if (isImage) {
@@ -1238,6 +1488,9 @@
                         <button class="btn" onclick="app.copyLink('${this.escapeAttribute(file.name)}')">
                             📋 复制链接
                         </button>
+                        <button class="btn" onclick="app.copyFileContent('${this.escapeAttribute(file.name)}')">
+                            📄 复制内容
+                        </button>
                         <button class="btn" onclick="app.downloadFile('${this.escapeAttribute(file.name)}')">
                             ⬇️ 下载文件
                         </button>
@@ -1271,13 +1524,23 @@
             }
 
             async openFullscreen(filename, type) {
-                const url = `/assets/${filename}`;
+                const url = `/assets/${filename}?t=${this.selectedFile?.updated || ''}`;
                 this.dom.fullscreenContent.innerHTML = '';
 
                 if (type === 'image') {
-                    this.dom.fullscreenContent.innerHTML = `<img src="${url}" alt="${filename}">`;
+                    this.dom.fullscreenContent.innerHTML = `<img src="${url}" alt="${filename}" id="fullscreen-image">`;
+                    // 显示缩放控制
+                    document.getElementById('zoom-controls').style.display = 'flex';
+                    // 初始化图片查看器
+                    setTimeout(() => {
+                        const img = document.getElementById('fullscreen-image');
+                        if (img) {
+                            this.imageViewer = new ImageViewer(img);
+                        }
+                    }, 100);
                 } else if (type === 'video') {
                     this.dom.fullscreenContent.innerHTML = `<video src="${url}" controls autoplay style="max-width:90vw;max-height:90vh;">您的浏览器不支持视频播放</video>`;
+                    document.getElementById('zoom-controls').style.display = 'none';
                 } else if (type === 'text') {
                     try {
                         const res = await window.pluginSdk.loadBlob(`/data/assets/${filename}`);
@@ -1290,12 +1553,18 @@
                     } catch (e) {
                         this.dom.fullscreenContent.innerHTML = `<div class="text-preview">加载失败: ${e.message}</div>`;
                     }
+                    document.getElementById('zoom-controls').style.display = 'none';
                 }
 
                 this.dom.fullscreenPreview.classList.add('active');
             }
 
             closeFullscreen() {
+                if (this.imageViewer) {
+                    this.imageViewer.destroy();
+                    this.imageViewer = null;
+                }
+                document.getElementById('zoom-controls').style.display = 'none';
                 this.dom.fullscreenPreview.classList.remove('active');
                 this.dom.fullscreenContent.innerHTML = '';
             }
@@ -1346,15 +1615,46 @@
             copyLink(filename) {
                 const link = `![${filename}](/assets/${filename})`;
                 navigator.clipboard.writeText(link).then(() => {
-                    alert('链接已复制到剪贴板');
+                    this.showToast('链接已复制到剪贴板');
                 }).catch(() => {
-                    alert('复制失败');
+                    this.showToast('复制失败', 'error');
                 });
+            }
+
+            async copyFileContent(filename) {
+                try {
+                    const fileType = this.getFileType(filename);
+
+                    if (fileType === 'image') {
+                        // 复制图片数据
+                        const response = await fetch(`/assets/${filename}?t=${this.selectedFile?.updated || ''}`);
+                        const blob = await response.blob();
+                        await navigator.clipboard.write([
+                            new ClipboardItem({
+                                [blob.type]: blob
+                            })
+                        ]);
+                        this.showToast('图片已复制到剪贴板');
+                    } else {
+                        // 复制文本内容
+                        const res = await window.pluginSdk.loadBlob(`/data/assets/${filename}`);
+                        if (res.ok) {
+                            const text = await res.data.text();
+                            await navigator.clipboard.writeText(text);
+                            this.showToast('文本内容已复制到剪贴板');
+                        } else {
+                            throw new Error('无法加载文件内容');
+                        }
+                    }
+                } catch (err) {
+                    console.error('复制失败:', err);
+                    this.showToast(`复制失败: ${err.message}`, 'error');
+                }
             }
 
             downloadFile(filename) {
                 const link = document.createElement('a');
-                link.href = `/assets/${filename}`;
+                link.href = `/assets/${filename}?t=${this.selectedFile?.updated || ''}`;
                 link.download = filename;
                 document.body.appendChild(link);
                 link.click();
@@ -1385,7 +1685,7 @@
                 const newExt = file.name.split('.').pop().toLowerCase();
 
                 if (originalExt !== newExt) {
-                    alert(`文件类型不匹配！\n原文件类型: .${originalExt}\n新文件类型: .${newExt}\n\n请选择 .${originalExt} 类型的文件`);
+                    this.showToast(`文件类型不匹配！需要 .${originalExt}`, 'error');
                     return;
                 }
 
@@ -1417,7 +1717,7 @@
 
                     const res = await window.pluginSdk.saveBlob(`/data/assets/${this.replaceTargetFilename}`, this.replaceFile);
                     if (res.ok) {
-                        alert('替换成功！');
+                        this.showToast('替换成功！');
                         this.closeReplaceDialog();
                         // 刷新列表和预览
                         await this.loadAssets();
@@ -1432,7 +1732,7 @@
                         throw new Error(res.error || '未知错误');
                     }
                 } catch (err) {
-                    alert(`替换失败: ${err.message}`);
+                    this.showToast(`替换失败: ${err.message}`, 'error');
                 } finally {
                     this.dom.confirmReplaceBtn.disabled = false;
                     this.dom.confirmReplaceBtn.textContent = '确认替换';
@@ -1449,6 +1749,18 @@
                 this.dom.detailPanel.classList.remove('open');
                 this.selectedFile = null;
                 document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+            }
+
+            showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+                this.dom.toastContainer.appendChild(toast);
+
+                // 动画结束后移除
+                setTimeout(() => {
+                    toast.remove();
+                }, 3000);
             }
 
             // Utils
@@ -1499,6 +1811,17 @@
 
         window.addEventListener('pluginSdkReady', () => {
             app.init();
+        });
+
+        window.addEventListener('search-given-asset-file', (event) => {
+            console.log('收到 search-given-asset-file 事件:', event.detail);
+            const { filename } = event.detail || {};
+            if (filename) {
+                app.dom.searchInput.value = filename;
+                app.filterText = filename;
+                app.currentPage = 1;
+                app.applyFiltersAndSort();
+            }
         });
 
     </script>

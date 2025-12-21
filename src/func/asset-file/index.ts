@@ -357,7 +357,7 @@ const openAssetDialog = (protyle: Protyle, initialState?: { tab?: 'create' | 're
     });
 };
 
-const openAssetDashboard = () => {
+const openAssetDashboard = (loadingEvents?: Record<string, any>) => {
     const vfs = new LocalDiskVFS();
     const handler = {};
     if (vfs.isAvailable()) {
@@ -376,8 +376,8 @@ const openAssetDashboard = () => {
             };
         }
     }
-    openIframeTab({
-        tabId: 'asset-file-dashboard',
+    const dashboard = openIframeTab({
+        tabId: 'asset-file-dashboard' + window.Lute.NewNodeID(),
         title: '附件管理',
         icon: 'iconFiles',
         iframeConfig: {
@@ -387,9 +387,11 @@ const openAssetDashboard = () => {
                 presetSdk: true,
                 siyuanCss: true,
                 customSdk: handler
-            }
+            },
+            onLoadEvents: loadingEvents
         }
     });
+    return dashboard;
 }
 
 export const load = (plugin: FMiscPlugin) => {
@@ -422,6 +424,35 @@ export const load = (plugin: FMiscPlugin) => {
             });
         }
     }]);
+
+    const dispose = thisPlugin().registerEventbusHandler('open-menu-link', (detail) => {
+        let menu = detail.menu;
+        // let protyle = detail.protyle;
+        const hrefSpan = detail.element;
+
+        // let text = hrefSpan.innerText;
+        let href = hrefSpan.getAttribute("data-href");
+        if (!href?.startsWith("assets/") && !href?.startsWith("/assets/")) {
+            return;
+        }
+        const filename = href.split('/').pop() || '';
+        // console.log(hrefSpan);
+        menu.addItem({
+            icon: "iconImage",
+            label: '在管理面板中打开',
+            click: async () => {
+                setTimeout(() => {
+                    const dashboard = openAssetDashboard();
+                    setTimeout(() => {
+                        dashboard.dispatchEvent('search-given-asset-file', { filename: filename });
+                    }, 500);
+                });
+            }
+        });
+
+    })
+    disposers.push(dispose);
+    enabled = true;
 
     // 斜杠命令
     const slash = {

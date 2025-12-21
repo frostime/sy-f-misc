@@ -157,44 +157,76 @@ export class SiYuanVFS {
         };
     }
 
-    async writeFile(path: string, data: string | Blob | File | object): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }> {
+
+    async writeFile(
+        path: string,
+        data: string | Blob | File | ArrayBuffer | ArrayBufferView | Record<string, any>,
+    ): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' | null }> {
+
         path = this.resolve(path);
+        const targetFileName = path.split('/').pop() || 'file';
 
-        let dataBlob: Blob;
+        let file: File;
+        const typeTag = Object.prototype.toString.call(data);
 
-        if (data instanceof Blob) {
-            dataBlob = data;
-        } else if (data instanceof File) {
-            dataBlob = data;
-        } else if (typeof data === 'object') {
-            dataBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-        } else if (typeof data === 'string') {
-            dataBlob = new Blob([data], { type: 'text/plain' });
-        } else {
-            // throw new Error('Unsupported data type');
+        // --- 分支 1: 已有的 File 对象 ---
+        if (typeTag === '[object File]') {
+            const originalFile = data as File;
+            // 如果原文件名和 path 中的文件名不一致，建议创建一个新 File 指向相同内容但使用新名字
+            // 或者依靠 FormData 的第三个参数（见下方）
+            file = originalFile;
+        }
+        // --- 分支 2: 二进制数据 (Blob / ArrayBuffer / TypedArray) ---
+        // [object Blob], [object ArrayBuffer], [object Uint8Array] 等
+        // File 构造函数原生支持 String, Blob, ArrayBuffer, ArrayBufferView
+        else if (
+            typeTag === '[object Blob]' ||
+            typeTag === '[object ArrayBuffer]' ||
+            ArrayBuffer.isView(data) // 检查是否为 Uint8Array 等视图
+        ) {
+            // 这里的 data 强转为 BlobPart 是安全的，File 构造函数能吃下这些类型
+            file = new File([data as BlobPart], targetFileName, { type: 'application/octet-stream' });
+        }
+        // --- 分支 3: 纯字符串 ---
+        else if (typeof data === 'string') {
+            file = new File([data], targetFileName, { type: 'text/plain' });
+        }
+        // --- 分支 4: 普通 JSON 对象 (Pojo) ---
+        else if (typeof data === 'object' && data !== null) {
+            try {
+                const jsonStr = JSON.stringify(data);
+                file = new File([jsonStr], targetFileName, { type: 'application/json' });
+            } catch (error) {
+                return { ok: false, error: 'Unsupported Data' };
+            }
+        }
+        // --- 兜底 ---
+        else {
             return { ok: false, error: 'Unsupported Data' };
         }
 
-        const fileName = path.split('/').pop() || 'file';
-        const file = new File([dataBlob], fileName);
-        const fullPath = path.startsWith('/') ? path : `/${path}`;
-
         try {
-            // const response = await putFile(fullPath, false, file);
             let form = new FormData();
-            form.append('path', fullPath);
+            form.append('path', path);
             form.append('isDir', 'false');
             form.append('modTime', Math.floor(Date.now()).toString());
-            form.append('file', file);
+
+            // 核心修改：FormData append 第三个参数用于强制指定文件名
+            // 这样无论 data 是什么来源，后端收到的文件名永远匹配 path 参数
+            form.append('file', file, targetFileName);
+
             let url = '/api/file/putFile';
             const response = await request(url, form, 'response');
             let ok = response.code === 0;
+
+            // 返回类型对齐 Promise 签名
             return { ok, error: ok ? null : 'Save Error' };
         } catch (error) {
             console.error('saveBlob error:', error);
             return { ok: false, error: 'Save Error' };
         }
     }
+
 
     async exists(path: string): Promise<boolean> {
         const actualPath = this.resolve(path);

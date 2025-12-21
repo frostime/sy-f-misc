@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-20 19:07:58
+ * @LastEditTime : 2025-12-21 18:54:15
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID } from "@frostime/siyuan-plugin-kits";
@@ -41,6 +41,9 @@ export interface IIframePageConfig {
         /** 自定义 SDK，可覆盖预设 SDK 的方法 */
         customSdk?: Record<string, any>;
     };
+
+    // 如果有，代表启动时自动往里面发送的消息
+    onLoadEvents?: Record<string, any>;
 
     /** iframe 加载完成回调 */
     onLoad?: (iframe: HTMLIFrameElement) => void;
@@ -93,8 +96,15 @@ const buildPresetSdk = () => {
 
         /**
          * 保存 Blob/File 到完整路径
+         * @param path 文件路径
+         * @param data Blob 对象
          */
-        saveBlob: async (path: string, data: string | Blob | File | object): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }> => {
+        saveBlob: async (
+            path: string, 
+            data: Blob,
+        ): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }> => {
+            // 强制使用 blob 类型，避免类型推断问题
+            // @ts-ignore
             return siyuanVfs.writeFile(path, data);
         },
 
@@ -319,7 +329,9 @@ export const openIframeTab = (options: {
     // 用于存储 iframe API
     let iframeApi: ReturnType<typeof createIframePage> = {
         cleanup: () => { },
-        dispatchEvent: (eventName: string, detail?: ScalarType | Record<string, any>) => { }
+        dispatchEvent: (eventName: string, detail?: ScalarType | Record<string, any>) => { },
+        iframeRef: new WeakRef(document.createElement('iframe')), // 占位
+        isAlive: () => false
     };
 
     options.iframeConfig.iframeStyle = options.iframeConfig.iframeStyle || {};
@@ -347,9 +359,13 @@ export const openIframeTab = (options: {
         },
         icon: options.icon,
     });
-    return {
-        dispatchEvent: iframeApi.dispatchEvent
-    };
+
+    // 返回 Proxy，自动转发到最新的 iframeApi
+    return new Proxy({} as ReturnType<typeof createIframePage>, {
+        get(_target, prop) {
+            return iframeApi[prop as keyof typeof iframeApi];
+        }
+    });
 };
 
 export const openIframDialog = (options: {
@@ -388,10 +404,18 @@ export const openIframDialog = (options: {
             // options.callback?.();
         }
     });
-    return {
-        ...dialog,
-        dispatchEvent: iframeApi.dispatchEvent
-    }
+
+    // 返回 Proxy，合并 dialog API 和 iframe API
+    return new Proxy({ ...dialog } as typeof dialog & ReturnType<typeof createIframePage>, {
+        get(target, prop) {
+            // 优先从 dialog 获取（close 等方法）
+            if (prop in target) {
+                return target[prop as keyof typeof target];
+            }
+            // 否则从 iframeApi 获取（dispatchEvent, isAlive 等）
+            return iframeApi[prop as keyof typeof iframeApi];
+        }
+    });
 }
 
 // ============ 核心功能 ============
@@ -441,9 +465,13 @@ export const createIframePage = (
     config: IIframePageConfig
 ): {
     cleanup: () => void,
-    dispatchEvent: (eventName: string, detail?: ScalarType | Record<string, any>) => void
+    dispatchEvent: (eventName: string, detail?: ScalarType | Record<string, any>) => void,
+    iframeRef: WeakRef<HTMLIFrameElement>,
+    isAlive: () => boolean
 } => {
     const iframe = document.createElement('iframe');
+    const iframeRef = new WeakRef(iframe);
+
     iframe.style.width = '100%';
     iframe.style.height = '100%';
 
@@ -463,6 +491,14 @@ export const createIframePage = (
         // 注入 SDK（如果配置了）
         if (config.inject) {
             injectSdk(iframe, config);
+        }
+
+        if (config.onLoadEvents) {
+            console.log('准备发送 onLoadEvents:', config.onLoadEvents);
+            Object.entries(config.onLoadEvents).forEach(([eventName, detail]) => {
+                console.log(`发送事件: ${eventName}`, detail);
+                iframe.contentWindow?.dispatchEvent(new CustomEvent(eventName, { detail }));
+            });
         }
 
         cleanupForwardEvents = forwardIframePointerEvents(iframe);
@@ -487,6 +523,16 @@ export const createIframePage = (
             config.onDestroy?.();
         },
         dispatchEvent: (eventName: string, detail?: ScalarType | Record<string, any>) => {
+            const iframe = iframeRef.deref();
+            if (!iframe) {
+                console.warn('无法向 iframe 发送事件：iframe 已被垃圾回收');
+                return;
+            }
+            if (!iframe.isConnected) {
+                console.warn('无法向 iframe 发送事件：iframe 已从 DOM 中移除');
+                return;
+            }
+
             try {
                 const win = iframe.contentWindow;
                 if (!win) {
@@ -502,6 +548,11 @@ export const createIframePage = (
             } catch (e) {
                 console.error('向 iframe 发送事件失败:', e);
             }
+        },
+        iframeRef,
+        isAlive: () => {
+            const iframe = iframeRef.deref();
+            return iframe !== undefined && iframe.isConnected;
         }
     };
 };
