@@ -27,6 +27,7 @@ import { globalMiscConfigs } from "./model/store";
 import { showMessageLog } from "./MessageLogger";
 
 import * as chatInDoc from './chat-in-doc';
+import { openManualExecutePanel } from './tools/manual-execute';
 
 export { openai };
 
@@ -418,6 +419,13 @@ export const load = async (plugin: FMiscPlugin) => {
                 }
             }
         ]
+    },
+    {
+        label: 'Tool Hub',
+        icon: 'iconGithub',
+        click: () => {
+            openManualExecutePanel();
+        }
     }]);
 
     plugin.addCommand({

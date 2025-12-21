@@ -31,8 +31,8 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                     properties: {
                         path: { type: 'string', description: '文件路径' },
                         mode: { type: 'string', enum: ['preview', 'full', 'head', 'tail', 'range'] },
-                        lines: { type: 'number', minimum: 1, maximum: 1000 },
-                        range: { type: 'array', items: { type: 'number' } },
+                        lines: { type: 'number', minimum: 1, maximum: 1000, description: '1-based; tail/head mode 需要' },
+                        range: { type: 'array', items: { type: 'number' }, description: '[StartLine, EndLine], 1-based; range mode 需要' },
                         showLineNumbers: { type: 'boolean' }
                     },
                     required: ['path']

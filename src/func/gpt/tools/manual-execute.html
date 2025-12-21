@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手动工具调用</title>
+    <style>
+        /* ==================== CSS 变量和基础样式 ==================== */
+        :root {
+            /* Fallback 字体和颜色 */
+            --fallback-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --fallback-font-code: "Consolas", "Monaco", "Courier New", monospace;
+            --fallback-font-size: 14px;
+        }
+
+        /* 全局盒模型重置，解决高度计算偏差问题 */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family, var(--fallback-font));
+            font-size: var(--font-size, var(--fallback-font-size));
+            background-color: var(--theme-background, #ffffff);
+            color: var(--theme-on-surface, #333333);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* 基于 font-size 的响应式字体 */
+        .panel-title {
+            font-size: calc(var(--font-size, 14px) * 1.3);
+        }
+
+        .panel-subtitle,
+        .form-field label,
+        .form-field input,
+        .form-field textarea,
+        .form-field select,
+        .btn {
+            font-size: calc(var(--font-size, 14px) * 0.93);
+        }
+
+        .group-header,
+        .tool-name {
+            font-size: calc(var(--font-size, 14px) * 0.93);
+        }
+
+        .tool-desc,
+        .form-field .description,
+        .result-tab {
+            font-size: calc(var(--font-size, 14px) * 0.86);
+        }
+
+        .result-content pre {
+            font-size: calc(var(--font-size, 14px) * 0.86);
+        }
+
+        .status-badge {
+            font-size: calc(var(--font-size, 14px) * 0.79);
+        }
+
+        /* 亮色主题默认值 */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f7;
+            --bg-tertiary: #e8e8ea;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-tertiary: #999999;
+            --border-color: #e0e0e0;
+            --hover-bg: #f0f0f0;
+            --active-bg: #e8e8ea;
+            --accent-color: #d23f31;
+            --accent-bg: #ffe8e6;
+            --success-color: #34a853;
+            --error-color: #ea4335;
+            --warning-color: #fbbc04;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        /* 暗色主题适配 */
+        [data-theme-mode="dark"] {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d30;
+            --text-primary: #d4d4d4;
+            --text-secondary: #9d9d9d;
+            --text-tertiary: #6e6e6e;
+            --border-color: #3e3e42;
+            --hover-bg: #2a2a2a;
+            --active-bg: #37373d;
+            --accent-color: #d23f31;
+            --accent-bg: #3d2522;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+            --warning-color: #ff9800;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        /* ==================== 布局结构 ==================== */
+        #app {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* 侧边栏 - 工具列表 */
+        #sidebar {
+            width: 280px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        /* 主内容区 */
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 参数输入面板 */
+        #input-panel {
+            background-color: var(--bg-primary);
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        /* 可拖动分割条 */
+        #resize-handle {
+            height: 4px;
+            background-color: var(--border-color);
+            cursor: ns-resize;
+            position: relative;
+            flex-shrink: 0;
+            transition: background-color 0.2s;
+        }
+
+        #resize-handle:hover {
+            background-color: var(--accent-color);
+        }
+
+        #resize-handle::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: 0;
+            right: 0;
+            height: 12px;
+        }
+
+        /* 结果展示面板 */
+        #result-panel {
+            flex: 1;
+            background-color: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 100px;
+        }
+
+        /* ==================== 工具列表样式 ==================== */
+        .tool-group {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .group-header {
+            padding: 12px 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background-color: var(--bg-tertiary);
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .group-header:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .group-header::after {
+            content: '▼';
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+
+        .group-header.collapsed::after {
+            transform: rotate(-90deg);
+        }
+
+        .tool-list {
+            display: block;
+        }
+
+        .tool-list.collapsed {
+            display: none;
+        }
+
+        .tool-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tool-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .tool-item.active {
+            background-color: var(--active-bg);
+            border-left-color: var(--accent-color);
+        }
+
+        .tool-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .tool-desc {
+            color: var(--text-secondary);
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        /* ==================== 参数表单样式 ==================== */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .panel-header-info {
+            flex: 1;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            margin: 0 0 8px 0;
+            color: var(--text-primary);
+        }
+
+        .panel-subtitle {
+            color: var(--text-secondary);
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+
+        .form-field {
+            margin-bottom: 20px;
+        }
+
+        .form-field label {
+            display: block;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .form-field label .required {
+            color: var(--error-color);
+        }
+
+        .form-field-input-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+
+        .form-field-input-wrapper input,
+        .form-field-input-wrapper textarea {
+            flex: 1;
+        }
+
+        .form-field input[type="text"],
+        .form-field input[type="number"],
+        .form-field textarea,
+        .form-field select {
+            width: 100%;
+            padding: 8px 12px;
+            font-family: var(--font-family, var(--fallback-font));
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        .form-field input[type="text"]:focus,
+        .form-field input[type="number"]:focus,
+        .form-field textarea:focus,
+        .form-field select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .form-field textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: var(--font-family-code, var(--fallback-font-code));
+        }
+
+        .form-field input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .form-field .description {
+            display: block;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        .toggle-multiline-btn {
+            padding: 6px 8px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: calc(var(--font-size, 14px) * 0.79);
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .toggle-multiline-btn:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+        }
+
+        .toggle-multiline-btn.active {
+            background-color: var(--accent-bg);
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            font-weight: 500;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-primary:active {
+            opacity: 0.8;
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-tertiary);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        /* ==================== 结果展示样式 ==================== */
+        .result-header {
+            padding: 12px 20px;
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .result-tabs {
+            display: flex;
+            gap: 4px;
+        }
+
+        .result-tab {
+            padding: 6px 12px;
+            font-weight: 500;
+            background: none;
+            border: none;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .result-tab:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .result-tab.active {
+            background-color: var(--active-bg);
+            color: var(--accent-color);
+        }
+
+        .result-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            padding: 6px;
+            background: none;
+            border: none;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+        }
+
+        .result-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .result-content pre {
+            margin: 0;
+            padding: 16px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: var(--font-family-code, var(--fallback-font-code));
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-success {
+            background-color: var(--success-color);
+            color: #ffffff;
+        }
+
+        .status-error {
+            background-color: var(--error-color);
+            color: #ffffff;
+        }
+
+        .status-info {
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        /* ==================== 滚动条样式 ==================== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-tertiary);
+        }
+
+        /* ==================== 响应式适配 ==================== */
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 240px;
+            }
+
+            #input-panel {
+                padding: 16px;
+            }
+
+            .result-content {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <!-- 侧边栏：工具组/工具列表 -->
+        <aside id="sidebar">
+            <div id="tool-groups-container">
+                <!-- 动态生成工具组 -->
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main id="main">
+            <!-- 参数输入面板 -->
+            <section id="input-panel">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <div>请从左侧选择一个工具</div>
+                </div>
+            </section>
+
+            <!-- 可拖动分割条 -->
+            <div id="resize-handle"></div>
+
+            <!-- 结果展示面板 -->
+            <section id="result-panel">
+                <div class="result-header">
+                    <div class="result-tabs">
+                        <button class="result-tab active" data-view="raw">Raw Data</button>
+                        <button class="result-tab" data-view="formatted">Formatted</button>
+                        <button class="result-tab" data-view="final">Final (LLM)</button>
+                    </div>
+                    <div class="result-actions">
+                        <button class="icon-btn" id="copy-btn" title="复制">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="result-content">
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4M12 8h.01" />
+                        </svg>
+                        <div>执行工具后结果将显示在这里</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // ==================== 全局状态 ====================
+        let toolGroups = [];
+        let currentTool = null;
+        let currentResult = null;
+        let currentView = 'raw';
+
+        // ==================== 初始化 ====================
+        window.addEventListener('pluginSdkReady', async () => {
+            // 设置主题模式
+            const themeMode = window.pluginSdk.themeMode || 'light';
+            document.documentElement.setAttribute('data-theme-mode', themeMode);
+
+            // 加载工具列表
+            toolGroups = await window.pluginSdk.listToolGroups();
+            renderToolGroups(toolGroups);
+
+            // 绑定事件
+            bindEvents();
+            initResizeHandle();
+        });
+
+        // ==================== 渲染工具组 ====================
+        function renderToolGroups(groups) {
+            const container = document.getElementById('tool-groups-container');
+            container.innerHTML = groups.map(group => `
+                <div class="tool-group">
+                    <div class="group-header" data-group="${group.name}">
+                        <span>${group.name}</span>
+                    </div>
+                    <div class="tool-list" data-group="${group.name}">
+                        ${group.tools.map(tool => `
+                            <div class="tool-item" data-tool="${tool.name}">
+                                <div class="tool-name">${tool.name}</div>
+                                <div class="tool-desc">${tool.description || '无描述'}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            // 绑定工具项点击事件
+            document.querySelectorAll('.tool-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const toolName = item.dataset.tool;
+                    selectTool(toolName);
+
+                    // 更新激活状态
+                    document.querySelectorAll('.tool-item').forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                });
+            });
+
+            // 绑定工具组折叠事件
+            document.querySelectorAll('.group-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const groupName = header.dataset.group;
+                    const toolList = document.querySelector(`.tool-list[data-group="${groupName}"]`);
+                    header.classList.toggle('collapsed');
+                    toolList.classList.toggle('collapsed');
+                });
+            });
+        }
+
+        // ==================== 选择工具 ====================
+        async function selectTool(toolName) {
+            const toolDef = await window.pluginSdk.getToolDefinition(toolName);
+            if (!toolDef) {
+                console.error('Tool not found:', toolName);
+                return;
+            }
+
+            currentTool = toolDef;
+            renderInputPanel(toolDef);
+        }
+
+        // ==================== 渲染参数输入面板 ====================
+        function renderInputPanel(toolDef) {
+            const panel = document.getElementById('input-panel');
+            const funcDef = toolDef.function;
+            const params = funcDef.parameters || { properties: {}, required: [] };
+            const properties = params.properties || {};
+            const required = params.required || [];
+
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <div class="panel-header-info">
+                        <h2 class="panel-title">${funcDef.name}</h2>
+                        <p class="panel-subtitle">${funcDef.description || '无描述'}</p>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-primary" id="execute-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"/>
+                            </svg>
+                            执行
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="reset-btn">
+                            重置
+                        </button>
+                    </div>
+                </div>
+                <form id="param-form">
+                    ${Object.entries(properties).map(([name, schema]) =>
+                generateFormField(name, schema, required.includes(name))
+            ).join('')}
+                </form>
+            `;
+
+            // 绑定执行按钮
+            document.getElementById('execute-btn').addEventListener('click', executeTool);
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                document.getElementById('param-form').reset();
+            });
+
+            // 绑定多行文本切换按钮
+            bindMultilineToggles();
+        }
+
+        // ==================== 生成表单字段 ====================
+        function generateFormField(name, schema, isRequired) {
+            const label = `${name}${isRequired ? ' <span class="required">*</span>' : ''}`;
+            const description = schema.description ? `<span class="description">${schema.description}</span>` : '';
+
+            let input = '';
+            const type = schema.type;
+
+            switch (type) {
+                case 'string':
+                    if (schema.enum) {
+                        input = `
+                            <select name="${name}" ${isRequired ? 'required' : ''}>
+                                <option value="">请选择...</option>
+                                ${schema.enum.map(val => `<option value="${val}">${val}</option>`).join('')}
+                            </select>
+                        `;
+                    } else {
+                        // 支持切换单行/多行
+                        input = `
+                            <div class="form-field-input-wrapper">
+                                <input type="text" name="${name}" ${isRequired ? 'required' : ''} placeholder="${schema.description || ''}" data-field="${name}">
+                                <button type="button" class="toggle-multiline-btn" data-target="${name}" title="切换多行输入">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <line x1="3" y1="9" x2="21" y2="9"/>
+                                        <line x1="3" y1="15" x2="21" y2="15"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        `;
+                    }
+                    break;
+                case 'number':
+                case 'integer':
+                    input = `<input type="number" name="${name}" ${isRequired ? 'required' : ''} ${type === 'integer' ? 'step="1"' : ''}>`;
+                    break;
+                case 'boolean':
+                    input = `
+                        <label style="display: inline-flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="${name}">
+                            <span style="font-weight: normal;">${schema.description || name}</span>
+                        </label>
+                    `;
+                    return `<div class="form-field">${input}</div>`;
+                case 'array':
+                    input = `<textarea name="${name}" ${isRequired ? 'required' : ''} placeholder="JSON array, e.g. [1, 2, 3]"></textarea>`;
+                    break;
+                case 'object':
+                    input = `<textarea name="${name}" ${isRequired ? 'required' : ''} placeholder='JSON object, e.g. {"key": "value"}'></textarea>`;
+                    break;
+                default:
+                    input = `<input type="text" name="${name}" ${isRequired ? 'required' : ''}>`;
+            }
+
+            return `
+                <div class="form-field">
+                    <label>${label}</label>
+                    ${input}
+                    ${description}
+                </div>
+            `;
+        }
+
+        // ==================== 绑定多行文本切换 ====================
+        function bindMultilineToggles() {
+            document.querySelectorAll('.toggle-multiline-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetName = btn.dataset.target;
+                    const wrapper = btn.closest('.form-field-input-wrapper');
+                    const currentInput = wrapper.querySelector(`[data-field="${targetName}"]`);
+                    const isTextarea = currentInput.tagName === 'TEXTAREA';
+
+                    if (isTextarea) {
+                        // 切换回 input
+                        const newInput = document.createElement('input');
+                        newInput.type = 'text';
+                        newInput.name = currentInput.name;
+                        newInput.value = currentInput.value;
+                        newInput.required = currentInput.required;
+                        newInput.placeholder = currentInput.placeholder;
+                        newInput.dataset.field = targetName;
+                        currentInput.replaceWith(newInput);
+                        btn.classList.remove('active');
+                    } else {
+                        // 切换到 textarea
+                        const newTextarea = document.createElement('textarea');
+                        newTextarea.name = currentInput.name;
+                        newTextarea.value = currentInput.value;
+                        newTextarea.required = currentInput.required;
+                        newTextarea.placeholder = currentInput.placeholder;
+                        newTextarea.dataset.field = targetName;
+                        newTextarea.style.minHeight = '80px';
+                        currentInput.replaceWith(newTextarea);
+                        btn.classList.add('active');
+                    }
+                });
+            });
+        }
+
+        // ==================== 执行工具 ====================
+        async function executeTool() {
+            const form = document.getElementById('param-form');
+            const formData = new FormData(form);
+            const args = {};
+
+            // 处理表单数据
+            const toolDef = currentTool;
+            const properties = toolDef.function.parameters?.properties || {};
+
+            for (const [name, value] of formData.entries()) {
+                const schema = properties[name];
+                if (!schema) continue;
+
+                // 根据类型处理值
+                if (schema.type === 'boolean') {
+                    args[name] = true; // checkbox 被选中
+                } else if (schema.type === 'number' || schema.type === 'integer') {
+                    args[name] = value === '' ? undefined : Number(value);
+                } else if (schema.type === 'array' || schema.type === 'object') {
+                    try {
+                        args[name] = value ? JSON.parse(value) : undefined;
+                    } catch (e) {
+                        alert(`参数 "${name}" 的 JSON 格式错误: ${e.message}`);
+                        return;
+                    }
+                } else {
+                    args[name] = value || undefined;
+                }
+            }
+
+            // 处理未选中的 checkbox（需要手动添加 false）
+            for (const [name, schema] of Object.entries(properties)) {
+                if (schema.type === 'boolean' && !(name in args)) {
+                    args[name] = false;
+                }
+            }
+
+            // 移除 undefined 值
+            Object.keys(args).forEach(key => {
+                if (args[key] === undefined) delete args[key];
+            });
+
+            // 执行工具
+            try {
+                const btn = document.getElementById('execute-btn');
+                btn.disabled = true;
+                btn.textContent = '执行中...';
+
+                const result = await window.pluginSdk.executeTool(toolDef.function.name, args);
+                currentResult = result;
+                displayResult(result);
+
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>
+                    执行
+                `;
+            } catch (error) {
+                alert('执行失败: ' + error.message);
+                console.error(error);
+            }
+        }
+
+        // ==================== 显示结果 ====================
+        function displayResult(result) {
+            const content = document.querySelector('.result-content');
+
+            let displayText = '';
+            let status = result.status || 'unknown';
+            let statusBadge = '';
+
+            if (status === 'success') {
+                statusBadge = '<span class="status-badge status-success">SUCCESS</span>';
+            } else if (status === 'error') {
+                statusBadge = '<span class="status-badge status-error">ERROR</span>';
+            } else {
+                statusBadge = '<span class="status-badge status-info">' + status.toUpperCase() + '</span>';
+            }
+
+            switch (currentView) {
+                case 'raw':
+                    displayText = JSON.stringify(result.data, null, 2);
+                    break;
+                case 'formatted':
+                    displayText = result.formattedText || JSON.stringify(result.data, null, 2);
+                    break;
+                case 'final':
+                    displayText = result.finalText || result.formattedText || JSON.stringify(result.data, null, 2);
+                    break;
+            }
+
+            content.innerHTML = `
+                <div style="margin-bottom: 12px;">
+                    ${statusBadge}
+                    ${result.isTruncated ? '<span class="status-badge status-info">TRUNCATED</span>' : ''}
+                    ${result.cacheFile ? '<span class="status-badge status-info">CACHED</span>' : ''}
+                    <span class="status-badge status-info">字符数${displayText.length}</span>
+                </div>
+                <pre>${escapeHtml(displayText)}</pre>
+            `;
+        }
+
+        // ==================== 绑定事件 ====================
+        function bindEvents() {
+            // 切换结果视图
+            document.querySelectorAll('.result-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    currentView = tab.dataset.view;
+                    document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    if (currentResult) {
+                        displayResult(currentResult);
+                    }
+                });
+            });
+
+            // 复制按钮
+            document.getElementById('copy-btn').addEventListener('click', () => {
+                const pre = document.querySelector('.result-content pre');
+                if (pre) {
+                    navigator.clipboard.writeText(pre.textContent).then(() => {
+                        alert('已复制到剪贴板');
+                    });
+                }
+            });
+        }
+
+        // ==================== 工具函数 ====================
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== 初始化拖动分割条 ====================
+        function initResizeHandle() {
+            const handle = document.getElementById('resize-handle');
+            const inputPanel = document.getElementById('input-panel');
+            const resultPanel = document.getElementById('result-panel');
+            const main = document.getElementById('main');
+
+            let isResizing = false;
+            let startY = 0;
+            let startHeight = 0;
+
+            handle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startY = e.clientY;
+                // 使用 getBoundingClientRect 获取精确高度，配合 box-sizing: border-box 确保拖动跟手
+                startHeight = inputPanel.getBoundingClientRect().height;
+                document.body.style.cursor = 'ns-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const deltaY = e.clientY - startY;
+                const newHeight = startHeight + deltaY;
+                const mainHeight = main.offsetHeight;
+                const minHeight = 100;
+                const maxHeight = mainHeight - 150; // 至少留 150px 给结果面板
+
+                if (newHeight >= minHeight && newHeight <= maxHeight) {
+                    inputPanel.style.height = newHeight + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+
+            // 双击分割条折叠/展开
+            let lastClickTime = 0;
+            handle.addEventListener('click', (e) => {
+                const now = Date.now();
+                if (now - lastClickTime < 300) {
+                    // 双击
+                    if (inputPanel.style.height && inputPanel.style.height !== 'auto') {
+                        // 已设置高度，折叠到最小
+                        inputPanel._savedHeight = inputPanel.style.height;
+                        inputPanel.style.height = '60px';
+                    } else {
+                        // 恢复
+                        inputPanel.style.height = inputPanel._savedHeight || '50%';
+                    }
+                }
+                lastClickTime = now;
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-21 19:42:26
+ * @LastEditTime : 2025-12-21 21:29:36
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID, matchIDFormat } from "@frostime/siyuan-plugin-kits";
@@ -66,7 +66,7 @@ const buildPresetSdk = () => {
     const styleVar = {
         // 字体相关
         'font-family': getCSSVariable('--b3-font-family'),
-        'font-size': getCSSVariable('--b3-font-size'),
+        'font-size': getCSSVariable('--b3-font-size-editor'),
         'font-family-code': getCSSVariable('--b3-font-family-code'),
         'font-family-emoji': getCSSVariable('--b3-font-family-emoji'),
 
