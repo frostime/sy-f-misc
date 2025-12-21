@@ -503,12 +503,11 @@ export const useAttachmentInputHandler = (options: AttachmentInputOptions) => {
 
         const currentModelId = modelId();
 
-        // 文本检查
-        if (hasText && !checkSupportsModality(currentModelId, 'text', 'input')) {
-            showMessage('当前模型不支持文本输入');
-            e.preventDefault();
-            return;
-        }
+        // if (hasText && !checkSupportsModality(currentModelId, 'text', 'input') && (currentModelId !== 'siyuan')) {
+        //     showMessage('当前模型不支持文本输入');
+        //     e.preventDefault();
+        //     return;
+        // }
 
         // 图片处理
         if (hasImage) {
