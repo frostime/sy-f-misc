@@ -8,13 +8,49 @@
     <style>
         /* ==================== CSS 变量和基础样式 ==================== */
         :root {
-            /* Fallback 字体和颜色 */
-            --fallback-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --fallback-font-code: "Consolas", "Monaco", "Courier New", monospace;
-            --fallback-font-size: 14px;
+            /* 字体大小语义化变量 - 基于注入的 --font-size */
+            --font-size-normal: var(--font-size, 14px);
+            --font-size-large: calc(var(--font-size-normal) * 1.3);
+            --font-size-medium: calc(var(--font-size-normal) * 0.93);
+            --font-size-small: calc(var(--font-size-normal) * 0.86);
+            --font-size-tiny: calc(var(--font-size-normal) * 0.79);
+
+            /* 颜色语义化变量 - 复用注入的主题颜色 */
+            --bg-primary: var(--theme-background, #ffffff);
+            --bg-secondary: var(--theme-surface, #f5f5f7);
+            --bg-tertiary: var(--theme-surface-light, #fafafa);
+
+            --text-primary: var(--theme-on-background, #333333);
+            --text-secondary: var(--theme-on-surface, #666666);
+            --text-tertiary: var(--theme-on-surface-light, #999999);
+
+            --accent-color: var(--theme-primary, #d23f31);
+            --accent-bg: var(--theme-primary-lightest, #ffe8e6);
+
+            --border-color: var(--theme-surface-lighter, #e0e0e0);
+            --hover-bg: var(--theme-surface-light, #f0f0f0);
+            --active-bg: var(--theme-surface-lighter, #e8e8ea);
+
+            /* 功能性颜色（保留自定义，但适配主题） */
+            --success-color: #34a853;
+            --error-color: #ea4335;
+            --warning-color: #fbbc04;
+            --shadow: rgba(0, 0, 0, 0.1);
         }
 
-        /* 全局盒模型重置，解决高度计算偏差问题 */
+        /* 暗色主题适配 */
+        [data-theme-mode="dark"] {
+            --border-color: #3e3e42;
+            --hover-bg: #2a2a2a;
+            --active-bg: #37373d;
+            --accent-bg: #3d2522;
+            --success-color: #4caf50;
+            --error-color: #f44336;
+            --warning-color: #ff9800;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        /* 全局盒模型重置 */
         *,
         *::before,
         *::after {
@@ -24,18 +60,18 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: var(--font-family, var(--fallback-font));
-            font-size: var(--font-size, var(--fallback-font-size));
-            background-color: var(--theme-background, #ffffff);
-            color: var(--theme-on-surface, #333333);
+            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+            font-size: var(--font-size-normal);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             height: 100vh;
             overflow: hidden;
             display: flex;
         }
 
-        /* 基于 font-size 的响应式字体 */
+        /* 字体大小应用 */
         .panel-title {
-            font-size: calc(var(--font-size, 14px) * 1.3);
+            font-size: var(--font-size-large);
         }
 
         .panel-subtitle,
@@ -43,69 +79,22 @@
         .form-field input,
         .form-field textarea,
         .form-field select,
-        .btn {
-            font-size: calc(var(--font-size, 14px) * 0.93);
-        }
-
+        .btn,
         .group-header,
         .tool-name {
-            font-size: calc(var(--font-size, 14px) * 0.93);
+            font-size: var(--font-size-medium);
         }
 
         .tool-desc,
         .form-field .description,
-        .result-tab {
-            font-size: calc(var(--font-size, 14px) * 0.86);
-        }
-
+        .result-tab,
         .result-content pre {
-            font-size: calc(var(--font-size, 14px) * 0.86);
+            font-size: var(--font-size-small);
         }
 
-        .status-badge {
-            font-size: calc(var(--font-size, 14px) * 0.79);
-        }
-
-        /* 亮色主题默认值 */
-        :root {
-            /* --bg-primary: #ffffff; */
-            --bg-primary: var(--theme-background);
-            --bg-secondary: var(--theme-surface);
-            --bg-tertiary: var(--theme-surface-light);
-            /* --text-primary: #333333; */
-            --text-primary: var(--theme-on-background);
-            /* --text-secondary: #666666; */
-            --text-secondary: var(--theme-on-surface);
-            --text-tertiary: var(--theme-on-surface);;
-            --border-color: #e0e0e0;
-            --hover-bg: #f0f0f0;
-            --active-bg: #e8e8ea;
-            /* --accent-color: #d23f31; */
-            --accent-color: var(--theme-primary);
-            --accent-bg: #ffe8e6;
-            --success-color: #34a853;
-            --error-color: #ea4335;
-            --warning-color: #fbbc04;
-            --shadow: rgba(0, 0, 0, 0.1);
-        }
-
-        /* 暗色主题适配 */
-        [data-theme-mode="dark"] {
-            /* --bg-primary: #1e1e1e; */
-            /* --bg-secondary: #252526; */
-            /* --bg-tertiary: #2d2d30; */
-            /* --text-primary: #d4d4d4; */
-            /* --text-secondary: #9d9d9d; */
-            /* --text-tertiary: #6e6e6e; */
-            --border-color: #3e3e42;
-            --hover-bg: #2a2a2a;
-            --active-bg: #37373d;
-            /* --accent-color: #d23f31; */
-            --accent-bg: #3d2522;
-            --success-color: #4caf50;
-            --error-color: #f44336;
-            --warning-color: #ff9800;
-            --shadow: rgba(0, 0, 0, 0.3);
+        .status-badge,
+        .toggle-multiline-btn {
+            font-size: var(--font-size-tiny);
         }
 
         /* ==================== 布局结构 ==================== */
@@ -307,7 +296,7 @@
         .form-field select {
             width: 100%;
             padding: 8px 12px;
-            font-family: var(--font-family, var(--fallback-font));
+            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background-color: var(--bg-primary);
@@ -327,7 +316,7 @@
         .form-field textarea {
             min-height: 80px;
             resize: vertical;
-            font-family: var(--font-family-code, var(--fallback-font-code));
+            font-family: var(--font-family-code, "Consolas", "Monaco", "Courier New", monospace);
         }
 
         .form-field input[type="checkbox"] {
@@ -350,7 +339,7 @@
             border-radius: 4px;
             cursor: pointer;
             color: var(--text-secondary);
-            font-size: calc(var(--font-size, 14px) * 0.79);
+            font-size: var(--font-size-tiny);
             white-space: nowrap;
             transition: all 0.2s;
         }

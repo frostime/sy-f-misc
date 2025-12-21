@@ -11,62 +11,45 @@
             --sidebar-width: 300px;
             --detail-width: 450px;
 
-            /* Fallback 字体 */
-            --fallback-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            --fallback-font-size: 14px;
+            /* 字体大小定义 */
+            --font-size-small: calc(var(--font-size, 14px) * 0.85);
+            --font-size-normal: var(--font-size, 14px);
+            --font-size-large: calc(var(--font-size, 14px) * 1.2);
+            --font-size-xlarge: calc(var(--font-size, 14px) * 1.5);
+            --font-size-huge: calc(var(--font-size, 14px) * 2);
+
+            /* 颜色映射 - 复用注入的配色方案 */
+            --bg-content: var(--theme-background, #ffffff);
+            --bg-panel: var(--theme-surface, #f5f5f7);
+            --text-primary: var(--theme-on-background, #333333);
+            --text-secondary: var(--theme-on-surface-light, #666666);
+            --border-color: var(--theme-surface-lighter, #e0e0e0);
+            --hover-color: var(--theme-surface-light, #f0f0f0);
+            --accent-color: var(--theme-primary, #d23f31);
+            --accent-bg: var(--theme-primary-lightest, #ffe8e6);
+            --error-color: var(--theme-primary, #d23f31);
+            --text-on-accent: var(--theme-on-primary, #ffffff);
+
+            --bg-mask: rgba(0, 0, 0, 0.6);
+            --bg-mask-dark: rgba(0, 0, 0, 0.95);
+            --bg-toast: var(--theme-surface-lighter, rgba(0, 0, 0, 0.8));
+            --shadow-color: rgba(0, 0, 0, 0.1);
+
+            --bg-preview-text: var(--theme-background, #ffffff);
+            --text-preview-text: var(--theme-on-background, #333333);
         }
 
         /* 基础样式 */
         body {
             margin: 0;
             padding: 0;
-            font-family: var(--font-family, var(--fallback-font-family));
-            font-size: var(--font-size, var(--fallback-font-size));
+            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+            font-size: var(--font-size-normal);
             height: 100vh;
             display: flex;
             color: var(--text-primary);
             background-color: var(--bg-content);
             overflow: hidden;
-        }
-
-        /* 亮色主题默认值 (会被注入的变量覆盖，这里作为 fallback) */
-        :root {
-            --bg-content: #ffffff;
-            --bg-panel: #f5f5f7;
-            --text-primary: #333333;
-            --text-secondary: #666666;
-            --border-color: #e0e0e0;
-            --hover-color: #f0f0f0;
-            --accent-color: #d23f31;
-            --accent-bg: #ffe8e6;
-            --error-color: #d23f31;
-            --text-on-accent: #ffffff;
-            --bg-mask: rgba(0, 0, 0, 0.6);
-            --bg-mask-dark: rgba(0, 0, 0, 0.95);
-            --bg-toast: rgba(0, 0, 0, 0.8);
-            --shadow-color: rgba(0, 0, 0, 0.1);
-            --bg-preview-text: #ffffff;
-            --text-preview-text: #333333;
-        }
-
-        /* 暗色主题适配 */
-        :root[data-theme-mode="dark"] {
-            --bg-content: #1e1e1e;
-            --bg-panel: #252526;
-            --text-primary: #d4d4d4;
-            --text-secondary: #969696;
-            --border-color: #3d3d3d;
-            --hover-color: #2a2a2a;
-            --accent-color: #d23f31;
-            --accent-bg: #3d2522;
-            --error-color: #f44336;
-            --text-on-accent: #ffffff;
-            --bg-mask: rgba(0, 0, 0, 0.8);
-            --bg-mask-dark: rgba(0, 0, 0, 0.95);
-            --bg-toast: rgba(0, 0, 0, 0.9);
-            --shadow-color: rgba(0, 0, 0, 0.3);
-            --bg-preview-text: #252526;
-            --text-preview-text: #d4d4d4;
         }
 
         /* 布局 */
@@ -122,7 +105,7 @@
             color: var(--text-primary);
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: var(--font-size-small);
             display: flex;
             align-items: center;
             gap: 4px;
@@ -200,7 +183,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: var(--font-size-xlarge);
             color: var(--text-secondary);
         }
 
@@ -212,7 +195,7 @@
         }
 
         .file-name {
-            font-size: 12px;
+            font-size: var(--font-size-small);
             text-align: center;
             word-break: break-all;
             display: -webkit-box;
@@ -240,7 +223,7 @@
             width: 32px;
             height: 32px;
             margin-bottom: 0;
-            font-size: 16px;
+            font-size: var(--font-size-large);
         }
 
         .file-list .file-name {
@@ -250,7 +233,7 @@
         }
 
         .file-meta {
-            font-size: 12px;
+            font-size: var(--font-size-small);
             color: var(--text-secondary);
             margin-left: 10px;
         }
@@ -266,7 +249,7 @@
 
         .panel-title {
             font-weight: bold;
-            font-size: 16px;
+            font-size: var(--font-size-large);
         }
 
         .close-btn {
@@ -305,7 +288,7 @@
 
         .info-row {
             margin-bottom: 12px;
-            font-size: 13px;
+            font-size: var(--font-size-small);
         }
 
         .info-label {
@@ -337,7 +320,7 @@
         .ref-item {
             padding: 8px;
             border-bottom: 1px solid var(--border-color);
-            font-size: 12px;
+            font-size: var(--font-size-small);
             cursor: pointer;
         }
 
@@ -352,7 +335,7 @@
         .ref-path {
             color: var(--text-secondary);
             margin-top: 2px;
-            font-size: 11px;
+            font-size: calc(var(--font-size-small) * 0.9);
         }
 
         /* Loading & Empty */
@@ -391,7 +374,7 @@
             top: 20px;
             right: 20px;
             color: white;
-            font-size: 32px;
+            font-size: var(--font-size-huge);
             cursor: pointer;
             z-index: 1001;
             padding: 10px;
@@ -424,7 +407,7 @@
             overflow: auto;
             white-space: pre-wrap;
             font-family: var(--font-family-code, monospace);
-            font-size: 14px;
+            font-size: var(--font-size-normal);
         }
 
         /* 工具栏扩展 */
@@ -447,7 +430,7 @@
             border-radius: 4px;
             background: var(--bg-content);
             color: var(--text-primary);
-            font-size: 12px;
+            font-size: var(--font-size-small);
             cursor: pointer;
         }
 
@@ -458,7 +441,7 @@
             justify-content: center;
             gap: 10px;
             padding: 20px;
-            font-size: 12px;
+            font-size: var(--font-size-small);
             flex-wrap: wrap;
         }
 
@@ -483,7 +466,7 @@
             border-radius: 4px;
             background: var(--bg-content);
             color: var(--text-primary);
-            font-size: 12px;
+            font-size: var(--font-size-small);
         }
 
         .pagination .page-num:hover {
@@ -509,7 +492,7 @@
             border-radius: 4px;
             background: var(--bg-content);
             color: var(--text-primary);
-            font-size: 12px;
+            font-size: var(--font-size-small);
             text-align: center;
         }
 
@@ -541,7 +524,7 @@
         }
 
         .replace-dialog-title {
-            font-size: 18px;
+            font-size: var(--font-size-large);
             font-weight: bold;
             margin-bottom: 20px;
             color: var(--text-primary);
@@ -565,19 +548,19 @@
         }
 
         .replace-upload-area .upload-icon {
-            font-size: 48px;
+            font-size: calc(var(--font-size-huge) * 1.5);
             margin-bottom: 10px;
         }
 
         .replace-upload-area .upload-text {
             color: var(--text-secondary);
-            font-size: 14px;
+            font-size: var(--font-size-normal);
             margin-bottom: 5px;
         }
 
         .replace-upload-area .upload-hint {
             color: var(--text-secondary);
-            font-size: 12px;
+            font-size: var(--font-size-small);
         }
 
         .replace-preview {
@@ -597,7 +580,7 @@
         }
 
         .replace-preview-info {
-            font-size: 12px;
+            font-size: var(--font-size-small);
             color: var(--text-secondary);
         }
 
@@ -614,7 +597,7 @@
             color: var(--text-primary);
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: var(--font-size-normal);
         }
 
         .dialog-btn:hover {
@@ -666,7 +649,7 @@
             padding: 8px 16px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: var(--font-size-normal);
             transition: all 0.2s;
         }
 
@@ -678,7 +661,7 @@
         #fullscreen-preview .zoom-info {
             color: white;
             padding: 8px 16px;
-            font-size: 14px;
+            font-size: var(--font-size-normal);
             min-width: 80px;
             text-align: center;
         }
@@ -688,7 +671,7 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            font-size: 12px;
+            font-size: var(--font-size-small);
             color: var(--text-secondary);
         }
 
@@ -719,7 +702,7 @@
             color: white;
             padding: 10px 20px;
             border-radius: 20px;
-            font-size: 14px;
+            font-size: var(--font-size-normal);
             box-shadow: 0 4px 12px var(--shadow-color);
             animation: toast-in-out 3s ease forwards;
             pointer-events: auto;
@@ -1450,12 +1433,12 @@
                 } else if (isText) {
                     previewHtml = `
                         <div class="preview-box" style="cursor: pointer; align-items: flex-start; justify-content: flex-start; padding: 10px;" onclick="app.openFullscreen('${file.name}', 'text')">
-                            <div style="font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; width: 100%;">
+                            <div style="font-size: var(--font-size-small); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; width: 100%;">
                                 点击查看全文
                             </div>
                         </div>`;
                 } else {
-                    previewHtml = `<div class="preview-box" style="font-size:48px">${this.getFileIcon(file.name)}</div>`;
+                    previewHtml = `<div class="preview-box" style="font-size: calc(var(--font-size-huge) * 1.5)">${this.getFileIcon(file.name)}</div>`;
                 }
 
                 // 先显示占位符，然后异步获取文件大小

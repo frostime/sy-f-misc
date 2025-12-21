@@ -317,13 +317,115 @@ const pageSize = config.pageSize || 10;
     ```
 - ⚠️ 注意! 为了同思源官方 CSS 变量区分，透传的 CSS 变量没有 `b3` 前缀，是 `--font-size` 而不是 `--b3-font-size`!
 
-**要求**
+**推荐策略**
 
-- **务必**设计两套主题色，并根据进入时候的 light or dark 选择当前的显示模式
-- **务必**使用注入的 font 字体和字号配置
-- 注入的 `theme-xxx` 颜色，不强求使用；可参考，也可以自行设计更好看优雅的配色方案
+1.  使用 CSS 变量方案设计 UI，避免使用魔法数字。
+2.  字体：务必使用注入的 `font-family` 系列作为首选字体。
+3.  字体大小：基于注入的 `--font-size` 定义 `normal` 字体方案，并据此依次计算并定义 small、big 等语义化 CSS 变量。
+4.  颜色：如用户无特别要求，应以注入的 `background`、`primary`、`surface` 等 CSS 变量为基础，构建界面的颜色系统。
+5.  若用户指定了自定义颜色系统，也建议采用类似的语义化方式构建颜色 CSS 变量体系。
+6.  注意: `themeMode` 指出当前是亮色/暗色，注入的 CSS 颜色变量会自适应调整；但是如果有自行构建的颜色变量，务必设计两套主题色，并根据进入时候的 light or dark 选择当前的显示模式
+    1.  建议在 `html` 顶部设置 `data-theme-mode` 属性，方便编写明暗配色方案
+    2.  初始化的时候可以在 `init` 当中，通过 JS 代码来设定当前的明暗环境
 
+**推荐 CSS 设置的风格样例**
 
+```css
+:root {
+    /* 1️⃣ 字体大小语义化变量 - 基于注入的 --font-size */
+    --font-size-normal: var(--font-size, 14px);
+    --font-size-large: calc(var(--font-size-normal) * 1.3);    /* 标题 */
+    --font-size-medium: calc(var(--font-size-normal) * 0.93);  /* 按钮、标签 */
+    --font-size-small: calc(var(--font-size-normal) * 0.86);   /* 辅助文本 */
+    --font-size-tiny: calc(var(--font-size-normal) * 0.79);    /* 徽章、提示 */
+
+    /* 2️⃣ 颜色语义化变量 - 复用注入的主题颜色 */
+    --bg-primary: var(--theme-background, #ffffff);
+    --bg-secondary: var(--theme-surface, #f5f5f7);
+    --bg-tertiary: var(--theme-surface-light, #fafafa);
+
+    --text-primary: var(--theme-on-background, #333333);
+    --text-secondary: var(--theme-on-surface, #666666);
+    --text-tertiary: var(--theme-on-surface-light, #999999);
+
+    --accent-color: var(--theme-primary, #d23f31);
+    --accent-bg: var(--theme-primary-lightest, #ffe8e6);
+
+    --border-color: var(--theme-surface-lighter, #e0e0e0);
+    --hover-bg: var(--theme-surface-light, #f0f0f0);
+
+    /* 3️⃣ 功能性颜色（需自定义，但根据主题调整） */
+    --success-color: #34a853;
+    --error-color: #ea4335;
+    --warning-color: #fbbc04;
+}
+
+/* 暗色主题覆盖 */
+[data-theme-mode="dark"] {
+    --border-color: #3e3e42;
+    --hover-bg: #2a2a2a;
+    --accent-bg: #3d2522;
+    --success-color: #4caf50;
+    --error-color: #f44336;
+    /* 只覆盖必要的变量 */
+}
+
+/* 具体 CSS 样式; 使用变量 */
+pre, code {
+    font-family: var(--font-family-code, "Consolas", "Monaco", monospace);
+    font-size: var(--font-size-small);
+    background-color: var(--bg-secondary);
+    border-radius: 4px;
+}
+```
+
+**推荐 HTML 构建的的风格样例**
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Title</title>
+    <style>
+        /* CSS 变量定义 */
+        :root { /* 见上方架构 */ }
+
+        /* 全局样式 */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+            font-size: var(--font-size-normal);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <div id="app"><!-- 应用内容 --></div>
+
+    <script>
+        window.addEventListener('pluginSdkReady', async () => {
+            // 1. 设置主题模式
+            const themeMode = window.pluginSdk.themeMode || 'light';
+            document.documentElement.setAttribute('data-theme-mode', themeMode);
+
+            // 2. 加载配置
+            const config = await window.pluginSdk.loadConfig();
+
+            // 3. 初始化应用
+            initApp(config);
+        });
+
+        async function initApp(config) {
+            // 应用初始化逻辑
+        }
+    </script>
+</body>
+</html>
+```
 
 ## 📚 参考资源
 
