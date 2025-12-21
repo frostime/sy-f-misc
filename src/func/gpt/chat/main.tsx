@@ -28,7 +28,7 @@ import MessageItem from './components/MessageItem';
 import AttachmentList from './components/AttachmentList';
 import TitleTagEditor from './components/TitleTagEditor';
 import HistoryList from './components/HistoryList';
-import { DeleteHistoryPanel } from './ChatSession/DeleteHistory';
+import { openIframDialog } from '@/func/html-pages/core';
 import SvgSymbol from '@/libs/components/Elements/IconSymbol';
 import SessionItemsManager from './components/SessionItemsManager';
 import { SessionToolsManager } from './components/SessionToolsManager';
@@ -665,21 +665,35 @@ export const ChatSession: Component<{
                 icon: 'iconHistory',
                 label: `删除历史 (${session.deleteHistory.count()})`,
                 click: () => {
-                    solidDialog({
+                    openIframDialog({
                         title: '删除历史记录',
                         width: '720px',
                         height: '640px',
-                        loader: () => (
-                            <DeleteHistoryPanel
-                                records={session.deleteHistory.records()}
-                                onClearHistory={() => {
-                                    session.deleteHistory.clearRecords();
-                                }}
-                                onRemoveRecord={(recordId: string) => {
-                                    session.deleteHistory.removeRecord(recordId);
-                                }}
-                            />
-                        )
+                        iframeConfig: {
+                            type: 'url',
+                            source: '/plugins/sy-f-misc/pages/delete-history.html',
+                            inject: {
+                                presetSdk: true,
+                                siyuanCss: true,
+                                customSdk: {
+                                    getRecords: async () => {
+                                        return JSON.parse(JSON.stringify(session.deleteHistory.records()));
+                                    },
+                                    removeRecord: async (id: string) => {
+                                        session.deleteHistory.removeRecord(id);
+                                        return JSON.parse(JSON.stringify(session.deleteHistory.records()));
+                                    },
+                                    clearRecords: async () => {
+                                        session.deleteHistory.clearRecords();
+                                        return [];
+                                    },
+                                    copyToClipboard: async (text: string) => {
+                                        await navigator.clipboard.writeText(text);
+                                        showMessage('已复制');
+                                    }
+                                }
+                            }
+                        }
                     });
                 }
             });

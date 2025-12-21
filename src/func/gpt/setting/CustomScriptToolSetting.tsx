@@ -16,7 +16,7 @@ import {
     checkPythonAvailable
 } from '../tools/custom-program-tools';
 import type { ParsedToolModule } from '../tools/custom-program-tools/resolve-tools';
-import { solidDialog } from '@/libs/dialog';
+import { documentDialog, solidDialog } from '@/libs/dialog';
 import Markdown from '@/libs/components/Elements/Markdown';
 import styles from './CustomScriptToolSetting.module.scss';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
@@ -294,27 +294,30 @@ export const CustomScriptToolSetting: Component = () => {
                     </span>
                     <button class="b3-button"
                         onClick={() => {
-                            solidDialog({
-                                title: '关于脚本要求',
-                                loader: () => {
-                                    return (
-                                        <div style={{
-                                            padding: '1em'
-                                        }}>
-                                            <Cols>
-                                                <div style={{ flex: 1 }}>编写符合要求的脚本并放入脚本目录, 点击"解析所有脚本"</div>
-                                                <ButtonInput onClick={() => {
-                                                    navigator.clipboard.writeText(exampleScript);
-                                                    showMessage('已复制到剪贴板', 2000, 'info');
-                                                }}>
-                                                    拷贝这段要求
-                                                </ButtonInput>
-                                            </Cols>
-                                            <Markdown markdown={exampleScript} />
-                                        </div>
-                                    )
-                                }
-                            })
+                            // solidDialog({
+                            //     title: '关于脚本要求',
+                            //     loader: () => {
+                            //         return (
+                            //             <div style={{
+                            //                 padding: '1em'
+                            //             }}>
+                            //                 <Cols>
+                            //                     <div style={{ flex: 1 }}>编写符合要求的脚本并放入脚本目录, 点击"解析所有脚本"</div>
+                            //                     <ButtonInput onClick={() => {
+                            //                         navigator.clipboard.writeText(exampleScript);
+                            //                         showMessage('已复制到剪贴板', 2000, 'info');
+                            //                     }}>
+                            //                         拷贝这段要求
+                            //                     </ButtonInput>
+                            //                 </Cols>
+                            //                 <Markdown markdown={exampleScript} />
+                            //             </div>
+                            //         )
+                            //     }
+                            // })
+                            documentDialog({
+                                markdown: exampleScript,
+                            });
                         }}
                     >
                         关于脚本要求

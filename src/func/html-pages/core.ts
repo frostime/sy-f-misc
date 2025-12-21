@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-21 18:54:15
+ * @LastEditTime : 2025-12-21 19:42:26
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID } from "@frostime/siyuan-plugin-kits";
@@ -81,6 +81,11 @@ const buildPresetSdk = () => {
         'theme-on-surface': getCSSVariable('--b3-theme-on-surface'),
         'theme-on-surface-light': getCSSVariable('--b3-theme-on-surface-light'),
     };
+
+    const bodyFont = getComputedStyle(document.body).fontFamily;
+    if (bodyFont) {
+        styleVar['font-family'] = bodyFont;
+    }
 
     let themeMode = document.body.parentElement.getAttribute('data-theme-mode') as 'light' | 'dark';
     styleVar['theme-mode'] = themeMode;
