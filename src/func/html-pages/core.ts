@@ -6,7 +6,7 @@
  * @LastEditTime : 2025-12-21 19:42:26
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
-import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID } from "@frostime/siyuan-plugin-kits";
+import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID, matchIDFormat } from "@frostime/siyuan-plugin-kits";
 import { request } from "@frostime/siyuan-plugin-kits/api";
 import { sql } from "@/api";
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
@@ -108,6 +108,11 @@ const buildPresetSdk = () => {
             path: string, 
             data: Blob,
         ): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }> => {
+            path = siyuanVfs.resolve(path);
+            const filename = path.split('/').pop();
+            if (path.startsWith('/data') && filename.endsWith('.sy') && matchIDFormat(filename.slice(0, -3))) {
+                return { ok: false, error: 'Save Error' };
+            }
             // 强制使用 blob 类型，避免类型推断问题
             // @ts-ignore
             return siyuanVfs.writeFile(path, data);

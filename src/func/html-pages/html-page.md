@@ -27,7 +27,8 @@ interface PluginSdk {
     saveConfig(newConfig: Record<string, any>): Promise<void>;
 
     // 保存文件到完整路径
-    saveBlob(path: string, data: string | Blob | File | object): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }>
+    // 禁止写入 /data/.../<ID>.sy 文件
+    saveBlob(path: string, data: Blob | File): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }>
 
     // 从完整路径加载文件
     loadBlob(path: string): Promise<{ ok: boolean; data: Blob | null }>

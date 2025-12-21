@@ -3,11 +3,11 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-20 19:16:25
+ * @LastEditTime : 2025-12-21 19:56:13
  * @Description  : HTML Pages 功能模块 - 管理自定义 HTML 页面和 URL
  */
 import FMiscPlugin from "@/index";
-import { inputDialog } from "@frostime/siyuan-plugin-kits";
+import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
 import { IMenu, showMessage } from "siyuan";
 import { documentDialog, selectIconDialog, simpleFormDialog } from "@/libs/dialog";
@@ -46,16 +46,20 @@ const joinPath = (...parts: string[]) => {
 
 // ============ 配置管理 ============
 
+let _configSnapshot: IPageConfig[] | null = [];
+
 const loadConfig = async (): Promise<IPageConfig[]> => {
     const configPath = joinPath(CONFIG_FILE);
     const result = await siyuanVfs.readFile(configPath);
     if (!result.ok) return [];
-    return result.data as IPageConfig[];
+    _configSnapshot = result.data as IPageConfig[];
+    return _configSnapshot;
 };
 
 const saveConfig = async (config: IPageConfig[]) => {
     const configPath = joinPath(CONFIG_FILE);
     siyuanVfs.writeFile(configPath, config);
+    _configSnapshot = config;
 };
 
 // ============ 页面操作 ============
@@ -118,37 +122,41 @@ const openPage = (config: IPageConfig) => {
 };
 
 const registerMenus = async () => {
-    const configs = await loadConfig();
-    if (configs.length === 0) return;
+    await loadConfig();
+    // if (configs.length === 0) return;
 
-    const menus: IMenu[] = configs.map(config => {
-        const hasIcon = config.icon && config.icon.trim() !== '';
-        // const isEmoji = hasIcon && !config.icon.startsWith('icon');
-        const icon = (hasIcon && config.icon.startsWith('icon')) ? config.icon : (config.type === 'html' ? 'iconFiles' : 'iconLink');
+    const loadMenus = () => {
+        return _configSnapshot?.map(config => {
+            const hasIcon = config.icon && config.icon.trim() !== '';
+            // const isEmoji = hasIcon && !config.icon.startsWith('icon');
+            const icon = (hasIcon && config.icon.startsWith('icon')) ? config.icon : (config.type === 'html' ? 'iconFiles' : 'iconLink');
 
-        let label = config.title || config.source;
-        // label = `${config.icon} ${label}`;
+            let label = config.title || config.source;
+            // label = `${config.icon} ${label}`;
 
-        // if (isEmoji) {
-        //     label = `${config.icon} ${label}`;
-        // } else if (!hasIcon) {
-        //     // label = `${config.type === 'html' ? '📄' : '🌐'} ${label}`;
-        //     label = `${config.type === 'html' ? '📄' : '🌐'} ${label}`;
-        // }
+            // if (isEmoji) {
+            //     label = `${config.icon} ${label}`;
+            // } else if (!hasIcon) {
+            //     // label = `${config.type === 'html' ? '📄' : '🌐'} ${label}`;
+            //     label = `${config.type === 'html' ? '📄' : '🌐'} ${label}`;
+            // }
 
-        return {
-            label,
-            icon,
-            click: () => openPage(config)
-        };
-    });
+            return {
+                label,
+                icon,
+                click: () => openPage(config)
+            };
+        });
+    }
 
     setTimeout(() => {
-        plugin.registerMenuTopMenu('HTML Pages', [{
-            label: '自定义页面',
-            icon: 'iconLanguage',
-            submenu: menus
-        }]);
+        plugin.registerMenuTopMenu('HTML Pages', () => {
+            return [{
+                label: '自定义页面',
+                icon: 'iconLanguage',
+                submenu: loadMenus() ?? []
+            }];
+        });
     }, 500);
 };
 
@@ -165,7 +173,7 @@ const editFile = async (config: IPageConfig) => {
     // let text = await blob.text();
     // text = window.Lute.EscapeHTMLStr(text);
 
-    const { ok, data} = await siyuanVfs.readFile(filePath, 'text');
+    const { ok, data } = await siyuanVfs.readFile(filePath, 'text');
     if (!ok) {
         showMessage('加载文件失败');
         return;
@@ -340,9 +348,15 @@ const createConfigPanel = (): ExternalElementWithDispose => {
     };
 
     const handleDelete = async (id: string) => {
-        configs = configs.filter(c => c.id !== id);
-        await saveConfig(configs);
-        await render();
+        confirmDialog({
+            title: '确认删除？',
+            content: `是否删除配置 ${id} ？此操作不可撤销。`,
+            confirm: async () => {
+                configs = configs.filter(c => c.id !== id);
+                await saveConfig(configs);
+                await render();
+            }
+        })
     };
 
     const handleEdit = async (id: string) => {
@@ -486,7 +500,7 @@ const initializeDefaults = async () => {
         // if (response && response.code !== 404) {
         //     const content = await response.text();
         //     const demoBlob = new Blob([content], { type: 'text/html' });
-            // await putFile(destPath, false, demoBlob);
+        // await putFile(destPath, false, demoBlob);
         // }
         const sourcePath = `/data/plugins/sy-f-misc/pages/${fname}`;
         const destPath = joinPath(fname);

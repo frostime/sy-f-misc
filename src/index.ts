@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-05-15 11:32:52
+ * @LastEditTime : 2025-12-21 19:51:25
  * @Description  : 
  */
 import {
@@ -186,9 +186,9 @@ export default class FMiscPlugin extends Plugin {
         this.saveData(StorageNameConfigs + '.json', dataToSave);
     }
 
-    public customMenuItems: Record<string, IMenu[]> = {};
+    public customMenuItems: Record<string, IMenu[] | (() => IMenu[])> = {};
 
-    public registerMenuTopMenu(key: string, menu: IMenu[]) {
+    public registerMenuTopMenu(key: string, menu: IMenu[] | (() => IMenu[])) {
         this.customMenuItems[key] = menu;
     }
 
@@ -239,7 +239,8 @@ export default class FMiscPlugin extends Plugin {
             }
 
             for (let key in this.customMenuItems) {
-                let menuItems = this.customMenuItems[key];
+                let registerd = this.customMenuItems[key];
+                const menuItems: IMenu[] = typeof registerd === 'function' ? registerd() : registerd;
                 for (let item of menuItems) {
                     menu.addItem(item);
                 }
