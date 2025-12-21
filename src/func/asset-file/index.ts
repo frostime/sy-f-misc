@@ -425,7 +425,7 @@ export const load = (plugin: FMiscPlugin) => {
         }
     }]);
 
-    const dispose = thisPlugin().registerEventbusHandler('open-menu-link', (detail) => {
+    const dispose1 = thisPlugin().registerEventbusHandler('open-menu-link', (detail) => {
         let menu = detail.menu;
         // let protyle = detail.protyle;
         const hrefSpan = detail.element;
@@ -450,8 +450,46 @@ export const load = (plugin: FMiscPlugin) => {
             }
         });
 
+    });
+
+    const dispose2 = thisPlugin().registerEventbusHandler('open-menu-image', (detail) => {
+        const element: HTMLSpanElement = detail.element;
+        const img = element.querySelector('img');
+        let src = img?.getAttribute('src');
+        if (!src) {
+            return;
+        }
+        const filename = src.split('/').pop() || '';
+        const menu = detail.menu;
+        menu.addItem({
+            label: '本地图片路径',
+            icon: 'iconCopy',
+            click: () => {
+                // .replace('/', '\\');
+                const fileEndpoint = src;
+                const dataDir = window.siyuan.config.system.dataDir;
+                const path = dataDir + '/' + fileEndpoint;
+                navigator.clipboard.writeText(path).then(() => {
+                    showMessage(`复制到剪贴板: ${path}`);
+                });
+            }
+        });
+        menu.addItem({
+            label: '在管理面板中打开',
+            icon: 'iconImage',
+            click: () => {
+                setTimeout(() => {
+                    const dashboard = openAssetDashboard();
+                    setTimeout(() => {
+                        dashboard.dispatchEvent('search-given-asset-file', { filename: filename });
+                    }, 500);
+                });
+            }
+        });
     })
-    disposers.push(dispose);
+
+    disposers.push(dispose1);
+    disposers.push(dispose2);
     enabled = true;
 
     // 斜杠命令

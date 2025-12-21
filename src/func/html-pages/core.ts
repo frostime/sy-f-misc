@@ -74,7 +74,11 @@ const buildPresetSdk = () => {
         'theme-primary': getCSSVariable('--b3-theme-primary'),
         'theme-primary-light': getCSSVariable('--b3-theme-primary-light'),
         'theme-primary-lightest': getCSSVariable('--b3-theme-primary-lightest'),
+        'theme-on-primary': getCSSVariable('--b3-theme-on-primary'),
+
         'theme-background': getCSSVariable('--b3-theme-background'),
+        'theme-on-background': getCSSVariable('--b3-theme-on-background'),
+
         'theme-surface': getCSSVariable('--b3-theme-surface'),
         'theme-surface-light': getCSSVariable('--b3-theme-surface-light'),
         'theme-surface-lighter': getCSSVariable('--b3-theme-surface-lighter'),

@@ -147,11 +147,15 @@ interface PluginSdk {
         'theme-mode': 'light' | 'dark';
 
         // 主题颜色
-        // 参考即可
+        // 参考使用
         'theme-primary': string;
         'theme-primary-light': string;
         'theme-primary-lightest': string;
+        'theme-on-primary': string;
+
         'theme-background': string;
+        'theme-on-background': string;
+
         'theme-surface': string;
         'theme-surface-light': string;
         'theme-surface-lighter': string;

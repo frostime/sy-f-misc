@@ -96,29 +96,29 @@ export default class FMiscPlugin extends Plugin {
     private initDefaultFunctions() {
         this.initTopBar();
 
-        this.eventBus.on('open-menu-image', ({ detail }) => {
-            // console.debug('open-menu-image', detail);
-            const element: HTMLSpanElement = detail.element;
-            const img = element.querySelector('img');
-            let src = img?.getAttribute('src');
-            if (!src) {
-                return;
-            }
-            src = src.replace('/', '\\');
-            const menu = detail.menu;
-            menu.addItem({
-                label: '复制图片地址',
-                icon: 'iconCopy',
-                click: () => {
-                    const dataDir = window.siyuan.config.system.dataDir;
-                    const path = dataDir + '\\' + src;
-                    navigator.clipboard.writeText(path).then(() => {
-                        showMessage(`复制到剪贴板: ${path}`);
-                    });
-                }
-            });
+        // this.eventBus.on('open-menu-image', ({ detail }) => {
+        //     // console.debug('open-menu-image', detail);
+        //     const element: HTMLSpanElement = detail.element;
+        //     const img = element.querySelector('img');
+        //     let src = img?.getAttribute('src');
+        //     if (!src) {
+        //         return;
+        //     }
+        //     src = src.replace('/', '\\');
+        //     const menu = detail.menu;
+        //     menu.addItem({
+        //         label: '复制图片地址',
+        //         icon: 'iconCopy',
+        //         click: () => {
+        //             const dataDir = window.siyuan.config.system.dataDir;
+        //             const path = dataDir + '\\' + src;
+        //             navigator.clipboard.writeText(path).then(() => {
+        //                 showMessage(`复制到剪贴板: ${path}`);
+        //             });
+        //         }
+        //     });
 
-        });
+        // });
     }
 
     /**
