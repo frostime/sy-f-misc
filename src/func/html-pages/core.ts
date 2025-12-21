@@ -3,13 +3,14 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-21 21:29:36
+ * @LastEditTime : 2025-12-22 00:57:32
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
-import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID, matchIDFormat } from "@frostime/siyuan-plugin-kits";
+import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID, matchIDFormat, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { request } from "@frostime/siyuan-plugin-kits/api";
 import { sql } from "@/api";
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
+import { showMessage } from "siyuan";
 
 // ============ 类型定义 ============
 
@@ -109,7 +110,7 @@ const buildPresetSdk = () => {
          * @param data Blob 对象
          */
         saveBlob: async (
-            path: string, 
+            path: string,
             data: Blob,
         ): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }> => {
             path = siyuanVfs.resolve(path);
@@ -174,6 +175,49 @@ const buildPresetSdk = () => {
 
         argApp: () => thisPlugin().app.appId,
         lute: getLute(),
+
+        showMessage: (message: string, type: 'info' | 'error' = 'info', duration = 3000) => {
+            showMessage(message, duration, type);
+        },
+        showDialog: (options: {
+            title: string;
+            ele: HTMLElement | DocumentFragment;
+            width?: string;
+            height?: string;
+            afterClose?: () => void;
+        }): { close: () => void; container: HTMLElement } => {
+            const dialog = simpleDialog({
+                ...options,
+                maxHeight: '85vh',
+                maxWidth: '90vw',
+                callback: options.afterClose
+            });
+            return {
+                close: dialog.close.bind(dialog),
+                container: dialog.container
+            }
+        },
+        inputDialog: (options: {
+            title: string;
+            defaultText?: string;
+            confirm?: (text: string) => void;
+            cancel?: (text: string) => void;
+            destroyCallback?: (text: string) => void;
+            type?: 'textline' | 'textarea';
+            width?: string;
+            height?: string;
+            fontSize?: string;
+        }) => {
+            const dialog = inputDialog({
+                ...options,
+                maxHeight: '70vh',
+                maxWidth: '80vw',
+            });
+            return {
+                close: dialog.close.bind(dialog),
+                container: dialog.container
+            }
+        },
 
         themeMode: themeMode,
         styleVar: styleVar,

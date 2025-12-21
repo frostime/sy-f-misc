@@ -126,6 +126,38 @@ interface PluginSdk {
      */
     argApp: () => string,
 
+    showMessage: (message: string, type: 'info' | 'error' = 'info', duration = 3000) => void;
+
+    /**
+     * 显示一个简单的对话框
+     * @param options 对话框配置
+     * @returns 包含关闭方法和容器元素的引用
+     */
+    showDialog(options: {
+        title: string;
+        ele: HTMLElement | DocumentFragment;
+        width?: string;
+        height?: string;
+        afterClose?: () => void;
+    }): { close: () => void; container: HTMLElement };
+
+    /**
+     * 显示一个输入对话框
+     * @param options 输入对话框配置
+     * @returns 包含关闭方法和容器元素的引用
+     */
+    inputDialog(options: {
+        title: string;
+        defaultText?: string;
+        confirm?: (text: string) => void;
+        cancel?: (text: string) => void;
+        destroyCallback?: (text: string) => void;
+        type?: 'textline' | 'textarea';
+        width?: string;
+        height?: string;
+        fontSize?: string;
+    }): { close: () => void; container: HTMLElement };
+
     /**
      * 当前主题模式
      */
@@ -330,6 +362,8 @@ const pageSize = config.pageSize || 10;
 
 **推荐 CSS 设置的风格样例**
 
+参考风格，不强制；根据需求调整，不死板遵循。
+
 ```css
 :root {
     /* 1️⃣ 字体大小语义化变量 - 基于注入的 --font-size */
@@ -337,16 +371,11 @@ const pageSize = config.pageSize || 10;
     --font-size-large: calc(var(--font-size-normal) * 1.3);    /* 标题 */
     --font-size-medium: calc(var(--font-size-normal) * 0.93);  /* 按钮、标签 */
     --font-size-small: calc(var(--font-size-normal) * 0.86);   /* 辅助文本 */
-    --font-size-tiny: calc(var(--font-size-normal) * 0.79);    /* 徽章、提示 */
 
     /* 2️⃣ 颜色语义化变量 - 复用注入的主题颜色 */
     --bg-primary: var(--theme-background, #ffffff);
-    --bg-secondary: var(--theme-surface, #f5f5f7);
-    --bg-tertiary: var(--theme-surface-light, #fafafa);
 
     --text-primary: var(--theme-on-background, #333333);
-    --text-secondary: var(--theme-on-surface, #666666);
-    --text-tertiary: var(--theme-on-surface-light, #999999);
 
     --accent-color: var(--theme-primary, #d23f31);
     --accent-bg: var(--theme-primary-lightest, #ffe8e6);
@@ -358,13 +387,13 @@ const pageSize = config.pageSize || 10;
     --success-color: #34a853;
     --error-color: #ea4335;
     --warning-color: #fbbc04;
+    --button-bg: var(--theme-primary);
+
+    /* 其他类似 */
 }
 
 /* 暗色主题覆盖 */
 [data-theme-mode="dark"] {
-    --border-color: #3e3e42;
-    --hover-bg: #2a2a2a;
-    --accent-bg: #3d2522;
     --success-color: #4caf50;
     --error-color: #f44336;
     /* 只覆盖必要的变量 */
@@ -394,13 +423,9 @@ pre, code {
 
         /* 全局样式 */
         body {
-            margin: 0;
-            padding: 0;
-            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
-            font-size: var(--font-size-normal);
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
+
         }
+        /* 其他样式 */
     </style>
 </head>
 <body>
@@ -514,6 +539,20 @@ loadBlob(`/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy`);
 
 ## 📝 鲁棒性建议
 
+### 能力限制
+
+本方案开发的单页面应用，无法做到思源原生插件那样强大，适合：
+
+- 利用有限内核 API 即可实现的功能
+- 需要 HTML 页面作为外部用户交互的封装
+
+不适合：
+
+- 涉及到思源编辑器交互，例如 `/` 命令等、自定义思源 Protyle 编辑等
+- 涉及到思源事件监听
+- 涉及到思源本体的 DOM 环境
+
+若用户要求明显超出本应用框架的能力，应当予以辨明并拒绝任务，避免陷入错误循环。
 
 ### 外部依赖问题
 
@@ -540,7 +579,6 @@ loadBlob(`/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy`);
 2. **承认当前的不足**：明确说明哪些信息缺失
 3. **给出最佳理解与设计**：基于现有信息提供合理方案
 4. **向用户提出清晰的问题**：列出需要确认的具体信息，以便消除不确定性
-
 
 
 ---

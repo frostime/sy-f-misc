@@ -11,12 +11,12 @@
 
         :root {
             /* 布局尺寸 */
-            --sidebar-width: 320px;
+            --sidebar-width: 360px;
 
             /* 字体大小语义化变量 - 基于注入的 --font-size */
-            --font-size-normal: var(--font-size, 14px);
-            --font-size-small: calc(var(--font-size-normal) * 0.86);
-            --font-size-large: calc(var(--font-size-normal) * 1.3);
+            --font-size-normal: calc(max(var(--font-size, 14px), 18px));
+            --font-size-small: calc(var(--font-size-normal) * 0.85);
+            --font-size-large: calc(var(--font-size-normal) * 1.15);
 
             /* 颜色语义化变量 - 复用注入的主题颜色 */
             --bg-sidebar: var(--theme-surface, #f5f5f7);
@@ -67,6 +67,23 @@
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
+        }
+
+        /* 拖拽条 */
+        #resize-handle {
+            width: 4px;
+            background-color: transparent;
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background-color 0.2s;
+            margin-left: -2px;
+            /* Overlap border */
+            z-index: 10;
+        }
+
+        #resize-handle:hover,
+        #resize-handle.active {
+            background-color: var(--accent-color);
         }
 
         #toolbar {
@@ -175,6 +192,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            position: relative;
         }
 
         #content-header {
@@ -185,12 +203,176 @@
             display: flex;
             align-items: center;
             flex-shrink: 0;
+            padding-right: 60px;
+            /* Space for menu */
         }
 
         #content-body {
             flex: 1;
             overflow-y: auto;
             padding: 30px;
+        }
+
+        /* 悬浮菜单 */
+        #floating-menu {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .menu-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .menu-btn:hover {
+            background-color: var(--hover-color);
+            color: var(--text-primary);
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 36px;
+            right: 0;
+            background: var(--bg-content);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: none;
+            min-width: 140px;
+            flex-direction: column;
+            padding: 4px 0;
+        }
+
+        .menu-dropdown.show {
+            display: flex;
+        }
+
+        .menu-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            text-align: left;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: var(--font-size-small);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .menu-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .menu-item:disabled {
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* 编辑弹窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-content);
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 800px;
+            height: 80%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            font-size: var(--font-size-large);
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            flex: 1;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .modal-body textarea {
+            width: 100%;
+            height: 100%;
+            resize: none;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-sidebar);
+            color: var(--text-primary);
+            font-family: var(--font-family-code, "Consolas", "Monaco", monospace);
+            font-size: var(--font-size-normal);
+            outline: none;
+        }
+
+        .modal-body textarea:focus {
+            border-color: var(--accent-color);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 6px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: var(--bg-content);
+            color: var(--text-primary);
+            font-size: var(--font-size-normal);
+        }
+
+        .btn:hover {
+            background-color: var(--hover-color);
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            background: var(--accent-color);
         }
 
         /* 简单的 Markdown/代码 预览样式 */
@@ -221,6 +403,89 @@
             font-size: var(--font-size-small);
             padding-left: 24px;
         }
+
+        /* Toast 提示框 */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--bg-content);
+            color: var(--text-primary);
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border-left: 4px solid var(--accent-color);
+            min-width: 200px;
+            max-width: 400px;
+            font-size: var(--font-size-normal);
+            animation: slideIn 0.3s ease-out;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.success {
+            border-left-color: var(--success-color, #34a853);
+        }
+
+        .toast.error {
+            border-left-color: var(--error-color);
+        }
+
+        .toast.warning {
+            border-left-color: #fbbc04;
+        }
+
+        .toast.info {
+            border-left-color: var(--accent-color);
+        }
+
+        .toast-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .toast-message {
+            flex: 1;
+            word-wrap: break-word;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .toast.hiding {
+            animation: slideOut 0.3s ease-out forwards;
+        }
     </style>
 </head>
 
@@ -234,12 +499,61 @@
         <div id="tree-root"></div>
     </div>
 
+    <div id="resize-handle"></div>
+
     <div id="content-view">
+        <div id="floating-menu">
+            <button class="menu-btn" id="menu-toggle" title="菜单">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="19" cy="12" r="1"></circle>
+                    <circle cx="5" cy="12" r="1"></circle>
+                </svg>
+            </button>
+            <div class="menu-dropdown" id="menu-dropdown">
+                <button class="menu-item" id="btn-download">
+                    <span>📥</span> 下载文件
+                </button>
+                <button class="menu-item" id="btn-copy-text">
+                    <span>📄</span> 复制文本
+                </button>
+                <button class="menu-item" id="btn-copy-image">
+                    <span>🖼️</span> 复制图片
+                </button>
+                <div style="height: 1px; background: var(--border-color); margin: 4px 0;"></div>
+                <button class="menu-item" id="btn-edit">
+                    <span>✏️</span> 编辑文件
+                </button>
+            </div>
+        </div>
+
         <div id="content-header" id="doc-title">未选择文件</div>
         <div id="content-body">
             <div class="empty-state">等待 SDK 初始化...</div>
         </div>
     </div>
+
+    <!-- 编辑弹窗 -->
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="modal-title">编辑文件</span>
+                <button class="btn" id="btn-close-modal"
+                    style="border:none; background:none; font-size:20px; padding:0;">×</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="edit-textarea" spellcheck="false"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="btn-cancel-edit">取消</button>
+                <button class="btn btn-primary" id="btn-save-edit">覆盖</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 容器 -->
+    <div id="toast-container"></div>
 
     <script>
         /* ==================== 工具函数 ==================== */
@@ -271,6 +585,40 @@
         function applyTheme(mode) {
             document.documentElement.setAttribute('data-theme-mode', mode);
             console.log(`主题已切换至: ${mode}`);
+        }
+
+        /**
+         * 显示 Toast 提示
+         * @param {string} message - 提示消息
+         * @param {string} type - 类型：'success', 'error', 'warning', 'info'
+         * @param {number} duration - 显示时长（毫秒），默认 3000
+         */
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icons = {
+                success: '✓',
+                error: '✕',
+                warning: '⚠',
+                info: 'ℹ'
+            };
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // 自动移除
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                setTimeout(() => {
+                    container.removeChild(toast);
+                }, 300);
+            }, duration);
         }
 
         /* ==================== SiYuan 客户端封装 ==================== */
@@ -418,6 +766,35 @@
                     console.error('保存配置失败:', e);
                 }
             }
+
+            /**
+             * 保存文件内容
+             * @param {string} path - 文件路径
+             * @param {string|Blob} content - 文件内容
+             */
+            async save(path, content) {
+                try {
+                    let blob;
+                    if (typeof content === 'string') {
+                        blob = new Blob([content], { type: 'text/plain' });
+                    } else {
+                        blob = content;
+                    }
+
+                    // 使用 saveBlob 更新文件
+                    // 注意：这里假设 pluginSdk 提供了 saveBlob 方法，或者我们需要通过 request 上传
+                    // 根据用户指示 "使用 saveBlob 更新相应的文件"
+                    if (window.pluginSdk.saveBlob) {
+                        await window.pluginSdk.saveBlob(path, blob);
+                    } else {
+                        throw new Error('无法保存文件：saveBlob 方法不可用');
+                    }
+                    return true;
+                } catch (e) {
+                    console.error('保存文件失败:', e);
+                    throw e;
+                }
+            }
         }
 
         /* ==================== 应用状态和 DOM 引用 ==================== */
@@ -428,7 +805,24 @@
             contentHeader: document.getElementById('content-header'),
             contentBody: document.getElementById('content-body'),
             rootInput: document.getElementById('root-path-input'),
-            refreshBtn: document.getElementById('refresh-btn')
+            refreshBtn: document.getElementById('refresh-btn'),
+            // Menu
+            menuToggle: document.getElementById('menu-toggle'),
+            menuDropdown: document.getElementById('menu-dropdown'),
+            btnDownload: document.getElementById('btn-download'),
+            btnCopyText: document.getElementById('btn-copy-text'),
+            btnCopyImage: document.getElementById('btn-copy-image'),
+            btnEdit: document.getElementById('btn-edit'),
+            // Modal
+            editModal: document.getElementById('edit-modal'),
+            modalTitle: document.getElementById('modal-title'),
+            editTextarea: document.getElementById('edit-textarea'),
+            btnCancelEdit: document.getElementById('btn-cancel-edit'),
+            btnSaveEdit: document.getElementById('btn-save-edit'),
+            btnCloseModal: document.getElementById('btn-close-modal'),
+            // Resize
+            resizeHandle: document.getElementById('resize-handle'),
+            app: document.body
         };
         let appState = { rootPath: '/data', lastOpenFile: null };
 
@@ -467,7 +861,7 @@
                 dom.refreshBtn.onclick = async () => {
                     const newRoot = dom.rootInput.value.trim();
                     if (!newRoot) {
-                        alert('路径不能为空');
+                        showToast('路径不能为空', 'warning');
                         return;
                     }
                     appState.rootPath = newRoot;
@@ -483,10 +877,307 @@
                     }
                 });
 
+                // 初始化新功能
+                initResizeHandle();
+                initMenu();
+                initEditModal();
+
                 console.log('✓ 应用初始化完成');
             } catch (e) {
                 console.error('初始化失败:', e);
                 dom.contentBody.innerHTML = `<div class="empty-state" style="color: var(--error-color);">初始化失败: ${e.message}</div>`;
+            }
+        }
+
+        /* ==================== 新功能实现 ==================== */
+
+        // 1. 侧边栏拖拽调整宽度
+        function initResizeHandle() {
+            let isResizing = false;
+
+            dom.resizeHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                dom.resizeHandle.classList.add('active');
+                document.body.style.cursor = 'col-resize';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                // 限制最小宽度 200px，最大宽度 600px
+                let newWidth = e.clientX;
+                if (newWidth < 200) newWidth = 200;
+                if (newWidth > 600) newWidth = 600;
+
+                document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`);
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    dom.resizeHandle.classList.remove('active');
+                    document.body.style.cursor = '';
+                }
+            });
+        }
+
+        // 2. 悬浮菜单逻辑
+        function initMenu() {
+            // 切换菜单显示
+            dom.menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dom.menuDropdown.classList.toggle('show');
+                updateMenuState();
+            });
+
+            // 点击外部关闭菜单
+            document.addEventListener('click', () => {
+                dom.menuDropdown.classList.remove('show');
+            });
+
+            // 阻止菜单内部点击关闭
+            dom.menuDropdown.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            // 绑定功能按钮
+            dom.btnDownload.addEventListener('click', handleDownload);
+            dom.btnCopyText.addEventListener('click', handleCopyText);
+            dom.btnCopyImage.addEventListener('click', handleCopyImage);
+            dom.btnEdit.addEventListener('click', handleEdit);
+        }
+
+        function updateMenuState() {
+            const path = appState.lastOpenFile;
+            if (!path) {
+                disableAllMenu();
+                return;
+            }
+
+            const isImage = /\.(png|jpg|jpeg|gif|bmp|svg|webp)$/i.test(path);
+            const isEditableText = isEditableFile(path);
+
+            // 只有明确的文本文件允许编辑
+            dom.btnEdit.disabled = !isEditableText;
+
+            // 图片只能复制图片，不能复制文本
+            dom.btnCopyText.disabled = isImage;
+            dom.btnCopyImage.disabled = !isImage;
+
+            // 下载总是可用
+            dom.btnDownload.disabled = false;
+        }
+
+        function disableAllMenu() {
+            dom.btnDownload.disabled = true;
+            dom.btnCopyText.disabled = true;
+            dom.btnCopyImage.disabled = true;
+            dom.btnEdit.disabled = true;
+        }
+
+        async function handleDownload() {
+            const path = appState.lastOpenFile;
+            if (!path) return;
+
+            try {
+                // 直接获取原始文件 Blob 进行下载，确保下载的是源文件（特别是 .sy 文件）
+                const res = await window.pluginSdk.loadBlob(path);
+                if (!res.ok) throw new Error('读取文件失败');
+
+                const blob = res.data;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = path.split('/').pop();
+                a.click();
+                URL.revokeObjectURL(url);
+
+                showToast('文件已下载', 'success');
+                dom.menuDropdown.classList.remove('show');
+            } catch (e) {
+                showToast('下载失败: ' + e.message, 'error');
+            }
+        }
+
+        async function handleCopyText() {
+            const path = appState.lastOpenFile;
+            if (!path) return;
+
+            try {
+                const res = await client.get(path);
+                if (res.isHTML) {
+                    showToast('当前文件不是纯文本，无法复制文本', 'warning');
+                    return;
+                }
+                await navigator.clipboard.writeText(res.content);
+                showToast('已复制到剪贴板', 'success');
+                dom.menuDropdown.classList.remove('show');
+            } catch (e) {
+                showToast('复制失败: ' + e.message, 'error');
+            }
+        }
+
+        async function handleCopyImage() {
+            const path = appState.lastOpenFile;
+            if (!path) return;
+
+            try {
+                const blobRes = await window.pluginSdk.loadBlob(path);
+                if (!blobRes.ok) throw new Error('加载图片失败');
+
+                const blob = blobRes.data;
+                if (!blob.type.startsWith('image/')) {
+                    showToast('当前文件不是图片', 'error');
+                    return;
+                }
+
+                // 将图片转换为 PNG 格式（Clipboard API 通常只支持 PNG）
+                const img = new Image();
+                const objectURL = URL.createObjectURL(blob);
+
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = objectURL;
+                });
+
+                // 使用 Canvas 转换为 PNG
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                URL.revokeObjectURL(objectURL);
+
+                // 转换为 PNG Blob
+                const pngBlob = await new Promise(resolve => {
+                    canvas.toBlob(resolve, 'image/png');
+                });
+
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        'image/png': pngBlob
+                    })
+                ]);
+
+                showToast('图片已复制到剪贴板', 'success');
+                // window.pluginSdk.showMessage('图片已复制到剪贴板', 'info');
+                dom.menuDropdown.classList.remove('show');
+            } catch (e) {
+                console.error('复制图片失败:', e);
+                showToast('复制图片失败: ' + e.message, 'error');
+                // window.pluginSdk.showMessage('复制图片失败: ' + e.message, 'error');
+            }
+        }
+
+        // 3. 编辑功能实现
+        function initEditModal() {
+            const closeModal = () => {
+                dom.editModal.classList.remove('show');
+            };
+
+            dom.btnCancelEdit.addEventListener('click', closeModal);
+            dom.btnCloseModal.addEventListener('click', closeModal);
+
+            dom.btnSaveEdit.addEventListener('click', async () => {
+                const path = appState.lastOpenFile;
+                const content = dom.editTextarea.value;
+
+                // JSON 检查
+                if (path.endsWith('.json')) {
+                    try {
+                        JSON.parse(content);
+                    } catch (e) {
+                        if (!confirm('JSON 格式校验失败，是否强制保存？\n错误: ' + e.message)) {
+                            return;
+                        }
+                    }
+                }
+
+                try {
+                    dom.btnSaveEdit.disabled = true;
+                    dom.btnSaveEdit.textContent = '保存中...';
+
+                    await client.save(path, content);
+
+                    // 刷新显示
+                    await loadContent(path);
+                    closeModal();
+                    showToast('保存成功', 'success');
+                } catch (e) {
+                    showToast('保存失败: ' + e.message, 'error');
+                } finally {
+                    dom.btnSaveEdit.disabled = false;
+                    dom.btnSaveEdit.textContent = '覆盖';
+                }
+            });
+        }
+
+        /**
+         * 判断文件是否允许编辑（白名单方案）
+         * @param {string} path - 文件路径
+         * @returns {boolean}
+         */
+        function isEditableFile(path) {
+            // 绝对禁止编辑 .sy 文件
+            if (path.endsWith('.sy')) {
+                return false;
+            }
+
+            const fname = path.split('/').pop();
+            if (['indexignore', 'syncignore', 'refsearchignore', 'searchignore'].includes(fname)) {
+                return true;
+            }
+
+            // 白名单：明确允许编辑的文本文件后缀
+            const editableExtensions = /\.(txt|md|json|js|ts|jsx|tsx|css|scss|less|html|xml|svg|yaml|yml|toml|ini|conf|log|py|java|c|cpp|h|hpp|go|rs|sh|bat|ps1|rb|php|sql|r|swift|kt|scala|lua|vim|gitignore|env|properties)$/i;
+
+            return editableExtensions.test(path);
+        }
+
+        async function handleEdit() {
+            const path = appState.lastOpenFile;
+            if (!path) return;
+
+            // 白名单检查
+            if (!isEditableFile(path)) {
+                if (path.endsWith('.sy')) {
+                    showToast('安全警告：绝对禁止编辑 .sy 文件！', 'error', 4000);
+                } else {
+                    showToast('此文件类型不支持编辑。仅支持编辑纯文本文件（如 .txt, .md, .json, .js, .py 等）', 'warning', 4000);
+                }
+                return;
+            }
+
+            try {
+                // 加载文件内容前，再次通过 blob type 确认是文本文件
+                const blobRes = await window.pluginSdk.loadBlob(path);
+                if (!blobRes.ok) throw new Error('读取文件失败');
+
+                const blob = blobRes.data;
+                const mimeType = blob.type || '';
+
+                // 如果 MIME 类型明确不是文本，拒绝编辑
+                if (mimeType && !mimeType.startsWith('text/') &&
+                    mimeType !== 'application/json' &&
+                    mimeType !== 'application/javascript' &&
+                    mimeType !== 'application/xml') {
+                    showToast('文件类型检查失败：此文件不是纯文本格式，无法编辑', 'error', 4000);
+                    return;
+                }
+
+                // 读取文本内容
+                const content = await blob.text();
+                const fileName = path.split('/').pop();
+
+                dom.modalTitle.textContent = `编辑: ${fileName}`;
+                dom.editTextarea.value = content;
+                dom.editModal.classList.add('show');
+                dom.menuDropdown.classList.remove('show');
+            } catch (e) {
+                showToast('打开编辑器失败: ' + e.message, 'error');
             }
         }
 

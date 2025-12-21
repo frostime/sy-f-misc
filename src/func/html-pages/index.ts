@@ -506,11 +506,19 @@ const initializeDefaults = async () => {
         const destPath = joinPath(fname);
         await siyuanVfs.copyFile(sourcePath, destPath);
     }
+    moveDefault('demo-page.html');
     moveDefault('siyuan-tree.html');
     // moveDefault('docs-calendar.html');
 
     // 2. 创建默认配置
     const defaultConfigs: IPageConfig[] = [
+        {
+            id: 'demo-basic',
+            type: 'html',
+            source: 'demo-page.html',
+            title: 'HTML Page Demo',
+            icon: 'iconSiYuan'
+        },
         {
             id: 'demo-siyuan-tree',
             type: 'html',

@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single Page Demo</title>
+    <style>
+        /* ==================== CSS 变量定义 ==================== */
+        :root {
+            /* 字体大小语义化 */
+            --font-size-normal: var(--font-size, 14px);
+            --font-size-large: calc(var(--font-size-normal) * 1.5);
+            --font-size-medium: calc(var(--font-size-normal) * 1.1);
+            --font-size-small: calc(var(--font-size-normal) * 0.9);
+            --font-size-tiny: calc(var(--font-size-normal) * 0.8);
+
+            /* 颜色语义化 - 亮色主题 */
+            --bg-primary: var(--theme-background, #ffffff);
+            --bg-secondary: var(--theme-surface, #f5f5f7);
+            --bg-tertiary: var(--theme-surface-light, #fafafa);
+            --bg-hover: var(--theme-surface-lighter, #f0f0f0);
+
+            --text-primary: var(--theme-on-background, #333333);
+            --text-secondary: var(--theme-on-surface, #666666);
+            --text-tertiary: var(--theme-on-surface-light, #999999);
+
+            --accent-color: var(--theme-primary, #d23f31);
+            --accent-bg: var(--theme-primary-lightest, #ffe8e6);
+            --accent-light: var(--theme-primary-light, #e86c5f);
+
+            --border-color: #e0e0e0;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+            /* 功能性颜色 */
+            --success-color: #34a853;
+            --error-color: #ea4335;
+            --warning-color: #fbbc04;
+            --info-color: #4285f4;
+
+            /* 间距 */
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+
+            /* 圆角 */
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        /* 暗色主题覆盖 */
+        [data-theme-mode="dark"] {
+            --border-color: #3e3e42;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+
+            --success-color: #4caf50;
+            --error-color: #f44336;
+        }
+
+        /* ==================== 全局样式 ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+            font-size: var(--font-size-normal);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        code,
+        pre {
+            font-family: var(--font-family-code, "Consolas", "Monaco", monospace);
+        }
+
+        /* ==================== 布局 ==================== */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+
+        .header {
+            text-align: center;
+            padding: var(--spacing-xl) 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .header h1 {
+            font-size: var(--font-size-large);
+            color: var(--accent-color);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: var(--font-size-small);
+        }
+
+        .section {
+            margin-bottom: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .section-title {
+            font-size: var(--font-size-medium);
+            font-weight: 600;
+            margin-bottom: var(--spacing-md);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 1.2em;
+            background: var(--accent-color);
+            border-radius: 2px;
+        }
+
+        /* ==================== 按钮 ==================== */
+        .btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-small);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-light);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+
+        /* ==================== 表单 ==================== */
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-size: var(--font-size-small);
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: var(--font-size-normal);
+            font-family: inherit;
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: var(--font-family-code);
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+
+        /* ==================== 结果展示 ==================== */
+        .result-box {
+            margin-top: var(--spacing-md);
+            padding: var(--spacing-md);
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .result-box pre {
+            margin: 0;
+            font-size: var(--font-size-small);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .result-empty {
+            color: var(--text-tertiary);
+            font-style: italic;
+            text-align: center;
+            padding: var(--spacing-lg);
+        }
+
+        /* ==================== 状态标签 ==================== */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: 2px var(--spacing-sm);
+            border-radius: 12px;
+            font-size: var(--font-size-tiny);
+            font-weight: 600;
+        }
+
+        .status-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .status-error {
+            background: var(--error-color);
+            color: white;
+        }
+
+        .status-info {
+            background: var(--info-color);
+            color: white;
+        }
+
+        /* ==================== 列表 ==================== */
+        .item-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+        }
+
+        .item {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .item:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-color);
+        }
+
+        .item-title {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .item-subtitle {
+            font-size: var(--font-size-small);
+            color: var(--text-tertiary);
+        }
+
+        /* ==================== 网格布局 ==================== */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-md);
+        }
+
+        /* ==================== 加载状态 ==================== */
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ==================== 工具提示 ==================== */
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            font-size: var(--font-size-tiny);
+            white-space: nowrap;
+            border-radius: var(--radius-sm);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+        }
+
+        /* ==================== 代码块 ==================== */
+        .code-block {
+            background: var(--bg-tertiary);
+            padding: var(--spacing-md);
+            border-radius: var(--radius-sm);
+            border-left: 3px solid var(--accent-color);
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-size: var(--font-size-small);
+            color: var(--text-secondary);
+        }
+
+        /* ==================== 响应式 ==================== */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--spacing-md);
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>🔌 HTML Single Page Demo</h1>
+            <p>HTML Page 功能演示 (window.pluginSdk)</p>
+            <div style="margin-top: 12px;">
+                <span class="status-badge" id="sdkStatus">
+                    <span class="loading"></span> 初始化中...
+                </span>
+            </div>
+        </div>
+
+        <!-- 1. 配置管理 -->
+        <div class="section">
+            <h2 class="section-title">配置管理</h2>
+            <div class="form-group">
+                <label class="form-label">配置键</label>
+                <input type="text" class="form-input" id="configKey" placeholder="例如: theme">
+            </div>
+            <div class="form-group">
+                <label class="form-label">配置值</label>
+                <input type="text" class="form-input" id="configValue" placeholder="例如: dark">
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="saveConfig()">💾 保存配置</button>
+                <button class="btn btn-secondary" onclick="loadConfig()">📂 加载配置</button>
+            </div>
+            <div class="result-box" id="configResult">
+                <div class="result-empty">配置结果将显示在这里</div>
+            </div>
+        </div>
+
+        <!-- 2. 笔记本操作 -->
+        <div class="section">
+            <h2 class="section-title">笔记本列表</h2>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="listNotebooks()">📚 获取笔记本</button>
+            </div>
+            <div class="item-list" id="notebookList" style="margin-top: 16px;">
+                <div class="result-empty">点击按钮加载笔记本</div>
+            </div>
+        </div>
+
+        <!-- 3. SQL 查询 -->
+        <div class="section">
+            <h2 class="section-title">SQL 查询</h2>
+            <div class="form-group">
+                <label class="form-label">SQL 语句</label>
+                <textarea class="form-textarea" id="sqlQuery"
+                    placeholder="SELECT * FROM blocks WHERE type='d' LIMIT 10">SELECT * FROM blocks WHERE type='d' ORDER BY updated DESC LIMIT 10</textarea>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="executeSQL()">🔍 执行查询</button>
+                <button class="btn btn-secondary" onclick="loadSQLExample()">📋 加载示例</button>
+            </div>
+            <div class="result-box" id="sqlResult">
+                <div class="result-empty">查询结果将显示在这里</div>
+            </div>
+        </div>
+
+        <!-- 4. 块操作 -->
+        <div class="section">
+            <h2 class="section-title">块操作</h2>
+            <div class="grid">
+                <div>
+                    <div class="form-group">
+                        <label class="form-label">块 ID</label>
+                        <input type="text" class="form-input" id="blockId" placeholder="20210808180117-6v0mkxr">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="getBlock()">📄 获取块</button>
+                        <button class="btn btn-secondary" onclick="getMarkdown()">📝 获取 Markdown</button>
+                        <button class="btn btn-secondary" onclick="openBlock()">🔗 打开块</button>
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label class="form-label">文档 ID (查询子文档)</label>
+                        <input type="text" class="form-input" id="docId" placeholder="文档 ID">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="getChildDocs()">📂 子文档</button>
+                        <button class="btn btn-secondary" onclick="getBacklinks()">🔗 反链</button>
+                    </div>
+                </div>
+            </div>
+            <div class="result-box" id="blockResult">
+                <div class="result-empty">块信息将显示在这里</div>
+            </div>
+        </div>
+
+        <!-- 5. API 请求 -->
+        <div class="section">
+            <h2 class="section-title">API 请求演示</h2>
+            <div class="form-group">
+                <label class="form-label">API 端点</label>
+                <input type="text" class="form-input" id="apiEndpoint" value="/api/system/version"
+                    placeholder="/api/...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">请求数据 (JSON)</label>
+                <textarea class="form-textarea" id="apiData" placeholder='{"key": "value"}'>{}</textarea>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="callAPI()">🚀 发送请求</button>
+                <button class="btn btn-secondary" onclick="loadAPIExample()">📋 系统版本示例</button>
+            </div>
+            <div class="result-box" id="apiResult">
+                <div class="result-empty">API 响应将显示在这里</div>
+            </div>
+        </div>
+
+        <!-- 6. UI 组件 -->
+        <div class="section">
+            <h2 class="section-title">UI 组件演示</h2>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="showSuccessMsg()">✅ 成功消息</button>
+                <button class="btn btn-primary" onclick="showErrorMsg()">❌ 错误消息</button>
+                <button class="btn btn-secondary" onclick="showCustomDialog()">💬 自定义对话框</button>
+                <button class="btn btn-secondary" onclick="showInputDialog()">✏️ 输入对话框</button>
+            </div>
+        </div>
+
+        <!-- 7. 主题信息 -->
+        <div class="section">
+            <h2 class="section-title">主题与样式</h2>
+            <div class="code-block" id="themeInfo">
+                <code>加载中...</code>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sdk = null;
+
+        // ==================== 初始化 ====================
+        window.addEventListener('pluginSdkReady', async () => {
+            sdk = window.pluginSdk;
+
+            // 设置主题模式
+            const themeMode = sdk.themeMode || 'light';
+            document.documentElement.setAttribute('data-theme-mode', themeMode);
+
+            // 更新状态
+            const statusEl = document.getElementById('sdkStatus');
+            statusEl.className = 'status-badge status-success';
+            statusEl.innerHTML = '✓ SDK 已就绪';
+
+            // 显示主题信息
+            displayThemeInfo();
+
+            console.log('SDK 已初始化', sdk);
+        });
+
+        // ==================== 辅助函数 ====================
+        function displayResult(elementId, data, error = false) {
+            const el = document.getElementById(elementId);
+            if (!data && !error) {
+                el.innerHTML = '<div class="result-empty">无数据</div>';
+                return;
+            }
+
+            const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+            el.innerHTML = `<pre>${escapeHtml(content)}</pre>`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function checkSDK() {
+            if (!sdk) {
+                alert('SDK 尚未初始化，请稍候重试');
+                return false;
+            }
+            return true;
+        }
+
+        // ==================== 配置管理 ====================
+        async function saveConfig() {
+            if (!checkSDK()) return;
+
+            const key = document.getElementById('configKey').value.trim();
+            const value = document.getElementById('configValue').value.trim();
+
+            if (!key) {
+                sdk.showMessage('请输入配置键', 'error');
+                return;
+            }
+
+            try {
+                const currentConfig = await sdk.loadConfig();
+                currentConfig[key] = value;
+                await sdk.saveConfig(currentConfig);
+
+                sdk.showMessage('配置已保存', 'info');
+                displayResult('configResult', currentConfig);
+            } catch (err) {
+                sdk.showMessage('保存失败: ' + err.message, 'error');
+                displayResult('configResult', err.message, true);
+            }
+        }
+
+        async function loadConfig() {
+            if (!checkSDK()) return;
+
+            try {
+                const config = await sdk.loadConfig();
+                displayResult('configResult', config);
+                sdk.showMessage('配置已加载', 'info');
+            } catch (err) {
+                sdk.showMessage('加载失败: ' + err.message, 'error');
+                displayResult('configResult', err.message, true);
+            }
+        }
+
+        // ==================== 笔记本操作 ====================
+        async function listNotebooks() {
+            if (!checkSDK()) return;
+
+            try {
+                const notebooks = sdk.lsNotebooks();
+                const listEl = document.getElementById('notebookList');
+
+                if (!notebooks || notebooks.length === 0) {
+                    listEl.innerHTML = '<div class="result-empty">未找到笔记本</div>';
+                    return;
+                }
+
+                listEl.innerHTML = notebooks.map(nb => `
+                    <div class="item">
+                        <div>
+                            <div class="item-title">${escapeHtml(nb.name)}</div>
+                            <div class="item-subtitle">ID: ${nb.id}</div>
+                        </div>
+                        <span class="status-badge ${nb.closed ? 'status-error' : 'status-success'}">
+                            ${nb.closed ? '已关闭' : '已打开'}
+                        </span>
+                    </div>
+                `).join('');
+
+                sdk.showMessage(`找到 ${notebooks.length} 个笔记本`, 'info');
+            } catch (err) {
+                sdk.showMessage('获取失败: ' + err.message, 'error');
+            }
+        }
+
+        // ==================== SQL 查询 ====================
+        async function executeSQL() {
+            if (!checkSDK()) return;
+
+            const query = document.getElementById('sqlQuery').value.trim();
+            if (!query) {
+                sdk.showMessage('请输入 SQL 查询语句', 'error');
+                return;
+            }
+
+            try {
+                const results = await sdk.querySQL(query);
+                displayResult('sqlResult', results);
+                sdk.showMessage(`查询成功，返回 ${results?.length || 0} 条结果`, 'info');
+            } catch (err) {
+                sdk.showMessage('查询失败: ' + err.message, 'error');
+                displayResult('sqlResult', err.message, true);
+            }
+        }
+
+        function loadSQLExample() {
+            document.getElementById('sqlQuery').value =
+                "SELECT id, content, hpath, type, updated\n" +
+                "FROM blocks\n" +
+                "WHERE type = 'd'\n" +
+                "ORDER BY updated DESC\n" +
+                "LIMIT 10";
+        }
+
+        // ==================== 块操作 ====================
+        async function getBlock() {
+            if (!checkSDK()) return;
+
+            const blockId = document.getElementById('blockId').value.trim();
+            if (!blockId) {
+                sdk.showMessage('请输入块 ID', 'error');
+                return;
+            }
+
+            try {
+                const block = await sdk.getBlockByID(blockId);
+                displayResult('blockResult', block);
+                sdk.showMessage('获取成功', 'info');
+            } catch (err) {
+                sdk.showMessage('获取失败: ' + err.message, 'error');
+                displayResult('blockResult', err.message, true);
+            }
+        }
+
+        async function getMarkdown() {
+            if (!checkSDK()) return;
+
+            const blockId = document.getElementById('blockId').value.trim();
+            if (!blockId) {
+                sdk.showMessage('请输入块 ID', 'error');
+                return;
+            }
+
+            try {
+                const markdown = await sdk.getMarkdown(blockId);
+                displayResult('blockResult', markdown);
+                sdk.showMessage('获取成功', 'info');
+            } catch (err) {
+                sdk.showMessage('获取失败: ' + err.message, 'error');
+                displayResult('blockResult', err.message, true);
+            }
+        }
+
+        function openBlock() {
+            if (!checkSDK()) return;
+
+            const blockId = document.getElementById('blockId').value.trim();
+            if (!blockId) {
+                sdk.showMessage('请输入块 ID', 'error');
+                return;
+            }
+
+            try {
+                sdk.openBlock(blockId);
+                sdk.showMessage('已请求打开块', 'info');
+            } catch (err) {
+                sdk.showMessage('打开失败: ' + err.message, 'error');
+            }
+        }
+
+        async function getChildDocs() {
+            if (!checkSDK()) return;
+
+            const docId = document.getElementById('docId').value.trim();
+            if (!docId) {
+                sdk.showMessage('请输入文档 ID', 'error');
+                return;
+            }
+
+            try {
+                const children = await sdk.queryChildDocs(docId);
+                displayResult('blockResult', children);
+                sdk.showMessage(`找到 ${children?.length || 0} 个子文档`, 'info');
+            } catch (err) {
+                sdk.showMessage('查询失败: ' + err.message, 'error');
+                displayResult('blockResult', err.message, true);
+            }
+        }
+
+        async function getBacklinks() {
+            if (!checkSDK()) return;
+
+            const blockId = document.getElementById('blockId').value.trim();
+            if (!blockId) {
+                sdk.showMessage('请输入块 ID', 'error');
+                return;
+            }
+
+            try {
+                const backlinks = await sdk.queryBacklinks(blockId);
+                displayResult('blockResult', backlinks);
+                sdk.showMessage(`找到 ${backlinks?.length || 0} 个反链`, 'info');
+            } catch (err) {
+                sdk.showMessage('查询失败: ' + err.message, 'error');
+                displayResult('blockResult', err.message, true);
+            }
+        }
+
+        // ==================== API 请求 ====================
+        async function callAPI() {
+            if (!checkSDK()) return;
+
+            const endpoint = document.getElementById('apiEndpoint').value.trim();
+            if (!endpoint) {
+                sdk.showMessage('请输入 API 端点', 'error');
+                return;
+            }
+
+            let data = {};
+            const dataStr = document.getElementById('apiData').value.trim();
+            if (dataStr) {
+                try {
+                    data = JSON.parse(dataStr);
+                } catch (err) {
+                    sdk.showMessage('JSON 格式错误', 'error');
+                    return;
+                }
+            }
+
+            try {
+                const result = await sdk.request(endpoint, data);
+                displayResult('apiResult', result);
+                sdk.showMessage('请求成功', 'info');
+            } catch (err) {
+                sdk.showMessage('请求失败: ' + err.message, 'error');
+                displayResult('apiResult', err.message, true);
+            }
+        }
+
+        function loadAPIExample() {
+            document.getElementById('apiEndpoint').value = '/api/system/version';
+            document.getElementById('apiData').value = '{}';
+        }
+
+        // ==================== UI 组件 ====================
+        function showSuccessMsg() {
+            if (!checkSDK()) return;
+            sdk.showMessage('这是一条成功消息！', 'info', 2000);
+        }
+
+        function showErrorMsg() {
+            if (!checkSDK()) return;
+            sdk.showMessage('这是一条错误消息！', 'error', 2000);
+        }
+
+        function showCustomDialog() {
+            if (!checkSDK()) return;
+
+            const content = document.createElement('div');
+            content.style.padding = '20px';
+            content.innerHTML = `
+                <p style="margin-bottom: 12px;">这是自定义对话框的内容。</p>
+                <p style="color: var(--text-secondary); font-size: var(--font-size-small);">
+                    你可以在这里放置任何 HTML 元素。
+                </p>
+            `;
+
+            const dialog = sdk.showDialog({
+                title: '自定义对话框',
+                ele: content,
+                width: '500px',
+                afterClose: () => {
+                    console.log('对话框已关闭');
+                }
+            });
+
+            console.log('对话框已打开', dialog);
+        }
+
+        function showInputDialog() {
+            if (!checkSDK()) return;
+
+            sdk.inputDialog({
+                title: '输入对话框',
+                defaultText: '请输入内容',
+                confirm: (text) => {
+                    sdk.showMessage(`你输入了: ${text}`, 'info');
+                },
+                cancel: () => {
+                    sdk.showMessage('已取消', 'info');
+                },
+                type: 'textline'
+            });
+        }
+
+        // ==================== 主题信息 ====================
+        function displayThemeInfo() {
+            if (!checkSDK()) return;
+
+            const vars = sdk.styleVar;
+            const info = `主题模式: ${sdk.themeMode}
+
+### 主要样式变量
+
+- 字体: ${vars['font-family']}
+- 字号: ${vars['font-size']}
+- 代码字体: ${vars['font-family-code']}
+
+- 主题色: ${vars['theme-primary']}
+- 背景色: ${vars['theme-background']}
+- 表面色: ${vars['theme-surface']}
+- 文字色: ${vars['theme-on-background']}`;
+
+            const html = sdk.lute.Md2HTML(info);
+            document.getElementById('themeInfo').innerHTML = html;
+        }
+    </script>
+</body>
+
+</html>
