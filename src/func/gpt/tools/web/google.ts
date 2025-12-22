@@ -125,7 +125,7 @@ function extractGoogleSearchResults(dom: Document): { title: string; link: strin
     const searchResults: { title: string; link: string; description: string }[] = [];
 
     // Google 搜索结果的主容器
-    const resultDivs = dom.querySelectorAll('div.g');
+    const resultDivs = dom.querySelectorAll('#search div[data-rpos]')
 
     resultDivs.forEach((div) => {
         // 提取标题和链接

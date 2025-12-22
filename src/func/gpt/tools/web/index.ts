@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-31 14:51:57
  * @FilePath     : /src/func/gpt/tools/web/index.ts
- * @LastEditTime : 2025-12-22 22:30:04
+ * @LastEditTime : 2025-12-22 22:44:04
  * @Description  : Web 工具组 - 网页搜索和内容获取
  */
 import { ToolGroup } from "../types";
@@ -81,7 +81,7 @@ export const toolGroupWeb = (): ToolGroup => {
 
 ### 推荐工作流程
 1. **查找信息**：
-   - 优先使用 GoogleSearch（如果可访问）
+   - 优先使用 GoogleSearch (特别是需要高质量检索结果)
    - 如遇访问问题，切换到 BingSearch
    - 对于特定需求，使用 TavilySearch 或 BochaSearch
 2. **定位内容**：

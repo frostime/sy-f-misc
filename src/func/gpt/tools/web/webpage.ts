@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 20:11:55
  * @FilePath     : /src/func/gpt/tools/web/webpage.ts
- * @LastEditTime : 2025-12-16 19:17:04
+ * @LastEditTime : 2025-12-22 23:33:09
  * @Description  : 网页内容获取工具
  * 
  * 重构说明 (2025-12-16):
@@ -436,7 +436,7 @@ export const fetchWebContentAsMarkdown = async (url: string, options?: FetchWebC
     try {
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
 
