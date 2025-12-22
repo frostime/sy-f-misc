@@ -381,6 +381,8 @@ export const openIframeTab = (options: {
 
     onTabDestroy?: () => void;
 
+    position?: 'right' | 'bottom';
+
 }) => {
     const { tabId, title, iframeConfig, onTabDestroy } = options;
 
@@ -416,6 +418,7 @@ export const openIframeTab = (options: {
             onTabDestroy?.();
         },
         icon: options.icon,
+        position: options.position
     });
 
     // 返回 Proxy，自动转发到最新的 iframeApi

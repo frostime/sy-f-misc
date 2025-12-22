@@ -1,3 +1,11 @@
+/*
+ * @Author       : frostime
+ * Copyright (c) 2025 by frostime. All Rights Reserved.
+ * @Date         : 2025-12-19 20:13:28
+ * @Description  : 
+ * @FilePath     : /src/func/asset-file/index.ts
+ * @LastEditTime : 2025-12-22 21:13:20
+ */
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -6,6 +14,7 @@ import { LocalDiskVFS } from "@/libs/vfs";
 import { documentDialog } from "@/libs/dialog";
 import { err, ok, ResultData } from "@/libs/simple-fp";
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
+import { openImageAnnotator } from "./annotate-image";
 
 export const declareToggleEnabled = {
     title: '📄 附件文件',
@@ -412,18 +421,36 @@ export const load = (plugin: FMiscPlugin) => {
     // }
 
     // 注册顶部菜单
-    plugin.registerMenuTopMenu('asset-file', [{
-        label: '附件管理 Dashboard',
-        icon: 'iconFiles',
-        click: () => {
-            // 不延迟 menu 会无法自动关闭
-            // 怀疑是 mouse 进入 iframe 区域导致鼠标事件无法 bubble 回去
-            // 把任务放到下一个事件循环似乎可以解决
-            setTimeout(() => {
-                openAssetDashboard();
-            });
-        }
-    }]);
+    plugin.registerMenuTopMenu('asset-file', [
+        {
+            type: 'submenu',
+            label: '附件管理',
+            icon: 'iconCamera',
+            submenu: [
+                {
+                    label: '附件管理 Dashboard',
+                    icon: 'iconGallery',
+                    click: () => {
+                        // 不延迟 menu 会无法自动关闭
+                        // 怀疑是 mouse 进入 iframe 区域导致鼠标事件无法 bubble 回去
+                        // 把任务放到下一个事件循环似乎可以解决
+                        setTimeout(() => {
+                            openAssetDashboard();
+                        });
+                    }
+                },
+                {
+                    label: '图片标注',
+                    icon: 'iconImage',
+                    click: () => {
+                        setTimeout(() => {
+                            openImageAnnotator();
+                        });
+                    },
+                },
+            ]
+        },
+    ]);
 
     const dispose1 = thisPlugin().registerEventbusHandler('open-menu-link', (detail) => {
         let menu = detail.menu;
@@ -483,6 +510,17 @@ export const load = (plugin: FMiscPlugin) => {
                     setTimeout(() => {
                         dashboard.dispatchEvent('search-given-asset-file', { filename: filename });
                     }, 500);
+                });
+            }
+        });
+        menu.addItem({
+            label: '标注图片',
+            icon: 'iconImage',
+            click: () => {
+                setTimeout(() => {
+                    setTimeout(() => {
+                        openImageAnnotator(src, 'right');
+                    });
                 });
             }
         });
