@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-06-06 22:19:25
+ * @LastEditTime : 2025-12-22 22:25:08
  * @Description  : 
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -24,7 +24,7 @@ import { LoadModuleFileButtonGroup } from "@/libs/components/user-custom-module"
 import { ToolsManagerSetting } from "./ToolsManagerSetting";
 import { CustomScriptToolSetting } from "./CustomScriptToolSetting";
 import { Rows } from "@/libs/components/Elements/Flex";
-import { ButtonInput } from "@/libs/components/Elements";
+import { ButtonInput, TextInput } from "@/libs/components/Elements";
 import { pruneOldTempToollogFiles, tempRoot } from "../tools/utils";
 
 type TabType = 'chat' | 'prompt' | 'provider' | 'tools' | 'custom-scripts';
@@ -325,6 +325,42 @@ const GlobalSetting = () => {
                                 value={globalMiscConfigs().bochaApiKey}
                                 changed={(v) => {
                                     globalMiscConfigs.update('bochaApiKey', v);
+                                }}
+                                style={{
+                                    width: '100%'
+                                }}
+                            />
+                        </Form.Wrap>
+                        <Form.Wrap
+                            title="谷歌检索 API"
+                            description="需要配置 API Key 和搜索引擎 ID; 国内可前往 <a href='https://developers.google.com/custom-search/v1/overview?hl=zh-cn' target='_blank'>谷歌官网</a> 获取，官方提供每天100次免费调用，可前往 <a href='https://console.cloud.google.com/apis/dashboard?hl=zh-cn&pli=1' target='_blank'>Console</a> 查看调用情况; 不配置会采用爬虫的方式抓取网页。GFW 网络环境自行解决。"
+                            direction="row"
+                        >
+                            {/* <Form.Input
+                                type="textinput"
+                                value={globalMiscConfigs().bochaApiKey}
+                                changed={(v) => {
+                                    globalMiscConfigs.update('bochaApiKey', v);
+                                }}
+                                style={{
+                                    width: '100%'
+                                }}
+                            /> */}
+                            <TextInput
+                                value={globalMiscConfigs().googleApiKey}
+                                placeholder="Google API Key"
+                                onChanged={(v) => {
+                                    globalMiscConfigs.update('googleApiKey', v);
+                                }}
+                                style={{
+                                    width: '100%'
+                                }}
+                            />
+                             <TextInput
+                                value={globalMiscConfigs().googleSearchEngineId}
+                                placeholder="Google Search Engine ID"
+                                onChanged={(v) => {
+                                    globalMiscConfigs.update('googleSearchEngineId', v);
                                 }}
                                 style={{
                                     width: '100%'

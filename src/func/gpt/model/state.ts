@@ -64,6 +64,8 @@ const _defaultGlobalMiscConfigs = {
     maxMessageLogItems: 500,
     tavilyApiKey: '',      // Tavily API Key for web search
     bochaApiKey: '',       // 博查 API Key for web search
+    googleApiKey: '',     // Google Custom Search API Key  获取方式：https://console.cloud.google.com/
+    googleSearchEngineId: '', // Google Custom Search Engine ID   https://programmablesearchengine.google.com/
     exportMDSkipHidden: false, // 导出 Markdown 时是否跳过隐藏的消息
     enableCustomScriptTools: false, // 是否启用自定义脚本工具功能
     CustomScriptEnvVars: '' // 自定义脚本工具的环境变量，格式为 KEY=VALUE，每行一个

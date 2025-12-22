@@ -3,11 +3,12 @@
  * @Author       : frostime
  * @Date         : 2025-05-31 14:51:57
  * @FilePath     : /src/func/gpt/tools/web/index.ts
- * @LastEditTime : 2025-12-16 15:48:01
+ * @LastEditTime : 2025-12-22 22:30:04
  * @Description  : Web 工具组 - 网页搜索和内容获取
  */
 import { ToolGroup } from "../types";
 import { bingSearchTool } from "./bing";
+import { googleSearchTool } from "./google";
 // import { webPageContentTool } from "./webpage";
 import { tavilySearchTool } from "./tavily";
 import { bochaSearchTool } from "./bocha";
@@ -19,10 +20,16 @@ import { globalMiscConfigs } from "../../setting";
 
 export const toolGroupWeb = (): ToolGroup => {
     // 基础工具：搜索 + 三个网页内容工具
-    const tools = [bingSearchTool, fetchWebPageTool, searchInWebPageTool, extractHTMLTool, inspectDOMStructureTool];
-
     const tavily = Boolean(globalMiscConfigs().tavilyApiKey);
     const bocha = Boolean(globalMiscConfigs().bochaApiKey);
+    const google = Boolean(globalMiscConfigs().googleApiKey) || true; // Google 支持无 API key 的抓取模式
+
+    const tools = [bingSearchTool, fetchWebPageTool, searchInWebPageTool, extractHTMLTool, inspectDOMStructureTool];
+
+
+    if (google) {
+        tools.push(googleSearchTool);
+    }
 
     if (tavily) {
         tools.push(tavilySearchTool);
@@ -39,9 +46,16 @@ export const toolGroupWeb = (): ToolGroup => {
 ## 网页检索工具组 ##
 
 ### 搜索工具选择
+- **GoogleSearch**: Google 搜索，提供高质量结果（优先使用 API 模式，回退到抓取模式）
+  - 注意：在中国大陆可能因网络限制而无法访问，此时建议使用 BingSearch
+  - 支持两种模式：API 模式（需配置 API key）和抓取模式（备用）
+  - 优点：搜索质量高，结果权威
+  - 缺点：在某些地区可能受限
+- **BingSearch**: 免费搜索，简单快速，可能包含直接回答
+  - 适用于需要快速获取信息的场景
+  - 稳定性较好，无地区限制
 - **TavilySearch**: 高质量检索，包含 AI 摘要答案，复杂查询首选
 - **BochaSearch**: 付费检索，适合中国国内内容，支持时间过滤
-- **BingSearch**: 免费搜索，简单快速，可能包含直接回答
 
 ### 网页内容获取工具（按使用场景选择）
 
@@ -66,7 +80,10 @@ export const toolGroupWeb = (): ToolGroup => {
    - 特性：返回 DOM 树结构和元素信息
 
 ### 推荐工作流程
-1. **查找信息**：先用搜索工具获取相关 URL
+1. **查找信息**：
+   - 优先使用 GoogleSearch（如果可访问）
+   - 如遇访问问题，切换到 BingSearch
+   - 对于特定需求，使用 TavilySearch 或 BochaSearch
 2. **定位内容**：
    - 知道要找什么 → SearchInWebPage 搜索关键词
    - 要提取特定元素 → ExtractHTML
@@ -78,6 +95,7 @@ export const toolGroupWeb = (): ToolGroup => {
 - 长网页优先使用 SearchInWebPage 定位，避免浪费 token
 - 需要结构化数据时使用 ExtractHTML
 - 默认 FetchWebPage 不保留链接和图片，节省空间；可开启keepLink选项，从网页中获取别的相关链接进行深入阅读
+- Google 搜索在中国大陆可能无法访问，遇到超时或连接错误时请切换到 Bing 或其他搜索工具
 
 ## 回答要求 ##
 基于网页结果回答时 !IMPORTANT!:

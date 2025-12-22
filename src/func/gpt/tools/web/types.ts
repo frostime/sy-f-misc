@@ -77,6 +77,42 @@ export interface BingSearchResult {
 }
 
 /**
+ * Google 搜索单条结果
+ */
+export interface GoogleSearchItem {
+    /** 标题 */
+    title: string;
+    /** 链接 URL */
+    link: string;
+    /** 描述/摘要 */
+    description: string;
+    /** 显示的域名 */
+    displayLink?: string;
+}
+
+/**
+ * Google 搜索结果
+ */
+export interface GoogleSearchResult {
+    /** 搜索查询词 */
+    query: string;
+    /** 搜索结果列表 */
+    results: GoogleSearchItem[];
+    /** 页码 */
+    pageIndex: number;
+    /** 总结果数（仅 API 模式） */
+    totalResults?: number;
+    /** 搜索耗时（仅 API 模式） */
+    searchTime?: number;
+    /** 应用的过滤器 */
+    filters?: {
+        site?: string;
+        filetype?: string;
+        dateFilter?: 'day' | 'week' | 'month' | 'year';
+    };
+}
+
+/**
  * Tavily 搜索单条结果
  */
 export interface TavilySearchItem {
