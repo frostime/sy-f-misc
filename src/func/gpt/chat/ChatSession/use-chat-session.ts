@@ -26,6 +26,9 @@ import { extractContentText, MessageBuilder, splitPromptFromContext, updateConte
 import { useGptCommunication as useGptCommunicationV2 } from './use-openai-endpoints';
 
 import { useContextAndAttachments } from './use-attachment-input';
+import { InlineApprovalAdapter } from '@gpt/tools/approval-ui';
+import type { PendingApproval } from '@gpt/tools/types';
+
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;
@@ -273,7 +276,18 @@ export const useSession = (props: {
 }) => {
     let sessionId = useSignalRef<string>(window.Lute.NewNodeID());
 
-    const toolExecutor = toolExecutorFactory({});
+    // ========== 新增：待审批队列 ==========
+    const pendingApprovals = useStoreRef<PendingApproval[]>([]);
+
+    const newID = () => {
+        return window.Lute.NewNodeID();
+    }
+
+    // ========== 修改：创建内联适配器并传入 ==========
+    const inlineApprovalAdapter = new InlineApprovalAdapter(pendingApprovals, newID);
+    const toolExecutor = toolExecutorFactory({
+        approvalAdapter: inlineApprovalAdapter
+    });
 
     const systemPrompt = useSignalRef<string>(globalMiscConfigs().defaultSystemPrompt || '');
     // 当前的多模态附件 (使用 OpenAI 标准格式)
@@ -306,10 +320,6 @@ export const useSession = (props: {
     });
 
     let hasStarted = false;
-
-    const newID = () => {
-        return window.Lute.NewNodeID();
-    }
 
     // 获取历史消息的函数
     const getAttachedHistory = (itemNum?: number, fromIndex?: number) => {
@@ -593,6 +603,16 @@ export const useSession = (props: {
         contexts,
         toolExecutor,
         sessionTags,
+        // ========== 新增：审批相关 ==========
+        pendingApprovals,
+
+        resolvePendingApproval: (id: string, decision: { approved: boolean; rejectReason?: string }) => {
+            const approval = pendingApprovals().find(a => a.id === id);
+            if (approval) {
+                approval.resolve(decision);
+                pendingApprovals.update(prev => prev.filter(a => a.id !== id));
+            }
+        },
         hasUpdated: () => {
             const persisted = snapshotSignal();
             const found = persisted?.sessions.find(session => session.id === sessionId());

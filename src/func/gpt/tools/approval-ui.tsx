@@ -5,7 +5,7 @@
  * @FilePath     : /src/func/gpt/tools/approval-ui.tsx
  * @Description  : 工具审核 UI 组件和适配器
  */
-import { Component, JSX, Show } from "solid-js";
+import { Component, JSX, Match, Show, Switch } from "solid-js";
 import { ToolExecuteResult, ApprovalUIAdapter, ToolDefinitionWithPermission, ToolPermissionLevel } from "./types";
 import { ButtonInput } from "@/libs/components/Elements";
 import { solidDialog } from "@/libs/dialog";
@@ -23,11 +23,20 @@ const ArgsListComponent = (props: { args: Record<string, any> }) => {
     }
     return (
         <>
-            <h3>参数:</h3>
-            <ul class="b3-list">
+            <h3 style={{ "margin": "8px 0 4px 0" }}>参数:</h3>
+            <ul class="b3-list" style={{
+                "margin": "0",
+                "padding": "0 0 0 16px",
+                "overflow": "hidden"  // 防止列表溢出
+            }}>
                 {Object.keys(props.args).map(key => (
-                    <li>
-                        <strong>{key}:</strong> {
+                    <li style={{
+                        "margin-bottom": "6px",
+                        "word-break": "break-all",  // 强制长单词换行
+                        "overflow-wrap": "anywhere"  // 确保任意位置可换行
+                    }}>
+                        <strong>{key}:</strong>{' '}
+                        {
                             typeof props.args[key] === 'string' && (props.args[key].includes('\n') || props.args[key].length > 100) ? (
                                 <textarea
                                     class="b3-text-field"
@@ -36,13 +45,26 @@ const ArgsListComponent = (props: { args: Record<string, any> }) => {
                                     rows={rows(props.args[key])}
                                     style={{
                                         "width": "100%",
-                                        "margin": "8px 0",
+                                        "margin": "4px 0",
                                         "resize": "vertical",
-                                        "font-family": "var(--b3-font-family-code)"
+                                        "font-family": "var(--b3-font-family-code)",
+                                        // "font-size": "12px",
+                                        "box-sizing": "border-box"
                                     }}
                                 />
                             ) : (
-                                <code>{JSON.stringify(props.args[key])}</code>
+                                <code style={{
+                                    "word-break": "break-all",
+                                    "overflow-wrap": "anywhere",
+                                    "white-space": "pre-wrap",  // 允许换行但保留空格
+                                    "display": "inline",
+                                    // "font-size": "12px",
+                                    "background": "var(--b3-theme-surface-lighter)",
+                                    "padding": "1px 4px",
+                                    "border-radius": "3px"
+                                }}>
+                                    {JSON.stringify(props.args[key])}
+                                </code>
                             )
                         }
                     </li>
@@ -63,31 +85,49 @@ const BaseApprovalUI = (props: {
     extraButtons?: JSX.Element;
 }) => {
     const reason = createSignalRef('');
-
     let decided = createSignalRef(false);
 
-    const descriptionShort = props.description && props.description.length > 200 ? props.description.slice(0, 200) + '...' : props.description;
+    const descriptionShort = props.description && props.description.length > 200
+        ? props.description.slice(0, 200) + '...'
+        : props.description;
 
     return (
         <div style={{
-            "padding": "16px",
-            "width": "100%"
+            "padding": "12px 16px",  // 稍微减小内边距
+            "width": "100%",
+            "box-sizing": "border-box",  // 确保 padding 不会撑大容器
+            "overflow": "hidden"  // 防止内容溢出
         }}>
-
             <div class="b3-typography" style={{
-                "margin": "8px 0"
+                "margin": "0 0 8px 0",
+                "overflow": "hidden"  // 防止内部溢出
             }}>
-                <h3>{props.title}</h3>
-                {props.description && <p><strong>{descriptionShort}</strong></p>}
-
+                <h3 style={{
+                    "margin": "0 0 8px 0",
+                    // "font-size": "15px",
+                    "word-break": "break-all"  // 长工具名也能换行
+                }}>
+                    {props.title}
+                </h3>
+                {props.description && (
+                    <p style={{
+                        "margin": "0 0 8px 0",
+                        // "font-size": "13px",
+                        "color": "var(--b3-theme-on-surface-light)",
+                        "word-break": "break-word"
+                    }}>
+                        <strong>{descriptionShort}</strong>
+                    </p>
+                )}
                 {props.children}
             </div>
 
-
             <div style={{
                 "display": "flex",
-                "align-content": "center",
-                "gap": "8px"
+                "align-items": "center",
+                "gap": "8px",
+                "flex-wrap": "wrap",  // 按钮区域允许换行
+                "margin-top": "12px"
             }}>
                 {props.extraButtons}
 
@@ -98,14 +138,18 @@ const BaseApprovalUI = (props: {
                         placeholder="可选的拒绝理由"
                         value={reason()}
                         onInput={(e) => reason(e.currentTarget.value)}
-                        style="width: unset; max-width: unset; flex: 1; display: inline-block;"
+                        style={{
+                            "width": "unset",
+                            "max-width": "unset",
+                            "flex": "1",
+                            "min-width": "120px",  // 最小宽度，防止过窄
+                            "display": "inline-block"
+                        }}
                     />
                 )}
 
                 {!props.showReasonInput && !props.extraButtons && (
-                    <div style={{
-                        "flex": 1
-                    }} />
+                    <div style={{ "flex": "1" }} />
                 )}
 
                 <ButtonInput
@@ -117,9 +161,10 @@ const BaseApprovalUI = (props: {
                     }}
                     style={{
                         "background-color": "var(--b3-theme-error)",
-                        "font-size": "12px",
+                        // "font-size": "12px",
                         "opacity": decided() ? "0.6" : "1",
-                        "pointer-events": decided() ? "none" : "auto"
+                        "pointer-events": decided() ? "none" : "auto",
+                        "flex-shrink": "0"  // 防止按钮被压缩
                     }}
                 />
                 <ButtonInput
@@ -130,9 +175,10 @@ const BaseApprovalUI = (props: {
                         props.onApprove()
                     }}
                     style={{
-                        "font-size": "12px",
+                        // "font-size": "12px",
                         "opacity": decided() ? "0.6" : "1",
-                        "pointer-events": decided() ? "none" : "auto"
+                        "pointer-events": decided() ? "none" : "auto",
+                        "flex-shrink": "0"  // 防止按钮被压缩
                     }}
                 />
             </div>
@@ -192,7 +238,7 @@ export const ToolExecutionApprovalUI: Component<{
                 label={isReviewing() ? "审查中..." : "AI安全审查"}
                 onClick={handleSafetyReview}
                 style={{
-                    "font-size": "12px",
+                    // "font-size": "12px",
                     "opacity": isReviewing() ? "0.6" : "1",
                     "pointer-events": isReviewing() ? "none" : "auto",
                     "background-color": "var(--b3-theme-secondary)"
@@ -222,8 +268,8 @@ export const ToolExecutionApprovalUI: Component<{
                     "border": "1px solid var(--b3-border-color)"
                 }}>
                     <h4 style={{ "margin": "0 0 8px 0" }}>🛡️ AI 安全审查结果</h4>
-                    <div class="b3-typography" style={{ "white-space": "pre-wrap", "font-size": "13px" }}>
-                        <Markdown markdown={safetyReviewResult() ?? ""}/>
+                    <div class="b3-typography" style={{ "white-space": "pre-wrap", /* "font-size": "13px" */ }}>
+                        <Markdown markdown={safetyReviewResult() ?? ""} />
                     </div>
                 </div>
             </Show>
@@ -374,3 +420,117 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
         });
     }
 }
+
+// ============================================================================
+// 内联审批适配器（嵌入消息流）
+// ============================================================================
+
+import { IStoreRef } from '@frostime/solid-signal-ref';
+import type { PendingApproval } from './types';
+
+/**
+ * 内联审批 UI 适配器
+ * 将审批请求加入队列，由 Chat 主界面渲染
+ */
+export class InlineApprovalAdapter implements ApprovalUIAdapter {
+    constructor(
+        private pendingApprovals: IStoreRef<PendingApproval[]>,
+        private generateId: () => string
+    ) { }
+
+    async showToolExecutionApproval(
+        toolName: string,
+        toolDescription: string,
+        args: Record<string, any>,
+        toolDefinition?: ToolDefinitionWithPermission
+    ): Promise<{
+        approved: boolean;
+        persistDecision?: boolean;
+        rejectReason?: string;
+    }> {
+        return new Promise((resolve) => {
+            const approval: PendingApproval = {
+                id: this.generateId(),
+                type: 'execution',
+                toolName,
+                toolDescription,
+                toolDefinition,
+                args,
+                createdAt: Date.now(),
+                resolve
+            };
+            this.pendingApprovals.update(prev => [...prev, approval]);
+        });
+    }
+
+    async showToolResultApproval(
+        toolName: string,
+        args: Record<string, any>,
+        result: ToolExecuteResult
+    ): Promise<{
+        approved: boolean;
+        rejectReason?: string;
+    }> {
+        return new Promise((resolve) => {
+            const approval: PendingApproval = {
+                id: this.generateId(),
+                type: 'result',
+                toolName,
+                args,
+                result,
+                createdAt: Date.now(),
+                resolve
+            };
+            this.pendingApprovals.update(prev => [...prev, approval]);
+        });
+    }
+}
+
+// ============================================================================
+// 内联审批卡片组件
+// ============================================================================
+
+/**
+ * 内联审批卡片 - 嵌入消息流中显示
+ */
+export const InlineApprovalCard: Component<{
+    approval: PendingApproval;
+    onApprove: () => void;
+    onReject: (reason?: string) => void;
+}> = (props) => {
+    return (
+        <div style={{
+            "margin": "12px 32px",  // 左右留出边距
+            "padding": "0",
+            "border": "1px solid var(--b3-theme-primary-lighter)",
+            "border-radius": "8px",
+            "background": "var(--b3-theme-surface)",
+            "box-shadow": "0 2px 8px rgba(0,0,0,0.08)",
+            "overflow": "hidden",  // 防止内容溢出
+            "max-width": "100%",   // 限制最大宽度
+            "box-sizing": "border-box"
+        }}>
+            <Switch>
+                <Match when={props.approval.type === 'execution'}>
+                    <ToolExecutionApprovalUI
+                        toolName={props.approval.toolName}
+                        toolDescription={props.approval.toolDescription || ''}
+                        toolDefinition={props.approval.toolDefinition}
+                        args={props.approval.args}
+                        onApprove={props.onApprove}
+                        onReject={props.onReject}
+                    />
+                </Match>
+                <Match when={props.approval.type === 'result'}>
+                    <ToolResultApprovalUI
+                        toolName={props.approval.toolName}
+                        args={props.approval.args}
+                        result={props.approval.result!}
+                        onApprove={props.onApprove}
+                        onReject={props.onReject}
+                    />
+                </Match>
+            </Switch>
+        </div>
+    );
+};

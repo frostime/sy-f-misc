@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 01:45:14
  * @FilePath     : /src/func/gpt/tools/types.ts
- * @LastEditTime : 2025-06-05 12:14:11
+ * @LastEditTime : 2025-12-23 00:50:20
  * @Description  : 工具类型定义
  */
 /**
@@ -234,3 +234,25 @@ export interface ApprovalUIAdapter {
         rejectReason?: string;
     }>;
 }
+
+
+// ============================================================================
+// 内联审批相关类型
+// ============================================================================
+
+/**
+ * 待审批项
+ */
+export interface PendingApproval {
+    id: string;
+    type: 'execution' | 'result';
+    toolName: string;
+    toolDescription?: string;
+    toolDefinition?: ToolDefinitionWithPermission;
+    args: Record<string, any>;
+    result?: ToolExecuteResult;  // 仅 type='result' 时存在
+    createdAt: number;
+    // 内部使用，用于 Promise 决议
+    resolve: (decision: { approved: boolean; rejectReason?: string }) => void;
+}
+

@@ -33,6 +33,7 @@ import SvgSymbol from '@/libs/components/Elements/IconSymbol';
 import SessionItemsManager from './components/SessionItemsManager';
 import { SessionToolsManager } from './components/SessionToolsManager';
 
+import { InlineApprovalCard } from '@gpt/tools/approval-ui';
 import { useSession, SimpleProvider } from './ChatSession/use-chat-session';
 import { useSessionSetting } from './session-setting';
 import { floatSiYuanTextEditor } from './utils';
@@ -146,6 +147,17 @@ export const ChatSession: Component<{
 
     const input = useSignalRef<string>('');
     const session = useSession({ model, config, scrollToBottom });
+
+    // ========== 新增：自动滚动到审批卡片 ==========
+    createEffect(on(
+        () => session.pendingApprovals().length,
+        (len, prevLen) => {
+            if (len > (prevLen ?? 0)) {
+                // 有新审批，滚动到底部
+                setTimeout(() => scrollToBottom(true), 50);
+            }
+        }
+    ));
 
     const hasToolEnabled = createSignalRef(session.toolExecutor.hasEnabledTools());
 
@@ -1103,6 +1115,26 @@ export const ChatSession: Component<{
                             <Seperator title="新的对话" id={item.id} />
                         </Match>
                     </Switch>
+                )}
+            </For>
+
+            {/* ========== 新增：内联审批卡片 ========== */}
+            <For each={session.pendingApprovals()}>
+                {(approval) => (
+                    <InlineApprovalCard
+                        approval={approval}
+                        onApprove={() => {
+                            session.resolvePendingApproval(approval.id, { approved: true });
+                            scrollToBottom(false);
+                        }}
+                        onReject={(reason) => {
+                            session.resolvePendingApproval(approval.id, {
+                                approved: false,
+                                rejectReason: reason || '用户拒绝'
+                            });
+                            scrollToBottom(false);
+                        }}
+                    />
                 )}
             </For>
         </div>
