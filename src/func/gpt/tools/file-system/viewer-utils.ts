@@ -11,7 +11,7 @@ import { IVFS, VFSManager } from '@/libs/vfs';
 // ============================================================
 
 export const LIMITS = {
-    MAX_FILE_SIZE: 3 * 1024 * 1024,      // 3MB - 单次读取最大文件大小
+    MAX_FILE_SIZE: 0.5 * 1024 * 1024,      // 0.5MB - 单次读取最大文件大小
     MAX_PREVIEW_LINES: 100,               // 预览模式最大行数
     MAX_SEARCH_DEPTH: 10,                 // 搜索最大深度
     MAX_SEARCH_RESULTS: 100,              // 搜索最大结果数
@@ -24,7 +24,7 @@ export const EXCLUDED_DIRS = [
     'dist', 'build', 'out', 'target',
     '.next', '.nuxt', '.vscode', '.idea',
     '__pycache__', '.pytest_cache',
-    'vendor', 'coverage'
+    'vendor', 'coverage', '.venv'
 ];
 
 // 常见文本文件扩展名

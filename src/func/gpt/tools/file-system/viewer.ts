@@ -25,15 +25,34 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
             type: 'function',
             function: {
                 name: 'fs-View',
-                description: '智能查看文件内容，处理大文件、二进制与范围读取',
+                description: '智能查看文件内容。支持完整读取、头部/尾部预览、指定行范围读取。自动处理大文件和二进制文件。',
                 parameters: {
                     type: 'object',
                     properties: {
-                        path: { type: 'string', description: '文件路径' },
-                        mode: { type: 'string', enum: ['preview', 'full', 'head', 'tail', 'range'] },
-                        lines: { type: 'number', minimum: 1, maximum: 1000, description: '1-based; tail/head mode 需要' },
-                        range: { type: 'array', items: { type: 'number' }, description: '[StartLine, EndLine], 1-based; range mode 需要' },
-                        showLineNumbers: { type: 'boolean' }
+                        path: {
+                            type: 'string',
+                            description: '文件路径（相对或绝对路径）'
+                        },
+                        mode: {
+                            type: 'string',
+                            enum: ['full', 'head', 'tail', 'range'],
+                            description: '读取模式：full=完整文件（小文件适用），head=前N行，tail=后N行，range=指定行范围。不指定时自动选择（小文件完整读取，大文件读取前部）'
+                        },
+                        lines: {
+                            type: 'number',
+                            minimum: 1,
+                            maximum: 1000,
+                            description: 'head/tail 模式需要：要读取的行数（1-1000），默认50行'
+                        },
+                        range: {
+                            type: 'array',
+                            items: { type: 'number' },
+                            description: 'range 模式需要：[起始行, 结束行]，从1开始计数，包含边界。必须是长度为2的数组，例如 [10, 50] 读取第10-50行'
+                        },
+                        showLineNumbers: {
+                            type: 'boolean',
+                            description: '是否在输出中显示行号，默认 false'
+                        }
                     },
                     required: ['path']
                 }
@@ -48,7 +67,6 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                 const filePath = fs.resolve(path);
                 if (!await fs.exists(filePath)) return { status: ToolExecuteStatus.ERROR, error: `文件不存在: ${filePath}` };
 
-                const mode = args.mode || 'preview';
                 const showLineNumbers = !!args.showLineNumbers;
 
                 const stats = await fs.stat(filePath);
@@ -59,6 +77,7 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                 let content = '';
                 let totalLines: number | undefined;
                 let displayRange = '';
+                let mode = args.mode;
 
                 if (mode === 'full') {
                     const res = await safeReadFile(args.path, LIMITS.MAX_FILE_SIZE); // safeReadFile handles parsePath
@@ -90,6 +109,8 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                     totalLines = res.totalLines;
                     displayRange = `${start}-${Math.min(end, totalLines || end)}`;
                 } else {
+                    // 自动模式：小文件完整读取，大文件读取前部
+                    mode = 'auto';
                     if (stats.size <= LIMITS.MAX_FILE_SIZE) {
                         const res = await safeReadFile(args.path); // handles parsePath
                         if (res.error) {
@@ -138,7 +159,7 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
             const fileName = data.fileName || data.path;
             let header = `📄 ${fileName}`;
             if (data.totalLines) header += ` (显示 ${data.range.start}-${data.range.end} / 共 ${data.totalLines} 行)`;
-            if (data.mode === 'preview' && data.range.end !== data.totalLines) header += ' [预览模式]';
+            if (data.mode === 'auto' && data.range.end !== data.totalLines) header += ' [智能模式: 部分显示]';
             return `${header}\n${'─'.repeat(60)}\n${data.content}`;
         }
     };
@@ -148,20 +169,58 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
             type: 'function',
             function: {
                 name: 'fs-Search',
-                description: '在目录中按文件名或内容搜索',
+                description: '在目录树中按文件名或文件内容进行搜索。支持正则表达式、通配符模式、包含/排除过滤。适用于查找特定文件或代码片段。',
                 parameters: {
                     type: 'object',
                     properties: {
-                        path: { type: 'string' },
-                        name: { type: 'string' },
-                        content: { type: 'string' },
-                        regex: { type: 'boolean' },
-                        caseSensitive: { type: 'boolean' },
-                        include: { type: 'array', items: { type: 'string' } },
-                        exclude: { type: 'array', items: { type: 'string' } },
-                        maxDepth: { type: 'number', minimum: 1, maximum: 10 },
-                        maxResults: { type: 'number', minimum: 1, maximum: 200 },
-                        contextLines: { type: 'number', minimum: 0, maximum: 10 }
+                        path: {
+                            type: 'string',
+                            description: '搜索的根目录路径'
+                        },
+                        name: {
+                            type: 'string',
+                            description: '按文件名搜索的模式。支持通配符（*匹配任意字符，?匹配单个字符）或正则表达式（需设置 regex=true）。例如："*.ts" 或 "test.*\.js"'
+                        },
+                        content: {
+                            type: 'string',
+                            description: '在文件内容中搜索的文本或正则模式。只搜索文本文件，自动跳过二进制文件'
+                        },
+                        regex: {
+                            type: 'boolean',
+                            description: '是否将 name/content 视为正则表达式，默认 false（通配符模式）'
+                        },
+                        caseSensitive: {
+                            type: 'boolean',
+                            description: '搜索是否区分大小写，默认 false（不区分）'
+                        },
+                        include: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: '只搜索匹配这些模式的文件。例如：["*.ts", "*.tsx"] 只搜索 TypeScript 文件'
+                        },
+                        exclude: {
+                            type: 'array',
+                            items: { type: 'string' },
+                            description: '排除匹配这些模式的文件/目录。例如：["test", "*.log"]。默认会自动排除 node_modules 等常见目录'
+                        },
+                        maxDepth: {
+                            type: 'number',
+                            minimum: 1,
+                            maximum: 10,
+                            description: '最大搜索深度（目录层级），默认5层，最大10层'
+                        },
+                        maxResults: {
+                            type: 'number',
+                            minimum: 1,
+                            maximum: 200,
+                            description: '最大返回结果数，默认50，最大200。达到上限时停止搜索'
+                        },
+                        contextLines: {
+                            type: 'number',
+                            minimum: 0,
+                            maximum: 10,
+                            description: '内容搜索时，显示匹配行前后的上下文行数，默认2行'
+                        }
                     },
                     required: ['path']
                 }
@@ -280,18 +339,48 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
             type: 'function',
             function: {
                 name: 'fs-List',
-                description: '列出目录内容，支持树状/扁平',
+                description: '列出目录内容，以树状结构展示文件和子目录。支持深度控制、文件过滤、隐藏文件显示等。适用于了解项目结构或查找特定类型文件。',
                 parameters: {
                     type: 'object',
                     properties: {
-                        path: { type: 'string' },
-                        tree: { type: 'boolean' },
-                        pattern: { type: 'string' },
-                        depth: { type: 'number', minimum: 1, maximum: 8 },
-                        showSize: { type: 'boolean' },
-                        showHidden: { type: 'boolean' },
-                        onlyFiles: { type: 'boolean' },
-                        onlyDirs: { type: 'boolean' }
+                        path: {
+                            type: 'string',
+                            description: '要列出的目录路径'
+                        },
+                        tree: {
+                            type: 'boolean',
+                            description: '是否以树状格式显示，默认 true。false 时为扁平列表'
+                        },
+                        pattern: {
+                            type: 'string',
+                            description: '文件名过滤模式（通配符）。例如："*.ts" 只显示 TypeScript 文件，"test*" 只显示 test 开头的文件'
+                        },
+                        depth: {
+                            type: 'number',
+                            minimum: 1,
+                            maximum: 8,
+                            description: '递归深度（目录层级），默认2层，最大8层。深度越大，返回内容越多'
+                        },
+                        showSize: {
+                            type: 'boolean',
+                            description: '是否显示文件大小，默认 true'
+                        },
+                        showHidden: {
+                            type: 'boolean',
+                            description: '是否显示隐藏文件（.开头的文件/目录），默认 false'
+                        },
+                        onlyFiles: {
+                            type: 'boolean',
+                            description: '只列出文件，不显示目录，默认 false'
+                        },
+                        onlyDirs: {
+                            type: 'boolean',
+                            description: '只列出目录，不显示文件，默认 false'
+                        },
+                        skipDir: {
+                            type: 'string',
+                            description: '要跳过的目录名称，多个用逗号分隔。例如："test,dist,tmp"。不指定时使用默认配置（node_modules, .git 等常见目录）'
+                        }
                     },
                     required: ['path']
                 }
@@ -314,6 +403,11 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                 const onlyFiles = !!args.onlyFiles;
                 const onlyDirs = !!args.onlyDirs;
 
+                // 处理 skipDir 参数
+                const skipDirs = args.skipDir
+                    ? args.skipDir.split(',').map(d => d.trim()).filter(d => d)
+                    : EXCLUDED_DIRS;
+
                 interface TreeNode { name: string; type: 'file' | 'dir'; size?: number; sizeFormatted?: string; children?: TreeNode[]; }
                 let itemCount = 0;
 
@@ -327,7 +421,7 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                     if (args.pattern && !isDir && !matchPattern(name, args.pattern, false)) return null;
                     itemCount++;
                     if (isDir) {
-                        if (EXCLUDED_DIRS.includes(name)) return { name, type: 'dir' };
+                        if (skipDirs.includes(name)) return { name, type: 'dir' };
                         let items: string[];
                         try { items = await fs.readdir(cur); } catch { return { name, type: 'dir' }; }
                         const children: TreeNode[] = [];
@@ -376,8 +470,17 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
             type: 'function',
             function: {
                 name: 'fs-Inspect',
-                description: '查看文件或目录元信息',
-                parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] }
+                description: '查看文件或目录的元信息（metadata）。返回类型、大小、创建/修改时间、行数（文本文件）、子项数量（目录）等详细信息。适用于在操作前了解文件属性。',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        path: {
+                            type: 'string',
+                            description: '要检查的文件或目录路径'
+                        }
+                    },
+                    required: ['path']
+                }
             },
             permissionLevel: ToolPermissionLevel.PUBLIC
         },
@@ -438,16 +541,31 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
 
 你有 4 个专业的文件查看工具：
 
-1) View - 智能文件查看：preview/full/head/tail/range
-2) Search - 统一搜索：文件名/内容，支持正则与包含/排除
-3) List - 目录列表：树状/扁平，支持过滤与深度限制
-4) Inspect - 元信息：类型/大小/行数/子项统计
+1) **fs-View** - 智能文件查看
+   - 支持模式：full（完整）/ head（前N行）/ tail（后N行）/ range（指定范围）
+   - 不指定模式时自动选择：小文件完整读取，大文件智能预览
+   - 可选显示行号
 
-最佳实践：
-- 不确定先 Inspect，再 View
-- 日志用 tail，CSV 大文件用 range
-- 搜索加 include/exclude 控制范围
-- 避免对大文件用 full 模式
+2) **fs-Search** - 目录树搜索
+   - 按文件名或内容搜索，支持通配符和正则表达式
+   - 使用 include/exclude 精确控制搜索范围
+   - 自动跳过二进制文件和常见无关目录
+
+3) **fs-List** - 目录内容列表
+   - 树状结构展示，支持深度和文件类型过滤
+   - skipDir 参数可自定义跳过的目录（逗号分隔）
+   - 适合了解项目结构
+
+4) **fs-Inspect** - 文件/目录元信息
+   - 快速查看类型、大小、行数、修改时间等
+   - 操作前先检查，避免误操作
+
+**最佳实践：**
+- 不确定文件类型/大小时，先用 Inspect 检查
+- 查看日志文件用 tail，大数据文件用 range 分段读取
+- 搜索时善用 include/exclude 和 skipDir，减少无关结果
+- 避免对大文件使用 full 模式，优先用 head/tail/range
+- List 大型项目时控制 depth，避免返回过多内容
 `.trim();
 
     return { name: '文件查看工具组', tools, rulePrompt };
