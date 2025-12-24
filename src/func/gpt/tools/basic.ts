@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
- * @LastEditTime : 2025-12-24 23:57:13
+ * @LastEditTime : 2025-12-25 00:28:25
  * @Description  : 
  */
 // import { importJavascriptFile } from '@frostime/siyuan-plugin-kits';
@@ -14,6 +14,7 @@ import {
     ToolExecuteResult
 } from './types';
 
+import { importModule } from '@/libs/dynamic-loading';
 
 /**
  * 日期时间工具
@@ -277,7 +278,14 @@ const jsonInterfaceTool: Tool = {
             }
 
             //@ts-ignore
-            const module = await import('/plugins/sy-f-misc/scripts/json2type.js');
+            const moduleResult = await importModule('scripts/json2type.js', 'plugin');
+            if (!moduleResult.ok) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `无法加载 json2type 模块: ${moduleResult.error}`
+                };
+            }
+            const module = moduleResult.data as { convertJsonToTs: (obj: any, rootName: string) => string } ;
 
             if (!module || !module.convertJsonToTs) {
                 return {
