@@ -309,37 +309,75 @@ export const formatFileSize = (size: number): string => {
     }
 };
 
-export const toolCallSafetyReview = async (toolDef: Tool['definition'], args: Record<string, any>): Promise<string> => {
-    const systemPrompt = `你是一个 LLM Tool Call Safety 审核助手。你的任务是审核用户请求调用的工具和参数，判断是否存在潜在的安全风险或滥用可能性。注意是否会更改用户数据，或者访问敏感信息等。
+export const toolCallSafetyReview = async (
+    toolDef: Tool['definition'],
+    args: Record<string, any>
+): Promise<string> => {
+    const systemPrompt = `你是工具调用安全审核助手。审核工具调用请求，识别安全风险。
 
-输入:
-- 工具调用的定义
-- LLM 请求的参数
+# 审核维度
+1. **数据修改**：是否删除/修改用户数据、系统文件
+2. **敏感访问**：是否读取密钥、凭证、个人隐私
+3. **权限越界**：是否执行超出工具声明范围的操作
+4. **资源滥用**：是否可能导致系统资源耗尽（无限循环、大量请求）
 
-输出: Markdown 格式文本，格式严格遵循下面的要求:
-- 安全风险: "无" | "低" | "中" | "高"
-- 安全性评价: 详细说明工具调用的安全性，指出可能的风险点 (一两句话)
-- 建议: 如果存在风险，提供具体的缓解建议；如果没有风险，说明可以安全使用 (一两句话)
+# 风险等级
+- **安全**：无上述风险
+- **低风险**：只读公开信息，无副作用
+- **中风险**：修改用户可见数据，但操作可逆
+- **高风险**：删除数据、访问敏感信息、不可逆操作
 
-内容凝练，如无必要不超过200字; 直接输出内容，不包含 \`\`\` 代码块等冗余标记
-`
-    const response = await complete(`Tool Definition:
-${JSON.stringify(toolDef, null)}
+# 输出格式（严格遵守）
+- 风险等级: [安全|低风险|中风险|高风险]
+- 调用目的：[解释此次工具调用，在视图做什么]
+- 核心问题: [一句话说明主要风险点，无风险则说明"操作范围明确"]
+- 建议: [无风险输出"可放行"，有风险给出具体缓解措施]
 
-User Arguments:
-${JSON.stringify(args, null)}
-`, {
+以 Markdown 列表格式文本直接输出，不包含额外 \`\`\` 代码块等冗余标记
+
+# 示例
+## 示例1：安全
+工具: get_weather, 参数: {city: "北京"}
+
+---输出---
+
+- 风险等级: 安全
+- 调用目的： 获取北京的天气信息
+- 核心问题: 只读公开天气信息，无副作用
+- 建议: 可放行
+
+## 示例2：高风险
+工具: execute_shell, 参数: {command: "rm -rf /"}
+
+---输出---
+
+- 风险等级: 高风险
+- 调用目的： 递归删除根目录 / （常见高敏感危险操作⚠️）
+- 核心问题: 递归删除根目录，数据不可恢复
+- 建议: **绝对禁止**执行，若有删除需求也应精细定位要删除项目`;
+
+    const userPrompt = `工具定义:
+${JSON.stringify(toolDef, null, 2)}
+
+调用参数:
+${JSON.stringify(args, null, 2)}`;
+
+    const response = await complete(userPrompt, {
         model: store.useModel(store.defaultConfig().utilityModelId || store.defaultModelId()),
-        systemPrompt: systemPrompt,
+        systemPrompt,
         option: {
             temperature: 0,
             stream: false
         }
     });
-    if (response.ok === false) {
-        return `自动化安全审核失败，${response.content || '未知错误'}`;
+
+    if (!response.ok) {
+        return `安全审核失败: ${response.content || '模型调用异常'}`;
     }
 
-    let cleanContent = response.content.trim();
-    return cleanContent;
-}
+    // 清理可能的 markdown 代码块标记
+    return response.content
+        .trim()
+        .replace(/^```markdown?\n?/i, '')
+        .replace(/\n?```$/i, '');
+};
