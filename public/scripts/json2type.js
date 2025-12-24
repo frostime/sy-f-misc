@@ -1,5 +1,22 @@
 export function convertJsonToTs(json, interfaceName = "Root") {
     try {
+        if (Array.isArray(json)) {
+            const typeStr = determineType(json);
+            if (typeStr.startsWith("object")) {
+                const depth = calculateArrayDepth(json);
+                let baseObj = json;
+                for (let i = 0; i < depth; i++) baseObj = baseObj[0];
+
+                if (typeof baseObj === "object" && baseObj !== null && !Array.isArray(baseObj)) {
+                    const childName = capitalize(pluralToSingular(interfaceName));
+                    const effectiveChildName = childName === interfaceName ? `${interfaceName}Element` : childName;
+                    const nested = parseObject(baseObj, effectiveChildName);
+                    const brackets = typeStr.substring("object".length);
+                    return `type ${interfaceName} = ${effectiveChildName}${brackets};\n\n${nested}`;
+                }
+            }
+            return `type ${interfaceName} = ${typeStr};`;
+        }
         return parseObject(json, interfaceName);
     }
     catch (error) {
@@ -15,8 +32,16 @@ function determineType(value) {
     if (Array.isArray(value)) {
         if (value.length === 0)
             return "any[]"; // Explicitly handle empty arrays
-        const baseType = determineType(value[0] || "any"); // Determine type of the first element
+
         const depth = calculateArrayDepth(value);
+        let current = value;
+        for (let i = 0; i < depth; i++) current = current[0];
+
+        if (Array.isArray(current)) {
+            return `any${"[]".repeat(depth + 1)}`;
+        }
+
+        const baseType = determineType(current);
         return `${baseType}${"[]".repeat(depth)}`;
     }
     else if (value === null || value === undefined) {
@@ -77,26 +102,37 @@ function parseObject(obj, parentName = "Root", seen = new Set(), rootName = pare
         if (value === null || value === undefined) {
             optionalKeys.push(key); // Mark key as optional
         }
-        const fieldType = determineType(value);
-        if (fieldType === "object" && value !== null && typeof value === "object") {
-            const childName = capitalize(pluralToSingular(key));
-            nestedInterfaces.push(parseObject(value, childName, seen, rootName));
-            parsedObject[key] = `${childName};`;
-        }
-        else if (Array.isArray(value)) {
-            const arrayType = determineType(value.flat(Infinity)[0] || "any");
-            if (arrayType === "object" && value[0] !== null) {
-                const childName = capitalize(pluralToSingular(key));
-                nestedInterfaces.push(parseObject(value[0], childName, seen, rootName));
-                parsedObject[key] = `${childName}[];`;
-            }
-            else {
-                const depth = calculateArrayDepth(value);
-                parsedObject[key] = `${arrayType}${"[]".repeat(depth)};`;
+
+        if (Array.isArray(value)) {
+            const depth = calculateArrayDepth(value);
+            let current = value;
+            for (let i = 0; i < depth; i++) current = current[0];
+
+            const brackets = "[]".repeat(depth);
+            if (Array.isArray(current)) {
+                // Empty array at depth
+                parsedObject[key] = `any${brackets}[];`;
+            } else {
+                const baseType = determineType(current);
+                if (baseType === "object" && current !== null) {
+                    const childName = capitalize(pluralToSingular(key));
+                    nestedInterfaces.push(parseObject(current, childName, seen, rootName));
+                    parsedObject[key] = `${childName}${brackets};`;
+                } else {
+                    parsedObject[key] = `${baseType}${brackets};`;
+                }
             }
         }
         else {
-            parsedObject[key] = `${fieldType};`;
+            const fieldType = determineType(value);
+            if (fieldType === "object" && value !== null && typeof value === "object") {
+                const childName = capitalize(pluralToSingular(key));
+                nestedInterfaces.push(parseObject(value, childName, seen, rootName));
+                parsedObject[key] = `${childName};`;
+            }
+            else {
+                parsedObject[key] = `${fieldType};`;
+            }
         }
     });
     seen.delete(obj);

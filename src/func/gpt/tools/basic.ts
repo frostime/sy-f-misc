@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
- * @LastEditTime : 2025-12-19 00:22:51
+ * @LastEditTime : 2025-12-24 23:57:13
  * @Description  : 
  */
-import { importJavascriptFile } from '@frostime/siyuan-plugin-kits';
+// import { importJavascriptFile } from '@frostime/siyuan-plugin-kits';
 import {
     Tool,
     ToolPermissionLevel,
@@ -276,8 +276,8 @@ const jsonInterfaceTool: Tool = {
                 };
             }
 
-            // 导入 json2type 模块
-            const module = await importJavascriptFile('json2type.js', '/data/storage/petal/{{plugin}}/scripts');
+            //@ts-ignore
+            const module = await import('/plugins/sy-f-misc/scripts/json2type.js');
 
             if (!module || !module.convertJsonToTs) {
                 return {
