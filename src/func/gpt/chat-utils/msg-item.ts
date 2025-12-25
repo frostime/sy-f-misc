@@ -9,6 +9,17 @@ import { extractContentText } from './msg-content';
 import { assembleContext2Prompt } from '../context-provider';  // 保留原有的导入
 import { formatSingleItem } from '../persistence';  // 保留原有的导入
 
+// ================================================================
+// Basic Getter
+// ================================================================
+
+export const checkHasToolChain = (item: Readonly<IChatSessionMsgItem>): boolean => {
+    return (
+        item.toolChainResult !== undefined &&
+        item.toolChainResult.toolCallHistory.length > 0
+    );
+}
+
 // ============================================================================
 // Version Management
 // ============================================================================
@@ -198,78 +209,10 @@ export function splitPromptFromContext(item: Readonly<IChatSessionMsgItem>) {
 // Token & Stats Calculation
 // ============================================================================
 
-/**
- * 估算文本 token 数量（粗略估计）
- */
-export function estimateTokens(text: string): number {
-    // 粗略估计：英文约 4 字符/token，中文约 2 字符/token
-    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-    const otherChars = text.length - chineseChars;
-    return Math.ceil(chineseChars / 2 + otherChars / 4);
-}
-
-/**
- * 计算消息的字符数
- */
-export function countMessageChars(message: IMessage): number {
-    return extractContentText(message.content).length;
-}
-
-/**
- * 计算会话项的附加信息
- */
-export function calculateAttachmentInfo(
-    item: Readonly<IChatSessionMsgItem>,
-    // previousItems: IChatSessionMsgItem[]
-): {
-    attachedItems: number;
-    attachedChars: number;
-} {
-    let attachedItems = 0;
-    let attachedChars = 0;
-
-    if (item.context && item.context.length > 0) {
-        for (const ctx of item.context) {
-            for (const ctxItem of ctx.contextItems) {
-                attachedItems++;
-                attachedChars += ctxItem.content.length;
-            }
-        }
-    }
-
-    return { attachedItems, attachedChars };
-}
 
 // ============================================================================
 // Message Utilities
 // ============================================================================
-
-/**
- * 创建空的消息项
- */
-export function createEmptyMsgItem(role: 'user' | 'assistant' | 'system', idGenerator: () => string = generateId): IChatSessionMsgItem {
-    return {
-        type: 'message',
-        id: idGenerator(),
-        message: {
-            role,
-            content: ''
-        },
-        timestamp: Date.now(),
-        author: role
-    };
-}
-
-/**
- * 创建分隔符项
- */
-export function createSeparatorItem(): IChatSessionMsgItem {
-    return {
-        type: 'seperator',
-        id: generateId(),
-        timestamp: Date.now()
-    };
-}
 
 /**
  * 生成唯一 ID
@@ -278,12 +221,6 @@ function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-/**
- * 克隆消息项（深拷贝）
- */
-export function cloneMsgItem(item: Readonly<IChatSessionMsgItem>): IChatSessionMsgItem {
-    return JSON.parse(JSON.stringify(item));
-}
 
 /**
  * 检查消息项是否为空
