@@ -234,10 +234,10 @@ const ChatInDocWindow = (props: {
                 return;
             }
 
-            const msgs = history.items.map(item => item.message).filter(Boolean);
-            const abortControler = new AbortController();
+            const msgs = history.items.map((item: IChatSessionMsgItem) => item.message).filter(Boolean);
+            const abortController = new AbortController();
             abort = () => {
-                abortControler.abort();
+                abortController.abort();
             }
 
             // 获取当前选择的模型
@@ -296,7 +296,7 @@ const ChatInDocWindow = (props: {
                     // setResponseText(msg);
                     tempHTMLBlock.update(msg);
                 },
-                abortControler
+                abortController
             });
             abort = null;
             isLoading(false);

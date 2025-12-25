@@ -2,11 +2,11 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-04-22
- * @FilePath     : /src/func/gpt/components/SessionItemsManager.tsx
+ * @FilePath     : /src/func/gpt/chat/components/SessionItemsManager.tsx
  * @Description  : 会话消息管理器组件
  */
 
-import { Accessor, batch, Component, createEffect, createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
+import { Accessor, Component, createEffect, createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
 import { formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { confirm } from "siyuan";
 
@@ -33,8 +33,8 @@ const SessionItemsManager: Component<{
     // 字体大小设置
     const fontSize = createSignalRef(UIConfig().inputFontsize);
 
-    // 消息列表
-    const messages = createMemo(() => props.session.messages());
+    // 消息列表（使用封装接口）
+    const messages = createMemo(() => props.session.getActiveMessages());
 
     // 选中的消息ID列表
     const [selectedIds, setSelectedIds] = createSignal<string[]>([]);
@@ -47,7 +47,7 @@ const SessionItemsManager: Component<{
         const id = previewId();
         if (!id) return null;
 
-        const msg = messages().find(item => item.id === id);
+        const msg = props.session.getMessageAt({ id });
         if (!msg) return null;
 
         const { text } = extractMessageContent(msg.message.content);
@@ -65,7 +65,7 @@ const SessionItemsManager: Component<{
     const toggleSelect = (id: string) => {
         setSelectedIds(prev => {
             if (prev.includes(id)) {
-                return prev.filter(item => item !== id);
+                return prev.filter((item: string) => item !== id);
             } else {
                 return [...prev, id];
             }
@@ -74,7 +74,7 @@ const SessionItemsManager: Component<{
 
     // 全选
     const selectAll = () => {
-        setSelectedIds(messages().map(item => item.id));
+        setSelectedIds(messages().map((item: IChatSessionMsgItem) => item.id));
     };
 
     // 取消全选
@@ -84,11 +84,8 @@ const SessionItemsManager: Component<{
 
     // 选择指定消息之前的所有消息
     const selectBefore = (id: string) => {
-        const index = messages().findIndex(item => item.id === id);
-        if (index === -1) return;
-
-        const messagesToSelect = messages().slice(0, index + 1);
-        const idsToSelect = messagesToSelect.map(item => item.id);
+        const messagesToSelect = props.session.getMessagesBefore({ id }, true);
+        const idsToSelect = messagesToSelect.map((item: IChatSessionMsgItem) => item.id);
 
         // 检查是否所有消息都已被选中
         const allSelected = idsToSelect.every(id => selectedIds().includes(id));
@@ -103,11 +100,8 @@ const SessionItemsManager: Component<{
 
     // 选择指定消息之后的所有消息
     const selectAfter = (id: string) => {
-        const index = messages().findIndex(item => item.id === id);
-        if (index === -1) return;
-
-        const messagesToSelect = messages().slice(index);
-        const idsToSelect = messagesToSelect.map(item => item.id);
+        const messagesToSelect = props.session.getMessagesAfter({ id }, true);
+        const idsToSelect = messagesToSelect.map((item: IChatSessionMsgItem) => item.id);
 
         // 检查是否所有消息都已被选中
         const allSelected = idsToSelect.every(id => selectedIds().includes(id));
@@ -125,32 +119,11 @@ const SessionItemsManager: Component<{
         if (selectedIds().length === 0) return;
 
         confirm('确认删除', `是否删除选中的 ${selectedIds().length} 条消息？`, () => {
-            // 按照索引从大到小排序，避免删除时索引变化
+            // 批量删除选中的消息
             const idsToDelete = [...selectedIds()];
-            const indexMap = new Map<string, number>();
 
-            messages().forEach((item, index) => {
-                if (idsToDelete.includes(item.id)) {
-                    indexMap.set(item.id, index);
-                }
-            });
-
-            // 按索引从大到小排序
-            idsToDelete.sort((a, b) => {
-                const indexA = indexMap.get(a) ?? 0;
-                const indexB = indexMap.get(b) ?? 0;
-                return indexB - indexA;
-            });
-
-            // 依次删除
-            batch(() => {
-                idsToDelete.forEach(id => {
-                    // props.session.delMsgItem(id);
-                    props.session.messages.update((oldList: IChatSessionMsgItem[]) => {
-                        return oldList.filter((i) => i.id !== id);
-                    })
-                });
-            });
+            // 使用新的封装接口批量删除消息
+            props.session.deleteMessages(idsToDelete.map(id => ({ id })));
 
             setSelectedIds([]);
         });
@@ -196,8 +169,9 @@ const SessionItemsManager: Component<{
 
     // 初始化预览第一条消息
     createEffect(() => {
-        if (messages().length > 0 && !previewId()) {
-            setPreviewId(messages()[0].id);
+        if (props.session.hasMessages() && !previewId()) {
+            const firstMessage = props.session.getActiveMessages()[0];
+            setPreviewId(firstMessage.id);
         }
     });
 
@@ -359,7 +333,7 @@ const SessionItemsManager: Component<{
             <div class={styles.toolbar}>
                 <div class={styles.toolbarInfo}>
                     <span class={styles.sessionTitle}>{props.session.title()}</span>
-                    <span class={styles.messageCount}>共 {messages().length} 条消息</span>
+                    <span class={styles.messageCount}>共 {props.session.getMessageCount()} 条消息</span>
                     <span class={styles.selectedCount}>已选择 {selectedIds().length} 条</span>
                 </div>
                 <div class={styles.toolbarActions}>

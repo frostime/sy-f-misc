@@ -187,7 +187,7 @@ export const removeFromJson = async (id: string) => {
  */
 const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnapshot => {
     // 过滤出真正的消息项
-    const messageItems = history.items.filter(item =>
+    const messageItems = history.items.filter((item: IChatSessionMsgItem) =>
         item.type === 'message' && item.message?.content
     );
 

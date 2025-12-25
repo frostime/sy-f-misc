@@ -239,10 +239,6 @@ const MessageItem: Component<{
     }
 
     const createNewBranch = () => {
-        const messages = session.messages.unwrap();
-        const currentIndex = messages.findIndex(m => m.id === props.messageItem.id);
-        if (currentIndex === -1) return;
-
         confirm('确认?', '保留以上记录，创建一个新的对话分支', () => {
             const sourceSessionId = session.sessionId();
             const sourceSessionTitle = session.title();
@@ -250,25 +246,27 @@ const MessageItem: Component<{
             const newSessionId = window.Lute.NewNodeID();
             const newSessionTitle = session.title() + ' - 新的分支';
 
-            // 1. Update current session (Source)
-            session.messages.update(currentIndex, (msg) => {
+            // 1. 更新 branchTo 元数据（不创建新版本，只更新元数据）
+            const currentItem = session.getMessageAt({ id: sourceMessageId });
+            if (currentItem && currentItem.type === 'message') {
                 const newBranch = {
                     sessionId: newSessionId,
                     sessionTitle: newSessionTitle,
                     messageId: sourceMessageId
                 };
-                const currentBranches = msg.branchTo || [];
+                const currentBranches = currentItem.branchTo || [];
                 const branchTo = [...currentBranches, newBranch];
-                //unique
                 const uniqueBranchTo = Array.from(new Map(branchTo.map(item => [item.sessionId + item.messageId, item])).values());
-                return { ...msg, branchTo: uniqueBranchTo };
-            });
+
+                // 使用封装接口更新元数据
+                session.updateMessageMetadata({ id: sourceMessageId }, { branchTo: uniqueBranchTo });
+            }
 
             // Save the source session immediately to persist the link
             persist.saveToLocalStorage(session.sessionHistory());
 
             // 2. Prepare new session (Target)
-            const slices = messages.slice(0, currentIndex + 1);
+            const slices = session.getMessagesBefore({ id: sourceMessageId }, true);
             const branchMessages = structuredClone(slices);
             const lastMsg = branchMessages[branchMessages.length - 1];
 
@@ -348,26 +346,8 @@ const MessageItem: Component<{
             click: () => props.toggleSeperator?.()
         });
         const addBlank = (type: 'user' | 'assistant') => {
-            const timestamp = new Date().getTime();
-            const newMessage: IChatSessionMsgItem = {
-                type: 'message',
-                id: window.Lute.NewNodeID(),
-                timestamp: timestamp,
-                author: 'user',
-                message: {
-                    role: type,
-                    content: ''
-                },
-                currentVersion: timestamp.toString(),
-                versions: {}
-            };
-            session.messages.update((oldList: IChatSessionMsgItem[]) => {
-                const index = oldList.findIndex(item => item.id === props.messageItem.id);
-                if (index === -1) return oldList;
-                const newList = [...oldList];
-                newList.splice(index + 1, 0, newMessage);
-                return newList;
-            });
+            // 使用封装接口插入空白消息
+            session.insertBlankMessage({ id: props.messageItem.id }, type);
         }
         menu.addItem({
             icon: 'iconAdd',

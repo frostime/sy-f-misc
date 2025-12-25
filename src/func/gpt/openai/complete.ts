@@ -104,8 +104,8 @@ const handleStreamResponse = async (
         .pipeThrough(transformStream);
 
     const reader = stream.getReader();
-    const checkAbort = options?.abortControler?.signal
-        ? () => options.abortControler.signal.aborted
+    const checkAbort = options?.abortController?.signal
+        ? () => options.abortController.signal.aborted
         : () => false;
 
     let t1 = null;
@@ -251,7 +251,7 @@ export const complete = async (input: string | IMessage[], options?: {
     streamMsg?: (msg: string, toolCalls?: IToolCallResponse[]) => void,
     streamInterval?: number,
     option?: IChatCompleteOption
-    abortControler?: AbortController
+    abortController?: AbortController
 }): Promise<ICompletionResult> => {
 
     let response: Response;
@@ -330,7 +330,7 @@ export const complete = async (input: string | IMessage[], options?: {
                 ...(provider?.customHeaders || {})
             },
             body: JSON.stringify(payload),
-            signal: options?.abortControler?.signal
+            signal: options?.abortController?.signal
         });
 
         if (!response.ok) {

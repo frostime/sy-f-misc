@@ -244,7 +244,7 @@ export const ChatSession: Component<{
     }));
 
     const newChatSession = (history?: Partial<IChatSessionHistory>) => {
-        if (session.messages().length > 0 && session.hasUpdated()) {
+        if (session.hasMessages() && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
         session.newSession();
@@ -294,7 +294,7 @@ export const ChatSession: Component<{
 
     onCleanup(() => {
         // 移除 siyuanEditor.cleanUp()，因为 floatSiYuanTextEditor 会自动清理
-        if (session.messages().length > 0 && session.hasUpdated()) {
+        if (session.hasMessages() && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
     });
@@ -593,7 +593,7 @@ export const ChatSession: Component<{
                     <HistoryList
                         close={() => close()}
                         onclick={(history: IChatSessionHistory) => {
-                            if (session.messages().length > 0) {
+                            if (session.hasMessages()) {
                                 persist.saveToLocalStorage(session.sessionHistory());
                             }
                             session.applyHistory(history);
@@ -941,10 +941,8 @@ export const ChatSession: Component<{
             {
                 (props.id && (
                     <span data-type="button" onclick={() => {
-                        //删除指定 id 的 seperator
-                        session.messages.update((oldList: IChatSessionMsgItem[]) => {
-                            return oldList.filter((i) => i.id !== props.id);
-                        });
+                        // 删除指定 id 的 seperator
+                        session.deleteMessages([{ id: props.id }]);
                     }}>
                         <SvgSymbol size="10px">iconClose</SvgSymbol>
                     </span>
@@ -1070,7 +1068,7 @@ export const ChatSession: Component<{
             ref={messageListRef}
             onScroll={handleScroll}
         >
-            <For each={session.messages()}>
+            <For each={session.getActiveMessages()}>
                 {(item: IChatSessionMsgItem, index: Accessor<number>) => (
                     <Switch fallback={<></>}>
                         <Match when={item.type === 'message'}>
@@ -1108,7 +1106,7 @@ export const ChatSession: Component<{
                                     session.togglePinned(index());
                                 }}
                                 index={index()}
-                                totalCount={session.messages().length}
+                                totalCount={session.getMessageCount()}
                             />
                         </Match>
                         <Match when={item.type === 'seperator'}>

@@ -445,7 +445,7 @@ export async function executeToolChain(
                     systemPrompt: options.systemPrompt,
                     stream: options.chatOption?.stream || false,
                     streamMsg: callbacks.onLLMResponseUpdate,
-                    abortControler: options.abortController,
+                    abortController: options.abortController,
                     option: options.chatOption
                 });
 
@@ -565,7 +565,7 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
                     systemPrompt: options.systemPrompt,
                     stream: options.chatOption?.stream || false,
                     streamMsg: callbacks.onLLMResponseUpdate,
-                    abortControler: options.abortController,
+                    abortController: options.abortController,
                     option: options.chatOption
                 });
 

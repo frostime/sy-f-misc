@@ -130,13 +130,13 @@ export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | History,
     }
 
     if (globalMiscConfigs().exportMDSkipHidden) {
-        item = item.filter(item => !item.hidden);
+        item = item.filter((item: IChatSessionMsgItem) => !item.hidden);
     }
 
     if (sysPrompt) {
         markdownText += formatSingleItem('SYSTEM', sysPrompt) + '\n\n';
     }
-    markdownText += item.map(item => item2markdown(item, options)).join('\n\n');
+    markdownText += item.map((item: IChatSessionMsgItem) => item2markdown(item, options)).join('\n\n');
     return markdownText;
 }
 

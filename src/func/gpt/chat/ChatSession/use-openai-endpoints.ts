@@ -272,7 +272,7 @@ const createChatHandler = (deps: ChatHandlerDeps) => {
             stream: chatOption.stream,
             streamInterval: 2,
             streamMsg: params.onStream,
-            abortControler: params.controller,
+            abortController: params.controller,
             option: chatOption,
         });
     };
@@ -513,7 +513,7 @@ const extractImageFromMessageContent = async (content: string | TMessageContentP
  */
 const findImageFromRecentMessages = async (messages: IChatSessionMsgItem[], atIndex: number): Promise<Blob | null> => {
     // 从 beforeIndex 向前查找
-    let msg = null;
+    let msg: IChatSessionMsgItem | null = null;
     for (let i = atIndex; i >= 0; i--) {
         msg = messages[i];
         if (msg.type !== 'message') continue;
