@@ -18,7 +18,7 @@ export {
     promptTemplates,
     globalMiscConfigs,
     toolsManager
-} from './state';
+} from './config';
 
 // Model resolution
 export {

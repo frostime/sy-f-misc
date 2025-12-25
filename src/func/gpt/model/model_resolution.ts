@@ -8,7 +8,7 @@
  */
 
 import { OPENAI_ENDPONITS, trimTrailingSlash, ensureLeadingSlash } from "./url_utils";
-import { defaultModelId, llmProviders } from "./state";
+import { defaultModelId, llmProviders } from "./config";
 
 /**
  * 解析 bareId 格式
