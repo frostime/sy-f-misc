@@ -1,6 +1,6 @@
 // src/func/gpt/model/msg_migration.ts
 
-function migrateSessionToV2(v1: IChatSessionHistory): IChatSessionHistoryV2 {
+function migrateHistoryToV2(v1: IChatSessionHistory): IChatSessionHistoryV2 {
     const nodes: Record<ItemID, IChatSessionMsgItemV2> = {};
     const worldLine: ItemID[] = [];
     let prevId: ItemID | null = null;
@@ -12,7 +12,7 @@ function migrateSessionToV2(v1: IChatSessionHistory): IChatSessionHistoryV2 {
         const nodeType = (item.type as string) === 'seperator' ? 'separator' : item.type;
 
         // 2. 构建 Versions
-        const versions: Record<string, IMessageVersionV2> = {};
+        const versions: Record<string, IMessagePayload> = {};
         let currentVersionId = '';
 
         // 仅 Message 类型需要构建 Version

@@ -8,7 +8,7 @@
  */
 import { thisPlugin, api, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { createSignalRef } from "@frostime/solid-signal-ref";
-import { extractMessageContent } from "@gpt/chat-utils";
+import { extractMessageContent, getMeta, getPayload } from '@gpt/chat-utils';
 
 const rootName = 'chat-history';
 
@@ -188,7 +188,7 @@ export const removeFromJson = async (id: string) => {
 const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnapshot => {
     // 过滤出真正的消息项
     const messageItems = history.items.filter((item: IChatSessionMsgItem) =>
-        item.type === 'message' && item.message?.content
+        getMeta(item, 'type') === 'message' && getPayload(item, 'message')?.content
     );
 
     // 提取预览内容
@@ -196,8 +196,8 @@ const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnap
     let totalLength = 0;
 
     for (const item of messageItems.slice(0, 3)) { // 只取前3条消息
-        const { text } = extractMessageContent(item.message.content);
-        const authorPrefix = `${item.author || 'unknown'}: `;
+        const { text } = extractMessageContent(getPayload(item, 'message').content);
+        const authorPrefix = `${getPayload(item, 'author') || 'unknown'}: `;
         const contentToAdd = authorPrefix + text.replace(/\n/g, ' ').trim();
 
         if (totalLength + contentToAdd.length > PREVIEW_LENGTH) {

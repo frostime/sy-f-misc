@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-12-12 16:22:55
+ * @LastEditTime : 2025-12-26 12:52:23
  * @Description  :
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
 import { convertMathFormulas, id2block } from "../utils";
-import { extractMessageContent } from '../chat-utils';
+import { extractMessageContent, getMeta, getPayload } from '../chat-utils';
 
 import { showMessage } from "siyuan";
 import { defaultConfig, globalMiscConfigs } from "../setting";
@@ -70,17 +70,18 @@ export const item2markdown = (item: IChatSessionMsgItem, options?: {
     const { convertImage } = options || {
         convertImage: true
     };
-    if (item.type === 'seperator') {
+    if (getMeta(item, 'type') === 'seperator') {
         return `
 ${SEPERATOR_LINE}
 > <SEPERATOR />
 `.trim();
     }
-    let author: string = item.message.role;
-    if (item.message.role === 'assistant') {
-        author = item.author;
+    const message = getPayload(item, 'message');
+    let author: string = message.role;
+    if (message.role === 'assistant') {
+        author = getPayload(item, 'author');
     }
-    let { text, images } = extractMessageContent(item.message.content);
+    let { text, images } = extractMessageContent(message.content);
     if (defaultConfig().convertMathSyntax) {
         text = convertMathFormulas(text);
     }
@@ -91,8 +92,9 @@ ${SEPERATOR_LINE}
         return `<div style="display: flex; flex-direction: column; gap: 10px;">\n${imgs.join('\n')}\n</div>`;
     }
 
-    let xmlTagName = item.message.role.toUpperCase();
-    const timeStr = item.timestamp ? formatDateTime(null, new Date(item.timestamp)) : '';
+    let xmlTagName = message.role.toUpperCase();
+    const timestamp = getPayload(item, 'timestamp');
+    const timeStr = timestamp ? formatDateTime(null, new Date(timestamp)) : '';
     const content = `${text}\n\n${imagesDivs()}`.trim();
     return formatSingleItem(xmlTagName, content, {
         author,
@@ -130,7 +132,7 @@ export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | History,
     }
 
     if (globalMiscConfigs().exportMDSkipHidden) {
-        item = item.filter((item: IChatSessionMsgItem) => !item.hidden);
+        item = item.filter((item: IChatSessionMsgItem) => !getMeta(item, 'hidden'));
     }
 
     if (sysPrompt) {
@@ -269,6 +271,7 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
     }
 
     let sysPrompt: string | undefined;
+    // #TODO 后面迁移的时候这里要改
     const items: IChatSessionMsgItem[] = [];
 
     for (const part of parts) {

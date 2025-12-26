@@ -22,7 +22,7 @@ import {
     type IImageEditOptions
 } from '@gpt/openai/images';
 import { ISignalRef, IStoreRef, useSignalRef } from '@frostime/solid-signal-ref';
-import { stageMsgItemVersion } from '@gpt/chat-utils/msg-item';
+import { stageMsgItemVersion, getMeta, getPayload } from '@gpt/chat-utils/msg-item';
 import { ToolExecutor } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
 import { extractContentText, extractMessageContent } from '@gpt/chat-utils';
@@ -516,11 +516,11 @@ const findImageFromRecentMessages = async (messages: IChatSessionMsgItem[], atIn
     let msg: IChatSessionMsgItem | null = null;
     for (let i = atIndex; i >= 0; i--) {
         msg = messages[i];
-        if (msg.type !== 'message') continue;
+        if (getMeta(msg, 'type') !== 'message') continue;
 
         break;
     }
-    const image = await extractImageFromMessageContent(msg.message.content);
+    const image = await extractImageFromMessageContent(getPayload(msg, 'message').content);
     if (image) {
         return image;
     }

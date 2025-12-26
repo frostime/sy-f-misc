@@ -7,7 +7,7 @@ import { useSignalRef } from "@frostime/solid-signal-ref";
 import { removeDoc } from "@/api";
 import { solidDialog } from "@/libs/dialog";
 
-import { extractMessageContent } from "@gpt/chat-utils";
+import { extractMessageContent, getMeta, getPayload, getMessageProp } from "@gpt/chat-utils";
 import * as persist from '@gpt/persistence';
 import TitleTagEditor from "./TitleTagEditor";
 import styles from "./HistoryList.module.scss";
@@ -473,10 +473,11 @@ const HistoryList = (props: {
             } else {
                 // 在完整消息中搜索
                 for (const messageItem of item.items) {
-                    if (messageItem.type !== 'message' || !messageItem.message?.content) continue;
-                    const { text } = extractMessageContent(messageItem.message.content);
+                    if (getMeta(messageItem, 'type') !== 'message' || !getPayload(messageItem, 'message')?.content) continue;
+                    const { text } = extractMessageContent(getPayload(messageItem, 'message').content);
                     if (text.toLowerCase().includes(query)) return true;
-                    if (messageItem.author && messageItem.author.toLowerCase().includes(query)) return true;
+                    const author = getPayload(messageItem, 'author');
+                    if (author && author.toLowerCase().includes(query)) return true;
                 }
             }
 
@@ -510,13 +511,13 @@ const HistoryList = (props: {
         } else {
             // 原有的完整处理逻辑
             const messageItems = history.items.filter(item =>
-                item.type === 'message' && item.message?.content
+                getMeta(item, 'type') === 'message' && getPayload(item, 'message')?.content
             );
 
             const items = messageItems.slice(0, 2);
             const content = items.map(item => {
-                const { text } = extractMessageContent(item.message.content);
-                return (item.author || 'unknown') + ": " + text.replace(/\n/g, " ");
+                const { text } = extractMessageContent(getPayload(item, 'message').content);
+                return (getPayload(item, 'author') || 'unknown') + ": " + text.replace(/\n/g, " ");
             }).join("\n");
 
             return content;

@@ -13,7 +13,10 @@ import {
     mergeInputWithContext,
     applyMsgItemVersion,
     stageMsgItemVersion,
-    isMsgItemWithMultiVersion
+    isMsgItemWithMultiVersion,
+    getMeta,
+    getPayload,
+    getMessageProp
 } from '@gpt/chat-utils/msg-item';
 
 import { toolExecutorFactory } from '@gpt/tools';
@@ -161,9 +164,9 @@ const useMessageManagement = (params: {
      */
     const getContent = (at: MessageLocator): string => {
         const item = getAt(at);
-        if (!item || item.type !== 'message') return '';
+        if (!item || getMeta(item, 'type') !== 'message') return '';
 
-        const { text } = extractMessageContent(item.message.content);
+        const { text } = extractMessageContent(getPayload(item, 'message').content);
         return text;
     };
 
@@ -196,7 +199,7 @@ const useMessageManagement = (params: {
      */
     const getVersionInfo = (at: MessageLocator) => {
         const item = getAt(at);
-        if (!item || item.type !== 'message') return null;
+        if (!item || getMeta(item, 'type') !== 'message') return null;
 
         return {
             currentVersion: item.currentVersion,
@@ -301,7 +304,7 @@ const useMessageManagement = (params: {
         if (index === -1) return '';
 
         const item = messages()[index];
-        if (item.type !== 'message') return '';
+        if (getMeta(item, 'type') !== 'message') return '';
 
         const { branchContent, keepAfter = false } = options;
 
@@ -317,7 +320,7 @@ const useMessageManagement = (params: {
             stagedItem.versions[newVersionId] = {
                 content,
                 reasoning_content: '',
-                author: item.author,
+                author: getPayload(item, 'author'),
                 timestamp: new Date().getTime(),
                 token: null,
                 time: null
@@ -432,15 +435,15 @@ const useMessageManagement = (params: {
     const toggleHidden = (index: number, value?: boolean) => {
         if (index < 0 || index >= messages().length) return;
         const targetMsg = messages()[index];
-        if (targetMsg.type !== 'message') return;
-        messages.update(index, 'hidden', value ?? !targetMsg.hidden);
+        if (getMeta(targetMsg, 'type') !== 'message') return;
+        messages.update(index, 'hidden', value ?? !getMeta(targetMsg, 'hidden'));
     }
 
     const togglePinned = (index: number, value?: boolean) => {
         if (index < 0 || index >= messages().length) return;
         const targetMsg = messages()[index];
-        if (targetMsg.type !== 'message') return;
-        messages.update(index, 'pinned', value ?? !targetMsg.pinned);
+        if (getMeta(targetMsg, 'type') !== 'message') return;
+        messages.update(index, 'pinned', value ?? !getMeta(targetMsg, 'pinned'));
     }
 
     const addMsgItemVersion = (itemId: string, content: string) => {
@@ -645,7 +648,7 @@ export const useSession = (props: {
         const targetMessage = history[targetIndex];
 
         const isAttachable = (msg: IChatSessionMsgItem) => {
-            return msg.type === 'message' && !msg.hidden && !msg.loading;
+            return getMeta(msg, 'type') === 'message' && !getMeta(msg, 'hidden') && !getMeta(msg, 'loading');
         }
 
         // 从指定位置向前截取历史消息
@@ -723,10 +726,10 @@ export const useSession = (props: {
         // 3. 合并并保持原有顺序
         // 因为 pinnedMessages 和 attachedMessages 都是 previousMessages 的子集，
         // 我们可以通过 ID 集合再次从 previousMessages 中筛选，从而自然保持顺序
-        const finalIds = new Set([...attachedMessages, ...pinnedMessages].map((m: IChatSessionMsgItem) => m.id));
-        const finalContext = previousMessages.filter((m: IChatSessionMsgItem) => finalIds.has(m.id));
+        const finalIds = new Set([...attachedMessages, ...pinnedMessages].map((m: IChatSessionMsgItem) => getMeta(m, 'id')));
+        const finalContext = previousMessages.filter((m: IChatSessionMsgItem) => finalIds.has(getMeta(m, 'id')));
 
-        return [...finalContext, targetMessage].map((item: IChatSessionMsgItem) => item.message!);
+        return [...finalContext, targetMessage].map((item: IChatSessionMsgItem) => getPayload(item, 'message')!);
     }
 
     // 使用消息管理 hook
@@ -943,16 +946,16 @@ export const useSession = (props: {
             // 记录每条被删除的消息到历史
             locators.forEach(loc => {
                 const item = msgMgr.getAt(loc);
-                if (!item || item.type !== 'message') return;
+                if (!item || getMeta(item, 'type') !== 'message') return;
 
-                const content = extractContentText(item.message.content);
+                const content = extractContentText(getPayload(item, 'message').content);
                 deleteHistory.addRecord({
                     type: 'message',
                     sessionId: sessionId(),
                     sessionTitle: title(),
                     content: content,
-                    timestamp: item.timestamp || Date.now(),
-                    author: item.author,
+                    timestamp: getPayload(item, 'timestamp') || Date.now(),
+                    author: getPayload(item, 'author'),
                     totalVersions: item.versions ? Object.keys(item.versions).length : 1,
                     originalItem: {
                         id: item.id,

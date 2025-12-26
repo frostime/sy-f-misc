@@ -23,7 +23,7 @@ type ItemID = string;
  * - 同一问题的不同模型回答（GPT/Claude/Gemini）
  * - rerun 产生的新回复
  */
-interface IMessageVersionV2 {
+interface IMessagePayload {
     id: string;
     message: IMessageLoose;
     // content: TMessageContent;
@@ -65,7 +65,7 @@ interface IChatSessionMsgItemV2 {
 
     // ===== 版本管理 =====
     currentVersionId: string;  // seperator 时为 ''
-    versions: Record<string, IMessageVersionV2>;
+    versions: Record<string, IMessagePayload>;
 
     // ===== 树形结构 =====
     parent: ItemID | null;

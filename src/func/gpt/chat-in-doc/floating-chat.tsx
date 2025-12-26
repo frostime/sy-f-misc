@@ -13,6 +13,7 @@ import { getLute, getMarkdown, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory } from "./document-parser";
+import { getPayload } from "../chat-utils";
 import { appendBlock, deleteBlock, getBlockByID, request } from "@frostime/siyuan-plugin-kits/api";
 import styles from "./style.module.scss";
 import { defaultModelId, listAvialableModels, useModel } from "../model/store";
@@ -234,7 +235,7 @@ const ChatInDocWindow = (props: {
                 return;
             }
 
-            const msgs = history.items.map((item: IChatSessionMsgItem) => item.message).filter(Boolean);
+            const msgs = history.items.map((item: IChatSessionMsgItem) => getPayload(item, 'message')).filter(Boolean);
             const abortController = new AbortController();
             abort = () => {
                 abortController.abort();

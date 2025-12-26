@@ -14,7 +14,7 @@ import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 import { createSignalRef } from '@frostime/solid-signal-ref';
 
-import { extractMessageContent } from '@gpt/chat-utils';
+import { extractMessageContent, getMeta, getPayload, getMessageProp } from '@gpt/chat-utils';
 import { UIConfig } from '@/func/gpt/model/store';
 import { type useSession } from '../ChatSession/use-chat-session';
 import styles from './SessionItemsManager.module.scss';
@@ -50,14 +50,14 @@ const SessionItemsManager: Component<{
         const msg = props.session.getMessageAt({ id });
         if (!msg) return null;
 
-        const { text } = extractMessageContent(msg.message.content);
+        const { text } = extractMessageContent(getPayload(msg, 'message').content);
         return {
             text,
-            reasoning: msg.message.reasoning_content,
-            role: msg.message.role,
-            author: msg.author,
-            timestamp: msg.timestamp,
-            hidden: msg.hidden
+            reasoning: getMessageProp(msg, 'reasoning_content'),
+            role: getMessageProp(msg, 'role'),
+            author: getPayload(msg, 'author'),
+            timestamp: getPayload(msg, 'timestamp'),
+            hidden: getMeta(msg, 'hidden')
         };
     });
 
@@ -177,7 +177,7 @@ const SessionItemsManager: Component<{
 
     const MessageItemCard = (subProps: { item: IChatSessionMsgItem, index: Accessor<number> }) => {
         const textContent = (() => {
-            const { text } = extractMessageContent(subProps.item.message.content);
+            const { text } = extractMessageContent(getPayload(subProps.item, 'message').content);
             const snapshot = text.length > MAX_PREVIEW_LENGTH ? text.substring(0, MAX_PREVIEW_LENGTH) + '...' : text;
             const length = text.length;
             return {
@@ -189,11 +189,11 @@ const SessionItemsManager: Component<{
             <div
                 class={styles.messageItem}
                 classList={{
-                    [styles.selected]: selectedIds().includes(subProps.item.id),
-                    [styles.previewing]: previewId() === subProps.item.id,
-                    [styles.hidden]: subProps.item.hidden
+                    [styles.selected]: selectedIds().includes(getMeta(subProps.item, 'id')),
+                    [styles.previewing]: previewId() === getMeta(subProps.item, 'id'),
+                    [styles.hidden]: getMeta(subProps.item, 'hidden')
                 }}
-                onClick={() => setPreviewId(subProps.item.id)}
+                onClick={() => setPreviewId(getMeta(subProps.item, 'id'))}
             >
                 <div class={styles.messageHeader}>
                     <div class={styles.messageRole}>
@@ -201,7 +201,7 @@ const SessionItemsManager: Component<{
                             {subProps.item?.message?.role === 'user' ? '用户' : '助手'}
                         </span>
                         <span class={styles.messageIndex}>#{subProps.index() + 1}</span>
-                        {subProps.item.hidden && <span class={styles.hiddenLabel}>隐藏</span>}
+                        {getMeta(subProps.item, 'hidden') && <span class={styles.hiddenLabel}>隐藏</span>}
                     </div>
                     <div class={styles.messageActions}>
                         <button
@@ -253,9 +253,9 @@ const SessionItemsManager: Component<{
                     {textContent().text}
                 </div>
                 <div class={styles.messageFooter}>
-                    <span>{formatDateTime(null, new Date(subProps.item.timestamp))}</span>
+                    <span>{formatDateTime(null, new Date(getPayload(subProps.item, 'timestamp')))}</span>
                     <span>{textContent().length}字</span>
-                    {subProps.item.message.reasoning_content && (
+                    {getMessageProp(subProps.item, 'reasoning_content') && (
                         <span class={styles.reasoningBadge}>包含推理</span>
                     )}
                 </div>
@@ -270,10 +270,10 @@ const SessionItemsManager: Component<{
             <For each={messages()}>
                 {(item, index) => (
                     <Switch>
-                        <Match when={item.type === 'message'}>
+                        <Match when={getMeta(item, 'type') === 'message'}>
                             <MessageItemCard item={item} index={index} />
                         </Match>
-                        <Match when={item.type === 'seperator'}>
+                        <Match when={getMeta(item, 'type') === 'seperator'}>
                             <div
                                 class="b3-label__text"
                                 style={{

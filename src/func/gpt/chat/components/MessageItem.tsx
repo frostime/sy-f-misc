@@ -6,7 +6,7 @@ import { solidDialog } from '@/libs/dialog';
 import { floatingEditor } from '@/libs/components/floating-editor';
 
 import { convertMathFormulas } from '@gpt/utils';
-import { extractMessageContent } from '@gpt/chat-utils';
+import { extractMessageContent, getMeta, getPayload, getMessageProp } from '@gpt/chat-utils';
 import { defaultConfig } from '@/func/gpt/model/store';
 import * as persist from '@gpt/persistence';
 
@@ -45,10 +45,11 @@ const MessageItem: Component<{
     const markdownRenderer = createMarkdownRenderer();
 
     const textContent = createMemo(() => {
-        let { text } = extractMessageContent(props.messageItem.message.content);
-        if (props.messageItem.userPromptSlice) {
+        let { text } = extractMessageContent(getPayload(props.messageItem, 'message').content);
+        const userPromptSlice = getPayload(props.messageItem, 'userPromptSlice');
+        if (userPromptSlice) {
             //隐藏 context prompt，现在 context 在用户输入前面
-            text = text.slice(props.messageItem.userPromptSlice[0], props.messageItem.userPromptSlice[1]);
+            text = text.slice(userPromptSlice[0], userPromptSlice[1]);
         }
 
         if (defaultConfig().convertMathSyntax) {
@@ -64,12 +65,13 @@ const MessageItem: Component<{
      */
     const multiModalAttachments = createMemo(() => {
         // 优先使用存储的 multiModalAttachments
-        if (props.messageItem.multiModalAttachments) {
-            return props.messageItem.multiModalAttachments;
+        const stored = getMeta(props.messageItem, 'multiModalAttachments');
+        if (stored) {
+            return stored;
         }
 
         // 兼容旧格式：从 message.content 中提取
-        const content = props.messageItem.message.content;
+        const content = getPayload(props.messageItem, 'message').content;
         if (typeof content === 'string') {
             return [];
         }
@@ -90,11 +92,11 @@ const MessageItem: Component<{
     });
 
     const msgLength = createMemo(() => {
-        let { text } = extractMessageContent(props.messageItem.message.content);
+        let { text } = extractMessageContent(getPayload(props.messageItem, 'message').content);
         return text.length;
     });
 
-    createEffect(on(() => props.messageItem.message.content, () => {
+    createEffect(on(() => getPayload(props.messageItem, 'message').content, () => {
         if (props.loading === true) return; // 在加载状态下不触发额外渲染; 主要给 edit message 导致消息发生变更的情况使用
         // console.log(`Msg.content changed: ${props.messageItem.message.content}`);
         markdownRenderer.renderHTMLBlock(msgRef);
@@ -248,7 +250,7 @@ const MessageItem: Component<{
 
             // 1. 更新 branchTo 元数据（不创建新版本，只更新元数据）
             const currentItem = session.getMessageAt({ id: sourceMessageId });
-            if (currentItem && currentItem.type === 'message') {
+            if (currentItem && getMeta(currentItem, 'type') === 'message') {
                 const newBranch = {
                     sessionId: newSessionId,
                     sessionTitle: newSessionTitle,
@@ -369,8 +371,8 @@ const MessageItem: Component<{
             ]
         });
         menu.addItem({
-            icon: props.messageItem.hidden ? 'iconEyeoff' : 'iconEye',
-            label: props.messageItem.hidden ? '在上下文中显示' : '在上下文中隐藏',
+            icon: getMeta(props.messageItem, 'hidden') ? 'iconEyeoff' : 'iconEye',
+            label: getMeta(props.messageItem, 'hidden') ? '在上下文中显示' : '在上下文中隐藏',
             click: () => props.toggleHidden?.()
         });
         menu.addItem({
@@ -445,7 +447,7 @@ const MessageItem: Component<{
             icon: 'iconPreview',
             label: '查看原始 Prompt',
             click: () => {
-                const { text } = extractMessageContent(props.messageItem.message.content);
+                const { text } = extractMessageContent(getPayload(props.messageItem, 'message').content);
                 inputDialog({
                     title: '原始 Prompt',
                     defaultText: text,
@@ -459,7 +461,7 @@ const MessageItem: Component<{
         const submenus = [];
 
         submenus.push({
-            label: `作者: ${props.messageItem.author}`,
+            label: `作者: ${getPayload(props.messageItem, 'author')}`,
             type: 'readonly'
         });
         submenus.push({
@@ -650,12 +652,12 @@ const MessageItem: Component<{
     };
 
     const ReasoningSection = () => {
-        const isAssistant = () => props.messageItem.message?.role === 'assistant';
+        const message = () => getPayload(props.messageItem, 'message');
+        const isAssistant = () => message()?.role === 'assistant';
 
         const reasoningContent = () => {
             if (isAssistant()) {
-                const message = props.messageItem.message;
-                return message.reasoning_content;
+                return getMessageProp(props.messageItem, 'reasoning_content');
             }
             return null;
         }
@@ -715,10 +717,10 @@ const MessageItem: Component<{
             <div class={styles.toolbar}>
                 <div class={styles['toolbar-text']}>
                     <span data-label="timestamp">
-                        {formatDateTime(null, new Date(props.messageItem.timestamp))}
+                        {formatDateTime(null, new Date(getPayload(props.messageItem, 'timestamp')))}
                     </span>
                     <span data-label="author">
-                        {props.messageItem.author}
+                        {getPayload(props.messageItem, 'author')}
                     </span>
                     <span data-label="msgLength">
                         消息长度: {msgLength()}
@@ -768,8 +770,8 @@ const MessageItem: Component<{
                     }} />
                     <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
                     <ToolbarButton
-                        icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
-                        title={props.messageItem.hidden ? "在上下文中显示" : "固定消息"}
+                        icon={getMeta(props.messageItem, 'hidden') ? "iconEyeoff" : "iconEye"}
+                        title={getMeta(props.messageItem, 'hidden') ? "在上下文中显示" : "固定消息"}
                         onclick={(e: MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -778,7 +780,7 @@ const MessageItem: Component<{
                     />
                     <ToolbarButton
                         icon="iconPin"
-                        title={props.messageItem.pinned ? "取消固定" : "固定消息"}
+                        title={getMeta(props.messageItem, 'pinned') ? "取消固定" : "固定消息"}
                         onclick={(e: MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -809,8 +811,8 @@ const MessageItem: Component<{
     };
 
     return (
-        <div class={styles.messageItem} data-role={props.messageItem.message.role}
-            data-msg-id={props.messageItem.id}
+        <div class={styles.messageItem} data-role={getMessageProp(props.messageItem, 'role')}
+            data-msg-id={getMeta(props.messageItem, 'id')}
             tabindex={props.index ?? -1}
             onKeyDown={(e: KeyboardEvent & { currentTarget: HTMLElement }) => {
                 if (!(e.ctrlKey || e.metaKey)) return;
@@ -847,7 +849,7 @@ const MessageItem: Component<{
             <VersionIndicator />
             <PinIndicator />
             <BranchIndicator />
-            {props.messageItem.message.role === 'user' ? (
+            {getMessageProp(props.messageItem, 'role') === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (
                 <div class={styles.icon}><IconAssistant /></div>
@@ -861,10 +863,10 @@ const MessageItem: Component<{
                         oncontextmenu={onContextMenu}
                         classList={{
                             [styles.message]: true,
-                            [styles[props.messageItem.message.role]]: true,
+                            [styles[getMessageProp(props.messageItem, 'role')]]: true,
                             'b3-typography': true,
-                            [styles.hidden]: props.messageItem.hidden,
-                            [styles.pinned]: props.messageItem.pinned
+                            [styles.hidden]: getMeta(props.messageItem, 'hidden'),
+                            [styles.pinned]: getMeta(props.messageItem, 'pinned')
                         }}
                         // style={{
                         //     'white-space': props.loading ? 'pre-wrap' : '',
@@ -873,15 +875,15 @@ const MessageItem: Component<{
                         ref={msgRef}
                     />
                 </div>
-                <Show when={multiModalAttachments().length > 0 || props.messageItem.context?.length > 0}>
+                <Show when={multiModalAttachments().length > 0 || getMeta(props.messageItem, 'context')?.length > 0}>
                     <AttachmentList
                         multiModalAttachments={multiModalAttachments()}
-                        contexts={props.messageItem.context}
+                        contexts={getMeta(props.messageItem, 'context')}
                         size="small"
                     />
                 </Show>
                 {/* 只在 assistant 消息中显示工具调用指示器 */}
-                <Show when={props.messageItem.message.role === 'assistant'}>
+                <Show when={getMessageProp(props.messageItem, 'role') === 'assistant'}>
                     <ToolChainIndicator messageItem={props.messageItem} />
                 </Show>
                 <MessageToolbar />
