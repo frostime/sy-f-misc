@@ -22,13 +22,13 @@ import {
     type IImageEditOptions
 } from '@gpt/openai/images';
 import { ISignalRef, IStoreRef, useSignalRef } from '@frostime/solid-signal-ref';
-import { stageMsgItemVersion, getMeta, getPayload } from '@gpt/chat-utils/msg-item';
 import { ToolExecutor } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
 import { extractContentText, extractMessageContent } from '@gpt/chat-utils';
 import { deepMerge } from '@frostime/siyuan-plugin-kits';
 import { quickComplete } from '../../openai/tiny-agent';
 import { FormatConverter, DataURL, Base64String } from '@gpt/chat-utils/msg-modal';
+import { ITreeModel } from './use-tree-model';
 
 // ============================================================================
 // 类型定义
@@ -63,133 +63,171 @@ interface FinalizeMeta {
 // ============================================================================
 
 interface IMessageLifecycle {
-    /** 创建占位符，返回目标索引 */
-    prepareSlot(mode: PrepareMode): number;
+    /** 创建占位符，返回消息 ID */
+    prepareSlot(mode: PrepareMode): string;
     /** 流式更新内容 */
-    updateContent(index: number, content: string): void;
+    updateContent(id: string, content: string): void;
     /** 完成并保存结果 */
-    finalize(index: number, result: ExtendedCompletionResult, meta: FinalizeMeta): void;
+    finalize(id: string, result: ExtendedCompletionResult, meta: FinalizeMeta): void;
     /** 标记错误 */
-    markError(index: number, error: Error | string): void;
+    markError(id: string, error: Error | string): void;
 }
 
 const createMessageLifecycle = (
-    messages: IStoreRef<IChatSessionMsgItem[]>,
+    treeModel: ITreeModel,
     model: Accessor<IRuntimeLLM>,
     newID: () => string
 ): IMessageLifecycle => {
 
-    const prepareSlot = (mode: PrepareMode): number => {
+    const prepareSlot = (mode: PrepareMode): string => {
         const modelToUse = model();
         const timestamp = new Date().getTime();
 
         if (mode === 'append') {
-            const assistantMsg: IChatSessionMsgItem = {
+            const id = newID();
+            const vid = `v_${id}`;
+
+            treeModel.appendNode({
+                id,
                 type: 'message',
-                id: newID(),
-                token: null,
-                time: null,
-                message: { role: 'assistant', content: 'thinking...' },
-                author: modelToUse.model,
-                timestamp,
+                role: 'assistant',
+                currentVersionId: vid,
+                versions: {
+                    [vid]: {
+                        id: vid,
+                        message: { role: 'assistant', content: 'thinking...' },
+                        author: modelToUse.model,
+                        timestamp,
+                        token: null,
+                        time: null,
+                    }
+                },
                 loading: true,
-                versions: {}
-            };
-            messages.update(prev => [...prev, assistantMsg]);
-            return messages().length - 1;
+            });
+            return id;
         }
 
         if ('updateAt' in mode) {
-            messages.update(prev => {
-                const updated = [...prev];
-                updated[mode.updateAt] = {
-                    ...stageMsgItemVersion(updated[mode.updateAt]),
-                    loading: true
-                };
-                return updated;
+            const worldLine = treeModel.getWorldLine();
+            const id = worldLine[mode.updateAt];
+            if (!id) throw new Error(`Invalid updateAt index: ${mode.updateAt}`);
+
+            const node = treeModel.getNodeById(id);
+            if (!node) throw new Error(`Node not found: ${id}`);
+
+            // Stage new version and mark as loading
+            const vid = timestamp.toString();
+            const currentPayload = node.versions[node.currentVersionId];
+
+            batch(() => {
+                treeModel.addVersion(id, {
+                    ...currentPayload,
+                    id: vid,
+                    timestamp,
+                });
+                treeModel.updateNode(id, { loading: true });
             });
-            return mode.updateAt;
+            return id;
         }
 
         // insertAt
-        messages.update(prev => {
-            const updated = [...prev];
-            updated.splice(mode.insertAt, 0, {
-                type: 'message',
-                id: newID(),
-                timestamp,
-                author: modelToUse.model,
-                loading: true,
-                message: { role: 'assistant', content: '' },
-                currentVersion: timestamp.toString(),
-                versions: {}
-            });
-            return updated;
+        const worldLine = treeModel.getWorldLine();
+        const afterId = worldLine[mode.insertAt - 1];
+        if (!afterId) throw new Error(`Invalid insertAt index: ${mode.insertAt}`);
+
+        const id = newID();
+        const vid = `v_${id}`;
+
+        treeModel.insertAfter(afterId, {
+            id,
+            type: 'message',
+            role: 'assistant',
+            currentVersionId: vid,
+            versions: {
+                [vid]: {
+                    id: vid,
+                    message: { role: 'assistant', content: '' },
+                    author: modelToUse.model,
+                    timestamp,
+                    token: null,
+                    time: null,
+                }
+            },
+            loading: true,
         });
-        return mode.insertAt;
+        return id;
     };
 
-    const updateContent = (index: number, content: string): void => {
-        messages.update(index, 'message', 'content', content);
+    const updateContent = (id: string, content: string): void => {
+        treeModel.updatePayload(id, {
+            message: { role: 'assistant', content }
+        });
     };
 
     const finalize = (
-        index: number,
+        id: string,
         result: ExtendedCompletionResult,
         meta: FinalizeMeta
     ): void => {
         const vid = new Date().getTime().toString();
+        const node = treeModel.getNodeById(id);
+        if (!node) throw new Error(`Node not found: ${id}`);
 
-        messages.update(index, (msgItem: IChatSessionMsgItem) => {
-            const newMessageContent: IMessage = {
-                role: 'assistant',
-                content: result.content,
-            };
-            if (result.reasoning_content) {
-                newMessageContent['reasoning_content'] = result.reasoning_content;
-            }
+        const newMessageContent: IMessage = {
+            role: 'assistant',
+            content: result.content,
+        };
+        if (result.reasoning_content) {
+            newMessageContent['reasoning_content'] = result.reasoning_content;
+        }
 
-            let updated: IChatSessionMsgItem = {
-                ...msgItem,
+        // 构建新的 payload
+        const newPayload: IMessagePayload = {
+            id: vid,
+            message: newMessageContent,
+            author: meta.modelName,
+            timestamp: new Date().getTime(),
+            usage: result.usage,
+            time: result.time,
+            token: result.usage?.completion_tokens ?? null,
+            userPromptSlice: result.hintSize ? [result.hintSize, result.content.length] : undefined,
+        };
+
+        // 更新节点
+        batch(() => {
+            treeModel.addVersion(id, newPayload);
+            treeModel.updateNode(id, {
                 loading: false,
-                usage: result.usage,
-                time: result.time,
-                message: newMessageContent,
-                author: meta.modelName,
-                timestamp: new Date().getTime(),
                 attachedItems: meta.msgToSend.length,
                 attachedChars: meta.msgToSend.reduce((sum, m) => {
                     const len = extractContentText(m.content).length;
                     return sum + len;
                 }, 0),
-            };
-
-            if (result.usage?.completion_tokens) {
-                updated.token = result.usage.completion_tokens;
-            }
-            if (result.hintSize) {
-                updated.userPromptSlice = [result.hintSize, result.content.length];
-            }
-            if (result.toolChainData) {
-                updated.toolChainResult = result.toolChainData;
-            }
-
-            return stageMsgItemVersion(updated, vid);
-        });
-
-        // 更新上一条消息的 prompt token
-        if (result.usage && index > 0) {
-            batch(() => {
-                messages.update(index, 'token', result.usage?.completion_tokens);
-                messages.update(index - 1, 'token', result.usage?.prompt_tokens);
+                // Note: toolChainResult 存储在 payload 中，而非节点上
             });
-        }
+
+            // 更新上一条消息的 prompt token
+            if (result.usage) {
+                const worldLine = treeModel.getWorldLine();
+                const currentIndex = worldLine.indexOf(id);
+                if (currentIndex > 0) {
+                    const prevId = worldLine[currentIndex - 1];
+                    treeModel.updatePayload(prevId, {
+                        token: result.usage.prompt_tokens
+                    });
+                }
+            }
+        });
     };
 
-    const markError = (index: number, error: Error | string): void => {
+    const markError = (id: string, error: Error | string): void => {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        messages.update(index, 'loading', false);
-        messages.update(index, 'message', 'content', `**[Error]** ${errorMessage}`);
+        batch(() => {
+            treeModel.updateNode(id, { loading: false });
+            treeModel.updatePayload(id, {
+                message: { role: 'assistant', content: `**[Error]** ${errorMessage}` }
+            });
+        });
     };
 
     return {
@@ -286,8 +324,6 @@ const createChatHandler = (deps: ChatHandlerDeps) => {
     };
 };
 
-type ChatHandler = ReturnType<typeof createChatHandler>;
-
 // ----------------------------------------------------------------------------
 // 2.2 Image Handler
 // ----------------------------------------------------------------------------
@@ -367,8 +403,6 @@ const createImageHandler = (deps: ImageHandlerDeps) => {
         edit
     };
 };
-
-type ImageHandler = ReturnType<typeof createImageHandler>;
 
 // ----------------------------------------------------------------------------
 // 2.3 Audio Handler
@@ -451,8 +485,6 @@ const createAudioHandler = (deps: AudioHandlerDeps) => {
     };
 };
 
-type AudioHandler = ReturnType<typeof createAudioHandler>;
-
 // ============================================================================
 // 辅助函数：从消息内容中提取图片
 // ============================================================================
@@ -511,16 +543,22 @@ const extractImageFromMessageContent = async (content: string | TMessageContentP
 /**
  * 从消息列表中查找最近的包含图片的消息
  */
-const findImageFromRecentMessages = async (messages: IChatSessionMsgItem[], atIndex: number): Promise<Blob | null> => {
-    // 从 beforeIndex 向前查找
-    let msg: IChatSessionMsgItem | null = null;
+const findImageFromRecentMessages = async (messages: IChatSessionMsgItemV2[], atIndex: number): Promise<Blob | null> => {
+    // 从 atIndex 向前查找第一个 message 类型节点
+    let msg: IChatSessionMsgItemV2 | null = null;
     for (let i = atIndex; i >= 0; i--) {
         msg = messages[i];
-        if (getMeta(msg, 'type') !== 'message') continue;
-
+        if (msg.type !== 'message') continue;
         break;
     }
-    const image = await extractImageFromMessageContent(getPayload(msg, 'message').content);
+
+    if (!msg) return null;
+
+    // 直接从 V2 结构中获取 message content
+    const currentPayload = msg.versions[msg.currentVersionId];
+    if (!currentPayload?.message) return null;
+
+    const image = await extractImageFromMessageContent(currentPayload.message.content);
     if (image) {
         return image;
     }
@@ -535,13 +573,13 @@ interface ToolChainParams {
     toolExecutor: ToolExecutor;
     initialResponse: ICompletionResult;
     contextMessages: IMessage[];
-    targetIndex: number;
+    targetId: string;  // 从 index 改为 ID
     controller: AbortController;
     model: IRuntimeLLM;
     systemPrompt: string;
     chatOption: IChatCompleteOption;
     maxRounds: number;
-    messages: IStoreRef<IChatSessionMsgItem[]>;
+    treeModel: ITreeModel;  // 从 messages 改为 treeModel
     scrollToBottom?: (force?: boolean) => void;
 }
 
@@ -550,13 +588,13 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
         toolExecutor,
         initialResponse,
         contextMessages,
-        targetIndex,
+        targetId,
         controller,
         model,
         systemPrompt,
         chatOption,
         maxRounds,
-        messages,
+        treeModel,
         scrollToBottom
     } = params;
 
@@ -581,7 +619,9 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
                     console.log(`Tool call completed:`, { result, callId });
                 },
                 onLLMResponseUpdate: (content) => {
-                    messages.update(targetIndex, 'message', 'content', content);
+                    treeModel.updatePayload(targetId, {
+                        message: { role: 'assistant', content }
+                    });
                     scrollToBottom?.(false);
                 },
                 onLLMResponseComplete: (response) => {
@@ -626,7 +666,7 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
 interface UseGptCommunicationParams {
     model: Accessor<IRuntimeLLM>;
     config: IStoreRef<IChatSessionConfig>;
-    messages: IStoreRef<IChatSessionMsgItem[]>;
+    treeModel: ITreeModel;  // 从 messages 改为 treeModel
     systemPrompt: ReturnType<typeof useSignalRef<string>>;
     customOptions: ISignalRef<IChatCompleteOption>;
     loading: ReturnType<typeof useSignalRef<boolean>>;
@@ -641,7 +681,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     const {
         model,
         config,
-        messages,
+        treeModel,
         systemPrompt,
         customOptions,
         loading,
@@ -653,7 +693,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     } = params;
 
     // 创建消息生命周期管理器
-    const lifecycle = createMessageLifecycle(messages, model, newID);
+    const lifecycle = createMessageLifecycle(treeModel, model, newID);
 
     // 创建各模态处理器
     const chatHandler = createChatHandler({
@@ -686,7 +726,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
      */
     const executeChatRequest = async (
         msgToSend: IMessage[],
-        targetIndex: number,
+        targetId: string,
         scrollToBottom?: (force?: boolean) => void
     ): Promise<ExtendedCompletionResult> => {
         // 执行初始请求
@@ -694,7 +734,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
             msgToSend,
             controller: controller!,
             onStream: (content, _toolCalls) => {
-                lifecycle.updateContent(targetIndex, content);
+                lifecycle.updateContent(targetId, content);
                 scrollToBottom?.(false);
             }
         });
@@ -705,13 +745,13 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
                 toolExecutor,
                 initialResponse: initialResult,
                 contextMessages: msgToSend,
-                targetIndex,
+                targetId,
                 controller: controller!,
                 model: model(),
                 systemPrompt: chatHandler.buildSystemPrompt(),
                 chatOption: chatHandler.buildChatOption(),
                 maxRounds: config().toolCallMaxRounds,
-                messages,
+                treeModel,
                 scrollToBottom
             });
         }
@@ -756,7 +796,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
         modelType: string | undefined,
         userText: string,
         attachments: TMessageContentPart[],
-        targetIndex: number,
+        targetId: string,
         msgToSend: IMessage[],
         scrollToBottom?: (force?: boolean) => void
     ): Promise<{ result: ExtendedCompletionResult; msgToSend: IMessage[] }> => {
@@ -773,8 +813,10 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
                 // 如果没有附件，尝试从上一条消息提取
                 if (!image) {
-                    // targetIndex 是新消息的占位符, 所以要从本消息往前走
-                    image = await findImageFromRecentMessages(messages(), targetIndex - 2);
+                    // targetId 是新消息的占位符, 所以要从本消息往前走
+                    const worldLine = treeModel.getWorldLine();
+                    const currentIndex = worldLine.indexOf(targetId);
+                    image = await findImageFromRecentMessages(treeModel.messages(), currentIndex - 2);
                     if (!image) {
                         throw new Error('图像编辑需要上传图片，或在上一条消息中包含图片');
                     }
@@ -798,7 +840,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
             case 'chat':
             default: {
-                const result = await executeChatRequest(msgToSend, targetIndex, scrollToBottom);
+                const result = await executeChatRequest(msgToSend, targetId, scrollToBottom);
                 return { result, msgToSend };
             }
         }
@@ -832,7 +874,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     const executeRerunByModalType = async (
         modelType: string | undefined,
         userText: string,
-        targetIndex: number,
+        targetId: string,
         msgToSend: IMessage[],
         scrollToBottom?: (force?: boolean) => void
     ): Promise<{ result: ExtendedCompletionResult; msgToSend: IMessage[] }> => {
@@ -845,7 +887,9 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
             case 'image-edit': {
                 // 从消息历史中查找图片
-                const image = await findImageFromRecentMessages(messages(), targetIndex - 2);
+                const worldLine = treeModel.getWorldLine();
+                const currentIndex = worldLine.indexOf(targetId);
+                const image = await findImageFromRecentMessages(treeModel.messages(), currentIndex - 2);
                 if (!image) {
                     throw new Error('无法找到用于编辑的图片，请确保之前的消息中包含图片');
                 }
@@ -860,7 +904,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
             case 'chat':
             default: {
-                const result = await executeChatRequest(msgToSend, targetIndex, scrollToBottom);
+                const result = await executeChatRequest(msgToSend, targetId, scrollToBottom);
                 return { result, msgToSend };
             }
         }
@@ -902,7 +946,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
             : [];
 
         // 创建占位符
-        const targetIndex = lifecycle.prepareSlot('append');
+        const targetId = lifecycle.prepareSlot('append');
 
         // 清理附件和上下文
         multiModalAttachments.update([]);
@@ -914,13 +958,13 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
                 modelType,
                 userMessage,
                 multiModalAttachmentsValue,
-                targetIndex,
+                targetId,
                 msgToSend,  // 传入预先获取的历史消息
                 scrollToBottom
             );
 
             // 完成消息
-            lifecycle.finalize(targetIndex, executeResult.result, {
+            lifecycle.finalize(targetId, executeResult.result, {
                 msgToSend: executeResult.msgToSend,
                 modelName: model().model
             });
@@ -929,7 +973,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
         } catch (error) {
             console.error('Completion error:', error);
-            lifecycle.markError(targetIndex, error instanceof Error ? error : String(error));
+            lifecycle.markError(targetId, error instanceof Error ? error : String(error));
             return { updatedTimestamp: Date.now(), hasResponse: false };
 
         } finally {
@@ -946,20 +990,28 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
         scrollToBottom?: (force?: boolean) => void
     ): Promise<RunResult | undefined> => {
         // 边界检查
-        if (atIndex < 0 || atIndex >= messages().length) return;
+        const worldLine = treeModel.getWorldLine();
+        if (atIndex < 0 || atIndex >= worldLine.length) return;
 
-        const targetMsg = messages()[atIndex];
-        if (targetMsg.type !== 'message' || targetMsg.hidden) {
-            if (targetMsg.hidden) showMessage('无法重新生成此消息：已隐藏');
+        const targetId = worldLine[atIndex];
+        const targetMsg = treeModel.getNodeById(targetId);
+        if (!targetMsg || targetMsg.type !== 'message' || targetMsg.hidden) {
+            if (targetMsg?.hidden) showMessage('无法重新生成此消息：已隐藏');
             return;
         }
 
         // 定位 user 消息
         let userIndex = atIndex;
-        if (targetMsg.message.role === 'assistant') {
-            if (atIndex === 0 ||
-                messages()[atIndex - 1].message?.role !== 'user' ||
-                messages()[atIndex - 1].hidden) {
+        const currentPayload = targetMsg.versions[targetMsg.currentVersionId];
+        if (currentPayload.message.role === 'assistant') {
+            if (atIndex === 0) {
+                showMessage('无法重新生成此消息：需要用户输入作为前文');
+                return;
+            }
+            const prevId = worldLine[atIndex - 1];
+            const prevMsg = treeModel.getNodeById(prevId);
+            const prevPayload = prevMsg?.versions[prevMsg.currentVersionId];
+            if (!prevMsg || prevPayload?.message?.role !== 'user' || prevMsg.hidden) {
                 showMessage('无法重新生成此消息：需要用户输入作为前文');
                 return;
             }
@@ -967,7 +1019,10 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
         }
 
         // 提取用户输入
-        const userContent = messages()[userIndex]?.message?.content;
+        const userId = worldLine[userIndex];
+        const userNode = treeModel.getNodeById(userId)!;
+        const userPayload = userNode.versions[userNode.currentVersionId];
+        const userContent = userPayload.message?.content;
         const userText = typeof userContent === 'string'
             ? userContent
             : extractMessageContent(userContent).text;
@@ -975,16 +1030,17 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
         const modelType = model()?.type;
 
         // 预检查：在创建占位符之前验证模态有效性
-        // 与原代码 getExecutorForServiceType(modelType, userText) 不传 attachments 的行为一致
         if (!preValidateRerunModalType(modelType)) {
-            return;  // 返回 undefined，与原代码一致
+            return;
         }
 
         // 确定 prepareMode
         const nextIndex = userIndex + 1;
-        const nextMsg = messages()[nextIndex];
+        const nextId = worldLine[nextIndex];
+        const nextMsg = nextId ? treeModel.getNodeById(nextId) : null;
+        const nextPayload = nextMsg?.versions[nextMsg.currentVersionId];
         const prepareMode: PrepareMode =
-            nextMsg?.message?.role === 'assistant' && !nextMsg.hidden
+            nextPayload?.message?.role === 'assistant' && !nextMsg.hidden
                 ? { updateAt: nextIndex }
                 : { insertAt: nextIndex };
 
@@ -992,13 +1048,12 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
         controller = new AbortController();
 
         // 先获取历史消息（在创建占位符之前）
-        // 即使传了 fromIndex=userIndex，但为了保持代码一致性和清晰度，提前获取
         const msgToSend = (modelType === 'chat' || !modelType)
             ? getAttachedHistory(config().attachedHistory, userIndex)
             : [];
 
         // 创建/更新占位符
-        const targetIndex = lifecycle.prepareSlot(prepareMode);
+        const targetRerunId = lifecycle.prepareSlot(prepareMode);
 
         // 清理附件和上下文
         multiModalAttachments.update([]);
@@ -1009,13 +1064,13 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
             const executeResult = await executeRerunByModalType(
                 modelType,
                 userText,
-                targetIndex,
+                targetRerunId,
                 msgToSend,  // 传入预先获取的历史消息
                 scrollToBottom
             );
 
             // 完成消息
-            lifecycle.finalize(targetIndex, executeResult.result, {
+            lifecycle.finalize(targetRerunId, executeResult.result, {
                 msgToSend: executeResult.msgToSend,
                 modelName: model().model
             });
@@ -1024,7 +1079,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
         } catch (error) {
             console.error('Completion error:', error);
-            lifecycle.markError(targetIndex, error instanceof Error ? error : String(error));
+            lifecycle.markError(targetRerunId, error instanceof Error ? error : String(error));
             return { updatedTimestamp: Date.now(), hasResponse: false };
 
         } finally {

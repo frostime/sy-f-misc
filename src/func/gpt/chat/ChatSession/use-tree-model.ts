@@ -291,11 +291,17 @@ export const useTreeModel = (): ITreeModel => {
             }
 
             // 删除节点
-            nodes.update(prev => {
-                const newNodes = { ...prev };
-                idsToDelete.forEach(delId => delete newNodes[delId]);
-                return newNodes;
-            });
+            // nodes.update(prev => {
+            //     const newNodes = { ...prev };
+            //     idsToDelete.forEach(delId => delete newNodes[delId]);
+            //     return newNodes;
+            // });
+            nodes.update(prev =>
+                Object.fromEntries(
+                    Object.entries(prev).filter(([id]) => !idsToDelete.has(id))
+                )
+            );
+
 
             // 更新 worldLine
             worldLine.update(prev => prev.filter(wid => !idsToDelete.has(wid)));
@@ -434,19 +440,22 @@ export const useTreeModel = (): ITreeModel => {
             schema: 2,
             type: 'history',
             ...meta,
-            nodes: nodes(),
+            nodes: structuredClone(nodes.unwrap()),
+            worldLine: [...worldLine.unwrap()],
+            bookmarks: [...bookmarks.unwrap()],
             rootId: rootId(),
-            worldLine: worldLine(),
-            bookmarks: bookmarks(),
         };
     };
 
     const fromHistory = (history: IChatSessionHistoryV2) => {
         batch(() => {
-            nodes.update(history.nodes || {});
             rootId.value = history.rootId ?? null;
-            worldLine.update(history.worldLine || []);
-            bookmarks.update(history.bookmarks || []);
+            // nodes.update(history.nodes || {});
+            // worldLine.update(history.worldLine || []);
+            // bookmarks.update(history.bookmarks || []);
+            nodes.update(structuredClone(history.nodes || {}));
+            worldLine.update([...(history.worldLine || [])]);
+            bookmarks.update([...(history.bookmarks || [])]);
         });
     };
 
