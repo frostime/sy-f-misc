@@ -9,6 +9,7 @@
 import { thisPlugin, api, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { extractMessageContent, getMeta, getPayload } from '@gpt/chat-utils';
+import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
 
 const rootName = 'chat-history';
 
@@ -101,7 +102,7 @@ const showVersionConflictDialog = async (
     });
 }
 
-export const saveToJson = async (history: IChatSessionHistory, updateSnapshot: boolean = true) => {
+export const saveToJson = async (history: IChatSessionHistoryV2, updateSnapshot: boolean = true) => {
     // 版本冲突检查
     if (history.updated) {
         const versionCheckResult = await checkVersionConflict(history.id, history.updated);
@@ -116,8 +117,10 @@ export const saveToJson = async (history: IChatSessionHistory, updateSnapshot: b
 
     const plugin = thisPlugin();
 
+    // 确保 schema 标记
+    const toSave = { ...history, schema: 2 };
     const filepath = `${rootName}/${history.id}.json`;
-    await plugin.saveData(filepath, { ...history });
+    await plugin.saveData(filepath, toSave);
 
     // 同步更新snapshot
     if (updateSnapshot) {
@@ -160,16 +163,24 @@ export const listFromJsonSnapshot = async (): Promise<IChatSessionSnapshot[]> =>
 
 /**
  * 保留原有的完整加载功能（用于需要完整数据的场景）
+ * 返回 V2 格式，自动迁移
  */
-export const listFromJsonFull = async (): Promise<IChatSessionHistory[]> => {
-    return await listFromJsonLegacy();
+export const listFromJsonFull = async (): Promise<IChatSessionHistoryV2[]> => {
+    const legacyHistories = await listFromJsonLegacy();
+    return legacyHistories.map(h => needsMigration(h) ? migrateHistory(h) : h as any);
 };
 
-export const getFromJson = async (id: string): Promise<IChatSessionHistory> => {
+export const getFromJson = async (id: string): Promise<IChatSessionHistoryV2 | null> => {
     const dir = `data/storage/petal/${thisPlugin().name}/${rootName}/`;
     const filepath = `${dir}${id}.json`;
     const content = await tryRecoverFromJson(filepath);
-    return content as IChatSessionHistory;
+    if (!content) return null;
+    
+    // 读时迁移：自动将 V1 转换为 V2
+    if (needsMigration(content)) {
+        return migrateHistory(content);
+    }
+    return content as IChatSessionHistoryV2;
 }
 
 
@@ -184,20 +195,49 @@ export const removeFromJson = async (id: string) => {
 
 /**
  * 生成单个会话的快照数据
+ * 支持 V1 和 V2 两种格式
  */
-const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnapshot => {
-    // 过滤出真正的消息项
-    const messageItems = history.items.filter((item: IChatSessionMsgItem) =>
-        getMeta(item, 'type') === 'message' && getPayload(item, 'message')?.content
-    );
+const generateSessionSnapshot = (history: IChatSessionHistory | IChatSessionHistoryV2): IChatSessionSnapshot => {
+    let messageItems: any[] = [];
+    
+    // 检测是 V1 还是 V2 格式
+    if ('items' in history && Array.isArray(history.items)) {
+        // V1 格式
+        messageItems = history.items.filter((item: IChatSessionMsgItem) =>
+            getMeta(item, 'type') === 'message' && getPayload(item, 'message')?.content
+        );
+    } else if ('nodes' in history && 'worldLine' in history) {
+        // V2 格式
+        const v2History = history as IChatSessionHistoryV2;
+        messageItems = v2History.worldLine
+            .map(id => v2History.nodes[id])
+            .filter(node => node && node.type === 'message' && node.currentVersionId);
+    }
 
     // 提取预览内容
     const previewParts: string[] = [];
     let totalLength = 0;
 
     for (const item of messageItems.slice(0, 3)) { // 只取前3条消息
-        const { text } = extractMessageContent(getPayload(item, 'message').content);
-        const authorPrefix = `${getPayload(item, 'author') || 'unknown'}: `;
+        // 兼容 V1 和 V2 的内容访问
+        let content: any;
+        let author: string;
+        
+        if ('message' in item && item.message) {
+            // V1 格式
+            content = getPayload(item, 'message').content;
+            author = getPayload(item, 'author') || 'unknown';
+        } else if ('versions' in item && item.currentVersionId) {
+            // V2 格式
+            const payload = item.versions[item.currentVersionId];
+            content = payload?.message?.content;
+            author = payload?.author || 'unknown';
+        } else {
+            continue;
+        }
+        
+        const { text } = extractMessageContent(content);
+        const authorPrefix = `${author}: `;
         const contentToAdd = authorPrefix + text.replace(/\n/g, ' ').trim();
 
         if (totalLength + contentToAdd.length > PREVIEW_LENGTH) {
@@ -214,6 +254,21 @@ const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnap
 
     // 获取最后一条消息信息
     const lastMessage = messageItems[messageItems.length - 1];
+    let lastAuthor = 'unknown';
+    let lastTime = history.timestamp;
+    
+    if (lastMessage) {
+        if ('message' in lastMessage && lastMessage.message) {
+            // V1 格式
+            lastAuthor = lastMessage.author || 'unknown';
+            lastTime = lastMessage.timestamp || history.timestamp;
+        } else if ('versions' in lastMessage && lastMessage.currentVersionId) {
+            // V2 格式
+            const payload = lastMessage.versions[lastMessage.currentVersionId];
+            lastAuthor = payload?.author || 'unknown';
+            lastTime = payload?.timestamp || history.timestamp;
+        }
+    }
 
     return {
         type: 'snapshot',
@@ -224,8 +279,8 @@ const generateSessionSnapshot = (history: IChatSessionHistory): IChatSessionSnap
         tags: history.tags,
         preview: previewParts.join('\n'),
         messageCount: messageItems.length,
-        lastMessageAuthor: lastMessage?.author || 'unknown',
-        lastMessageTime: lastMessage?.timestamp || history.timestamp
+        lastMessageAuthor: lastAuthor,
+        lastMessageTime: lastTime
     };
 };
 
@@ -281,8 +336,9 @@ export const rebuildHistorySnapshot = async (): Promise<IHistorySnapshot> => {
 
 /**
  * 更新snapshot中的单个会话
+ * 支持 V1 和 V2 格式
  */
-export const updateSessionInSnapshot = async (history: IChatSessionHistory) => {
+export const updateSessionInSnapshot = async (history: IChatSessionHistory | IChatSessionHistoryV2) => {
     let snapshot = await readSnapshot();
 
     if (!snapshot) {

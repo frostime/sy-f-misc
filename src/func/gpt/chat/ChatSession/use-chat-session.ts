@@ -32,6 +32,10 @@ import { useContextAndAttachments } from './use-attachment-input';
 import { InlineApprovalAdapter } from '@gpt/tools/approval-ui';
 import type { PendingApproval } from '@gpt/tools/types';
 
+// V2 TreeModel
+import { useTreeModel, type ITreeModel } from './use-tree-model';
+import { createTreeModelAdapter, createStoreRefAdapter, type TreeModelAdapter } from './tree-model-adapter';
+
 
 interface ISimpleContext {
     model: Accessor<IRuntimeLLM>;
@@ -74,13 +78,17 @@ const resolveLocator = (
 };
 
 // ============================================================================
-// 消息管理相关的 hook（增强版）
+// [DEPRECATED] V1 消息管理 Hook - 保留供参考，已被 useTreeModel 替代
 // ============================================================================
 
-/**
- * 消息管理相关的 hook
- * 负责所有消息的读取和写入操作
+/*
+ * 以下 useMessageManagement 代码已废弃，保留供调试参考
+ * 新版本使用 use-tree-model.ts 中的 useTreeModel
  */
+
+// #region DEPRECATED_useMessageManagement
+// @ts-nocheck - 以下代码已废弃，使用 if(false) 保留供参考
+if (false as boolean) {
 const useMessageManagement = (params: {
     messages: IStoreRef<IChatSessionMsgItem[]>;
 }) => {
@@ -581,6 +589,8 @@ const useMessageManagement = (params: {
         delMsgItemVersion
     };
 };
+} // end of if(false) block
+// #endregion DEPRECATED_useMessageManagement
 
 
 /**
@@ -616,7 +626,17 @@ export const useSession = (props: {
     let timestamp = new Date().getTime();
     let updated = timestamp; // Initialize updated time to match creation time
     const title = useSignalRef<string>('新的对话');
-    const messages = useStoreRef<IChatSessionMsgItem[]>([]);
+    
+    // ========== V2 TreeModel ==========
+    const treeModel = useTreeModel();
+    
+    // 为了兼容现有代码，创建一个 messages 的派生访问器
+    // 注意：这是只读的，写操作通过 treeModel 或 msgMgr 进行
+    const messages = () => treeModel.messages() as any as IChatSessionMsgItem[];
+    
+    // IStoreRef 兼容适配器，用于传递给依赖 IStoreRef 的旧代码（如 useGptCommunication）
+    const messagesStoreRef = createStoreRefAdapter(treeModel);
+    
     const sessionTags = useStoreRef<string[]>([]);
     const loading = useSignalRef<boolean>(false);
     // const streamingReply = useSignalRef<string>('');
@@ -643,7 +663,8 @@ export const useSession = (props: {
         if (itemNum === undefined) {
             itemNum = props.config().attachedHistory;
         }
-        const history = [...messages.unwrap()];
+        // V2: messages 现在是 accessor 而不是 Store
+        const history = [...messages()];
         const targetIndex = fromIndex ?? history.length - 1;
         const targetMessage = history[targetIndex];
 
@@ -732,10 +753,8 @@ export const useSession = (props: {
         return [...finalContext, targetMessage].map((item: IChatSessionMsgItem) => getPayload(item, 'message')!);
     }
 
-    // 使用消息管理 hook
-    const msgMgr = useMessageManagement({
-        messages
-    });
+    // ========== V2: 使用 TreeModel 适配器 ==========
+    const msgMgr = createTreeModelAdapter(treeModel, newID);
 
     // 解构常用方法（保持向后兼容）
     const {
@@ -775,7 +794,7 @@ export const useSession = (props: {
     } = communication({
         model: props.model,
         config: props.config,
-        messages,
+        messages: messagesStoreRef,  // V2: 使用 StoreRef 适配器
         systemPrompt,
         customOptions: modelCustomOptions,
         loading,
@@ -844,49 +863,54 @@ export const useSession = (props: {
 
     const checkAttachedContext = (index?: number) => {
         if (index === undefined || index < 0 || index >= messages().length) {
-            // 临时插入一个虚假的消息
-            let tempId = window.Lute.NewNodeID();
-            //@ts-ignore
-            messages.update(prev => [...prev, {
-                type: '',  // 临时加入的虚假消息
+            // V2: 临时插入虚假消息来计算附加上下文
+            const tempId = newID();
+            const tempNode: IChatSessionMsgItemV2 = {
                 id: tempId,
-                message: { role: 'user', content: '' },
-                author: props.model().model,
-                timestamp: new Date().getTime(),
-                loading: false
-            }]);
-            let attached = getAttachedHistory(props.config().attachedHistory);
-            //删掉临时插入的消息
-            messages.update(prev => prev.filter(item => item.id !== tempId));
+                type: 'message',
+                role: 'user',
+                currentVersionId: '',
+                versions: {},
+                parent: null,
+                children: [],
+            };
+            treeModel.appendNode(tempNode);
+            const attached = getAttachedHistory(props.config().attachedHistory);
+            treeModel.deleteNode(tempId);
             return attached;
         }
         return getAttachedHistory(props.config().attachedHistory, index);
     }
 
-    // 定义 sessionHistory 函数
-    const sessionHistory = (): IChatSessionHistory => {
-        return {
+    // ========== V2: sessionHistory 输出 V2 格式 ==========
+    const sessionHistory = (): IChatSessionHistoryV2 => {
+        return treeModel.toHistory({
             id: sessionId(),
             timestamp,
             updated,
             title: title(),
-            items: messages.unwrap(),
-            sysPrompt: systemPrompt(),
             tags: sessionTags(),
-            customOptions: modelCustomOptions.unwrap()
-        }
+            sysPrompt: systemPrompt(),
+            customOptions: modelCustomOptions()
+        });
     }
 
-    // 定义 applyHistory 函数
-    const applyHistory = (history: Partial<IChatSessionHistory>) => {
-        history.id && (sessionId.value = history.id);
-        history.title && (title.update(history.title));
-        history.timestamp && (timestamp = history.timestamp);
-        history.updated && (updated = history.updated);
-        history.items && (messages.update(history.items));
-        history.sysPrompt && (systemPrompt.update(history.sysPrompt));
-        history.tags && (sessionTags.update(history.tags));
-        history.customOptions && (modelCustomOptions.update(history.customOptions));
+    // ========== V2: applyHistory 支持 V2 格式 ==========
+    const applyHistory = (history: Partial<IChatSessionHistoryV2>) => {
+        batch(() => {
+            history.id && (sessionId.value = history.id);
+            history.title && (title.update(history.title));
+            history.timestamp && (timestamp = history.timestamp);
+            history.updated && (updated = history.updated);
+            history.sysPrompt && (systemPrompt.update(history.sysPrompt));
+            history.tags && (sessionTags.update(history.tags));
+            history.customOptions && (modelCustomOptions.value = history.customOptions);
+
+            // V2: 加载树结构
+            if (history.nodes !== undefined) {
+                treeModel.fromHistory(history as IChatSessionHistoryV2);
+            }
+        });
 
         // 清空删除历史（加载新历史记录时）
         deleteHistory.clearRecords();
@@ -895,12 +919,14 @@ export const useSession = (props: {
     // 定义 newSession 函数
     const newSession = () => {
         sessionId.value = window.Lute.NewNodeID();
-        // systemPrompt.update('');
         systemPrompt.value = globalMiscConfigs().defaultSystemPrompt || '';
         timestamp = new Date().getTime();
         updated = timestamp + 1;
         title.update('新的对话');
-        messages.update([]);
+        
+        // V2: 清空树模型
+        treeModel.clear();
+        
         sessionTags.update([]);
         loading.update(false);
         hasStarted = false;
@@ -945,37 +971,38 @@ export const useSession = (props: {
 
             // 记录每条被删除的消息到历史
             locators.forEach(loc => {
-                const item = msgMgr.getAt(loc);
+                const item = msgMgr.getAt(loc) as IChatSessionMsgItemV2;
                 if (!item || getMeta(item, 'type') !== 'message') return;
 
-                const content = extractContentText(getPayload(item, 'message').content);
+                // V2: 从 versions 获取当前版本数据
+                const currentPayload = item.versions[item.currentVersionId];
+                const content = extractContentText(currentPayload?.message?.content);
+                
                 deleteHistory.addRecord({
                     type: 'message',
                     sessionId: sessionId(),
                     sessionTitle: title(),
                     content: content,
-                    timestamp: getPayload(item, 'timestamp') || Date.now(),
-                    author: getPayload(item, 'author'),
+                    timestamp: currentPayload?.timestamp || Date.now(),
+                    author: currentPayload?.author,
                     totalVersions: item.versions ? Object.keys(item.versions).length : 1,
+                    // V2: originalItem 存储完整的 V2 节点
                     originalItem: {
                         id: item.id,
-                        message: item.message,
-                        currentVersion: item.currentVersion,
+                        type: item.type,
+                        currentVersionId: item.currentVersionId,
                         versions: item.versions,
                         context: item.context,
-                        userPromptSlice: item.userPromptSlice,
-                        token: item.token,
-                        usage: item.usage,
-                        time: item.time,
-                        author: item.author,
-                        timestamp: item.timestamp,
-                        title: item.title,
+                        parent: item.parent,
+                        children: item.children,
+                        hidden: item.hidden,
+                        pinned: item.pinned,
                         attachedItems: item.attachedItems,
                         attachedChars: item.attachedChars
                     },
                     extra: {
                         messageId: item.id,
-                        author: item.author
+                        author: currentPayload?.author
                     }
                 });
             });
@@ -984,7 +1011,7 @@ export const useSession = (props: {
             msgMgr.deleteMessages(locators);
             renewUpdatedTimestamp();
         },
-        insertMessageAfter: (after: MessageLocator, item: IChatSessionMsgItem) => {
+        insertMessageAfter: (after: MessageLocator, item: IChatSessionMsgItemV2) => {
             msgMgr.insertAfter(after, item);
             renewUpdatedTimestamp();
         },
@@ -1055,11 +1082,10 @@ export const useSession = (props: {
         newSession,
 
         // ========== 元数据更新（特殊用途）==========
-        updateMessageMetadata: (at: MessageLocator, metadata: Partial<IChatSessionMsgItem>) => {
-            const index = msgMgr.indexOf(at);
-            if (index === -1) return;
-
-            messages.update(index, (prev) => ({ ...prev, ...metadata }));
+        updateMessageMetadata: (at: MessageLocator, metadata: Partial<IChatSessionMsgItemV2>) => {
+            const id = typeof at === 'number' ? treeModel.getWorldLine()[at] : at.id;
+            if (!id) return;
+            treeModel.updateNode(id, metadata);
             renewUpdatedTimestamp();
         },
 
@@ -1077,42 +1103,40 @@ export const useSession = (props: {
             const index = msgMgr.indexOf({ id: itemId });
             if (index === -1) return;
 
-            const msgItem = msgMgr.getAt(index);
+            const msgItem = msgMgr.getAt(index) as IChatSessionMsgItemV2;
             if (!msgItem || msgItem.type !== 'message') return;
 
-            // 记录版本删除到历史
+            // 记录版本删除到历史 (V2: versions 结构)
             if (msgItem.versions?.[version]) {
-                const versionContent = msgItem.versions[version];
-                const textContent = extractContentText(versionContent.content);
+                const versionPayload = msgItem.versions[version];
+                const textContent = extractContentText(versionPayload.message?.content);
 
                 deleteHistory.addRecord({
                     type: 'version',
                     sessionId: sessionId(),
                     sessionTitle: title(),
                     content: textContent.trim() || '多媒体内容',
-                    timestamp: versionContent.timestamp || Date.now(),
-                    author: versionContent.author,
+                    timestamp: versionPayload.timestamp || Date.now(),
+                    author: versionPayload.author,
                     versionId: version,
+                    // V2: originalItem 存储完整的 V2 节点
                     originalItem: {
                         id: msgItem.id,
-                        message: msgItem.message,
-                        currentVersion: msgItem.currentVersion,
+                        type: msgItem.type,
+                        currentVersionId: msgItem.currentVersionId,
                         versions: msgItem.versions,
                         context: msgItem.context,
-                        userPromptSlice: msgItem.userPromptSlice,
-                        token: msgItem.token,
-                        usage: msgItem.usage,
-                        time: msgItem.time,
-                        author: msgItem.author,
-                        timestamp: msgItem.timestamp,
-                        title: msgItem.title,
+                        parent: msgItem.parent,
+                        children: msgItem.children,
+                        hidden: msgItem.hidden,
+                        pinned: msgItem.pinned,
                         attachedItems: msgItem.attachedItems,
                         attachedChars: msgItem.attachedChars
                     },
                     extra: {
                         messageId: itemId,
                         versionId: version,
-                        author: versionContent.author
+                        author: versionPayload.author
                     }
                 });
             }
@@ -1121,28 +1145,32 @@ export const useSession = (props: {
             renewUpdatedTimestamp();
         },
 
-        // 消息更新函数（使用 msgMgr 访问）
+        // 消息更新函数（使用 TreeModel）
         updateMessage: (index: number, newContent: string) => {
-            const item = msgMgr.getAt(index);
+            const item = msgMgr.getAt(index) as IChatSessionMsgItemV2;
             if (!item || item.type !== 'message') return;
 
-            const { contextPrompt } = splitPromptFromContext(item);
+            // V2: 从当前版本获取上下文
+            const payload = item.versions[item.currentVersionId];
+            if (!payload) return;
+
+            const contentText = extractContentText(payload.message?.content);
+            let contextPrompt = '';
+            if (payload.userPromptSlice) {
+                contextPrompt = contentText.slice(0, payload.userPromptSlice[0]);
+            }
+            
             const newText = contextPrompt + newContent;
 
-            batch(() => {
-                const updatedContent = updateContentText(item.message.content, newText);
-                messages.update(index, 'message', 'content', updatedContent)
-
-                // 更新 userPromptSlice
-                if (contextPrompt && contextPrompt.length > 0) {
-                    const contextLength = contextPrompt.length;
-                    messages.update(index, 'userPromptSlice', [contextLength, contextLength + newContent.length]);
-                }
-
-                // 如果是多版本消息，同时更新当前版本
-                if (isMsgItemWithMultiVersion(item)) {
-                    messages.update(index, 'versions', item.currentVersion, 'content', newText);
-                }
+            // V2: 更新当前版本的 message content
+            treeModel.updatePayload(item.id, {
+                message: {
+                    ...payload.message,
+                    content: newText,
+                },
+                userPromptSlice: contextPrompt.length > 0 
+                    ? [contextPrompt.length, contextPrompt.length + newContent.length]
+                    : undefined,
             });
 
             renewUpdatedTimestamp();

@@ -8,6 +8,7 @@
  */
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
 
 const KEEP_N_CACHE_ITEM = 36;
 
@@ -70,20 +71,27 @@ export const restoreCache = async () => {
 
 /**
  * 临时保存在 localStorage 中, key 为 ID
+ * 支持 V2 格式
  */
-export const saveToLocalStorage = (history: IChatSessionHistory) => {
-    // 确保类型标识
-    const historyWithType = { ...history, type: 'history' as const };
+export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
+    // 确保类型标识和 schema
+    const historyWithType = { ...history, type: 'history' as const, schema: 2 };
     const key = `gpt-chat-${history.id}`;
     localStorage.setItem(key, JSON.stringify(historyWithType));
 }
 
-export const listFromLocalStorage = (): IChatSessionHistory[] => {
+/**
+ * 从 localStorage 读取，自动迁移 V1 到 V2
+ */
+export const listFromLocalStorage = (): IChatSessionHistoryV2[] => {
     const keys = Object.keys(localStorage).filter(key => key.startsWith('gpt-chat-'));
     return keys.map(key => {
-        const data = JSON.parse(localStorage.getItem(key));
-        // 确保类型标识
-        return { ...data, type: 'history' as const };
+        const data = JSON.parse(localStorage.getItem(key)!);
+        // 读时迁移
+        if (needsMigration(data)) {
+            return migrateHistory(data);
+        }
+        return { ...data, type: 'history' as const } as IChatSessionHistoryV2;
     });
 }
 
