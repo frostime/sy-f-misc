@@ -45,7 +45,45 @@ interface IMessagePayload {
     // refusal?: string | null;
     // tool_calls?: IToolCall[];
     // 工具调用结果（每次 rerun 结果可能不同）
-    toolChainResult?: IChatSessionMsgItem['toolChainResult'];
+    /**
+     * 工具调用链结果（如果这条消息经过了工具调用）
+     */
+    toolChainResult?: {
+        // 工具调用历史记录
+        toolCallHistory: {
+            callId: string;
+            toolName: string;
+            args: any;
+            result: {
+                status: any;  // ToolExecuteStatus
+                data?: any;
+                error?: string;
+                rejectReason?: string;
+            };
+            startTime: number;
+            endTime: number;
+            roundIndex: number;
+            resultRejected?: boolean;
+            resultRejectReason?: string;
+            // 本轮的 token 使用情况（如果有）
+            llmUsage?: {
+                prompt_tokens: number;
+                completion_tokens: number;
+                total_tokens: number;
+            };
+        }[];
+        // 执行统计
+        stats: {
+            totalRounds: number;
+            totalCalls: number;
+            totalTime: number;
+            startTime: number;
+            endTime: number;
+        };
+        // 完成状态
+        status: 'completed' | 'aborted' | 'error' | 'timeout';
+        error?: string;
+    };
 }
 
 /**
@@ -59,9 +97,8 @@ interface IChatSessionMsgItemV2 {
      * separator: 上下文断点（versions 为空对象，currentVersionId 为空字符串）
      */
     type: 'message' | 'separator';
-
+    role: 'user' | 'assistant' | 'system' | 'tool' | '';  // '' 仅限 separator 使用
     name?: string;
-    role?: 'user' | 'assistant' | 'system' | 'tool';
 
     // ===== 版本管理 =====
     currentVersionId: string;  // seperator 时为 ''

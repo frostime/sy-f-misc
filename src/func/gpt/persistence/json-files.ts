@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:31:26
  * @FilePath     : /src/func/gpt/persistence/json-files.ts
- * @LastEditTime : 2024-12-26 00:41:20
+ * @LastEditTime : 2025-12-28 16:16:59
  * @Description  : 
  */
 import { thisPlugin, api, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { createSignalRef } from "@frostime/solid-signal-ref";
-import { extractMessageContent, getMeta, getPayload } from '@gpt/chat-utils';
-import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
+import { extractMessageContent, getMessageProp, getMeta, getPayload } from '@gpt/chat-utils';
+import { needsMigration, migrateHistory, isV1History, isV2History } from '@gpt/model/msg_migration';
 
 const rootName = 'chat-history';
 
@@ -17,6 +17,8 @@ const rootName = 'chat-history';
 const SNAPSHOT_FILE = 'chat-history-snapshot.json';
 const SNAPSHOT_SCHEMA = '1.0';
 const PREVIEW_LENGTH = 500;
+
+type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
 
 // #TODO 考虑 snapshot 太大要怎么办
 
@@ -175,7 +177,7 @@ export const getFromJson = async (id: string): Promise<IChatSessionHistoryV2 | n
     const filepath = `${dir}${id}.json`;
     const content = await tryRecoverFromJson(filepath);
     if (!content) return null;
-    
+
     // 读时迁移：自动将 V1 转换为 V2
     if (needsMigration(content)) {
         return migrateHistory(content);
@@ -194,24 +196,30 @@ export const removeFromJson = async (id: string) => {
 }
 
 /**
+ * 类型窄化断言的工具函数
+ */
+const narrow = <T>(item): item is T => true;
+
+
+/**
  * 生成单个会话的快照数据
  * 支持 V1 和 V2 两种格式
  */
-const generateSessionSnapshot = (history: IChatSessionHistory | IChatSessionHistoryV2): IChatSessionSnapshot => {
-    let messageItems: any[] = [];
-    
-    // 检测是 V1 还是 V2 格式
-    if ('items' in history && Array.isArray(history.items)) {
-        // V1 格式
+const generateSessionSnapshot = (history: ISessionHistoryUnion): IChatSessionSnapshot => {
+    let messageItems: (IChatSessionMsgItem | IChatSessionMsgItemV2)[] = [];
+
+    let version: 0 | 1 | 2 = 0;
+    if (isV1History(history)) {
         messageItems = history.items.filter((item: IChatSessionMsgItem) =>
-            getMeta(item, 'type') === 'message' && getPayload(item, 'message')?.content
+            // getMeta(item, 'type') === 'message' && getPayload(item, 'message')?.content
+            item.type === 'message' && item.message?.content
         );
-    } else if ('nodes' in history && 'worldLine' in history) {
-        // V2 格式
-        const v2History = history as IChatSessionHistoryV2;
-        messageItems = v2History.worldLine
-            .map(id => v2History.nodes[id])
+        version = 1;
+    } else if (isV2History(history)) {
+        messageItems = history.worldLine
+            .map(id => history.nodes[id])
             .filter(node => node && node.type === 'message' && node.currentVersionId);
+        version = 2;
     }
 
     // 提取预览内容
@@ -222,20 +230,25 @@ const generateSessionSnapshot = (history: IChatSessionHistory | IChatSessionHist
         // 兼容 V1 和 V2 的内容访问
         let content: any;
         let author: string;
-        
-        if ('message' in item && item.message) {
+
+        // version 是实际确保类型正确的 flag, narrow 是为了 ts 类型断言
+        if (version === 1 && narrow<IChatSessionMsgItem>(item)) {
             // V1 格式
-            content = getPayload(item, 'message').content;
-            author = getPayload(item, 'author') || 'unknown';
-        } else if ('versions' in item && item.currentVersionId) {
+            // content = getPayload(item, 'message').content;
+            // author = getPayload(item, 'author') || 'unknown';
+            content = item.message?.content;
+            author = item.author || 'unknown';
+        } else if (version === 2 && narrow<IChatSessionMsgItemV2>(item)) {
             // V2 格式
-            const payload = item.versions[item.currentVersionId];
-            content = payload?.message?.content;
-            author = payload?.author || 'unknown';
+            // const payload = item.versions[item.currentVersionId];
+            // content = payload?.message?.content;
+            // author = payload?.author || 'unknown';
+            content = getMessageProp(item, 'content');
+            author = getPayload(item, 'author') || 'unknown';
         } else {
             continue;
         }
-        
+
         const { text } = extractMessageContent(content);
         const authorPrefix = `${author}: `;
         const contentToAdd = authorPrefix + text.replace(/\n/g, ' ').trim();
@@ -256,14 +269,12 @@ const generateSessionSnapshot = (history: IChatSessionHistory | IChatSessionHist
     const lastMessage = messageItems[messageItems.length - 1];
     let lastAuthor = 'unknown';
     let lastTime = history.timestamp;
-    
+
     if (lastMessage) {
-        if ('message' in lastMessage && lastMessage.message) {
-            // V1 格式
+        if (version === 1 && narrow<IChatSessionMsgItem>(lastMessage)) {
             lastAuthor = lastMessage.author || 'unknown';
             lastTime = lastMessage.timestamp || history.timestamp;
-        } else if ('versions' in lastMessage && lastMessage.currentVersionId) {
-            // V2 格式
+        } else if (version === 2 && narrow<IChatSessionMsgItemV2>(lastMessage)) {
             const payload = lastMessage.versions[lastMessage.currentVersionId];
             lastAuthor = payload?.author || 'unknown';
             lastTime = payload?.timestamp || history.timestamp;
@@ -338,7 +349,7 @@ export const rebuildHistorySnapshot = async (): Promise<IHistorySnapshot> => {
  * 更新snapshot中的单个会话
  * 支持 V1 和 V2 格式
  */
-export const updateSessionInSnapshot = async (history: IChatSessionHistory | IChatSessionHistoryV2) => {
+export const updateSessionInSnapshot = async (history: ISessionHistoryUnion) => {
     let snapshot = await readSnapshot();
 
     if (!snapshot) {
@@ -410,9 +421,10 @@ const removeSessionFromSnapshot = async (sessionId: string) => {
 };
 
 /**
- * 重命名原来的函数为legacy版本
+ * 读取所有 Json 历史记录文件
+ * 不涉及内部结构，所以 V1 V2 均可
  */
-const listFromJsonLegacy = async (): Promise<IChatSessionHistory[]> => {
+const listFromJsonLegacy = async (): Promise<ISessionHistoryUnion[]> => {
     const dir = `data/storage/petal/${thisPlugin().name}/${rootName}/`;
     const files = await api.readDir(dir);
     if (!files) return [];
@@ -430,7 +442,7 @@ const listFromJsonLegacy = async (): Promise<IChatSessionHistory[]> => {
         return content
     });
     let storages: any[] = await Promise.all(promises);
-    return storages.filter(s => s) as IChatSessionHistory[];
+    return storages.filter(s => s) as ISessionHistoryUnion[];
 };
 
 /**

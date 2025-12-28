@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2025-12-18 16:14:13
+ * @LastEditTime : 2025-12-28 00:45:01
  * @Description  :
  */
 // External libraries
@@ -56,7 +56,7 @@ import { jsonAgent } from '../openai/tiny-agent';
 export const ChatSession: Component<{
     input?: ReturnType<typeof useSignalRef<string>>;
     systemPrompt?: string;
-    history?: IChatSessionHistory;
+    history?: IChatSessionHistoryV2;
     config?: IChatSessionConfig;
     uiStyle?: {
         maxWidth?: string;
@@ -243,7 +243,7 @@ export const ChatSession: Component<{
         }
     }));
 
-    const newChatSession = (history?: Partial<IChatSessionHistory>) => {
+    const newChatSession = (history?: Partial<IChatSessionHistoryV2>) => {
         if (session.hasMessages() && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
@@ -592,7 +592,7 @@ export const ChatSession: Component<{
                 <SimpleProvider state={{ model, config, session, close: () => close() }}>
                     <HistoryList
                         close={() => close()}
-                        onclick={(history: IChatSessionHistory) => {
+                        onclick={(history: IChatSessionHistoryV2) => {
                             if (session.hasMessages()) {
                                 persist.saveToLocalStorage(session.sessionHistory());
                             }
@@ -739,7 +739,7 @@ export const ChatSession: Component<{
                             <SessionItemsManager
                                 session={session}
                                 onClose={() => close()}
-                                focusTo={(id: IChatSessionMsgItem['id']) => {
+                                focusTo={(id: IChatSessionMsgItemV2['id']) => {
                                     close();
                                     setTimeout(() => {
                                         const targetElement = messageListRef.querySelector(`div[data-msg-id="${id}"]`) as HTMLElement;
@@ -1069,8 +1069,8 @@ export const ChatSession: Component<{
             onScroll={handleScroll}
         >
             <For each={session.getActiveMessages()}>
-                {(item: IChatSessionMsgItem, index: Accessor<number>) => (
-                    <Switch fallback={<></>}>
+                {(item: IChatSessionMsgItemV2, index: Accessor<number>) => (
+                    <Switch fallback={<>错误匹配类型</>}>
                         <Match when={item.type === 'message'}>
                             {/* 如果是正在流式输出的消息，在其上方显示分隔符 */}
                             {item.loading === true && (
@@ -1109,7 +1109,7 @@ export const ChatSession: Component<{
                                 totalCount={session.getMessageCount()}
                             />
                         </Match>
-                        <Match when={item.type === 'seperator'}>
+                        <Match when={item.type === 'separator'}>
                             <Seperator title="新的对话" id={item.id} />
                         </Match>
                     </Switch>

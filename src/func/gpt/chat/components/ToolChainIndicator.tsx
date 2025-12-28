@@ -8,10 +8,10 @@
 import { Component, Show, createSignal } from 'solid-js';
 import ToolChainTimeline from './ToolChainTimeline';
 import styles from './ToolChainIndicator.module.scss';
-import { checkHasToolChain } from '../../chat-utils';
+import { checkHasToolChain, getPayload } from '../../chat-utils';
 
 interface ToolChainIndicatorProps {
-    messageItem: IChatSessionMsgItem;
+    messageItem: IChatSessionMsgItemV2;
 }
 
 const ToolChainIndicator: Component<ToolChainIndicatorProps> = (props) => {
@@ -21,7 +21,10 @@ const ToolChainIndicator: Component<ToolChainIndicatorProps> = (props) => {
         checkHasToolChain(props.messageItem);
     };
 
-    const toolChainData = () => props.messageItem.toolChainResult;
+    // const toolChainData = () => props.messageItem.toolChainResult;
+    const toolChainData = () => {
+        return getPayload(props.messageItem, 'toolChainResult');
+    }
 
     return (
         <Show when={hasToolChain()}>

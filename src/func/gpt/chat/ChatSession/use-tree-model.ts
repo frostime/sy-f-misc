@@ -8,23 +8,13 @@
  */
 
 import { Accessor, batch, createMemo } from 'solid-js';
-import { ISignalRef, IStoreRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 
 // ============================================================================
 // 类型定义
 // ============================================================================
 
 type ItemID = string;
-
-/**
- * TreeModel 内部状态
- */
-interface ITreeModelState {
-    nodes: IStoreRef<Record<ItemID, IChatSessionMsgItemV2>>;
-    rootId: ISignalRef<ItemID | null>;
-    worldLine: IStoreRef<ItemID[]>;
-    bookmarks: IStoreRef<ItemID[]>;
-}
 
 /**
  * TreeModel 对外接口
@@ -53,6 +43,9 @@ export interface ITreeModel {
     getNodeAt: (index: number) => IChatSessionMsgItemV2 | undefined;
     /** 获取节点在 worldLine 中的索引 */
     indexOf: (id: ItemID) => number;
+
+    getNode: (get: { index: number } | { id: ItemID }) => IChatSessionMsgItemV2 | undefined;
+    getRawNode: (get: { index: number } | { id: ItemID }, clone?: boolean) => IChatSessionMsgItemV2 | undefined;
 
     // ========== 写操作 ==========
     /** 在末尾追加节点 */
@@ -163,6 +156,23 @@ export const useTreeModel = (): ITreeModel => {
     };
     const indexOf = (id: ItemID) => worldLine().indexOf(id);
 
+    const getNode = (get: { index: number } | { id: ItemID }) => {
+        let node = ('id' in get) ? getNodeById(get.id) : getNodeAt(get.index);
+        if (!node) return node;
+        return node
+    }
+    const getRawNode = (get: { index: number } | { id: ItemID }, clone?: boolean) => {
+        let id = ('id' in get) ? get.id : worldLine()[get.index];
+        if (!id) return undefined;
+        const raw = nodes.unwrap()[id];
+        if (!raw) return undefined;
+        // return raw;
+        if (clone === true) {
+            return structuredClone(raw);
+        }
+        return raw;
+    }
+
     // ========== 写入方法 ==========
 
     const appendNode = (nodeData: Omit<IChatSessionMsgItemV2, 'parent' | 'children'>) => {
@@ -243,6 +253,23 @@ export const useTreeModel = (): ITreeModel => {
         nodes.update(id, prev => ({ ...prev, ...updates }));
     };
 
+    /**
+     * 更新节点的当前版本 Payload
+     * 
+     * @warning 浅合并！调用方必须传入完整的嵌套对象。
+     * 
+     * 示例：
+     * ```typescript
+     * // ✅ 正确：传入完整的嵌套对象
+     * updatePayload(id, { 
+     *   message: { role: 'user', content: '...' } 
+     * })
+     * 
+     * // ❌ 错误：嵌套对象会被覆盖
+     * updatePayload(id, { message: { content: '...' } })
+     * // 这会丢失 message.role 等其他字段！
+     * ```
+     */
     const updatePayload = (id: ItemID, updates: Partial<IMessagePayload>) => {
         const node = nodes()[id];
         if (!node || !node.currentVersionId) return;
@@ -482,6 +509,8 @@ export const useTreeModel = (): ITreeModel => {
         getNodeById,
         getNodeAt,
         indexOf,
+        getNode,
+        getRawNode,
 
         // 写操作
         appendNode,

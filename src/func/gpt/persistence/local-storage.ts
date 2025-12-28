@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:38:02
  * @FilePath     : /src/func/gpt/persistence/local-storage.ts
- * @LastEditTime : 2025-07-30 15:27:14
+ * @LastEditTime : 2025-12-28 16:51:01
  * @Description  :
  */
 
@@ -11,6 +11,7 @@ import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
 
 const KEEP_N_CACHE_ITEM = 36;
+type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
 
 
 /**
@@ -46,7 +47,7 @@ export const restoreCache = async () => {
     let histories: any[] | { code: number } = JSON.parse(data);
     if (!histories || (histories as { code: number }).code === 404) return;
     // sort by updated, 最新的在前
-    histories = histories as IChatSessionHistory[];
+    histories = histories as ISessionHistoryUnion[];
     if (histories.length === 0) return;
     histories.sort((a, b) => {
         if (a.updated && b.updated) {
@@ -61,11 +62,19 @@ export const restoreCache = async () => {
 
     let kept = 0;
     for (let i = 0; i < histories.length && kept < KEEP_N_CACHE_ITEM; i++) {
-        const key = `gpt-chat-${histories[i].id}`;
+        let history = histories[i] as ISessionHistoryUnion;
+
+        // 恢复时即时迁移
+        if (needsMigration(history)) {
+            history = migrateHistory(history) as IChatSessionHistoryV2;
+        }
+
+        const key = `gpt-chat-${history.id}`;
         if (!isExist(key)) {
-            localStorage.setItem(key, JSON.stringify(histories[i]));
+            localStorage.setItem(key, JSON.stringify(history));
             kept++;
         }
+
     }
 }
 
@@ -86,7 +95,7 @@ export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
 export const listFromLocalStorage = (): IChatSessionHistoryV2[] => {
     const keys = Object.keys(localStorage).filter(key => key.startsWith('gpt-chat-'));
     return keys.map(key => {
-        const data = JSON.parse(localStorage.getItem(key)!);
+        const data = JSON.parse(localStorage.getItem(key)!) as ISessionHistoryUnion;
         // 读时迁移
         if (needsMigration(data)) {
             return migrateHistory(data);

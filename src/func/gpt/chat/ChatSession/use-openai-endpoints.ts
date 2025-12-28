@@ -49,7 +49,7 @@ interface RunResult {
 /** 扩展的完成结果（包含工具链数据） */
 interface ExtendedCompletionResult extends ICompletionResult {
     hintSize?: number;
-    toolChainData?: IChatSessionMsgItem['toolChainResult'];
+    toolChainData?: IMessagePayload['toolChainResult'];
 }
 
 /** 消息完成时的元数据 */
@@ -169,7 +169,6 @@ const createMessageLifecycle = (
         result: ExtendedCompletionResult,
         meta: FinalizeMeta
     ): void => {
-        const vid = new Date().getTime().toString();
         const node = treeModel.getNodeById(id);
         if (!node) throw new Error(`Node not found: ${id}`);
 
@@ -181,21 +180,18 @@ const createMessageLifecycle = (
             newMessageContent['reasoning_content'] = result.reasoning_content;
         }
 
-        // 构建新的 payload
-        const newPayload: IMessagePayload = {
-            id: vid,
-            message: newMessageContent,
-            author: meta.modelName,
-            timestamp: new Date().getTime(),
-            usage: result.usage,
-            time: result.time,
-            token: result.usage?.completion_tokens ?? null,
-            userPromptSlice: result.hintSize ? [result.hintSize, result.content.length] : undefined,
-        };
-
-        // 更新节点
+        // 更新现有版本
         batch(() => {
-            treeModel.addVersion(id, newPayload);
+            treeModel.updatePayload(id, {
+                message: newMessageContent,
+                author: meta.modelName,
+                timestamp: Date.now(),
+                usage: result.usage,
+                time: result.time,
+                token: result.usage?.completion_tokens ?? null,
+                userPromptSlice: result.hintSize ? [result.hintSize, result.content.length] : undefined,
+            });
+
             treeModel.updateNode(id, {
                 loading: false,
                 attachedItems: meta.msgToSend.length,
@@ -203,7 +199,6 @@ const createMessageLifecycle = (
                     const len = extractContentText(m.content).length;
                     return sum + len;
                 }, 0),
-                // Note: toolChainResult 存储在 payload 中，而非节点上
             });
 
             // 更新上一条消息的 prompt token

@@ -686,7 +686,9 @@ ${stopDueToLimit ? `
             const cleanedMessages = state.allMessages.map(msg => {
                 const cleaned = { ...msg };
                 // 移除空的 tool_calls 数组（OpenAI API 不接受空数组）
+                // @ts-ignore
                 if (cleaned.tool_calls && Array.isArray(cleaned.tool_calls) && cleaned.tool_calls.length === 0) {
+                    // @ts-ignore
                     delete cleaned.tool_calls;
                 }
                 // 移除 usage 字段（不是标准的 message 字段）

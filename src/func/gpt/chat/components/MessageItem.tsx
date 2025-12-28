@@ -22,7 +22,7 @@ import { floatSiYuanTextEditor } from '../utils';
 
 
 const MessageItem: Component<{
-    messageItem: IChatSessionMsgItem,
+    messageItem: IChatSessionMsgItemV2,
     loading?: boolean; // 替换 markdown 参数为 loading
     index?: number,
     totalCount?: number;
@@ -120,8 +120,8 @@ const MessageItem: Component<{
         },
         currentVersion: () => {
             let index = 1;
-            if (props.messageItem.versions[props.messageItem.currentVersion]) {
-                index = Object.keys(props.messageItem.versions).indexOf(props.messageItem.currentVersion) + 1;
+            if (props.messageItem.versions[props.messageItem.currentVersionId]) {
+                index = Object.keys(props.messageItem.versions).indexOf(props.messageItem.currentVersionId) + 1;
             }
             return `v${index}`;
         },
@@ -129,7 +129,7 @@ const MessageItem: Component<{
             if (!VersionHooks.hasMultiVersion()) return [];
             return Object.keys(props.messageItem.versions).map((version, index) => {
                 return {
-                    icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
+                    icon: version === props.messageItem.currentVersionId ? 'iconCheck' : '',
                     label: `v${index + 1}`,
                     click: (_: unknown, event: MouseEvent) => {
                         const target = event.target as HTMLElement;
@@ -242,59 +242,61 @@ const MessageItem: Component<{
 
     const createNewBranch = () => {
         confirm('确认?', '保留以上记录，创建一个新的对话分支', () => {
-            const sourceSessionId = session.sessionId();
-            const sourceSessionTitle = session.title();
-            const sourceMessageId = props.messageItem.id;
-            const newSessionId = window.Lute.NewNodeID();
-            const newSessionTitle = session.title() + ' - 新的分支';
+            // @deprecated  -  V2 版本的 Branch 功能留到后面做
+            // Document these code for reference
+            // const sourceSessionId = session.sessionId();
+            // const sourceSessionTitle = session.title();
+            // const sourceMessageId = props.messageItem.id;
+            // const newSessionId = window.Lute.NewNodeID();
+            // const newSessionTitle = session.title() + ' - 新的分支';
 
-            // 1. 更新 branchTo 元数据（不创建新版本，只更新元数据）
-            const currentItem = session.getMessageAt({ id: sourceMessageId });
-            if (currentItem && getMeta(currentItem, 'type') === 'message') {
-                const newBranch = {
-                    sessionId: newSessionId,
-                    sessionTitle: newSessionTitle,
-                    messageId: sourceMessageId
-                };
-                const currentBranches = currentItem.branchTo || [];
-                const branchTo = [...currentBranches, newBranch];
-                const uniqueBranchTo = Array.from(new Map(branchTo.map(item => [item.sessionId + item.messageId, item])).values());
+            // // 1. 更新 branchTo 元数据（不创建新版本，只更新元数据）
+            // const currentItem = session.getMessageAt({ id: sourceMessageId });
+            // if (currentItem && getMeta(currentItem, 'type') === 'message') {
+            //     const newBranch = {
+            //         sessionId: newSessionId,
+            //         sessionTitle: newSessionTitle,
+            //         messageId: sourceMessageId
+            //     };
+            //     const currentBranches = currentItem.branchTo || [];
+            //     const branchTo = [...currentBranches, newBranch];
+            //     const uniqueBranchTo = Array.from(new Map(branchTo.map(item => [item.sessionId + item.messageId, item])).values());
 
-                // 使用封装接口更新元数据
-                session.updateMessageMetadata({ id: sourceMessageId }, { branchTo: uniqueBranchTo });
-            }
+            //     // 使用封装接口更新元数据
+            //     session.updateMessageMetadata({ id: sourceMessageId }, { branchTo: uniqueBranchTo });
+            // }
 
-            // Save the source session immediately to persist the link
-            persist.saveToLocalStorage(session.sessionHistory());
+            // // Save the source session immediately to persist the link
+            // persist.saveToLocalStorage(session.sessionHistory());
 
-            // 2. Prepare new session (Target)
-            const slices = session.getMessagesBefore({ id: sourceMessageId }, true);
-            const branchMessages = structuredClone(slices);
-            const lastMsg = branchMessages[branchMessages.length - 1];
+            // // 2. Prepare new session (Target)
+            // const slices = session.getMessagesBefore({ id: sourceMessageId }, true);
+            // const branchMessages = structuredClone(slices);
+            // const lastMsg = branchMessages[branchMessages.length - 1];
 
-            // Set branchFrom on the last message of the new session
-            lastMsg.branchFrom = {
-                sessionId: sourceSessionId,
-                sessionTitle: sourceSessionTitle,
-                messageId: sourceMessageId
-            };
-            // Clear branchTo in the new session's copy
-            delete lastMsg.branchTo;
+            // // Set branchFrom on the last message of the new session
+            // lastMsg.branchFrom = {
+            //     sessionId: sourceSessionId,
+            //     sessionTitle: sourceSessionTitle,
+            //     messageId: sourceMessageId
+            // };
+            // // Clear branchTo in the new session's copy
+            // delete lastMsg.branchTo;
 
-            const newSessionData: Partial<IChatSessionHistory> = {
-                id: newSessionId,
-                title: newSessionTitle,
-                items: branchMessages,
-                sysPrompt: session.systemPrompt(),
-                customOptions: session.modelCustomOptions()
-            };
+            // const newSessionData: Partial<IChatSessionHistory> = {
+            //     id: newSessionId,
+            //     title: newSessionTitle,
+            //     items: branchMessages,
+            //     sysPrompt: session.systemPrompt(),
+            //     customOptions: session.modelCustomOptions()
+            // };
 
-            // 3. Switch
-            session.newSession();
-            session.applyHistory(newSessionData);
+            // // 3. Switch
+            // session.newSession();
+            // session.applyHistory(newSessionData);
 
-            // Save the new session
-            persist.saveToLocalStorage(session.sessionHistory());
+            // // Save the new session
+            // persist.saveToLocalStorage(session.sessionHistory());
         });
     };
 
@@ -377,7 +379,7 @@ const MessageItem: Component<{
         });
         menu.addItem({
             icon: 'iconPin',
-            label: props.messageItem.pinned ? '取消固定' : '固定消息',
+            label: getMeta(props.messageItem, 'pinned') ? '取消固定' : '固定消息',
             click: () => props.togglePinned?.()
         });
         menu.addItem({
@@ -468,15 +470,15 @@ const MessageItem: Component<{
             label: `消息长度: ${msgLength()}`,
             type: 'readonly'
         });
-        if (props.messageItem.attachedItems) {
+        if (getMeta(props.messageItem, 'attachedItems')) {
             submenus.push({
-                label: `上下文条目: ${props.messageItem.attachedItems}`,
+                label: `上下文条目: ${getMeta(props.messageItem, 'attachedItems')}`,
                 type: 'readonly'
             });
         }
-        if (props.messageItem.attachedChars) {
+        if (getMeta(props.messageItem, 'attachedChars')) {
             submenus.push({
-                label: `上下文字数: ${props.messageItem.attachedChars}`,
+                label: `上下文字数: ${getMeta(props.messageItem, 'attachedChars')}`,
                 type: 'readonly'
             });
         }
@@ -486,9 +488,10 @@ const MessageItem: Component<{
         //         type: 'readonly'
         //     });
         // }
-        if (props.messageItem.usage) {
+        const usage = getPayload(props.messageItem, 'usage');
+        if (usage) {
             submenus.push({
-                label: `Token: ${props.messageItem.usage?.total_tokens} ↑ ${props.messageItem.usage?.prompt_tokens} ↓ ${props.messageItem.usage?.completion_tokens}`,
+                label: `Token: ${usage.total_tokens} ↑ ${usage.prompt_tokens} ↓ ${usage.completion_tokens}`,
                 type: 'readonly'
             })
         }
@@ -549,7 +552,7 @@ const MessageItem: Component<{
     };
 
     const PinIndicator = () => (
-        <Show when={props.messageItem.pinned}>
+        <Show when={getMeta(props.messageItem, 'pinned')}>
             <div
                 class={styles.pinIndicator}
                 title="已固定"
@@ -599,8 +602,8 @@ const MessageItem: Component<{
             e.preventDefault();
             const menu = new Menu("branch-menu");
 
-            if (props.messageItem.branchFrom) {
-                const from = props.messageItem.branchFrom;
+            if (getMeta(props.messageItem, 'branchFrom')) {
+                const from = getMeta(props.messageItem, 'branchFrom');
                 menu.addItem({
                     icon: 'iconReply',
                     label: `来自: ${from.sessionTitle}`,
@@ -608,15 +611,15 @@ const MessageItem: Component<{
                 });
             }
 
-            if (props.messageItem.branchTo && props.messageItem.branchTo.length > 0) {
-                if (props.messageItem.branchFrom) menu.addSeparator();
+            if (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0) {
+                if (getMeta(props.messageItem, 'branchFrom')) menu.addSeparator();
 
                 menu.addItem({
                     label: '分支列表',
                     type: 'readonly'
                 });
 
-                props.messageItem.branchTo.forEach(to => {
+                getMeta(props.messageItem, 'branchTo')?.forEach(to => {
                     menu.addItem({
                         icon: 'iconSplitLR',
                         label: `前往: ${to.sessionTitle}`,
@@ -633,7 +636,7 @@ const MessageItem: Component<{
             });
         };
 
-        const hasBranch = props.messageItem.branchFrom || (props.messageItem.branchTo && props.messageItem.branchTo.length > 0);
+        const hasBranch = getMeta(props.messageItem, 'branchFrom') || (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0);
 
         return (
             <Show when={hasBranch}>
@@ -643,8 +646,8 @@ const MessageItem: Component<{
                     title="分支信息"
                 >
                     <svg><use href="#iconSplitLR" /></svg>
-                    <Show when={props.messageItem.branchTo?.length}>
-                        <span>{props.messageItem.branchTo?.length}</span>
+                    <Show when={getMeta(props.messageItem, 'branchTo')?.length}>
+                        <span>{getMeta(props.messageItem, 'branchTo')?.length}</span>
                     </Show>
                 </div>
             </Show>
@@ -693,7 +696,7 @@ const MessageItem: Component<{
                         class={`${styles.reasoningContent} b3-typography`}
                         innerHTML={
                             // @ts-ignore
-                            lute.Md2HTML(props.messageItem.message.reasoning_content)
+                            lute.Md2HTML(getMessageProp(props.messageItem, 'reasoning_content'))
                         }
                     />
                 </details>
@@ -703,11 +706,11 @@ const MessageItem: Component<{
 
     const attachedText = () => {
         const texts = [];
-        if (props.messageItem.attachedItems) {
-            texts.push(`${props.messageItem.attachedItems}条`);
+        if (getMeta(props.messageItem, 'attachedItems')) {
+            texts.push(`${getMeta(props.messageItem, 'attachedItems')}条`);
         }
-        if (props.messageItem.attachedChars) {
-            texts.push(`${props.messageItem.attachedChars}字`);
+        if (getMeta(props.messageItem, 'attachedChars')) {
+            texts.push(`${getMeta(props.messageItem, 'attachedChars')}字`);
         }
         return '上下文: ' + texts.join('/');
     }
@@ -732,26 +735,26 @@ const MessageItem: Component<{
                     {/* <span data-label="attachedChars">
                     {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
                 </span> */}
-                    <Show when={props.messageItem.usage}>
+                    <Show when={getPayload(props.messageItem, 'usage')}>
                         <span data-label="token" class="counter"
                             style={{
                                 padding: 0, 'line-height': 'unset', 'font-size': '12px'
                             }}
                         >
                             {/* Token: {props.messageItem.token} */}
-                            Token: {props.messageItem.usage?.total_tokens} ↑ {props.messageItem.usage?.prompt_tokens} ↓ {props.messageItem.usage?.completion_tokens}
+                            Token: {getPayload(props.messageItem, 'usage')?.total_tokens} ↑ {getPayload(props.messageItem, 'usage')?.prompt_tokens} ↓ {getPayload(props.messageItem, 'usage')?.completion_tokens}
                         </span>
                     </Show>
 
-                    <Show when={props.messageItem.time}>
+                    <Show when={getPayload(props.messageItem, 'time')}>
                         <span data-label="time" class="counter"
                             style={{
                                 padding: 0, 'line-height': 'unset', 'font-size': '12px'
                             }}
                         >
-                            时延: {props.messageItem.time.latency} ms
-                            <Show when={props.messageItem.time.throughput}>
-                                &nbsp;|&nbsp;吞吐量: {props.messageItem.time.throughput.toFixed(2)} tokens/s
+                            时延: {getPayload(props.messageItem, 'time')?.latency} ms
+                            <Show when={getPayload(props.messageItem, 'time')?.throughput}>
+                                &nbsp;|&nbsp;吞吐量: {getPayload(props.messageItem, 'time')?.throughput?.toFixed(2)} tokens/s
                             </Show>
                         </span>
 

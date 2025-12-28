@@ -11,8 +11,6 @@ import { globalMiscConfigs } from '@/func/gpt/model/store';
 
 import {
     mergeInputWithContext,
-    applyMsgItemVersion,
-    stageMsgItemVersion,
     getMeta,
     getPayload
 } from '@gpt/chat-utils/msg-item';
@@ -99,8 +97,7 @@ export const useSession = (props: {
 
     // 为了兼容现有代码，创建一个 messages 的派生访问器
     // 注意：这是只读的，写操作通过 treeModel 进行
-    // #TODO 后面注意改成正确类型
-    const messages = () => treeModel.messages() as any as IChatSessionMsgItem[];
+    const messages = treeModel.messages;
 
     // ================================================================
     // Session 状态管理
@@ -137,7 +134,7 @@ export const useSession = (props: {
         const targetIndex = fromIndex ?? history.length - 1;
         const targetMessage = history[targetIndex];
 
-        const isAttachable = (msg: IChatSessionMsgItem) => {
+        const isAttachable = (msg: IChatSessionMsgItemV2) => {
             return getMeta(msg, 'type') === 'message' && !getMeta(msg, 'hidden') && !getMeta(msg, 'loading');
         }
 
@@ -145,10 +142,10 @@ export const useSession = (props: {
         const previousMessages = history.slice(0, targetIndex);
 
         // 1. 获取滑动窗口内的消息 (Window Messages)
-        let attachedMessages: IChatSessionMsgItem[] = [];
+        let attachedMessages: IChatSessionMsgItemV2[] = [];
 
         if (itemNum > 0) {
-            let lastMessages: IChatSessionMsgItem[] = previousMessages;
+            let lastMessages: IChatSessionMsgItemV2[] = previousMessages;
 
             // 计算需要获取的消息数量，考虑hidden消息
             let visibleCount = 0;
@@ -168,10 +165,12 @@ export const useSession = (props: {
 
             lastMessages = previousMessages.slice(startIndex);
 
-            //查找最后一个为 seperator 的消息
+            //查找最后一个为 separator 的消息
             let lastSeperatorIndex = -1;
             for (let i = lastMessages.length - 1; i >= 0; i--) {
-                if (lastMessages[i].type === 'seperator') {
+                const msgType = getMeta(lastMessages[i], 'type');
+                //@ts-ignore  V1 版本拼写有错，保险起见做适配
+                if (msgType === 'seperator' || msgType === 'separator') {
                     lastSeperatorIndex = i;
                     break;
                 }
@@ -184,12 +183,14 @@ export const useSession = (props: {
             }
         } else if (itemNum < 0) {
             // 负数表示无限窗口，附加所有历史记录直到遇到分隔符
-            let lastMessages: IChatSessionMsgItem[] = previousMessages;
+            let lastMessages: IChatSessionMsgItemV2[] = previousMessages;
 
-            //查找最后一个为 seperator 的消息
+            //查找最后一个为 seperator/separator 的消息
             let lastSeperatorIndex = -1;
             for (let i = lastMessages.length - 1; i >= 0; i--) {
-                if (lastMessages[i].type === 'seperator') {
+                const msgType = getMeta(lastMessages[i], 'type');
+                //@ts-ignore  V1 版本拼写有错，保险起见做适配
+                if (msgType === 'seperator' || msgType === 'separator') {
                     lastSeperatorIndex = i;
                     break;
                 }
@@ -216,10 +217,10 @@ export const useSession = (props: {
         // 3. 合并并保持原有顺序
         // 因为 pinnedMessages 和 attachedMessages 都是 previousMessages 的子集，
         // 我们可以通过 ID 集合再次从 previousMessages 中筛选，从而自然保持顺序
-        const finalIds = new Set([...attachedMessages, ...pinnedMessages].map((m: IChatSessionMsgItem) => getMeta(m, 'id')));
-        const finalContext = previousMessages.filter((m: IChatSessionMsgItem) => finalIds.has(getMeta(m, 'id')));
+        const finalIds = new Set([...attachedMessages, ...pinnedMessages].map(m => getMeta(m, 'id')));
+        const finalContext = previousMessages.filter(m => finalIds.has(getMeta(m, 'id')));
 
-        return [...finalContext, targetMessage].map((item: IChatSessionMsgItem) => getPayload(item, 'message')!);
+        return [...finalContext, targetMessage].map(item => getPayload(item, 'message')!);
     }
 
     // ========== V2: 消息管理方法（直接使用 TreeModel）==========
@@ -231,13 +232,14 @@ export const useSession = (props: {
     ) => {
         const builder = new MessageBuilder();
         let optionalFields: Partial<IChatSessionMsgItemV2> = {};
+        let userPromptSlice: [number, number] | undefined;
 
         // 处理 context
         if (contexts && contexts.length > 0) {
             const result = mergeInputWithContext(msg, contexts);
             msg = result.content;
+            userPromptSlice = result.userPromptSlice;
             optionalFields.context = contexts;
-            // userPromptSlice 将在 payload 中设置
         }
 
         // 添加多模态附件
@@ -264,9 +266,7 @@ export const useSession = (props: {
                     message: userMessage,
                     author: 'user',
                     timestamp,
-                    userPromptSlice: contexts && contexts.length > 0
-                        ? mergeInputWithContext(msg, contexts).userPromptSlice
-                        : undefined,
+                    userPromptSlice: userPromptSlice,
                 }
             },
             ...optionalFields,
@@ -293,6 +293,7 @@ export const useSession = (props: {
                         type: 'separator',
                         currentVersionId: '',
                         versions: {},
+                        role: ''
                     };
                     treeModel.insertAfter(worldLine[index], newSep);
                 }
@@ -303,6 +304,7 @@ export const useSession = (props: {
                     type: 'separator',
                     currentVersionId: '',
                     versions: {},
+                    role: ''
                 };
                 treeModel.appendNode(newSep);
             }
@@ -317,6 +319,7 @@ export const useSession = (props: {
                     type: 'separator',
                     currentVersionId: '',
                     versions: {},
+                    role: ''
                 };
                 treeModel.appendNode(newSep);
             }
@@ -386,7 +389,7 @@ export const useSession = (props: {
 
         const versionKeys = Object.keys(node.versions);
         if (versionKeys.length <= 1) {
-            showMessage('当前版本不能删除');
+            showMessage('唯一的消息版本不能删除');
             return;
         }
 
@@ -407,6 +410,7 @@ export const useSession = (props: {
             if (!updatedTimestamp) {
                 updatedTimestamp = Date.now();
             }
+            showMessage(`已删除版本${version}${switchedToVersion ? `，切换到版本${switchedToVersion}` : ''}`);
         });
 
         return updatedTimestamp;
@@ -585,6 +589,10 @@ export const useSession = (props: {
         systemPrompt,
 
         // ========== 消息访问 (V2 TreeModel) ==========
+        getNode$: (id: ItemID): Readonly<IChatSessionMsgItemV2> => {
+            return treeModel.getNode({ id: id });
+        },
+
         // 数量和存在性检查
         getMessageCount: () => treeModel.count(),
         hasMessages: () => treeModel.hasMessages(),
@@ -659,6 +667,9 @@ export const useSession = (props: {
                 const item = hooks.getMessageAt(loc) as IChatSessionMsgItemV2;
                 if (!item || item.type !== 'message') return;
 
+                // get raw clone node
+                const msgItem = treeModel.getRawNode({ id: item.id }, true);
+
                 // V2: 从 versions 获取当前版本数据
                 const currentPayload = item.versions[item.currentVersionId];
                 const content = extractContentText(currentPayload?.message?.content);
@@ -672,20 +683,7 @@ export const useSession = (props: {
                     author: currentPayload?.author,
                     totalVersions: item.versions ? Object.keys(item.versions).length : 1,
                     // V2: originalItem 存储完整的 V2 节点 (使用 any 类型避免类型冲突)
-                    originalItem: {
-                        id: item.id,
-                        type: item.type,
-                        currentVersion: item.currentVersionId,
-                        // versions: item.versions as any,
-                        versions: structuredClone(item.versions),
-                        context: item.context,
-                        parent: item.parent,
-                        children: item.children,
-                        hidden: item.hidden,
-                        pinned: item.pinned,
-                        attachedItems: item.attachedItems,
-                        attachedChars: item.attachedChars
-                    } as any,
+                    originalItem: msgItem,
                     extra: {
                         messageId: item.id,
                         author: currentPayload?.author
@@ -861,8 +859,10 @@ export const useSession = (props: {
         },
         delMsgItemVersion: (itemId: string, version: string, autoSwitch = true) => {
             // V2: 直接通过 ID 获取节点
-            const msgItem = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
-            if (!msgItem || msgItem.type !== 'message') return;
+            const msgItem_ = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
+            if (!msgItem_ || msgItem_.type !== 'message') return;
+            // get raw clone node
+            const msgItem = treeModel.getRawNode({ id: msgItem_.id }, true);
 
             // 记录版本删除到历史 (V2: versions 结构)
             if (msgItem.versions?.[version]) {
@@ -878,19 +878,7 @@ export const useSession = (props: {
                     author: versionPayload.author,
                     versionId: version,
                     // V2: originalItem 存储完整的 V2 节点 (使用 any 类型避免类型冲突)
-                    originalItem: {
-                        id: msgItem.id,
-                        type: msgItem.type,
-                        currentVersion: msgItem.currentVersionId,
-                        versions: msgItem.versions as any,
-                        context: msgItem.context,
-                        parent: msgItem.parent,
-                        children: msgItem.children,
-                        hidden: msgItem.hidden,
-                        pinned: msgItem.pinned,
-                        attachedItems: msgItem.attachedItems,
-                        attachedChars: msgItem.attachedChars
-                    } as any,
+                    originalItem: msgItem, // clone 过了
                     extra: {
                         messageId: itemId,
                         versionId: version,

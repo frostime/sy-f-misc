@@ -228,14 +228,15 @@ const ChatInDocWindow = (props: {
             const tempHTMLBlock = useTempHTMLBlock(containerId);
 
             // 解析为聊天历史
-            const history = parseDocumentToHistory(chatAreaMarkdown);
-            if (!history || !history.items || history.items.length === 0) {
+            const history: IChatSessionHistoryV2 = parseDocumentToHistory(chatAreaMarkdown);
+            if (!history || !history.worldLine || history.worldLine.length === 0) {
                 showMessage("未找到有效的对话内容");
                 isLoading(false);
                 return;
             }
 
-            const msgs = history.items.map((item: IChatSessionMsgItem) => getPayload(item, 'message')).filter(Boolean);
+            const items = history.worldLine.map(id => history.nodes[id]).filter(Boolean);
+            const msgs = items.map((item: IChatSessionMsgItemV2) => getPayload(item, 'message')).filter(Boolean);
             const abortController = new AbortController();
             abort = () => {
                 abortController.abort();

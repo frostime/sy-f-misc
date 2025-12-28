@@ -20,21 +20,29 @@ export const HISTORY_SCHEMA_CURRENT = 2;
  */
 export function detectHistorySchema(data: any): number {
     if (!data || typeof data !== 'object') return 0;
-    
+
     // 显式声明的 schema
     if (typeof data.schema === 'number') return data.schema;
-    
+
     // V2 特征检测：有 nodes 和 worldLine
     if (data.nodes && Array.isArray(data.worldLine) && data.rootId !== undefined) {
         return 2;
     }
-    
+
     // V1 特征检测：有 items 数组
     if (Array.isArray(data.items)) {
         return 1;
     }
-    
+
     return 0;
+}
+
+export const isV1History = (history: IChatSessionHistory | IChatSessionHistoryV2): history is IChatSessionHistory => {
+    return detectHistorySchema(history) === 1;
+}
+
+export const isV2History = (history: IChatSessionHistory | IChatSessionHistoryV2): history is IChatSessionHistoryV2 => {
+    return detectHistorySchema(history) === 2;
 }
 
 /**
@@ -49,10 +57,10 @@ export function needsMigration(data: any): boolean {
  */
 export function migrateHistory(data: any): IChatSessionHistoryV2 {
     const schema = detectHistorySchema(data);
-    
+
     if (schema === 2) return data as IChatSessionHistoryV2;
     if (schema === 1) return migrateHistoryV1ToV2(data as IChatSessionHistory);
-    
+
     // 未知格式，尝试作为空会话处理
     console.warn('[Migration] Unknown history schema, creating empty session');
     return createEmptyHistoryV2(data?.id || generateId(), data?.title || '未知会话');
@@ -61,7 +69,7 @@ export function migrateHistory(data: any): IChatSessionHistoryV2 {
 /**
  * 创建空的 V2 历史记录
  */
-function createEmptyHistoryV2(id: string, title: string): IChatSessionHistoryV2 {
+export function createEmptyHistoryV2(id: string, title: string): IChatSessionHistoryV2 {
     return {
         schema: 2,
         type: 'history',
@@ -88,7 +96,7 @@ function migrateHistoryV1ToV2(v1: IChatSessionHistory): IChatSessionHistoryV2 {
     if (!v1.items || v1.items.length === 0) {
         return createEmptyHistoryV2(v1.id, v1.title);
     }
-    
+
     const nodes: Record<ItemID, IChatSessionMsgItemV2> = {};
     const worldLine: ItemID[] = [];
     let prevId: ItemID | null = null;
@@ -168,7 +176,7 @@ function migrateHistoryV1ToV2(v1: IChatSessionHistory): IChatSessionHistoryV2 {
             id: itemId,
             type: nodeType as 'message' | 'separator',
 
-            role: item.message?.role,
+            role: item.message?.role ?? '',
             name: item.message?.name,
 
             currentVersionId,

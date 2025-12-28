@@ -11,7 +11,7 @@ import { saveToJson } from "./json-files";
 // import { confirmDialog } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 
-export const persistHistory = async (history: IChatSessionHistory, options?: {
+export const persistHistory = async (history: IChatSessionHistoryV2, options?: {
     // saveToSiYuan?: boolean;
     saveJson?: boolean; //default true
     saveTo?: 'document' | 'asset'

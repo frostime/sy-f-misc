@@ -600,7 +600,7 @@ interface IChatSessionSnapshot {
  * 历史记录快照文件的数据结构
  */
 interface IHistorySnapshot {
-    schema: string; // snapshot数据结构版本，用于兼容性检查
+    schema: '1.0'; // snapshot数据结构版本，用于兼容性检查
     lastUpdated: number; // snapshot最后更新时间
     sessions: IChatSessionSnapshot[]; // 会话快照数组
 }

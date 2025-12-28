@@ -10,6 +10,7 @@ import { formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { appendBlock } from "@frostime/siyuan-plugin-kits/api";
 import { formatSingleItem, parseMarkdownToChatHistory } from "../persistence/sy-doc";
 import { defaultModelId } from "../setting";
+import { createEmptyHistoryV2 } from "../model/msg_migration";
 // import { type CompletionResponse } from "../openai/complete";
 
 /**
@@ -17,19 +18,26 @@ import { defaultModelId } from "../setting";
  * @param content 文档Markdown内容
  * @returns 聊天历史对象
  */
-export const parseDocumentToHistory = (content: string): IChatSessionHistory => {
+export const parseDocumentToHistory = (content: string): IChatSessionHistoryV2 => {
     try {
         // 使用现有的解析函数
         const history = parseMarkdownToChatHistory(content);
 
         // 如果解析失败，创建一个新的历史记录
         if (!history) {
-            return {
-                id: `chat-${Date.now()}`,
-                title: "文档内对话",
-                timestamp: Date.now(),
-                items: []
-            };
+            // return {
+            //     schema: 2,
+            //     type: 'history',
+            //     id: `chat-${Date.now()}`,
+            //     title: "文档内对话",
+            //     timestamp: Date.now(),
+            //     nodes: {},
+            //     rootId: null,
+            //     worldLine: []
+            // };
+            // createEmptyChatHistory();
+            const history = createEmptyHistoryV2(`chat-${Date.now()}`, "文档内对话");
+            return history;
         }
 
         return history;

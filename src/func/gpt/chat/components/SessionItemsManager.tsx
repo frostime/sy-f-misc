@@ -27,7 +27,7 @@ const MAX_PREVIEW_LENGTH = 1000;
 const SessionItemsManager: Component<{
     session: ReturnType<typeof useSession>;
     onClose: () => void;
-    focusTo: (id: IChatSessionMsgItem['id']) => void;
+    focusTo: (id: IChatSessionMsgItemV2['id']) => void;
 }> = (props) => {
 
     // 字体大小设置
@@ -74,7 +74,7 @@ const SessionItemsManager: Component<{
 
     // 全选
     const selectAll = () => {
-        setSelectedIds(messages().map((item: IChatSessionMsgItem) => item.id));
+        setSelectedIds(messages().map((item: IChatSessionMsgItemV2) => item.id));
     };
 
     // 取消全选
@@ -85,7 +85,7 @@ const SessionItemsManager: Component<{
     // 选择指定消息之前的所有消息
     const selectBefore = (id: string) => {
         const messagesToSelect = props.session.getMessagesBefore({ id }, true);
-        const idsToSelect = messagesToSelect.map((item: IChatSessionMsgItem) => item.id);
+        const idsToSelect = messagesToSelect.map((item: IChatSessionMsgItemV2) => item.id);
 
         // 检查是否所有消息都已被选中
         const allSelected = idsToSelect.every(id => selectedIds().includes(id));
@@ -101,7 +101,7 @@ const SessionItemsManager: Component<{
     // 选择指定消息之后的所有消息
     const selectAfter = (id: string) => {
         const messagesToSelect = props.session.getMessagesAfter({ id }, true);
-        const idsToSelect = messagesToSelect.map((item: IChatSessionMsgItem) => item.id);
+        const idsToSelect = messagesToSelect.map((item: IChatSessionMsgItemV2) => item.id);
 
         // 检查是否所有消息都已被选中
         const allSelected = idsToSelect.every(id => selectedIds().includes(id));
@@ -175,7 +175,7 @@ const SessionItemsManager: Component<{
         }
     });
 
-    const MessageItemCard = (subProps: { item: IChatSessionMsgItem, index: Accessor<number> }) => {
+    const MessageItemCard = (subProps: { item: IChatSessionMsgItemV2, index: Accessor<number> }) => {
         const textContent = (() => {
             const { text } = extractMessageContent(getPayload(subProps.item, 'message').content);
             const snapshot = text.length > MAX_PREVIEW_LENGTH ? text.substring(0, MAX_PREVIEW_LENGTH) + '...' : text;
@@ -198,7 +198,8 @@ const SessionItemsManager: Component<{
                 <div class={styles.messageHeader}>
                     <div class={styles.messageRole}>
                         <span class={styles.roleLabel}>
-                            {subProps.item?.message?.role === 'user' ? '用户' : '助手'}
+                            {/* {subProps.item?.message?.role === 'user' ? '用户' : '助手'} */}
+                            {getMeta(subProps.item, 'role') === 'user' ? '用户' : '助手'}
                         </span>
                         <span class={styles.messageIndex}>#{subProps.index() + 1}</span>
                         {getMeta(subProps.item, 'hidden') && <span class={styles.hiddenLabel}>隐藏</span>}
@@ -269,11 +270,20 @@ const SessionItemsManager: Component<{
         <div class={styles.messageList}>
             <For each={messages()}>
                 {(item, index) => (
-                    <Switch>
+                    <Switch fallback={
+                        <div
+                            class="b3-label__text"
+                            style={{
+                                'text-align': 'center',
+                                'margin': '10px 0',
+                            }}>
+                            错误 - 未知消息类型
+                        </div>
+                    }>
                         <Match when={getMeta(item, 'type') === 'message'}>
                             <MessageItemCard item={item} index={index} />
                         </Match>
-                        <Match when={getMeta(item, 'type') === 'seperator'}>
+                        <Match when={getMeta(item, 'type') === 'separator'}>
                             <div
                                 class="b3-label__text"
                                 style={{
