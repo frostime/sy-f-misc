@@ -255,28 +255,25 @@ export const useTreeModel = (): ITreeModel => {
 
     /**
      * 更新节点的当前版本 Payload
-     * 
-     * @warning 浅合并！调用方必须传入完整的嵌套对象。
-     * 
-     * 示例：
-     * ```typescript
-     * // ✅ 正确：传入完整的嵌套对象
-     * updatePayload(id, { 
-     *   message: { role: 'user', content: '...' } 
-     * })
-     * 
-     * // ❌ 错误：嵌套对象会被覆盖
-     * updatePayload(id, { message: { content: '...' } })
-     * // 这会丢失 message.role 等其他字段！
-     * ```
      */
     const updatePayload = (id: ItemID, updates: Partial<IMessagePayload>) => {
         const node = nodes()[id];
         if (!node || !node.currentVersionId) return;
 
-        nodes.update(id, 'versions', node.currentVersionId, (prev: IMessagePayload) => ({
+        // 替换整个节点，更新特定版本的 payload
+        // 要以节点为粒度更新，不然无法触发 version 的响应式
+        nodes.update(prev => ({
             ...prev,
-            ...updates,
+            [id]: {
+                ...prev[id],
+                versions: {
+                    ...prev[id].versions,
+                    [node.currentVersionId]: {
+                        ...prev[id].versions[node.currentVersionId],
+                        ...updates,
+                    },
+                },
+            }
         }));
     };
 
@@ -415,19 +412,32 @@ export const useTreeModel = (): ITreeModel => {
         const node = nodes()[id];
         if (!node) return;
 
-        batch(() => {
-            nodes.update(id, 'versions', prev => ({
-                ...prev,
-                [payload.id]: payload,
-            }));
-            nodes.update(id, 'currentVersionId', payload.id);
-        });
+        // 替换整个节点
+        nodes.update(prev => ({
+            ...prev,
+            [id]: {
+                ...prev[id],
+                versions: {
+                    ...prev[id].versions,
+                    [payload.id]: payload,
+                },
+                currentVersionId: payload.id,
+            }
+        }));
     };
 
     const switchVersion = (id: ItemID, versionId: string) => {
         const node = nodes()[id];
         if (!node || !node.versions[versionId]) return;
-        nodes.update(id, 'currentVersionId', versionId);
+
+        // 替换整个节点
+        nodes.update(prev => ({
+            ...prev,
+            [id]: {
+                ...prev[id],
+                currentVersionId: versionId,
+            }
+        }));
     };
 
     const deleteVersion = (id: ItemID, versionId: string) => {
@@ -437,19 +447,25 @@ export const useTreeModel = (): ITreeModel => {
         const versionKeys = Object.keys(node.versions);
         if (versionKeys.length <= 1) return; // 不能删除最后一个版本
 
-        batch(() => {
-            // 如果删除的是当前版本，切换到另一个
-            if (node.currentVersionId === versionId) {
-                const newVersionId = versionKeys.find(k => k !== versionId)!;
-                nodes.update(id, 'currentVersionId', newVersionId);
-            }
+        // 构建新的 versions 对象
+        const newVersions = { ...node.versions };
+        delete newVersions[versionId];
 
-            nodes.update(id, 'versions', prev => {
-                const newVersions = { ...prev };
-                delete newVersions[versionId];
-                return newVersions;
-            });
-        });
+        // 确定新的 currentVersionId
+        const newCurrentVersionId = node.currentVersionId === versionId
+            ? versionKeys.find(k => k !== versionId)!
+            : node.currentVersionId;
+
+        // 关键：替换整个节点，而不是路径更新
+        // 这会创建新的对象引用，让 <For> 检测到变化
+        nodes.update(prev => ({
+            ...prev,
+            [id]: {
+                ...prev[id],
+                versions: newVersions,
+                currentVersionId: newCurrentVersionId,
+            }
+        }));
     };
 
     // ========== 序列化 ==========

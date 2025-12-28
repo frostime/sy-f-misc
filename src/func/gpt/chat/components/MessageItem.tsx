@@ -110,20 +110,23 @@ const MessageItem: Component<{
         }
     }));
 
+    const hasMultiVersion = createMemo(() =>
+        props.messageItem.versions && Object.keys(props.messageItem.versions).length > 1
+    );
+
+    const currentVersion = createMemo(() => {
+        if (!hasMultiVersion()) return 'v1';
+        const index = Object.keys(props.messageItem.versions).indexOf(props.messageItem.currentVersionId) + 1;
+        return `v${index || 1}`;
+    });
+
+
     const VersionHooks = {
-        hasMultiVersion: () => {
-            return props.messageItem.versions && Object.keys(props.messageItem.versions).length > 1;
-        },
+        hasMultiVersion: hasMultiVersion,
+        currentVersion: currentVersion,
         versionKeys: () => {
             if (!VersionHooks.hasMultiVersion()) return [];
             return Object.keys(props.messageItem.versions).map((_, index) => `v${index + 1}`);
-        },
-        currentVersion: () => {
-            let index = 1;
-            if (props.messageItem.versions[props.messageItem.currentVersionId]) {
-                index = Object.keys(props.messageItem.versions).indexOf(props.messageItem.currentVersionId) + 1;
-            }
-            return `v${index}`;
         },
         switchVersionMenu: () => {
             if (!VersionHooks.hasMultiVersion()) return [];

@@ -253,7 +253,7 @@ export const useSession = (props: {
 
         const id = newID();
         const timestamp = Date.now();
-        const versionId = `v_${id}`;
+        const versionId = newID();
 
         const newNode: Omit<IChatSessionMsgItemV2, 'parent' | 'children'> = {
             id,
