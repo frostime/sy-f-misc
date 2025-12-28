@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2025-12-28 00:45:01
+ * @LastEditTime : 2025-12-28 22:27:14
  * @Description  :
  */
 // External libraries
@@ -51,6 +51,7 @@ import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 
 import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
 import { jsonAgent } from '../openai/tiny-agent';
+import { showChatWorldTree } from './ChatSession/world-tree';
 
 
 export const ChatSession: Component<{
@@ -732,7 +733,7 @@ export const ChatSession: Component<{
             // 添加管理消息选项
             menu.addItem({
                 icon: 'iconList',
-                label: '管理消息',
+                label: '当前世界线',
                 click: () => {
                     const { close } = solidDialog({
                         loader: () => (
@@ -751,11 +752,20 @@ export const ChatSession: Component<{
                                 }}
                             />
                         ),
-                        title: '管理消息',
+                        title: '当前世界线 - 对话管理',
                         width: '1200px',
                         height: '800px',
                         maxHeight: '90%',
                         maxWidth: '90%'
+                    });
+                }
+            });
+            menu.addItem({
+                icon: 'iconGraph',
+                label: '完整对话结构',
+                click: () => {
+                    showChatWorldTree({
+                       treeModel: session.treeModel
                     });
                 }
             });

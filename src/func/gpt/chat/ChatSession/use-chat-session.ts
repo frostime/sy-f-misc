@@ -749,40 +749,23 @@ export const useSession = (props: {
             renewUpdatedTimestamp();
             return id;
         },
-        createMessageBranch: (at: MessageLocator, options?: { branchContent?: string; keepAfter?: boolean }) => {
-            const index = hooks.getMessageIndex(at);
-            if (index === -1) return '';
 
-            const item = messages()[index] as unknown as IChatSessionMsgItemV2;
-            if (item.type !== 'message') return '';
-
-            const { branchContent, keepAfter = false } = options || {};
-
-            // 创建新版本
-            const newVersionId = Date.now().toString();
-            const content = branchContent ?? hooks.getMessageContent(at);
-            const currentPayload = item.versions[item.currentVersionId];
-
-            const newPayload: IMessagePayload = {
-                id: newVersionId,
-                message: {
-                    ...currentPayload.message,
-                    content: updateContentText(currentPayload.message.content, content),
-                },
-                author: currentPayload.author || 'User',
-                timestamp: Date.now(),
-            };
-
-            treeModel.addVersion(item.id, newPayload);
-
-            // 如果不保留后续消息，删除之后的所有消息
-            if (!keepAfter) {
-                const afterMessages = messages().slice(index + 1);
-                afterMessages.forEach(msg => treeModel.deleteNode(msg.id));
-            }
+        /**
+         * 在指定消息处创建分支
+         * @param at 消息定位符
+         * @returns 分支起点 ID，失败返回 null
+         */
+        createBranch: (at: MessageLocator) => {
+            const item = hooks.getMessageAt(at);
+            if (!item) return null;
+            
+            const branchId = treeModel.forkAt(item.id);
+            if (!branchId) return null;
 
             renewUpdatedTimestamp();
-            return newVersionId;
+
+            // 返回分支起点 ID，UI 可以据此做后续处理
+            return branchId;
         },
 
         // ========== 其他状态 ==========
@@ -793,6 +776,7 @@ export const useSession = (props: {
         contexts,
         toolExecutor,
         sessionTags,
+        treeModel, // 暴露 treeModel 供组件使用
 
         // ========== 审批相关 ==========
         pendingApprovals,

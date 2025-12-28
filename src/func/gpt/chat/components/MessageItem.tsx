@@ -244,62 +244,14 @@ const MessageItem: Component<{
     }
 
     const createNewBranch = () => {
-        confirm('确认?', '保留以上记录，创建一个新的对话分支', () => {
-            // @deprecated  -  V2 版本的 Branch 功能留到后面做
-            // Document these code for reference
-            // const sourceSessionId = session.sessionId();
-            // const sourceSessionTitle = session.title();
-            // const sourceMessageId = props.messageItem.id;
-            // const newSessionId = window.Lute.NewNodeID();
-            // const newSessionTitle = session.title() + ' - 新的分支';
-
-            // // 1. 更新 branchTo 元数据（不创建新版本，只更新元数据）
-            // const currentItem = session.getMessageAt({ id: sourceMessageId });
-            // if (currentItem && getMeta(currentItem, 'type') === 'message') {
-            //     const newBranch = {
-            //         sessionId: newSessionId,
-            //         sessionTitle: newSessionTitle,
-            //         messageId: sourceMessageId
-            //     };
-            //     const currentBranches = currentItem.branchTo || [];
-            //     const branchTo = [...currentBranches, newBranch];
-            //     const uniqueBranchTo = Array.from(new Map(branchTo.map(item => [item.sessionId + item.messageId, item])).values());
-
-            //     // 使用封装接口更新元数据
-            //     session.updateMessageMetadata({ id: sourceMessageId }, { branchTo: uniqueBranchTo });
-            // }
-
-            // // Save the source session immediately to persist the link
-            // persist.saveToLocalStorage(session.sessionHistory());
-
-            // // 2. Prepare new session (Target)
-            // const slices = session.getMessagesBefore({ id: sourceMessageId }, true);
-            // const branchMessages = structuredClone(slices);
-            // const lastMsg = branchMessages[branchMessages.length - 1];
-
-            // // Set branchFrom on the last message of the new session
-            // lastMsg.branchFrom = {
-            //     sessionId: sourceSessionId,
-            //     sessionTitle: sourceSessionTitle,
-            //     messageId: sourceMessageId
-            // };
-            // // Clear branchTo in the new session's copy
-            // delete lastMsg.branchTo;
-
-            // const newSessionData: Partial<IChatSessionHistory> = {
-            //     id: newSessionId,
-            //     title: newSessionTitle,
-            //     items: branchMessages,
-            //     sysPrompt: session.systemPrompt(),
-            //     customOptions: session.modelCustomOptions()
-            // };
-
-            // // 3. Switch
-            // session.newSession();
-            // session.applyHistory(newSessionData);
-
-            // // Save the new session
-            // persist.saveToLocalStorage(session.sessionHistory());
+        confirm('确认?', '创建一个新的世界线分支?', () => {
+            // 使用新的 forkAt API
+            const branchId = session.createBranch({ id: props.messageItem.id });
+            if (branchId) {
+                showMessage('已截断世界线，请输入新消息开始分支');
+            } else {
+                showMessage('创建分支失败');
+            }
         });
     };
 
@@ -569,89 +521,162 @@ const MessageItem: Component<{
         </Show>
     );
 
-    const BranchIndicator = () => {
-        const switchSession = (sessionId: string, targetMsgId?: string) => {
-            // Save current
-            persist.saveToLocalStorage(session.sessionHistory());
+        const LegacyBranchIndicator = () => {
+            const switchSession = (sessionId: string, targetMsgId?: string) => {
+                // Save current
+                persist.saveToLocalStorage(session.sessionHistory());
 
-            // Load target
-            const key = `gpt-chat-${sessionId}`;
-            const data = localStorage.getItem(key);
-            if (data) {
-                const history = JSON.parse(data);
-                session.newSession();
-                session.applyHistory(history);
+                // Load target
+                const key = `gpt-chat-${sessionId}`;
+                const data = localStorage.getItem(key);
+                if (data) {
+                    const history = JSON.parse(data);
+                    session.newSession();
+                    session.applyHistory(history);
 
-                if (targetMsgId) {
-                    setTimeout(() => {
-                        const selector = `[data-session-id="${sessionId}"] [data-msg-id="${targetMsgId}"]`;
-                        const element = document.querySelector(selector) as HTMLElement;
-                        if (element) {
-                            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            element.classList.add(styles.highlight);
-                            setTimeout(() => {
-                                element.classList.remove(styles.highlight);
-                            }, 2000);
-                        }
-                    }, 300);
+                    if (targetMsgId) {
+                        setTimeout(() => {
+                            const selector = `[data-session-id="${sessionId}"] [data-msg-id="${targetMsgId}"]`;
+                            const element = document.querySelector(selector) as HTMLElement;
+                            if (element) {
+                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                element.classList.add(styles.highlight);
+                                setTimeout(() => {
+                                    element.classList.remove(styles.highlight);
+                                }, 2000);
+                            }
+                        }, 300);
+                    }
+                } else {
+                    showMessage('无法找到目标会话');
                 }
-            } else {
-                showMessage('无法找到目标会话');
-            }
+            };
+
+            const showBranchMenu = (e: MouseEvent) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const menu = new Menu("branch-menu");
+
+                if (getMeta(props.messageItem, 'branchFrom')) {
+                    const from = getMeta(props.messageItem, 'branchFrom');
+                    menu.addItem({
+                        icon: 'iconReply',
+                        label: `来自: ${from.sessionTitle}`,
+                        click: () => switchSession(from.sessionId, from.messageId)
+                    });
+                }
+
+                if (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0) {
+                    if (getMeta(props.messageItem, 'branchFrom')) menu.addSeparator();
+
+                    menu.addItem({
+                        label: '分支列表',
+                        type: 'readonly'
+                    });
+
+                    getMeta(props.messageItem, 'branchTo')?.forEach(to => {
+                        menu.addItem({
+                            icon: 'iconSplitLR',
+                            label: `前往: ${to.sessionTitle}`,
+                            click: () => switchSession(to.sessionId, to.messageId)
+                        });
+                    });
+                }
+
+                const target = e.target as HTMLElement;
+                const rect = target.getBoundingClientRect();
+                menu.open({
+                    x: rect.left,
+                    y: rect.bottom
+                });
+            };
+
+            const hasBranch = getMeta(props.messageItem, 'branchFrom') || (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0);
+
+            return (
+                <Show when={hasBranch}>
+                    <div
+                        class={styles.legacyBranchIndicator}
+                        onClick={showBranchMenu}
+                        title="分支信息"
+                    >
+                        <svg><use href="#iconSplitLR" /></svg>
+                        <Show when={getMeta(props.messageItem, 'branchTo')?.length}>
+                            <span>{getMeta(props.messageItem, 'branchTo')?.length}</span>
+                        </Show>
+                    </div>
+                </Show>
+            );
         };
 
-        const showBranchMenu = (e: MouseEvent) => {
+    /**
+     * 新版分支指示器（基于 tree model）
+     * 显示节点是否有多个子分支，点击可循环切换世界线
+     */
+    const BranchIndicator = () => {
+        const { session } = useSimpleContext();
+        const treeModel = (session as any).treeModel; // 直接访问 treeModel
+
+        // 检查当前节点是否有多个分支
+        const hasBranches = createMemo(() => {
+            if (!treeModel) return false;
+            return treeModel.hasMultipleBranches(props.messageItem.id);
+        });
+
+        const branchCount = createMemo(() => {
+            if (!treeModel) return 0;
+            return treeModel.getBranchCount(props.messageItem.id);
+        });
+
+        /**
+         * 切换到下一个分支（自动DFS选择）
+         */
+        const switchToNextBranch = (e: MouseEvent) => {
             e.stopPropagation();
             e.preventDefault();
-            const menu = new Menu("branch-menu");
 
-            if (getMeta(props.messageItem, 'branchFrom')) {
-                const from = getMeta(props.messageItem, 'branchFrom');
-                menu.addItem({
-                    icon: 'iconReply',
-                    label: `来自: ${from.sessionTitle}`,
-                    click: () => switchSession(from.sessionId, from.messageId)
-                });
-            }
+            if (!treeModel) return;
 
-            if (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0) {
-                if (getMeta(props.messageItem, 'branchFrom')) menu.addSeparator();
+            const currentChildren = props.messageItem.children;
+            if (currentChildren.length === 0) return;
 
-                menu.addItem({
-                    label: '分支列表',
-                    type: 'readonly'
-                });
+            // 找到当前世界线中，这个节点的下一个节点
+            const worldLine = treeModel.getWorldLine();
+            const currentIndex = worldLine.indexOf(props.messageItem.id);
+            const nextInWorldLine = currentIndex >= 0 ? worldLine[currentIndex + 1] : null;
 
-                getMeta(props.messageItem, 'branchTo')?.forEach(to => {
-                    menu.addItem({
-                        icon: 'iconSplitLR',
-                        label: `前往: ${to.sessionTitle}`,
-                        click: () => switchSession(to.sessionId, to.messageId)
-                    });
-                });
-            }
+            // 找到下一个分支（循环）
+            const currentChildIndex = nextInWorldLine ? currentChildren.indexOf(nextInWorldLine) : -1;
+            const nextChildIndex = (currentChildIndex + 1) % currentChildren.length;
+            const nextChildId = currentChildren[nextChildIndex];
 
-            const target = e.target as HTMLElement;
-            const rect = target.getBoundingClientRect();
-            menu.open({
-                x: rect.left,
-                y: rect.bottom
-            });
+            // DFS 找到这个分支的叶子节点
+            const findLeaf = (nodeId: ItemID): ItemID => {
+                const node = treeModel.getNodeById(nodeId);
+                if (!node || node.children.length === 0) return nodeId;
+                // 选择第一个子节点继续
+                return findLeaf(node.children[0]);
+            };
+
+            const targetLeafId = findLeaf(nextChildId);
+            treeModel.switchWorldLine(targetLeafId);
+            
+            showMessage(`已切换到分支 ${nextChildIndex + 1}/${currentChildren.length}`);
         };
 
-        const hasBranch = getMeta(props.messageItem, 'branchFrom') || (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0);
-
         return (
-            <Show when={hasBranch}>
+            <Show when={hasBranches()}>
                 <div
-                    class={styles.branchIndicator}
-                    onClick={showBranchMenu}
-                    title="分支信息"
+                    class={styles.worldlineBranch}
+                    onClick={switchToNextBranch}
+                    title={`当前节点有 ${branchCount()} 个分支，点击切换`}
                 >
-                    <svg><use href="#iconSplitLR" /></svg>
-                    <Show when={getMeta(props.messageItem, 'branchTo')?.length}>
-                        <span>{getMeta(props.messageItem, 'branchTo')?.length}</span>
-                    </Show>
+                    <div class={styles.worldlineSeparator} />
+                    <div class={styles.worldlineContent}>
+                        <svg><use href="#iconSplitLR" /></svg>
+                        <span>分支 ({branchCount()})</span>
+                    </div>
+                    <div class={styles.worldlineSeparator} />
                 </div>
             </Show>
         );
@@ -854,7 +879,7 @@ const MessageItem: Component<{
             </Show>
             <VersionIndicator />
             <PinIndicator />
-            <BranchIndicator />
+            <LegacyBranchIndicator />
             {getMessageProp(props.messageItem, 'role') === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (
@@ -893,6 +918,7 @@ const MessageItem: Component<{
                     <ToolChainIndicator messageItem={props.messageItem} />
                 </Show>
                 <MessageToolbar />
+                <BranchIndicator />
             </div>
         </div>
     )

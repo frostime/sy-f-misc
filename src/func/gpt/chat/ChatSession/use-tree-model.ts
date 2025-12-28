@@ -62,6 +62,12 @@ export interface ITreeModel {
     deleteNodes: (ids: ItemID[]) => void;
 
     // ========== 分支操作 ==========
+    /** 在指定节点处截断 worldLine，准备创建分支 */
+    forkAt: (atId: ItemID) => ItemID | null;
+    /** 获取节点的分支数（children 数量） */
+    getBranchCount: (id: ItemID) => number;
+    /** 判断节点是否有多个分支 */
+    hasMultipleBranches: (id: ItemID) => boolean;
     /** 在指定节点创建新分支 */
     createBranch: (atId: ItemID, newChildContent?: Partial<IChatSessionMsgItemV2>) => ItemID | null;
     /** 切换到另一条世界线（通过指定叶子节点） */
@@ -349,6 +355,40 @@ export const useTreeModel = (): ITreeModel => {
 
     // ========== 分支操作 ==========
 
+    /**
+     * 在指定节点处创建分支（截断 worldLine）
+     * @param atId 分支起点节点 ID
+     * @returns 分支起点 ID，失败返回 null
+     */
+    const forkAt = (atId: ItemID): ItemID | null => {
+        const atNode = nodes()[atId];
+        if (!atNode) return null;
+
+        const atIndex = worldLine().indexOf(atId);
+        if (atIndex === -1) return null;
+
+        // 截断 worldLine 到 atId（包含 atId）
+        worldLine.update(prev => prev.slice(0, atIndex + 1));
+
+        return atId;
+    };
+
+    /**
+     * 获取节点的分支数
+     */
+    const getBranchCount = (id: ItemID): number => {
+        const node = nodes()[id];
+        if (!node) return 0;
+        return node.children.length;
+    };
+
+    /**
+     * 判断节点是否有多个分支
+     */
+    const hasMultipleBranches = (id: ItemID): boolean => {
+        return getBranchCount(id) > 1;
+    };
+
     const createBranch = (atId: ItemID, newChildContent?: Partial<IChatSessionMsgItemV2>): ItemID | null => {
         const atNode = nodes()[atId];
         if (!atNode) return null;
@@ -537,6 +577,9 @@ export const useTreeModel = (): ITreeModel => {
         deleteNodes,
 
         // 分支操作
+        forkAt,
+        getBranchCount,
+        hasMultipleBranches,
         createBranch,
         switchWorldLine,
         getBranches,
