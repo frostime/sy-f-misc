@@ -1,29 +1,6 @@
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
----
-
-## OpenSpec Workflow
-
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->
-
 <!-- GIT:START -->
 
-## Git Commit Conventions
+### Git Commit Conventions
 
 **NOTE**: Agent is allowd to execute `git add`, and write commit message; but NOT ALLOW TO **git commit**; send request to user for commiting, and user will make code checking.
 
@@ -56,5 +33,4 @@ Commits should follow the format: `<emoji> <prefix> <short message>`
 🐛 fix(type): Resolve type mismatch in message payload
 📝 docs(spec): Update OpenSpec change proposal
 ```
-
 <!-- GIT:END -->
