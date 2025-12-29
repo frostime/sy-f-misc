@@ -1,3 +1,50 @@
+本项目开发遵循 SSPEC 和 Vibe Coding 规范
+
+日常以 Vibe Coding 为主，当激活 SSPEC 规范时，以 SSPEC 为主。
+
+<!-- SSPEC:START -->
+# sspec — AI Collaboration Protocol
+
+SSPEC_SCHEMA::1.5
+
+This project uses **sspec** for structured AI collaboration.
+
+## ⚡ Activation Rule
+
+**When you see `sspec/` commands, ALWAYS read `.sspec/AGENTS.md` first.**
+
+For specific command details: `.sspec/prompts/<cmd>.md`
+
+Example: `sspec/handover` → read `.sspec/AGENTS.md`, then `.sspec/prompts/handover.md`
+
+
+## Quick Reference
+
+| Command | Purpose |
+|---------|---------|
+| `sspec/propose <name>` | Create new change |
+| `sspec/status` | Show current state |
+| `sspec/pivot` | Record direction change |
+| `sspec/handover` | End session handover |
+| `sspec/context` | Reload project context |
+| `sspec/archive` | Archive completed change |
+
+## First Time Here?
+
+1. Read `.sspec/AGENTS.md` — Full instructions
+2. Read `.sspec/knowledge/index.md` — Project context
+3. Check `.sspec/changes/` — Active work
+
+## When to Read `.sspec/AGENTS.md`
+
+- Any `sspec/` command
+- Multi-step changes or new features
+- Starting or ending a session
+- Feeling lost about project state
+
+<!-- Keep this block for `sspec update` to refresh -->
+<!-- SSPEC:END -->
+
 <!-- GIT:START -->
 
 ### Git Commit Conventions
@@ -34,3 +81,4 @@ Commits should follow the format: `<emoji> <prefix> <short message>`
 📝 docs(spec): Update OpenSpec change proposal
 ```
 <!-- GIT:END -->
+

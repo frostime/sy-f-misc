@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-12-24 01:05:10
+ * @LastEditTime : 2025-12-29 20:53:49
  * @Description  : 
  */
 import {
@@ -96,10 +96,6 @@ export default class FMiscPlugin extends Plugin {
     private initDefaultFunctions() {
         this.initTopBar();
     }
-
-    // onDataChanged() {
-
-    // }
 
     /**
      * 一个自定义的全局右键菜单，Ctrl + 右键触发

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-21 19:56:13
+ * @LastEditTime : 2025-12-29 21:41:19
  * @Description  : HTML Pages 功能模块 - 管理自定义 HTML 页面和 URL
  */
 import FMiscPlugin from "@/index";
@@ -58,7 +58,7 @@ const loadConfig = async (): Promise<IPageConfig[]> => {
 
 const saveConfig = async (config: IPageConfig[]) => {
     const configPath = joinPath(CONFIG_FILE);
-    siyuanVfs.writeFile(configPath, config);
+    await siyuanVfs.writeFile(configPath, config);
     _configSnapshot = config;
 };
 
