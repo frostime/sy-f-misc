@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 16:59:06
  * @FilePath     : /src/func/gpt/tools/index.ts
- * @LastEditTime : 2025-12-23 01:03:14
+ * @LastEditTime : 2025-12-29 23:06:06
  * @Description  :
  */
 // 导出类型和工具执行器
@@ -22,7 +22,7 @@ import { DefaultUIAdapter } from './approval-ui';
 import { toolsManager } from '../model/store';
 import { siyuanTool } from './siyuan';
 import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
-import { registerToolCallScriptGroup } from './toolcall-script';
+// import { registerToolCallScriptGroup } from './toolcall-script';
 
 
 const IS_IN_APP = window?.require?.('electron') !== undefined;
@@ -66,7 +66,10 @@ export const toolExecutorFactory = (options: {
 
 
     // 注册 ToolCallScript 工具（需要注入 executor）
-    registerToolCallScriptGroup(toolExecutor);
+    /**
+     * 实测效果仅仅是 toy 级别; 暂时先抛弃吧
+     */
+    // registerToolCallScriptGroup(toolExecutor);
 
     // 设置审批回调
     // const approvalAdapter = options.approvalAdapter || new DefaultUIAdapter();
