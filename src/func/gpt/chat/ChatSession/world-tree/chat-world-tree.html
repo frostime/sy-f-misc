@@ -31,7 +31,7 @@
             --node-user-bg: #e8f5e9;
             --node-assistant: #2196f3;
             --node-assistant-bg: #e3f2fd;
-            --node-separator: #9e9e9ee9e9e;
+            --node-separator: #9e9e9e;
             --node-separator-bg: #f5f5f5;
             --node-active: var(--accent-color);
             --node-active-glow: rgba(74, 144, 217, 0.4);
@@ -120,22 +120,21 @@
         .tree-container {
             flex: 1;
             overflow: auto;
-            padding: 24px;
             position: relative;
         }
 
         .tree-canvas {
             position: relative;
-            min-width: 100%;
-            min-height: 100%;
+            /* 尺寸由 JS 动态设置 */
         }
 
-        /* SVG 连线层 */
+        /* SVG 连线层 - 使用绝对定位覆盖整个画布 */
         .tree-edges {
             position: absolute;
             top: 0;
             left: 0;
             pointer-events: none;
+            /* 关键：确保 SVG 可以渲染超出边界的内容 */
             overflow: visible;
         }
 
@@ -143,6 +142,7 @@
             stroke: var(--edge-color);
             stroke-width: 2;
             fill: none;
+            transition: stroke 0.2s ease, stroke-width 0.2s ease;
         }
 
         .tree-edge.active {
@@ -162,6 +162,8 @@
             align-items: center;
             cursor: pointer;
             transition: transform 0.15s ease;
+            /* 确保节点内容居中对齐 */
+            transform-origin: center top;
         }
 
         .tree-node:hover {
@@ -180,6 +182,7 @@
             border: 3px solid transparent;
             transition: all 0.2s ease;
             position: relative;
+            flex-shrink: 0;
         }
 
         .node-circle.user {
@@ -507,8 +510,8 @@
          * @property {'user' | 'assistant' | ''} role
          * @property {string | null} parent
          * @property {string[]} children
-         * @property {string} [preview] - 内容预览（前50字）
-         * @property {number} [versionCount] - 版本数量
+         * @property {string} [preview]
+         * @property {number} [versionCount]
          * @property {number} [timestamp]
          * @property {string} [author]
          */
@@ -523,15 +526,19 @@
         // ============ 全局状态 ============
         let treeData = null;
         let selectedNodeId = null;
-        let nodePositions = new Map(); // id -> {x, y}
+        /** @type {Map<string, {x: number, y: number}>} */
+        let nodePositions = new Map();
 
         // 布局参数
         const LAYOUT = {
-            nodeWidth: 100,
-            nodeHeight: 80,
-            levelGap: 100,      // 层级间距（垂直）
-            siblingGap: 40,     // 兄弟节点间距
-            padding: 50
+            nodeWidth: 100,       // 节点容器宽度
+            nodeHeight: 80,       // 节点容器高度（包含圆形和标签）
+            circleSize: 48,       // 圆形直径
+            separatorSize: 32,    // 分隔符圆形直径
+            levelGap: 100,        // 层级间距（垂直）
+            siblingGap: 20,       // 兄弟节点最小间距
+            subtreeGap: 30,       // 子树之间的间距
+            padding: 60           // 画布边距
         };
 
         // ============ DOM 引用 ============
@@ -544,71 +551,258 @@
         const $detailActions = document.getElementById('detail-actions');
         const $treeInfo = document.getElementById('tree-info');
 
-        // ============ 布局算法 ============
+        // ============ 改进的 Reingold-Tilford 布局算法 ============
 
         /**
-         * 计算子树宽度（递归）
+         * 布局节点的内部表示
+         * @typedef {Object} LayoutNode
+         * @property {string} id
+         * @property {LayoutNode[]} children
+         * @property {number} x - 相对于父节点的 x 偏移
+         * @property {number} y - 层级深度
+         * @property {number} mod - 修正值，用于子树移动
+         * @property {LayoutNode|null} thread - 线索，用于轮廓计算
+         * @property {LayoutNode|null} ancestor - 祖先引用
          */
-        function calcSubtreeWidth(nodeId, nodes) {
-            const node = nodes[nodeId];
-            if (!node) return LAYOUT.nodeWidth;
 
-            if (node.children.length === 0) {
-                return LAYOUT.nodeWidth;
+        /**
+         * 从原始数据构建布局树
+         */
+        function buildLayoutTree(nodes, rootId) {
+            if (!rootId || !nodes[rootId]) return null;
+
+            function build(id, depth) {
+                const node = nodes[id];
+                if (!node) return null;
+
+                /** @type {LayoutNode} */
+                const layoutNode = {
+                    id: id,
+                    children: [],
+                    x: 0,
+                    y: depth,
+                    mod: 0,
+                    thread: null,
+                    ancestor: null
+                };
+                layoutNode.ancestor = layoutNode;
+
+                for (const childId of node.children) {
+                    const childNode = build(childId, depth + 1);
+                    if (childNode) {
+                        layoutNode.children.push(childNode);
+                    }
+                }
+
+                return layoutNode;
             }
 
-            let totalWidth = 0;
-            for (const childId of node.children) {
-                totalWidth += calcSubtreeWidth(childId, nodes);
-            }
-            totalWidth += (node.children.length - 1) * LAYOUT.siblingGap;
-
-            return Math.max(totalWidth, LAYOUT.nodeWidth);
+            return build(rootId, 0);
         }
 
         /**
-         * 布局树形结构
+         * Reingold-Tilford 算法 - 第一遍：后序遍历，计算初始位置
+         */
+        function firstWalk(node, siblings = [], index = 0) {
+            if (node.children.length === 0) {
+                // 叶子节点
+                if (index > 0) {
+                    // 有左兄弟，相对于左兄弟定位
+                    const leftSibling = siblings[index - 1];
+                    node.x = leftSibling.x + LAYOUT.nodeWidth + LAYOUT.siblingGap;
+                } else {
+                    node.x = 0;
+                }
+            } else {
+                // 内部节点
+                let defaultAncestor = node.children[0];
+
+                // 递归处理所有子节点
+                for (let i = 0; i < node.children.length; i++) {
+                    const child = node.children[i];
+                    firstWalk(child, node.children, i);
+                    defaultAncestor = apportion(child, defaultAncestor, node.children, i);
+                }
+
+                executeShifts(node);
+
+                // 节点居中于子节点
+                const firstChild = node.children[0];
+                const lastChild = node.children[node.children.length - 1];
+                const midpoint = (firstChild.x + lastChild.x) / 2;
+
+                if (index > 0) {
+                    const leftSibling = siblings[index - 1];
+                    node.x = leftSibling.x + LAYOUT.nodeWidth + LAYOUT.siblingGap;
+                    node.mod = node.x - midpoint;
+                } else {
+                    node.x = midpoint;
+                }
+            }
+        }
+
+        /**
+         * 处理子树之间的冲突
+         */
+        function apportion(node, defaultAncestor, siblings, index) {
+            if (index > 0) {
+                const leftSibling = siblings[index - 1];
+
+                let vInnerRight = node;
+                let vOuterRight = node;
+                let vInnerLeft = leftSibling;
+                let vOuterLeft = siblings[0];
+
+                let sInnerRight = node.mod;
+                let sOuterRight = node.mod;
+                let sInnerLeft = vInnerLeft.mod;
+                let sOuterLeft = vOuterLeft.mod;
+
+                while (nextRight(vInnerLeft) && nextLeft(vInnerRight)) {
+                    vInnerLeft = nextRight(vInnerLeft);
+                    vInnerRight = nextLeft(vInnerRight);
+                    vOuterLeft = nextLeft(vOuterLeft);
+                    vOuterRight = nextRight(vOuterRight);
+
+                    vOuterRight.ancestor = node;
+
+                    const shift = (vInnerLeft.x + sInnerLeft) - (vInnerRight.x + sInnerRight) + LAYOUT.nodeWidth + LAYOUT.subtreeGap;
+
+                    if (shift > 0) {
+                        const ancestor = findAncestor(vInnerLeft, node, defaultAncestor, siblings);
+                        moveSubtree(ancestor, node, shift, siblings);
+                        sInnerRight += shift;
+                        sOuterRight += shift;
+                    }
+
+                    sInnerLeft += vInnerLeft.mod;
+                    sInnerRight += vInnerRight.mod;
+                    sOuterLeft += vOuterLeft.mod;
+                    sOuterRight += vOuterRight.mod;
+                }
+
+                if (nextRight(vInnerLeft) && !nextRight(vOuterRight)) {
+                    vOuterRight.thread = nextRight(vInnerLeft);
+                    vOuterRight.mod += sInnerLeft - sOuterRight;
+                }
+
+                if (nextLeft(vInnerRight) && !nextLeft(vOuterLeft)) {
+                    vOuterLeft.thread = nextLeft(vInnerRight);
+                    vOuterLeft.mod += sInnerRight - sOuterLeft;
+                    defaultAncestor = node;
+                }
+            }
+
+            return defaultAncestor;
+        }
+
+        function nextLeft(node) {
+            return node.children.length > 0 ? node.children[0] : node.thread;
+        }
+
+        function nextRight(node) {
+            return node.children.length > 0 ? node.children[node.children.length - 1] : node.thread;
+        }
+
+        function findAncestor(vil, node, defaultAncestor, siblings) {
+            const found = siblings.find(s => s === vil.ancestor);
+            return found ? vil.ancestor : defaultAncestor;
+        }
+
+        function moveSubtree(wl, wr, shift, siblings) {
+            const wlIndex = siblings.indexOf(wl);
+            const wrIndex = siblings.indexOf(wr);
+            const subtrees = wrIndex - wlIndex;
+
+            if (subtrees > 0) {
+                wr.change = (wr.change || 0) - shift / subtrees;
+                wr.shift = (wr.shift || 0) + shift;
+                wl.change = (wl.change || 0) + shift / subtrees;
+                wr.x += shift;
+                wr.mod += shift;
+            }
+        }
+
+        function executeShifts(node) {
+            let shift = 0;
+            let change = 0;
+
+            for (let i = node.children.length - 1; i >= 0; i--) {
+                const child = node.children[i];
+                child.x += shift;
+                child.mod += shift;
+                change += child.change || 0;
+                shift += (child.shift || 0) + change;
+            }
+        }
+
+        /**
+         * 第二遍：前序遍历，计算绝对坐标
+         */
+        function secondWalk(node, modSum = 0, minX = { value: Infinity }) {
+            node.x += modSum;
+            minX.value = Math.min(minX.value, node.x);
+
+            for (const child of node.children) {
+                secondWalk(child, modSum + node.mod, minX);
+            }
+
+            return minX.value;
+        }
+
+        /**
+         * 第三遍：归一化坐标（确保所有 x >= 0）并收集位置
+         */
+        function normalizeAndCollect(node, offsetX) {
+            const absX = node.x + offsetX + LAYOUT.padding;
+            const absY = node.y * LAYOUT.levelGap + LAYOUT.padding;
+
+            nodePositions.set(node.id, { x: absX, y: absY });
+
+            for (const child of node.children) {
+                normalizeAndCollect(child, offsetX);
+            }
+        }
+
+        /**
+         * 主布局函数
          */
         function layoutTree(data) {
             nodePositions.clear();
             if (!data || !data.rootId || !data.nodes[data.rootId]) return;
 
-            const { nodes, rootId } = data;
+            // 1. 构建布局树
+            const layoutRoot = buildLayoutTree(data.nodes, data.rootId);
+            if (!layoutRoot) return;
 
-            // 递归布局
-            function layoutNode(nodeId, x, y) {
-                const node = nodes[nodeId];
-                if (!node) return;
+            // 2. 第一遍：计算相对位置
+            firstWalk(layoutRoot, [], 0);
 
-                nodePositions.set(nodeId, { x, y });
+            // 3. 第二遍：累加修正值，计算绝对位置
+            const minX = secondWalk(layoutRoot);
 
-                if (node.children.length === 0) return;
-
-                // 计算子节点的总宽度
-                const childWidths = node.children.map(id => calcSubtreeWidth(id, nodes));
-                const totalWidth = childWidths.reduce((a, b) => a + b, 0)
-                    + (node.children.length - 1) * LAYOUT.siblingGap;
-
-                // 从左边开始放置子节点
-                let childX = x - totalWidth / 2;
-                const childY = y + LAYOUT.levelGap;
-
-                for (let i = 0; i < node.children.length; i++) {
-                    const childId = node.children[i];
-                    const childWidth = childWidths[i];
-                    const centerX = childX + childWidth / 2;
-
-                    layoutNode(childId, centerX, childY);
-                    childX += childWidth + LAYOUT.siblingGap;
-                }
-            }
-
-            // 从根节点开始布局
-            const rootWidth = calcSubtreeWidth(rootId, nodes);
-            layoutNode(rootId, rootWidth / 2 + LAYOUT.padding, LAYOUT.padding);
+            // 4. 第三遍：归一化并收集坐标
+            const offsetX = -minX;
+            normalizeAndCollect(layoutRoot, offsetX);
         }
 
         // ============ 渲染函数 ============
+
+        /**
+         * 获取节点圆心坐标（用于连线）
+         */
+        function getNodeCenter(id, nodes) {
+            const pos = nodePositions.get(id);
+            if (!pos) return null;
+
+            const node = nodes[id];
+            const circleSize = node?.type === 'separator' ? LAYOUT.separatorSize : LAYOUT.circleSize;
+
+            return {
+                x: pos.x,
+                y: pos.y + circleSize / 2
+            };
+        }
 
         /**
          * 渲染树
@@ -633,38 +827,50 @@
 
             // 计算画布大小
             let maxX = 0, maxY = 0;
-            for (const [_, pos] of nodePositions) {
-                maxX = Math.max(maxX, pos.x + LAYOUT.nodeWidth);
+            for (const [id, pos] of nodePositions) {
+                const node = nodes[id];
+                const circleSize = node?.type === 'separator' ? LAYOUT.separatorSize : LAYOUT.circleSize;
+                maxX = Math.max(maxX, pos.x + LAYOUT.nodeWidth / 2);
                 maxY = Math.max(maxY, pos.y + LAYOUT.nodeHeight);
             }
-            $treeCanvas.style.width = (maxX + LAYOUT.padding) + 'px';
-            $treeCanvas.style.height = (maxY + LAYOUT.padding) + 'px';
 
-            // 渲染连线
+            const canvasWidth = maxX + LAYOUT.padding;
+            const canvasHeight = maxY + LAYOUT.padding;
+
+            $treeCanvas.style.width = canvasWidth + 'px';
+            $treeCanvas.style.height = canvasHeight + 'px';
+
+            // 渲染 SVG 连线
+            $treeEdges.setAttribute('width', canvasWidth);
+            $treeEdges.setAttribute('height', canvasHeight);
+            $treeEdges.setAttribute('viewBox', `0 0 ${canvasWidth} ${canvasHeight}`);
+
             let edgesHtml = '';
             for (const [id, node] of Object.entries(nodes)) {
-                const pos = nodePositions.get(id);
-                if (!pos) continue;
+                const parentCenter = getNodeCenter(id, nodes);
+                if (!parentCenter) continue;
 
                 for (const childId of node.children) {
-                    const childPos = nodePositions.get(childId);
-                    if (!childPos) continue;
+                    const childCenter = getNodeCenter(childId, nodes);
+                    if (!childCenter) continue;
 
                     const isActive = worldLineSet.has(id) && worldLineSet.has(childId);
-                    const x1 = pos.x;
-                    const y1 = pos.y + 24; // 节点圆心
-                    const x2 = childPos.x;
-                    const y2 = childPos.y + 24;
 
-                    // 使用贝塞尔曲线
-                    const midY = (y1 + y2) / 2;
-                    edgesHtml += `<path class="tree-edge ${isActive ? 'active' : ''}" 
-                        d="M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}"/>`;
+                    // 使用平滑的贝塞尔曲线
+                    const x1 = parentCenter.x;
+                    const y1 = parentCenter.y;
+                    const x2 = childCenter.x;
+                    const y2 = childCenter.y;
+
+                    // 控制点在两点中间高度位置，水平方向对齐起点/终点
+                    const cy1 = y1 + (y2 - y1) * 0.4;
+                    const cy2 = y1 + (y2 - y1) * 0.6;
+
+                    edgesHtml += `<path class="tree-edge${isActive ? ' active' : ''}" 
+                        d="M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}"/>`;
                 }
             }
             $treeEdges.innerHTML = edgesHtml;
-            $treeEdges.style.width = $treeCanvas.style.width;
-            $treeEdges.style.height = $treeCanvas.style.height;
 
             // 渲染节点
             let nodesHtml = '';
@@ -674,10 +880,11 @@
 
                 const isOnWorldLine = worldLineSet.has(id);
                 const isSelected = id === selectedNodeId;
+                const isSeparator = node.type === 'separator';
 
                 let roleClass = node.role || 'separator';
                 let icon = node.role === 'user' ? 'U' : node.role === 'assistant' ? 'A' : '—';
-                let label = node.preview ? node.preview.slice(0, 10) : (node.type === 'separator' ? '分隔符' : '');
+                let label = node.preview ? node.preview.slice(0, 10) : (isSeparator ? '分隔符' : '');
 
                 let badges = '';
                 if (node.versionCount && node.versionCount > 1) {
@@ -687,14 +894,18 @@
                     badges += `<div class="node-branch-badge">${node.children.length}</div>`;
                 }
 
+                // 节点定位：pos 是中心点，需要偏移使节点居中
+                const nodeLeft = pos.x - LAYOUT.nodeWidth / 2;
+                const nodeTop = pos.y;
+
                 nodesHtml += `
                     <div class="tree-node" data-id="${id}" 
-                        style="left: ${pos.x - LAYOUT.nodeWidth / 2}px; top: ${pos.y}px; width: ${LAYOUT.nodeWidth}px;">
+                        style="left: ${nodeLeft}px; top: ${nodeTop}px; width: ${LAYOUT.nodeWidth}px;">
                         <div class="node-circle ${roleClass} ${isOnWorldLine ? 'worldline' : ''} ${isSelected ? 'active' : ''}">
                             ${icon}
                             ${badges}
                         </div>
-                        <div class="node-label" title="${label}">${label}</div>
+                        <div class="node-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
                     </div>
                 `;
             }
@@ -782,7 +993,7 @@
                     ` : ''}
                     <div class="detail-field">
                         <span class="detail-field-label">世界线</span>
-                        <span class="detail-field-value">${isOnWorldLine ? '✓ 在当前世界线上' : '✗ 不在当前世界线上'}</span>
+                        <span class="detail-field-value">${isOnWorldLine ? '✓ 在当前世界线' : '✗ 不在当前世界线'}</span>
                     </div>
                 </div>
 
@@ -794,7 +1005,7 @@
                 ` : ''}
             `;
 
-            // 显示操作按钮（仅叶子节点可切换世界线）
+            // 显示操作按钮（仅叶子节点且不在当前世界线时可切换）
             if (isLeaf && !isOnWorldLine) {
                 $detailActions.style.display = 'flex';
             } else {
@@ -803,6 +1014,7 @@
         }
 
         function escapeHtml(str) {
+            if (!str) return '';
             return str.replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[c]));
@@ -811,11 +1023,15 @@
         // ============ 事件处理 ============
 
         document.getElementById('btn-fit').addEventListener('click', () => {
-            // 适应窗口（简单实现：滚动到中心）
+            // 适应窗口：滚动到水平居中，垂直顶部
             const container = $treeContainer;
             const canvas = $treeCanvas;
-            container.scrollLeft = (canvas.offsetWidth - container.offsetWidth) / 2;
-            container.scrollTop = 0;
+            const scrollLeft = Math.max(0, (canvas.offsetWidth - container.offsetWidth) / 2);
+            container.scrollTo({
+                left: scrollLeft,
+                top: 0,
+                behavior: 'smooth'
+            });
         });
 
         document.getElementById('btn-center').addEventListener('click', () => {
@@ -823,7 +1039,7 @@
             const pos = nodePositions.get(treeData.rootId);
             if (pos) {
                 $treeContainer.scrollTo({
-                    left: pos.x - $treeContainer.offsetWidth / 2,
+                    left: Math.max(0, pos.x - $treeContainer.offsetWidth / 2),
                     top: 0,
                     behavior: 'smooth'
                 });
@@ -846,7 +1062,6 @@
 
         document.getElementById('btn-switch-worldline').addEventListener('click', () => {
             if (!selectedNodeId) return;
-            // 通知外部切换世界线
             if (window.pluginSdk?.switchWorldLine) {
                 window.pluginSdk.switchWorldLine(selectedNodeId);
             } else {
@@ -861,7 +1076,6 @@
             const themeMode = window.pluginSdk?.themeMode || 'light';
             document.documentElement.setAttribute('data-theme-mode', themeMode);
 
-            // 如果有 getTreeData 方法，调用获取数据
             if (window.pluginSdk?.getTreeData) {
                 const data = await window.pluginSdk.getTreeData();
                 renderTree(data);
@@ -875,28 +1089,6 @@
 
         // 暴露渲染方法供外部调用
         window.renderTree = renderTree;
-
-        // Demo 数据（开发测试用，生产环境移除）
-        // const DEMO_DATA = {
-        //     rootId: 'u1',
-        //     worldLine: ['u1', 'a1', 'u2', 'a2'],
-        //     nodes: {
-        //         'u1': { id: 'u1', type: 'message', role: 'user', parent: null, children: ['a1'], preview: '你好，请介绍一下自己', timestamp: Date.now() - 100000 },
-        //         'a1': { id: 'a1', type: 'message', role: 'assistant', parent: 'u1', children: ['u2', 'u3'], preview: '你好！我是一个AI助手...', timestamp: Date.now() - 90000, versionCount: 2 },
-        //         'u2': { id: 'u2', type: 'message', role: 'user', parent: 'a1', children: ['a2'], preview: '解释一下量子力学', timestamp: Date.now() - 80000 },
-        //         'a2': { id: 'a2', type: 'message', role: 'assistant', parent: 'u2', children: ['sep1'], preview: '量子力学是描述微观粒子行为的物理理论...', timestamp: Date.now() - 70000 },
-        //         'sep1': { id: 'sep1', type: 'separator', role: '', parent: 'a2', children: ['u4'] },
-        //         'u4': { id: 'u4', type: 'message', role: 'user', parent: 'sep1', children: ['a4'], preview: '继续讲讲薛定谔的猫', timestamp: Date.now() - 50000 },
-        //         'a4': { id: 'a4', type: 'message', role: 'assistant', parent: 'u4', children: [], preview: '薛定谔的猫是一个思想实验...', timestamp: Date.now() - 40000, author: 'GPT-4' },
-        //         'u3': { id: 'u3', type: 'message', role: 'user', parent: 'a1', children: ['a3'], preview: '讲个笑话吧', timestamp: Date.now() - 85000 },
-        //         'a3': { id: 'a3', type: 'message', role: 'assistant', parent: 'u3', children: [], preview: '好的，给你讲一个程序员笑话...', timestamp: Date.now() - 82000 },
-        //     }
-        // };
-
-        // // 如果没有 SDK，使用 demo 数据
-        // if (!window.pluginSdk) {
-        //     setTimeout(() => renderTree(DEMO_DATA), 100);
-        // }
     </script>
 </body>
 

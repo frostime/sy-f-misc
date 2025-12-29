@@ -4,28 +4,27 @@
  * @Date         : 2025-12-28 22:15:10
  * @Description  : 
  * @FilePath     : /src/func/gpt/chat/ChatSession/world-tree/index.ts
- * @LastEditTime : 2025-12-28 22:32:13
+ * @LastEditTime : 2025-12-29 22:23:58
  */
 import { openIframDialog } from "@/func/html-pages/core";
 import { ITreeModel } from "../use-tree-model";
-import { extractContentText, extractMessageContent } from "@/func/gpt/chat-utils/msg-content";
+import { extractContentText } from "@/func/gpt/chat-utils/msg-content";
 import { getMessageProp, getPayload } from "@/func/gpt/chat-utils";
-import { get } from "http";
 
+
+/*
 interface TreeViewSdk {
-    /** 获取树数据 */
     getTreeData: () => Promise<TreeData>;
 
-    /** 切换世界线到指定叶子节点 */
     switchWorldLine: (leafId: string) => void;
 }
 
 interface TreeData {
     rootId: string | null;
-    worldLine: string[];  // 当前激活的路径 [root, ..., leaf]
+    worldLine: string[];
     nodes: Record<string, TreeNode>;
 }
-
+*/
 interface TreeNode {
     id: string;
     type: 'message' | 'separator';
