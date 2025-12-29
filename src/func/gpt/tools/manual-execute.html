@@ -36,6 +36,14 @@
             --error-color: #ea4335;
             --warning-color: #fbbc04;
             --shadow: rgba(0, 0, 0, 0.1);
+
+            /* 工具组专用颜色 */
+            --group-header-bg: var(--theme-surface, #f0f0f2);
+            --group-header-hover: var(--theme-surface-light, #e8e8ea);
+            --group-border: var(--theme-surface-lighter, #d8d8dc);
+            --tool-item-hover: rgba(0, 0, 0, 0.04);
+            --tool-item-active-bg: var(--theme-primary-lightest, #fff0ee);
+            --tool-item-active-border: var(--theme-primary, #d23f31);
         }
 
         /* 暗色主题适配 */
@@ -48,6 +56,12 @@
             --error-color: #f44336;
             --warning-color: #ff9800;
             --shadow: rgba(0, 0, 0, 0.3);
+
+            --group-header-bg: #2d2d30;
+            --group-header-hover: #383838;
+            --group-border: #404045;
+            --tool-item-hover: rgba(255, 255, 255, 0.05);
+            --tool-item-active-bg: #3d2522;
         }
 
         /* 全局盒模型重置 */
@@ -108,9 +122,92 @@
         #sidebar {
             width: 280px;
             background-color: var(--bg-secondary);
-            border-right: 1px solid var(--border-color);
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
             flex-shrink: 0;
+        }
+
+        /* 水平拖动分割条 */
+        #horizontal-resize-handle {
+            width: 4px;
+            background-color: var(--border-color);
+            cursor: ew-resize;
+            position: relative;
+            flex-shrink: 0;
+            transition: background-color 0.2s;
+        }
+
+        #horizontal-resize-handle:hover {
+            background-color: var(--accent-color);
+        }
+
+        #horizontal-resize-handle::before {
+            content: '';
+            position: absolute;
+            left: -4px;
+            top: 0;
+            bottom: 0;
+            width: 12px;
+        }
+
+        /* 侧边栏顶部工具栏 */
+        .sidebar-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background-color: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .sidebar-title {
+            font-size: var(--font-size-medium);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .sidebar-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .sidebar-btn {
+            padding: 4px 8px;
+            font-size: var(--font-size-tiny);
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .sidebar-btn:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+            border-color: var(--text-tertiary);
+        }
+
+        .sidebar-btn:active {
+            background-color: var(--active-bg);
+        }
+
+        .sidebar-btn svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* 工具组容器 */
+        #tool-groups-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
         }
 
         /* 主内容区 */
@@ -162,39 +259,67 @@
             min-height: 100px;
         }
 
-        /* ==================== 工具列表样式 ==================== */
+        /* ==================== 工具组样式（重新设计） ==================== */
         .tool-group {
-            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 8px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--group-border);
+            background-color: var(--bg-primary);
         }
 
         .group-header {
-            padding: 12px 16px;
+            padding: 10px 14px;
             font-weight: 600;
-            color: var(--text-secondary);
-            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            background-color: var(--group-header-bg);
             cursor: pointer;
             user-select: none;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 8px;
+            transition: background-color 0.15s ease;
         }
 
         .group-header:hover {
-            background-color: var(--hover-bg);
+            background-color: var(--group-header-hover);
         }
 
-        .group-header::after {
-            content: '▼';
-            font-size: 10px;
-            transition: transform 0.2s;
+        .group-header-icon {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+            color: var(--text-secondary);
         }
 
-        .group-header.collapsed::after {
+        .group-header-icon svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .group-header.collapsed .group-header-icon {
             transform: rotate(-90deg);
+        }
+
+        .group-header-text {
+            flex: 1;
+        }
+
+        .group-header-count {
+            font-size: var(--font-size-tiny);
+            font-weight: 500;
+            color: var(--text-tertiary);
+            background-color: var(--bg-secondary);
+            padding: 2px 8px;
+            border-radius: 10px;
         }
 
         .tool-list {
             display: block;
+            border-top: 1px solid var(--group-border);
         }
 
         .tool-list.collapsed {
@@ -202,25 +327,46 @@
         }
 
         .tool-item {
-            padding: 10px 16px;
+            padding: 10px 14px;
             cursor: pointer;
             border-left: 3px solid transparent;
-            transition: all 0.2s;
+            transition: all 0.15s ease;
+            background-color: var(--bg-primary);
+        }
+
+        .tool-item:not(:last-child) {
+            border-bottom: 1px solid var(--group-border);
         }
 
         .tool-item:hover {
-            background-color: var(--hover-bg);
+            background-color: var(--tool-item-hover);
         }
 
         .tool-item.active {
-            background-color: var(--active-bg);
-            border-left-color: var(--accent-color);
+            background-color: var(--tool-item-active-bg);
+            border-left-color: var(--tool-item-active-border);
         }
 
         .tool-name {
             font-weight: 500;
             color: var(--text-primary);
             margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tool-name::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            opacity: 0.6;
+        }
+
+        .tool-item.active .tool-name::before {
+            opacity: 1;
         }
 
         .tool-desc {
@@ -231,6 +377,7 @@
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
+            padding-left: 12px;
         }
 
         /* ==================== 参数表单样式 ==================== */
@@ -546,10 +693,32 @@
     <div id="app">
         <!-- 侧边栏：工具组/工具列表 -->
         <aside id="sidebar">
+            <!-- 顶部工具栏 -->
+            <div class="sidebar-toolbar">
+                <span class="sidebar-title">工具列表</span>
+                <div class="sidebar-actions">
+                    <button class="sidebar-btn" id="btn-expand-all" title="全部展开">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                        展开
+                    </button>
+                    <button class="sidebar-btn" id="btn-collapse-all" title="全部折叠">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="18 15 12 9 6 15" />
+                        </svg>
+                        折叠
+                    </button>
+                </div>
+            </div>
+            <!-- 工具组容器 -->
             <div id="tool-groups-container">
                 <!-- 动态生成工具组 -->
             </div>
         </aside>
+
+        <!-- 水平拖动分割条 -->
+        <div id="horizontal-resize-handle"></div>
 
         <!-- 主内容区 -->
         <main id="main">
@@ -617,6 +786,8 @@
             // 绑定事件
             bindEvents();
             initResizeHandle();
+            initHorizontalResizeHandle();
+            bindFoldButtons();
         });
 
         // ==================== 渲染工具组 ====================
@@ -625,7 +796,13 @@
             container.innerHTML = groups.map(group => `
                 <div class="tool-group">
                     <div class="group-header" data-group="${group.name}">
-                        <span>${group.name}</span>
+                        <span class="group-header-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </span>
+                        <span class="group-header-text">${group.name}</span>
+                        <span class="group-header-count">${group.tools.length}</span>
                     </div>
                     <div class="tool-list" data-group="${group.name}">
                         ${group.tools.map(tool => `
@@ -657,6 +834,27 @@
                     const toolList = document.querySelector(`.tool-list[data-group="${groupName}"]`);
                     header.classList.toggle('collapsed');
                     toolList.classList.toggle('collapsed');
+                });
+            });
+        }
+
+        // ==================== 折叠/展开所有 ====================
+        function bindFoldButtons() {
+            document.getElementById('btn-expand-all').addEventListener('click', () => {
+                document.querySelectorAll('.group-header').forEach(header => {
+                    header.classList.remove('collapsed');
+                });
+                document.querySelectorAll('.tool-list').forEach(list => {
+                    list.classList.remove('collapsed');
+                });
+            });
+
+            document.getElementById('btn-collapse-all').addEventListener('click', () => {
+                document.querySelectorAll('.group-header').forEach(header => {
+                    header.classList.add('collapsed');
+                });
+                document.querySelectorAll('.tool-list').forEach(list => {
+                    list.classList.add('collapsed');
                 });
             });
         }
@@ -762,7 +960,7 @@
                     `;
                     return `<div class="form-field">${input}</div>`;
                 case 'array':
-                    input = `<textarea name="${name}" ${isRequired ? 'required' : ''} placeholder="JSON array, e.g. [1, 2, 3]"></textarea>`;
+                    input = `<textarea name="${name}" ${isRequired ? 'required' : ''} placeholder="JSON array, e.g. [...]"></textarea>`;
                     break;
                 case 'object':
                     input = `<textarea name="${name}" ${isRequired ? 'required' : ''} placeholder='JSON object, e.g. {"key": "value"}'></textarea>`;
@@ -1009,6 +1207,65 @@
                     } else {
                         // 恢复
                         inputPanel.style.height = inputPanel._savedHeight || '50%';
+                    }
+                }
+                lastClickTime = now;
+            });
+        }
+
+        // ==================== 初始化水平拖动分割条 ====================
+        function initHorizontalResizeHandle() {
+            const handle = document.getElementById('horizontal-resize-handle');
+            const sidebar = document.getElementById('sidebar');
+            const app = document.getElementById('app');
+
+            let isResizing = false;
+            let startX = 0;
+            let startWidth = 0;
+
+            handle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = sidebar.getBoundingClientRect().width;
+                document.body.style.cursor = 'ew-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const deltaX = e.clientX - startX;
+                const newWidth = startWidth + deltaX;
+                const minWidth = 200; // 最小宽度
+                const maxWidth = 600; // 最大宽度
+
+                if (newWidth >= minWidth && newWidth <= maxWidth) {
+                    sidebar.style.width = newWidth + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+
+            // 双击分割条折叠/展开侧边栏
+            let lastClickTime = 0;
+            handle.addEventListener('click', (e) => {
+                const now = Date.now();
+                if (now - lastClickTime < 300) {
+                    // 双击
+                    if (sidebar.style.width && sidebar.style.width !== '280px') {
+                        // 已修改宽度，折叠到最小
+                        sidebar._savedWidth = sidebar.style.width;
+                        sidebar.style.width = '60px';
+                    } else {
+                        // 恢复
+                        sidebar.style.width = sidebar._savedWidth || '280px';
                     }
                 }
                 lastClickTime = now;

@@ -3,8 +3,8 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Date         : 2025-12-15 01:22:12
  * @Description  : VFS-based editor tools (SearchReplace, ApplyDiff, ReplaceLine, WriteFile)
- * @FilePath     : /src/func/gpt/tools/file-system/editor-vfs.ts
- * @LastEditTime : 2025-12-15 02:18:59
+ * @FilePath     : /src/func/gpt/tools/file-system/editor.ts
+ * @LastEditTime : 2025-12-29 22:42:08
  */
 
 import { VFSManager } from '@/libs/vfs';
@@ -313,7 +313,7 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
                         },
                         withinRange: {
                             type: 'object',
-                            description: '可选，限定搜索范围（行号 1-based）',
+                            description: '可选，限定搜索范围（行号 1-based）{"startLine": number, "endLine": number}',
                             properties: {
                                 startLine: { type: 'number', description: '起始行号' },
                                 endLine: { type: 'number', description: '结束行号' }
@@ -439,7 +439,7 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
                         },
                         withinRange: {
                             type: 'object',
-                            description: '可选，限定搜索范围（行号 1-based）',
+                            description: '可选，限定搜索范围（行号 1-based））{"startLine": number, "endLine": number}',
                             properties: {
                                 startLine: { type: 'number' },
                                 endLine: { type: 'number' }
