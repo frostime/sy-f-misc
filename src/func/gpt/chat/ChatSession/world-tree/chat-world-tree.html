@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Tree Visualization</title>
+    <style>
+        :root {
+            /* 字体大小语义化变量 */
+            --font-size-normal: var(--font-size, 14px);
+            --font-size-large: calc(var(--font-size-normal) * 1.2);
+            --font-size-small: calc(var(--font-size-normal) * 0.85);
+            --font-size-tiny: calc(var(--font-size-normal) * 0.75);
+
+            /* 颜色语义化变量 */
+            --bg-primary: var(--theme-background, #ffffff);
+            --bg-secondary: var(--theme-surface, #f5f5f5);
+            --bg-tertiary: var(--theme-surface-light, #eeeeee);
+
+            --text-primary: var(--theme-on-background, #333333);
+            --text-secondary: var(--theme-on-surface-light, #666666);
+
+            --accent-color: var(--theme-primary, #4a90d9);
+            --accent-light: var(--theme-primary-lightest, #e3f2fd);
+
+            --border-color: var(--theme-surface-lighter, #e0e0e0);
+
+            /* 节点颜色 */
+            --node-user: #4caf50;
+            --node-user-bg: #e8f5e9;
+            --node-assistant: #2196f3;
+            --node-assistant-bg: #e3f2fd;
+            --node-separator: #9e9e9ee9e9e;
+            --node-separator-bg: #f5f5f5;
+            --node-active: var(--accent-color);
+            --node-active-glow: rgba(74, 144, 217, 0.4);
+
+            /* 连线 */
+            --edge-color: #bdbdbd;
+            --edge-active: var(--accent-color);
+        }
+
+        [data-theme-mode="dark"] {
+            --node-user-bg: #1b5e20;
+            --node-assistant-bg: #0d47a1;
+            --node-separator-bg: #424242;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family, system-ui, sans-serif);
+            font-size: var(--font-size-normal);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== 顶部工具栏 ========== */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .toolbar-title {
+            font-size: var(--font-size-large);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .toolbar-info {
+            font-size: var(--font-size-small);
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+
+        .toolbar-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: var(--font-size-small);
+            transition: all 0.15s ease;
+        }
+
+        .toolbar-btn:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-color);
+        }
+
+        .toolbar-btn.active {
+            background: var(--accent-light);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* ========== 主区域布局 ========== */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ========== 树形视图 ========== */
+        .tree-container {
+            flex: 1;
+            overflow: auto;
+            padding: 24px;
+            position: relative;
+        }
+
+        .tree-canvas {
+            position: relative;
+            min-width: 100%;
+            min-height: 100%;
+        }
+
+        /* SVG 连线层 */
+        .tree-edges {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            overflow: visible;
+        }
+
+        .tree-edge {
+            stroke: var(--edge-color);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .tree-edge.active {
+            stroke: var(--edge-active);
+            stroke-width: 3;
+        }
+
+        /* 节点层 */
+        .tree-nodes {
+            position: relative;
+        }
+
+        .tree-node {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .tree-node:hover {
+            transform: scale(1.05);
+        }
+
+        .node-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 600;
+            border: 3px solid transparent;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .node-circle.user {
+            background: var(--node-user-bg);
+            color: var(--node-user);
+            border-color: var(--node-user);
+        }
+
+        .node-circle.assistant {
+            background: var(--node-assistant-bg);
+            color: var(--node-assistant);
+            border-color: var(--node-assistant);
+        }
+
+        .node-circle.separator {
+            width: 32px;
+            height: 32px;
+            background: var(--node-separator-bg);
+            color: var(--node-separator);
+            border-color: var(--node-separator);
+            font-size: 14px;
+        }
+
+        .node-circle.active {
+            box-shadow: 0 0 0 4px var(--node-active-glow);
+        }
+
+        .node-circle.worldline {
+            border-width: 4px;
+        }
+
+        /* 版本徽章 */
+        .node-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            border-radius: 9px;
+            background: var(--accent-color);
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 分支徽章 */
+        .node-branch-badge {
+            position: absolute;
+            bottom: -4px;
+            right: -4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            border-radius: 9px;
+            background: #ff9800;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .node-label {
+            margin-top: 6px;
+            font-size: var(--font-size-tiny);
+            color: var(--text-secondary);
+            max-width: 80px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ========== 详情面板 ========== */
+        .detail-panel {
+            width: 320px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: width 0.2s ease;
+        }
+
+        .detail-panel.collapsed {
+            width: 0;
+            border-left: none;
+        }
+
+        .detail-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detail-header-title {
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .detail-close {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        .detail-close:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .detail-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .detail-section {
+            margin-bottom: 16px;
+        }
+
+        .detail-section-title {
+            font-size: var(--font-size-small);
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-field {
+            display: flex;
+            margin-bottom: 6px;
+            font-size: var(--font-size-small);
+        }
+
+        .detail-field-label {
+            width: 80px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .detail-field-value {
+            flex: 1;
+            word-break: break-all;
+        }
+
+        .detail-preview {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            font-size: var(--font-size-small);
+            line-height: 1.5;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .detail-actions {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+        }
+
+        .detail-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: var(--font-size-small);
+            transition: all 0.15s ease;
+        }
+
+        .detail-btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .detail-btn.primary {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .detail-btn.primary:hover {
+            opacity: 0.9;
+        }
+
+        /* ========== 图例 ========== */
+        .legend {
+            display: flex;
+            gap: 16px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            font-size: var(--font-size-small);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.user {
+            background: var(--node-user);
+        }
+
+        .legend-dot.assistant {
+            background: var(--node-assistant);
+        }
+
+        .legend-dot.separator {
+            background: var(--node-separator);
+        }
+
+        .legend-dot.worldline {
+            border: 3px solid var(--accent-color);
+            background: transparent;
+        }
+
+        /* ========== 空状态 ========== */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: var(--font-size-normal);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="toolbar">
+        <span class="toolbar-title">Chat Tree</span>
+        <button class="toolbar-btn" id="btn-fit">适应窗口</button>
+        <button class="toolbar-btn" id="btn-center">居中根节点</button>
+        <span class="toolbar-info" id="tree-info">--</span>
+    </div>
+
+    <div class="main-container">
+        <div class="tree-container" id="tree-container">
+            <div class="tree-canvas" id="tree-canvas">
+                <svg class="tree-edges" id="tree-edges"></svg>
+                <div class="tree-nodes" id="tree-nodes"></div>
+            </div>
+        </div>
+
+        <div class="detail-panel" id="detail-panel">
+            <div class="detail-header">
+                <span class="detail-header-title">节点详情</span>
+                <button class="detail-close" id="detail-close">✕</button>
+            </div>
+            <div class="detail-content" id="detail-content">
+                <div class="empty-state">
+                    <div class="empty-state-icon">🌳</div>
+                    <div class="empty-state-text">点击节点查看详情</div>
+                </div>
+            </div>
+            <div class="detail-actions" id="detail-actions" style="display: none;">
+                <button class="detail-btn primary" id="btn-switch-worldline">切换到此世界线</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-dot user"></div>
+            <span>用户消息</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot assistant"></div>
+            <span>助手消息</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot separator"></div>
+            <span>分隔符</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot worldline"></div>
+            <span>当前世界线</span>
+        </div>
+    </div>
+
+    <script>
+        // ============ 数据格式定义 ============
+        /**
+         * @typedef {Object} TreeNode
+         * @property {string} id
+         * @property {'message' | 'separator'} type
+         * @property {'user' | 'assistant' | ''} role
+         * @property {string | null} parent
+         * @property {string[]} children
+         * @property {string} [preview] - 内容预览（前50字）
+         * @property {number} [versionCount] - 版本数量
+         * @property {number} [timestamp]
+         * @property {string} [author]
+         */
+
+        /**
+         * @typedef {Object} TreeData
+         * @property {Object.<string, TreeNode>} nodes
+         * @property {string[]} worldLine
+         * @property {string | null} rootId
+         */
+
+        // ============ 全局状态 ============
+        let treeData = null;
+        let selectedNodeId = null;
+        let nodePositions = new Map(); // id -> {x, y}
+
+        // 布局参数
+        const LAYOUT = {
+            nodeWidth: 100,
+            nodeHeight: 80,
+            levelGap: 100,      // 层级间距（垂直）
+            siblingGap: 40,     // 兄弟节点间距
+            padding: 50
+        };
+
+        // ============ DOM 引用 ============
+        const $treeContainer = document.getElementById('tree-container');
+        const $treeCanvas = document.getElementById('tree-canvas');
+        const $treeEdges = document.getElementById('tree-edges');
+        const $treeNodes = document.getElementById('tree-nodes');
+        const $detailPanel = document.getElementById('detail-panel');
+        const $detailContent = document.getElementById('detail-content');
+        const $detailActions = document.getElementById('detail-actions');
+        const $treeInfo = document.getElementById('tree-info');
+
+        // ============ 布局算法 ============
+
+        /**
+         * 计算子树宽度（递归）
+         */
+        function calcSubtreeWidth(nodeId, nodes) {
+            const node = nodes[nodeId];
+            if (!node) return LAYOUT.nodeWidth;
+
+            if (node.children.length === 0) {
+                return LAYOUT.nodeWidth;
+            }
+
+            let totalWidth = 0;
+            for (const childId of node.children) {
+                totalWidth += calcSubtreeWidth(childId, nodes);
+            }
+            totalWidth += (node.children.length - 1) * LAYOUT.siblingGap;
+
+            return Math.max(totalWidth, LAYOUT.nodeWidth);
+        }
+
+        /**
+         * 布局树形结构
+         */
+        function layoutTree(data) {
+            nodePositions.clear();
+            if (!data || !data.rootId || !data.nodes[data.rootId]) return;
+
+            const { nodes, rootId } = data;
+
+            // 递归布局
+            function layoutNode(nodeId, x, y) {
+                const node = nodes[nodeId];
+                if (!node) return;
+
+                nodePositions.set(nodeId, { x, y });
+
+                if (node.children.length === 0) return;
+
+                // 计算子节点的总宽度
+                const childWidths = node.children.map(id => calcSubtreeWidth(id, nodes));
+                const totalWidth = childWidths.reduce((a, b) => a + b, 0)
+                    + (node.children.length - 1) * LAYOUT.siblingGap;
+
+                // 从左边开始放置子节点
+                let childX = x - totalWidth / 2;
+                const childY = y + LAYOUT.levelGap;
+
+                for (let i = 0; i < node.children.length; i++) {
+                    const childId = node.children[i];
+                    const childWidth = childWidths[i];
+                    const centerX = childX + childWidth / 2;
+
+                    layoutNode(childId, centerX, childY);
+                    childX += childWidth + LAYOUT.siblingGap;
+                }
+            }
+
+            // 从根节点开始布局
+            const rootWidth = calcSubtreeWidth(rootId, nodes);
+            layoutNode(rootId, rootWidth / 2 + LAYOUT.padding, LAYOUT.padding);
+        }
+
+        // ============ 渲染函数 ============
+
+        /**
+         * 渲染树
+         */
+        function renderTree(data) {
+            if (!data) {
+                $treeNodes.innerHTML = `
+                    <div class="empty-state" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);">
+                        <div class="empty-state-icon">🌳</div>
+                        <div class="empty-state-text">暂无数据</div>
+                    </div>
+                `;
+                $treeEdges.innerHTML = '';
+                return;
+            }
+
+            treeData = data;
+            layoutTree(data);
+
+            const { nodes, worldLine } = data;
+            const worldLineSet = new Set(worldLine);
+
+            // 计算画布大小
+            let maxX = 0, maxY = 0;
+            for (const [_, pos] of nodePositions) {
+                maxX = Math.max(maxX, pos.x + LAYOUT.nodeWidth);
+                maxY = Math.max(maxY, pos.y + LAYOUT.nodeHeight);
+            }
+            $treeCanvas.style.width = (maxX + LAYOUT.padding) + 'px';
+            $treeCanvas.style.height = (maxY + LAYOUT.padding) + 'px';
+
+            // 渲染连线
+            let edgesHtml = '';
+            for (const [id, node] of Object.entries(nodes)) {
+                const pos = nodePositions.get(id);
+                if (!pos) continue;
+
+                for (const childId of node.children) {
+                    const childPos = nodePositions.get(childId);
+                    if (!childPos) continue;
+
+                    const isActive = worldLineSet.has(id) && worldLineSet.has(childId);
+                    const x1 = pos.x;
+                    const y1 = pos.y + 24; // 节点圆心
+                    const x2 = childPos.x;
+                    const y2 = childPos.y + 24;
+
+                    // 使用贝塞尔曲线
+                    const midY = (y1 + y2) / 2;
+                    edgesHtml += `<path class="tree-edge ${isActive ? 'active' : ''}" 
+                        d="M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}"/>`;
+                }
+            }
+            $treeEdges.innerHTML = edgesHtml;
+            $treeEdges.style.width = $treeCanvas.style.width;
+            $treeEdges.style.height = $treeCanvas.style.height;
+
+            // 渲染节点
+            let nodesHtml = '';
+            for (const [id, node] of Object.entries(nodes)) {
+                const pos = nodePositions.get(id);
+                if (!pos) continue;
+
+                const isOnWorldLine = worldLineSet.has(id);
+                const isSelected = id === selectedNodeId;
+
+                let roleClass = node.role || 'separator';
+                let icon = node.role === 'user' ? 'U' : node.role === 'assistant' ? 'A' : '—';
+                let label = node.preview ? node.preview.slice(0, 10) : (node.type === 'separator' ? '分隔符' : '');
+
+                let badges = '';
+                if (node.versionCount && node.versionCount > 1) {
+                    badges += `<div class="node-badge">${node.versionCount}</div>`;
+                }
+                if (node.children.length > 1) {
+                    badges += `<div class="node-branch-badge">${node.children.length}</div>`;
+                }
+
+                nodesHtml += `
+                    <div class="tree-node" data-id="${id}" 
+                        style="left: ${pos.x - LAYOUT.nodeWidth / 2}px; top: ${pos.y}px; width: ${LAYOUT.nodeWidth}px;">
+                        <div class="node-circle ${roleClass} ${isOnWorldLine ? 'worldline' : ''} ${isSelected ? 'active' : ''}">
+                            ${icon}
+                            ${badges}
+                        </div>
+                        <div class="node-label" title="${label}">${label}</div>
+                    </div>
+                `;
+            }
+            $treeNodes.innerHTML = nodesHtml;
+
+            // 更新信息
+            $treeInfo.textContent = `总节点: ${Object.keys(nodes).length} | 当前世界线: ${worldLine.length}`;
+
+            // 绑定点击事件
+            $treeNodes.querySelectorAll('.tree-node').forEach(el => {
+                el.addEventListener('click', () => {
+                    const id = el.getAttribute('data-id');
+                    selectNode(id);
+                });
+            });
+        }
+
+        /**
+         * 选中节点
+         */
+        function selectNode(id) {
+            selectedNodeId = id;
+
+            // 更新节点高亮
+            $treeNodes.querySelectorAll('.node-circle').forEach(el => {
+                el.classList.remove('active');
+            });
+            const nodeEl = $treeNodes.querySelector(`[data-id="${id}"] .node-circle`);
+            if (nodeEl) nodeEl.classList.add('active');
+
+            // 显示详情
+            const node = treeData?.nodes?.[id];
+            if (!node) return;
+
+            const worldLineSet = new Set(treeData.worldLine);
+            const isOnWorldLine = worldLineSet.has(id);
+            const isLeaf = node.children.length === 0;
+
+            $detailContent.innerHTML = `
+                <div class="detail-section">
+                    <div class="detail-section-title">基本信息</div>
+                    <div class="detail-field">
+                        <span class="detail-field-label">ID</span>
+                        <span class="detail-field-value">${id}</span>
+                    </div>
+                    <div class="detail-field">
+                        <span class="detail-field-label">类型</span>
+                        <span class="detail-field-value">${node.type === 'message' ? '消息' : '分隔符'}</span>
+                    </div>
+                    ${node.role ? `
+                    <div class="detail-field">
+                        <span class="detail-field-label">角色</span>
+                        <span class="detail-field-value">${node.role === 'user' ? '用户' : '助手'}</span>
+                    </div>
+                    ` : ''}
+                    ${node.author ? `
+                    <div class="detail-field">
+                        <span class="detail-field-label">作者</span>
+                        <span class="detail-field-value">${node.author}</span>
+                    </div>
+                    ` : ''}
+                    ${node.timestamp ? `
+                    <div class="detail-field">
+                        <span class="detail-field-label">时间</span>
+                        <span class="detail-field-value">${new Date(node.timestamp).toLocaleString()}</span>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <div class="detail-section">
+                    <div class="detail-section-title">结构信息</div>
+                    <div class="detail-field">
+                        <span class="detail-field-label">父节点</span>
+                        <span class="detail-field-value">${node.parent || '(根节点)'}</span>
+                    </div>
+                    <div class="detail-field">
+                        <span class="detail-field-label">子节点</span>
+                        <span class="detail-field-value">${node.children.length} 个</span>
+                    </div>
+                    ${node.versionCount ? `
+                    <div class="detail-field">
+                        <span class="detail-field-label">版本数</span>
+                        <span class="detail-field-value">${node.versionCount}</span>
+                    </div>
+                    ` : ''}
+                    <div class="detail-field">
+                        <span class="detail-field-label">世界线</span>
+                        <span class="detail-field-value">${isOnWorldLine ? '✓ 在当前世界线上' : '✗ 不在当前世界线上'}</span>
+                    </div>
+                </div>
+
+                ${node.preview ? `
+                <div class="detail-section">
+                    <div class="detail-section-title">内容预览</div>
+                    <div class="detail-preview">${escapeHtml(node.preview)}</div>
+                </div>
+                ` : ''}
+            `;
+
+            // 显示操作按钮（仅叶子节点可切换世界线）
+            if (isLeaf && !isOnWorldLine) {
+                $detailActions.style.display = 'flex';
+            } else {
+                $detailActions.style.display = 'none';
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        // ============ 事件处理 ============
+
+        document.getElementById('btn-fit').addEventListener('click', () => {
+            // 适应窗口（简单实现：滚动到中心）
+            const container = $treeContainer;
+            const canvas = $treeCanvas;
+            container.scrollLeft = (canvas.offsetWidth - container.offsetWidth) / 2;
+            container.scrollTop = 0;
+        });
+
+        document.getElementById('btn-center').addEventListener('click', () => {
+            if (!treeData?.rootId) return;
+            const pos = nodePositions.get(treeData.rootId);
+            if (pos) {
+                $treeContainer.scrollTo({
+                    left: pos.x - $treeContainer.offsetWidth / 2,
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            }
+        });
+
+        document.getElementById('detail-close').addEventListener('click', () => {
+            selectedNodeId = null;
+            $treeNodes.querySelectorAll('.node-circle').forEach(el => {
+                el.classList.remove('active');
+            });
+            $detailContent.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">🌳</div>
+                    <div class="empty-state-text">点击节点查看详情</div>
+                </div>
+            `;
+            $detailActions.style.display = 'none';
+        });
+
+        document.getElementById('btn-switch-worldline').addEventListener('click', () => {
+            if (!selectedNodeId) return;
+            // 通知外部切换世界线
+            if (window.pluginSdk?.switchWorldLine) {
+                window.pluginSdk.switchWorldLine(selectedNodeId);
+            } else {
+                console.log('Switch worldline to:', selectedNodeId);
+                window.pluginSdk?.showMessage?.('已请求切换世界线: ' + selectedNodeId);
+            }
+        });
+
+        // ============ 初始化 ============
+
+        window.addEventListener('pluginSdkReady', async () => {
+            const themeMode = window.pluginSdk?.themeMode || 'light';
+            document.documentElement.setAttribute('data-theme-mode', themeMode);
+
+            // 如果有 getTreeData 方法，调用获取数据
+            if (window.pluginSdk?.getTreeData) {
+                const data = await window.pluginSdk.getTreeData();
+                renderTree(data);
+            }
+        });
+
+        // 监听外部数据更新事件
+        window.addEventListener('treeDataUpdate', (e) => {
+            renderTree(e.detail);
+        });
+
+        // 暴露渲染方法供外部调用
+        window.renderTree = renderTree;
+
+        // Demo 数据（开发测试用，生产环境移除）
+        // const DEMO_DATA = {
+        //     rootId: 'u1',
+        //     worldLine: ['u1', 'a1', 'u2', 'a2'],
+        //     nodes: {
+        //         'u1': { id: 'u1', type: 'message', role: 'user', parent: null, children: ['a1'], preview: '你好，请介绍一下自己', timestamp: Date.now() - 100000 },
+        //         'a1': { id: 'a1', type: 'message', role: 'assistant', parent: 'u1', children: ['u2', 'u3'], preview: '你好！我是一个AI助手...', timestamp: Date.now() - 90000, versionCount: 2 },
+        //         'u2': { id: 'u2', type: 'message', role: 'user', parent: 'a1', children: ['a2'], preview: '解释一下量子力学', timestamp: Date.now() - 80000 },
+        //         'a2': { id: 'a2', type: 'message', role: 'assistant', parent: 'u2', children: ['sep1'], preview: '量子力学是描述微观粒子行为的物理理论...', timestamp: Date.now() - 70000 },
+        //         'sep1': { id: 'sep1', type: 'separator', role: '', parent: 'a2', children: ['u4'] },
+        //         'u4': { id: 'u4', type: 'message', role: 'user', parent: 'sep1', children: ['a4'], preview: '继续讲讲薛定谔的猫', timestamp: Date.now() - 50000 },
+        //         'a4': { id: 'a4', type: 'message', role: 'assistant', parent: 'u4', children: [], preview: '薛定谔的猫是一个思想实验...', timestamp: Date.now() - 40000, author: 'GPT-4' },
+        //         'u3': { id: 'u3', type: 'message', role: 'user', parent: 'a1', children: ['a3'], preview: '讲个笑话吧', timestamp: Date.now() - 85000 },
+        //         'a3': { id: 'a3', type: 'message', role: 'assistant', parent: 'u3', children: [], preview: '好的，给你讲一个程序员笑话...', timestamp: Date.now() - 82000 },
+        //     }
+        // };
+
+        // // 如果没有 SDK，使用 demo 数据
+        // if (!window.pluginSdk) {
+        //     setTimeout(() => renderTree(DEMO_DATA), 100);
+        // }
+    </script>
+</body>
+
+</html>

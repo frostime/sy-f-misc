@@ -10,7 +10,7 @@
 import { confirmDialog, deepMerge } from "@frostime/siyuan-plugin-kits";
 import { createModelConfig } from "./preset";
 import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_CHAT_ENDPOINT } from "./url_utils";
-import { asStorage } from "./state";
+import { asStorage } from "./config";
 
 export const CURRENT_SCHEMA = '2.0';
 

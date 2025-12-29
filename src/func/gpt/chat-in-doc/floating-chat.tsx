@@ -13,6 +13,7 @@ import { getLute, getMarkdown, throttle } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 import { complete } from "../openai/complete";
 import { insertBlankMessage, insertAssistantMessage, parseDocumentToHistory } from "./document-parser";
+import { getPayload } from "../chat-utils";
 import { appendBlock, deleteBlock, getBlockByID, request } from "@frostime/siyuan-plugin-kits/api";
 import styles from "./style.module.scss";
 import { defaultModelId, listAvialableModels, useModel } from "../model/store";
@@ -227,17 +228,18 @@ const ChatInDocWindow = (props: {
             const tempHTMLBlock = useTempHTMLBlock(containerId);
 
             // 解析为聊天历史
-            const history = parseDocumentToHistory(chatAreaMarkdown);
-            if (!history || !history.items || history.items.length === 0) {
+            const history: IChatSessionHistoryV2 = parseDocumentToHistory(chatAreaMarkdown);
+            if (!history || !history.worldLine || history.worldLine.length === 0) {
                 showMessage("未找到有效的对话内容");
                 isLoading(false);
                 return;
             }
 
-            const msgs = history.items.map(item => item.message).filter(Boolean);
-            const abortControler = new AbortController();
+            const items = history.worldLine.map(id => history.nodes[id]).filter(Boolean);
+            const msgs = items.map((item: IChatSessionMsgItemV2) => getPayload(item, 'message')).filter(Boolean);
+            const abortController = new AbortController();
             abort = () => {
-                abortControler.abort();
+                abortController.abort();
             }
 
             // 获取当前选择的模型
@@ -296,7 +298,7 @@ const ChatInDocWindow = (props: {
                     // setResponseText(msg);
                     tempHTMLBlock.update(msg);
                 },
-                abortControler
+                abortController
             });
             abort = null;
             isLoading(false);

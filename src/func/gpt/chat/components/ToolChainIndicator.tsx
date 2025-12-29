@@ -2,31 +2,34 @@
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2025-10-31 00:00:00
- * @FilePath     : /src/func/gpt/chat/ToolChainIndicator.tsx
+ * @FilePath     : /src/func/gpt/chat/components/ToolChainIndicator.tsx
  * @Description  : 工具调用指示器组件
  */
 import { Component, Show, createSignal } from 'solid-js';
 import ToolChainTimeline from './ToolChainTimeline';
 import styles from './ToolChainIndicator.module.scss';
+import { checkHasToolChain, getPayload } from '../../chat-utils';
 
 interface ToolChainIndicatorProps {
-    messageItem: IChatSessionMsgItem;
+    messageItem: IChatSessionMsgItemV2;
 }
 
 const ToolChainIndicator: Component<ToolChainIndicatorProps> = (props) => {
     const [expanded, setExpanded] = createSignal(false);
-    
+
     const hasToolChain = () => {
-        return props.messageItem.toolChainResult && 
-               props.messageItem.toolChainResult.toolCallHistory.length > 0;
+        checkHasToolChain(props.messageItem);
     };
-    
-    const toolChainData = () => props.messageItem.toolChainResult;
-    
+
+    // const toolChainData = () => props.messageItem.toolChainResult;
+    const toolChainData = () => {
+        return getPayload(props.messageItem, 'toolChainResult');
+    }
+
     return (
         <Show when={hasToolChain()}>
             <div class={styles.toolChainIndicator}>
-                <button 
+                <button
                     class={styles.toggleButton}
                     onClick={() => setExpanded(!expanded())}
                 >
@@ -36,17 +39,17 @@ const ToolChainIndicator: Component<ToolChainIndicatorProps> = (props) => {
                     <span>
                         工具调用 ({toolChainData().toolCallHistory.length} 次)
                     </span>
-                    <svg 
+                    <svg
                         class={styles.arrow}
                         classList={{ [styles.expanded]: expanded() }}
                     >
                         <use href="#iconDown" />
                     </svg>
                 </button>
-                
+
                 <Show when={expanded()}>
                     <div class={styles.toolChainDetails}>
-                        <ToolChainTimeline 
+                        <ToolChainTimeline
                             toolCallHistory={toolChainData().toolCallHistory}
                             stats={toolChainData().stats}
                         />

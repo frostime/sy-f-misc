@@ -7,10 +7,11 @@ import { useSignalRef } from "@frostime/solid-signal-ref";
 import { removeDoc } from "@/api";
 import { solidDialog } from "@/libs/dialog";
 
-import { extractMessageContent } from "@gpt/chat-utils";
+import { extractMessageContent, getMeta, getPayload, getMessageProp } from "@gpt/chat-utils";
 import * as persist from '@gpt/persistence';
 import TitleTagEditor from "./TitleTagEditor";
 import styles from "./HistoryList.module.scss";
+import { detectHistorySchema } from "../../model/msg_migration";
 
 // Helper function to determine time group
 const getTimeGroup = (timestamp: number): 'today' | 'thisWeek' | 'thisMonth' | 'older' => {
@@ -52,7 +53,7 @@ const getGroupLabel = (group: 'today' | 'thisWeek' | 'thisMonth' | 'older'): str
 };
 
 const HistoryList = (props: {
-    onclick?: (history: IChatSessionHistory) => void,
+    onclick?: (history: IChatSessionHistoryV2) => void,
     close: () => void
 }) => {
 
@@ -72,7 +73,34 @@ const HistoryList = (props: {
     const selectedItems = useSignalRef<Set<string>>(new Set());
 
     // 联合类型用于处理两种数据源
-    type HistoryItem = IChatSessionHistory | IChatSessionSnapshot;
+    type HistoryItem = IChatSessionHistory | IChatSessionSnapshot | IChatSessionHistoryV2;
+
+    const typeofItem = (item: HistoryItem): 'v1' | 'v2' | 'snapshot' => {
+        if (item.type === 'snapshot') {
+            return 'snapshot';
+        }
+        const schema = detectHistorySchema(item);
+        const then = {
+            1: () => 'v1' as const,
+            2: () => 'v2' as const,
+            0: () => (() => { throw new Error(`未知的历史记录类型: ${item}`); })()
+        }
+        return then[schema]();
+    }
+
+    const isV1History = (item: HistoryItem): item is IChatSessionHistory => {
+        return typeofItem(item) === 'v1';
+    }
+
+    // 类型守卫
+    const isV2History = (item: HistoryItem): item is IChatSessionHistoryV2 => {
+        return typeofItem(item) === 'v2';
+    }
+
+    // 类型守卫
+    const isSnapshot = (item: HistoryItem): item is IChatSessionSnapshot => {
+        return typeofItem(item) === 'snapshot';
+    }
 
     // 切换批量模式
     const toggleBatchMode = () => {
@@ -186,12 +214,12 @@ const HistoryList = (props: {
                                 };
 
                                 // 保存更新 - 根据数据源类型进行不同的处理
-                                if (sourceType() === 'temporary') {
+                                if (sourceType() === 'temporary' && isV2History(updatedItem)) {
                                     // temporary 模式下的数据必定是 IChatSessionHistory 类型
-                                    persist.saveToLocalStorage(updatedItem as IChatSessionHistory);
-                                } else {
+                                    persist.saveToLocalStorage(updatedItem satisfies IChatSessionHistoryV2);
+                                } else if (sourceType() === 'permanent' && isSnapshot(updatedItem)) {
                                     // permanent 模式下的数据是 IChatSessionSnapshot 类型
-                                    persist.updateSnapshotSession(updatedItem as IChatSessionSnapshot);
+                                    persist.updateSnapshotSession(updatedItem satisfies IChatSessionSnapshot);
                                     // 更新 json file 本身
                                     // persist.saveToJson(updatedItem as IChatSessionHistory);
                                     persist.updateHistoryFileMetadata(updatedItem.id, {
@@ -199,6 +227,8 @@ const HistoryList = (props: {
                                         tags: updatedItem.tags,
                                         updated: updatedItem.updated
                                     }, false);
+                                } else {
+                                    console.error(`不支持的批量标签更新类型: source = ${sourceType()}, type = ${typeofItem(updatedItem)}; ${updatedItem.title}@${updatedItem.id}`,);
                                 }
                             });
 
@@ -241,8 +271,13 @@ const HistoryList = (props: {
                 batch(async () => {
                     for (const history of selectedHistories) {
                         // temporary 模式下的数据必定是 IChatSessionHistory 类型
-                        if (history?.type !== 'snapshot') {
-                            await persist.saveToJson(history as IChatSessionHistory);
+                        // if (history?.type !== 'snapshot') {
+                        //     await persist.saveToJson(history as IChatSessionHistory);
+                        // }{
+                        if (isV2History(history)) {
+                            await persist.saveToJson(history satisfies IChatSessionHistoryV2)
+                        } else {
+                            console.error(`无法持久化历史记录，类型不支持: ${history.title}@${history.id}`);
                         }
                     }
 
@@ -259,7 +294,8 @@ const HistoryList = (props: {
 
     const onclick = async (history: HistoryItem) => {
         // 只有完整的历史记录才能点击进入聊天
-        if (history.type === 'history') {
+        // if (history.type === 'history') {
+        if (isV2History(history)) {
             props.onclick?.(history);
             props.close?.();
         } else {
@@ -319,15 +355,17 @@ const HistoryList = (props: {
                         };
 
                         // 保存更新 - 根据数据源类型进行不同的处理
-                        if (sourceType() === 'temporary') {
+                        if (sourceType() === 'temporary' && isV2History(updatedItem)) {
                             // temporary 模式下的数据必定是 IChatSessionHistory 类型
-                            persist.saveToLocalStorage(updatedItem as IChatSessionHistory);
-                        } else {
+                            persist.saveToLocalStorage(updatedItem satisfies IChatSessionHistoryV2);
+                        } else if (sourceType() === 'permanent' && isSnapshot(updatedItem)) {
                             // permanent 模式下的数据是 IChatSessionSnapshot 类型
                             // 需要更新 snapshot 文件
-                            persist.updateSnapshotSession(updatedItem as IChatSessionSnapshot);
+                            persist.updateSnapshotSession(updatedItem satisfies IChatSessionSnapshot);
                             // 更新 json file 本身
                             persist.updateHistoryFileMetadata(updatedItem.id, meta, false);
+                        } else {
+                            console.error(`不支持的编辑类型: source = ${sourceType()}, type = ${typeofItem(updatedItem)}; ${updatedItem.title}@${updatedItem.id}`,);
                         }
 
                         // 更新列表中的项
@@ -472,11 +510,24 @@ const HistoryList = (props: {
                 if (item.preview.toLowerCase().includes(query)) return true;
             } else {
                 // 在完整消息中搜索
-                for (const messageItem of item.items) {
-                    if (messageItem.type !== 'message' || !messageItem.message?.content) continue;
-                    const { text } = extractMessageContent(messageItem.message.content);
-                    if (text.toLowerCase().includes(query)) return true;
-                    if (messageItem.author && messageItem.author.toLowerCase().includes(query)) return true;
+                if (isV1History(item)) {
+                    // for (const messageItem of item.items) {
+                    //     if (getMeta(messageItem, 'type') !== 'message' || !getPayload(messageItem, 'message')?.content) continue;
+                    //     const { text } = extractMessageContent(getPayload(messageItem, 'message').content);
+                    //     if (text.toLowerCase().includes(query)) return true;
+                    //     const author = getPayload(messageItem, 'author');
+                    //     if (author && author.toLowerCase().includes(query)) return true;
+                    // }
+                    console.warn('Unsupported search in v1 history items.');
+                    return false;
+                } else if (isV2History(item)) {
+                    for (const messageItem of Object.values(item.nodes)) {
+                        if (getMeta(messageItem, 'type') !== 'message' || !getPayload(messageItem, 'message')?.content) continue;
+                        const { text } = extractMessageContent(getPayload(messageItem, 'message').content);
+                        if (text.toLowerCase().includes(query)) return true;
+                        const author = getPayload(messageItem, 'author');
+                        if (author && author.toLowerCase().includes(query)) return true;
+                    }
                 }
             }
 
@@ -507,19 +558,21 @@ const HistoryList = (props: {
     const contentShotCut = (history: HistoryItem) => {
         if (history.type === 'snapshot') {
             return history.preview; // 直接使用预览
-        } else {
+        } else if (isV2History(history)) {
             // 原有的完整处理逻辑
-            const messageItems = history.items.filter(item =>
-                item.type === 'message' && item.message?.content
+            const messageItems = Object.values(history.nodes).filter(item =>
+                getMeta(item, 'type') === 'message' && getPayload(item, 'message')?.content
             );
 
             const items = messageItems.slice(0, 2);
             const content = items.map(item => {
-                const { text } = extractMessageContent(item.message.content);
-                return (item.author || 'unknown') + ": " + text.replace(/\n/g, " ");
+                const { text } = extractMessageContent(getPayload(item, 'message').content);
+                return (getPayload(item, 'author') || 'unknown') + ": " + text.replace(/\n/g, " ");
             }).join("\n");
 
             return content;
+        } else if (isV1History(history)) {
+            return 'Unsupported content preview for v1 history.';
         }
     }
 

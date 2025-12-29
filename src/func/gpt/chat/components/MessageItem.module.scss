@@ -87,9 +87,8 @@ $chat-very-narrow-container: 400px;
         }
     }
 
-    .branchIndicator {
+    .legacyBranchIndicator {
         @extend .versionIndicator;
-        // right: calc(var(--horizontal-padding));
         right: var(--horizontal-padding);
         top: calc(var(--vertical-padding) + 22px);
         color: var(--b3-theme-secondary);
@@ -134,7 +133,7 @@ $chat-very-narrow-container: 400px;
             left: calc(var(--horizontal-padding) + 40px);
         }
 
-        .branchIndicator {
+        .legacyBranchIndicator {
             right: unset;
             left: calc(var(--horizontal-padding) + 80px);
         }
@@ -430,5 +429,72 @@ $chat-very-narrow-container: 400px;
     100% {
         background-color: transparent;
         box-shadow: none;
+    }
+}
+
+// Checkpoint-style branch indicator
+.worldlineBranch {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    margin: 16px 0 8px 0;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+
+    &:hover {
+        .worldlineContent {
+            background-color: var(--b3-theme-primary-lighter);
+            color: var(--b3-theme-primary);
+            border-color: var(--b3-theme-primary);
+            transform: scale(1.05);
+
+            svg {
+                fill: var(--b3-theme-primary);
+            }
+        }
+
+        .worldlineSeparator {
+            background: linear-gradient(to right, 
+                var(--b3-border-color), 
+                var(--b3-theme-primary), 
+                var(--b3-border-color)
+            );
+        }
+    }
+
+    .worldlineSeparator {
+        flex: 1;
+        height: 1px;
+        background-color: var(--b3-border-color);
+        transition: all 0.2s ease;
+    }
+
+    .worldlineContent {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        background-color: var(--b3-theme-surface);
+        border: 1px solid var(--b3-border-color);
+        border-radius: 16px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--b3-theme-on-surface-variant);
+        white-space: nowrap;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+        svg {
+            width: 16px;
+            height: 16px;
+            fill: var(--b3-theme-on-surface-variant);
+            transition: fill 0.2s ease;
+        }
+
+        span {
+            user-select: none;
+        }
     }
 }

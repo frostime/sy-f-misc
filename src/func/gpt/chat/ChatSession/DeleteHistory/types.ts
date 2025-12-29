@@ -22,7 +22,7 @@ export interface IDeleteRecord {
     type: 'message' | 'version';
 
     // 完整的消息信息（用于记录被删除的完整消息项）
-    originalItem?: Partial<IChatSessionMsgItem>;
+    originalItem?: Partial<IChatSessionMsgItemV2>;
 
     // 简化的显示信息（用于快速展示）
     content: string;

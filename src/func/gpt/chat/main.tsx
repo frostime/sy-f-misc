@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2025-12-18 16:14:13
+ * @LastEditTime : 2025-12-28 22:27:14
  * @Description  :
  */
 // External libraries
@@ -51,12 +51,13 @@ import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 
 import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
 import { jsonAgent } from '../openai/tiny-agent';
+import { showChatWorldTree } from './ChatSession/world-tree';
 
 
 export const ChatSession: Component<{
     input?: ReturnType<typeof useSignalRef<string>>;
     systemPrompt?: string;
-    history?: IChatSessionHistory;
+    history?: IChatSessionHistoryV2;
     config?: IChatSessionConfig;
     uiStyle?: {
         maxWidth?: string;
@@ -243,8 +244,8 @@ export const ChatSession: Component<{
         }
     }));
 
-    const newChatSession = (history?: Partial<IChatSessionHistory>) => {
-        if (session.messages().length > 0 && session.hasUpdated()) {
+    const newChatSession = (history?: Partial<IChatSessionHistoryV2>) => {
+        if (session.hasMessages() && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
         session.newSession();
@@ -294,7 +295,7 @@ export const ChatSession: Component<{
 
     onCleanup(() => {
         // 移除 siyuanEditor.cleanUp()，因为 floatSiYuanTextEditor 会自动清理
-        if (session.messages().length > 0 && session.hasUpdated()) {
+        if (session.hasMessages() && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
     });
@@ -592,8 +593,8 @@ export const ChatSession: Component<{
                 <SimpleProvider state={{ model, config, session, close: () => close() }}>
                     <HistoryList
                         close={() => close()}
-                        onclick={(history: IChatSessionHistory) => {
-                            if (session.messages().length > 0) {
+                        onclick={(history: IChatSessionHistoryV2) => {
+                            if (session.hasMessages()) {
                                 persist.saveToLocalStorage(session.sessionHistory());
                             }
                             session.applyHistory(history);
@@ -732,14 +733,14 @@ export const ChatSession: Component<{
             // 添加管理消息选项
             menu.addItem({
                 icon: 'iconList',
-                label: '管理消息',
+                label: '当前世界线',
                 click: () => {
                     const { close } = solidDialog({
                         loader: () => (
                             <SessionItemsManager
                                 session={session}
                                 onClose={() => close()}
-                                focusTo={(id: IChatSessionMsgItem['id']) => {
+                                focusTo={(id: IChatSessionMsgItemV2['id']) => {
                                     close();
                                     setTimeout(() => {
                                         const targetElement = messageListRef.querySelector(`div[data-msg-id="${id}"]`) as HTMLElement;
@@ -751,11 +752,20 @@ export const ChatSession: Component<{
                                 }}
                             />
                         ),
-                        title: '管理消息',
+                        title: '当前世界线 - 对话管理',
                         width: '1200px',
                         height: '800px',
                         maxHeight: '90%',
                         maxWidth: '90%'
+                    });
+                }
+            });
+            menu.addItem({
+                icon: 'iconGraph',
+                label: '完整对话结构',
+                click: () => {
+                    showChatWorldTree({
+                       treeModel: session.treeModel
                     });
                 }
             });
@@ -941,10 +951,8 @@ export const ChatSession: Component<{
             {
                 (props.id && (
                     <span data-type="button" onclick={() => {
-                        //删除指定 id 的 seperator
-                        session.messages.update((oldList: IChatSessionMsgItem[]) => {
-                            return oldList.filter((i) => i.id !== props.id);
-                        });
+                        // 删除指定 id 的 seperator
+                        session.deleteMessages([{ id: props.id }]);
                     }}>
                         <SvgSymbol size="10px">iconClose</SvgSymbol>
                     </span>
@@ -1070,9 +1078,9 @@ export const ChatSession: Component<{
             ref={messageListRef}
             onScroll={handleScroll}
         >
-            <For each={session.messages()}>
-                {(item: IChatSessionMsgItem, index: Accessor<number>) => (
-                    <Switch fallback={<></>}>
+            <For each={session.getActiveMessages()}>
+                {(item: IChatSessionMsgItemV2, index: Accessor<number>) => (
+                    <Switch fallback={<>错误匹配类型</>}>
                         <Match when={item.type === 'message'}>
                             {/* 如果是正在流式输出的消息，在其上方显示分隔符 */}
                             {item.loading === true && (
@@ -1108,10 +1116,10 @@ export const ChatSession: Component<{
                                     session.togglePinned(index());
                                 }}
                                 index={index()}
-                                totalCount={session.messages().length}
+                                totalCount={session.getMessageCount()}
                             />
                         </Match>
-                        <Match when={item.type === 'seperator'}>
+                        <Match when={item.type === 'separator'}>
                             <Seperator title="新的对话" id={item.id} />
                         </Match>
                     </Switch>

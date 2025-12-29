@@ -1,13 +1,203 @@
 /*
- * 会话管理工具
+ * 会话管理工具 - V2 Tree Model
  * 包含原 data-utils.ts 的功能
  * 纯函数，避免 mutation 操作
+ * 
+ * 设计原则：
+ * 1. 使用通用访问器 + 类型系统，而非为每个属性写独立函数
+ * 2. 只支持 V2 Tree Model，强制类型系统检查迁移完整性
+ * 3. 命名体系：
+ *    - Meta: Item 的元数据（管理信息）
+ *    - Payload: 消息的有效载荷（实际数据内容）
+ *    - Message: OpenAI 消息格式
+ * 4. V2 结构：
+ *    - Payload 在 item.versions[currentVersionId] 中（IMessagePayload）
+ *    - 支持树形结构（parent/children）
+ *    - 支持多版本管理
  */
 
-
 import { extractContentText } from './msg-content';
-import { assembleContext2Prompt } from '../context-provider';  // 保留原有的导入
-import { formatSingleItem } from '../persistence';  // 保留原有的导入
+import { assembleContext2Prompt } from '../context-provider';
+import { formatSingleItem } from '../persistence';
+
+// ============================================================================
+// 类型定义：Meta / Payload / Message 三层结构
+// ============================================================================
+
+/**
+ * Meta 属性 - Item 元数据（管理信息，不随版本变化）
+ * V1/V2 都直接在 item 上
+ */
+type MetaProps = keyof IChatSessionMsgItemV2;
+
+/**
+ * Payload 属性 - 消息有效载荷（实际数据内容，随版本变化）
+ * V1: 在 item 顶层
+ * V2: 在 item.versions[versionId] 中（IMessagePayload）
+ */
+type PayloadProps = keyof IMessagePayload;
+
+/**
+ * Message 属性 - OpenAI 消息格式（在 Payload.message 中）
+ * V1: item.message.xxx
+ * V2: item.versions[versionId].message.xxx
+ */
+type MessageProps = keyof IMessageLoose;
+
+// ============================================================================
+// 核心访问器：基于类型的通用访问
+// ============================================================================
+
+/**
+ * 获取 Meta 属性（Item 元数据）
+ */
+export function getMeta<K extends MetaProps>(
+    item: Readonly<IChatSessionMsgItemV2>,
+    prop: K
+): IChatSessionMsgItemV2[K] {
+    if (prop === 'role') {
+        const role = item.role;
+        if (role === undefined) {
+            return getMessageProp(item, 'role') as IChatSessionMsgItemV2[K];
+        }
+    }
+    return item[prop];
+}
+
+/**
+ * 获取 Payload 属性（消息有效载荷）
+ * 从 item.versions[currentVersionId] 读取
+ */
+export function getPayload<K extends PayloadProps>(
+    item: Readonly<IChatSessionMsgItemV2>,
+    prop: K
+): IMessagePayload[K] | undefined {
+    if (!item.currentVersionId || !item.versions) return undefined;
+
+    const currentVersion = item.versions[item.currentVersionId];
+    if (!currentVersion) return undefined;
+
+    return currentVersion[prop];
+}
+
+/**
+ * 获取 Message 属性（OpenAI 消息格式）
+ * 从 item.versions[currentVersionId].message 读取
+ */
+export function getMessageProp<K extends MessageProps>(
+    item: Readonly<IChatSessionMsgItemV2>,
+    prop: K
+): IMessageLoose[K] | undefined {
+    if (!item.currentVersionId || !item.versions) return undefined;
+
+    const currentVersion = item.versions[item.currentVersionId];
+    if (!currentVersion?.message) return undefined;
+
+    return currentVersion.message[prop];
+}
+
+
+// ============================================================================
+// Setter 函数（保持不变性）
+// ============================================================================
+
+/**
+ * 设置 Meta 属性（Item 元数据）
+ */
+export function setMeta<K extends MetaProps>(
+    item: Readonly<IChatSessionMsgItemV2>,
+    prop: K,
+    value: IChatSessionMsgItemV2[K]
+): IChatSessionMsgItemV2 {
+    return {
+        ...item,
+        [prop]: value
+    };
+}
+
+/**
+ * 设置 Payload 属性（消息有效载荷）
+ * 设置到 item.versions[currentVersionId]
+ */
+export function setPayload<K extends PayloadProps>(
+    item: Readonly<IChatSessionMsgItemV2>,
+    prop: K,
+    value: IMessagePayload[K]
+): IChatSessionMsgItemV2 {
+    if (!item.currentVersionId) return item;
+
+    return {
+        ...item,
+        versions: {
+            ...item.versions,
+            [item.currentVersionId]: {
+                ...item.versions[item.currentVersionId],
+                [prop]: value
+            } as IMessagePayload
+        }
+    };
+}
+
+/**
+ * 设置 Message 属性（OpenAI 消息格式）
+ */
+export function setMessageProp<K extends MessageProps>(
+    item: Readonly<IChatSessionMsgItemV2>,
+    prop: K,
+    value: IMessageLoose[K]
+): IChatSessionMsgItemV2 {
+    if (!item.currentVersionId || !item.versions) return item;
+
+    const currentVersion = item.versions[item.currentVersionId];
+    if (!currentVersion?.message) return item;
+
+    return {
+        ...item,
+        versions: {
+            ...item.versions,
+            [item.currentVersionId]: {
+                ...currentVersion,
+                message: {
+                    ...currentVersion.message,
+                    [prop]: value
+                }
+            } as IMessagePayload
+        }
+    };
+}
+
+/**
+ * 便捷 Toggle 函数
+ */
+export const toggleMsgHidden = (item: Readonly<IChatSessionMsgItemV2>): IChatSessionMsgItemV2 => {
+    return setMeta(item, 'hidden', !getMeta(item, 'hidden'));
+};
+
+export const toggleMsgPinned = (item: Readonly<IChatSessionMsgItemV2>): IChatSessionMsgItemV2 => {
+    return setMeta(item, 'pinned', !getMeta(item, 'pinned'));
+};
+
+export const updateMsgItem = (
+    item: Readonly<IChatSessionMsgItemV2>,
+    updates: Partial<IChatSessionMsgItemV2>
+): IChatSessionMsgItemV2 => {
+    return { ...item, ...updates };
+};
+
+/**
+ * 深度克隆
+ */
+export const cloneMsgItem = (item: Readonly<IChatSessionMsgItemV2>): IChatSessionMsgItemV2 => {
+    return structuredClone(item);
+};
+
+export const checkHasToolChain = (item: Readonly<IChatSessionMsgItemV2>): boolean => {
+    const toolChainResult = getPayload(item, 'toolChainResult');
+    return (
+        toolChainResult !== undefined &&
+        toolChainResult.toolCallHistory.length > 0
+    );
+}
 
 // ============================================================================
 // Version Management
@@ -15,117 +205,86 @@ import { formatSingleItem } from '../persistence';  // 保留原有的导入
 
 /**
  * 将当前 message 存储到 versions 中
+ * @deprecated V2 中应使用 TreeModel.addVersion()
  */
 export function stageMsgItemVersion(
-    item: Readonly<IChatSessionMsgItem>,
+    item: Readonly<IChatSessionMsgItemV2>,
     version?: string
-): IChatSessionMsgItem {
-    // if (item.message) {
-    //     const versionId = version ?? (item.currentVersion ?? Date.now().toString());
-    //     item.versions = item.versions || {};
-    //     item.versions[versionId] = {
-    //         content: item.message.content,
-    //         reasoning_content: (item.message as any).reasoning_content || '',
-    //         author: item.author,
-    //         timestamp: item.timestamp,
-    //         token: item.token,
-    //         time: item.time
-    //     };
-    //     item.currentVersion = versionId;
-    // }
-    // return item;
-    if (!item.message) {
+): IChatSessionMsgItemV2 {
+    const message = getPayload(item, 'message');
+    if (!message) {
         return item;
     }
 
-    const versionId = version ?? (item.currentVersion ?? Date.now().toString());
+    const versionId = version ?? (item.currentVersionId ?? Date.now().toString());
+    const author = getPayload(item, 'author');
+    const timestamp = getPayload(item, 'timestamp');
+    const token = getPayload(item, 'token');
+    const time = getPayload(item, 'time');
+    const userPromptSlice = getPayload(item, 'userPromptSlice');
+    const toolChainResult = getPayload(item, 'toolChainResult');
 
     return {
         ...item,
         versions: {
             ...(item.versions || {}),
             [versionId]: {
-                content: item.message.content,
-                reasoning_content: (item.message as any).reasoning_content || '',
-                author: item.author,
-                timestamp: item.timestamp,
-                token: item.token,
-                time: item.time
+                id: versionId,
+                message: message,
+                author,
+                timestamp,
+                token,
+                time,
+                userPromptSlice,
+                toolChainResult
             }
         },
-        currentVersion: versionId
+        currentVersionId: versionId
     };
 }
 
 /**
  * 应用指定版本到当前 message
+ * @deprecated V2 中应使用 TreeModel.switchVersion()
  */
 export function applyMsgItemVersion(
-    item: Readonly<IChatSessionMsgItem>,
+    item: Readonly<IChatSessionMsgItemV2>,
     version: string
-): IChatSessionMsgItem {
-    // if (item.versions && item.versions[version]) {
-    //     const selectedVersion = item.versions[version];
-    //     item.message!.content = selectedVersion.content;
-
-    //     if (selectedVersion.reasoning_content) {
-    //         (item.message as any).reasoning_content = selectedVersion.reasoning_content;
-    //     } else if ((item.message as any).reasoning_content) {
-    //         (item.message as any).reasoning_content = '';
-    //     }
-
-    //     selectedVersion.author && (item.author = selectedVersion.author);
-    //     selectedVersion.timestamp && (item.timestamp = selectedVersion.timestamp);
-    //     selectedVersion.token && (item.token = selectedVersion.token);
-    //     selectedVersion.time && (item.time = selectedVersion.time);
-    //     item.currentVersion = version;
-    // }
-    // return item;
+): IChatSessionMsgItemV2 {
     if (!item.versions || !item.versions[version]) {
         return item;
     }
 
-    const selectedVersion = item.versions[version];
-
     return {
         ...item,
-        message: item.message ? {
-            ...item.message,
-            content: selectedVersion.content,
-            ...(selectedVersion.reasoning_content && {
-                reasoning_content: selectedVersion.reasoning_content
-            })
-        } : item.message,
-        ...(selectedVersion.author && { author: selectedVersion.author }),
-        ...(selectedVersion.timestamp && { timestamp: selectedVersion.timestamp }),
-        ...(selectedVersion.token && { token: selectedVersion.token }),
-        ...(selectedVersion.time && { time: selectedVersion.time }),
-        currentVersion: version
+        currentVersionId: version
     };
 }
 
 /**
  * 检查是否有多个版本
  */
-export function isMsgItemWithMultiVersion(item: Readonly<IChatSessionMsgItem>): boolean {
+export function isMsgItemWithMultiVersion(item: Readonly<IChatSessionMsgItemV2>): boolean {
     return item.versions !== undefined && Object.keys(item.versions).length > 1;
 }
 
 /**
  * 合并所有版本为一个文本（用于显示）
  */
-export function mergeMultiVersion(item: Readonly<IChatSessionMsgItem>): string {
+export function mergeMultiVersion(item: Readonly<IChatSessionMsgItemV2>): string {
     const allVersions = Object.values(item.versions || {});
     if (!allVersions.length) {
-        return extractContentText(item.message!.content);
+        const message = getPayload(item, 'message');
+        if (!message) return '';
+        return extractContentText(message.content);
     }
 
     let mergedContent = '以下是对同一个问题的不同回复:\n\n';
     allVersions.forEach((v, index) => {
-        if (v.content) {
+        if (v.message) {
             mergedContent += formatSingleItem(
-                item.message!.role.toUpperCase(),
-                extractContentText(v.content),
+                v.message.role.toUpperCase(),
+                extractContentText(v.message.content),
                 {
                     version: (index + 1).toString(),
                     author: v.author
@@ -169,10 +328,12 @@ export function mergeInputWithContext(
 }
 
 /**
- * 从 IChatSessionMsgItem 中提取用户实际输入（去除上下文）
+ * 从 IChatSessionMsgItemV2 中提取用户实际输入（去除上下文）
  */
-export function splitPromptFromContext(item: Readonly<IChatSessionMsgItem>) {
-    const content = extractContentText(item.message!.content);
+export function splitPromptFromContext(item: Readonly<IChatSessionMsgItemV2>) {
+    const message = getPayload(item, 'message');
+    if (!message) return { contextPrompt: '', userPrompt: '', userPromptSlice: [0, 0] as [number, number] };
+    const content = extractContentText(message.content);
 
     const parts = {
         contextPrompt: '',
@@ -180,8 +341,9 @@ export function splitPromptFromContext(item: Readonly<IChatSessionMsgItem>) {
         userPromptSlice: [0, 0] as [number, number]
     }
 
-    if (item.userPromptSlice) {
-        const [start, end] = item.userPromptSlice;
+    const userPromptSlice = getPayload(item, 'userPromptSlice');
+    if (userPromptSlice) {
+        const [start, end] = userPromptSlice;
         // return content.slice(start, end);
         parts.contextPrompt = content.slice(0, start);
         parts.userPrompt = content.slice(start, end);
@@ -198,98 +360,18 @@ export function splitPromptFromContext(item: Readonly<IChatSessionMsgItem>) {
 // Token & Stats Calculation
 // ============================================================================
 
-/**
- * 估算文本 token 数量（粗略估计）
- */
-export function estimateTokens(text: string): number {
-    // 粗略估计：英文约 4 字符/token，中文约 2 字符/token
-    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-    const otherChars = text.length - chineseChars;
-    return Math.ceil(chineseChars / 2 + otherChars / 4);
-}
-
-/**
- * 计算消息的字符数
- */
-export function countMessageChars(message: IMessage): number {
-    return extractContentText(message.content).length;
-}
-
-/**
- * 计算会话项的附加信息
- */
-export function calculateAttachmentInfo(
-    item: Readonly<IChatSessionMsgItem>,
-    // previousItems: IChatSessionMsgItem[]
-): {
-    attachedItems: number;
-    attachedChars: number;
-} {
-    let attachedItems = 0;
-    let attachedChars = 0;
-
-    if (item.context && item.context.length > 0) {
-        for (const ctx of item.context) {
-            for (const ctxItem of ctx.contextItems) {
-                attachedItems++;
-                attachedChars += ctxItem.content.length;
-            }
-        }
-    }
-
-    return { attachedItems, attachedChars };
-}
 
 // ============================================================================
 // Message Utilities
 // ============================================================================
 
 /**
- * 创建空的消息项
- */
-export function createEmptyMsgItem(role: 'user' | 'assistant' | 'system', idGenerator: () => string = generateId): IChatSessionMsgItem {
-    return {
-        type: 'message',
-        id: idGenerator(),
-        message: {
-            role,
-            content: ''
-        },
-        timestamp: Date.now(),
-        author: role
-    };
-}
-
-/**
- * 创建分隔符项
- */
-export function createSeparatorItem(): IChatSessionMsgItem {
-    return {
-        type: 'seperator',
-        id: generateId(),
-        timestamp: Date.now()
-    };
-}
-
-/**
- * 生成唯一 ID
- */
-function generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-/**
- * 克隆消息项（深拷贝）
- */
-export function cloneMsgItem(item: Readonly<IChatSessionMsgItem>): IChatSessionMsgItem {
-    return JSON.parse(JSON.stringify(item));
-}
-
-/**
  * 检查消息项是否为空
  */
-export function isMsgItemEmpty(item: Readonly<IChatSessionMsgItem>): boolean {
-    if (item.type !== 'message' || !item.message) return true;
-    const text = extractContentText(item.message.content);
+export function isMsgItemEmpty(item: Readonly<IChatSessionMsgItemV2>): boolean {
+    if (item.type !== 'message') return true;
+    const message = getPayload(item, 'message');
+    if (!message) return true;
+    const text = extractContentText(message.content);
     return text.trim() === '';
 }

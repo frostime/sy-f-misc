@@ -19,8 +19,8 @@ import {
     promptTemplates, 
     toolsManager,
     asStorage 
-} from "./state";
-import { CURRENT_SCHEMA, 历史版本兼容 } from "./migration";
+} from "./config";
+import { CURRENT_SCHEMA, 历史版本兼容 } from "./config_migration";
 import { loadCustomPreprocessModule, loadCustomContextProviderModule } from "./module_loading";
 
 const StoreName = 'gpt.config.json';

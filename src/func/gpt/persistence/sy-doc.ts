@@ -3,13 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 14:17:37
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
- * @LastEditTime : 2025-12-12 16:22:55
+ * @LastEditTime : 2025-12-28 01:49:54
  * @Description  :
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
 import { convertMathFormulas, id2block } from "../utils";
-import { extractMessageContent } from '../chat-utils';
+import { extractMessageContent, getMeta, getPayload } from '../chat-utils';
 
 import { showMessage } from "siyuan";
 import { defaultConfig, globalMiscConfigs } from "../setting";
@@ -64,23 +64,24 @@ ${content}
 `.trim();
 };
 
-export const item2markdown = (item: IChatSessionMsgItem, options?: {
+export const item2markdown = (item: Readonly<IChatSessionMsgItemV2>, options?: {
     convertImage?: boolean
 }) => {
     const { convertImage } = options || {
         convertImage: true
     };
-    if (item.type === 'seperator') {
+    if (getMeta(item, 'type') === 'separator') {
         return `
 ${SEPERATOR_LINE}
 > <SEPERATOR />
 `.trim();
     }
-    let author: string = item.message.role;
-    if (item.message.role === 'assistant') {
-        author = item.author;
+    const message = getPayload(item, 'message');
+    let author: string = message.role;
+    if (message.role === 'assistant') {
+        author = getPayload(item, 'author');
     }
-    let { text, images } = extractMessageContent(item.message.content);
+    let { text, images } = extractMessageContent(message.content);
     if (defaultConfig().convertMathSyntax) {
         text = convertMathFormulas(text);
     }
@@ -91,8 +92,9 @@ ${SEPERATOR_LINE}
         return `<div style="display: flex; flex-direction: column; gap: 10px;">\n${imgs.join('\n')}\n</div>`;
     }
 
-    let xmlTagName = item.message.role.toUpperCase();
-    const timeStr = item.timestamp ? formatDateTime(null, new Date(item.timestamp)) : '';
+    let xmlTagName = message.role.toUpperCase();
+    const timestamp = getPayload(item, 'timestamp');
+    const timeStr = timestamp ? formatDateTime(null, new Date(timestamp)) : '';
     const content = `${text}\n\n${imagesDivs()}`.trim();
     return formatSingleItem(xmlTagName, content, {
         author,
@@ -110,33 +112,48 @@ ${SEPERATOR_LINE}
     // `.trim();
 }
 
-type History = {
-    items: IChatSessionMsgItem[],
-    sysPrompt?: string
+/**
+ * 从 V2 History 的 worldLine 提取序列化的 items 列表
+ */
+const extractItemsFromHistory = (history: Readonly<IChatSessionHistoryV2>): Readonly<IChatSessionMsgItemV2[]> => {
+    if (!history.worldLine || history.worldLine.length === 0) {
+        return [];
+    }
+    return history.worldLine
+        .map(id => history.nodes[id])
+        .filter(Boolean);
 };
 
-
-export const chatHistoryToMarkdown = (history: IChatSessionMsgItem[] | History,
+/**
+ * 将 Chat History 转换为 Markdown
+ * @param history - V2 History 对象或者 V2 items 数组
+ * @param options - 转换选项
+ */
+export const chatHistoryToMarkdown = (
+    history: Readonly<IChatSessionMsgItemV2[] | IChatSessionHistoryV2>,
     options?: Parameters<typeof item2markdown>[1]
 ) => {
     let markdownText = '';
-    let item: IChatSessionMsgItem[] = null;
+    let items: Readonly<IChatSessionMsgItemV2[]> = null;
     let sysPrompt = null;
+
     if (Array.isArray(history)) {
-        item = history;
+        items = history;
     } else {
-        item = history.items;
+        // V2 History 对象
+        history = history as Readonly<IChatSessionHistoryV2>;
+        items = extractItemsFromHistory(history as Readonly<IChatSessionHistoryV2>);
         sysPrompt = history.sysPrompt;
     }
 
     if (globalMiscConfigs().exportMDSkipHidden) {
-        item = item.filter(item => !item.hidden);
+        items = items.filter((item: IChatSessionMsgItemV2) => !getMeta(item, 'hidden'));
     }
 
     if (sysPrompt) {
         markdownText += formatSingleItem('SYSTEM', sysPrompt) + '\n\n';
     }
-    markdownText += item.map(item => item2markdown(item, options)).join('\n\n');
+    markdownText += items.map((item: IChatSessionMsgItemV2) => item2markdown(item, options)).join('\n\n');
     return markdownText;
 }
 
@@ -195,13 +212,53 @@ const parseItemMarkdown = (markdown: string) => {
 
 
 /**
- * 扩展 IChatSessionHistory 接口，添加 preamble 字段
+ * 扩展 IChatSessionHistoryV2 接口，添加 preamble 字段
  */
-interface IChatSessionHistoryWithPreamble extends IChatSessionHistory {
+interface IChatSessionHistoryV2WithPreamble extends IChatSessionHistoryV2 {
     preamble?: string;
 }
 
-export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistoryWithPreamble | null => {
+/**
+ * 将序列化的 items 数组转换为 V2 tree 结构
+ */
+const convertItemsToTreeStructure = (items: IChatSessionMsgItemV2[]): {
+    nodes: Record<ItemID, IChatSessionMsgItemV2>;
+    rootId: ItemID | null;
+    worldLine: ItemID[];
+} => {
+    if (items.length === 0) {
+        return { nodes: {}, rootId: null, worldLine: [] };
+    }
+
+    const nodes: Record<ItemID, IChatSessionMsgItemV2> = {};
+    const worldLine: ItemID[] = [];
+
+    // 构建线性链表结构
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const prevItem = i > 0 ? items[i - 1] : null;
+
+        // 设置 parent 和 children
+        item.parent = prevItem?.id ?? null;
+        item.children = [];
+
+        // 更新前一个节点的 children
+        if (prevItem) {
+            prevItem.children = [item.id];
+        }
+
+        nodes[item.id] = item;
+        worldLine.push(item.id);
+    }
+
+    return {
+        nodes,
+        rootId: items[0].id,
+        worldLine
+    };
+};
+
+export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistoryV2WithPreamble | null => {
     if (!markdown || typeof markdown !== 'string') {
         return null;
     }
@@ -269,7 +326,7 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
     }
 
     let sysPrompt: string | undefined;
-    const items: IChatSessionMsgItem[] = [];
+    const items: IChatSessionMsgItemV2[] = [];
 
     for (const part of parts) {
         const parsed = parseItemMarkdown(part);
@@ -289,8 +346,13 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
         // 处理分隔符
         if (name.toLocaleUpperCase() === 'SEPERATOR') {
             items.push({
-                type: 'seperator',
-                id: `seperator-${Date.now()}-${items.length}`
+                type: 'separator',
+                id: `separator-${Date.now()}-${items.length}`,
+                versions: {},
+                currentVersionId: '',
+                parent: null,
+                children: [],
+                role: ''
             });
             continue;
         }
@@ -343,38 +405,53 @@ export const parseMarkdownToChatHistory = (markdown: string): IChatSessionHistor
             new Date(meta.timestamp).getTime() :
             Date.now();
 
-        const item: IChatSessionMsgItem = {
+        const versionId = `v-${Date.now()}-${items.length}`;
+        const item: IChatSessionMsgItemV2 = {
             type: 'message',
+            role: role,
             id: `msg-${Date.now()}-${items.length}`,
-            message: {
-                role,
-                content: messageContent
+            versions: {
+                [versionId]: {
+                    id: versionId,
+                    message: {
+                        role,
+                        content: messageContent
+                    },
+                    author: meta.author || role,
+                    timestamp
+                }
             },
-            author: meta.author || role,
-            timestamp
+            currentVersionId: versionId,
+            parent: null,
+            children: []
         };
 
         items.push(item);
     }
 
     const now = Date.now();
-
     const id = window.Lute.NewNodeID();
 
     console.log(`Successfully parsed ${items.length} message items, system prompt: ${sysPrompt ? 'present' : 'not present'}, preamble: ${preamble ? 'present' : 'not present'}`);
 
     console.groupEnd();
 
+    // 转换为 V2 tree 结构
+    const { nodes, rootId, worldLine } = convertItemsToTreeStructure(items);
+
     return {
-        items,
-        sysPrompt,
-        preamble,  // 添加前导文本
+        schema: 2,
+        type: 'history',
         id: id,
         title: `Chat ${formatDateTime(null, new Date(now))}`,
         timestamp: now,
         updated: now,
-        type: 'history',
-        customOptions: {}
+        sysPrompt,
+        preamble,
+        customOptions: {},
+        nodes,
+        rootId,
+        worldLine
     };
 }
 
@@ -431,7 +508,7 @@ export async function ensureRootDocument(newTitle: string, notebookId?: Notebook
  * 保存到思源笔记
  * @param history
  */
-export const saveToSiYuan = async (history: IChatSessionHistory) => {
+export const saveToSiYuan = async (history: IChatSessionHistoryV2) => {
     let { title, timestamp } = history;
     // 1. 检查之前是否已经导出过
     let markdownText = chatHistoryToMarkdown(history);
@@ -496,7 +573,7 @@ export const saveToSiYuan = async (history: IChatSessionHistory) => {
  * 保存到思源笔记的附件当中
  * @param history
  */
-export const saveToSiYuanAssetFile = async (history: IChatSessionHistory) => {
+export const saveToSiYuanAssetFile = async (history: IChatSessionHistoryV2) => {
     let { title, id } = history;
     let markdownText = chatHistoryToMarkdown(history);
 

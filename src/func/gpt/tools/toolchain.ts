@@ -445,7 +445,7 @@ export async function executeToolChain(
                     systemPrompt: options.systemPrompt,
                     stream: options.chatOption?.stream || false,
                     streamMsg: callbacks.onLLMResponseUpdate,
-                    abortControler: options.abortController,
+                    abortController: options.abortController,
                     option: options.chatOption
                 });
 
@@ -565,7 +565,7 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
                     systemPrompt: options.systemPrompt,
                     stream: options.chatOption?.stream || false,
                     streamMsg: callbacks.onLLMResponseUpdate,
-                    abortControler: options.abortController,
+                    abortController: options.abortController,
                     option: options.chatOption
                 });
 
@@ -686,7 +686,9 @@ ${stopDueToLimit ? `
             const cleanedMessages = state.allMessages.map(msg => {
                 const cleaned = { ...msg };
                 // 移除空的 tool_calls 数组（OpenAI API 不接受空数组）
+                // @ts-ignore
                 if (cleaned.tool_calls && Array.isArray(cleaned.tool_calls) && cleaned.tool_calls.length === 0) {
+                    // @ts-ignore
                     delete cleaned.tool_calls;
                 }
                 // 移除 usage 字段（不是标准的 message 字段）

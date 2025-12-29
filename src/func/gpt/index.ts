@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-19 21:52:17
  * @FilePath     : /src/func/gpt/index.ts
- * @LastEditTime : 2025-12-17 17:19:19
+ * @LastEditTime : 2025-12-28 01:39:49
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
@@ -90,7 +90,7 @@ let activeTabId = null;
 const outsideInputs = {}
 
 // src/func/gpt/index.ts (70-112)
-export const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistory) => {
+export const openChatTab = async (reuse: boolean = true, history?: IChatSessionHistoryV2) => {
 
     const prompt = await attachSelectedText();
     //input 用于在从外部给内部 Chat 添加文本内容
@@ -197,7 +197,7 @@ const registerGlobalChat = (plugin: FMiscPlugin) => {
  * 在一个新窗口中打开 GPT 对话
  * @param history 对话历史
  */
-export const openGptWindow = async (history?: IChatSessionHistory) => {
+export const openGptWindow = async (history?: IChatSessionHistoryV2) => {
     const plugin = thisPlugin();
     const tab = openTab({
         app: plugin.app,
@@ -301,7 +301,7 @@ const addDock = (plugin: FMiscPlugin) => {
         },
         type: 'fmisGPTChat',
         init(dock) {
-            const container = dock.element;
+            const container: HTMLElement = dock.element as HTMLElement;
             disposer = render(() => ChatSession({
                 systemPrompt: 'You are a helpful assistant.',
                 updateTitleCallback: (title: string) => {
@@ -352,7 +352,7 @@ export const load = async (plugin: FMiscPlugin) => {
                 loader: () => (
                     HistoryList({
                         close: () => close(),
-                        onclick: (history: IChatSessionHistory) => {
+                        onclick: (history: IChatSessionHistoryV2) => {
                             openChatTab(false, history);
                         }
                     })

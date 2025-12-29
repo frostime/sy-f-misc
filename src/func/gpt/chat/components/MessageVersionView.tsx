@@ -5,7 +5,7 @@ import { createSignalRef } from '@frostime/solid-signal-ref';
 import Markdown from '@/libs/components/Elements/Markdown';
 import { ButtonInput } from '@/libs/components/Elements';
 
-import { extractMessageContent } from '@gpt/chat-utils';
+import { extractContentText } from '@gpt/chat-utils';
 import { mergeMultiVersion } from '@gpt/chat-utils/msg-item';
 import { UIConfig } from '@/func/gpt/model/store';
 
@@ -15,14 +15,14 @@ import { showMessage } from 'siyuan';
 
 const MessageVersionView: Component<{
     session: ReturnType<typeof useSession>;
-    messageItem: IChatSessionMsgItem;
+    messageItem: IChatSessionMsgItemV2;
     onClose: () => void;
 }> = (props) => {
 
     interface VersionItem {
         version: string;
         selected: boolean;
-        ref: IChatSessionMsgItem['versions'][string]
+        ref: IMessagePayload
     }
 
     const fontSize = createSignalRef(UIConfig().inputFontsize);
@@ -30,12 +30,13 @@ const MessageVersionView: Component<{
     const versionContent = (version: string) => {
         console.debug('Getting version content for:', version);
         if (!props.messageItem.versions) return null;
-        const content = props.messageItem.versions[version];
-        if (!content) return null;
-        const { text } = extractMessageContent(content.content);
+        const payload = props.messageItem.versions[version];
+        if (!payload) return null;
+        // const { text } = extractMessageContent(payload.content);
+        const text = extractContentText(payload.message.content);
         return {
             text,
-            reasoning: content.reasoning_content
+            reasoning: payload.message.reasoning_content
         };
     }
 
@@ -47,7 +48,7 @@ const MessageVersionView: Component<{
         }))
     );
 
-    const previewVersion = createSignalRef<string>(props.messageItem.currentVersion || '');
+    const previewVersion = createSignalRef<string>(props.messageItem.currentVersionId || '');
     const previewContent = createMemo(() => (versionContent(previewVersion())));
 
     const toggleSelect = (version: string) => {
@@ -109,7 +110,7 @@ const MessageVersionView: Component<{
                                 type="checkbox"
                                 checked={item.selected}
                                 onchange={[toggleSelect, item.version]}
-                                disabled={item.version === props.messageItem.currentVersion}
+                                disabled={item.version === props.messageItem.currentVersionId}
                             />
                             <button
                                 class="b3-button b3-button--text"
@@ -120,7 +121,7 @@ const MessageVersionView: Component<{
                                         return prev;
                                     });
                                 }}
-                                disabled={item.version === props.messageItem.currentVersion}
+                                disabled={item.version === props.messageItem.currentVersionId}
                             >
                                 <svg><use href="#iconTrashcan"></use></svg>
                             </button>
@@ -139,7 +140,7 @@ const MessageVersionView: Component<{
                                     props.session.switchMsgItemVersion(props.messageItem.id, item.version);
                                     props.onClose();
                                 }}
-                                disabled={item.version === props.messageItem.currentVersion}
+                                disabled={item.version === props.messageItem.currentVersionId}
                             >
                                 <svg><use href="#iconSelect"></use></svg>
                             </button>
@@ -152,7 +153,7 @@ const MessageVersionView: Component<{
                             'white-space': 'normal'
                         }}
                     >
-                        <Show when={item.ref.reasoning_content}>
+                        <Show when={item.ref.message.reasoning_content}>
                             <b>包含推理过程</b>
                         </Show>
                         {versionContent(item.version)?.text}

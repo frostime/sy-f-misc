@@ -6,7 +6,7 @@ import { solidDialog } from '@/libs/dialog';
 import { floatingEditor } from '@/libs/components/floating-editor';
 
 import { convertMathFormulas } from '@gpt/utils';
-import { extractMessageContent } from '@gpt/chat-utils';
+import { extractMessageContent, getMeta, getPayload, getMessageProp } from '@gpt/chat-utils';
 import { defaultConfig } from '@/func/gpt/model/store';
 import * as persist from '@gpt/persistence';
 
@@ -22,7 +22,7 @@ import { floatSiYuanTextEditor } from '../utils';
 
 
 const MessageItem: Component<{
-    messageItem: IChatSessionMsgItem,
+    messageItem: IChatSessionMsgItemV2,
     loading?: boolean; // 替换 markdown 参数为 loading
     index?: number,
     totalCount?: number;
@@ -45,10 +45,11 @@ const MessageItem: Component<{
     const markdownRenderer = createMarkdownRenderer();
 
     const textContent = createMemo(() => {
-        let { text } = extractMessageContent(props.messageItem.message.content);
-        if (props.messageItem.userPromptSlice) {
+        let { text } = extractMessageContent(getPayload(props.messageItem, 'message').content);
+        const userPromptSlice = getPayload(props.messageItem, 'userPromptSlice');
+        if (userPromptSlice) {
             //隐藏 context prompt，现在 context 在用户输入前面
-            text = text.slice(props.messageItem.userPromptSlice[0], props.messageItem.userPromptSlice[1]);
+            text = text.slice(userPromptSlice[0], userPromptSlice[1]);
         }
 
         if (defaultConfig().convertMathSyntax) {
@@ -64,12 +65,13 @@ const MessageItem: Component<{
      */
     const multiModalAttachments = createMemo(() => {
         // 优先使用存储的 multiModalAttachments
-        if (props.messageItem.multiModalAttachments) {
-            return props.messageItem.multiModalAttachments;
+        const stored = getMeta(props.messageItem, 'multiModalAttachments');
+        if (stored) {
+            return stored;
         }
 
         // 兼容旧格式：从 message.content 中提取
-        const content = props.messageItem.message.content;
+        const content = getPayload(props.messageItem, 'message').content;
         if (typeof content === 'string') {
             return [];
         }
@@ -90,11 +92,11 @@ const MessageItem: Component<{
     });
 
     const msgLength = createMemo(() => {
-        let { text } = extractMessageContent(props.messageItem.message.content);
+        let { text } = extractMessageContent(getPayload(props.messageItem, 'message').content);
         return text.length;
     });
 
-    createEffect(on(() => props.messageItem.message.content, () => {
+    createEffect(on(() => getPayload(props.messageItem, 'message').content, () => {
         if (props.loading === true) return; // 在加载状态下不触发额外渲染; 主要给 edit message 导致消息发生变更的情况使用
         // console.log(`Msg.content changed: ${props.messageItem.message.content}`);
         markdownRenderer.renderHTMLBlock(msgRef);
@@ -108,26 +110,29 @@ const MessageItem: Component<{
         }
     }));
 
+    const hasMultiVersion = createMemo(() =>
+        props.messageItem.versions && Object.keys(props.messageItem.versions).length > 1
+    );
+
+    const currentVersion = createMemo(() => {
+        if (!hasMultiVersion()) return 'v1';
+        const index = Object.keys(props.messageItem.versions).indexOf(props.messageItem.currentVersionId) + 1;
+        return `v${index || 1}`;
+    });
+
+
     const VersionHooks = {
-        hasMultiVersion: () => {
-            return props.messageItem.versions && Object.keys(props.messageItem.versions).length > 1;
-        },
+        hasMultiVersion: hasMultiVersion,
+        currentVersion: currentVersion,
         versionKeys: () => {
             if (!VersionHooks.hasMultiVersion()) return [];
             return Object.keys(props.messageItem.versions).map((_, index) => `v${index + 1}`);
-        },
-        currentVersion: () => {
-            let index = 1;
-            if (props.messageItem.versions[props.messageItem.currentVersion]) {
-                index = Object.keys(props.messageItem.versions).indexOf(props.messageItem.currentVersion) + 1;
-            }
-            return `v${index}`;
         },
         switchVersionMenu: () => {
             if (!VersionHooks.hasMultiVersion()) return [];
             return Object.keys(props.messageItem.versions).map((version, index) => {
                 return {
-                    icon: version === props.messageItem.currentVersion ? 'iconCheck' : '',
+                    icon: version === props.messageItem.currentVersionId ? 'iconCheck' : '',
                     label: `v${index + 1}`,
                     click: (_: unknown, event: MouseEvent) => {
                         const target = event.target as HTMLElement;
@@ -239,62 +244,14 @@ const MessageItem: Component<{
     }
 
     const createNewBranch = () => {
-        const messages = session.messages.unwrap();
-        const currentIndex = messages.findIndex(m => m.id === props.messageItem.id);
-        if (currentIndex === -1) return;
-
-        confirm('确认?', '保留以上记录，创建一个新的对话分支', () => {
-            const sourceSessionId = session.sessionId();
-            const sourceSessionTitle = session.title();
-            const sourceMessageId = props.messageItem.id;
-            const newSessionId = window.Lute.NewNodeID();
-            const newSessionTitle = session.title() + ' - 新的分支';
-
-            // 1. Update current session (Source)
-            session.messages.update(currentIndex, (msg) => {
-                const newBranch = {
-                    sessionId: newSessionId,
-                    sessionTitle: newSessionTitle,
-                    messageId: sourceMessageId
-                };
-                const currentBranches = msg.branchTo || [];
-                const branchTo = [...currentBranches, newBranch];
-                //unique
-                const uniqueBranchTo = Array.from(new Map(branchTo.map(item => [item.sessionId + item.messageId, item])).values());
-                return { ...msg, branchTo: uniqueBranchTo };
-            });
-
-            // Save the source session immediately to persist the link
-            persist.saveToLocalStorage(session.sessionHistory());
-
-            // 2. Prepare new session (Target)
-            const slices = messages.slice(0, currentIndex + 1);
-            const branchMessages = structuredClone(slices);
-            const lastMsg = branchMessages[branchMessages.length - 1];
-
-            // Set branchFrom on the last message of the new session
-            lastMsg.branchFrom = {
-                sessionId: sourceSessionId,
-                sessionTitle: sourceSessionTitle,
-                messageId: sourceMessageId
-            };
-            // Clear branchTo in the new session's copy
-            delete lastMsg.branchTo;
-
-            const newSessionData: Partial<IChatSessionHistory> = {
-                id: newSessionId,
-                title: newSessionTitle,
-                items: branchMessages,
-                sysPrompt: session.systemPrompt(),
-                customOptions: session.modelCustomOptions()
-            };
-
-            // 3. Switch
-            session.newSession();
-            session.applyHistory(newSessionData);
-
-            // Save the new session
-            persist.saveToLocalStorage(session.sessionHistory());
+        confirm('确认?', '创建一个新的世界线分支?', () => {
+            // 使用新的 forkAt API
+            const branchId = session.createBranch({ id: props.messageItem.id });
+            if (branchId) {
+                showMessage('已截断世界线，请输入新消息开始分支');
+            } else {
+                showMessage('创建分支失败');
+            }
         });
     };
 
@@ -348,26 +305,8 @@ const MessageItem: Component<{
             click: () => props.toggleSeperator?.()
         });
         const addBlank = (type: 'user' | 'assistant') => {
-            const timestamp = new Date().getTime();
-            const newMessage: IChatSessionMsgItem = {
-                type: 'message',
-                id: window.Lute.NewNodeID(),
-                timestamp: timestamp,
-                author: 'user',
-                message: {
-                    role: type,
-                    content: ''
-                },
-                currentVersion: timestamp.toString(),
-                versions: {}
-            };
-            session.messages.update((oldList: IChatSessionMsgItem[]) => {
-                const index = oldList.findIndex(item => item.id === props.messageItem.id);
-                if (index === -1) return oldList;
-                const newList = [...oldList];
-                newList.splice(index + 1, 0, newMessage);
-                return newList;
-            });
+            // 使用封装接口插入空白消息
+            session.insertBlankMessage({ id: props.messageItem.id }, type);
         }
         menu.addItem({
             icon: 'iconAdd',
@@ -389,13 +328,13 @@ const MessageItem: Component<{
             ]
         });
         menu.addItem({
-            icon: props.messageItem.hidden ? 'iconEyeoff' : 'iconEye',
-            label: props.messageItem.hidden ? '在上下文中显示' : '在上下文中隐藏',
+            icon: getMeta(props.messageItem, 'hidden') ? 'iconEyeoff' : 'iconEye',
+            label: getMeta(props.messageItem, 'hidden') ? '在上下文中显示' : '在上下文中隐藏',
             click: () => props.toggleHidden?.()
         });
         menu.addItem({
             icon: 'iconPin',
-            label: props.messageItem.pinned ? '取消固定' : '固定消息',
+            label: getMeta(props.messageItem, 'pinned') ? '取消固定' : '固定消息',
             click: () => props.togglePinned?.()
         });
         menu.addItem({
@@ -465,7 +404,7 @@ const MessageItem: Component<{
             icon: 'iconPreview',
             label: '查看原始 Prompt',
             click: () => {
-                const { text } = extractMessageContent(props.messageItem.message.content);
+                const { text } = extractMessageContent(getPayload(props.messageItem, 'message').content);
                 inputDialog({
                     title: '原始 Prompt',
                     defaultText: text,
@@ -479,22 +418,22 @@ const MessageItem: Component<{
         const submenus = [];
 
         submenus.push({
-            label: `作者: ${props.messageItem.author}`,
+            label: `作者: ${getPayload(props.messageItem, 'author')}`,
             type: 'readonly'
         });
         submenus.push({
             label: `消息长度: ${msgLength()}`,
             type: 'readonly'
         });
-        if (props.messageItem.attachedItems) {
+        if (getMeta(props.messageItem, 'attachedItems')) {
             submenus.push({
-                label: `上下文条目: ${props.messageItem.attachedItems}`,
+                label: `上下文条目: ${getMeta(props.messageItem, 'attachedItems')}`,
                 type: 'readonly'
             });
         }
-        if (props.messageItem.attachedChars) {
+        if (getMeta(props.messageItem, 'attachedChars')) {
             submenus.push({
-                label: `上下文字数: ${props.messageItem.attachedChars}`,
+                label: `上下文字数: ${getMeta(props.messageItem, 'attachedChars')}`,
                 type: 'readonly'
             });
         }
@@ -504,9 +443,10 @@ const MessageItem: Component<{
         //         type: 'readonly'
         //     });
         // }
-        if (props.messageItem.usage) {
+        const usage = getPayload(props.messageItem, 'usage');
+        if (usage) {
             submenus.push({
-                label: `Token: ${props.messageItem.usage?.total_tokens} ↑ ${props.messageItem.usage?.prompt_tokens} ↓ ${props.messageItem.usage?.completion_tokens}`,
+                label: `Token: ${usage.total_tokens} ↑ ${usage.prompt_tokens} ↓ ${usage.completion_tokens}`,
                 type: 'readonly'
             })
         }
@@ -567,7 +507,7 @@ const MessageItem: Component<{
     };
 
     const PinIndicator = () => (
-        <Show when={props.messageItem.pinned}>
+        <Show when={getMeta(props.messageItem, 'pinned')}>
             <div
                 class={styles.pinIndicator}
                 title="已固定"
@@ -581,101 +521,174 @@ const MessageItem: Component<{
         </Show>
     );
 
-    const BranchIndicator = () => {
-        const switchSession = (sessionId: string, targetMsgId?: string) => {
-            // Save current
-            persist.saveToLocalStorage(session.sessionHistory());
+        const LegacyBranchIndicator = () => {
+            const switchSession = (sessionId: string, targetMsgId?: string) => {
+                // Save current
+                persist.saveToLocalStorage(session.sessionHistory());
 
-            // Load target
-            const key = `gpt-chat-${sessionId}`;
-            const data = localStorage.getItem(key);
-            if (data) {
-                const history = JSON.parse(data);
-                session.newSession();
-                session.applyHistory(history);
+                // Load target
+                const key = `gpt-chat-${sessionId}`;
+                const data = localStorage.getItem(key);
+                if (data) {
+                    const history = JSON.parse(data);
+                    session.newSession();
+                    session.applyHistory(history);
 
-                if (targetMsgId) {
-                    setTimeout(() => {
-                        const selector = `[data-session-id="${sessionId}"] [data-msg-id="${targetMsgId}"]`;
-                        const element = document.querySelector(selector) as HTMLElement;
-                        if (element) {
-                            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            element.classList.add(styles.highlight);
-                            setTimeout(() => {
-                                element.classList.remove(styles.highlight);
-                            }, 2000);
-                        }
-                    }, 300);
+                    if (targetMsgId) {
+                        setTimeout(() => {
+                            const selector = `[data-session-id="${sessionId}"] [data-msg-id="${targetMsgId}"]`;
+                            const element = document.querySelector(selector) as HTMLElement;
+                            if (element) {
+                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                element.classList.add(styles.highlight);
+                                setTimeout(() => {
+                                    element.classList.remove(styles.highlight);
+                                }, 2000);
+                            }
+                        }, 300);
+                    }
+                } else {
+                    showMessage('无法找到目标会话');
                 }
-            } else {
-                showMessage('无法找到目标会话');
-            }
+            };
+
+            const showBranchMenu = (e: MouseEvent) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const menu = new Menu("branch-menu");
+
+                if (getMeta(props.messageItem, 'branchFrom')) {
+                    const from = getMeta(props.messageItem, 'branchFrom');
+                    menu.addItem({
+                        icon: 'iconReply',
+                        label: `来自: ${from.sessionTitle}`,
+                        click: () => switchSession(from.sessionId, from.messageId)
+                    });
+                }
+
+                if (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0) {
+                    if (getMeta(props.messageItem, 'branchFrom')) menu.addSeparator();
+
+                    menu.addItem({
+                        label: '分支列表',
+                        type: 'readonly'
+                    });
+
+                    getMeta(props.messageItem, 'branchTo')?.forEach(to => {
+                        menu.addItem({
+                            icon: 'iconSplitLR',
+                            label: `前往: ${to.sessionTitle}`,
+                            click: () => switchSession(to.sessionId, to.messageId)
+                        });
+                    });
+                }
+
+                const target = e.target as HTMLElement;
+                const rect = target.getBoundingClientRect();
+                menu.open({
+                    x: rect.left,
+                    y: rect.bottom
+                });
+            };
+
+            const hasBranch = getMeta(props.messageItem, 'branchFrom') || (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0);
+
+            return (
+                <Show when={hasBranch}>
+                    <div
+                        class={styles.legacyBranchIndicator}
+                        onClick={showBranchMenu}
+                        title="分支信息"
+                    >
+                        <svg><use href="#iconSplitLR" /></svg>
+                        <Show when={getMeta(props.messageItem, 'branchTo')?.length}>
+                            <span>{getMeta(props.messageItem, 'branchTo')?.length}</span>
+                        </Show>
+                    </div>
+                </Show>
+            );
         };
 
-        const showBranchMenu = (e: MouseEvent) => {
+    /**
+     * 新版分支指示器（基于 tree model）
+     * 显示节点是否有多个子分支，点击可循环切换世界线
+     */
+    const BranchIndicator = () => {
+        const { session } = useSimpleContext();
+        const treeModel = (session as any).treeModel; // 直接访问 treeModel
+
+        // 检查当前节点是否有多个分支
+        const hasBranches = createMemo(() => {
+            if (!treeModel) return false;
+            return treeModel.hasMultipleBranches(props.messageItem.id);
+        });
+
+        const branchCount = createMemo(() => {
+            if (!treeModel) return 0;
+            return treeModel.getBranchCount(props.messageItem.id);
+        });
+
+        /**
+         * 切换到下一个分支（自动DFS选择）
+         */
+        const switchToNextBranch = (e: MouseEvent) => {
             e.stopPropagation();
             e.preventDefault();
-            const menu = new Menu("branch-menu");
 
-            if (props.messageItem.branchFrom) {
-                const from = props.messageItem.branchFrom;
-                menu.addItem({
-                    icon: 'iconReply',
-                    label: `来自: ${from.sessionTitle}`,
-                    click: () => switchSession(from.sessionId, from.messageId)
-                });
-            }
+            if (!treeModel) return;
 
-            if (props.messageItem.branchTo && props.messageItem.branchTo.length > 0) {
-                if (props.messageItem.branchFrom) menu.addSeparator();
+            const currentChildren = props.messageItem.children;
+            if (currentChildren.length === 0) return;
 
-                menu.addItem({
-                    label: '分支列表',
-                    type: 'readonly'
-                });
+            // 找到当前世界线中，这个节点的下一个节点
+            const worldLine = treeModel.getWorldLine();
+            const currentIndex = worldLine.indexOf(props.messageItem.id);
+            const nextInWorldLine = currentIndex >= 0 ? worldLine[currentIndex + 1] : null;
 
-                props.messageItem.branchTo.forEach(to => {
-                    menu.addItem({
-                        icon: 'iconSplitLR',
-                        label: `前往: ${to.sessionTitle}`,
-                        click: () => switchSession(to.sessionId, to.messageId)
-                    });
-                });
-            }
+            // 找到下一个分支（循环）
+            const currentChildIndex = nextInWorldLine ? currentChildren.indexOf(nextInWorldLine) : -1;
+            const nextChildIndex = (currentChildIndex + 1) % currentChildren.length;
+            const nextChildId = currentChildren[nextChildIndex];
 
-            const target = e.target as HTMLElement;
-            const rect = target.getBoundingClientRect();
-            menu.open({
-                x: rect.left,
-                y: rect.bottom
-            });
+            // DFS 找到这个分支的叶子节点
+            const findLeaf = (nodeId: ItemID): ItemID => {
+                const node = treeModel.getNodeById(nodeId);
+                if (!node || node.children.length === 0) return nodeId;
+                // 选择第一个子节点继续
+                return findLeaf(node.children[0]);
+            };
+
+            const targetLeafId = findLeaf(nextChildId);
+            treeModel.switchWorldLine(targetLeafId);
+            
+            showMessage(`已切换到分支 ${nextChildIndex + 1}/${currentChildren.length}`);
         };
 
-        const hasBranch = props.messageItem.branchFrom || (props.messageItem.branchTo && props.messageItem.branchTo.length > 0);
-
         return (
-            <Show when={hasBranch}>
+            <Show when={hasBranches()}>
                 <div
-                    class={styles.branchIndicator}
-                    onClick={showBranchMenu}
-                    title="分支信息"
+                    class={styles.worldlineBranch}
+                    onClick={switchToNextBranch}
+                    title={`当前节点有 ${branchCount()} 个分支，点击切换`}
                 >
-                    <svg><use href="#iconSplitLR" /></svg>
-                    <Show when={props.messageItem.branchTo?.length}>
-                        <span>{props.messageItem.branchTo?.length}</span>
-                    </Show>
+                    <div class={styles.worldlineSeparator} />
+                    <div class={styles.worldlineContent}>
+                        <svg><use href="#iconSplitLR" /></svg>
+                        <span>分支 ({branchCount()})</span>
+                    </div>
+                    <div class={styles.worldlineSeparator} />
                 </div>
             </Show>
         );
     };
 
     const ReasoningSection = () => {
-        const isAssistant = () => props.messageItem.message?.role === 'assistant';
+        const message = () => getPayload(props.messageItem, 'message');
+        const isAssistant = () => message()?.role === 'assistant';
 
         const reasoningContent = () => {
             if (isAssistant()) {
-                const message = props.messageItem.message;
-                return message.reasoning_content;
+                return getMessageProp(props.messageItem, 'reasoning_content');
             }
             return null;
         }
@@ -711,7 +724,7 @@ const MessageItem: Component<{
                         class={`${styles.reasoningContent} b3-typography`}
                         innerHTML={
                             // @ts-ignore
-                            lute.Md2HTML(props.messageItem.message.reasoning_content)
+                            lute.Md2HTML(getMessageProp(props.messageItem, 'reasoning_content'))
                         }
                     />
                 </details>
@@ -721,11 +734,11 @@ const MessageItem: Component<{
 
     const attachedText = () => {
         const texts = [];
-        if (props.messageItem.attachedItems) {
-            texts.push(`${props.messageItem.attachedItems}条`);
+        if (getMeta(props.messageItem, 'attachedItems')) {
+            texts.push(`${getMeta(props.messageItem, 'attachedItems')}条`);
         }
-        if (props.messageItem.attachedChars) {
-            texts.push(`${props.messageItem.attachedChars}字`);
+        if (getMeta(props.messageItem, 'attachedChars')) {
+            texts.push(`${getMeta(props.messageItem, 'attachedChars')}字`);
         }
         return '上下文: ' + texts.join('/');
     }
@@ -735,10 +748,10 @@ const MessageItem: Component<{
             <div class={styles.toolbar}>
                 <div class={styles['toolbar-text']}>
                     <span data-label="timestamp">
-                        {formatDateTime(null, new Date(props.messageItem.timestamp))}
+                        {formatDateTime(null, new Date(getPayload(props.messageItem, 'timestamp')))}
                     </span>
                     <span data-label="author">
-                        {props.messageItem.author}
+                        {getPayload(props.messageItem, 'author')}
                     </span>
                     <span data-label="msgLength">
                         消息长度: {msgLength()}
@@ -750,26 +763,26 @@ const MessageItem: Component<{
                     {/* <span data-label="attachedChars">
                     {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
                 </span> */}
-                    <Show when={props.messageItem.usage}>
+                    <Show when={getPayload(props.messageItem, 'usage')}>
                         <span data-label="token" class="counter"
                             style={{
                                 padding: 0, 'line-height': 'unset', 'font-size': '12px'
                             }}
                         >
                             {/* Token: {props.messageItem.token} */}
-                            Token: {props.messageItem.usage?.total_tokens} ↑ {props.messageItem.usage?.prompt_tokens} ↓ {props.messageItem.usage?.completion_tokens}
+                            Token: {getPayload(props.messageItem, 'usage')?.total_tokens} ↑ {getPayload(props.messageItem, 'usage')?.prompt_tokens} ↓ {getPayload(props.messageItem, 'usage')?.completion_tokens}
                         </span>
                     </Show>
 
-                    <Show when={props.messageItem.time}>
+                    <Show when={getPayload(props.messageItem, 'time')}>
                         <span data-label="time" class="counter"
                             style={{
                                 padding: 0, 'line-height': 'unset', 'font-size': '12px'
                             }}
                         >
-                            时延: {props.messageItem.time.latency} ms
-                            <Show when={props.messageItem.time.throughput}>
-                                &nbsp;|&nbsp;吞吐量: {props.messageItem.time.throughput.toFixed(2)} tokens/s
+                            时延: {getPayload(props.messageItem, 'time')?.latency} ms
+                            <Show when={getPayload(props.messageItem, 'time')?.throughput}>
+                                &nbsp;|&nbsp;吞吐量: {getPayload(props.messageItem, 'time')?.throughput?.toFixed(2)} tokens/s
                             </Show>
                         </span>
 
@@ -788,8 +801,8 @@ const MessageItem: Component<{
                     }} />
                     <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
                     <ToolbarButton
-                        icon={props.messageItem.hidden ? "iconEyeoff" : "iconEye"}
-                        title={props.messageItem.hidden ? "在上下文中显示" : "固定消息"}
+                        icon={getMeta(props.messageItem, 'hidden') ? "iconEyeoff" : "iconEye"}
+                        title={getMeta(props.messageItem, 'hidden') ? "在上下文中显示" : "固定消息"}
                         onclick={(e: MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -798,7 +811,7 @@ const MessageItem: Component<{
                     />
                     <ToolbarButton
                         icon="iconPin"
-                        title={props.messageItem.pinned ? "取消固定" : "固定消息"}
+                        title={getMeta(props.messageItem, 'pinned') ? "取消固定" : "固定消息"}
                         onclick={(e: MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -829,8 +842,8 @@ const MessageItem: Component<{
     };
 
     return (
-        <div class={styles.messageItem} data-role={props.messageItem.message.role}
-            data-msg-id={props.messageItem.id}
+        <div class={styles.messageItem} data-role={getMessageProp(props.messageItem, 'role')}
+            data-msg-id={getMeta(props.messageItem, 'id')}
             tabindex={props.index ?? -1}
             onKeyDown={(e: KeyboardEvent & { currentTarget: HTMLElement }) => {
                 if (!(e.ctrlKey || e.metaKey)) return;
@@ -866,8 +879,8 @@ const MessageItem: Component<{
             </Show>
             <VersionIndicator />
             <PinIndicator />
-            <BranchIndicator />
-            {props.messageItem.message.role === 'user' ? (
+            <LegacyBranchIndicator />
+            {getMessageProp(props.messageItem, 'role') === 'user' ? (
                 <div class={styles.icon}><IconUser /></div>
             ) : (
                 <div class={styles.icon}><IconAssistant /></div>
@@ -881,10 +894,10 @@ const MessageItem: Component<{
                         oncontextmenu={onContextMenu}
                         classList={{
                             [styles.message]: true,
-                            [styles[props.messageItem.message.role]]: true,
+                            [styles[getMessageProp(props.messageItem, 'role')]]: true,
                             'b3-typography': true,
-                            [styles.hidden]: props.messageItem.hidden,
-                            [styles.pinned]: props.messageItem.pinned
+                            [styles.hidden]: getMeta(props.messageItem, 'hidden'),
+                            [styles.pinned]: getMeta(props.messageItem, 'pinned')
                         }}
                         // style={{
                         //     'white-space': props.loading ? 'pre-wrap' : '',
@@ -893,18 +906,19 @@ const MessageItem: Component<{
                         ref={msgRef}
                     />
                 </div>
-                <Show when={multiModalAttachments().length > 0 || props.messageItem.context?.length > 0}>
+                <Show when={multiModalAttachments().length > 0 || getMeta(props.messageItem, 'context')?.length > 0}>
                     <AttachmentList
                         multiModalAttachments={multiModalAttachments()}
-                        contexts={props.messageItem.context}
+                        contexts={getMeta(props.messageItem, 'context')}
                         size="small"
                     />
                 </Show>
                 {/* 只在 assistant 消息中显示工具调用指示器 */}
-                <Show when={props.messageItem.message.role === 'assistant'}>
+                <Show when={getMessageProp(props.messageItem, 'role') === 'assistant'}>
                     <ToolChainIndicator messageItem={props.messageItem} />
                 </Show>
                 <MessageToolbar />
+                <BranchIndicator />
             </div>
         </div>
     )
