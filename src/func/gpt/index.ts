@@ -377,17 +377,10 @@ export const load = async (plugin: FMiscPlugin) => {
                 }
             },
             {
-                'label': '导入 Aizex Claude 对话',
+                label: '导入 Aizex 对话',
                 icon: 'iconGithub',
                 click: () => {
-                    persist.importChatHistoryFile('aizex-claude');
-                }
-            },
-            {
-                label: '导入 Aizex GPT 对话',
-                icon: 'iconGithub',
-                click: () => {
-                    persist.importChatHistoryFile('aizex-gpt');
+                    persist.importChatHistoryFile('aizex');
                 }
             },
             {

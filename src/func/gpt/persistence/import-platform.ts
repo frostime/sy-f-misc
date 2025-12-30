@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 14:55:08
  * @FilePath     : /src/func/gpt/persistence/import-platform.ts
- * @LastEditTime : 2025-12-30 00:16:53
- * @Description  : 
+ * @LastEditTime : 2025-12-31 00:31:33
+ * @Description  :
  */
 import { showMessage } from "siyuan";
 import { ensureRootDocument, formatSingleItem, parseMarkdownToChatHistory } from "./sy-doc";
@@ -89,81 +89,10 @@ const importDialog = (title: string, markdown: string) => {
     });
 }
 
-/**
- * 导入谷歌 AI Studio 的对话文件
- */
-// async function importGoogleAIStudioFile(): Promise<ImportFileResult> {
-//     return new Promise((resolve) => {
-//         // 创建文件选择输入框
-//         const fileInput = document.createElement('input');
-//         fileInput.type = 'file';
-//         fileInput.accept = '';
 
-//         // 监听文件选择事件
-//         fileInput.onchange = function (event: Event) {
-//             const file = (event.target as HTMLInputElement).files?.[0];
-//             if (!file) {
-//                 resolve({ succeed: false, name: '', content: 'No file selected.' });
-//                 return;
-//             }
+type ParsedChatResult = { name?: string; content?: string; history?: IChatSessionHistoryV2 };
 
-//             // 读取文件内容
-//             const reader = new FileReader();
-//             reader.onload = function (event) {
-//                 try {
-//                     const content = event.target.result as string;
-//                     const prompts = JSON.parse(content);
-
-//                     // 生成 Markdown 文本
-//                     let markdownText = '';
-//                     if (prompts.systemInstruction) {
-//                         markdownText += `> ---\n> <SYSTEM/>\n`;
-//                         markdownText += `\`\`\`json\n${JSON.stringify(prompts.systemInstruction, null, 2)}\n\`\`\`\n\n`;
-//                     }
-//                     // markdownText += `> model: ${prompts.runSettings.model}\n\n`;
-
-//                     const chunks = prompts.chunkedPrompt.chunks;
-//                     chunks.forEach((chunk, index) => {
-//                         if (chunk.text) {
-//                             let role = chunk.role;
-//                             if (role === 'model') {
-//                                 role = 'ASSISTANT';
-//                             } else if (role === 'user') {
-//                                 role = 'USER';
-//                             } else if (role === 'system') {
-//                                 role = 'SYSTEM';
-//                             }
-//                             const attr = { index: index.toString() };
-//                             if (role === 'ASSISTANT') {
-//                                 attr['model'] = prompts.runSettings.model;
-//                             }
-//                             const item = formatSingleItem(role, chunk.text, attr);
-//                             markdownText += item + '\n\n';
-//                         }
-//                     });
-
-//                     // 返回成功结果
-//                     resolve({ succeed: true, name: file.name, content: markdownText });
-//                 } catch (error) {
-//                     // 返回失败结果
-//                     resolve({ succeed: false, name: file.name, content: 'Error parsing file' });
-//                 }
-//             };
-
-//             reader.onerror = function (error) {
-//                 resolve({ succeed: false, name: file.name, content: 'Error reading file' });
-//             };
-
-//             reader.readAsText(file, 'UTF-8');
-//         };
-
-//         // 触发文件选择
-//         fileInput.click();
-//     });
-// }
-
-
-const chooseFileAndParse = async (parser: (text: string) => { name?: string; content: string }, filter: string = '') => {
+const chooseFileAndParse = async (parser: (text: string) => ParsedChatResult, filter: string = '') => {
     return new Promise((resolve) => {
         // 创建文件选择输入框
         const fileInput = document.createElement('input');
@@ -184,7 +113,7 @@ const chooseFileAndParse = async (parser: (text: string) => { name?: string; con
                 try {
                     const result = parser(event.target?.result as string);
                     if (result) {
-                        resolve({ succeed: true, name: result?.name || file.name, content: result.content });
+                        resolve({ succeed: true, name: result?.name || file.name, content: result.content, history: result.history });
                     } else {
                         resolve({ succeed: false, name: file.name, content: 'Failed to parse file' });
                     }
@@ -206,16 +135,12 @@ const chooseFileAndParse = async (parser: (text: string) => { name?: string; con
 }
 
 
-const parseGoogleAIStudioFile = (content: string): { name: string; content: string } => {
+const parseGoogleAIStudioFile = (content: string): ParsedChatResult => {
     const prompts = JSON.parse(content);
-
-    // 生成 Markdown 文本
-    let markdownText = '';
-    if (prompts.systemInstruction?.text) {
-        markdownText += `> ---\n> <SYSTEM/>\n`;
-        markdownText += `${prompts.systemInstruction.text}\n\n`;
-    }
-    // markdownText += `> model: ${prompts.runSettings.model}\n\n`;
+    const nodes: Record<string, IChatSessionMsgItemV2> = {};
+    const worldLine: string[] = [];
+    const timestamp = Date.now();
+    const defaultModel = prompts.runSettings?.model;
 
     const chunks = prompts.chunkedPrompt.chunks;
     chunks.forEach((chunk, index) => {
@@ -229,32 +154,103 @@ const parseGoogleAIStudioFile = (content: string): { name: string; content: stri
             } else if (role === 'system') {
                 role = 'SYSTEM';
             } else {
-                return
+                return;
             }
-            const attr = { index: index.toString() };
-            if (role === 'ASSISTANT') {
-                attr['model'] = prompts.runSettings.model;
+            const id = `google-${index}`;
+            const versionId = `${id}-v1`;
+            const roleLower = role.toLowerCase();
+            nodes[id] = {
+                id,
+                type: 'message',
+                role: roleLower as any,
+                currentVersionId: versionId,
+                versions: {
+                    [versionId]: {
+                        id: versionId,
+                        message: {
+                            role: roleLower as any,
+                            content: chunk.text,
+                        },
+                        author: roleLower,
+                        timestamp,
+                        time: { latency: 0 },
+                        metadata: roleLower === 'assistant' ? { model: defaultModel } : undefined,
+                    } as any,
+                },
+                parent: index === 0 ? null : worldLine[worldLine.length - 1],
+                children: [],
+            };
+            if (index > 0) {
+                const prevId = worldLine[worldLine.length - 1];
+                nodes[prevId].children.push(id);
             }
-            const item = formatSingleItem(role, chunk.text, attr);
-            markdownText += item + '\n\n';
+            worldLine.push(id);
         }
     });
-    return { name: 'chat', content: markdownText };
+
+    const rootId = worldLine[0] || null;
+    const history: IChatSessionHistoryV2 = {
+        schema: 2,
+        type: 'history',
+        id: `google-${timestamp}`,
+        title: 'Google AI Studio Chat',
+        timestamp,
+        updated: timestamp + 10,
+        tags: [],
+        sysPrompt: prompts.systemInstruction?.text,
+        modelBareId: undefined,
+        customOptions: {},
+        nodes,
+        rootId,
+        worldLine,
+        bookmarks: [],
+    };
+    return { name: history.title, history };
 }
 
-function parseAizexClaudeFile(content: string): { name: string; content: string } {
+const normalizeTimestamp = (ts?: number) => {
+    if (!ts || Number.isNaN(ts)) return undefined;
+    // Aizex exports seconds since epoch; guard for ms
+    return ts > 1e12 ? ts : ts * 1000;
+}
+
+const extractAizexContent = (msg: any): string => {
+    if (!msg?.content) return '';
+    const c = msg.content;
+    const type = c.content_type;
+    if (type === 'text' && Array.isArray(c.parts)) {
+        return c.parts.join('\n\n').trim();
+    }
+    if (type === 'reasoning_recap' && typeof c.content === 'string') {
+        return c.content.trim();
+    }
+    if (type === 'thoughts' && Array.isArray(c.thoughts)) {
+        return c.thoughts.map(t => t?.content || t?.summary || '').filter(Boolean).join('\n\n').trim();
+    }
+    if (typeof c.content === 'string') {
+        return c.content.trim();
+    }
+    return '';
+}
+
+function parseAizexLegacyClaude(content: string): ParsedChatResult {
     const prompts = JSON.parse(content);
-    let name = prompts.name;
-    let messages = prompts.chat_messages;
+    const name = prompts.name;
+    const messages = prompts.chat_messages;
     let markdownText = '';
-    const senderMap = {
+    const senderMap: Record<string, string> = {
         human: 'USER',
         assistant: 'ASSISTANT',
-    }
+    };
     messages.forEach((message, index) => {
         const sender = senderMap[message.sender];
-        const content = message.content.filter(item => item.type === 'text').map(item => item.text).join('\n');
-        const attr = { index: index.toString() };
+        if (!sender) return;
+        const content = message.content
+            .filter((item: any) => item.type === 'text')
+            .map((item: any) => item.text)
+            .join('\n');
+        if (!content) return;
+        const attr: Record<string, string> = { index: index.toString() };
         if (sender === 'ASSISTANT') {
             attr['model'] = 'Claude';
         }
@@ -264,41 +260,120 @@ function parseAizexClaudeFile(content: string): { name: string; content: string 
     return { name, content: markdownText };
 }
 
-const parseAizexGPTFile = (content: string): { name: string; content: string } => {
-    const jsonData = JSON.parse(content);
-    let name = jsonData.title;
-    let mapping = jsonData.mapping;
-    // Create an array to hold all messages
-    let messages = [];
+const parseAizexFile = (content: string): ParsedChatResult => {
+    const data = JSON.parse(content);
 
-    for (let key in mapping) {
-        let message = mapping[key].message;
-        if (!message) continue;
-        const author = message.author?.role;
-        if (author === 'tool' || !author) continue;
-        let messageContent = message.content.parts.join('\n\n');
-        let createTime = message.create_time as number;
-        let model = message.metadata?.model_slug;
-        messages.push({
-            author,
-            content: messageContent,
-            timestamp: createTime,
-            model
-        });
+    // Legacy export with chat_messages
+    if (Array.isArray(data?.chat_messages)) {
+        return parseAizexLegacyClaude(content);
     }
 
-    messages.sort((a, b) => a.timestamp - b.timestamp);
-    let markdownText = '';
-    messages.forEach((message, index) => {
-        const attr = { index: index.toString(), timestamp: formatDateTime(null, new Date(message.timestamp * 1000)) };
-        if (message.model) {
-            attr['model'] = message.model;
-        }
-        const item = formatSingleItem(message.author.toUpperCase(), message.content, attr);
-        markdownText += item + '\n\n';
-    });
-    return { name, content: markdownText };
+    const mapping = data?.mapping || {};
+    let currentId: string | null = data?.current_node || null;
 
+    // Fallback to root (parent is null) or first key
+    if (!currentId || !mapping[currentId]) {
+        const root = Object.keys(mapping).find(id => mapping[id]?.parent === null);
+        currentId = root || Object.keys(mapping)[0] || null;
+    }
+
+    if (!currentId) {
+        return { name: data?.title || 'Aizex Chat', content: '' };
+    }
+
+    const visited = new Set<string>();
+    const chain: string[] = [];
+    let iter: string | null = currentId;
+    while (iter && mapping[iter] && !visited.has(iter)) {
+        chain.push(iter);
+        visited.add(iter);
+        iter = mapping[iter].parent || null;
+    }
+    chain.reverse(); // root -> leaf
+
+    const defaultModel = data?.default_model_slug;
+    const nodes: Record<string, IChatSessionMsgItemV2> = {};
+
+    // first pass: create nodes for all valid messages
+    Object.entries(mapping).forEach(([id, nodeData]: [string, any]) => {
+        const msg = nodeData?.message;
+        if (!msg) return;
+        const author = msg.author?.role;
+        if (!author || author === 'tool') return;
+        if (msg.metadata?.is_visually_hidden_from_conversation) return;
+
+        const text = extractAizexContent(msg);
+        if (!text) return;
+
+        const ts = normalizeTimestamp(msg.create_time);
+        const model = msg.metadata?.model_slug || msg.metadata?.default_model_slug || defaultModel;
+
+        const versionId = `${id}-v1`;
+        const roleLower = author.toLowerCase();
+
+        nodes[id] = {
+            id,
+            type: 'message',
+            role: roleLower as any,
+            currentVersionId: versionId,
+            versions: {
+                [versionId]: {
+                    id: versionId,
+                    message: {
+                        role: roleLower as any,
+                        content: text,
+                    },
+                    author: roleLower,
+                    timestamp: ts,
+                    time: ts ? { latency: 0 } : undefined,
+                    // model info
+                    metadata: { model },
+                } as any,
+            },
+            parent: null,
+            children: [],
+        };
+    });
+
+    // second pass: wire parents/children only among kept nodes
+    Object.entries(mapping).forEach(([id, nodeData]: [string, any]) => {
+        if (!nodes[id]) return;
+        const parentId: string | null = nodeData?.parent || null;
+        const children: string[] = nodeData?.children || [];
+        const filteredChildren = children.filter(cid => !!nodes[cid]);
+        nodes[id].children = filteredChildren;
+        if (parentId && nodes[parentId]) {
+            nodes[id].parent = parentId;
+        } else {
+            nodes[id].parent = null;
+        }
+    });
+
+    // build worldLine using chain filtered to kept nodes
+    const worldLine = chain.filter(id => !!nodes[id]);
+    const rootId = worldLine[0] || null;
+
+    const timestamp = normalizeTimestamp(data?.create_time) || Date.now();
+    const updated = normalizeTimestamp(data?.update_time) || timestamp;
+
+    const history: IChatSessionHistoryV2 = {
+        schema: 2,
+        type: 'history',
+        id: `aizex-${data?.conversation_id || timestamp}`,
+        title: data?.title || 'Aizex Chat',
+        timestamp,
+        updated,
+        tags: [],
+        sysPrompt: undefined,
+        modelBareId: undefined,
+        customOptions: {},
+        nodes,
+        rootId,
+        worldLine,
+        bookmarks: [],
+    };
+
+    return { name: history.title, history };
 }
 
 /**
@@ -306,10 +381,9 @@ const parseAizexGPTFile = (content: string): { name: string; content: string } =
  * @param content Cherry Studio 导出的 markdown 文本
  * @returns 解析后的对话内容
  */
-const parseCherryStudioMarkdown = (content: string): { name: string; content: string } => {
-
+const parseCherryStudioMarkdown = (content: string): ParsedChatResult => {
     content = content.trim();
-    let title = '对话记录'
+    let title = '对话记录';
     // 检测标题（以 '# ' 开头的行）
     if (content.startsWith('# ')) {
         let lines = content.split('\n');
@@ -355,31 +429,73 @@ const parseCherryStudioMarkdown = (content: string): { name: string; content: st
         messageList.push({ author: currentAuthor, content: currentMessage.trim() });
     }
 
-    // 将解析后的消息转换为 SiYuan 格式
-    let markdownText = '';
-    for (let i = 0; i < messageList.length; i++) {
-        const message = messageList[i];
-        const attr = { index: i.toString() };
-        const item = formatSingleItem(message.author, message.content, attr);
-        markdownText += item + '\n\n';
-    }
+    const nodes: Record<string, IChatSessionMsgItemV2> = {};
+    const worldLine: string[] = [];
+    const timestamp = Date.now();
 
-    return { name: title || 'Cherry Studio Chat', content: markdownText };
+    messageList.forEach((message, index) => {
+        const id = `cherry-${index}`;
+        const versionId = `${id}-v1`;
+        const roleLower = message.author.toLowerCase();
+        nodes[id] = {
+            id,
+            type: 'message',
+            role: roleLower as any,
+            currentVersionId: versionId,
+            versions: {
+                [versionId]: {
+                    id: versionId,
+                    message: {
+                        role: roleLower as any,
+                        content: message.content,
+                    },
+                    author: roleLower,
+                    timestamp,
+                    time: { latency: 0 },
+                } as any,
+            },
+            parent: index === 0 ? null : worldLine[worldLine.length - 1],
+            children: [],
+        };
+        if (index > 0) {
+            const prevId = worldLine[worldLine.length - 1];
+            nodes[prevId].children.push(id);
+        }
+        worldLine.push(id);
+    });
+
+    const rootId = worldLine[0] || null;
+    const history: IChatSessionHistoryV2 = {
+        schema: 2,
+        type: 'history',
+        id: `cherry-${timestamp}`,
+        title: title || 'Cherry Studio Chat',
+        timestamp,
+        updated: timestamp + 10,
+        tags: [],
+        sysPrompt: undefined,
+        modelBareId: undefined,
+        customOptions: {},
+        nodes,
+        rootId,
+        worldLine,
+        bookmarks: [],
+    };
+    return { name: history.title, history };
 };
 
 export const importChatHistoryFile = async (
-    type: 'google-ai-studio' | 'aizex-claude' | 'aizex-gpt' | 'cherry-studio'
+    type: 'google-ai-studio' | 'aizex' | 'aizex-claude' | 'aizex-gpt' | 'cherry-studio'
 ) => {
     let file;
     switch (type) {
         case 'google-ai-studio':
             file = await chooseFileAndParse(parseGoogleAIStudioFile, '');
             break;
+        case 'aizex':
         case 'aizex-claude':
-            file = await chooseFileAndParse(parseAizexClaudeFile, '.json');
-            break;
         case 'aizex-gpt':
-            file = await chooseFileAndParse(parseAizexGPTFile, '.json');
+            file = await chooseFileAndParse(parseAizexFile, '.json');
             break;
         case 'cherry-studio':
             file = await chooseFileAndParse(parseCherryStudioMarkdown, '.md');
@@ -389,5 +505,17 @@ export const importChatHistoryFile = async (
         showMessage('解析失败' + file.content, 3000, 'error');
         return;
     };
-    importDialog(file.name, file.content);
+    if (file.history) {
+        const history = file.history;
+        if (history.rootId === null || history.worldLine.length === 0) {
+            showMessage('解析结果为空', 3000, 'error');
+            return;
+        }
+        // ensure updated > timestamp
+        history.updated = Math.max((history.updated || 0), history.timestamp + 10);
+        openChatTab(false, history);
+        return;
+    }
+    // fallback for legacy parsers that still return content
+    importDialog(file.name, file.content || '');
 }
