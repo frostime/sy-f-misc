@@ -53,7 +53,10 @@ const shellTool: Tool = {
                 },
                 required: ['command']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE,
         requireResultApproval: true
     },
@@ -121,7 +124,10 @@ const pythonTool: Tool = {
                 },
                 required: ['code']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE,
         requireResultApproval: true
     },
@@ -180,7 +186,10 @@ const javascriptTool: Tool = {
                 },
                 required: ['code']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE,
         requireResultApproval: true
     },
@@ -263,7 +272,10 @@ const pandocTool: Tool = {
                 },
                 required: ['file']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE,
         requireResultApproval: true
     },

@@ -14,7 +14,7 @@ const WEB_PAGE_LIMIT = 7000;
 
 /**
  * FetchWebPage 工具 - 获取网页内容并转换为 Markdown
- * 
+ *
  * 职责：
  * 1. 获取网页内容
  * 2. 转换为 Markdown 格式
@@ -71,7 +71,10 @@ export const fetchWebPageTool: Tool = {
                 },
                 required: ['url']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },

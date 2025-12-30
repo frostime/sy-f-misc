@@ -250,7 +250,10 @@ export const siyuanSkillDocTool: Tool = {
                 },
                 required: ['topics']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 

@@ -62,7 +62,10 @@ export const markitdownTool: Tool = {
                 },
                 required: ['path']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE,
         requireResultApproval: true
     },

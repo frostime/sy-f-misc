@@ -1,4 +1,4 @@
-import { Tool, ToolGroup, ToolDefinitionWithPermission } from "../types";
+import { Tool, ToolGroup, ToolPermission } from "../types";
 import { ParsedToolModule } from './types';
 import { extractPermissionConfig, extractDeclaredReturnType } from './execute/common';
 import { executeCustomPythonTool } from './execute/python';
@@ -20,7 +20,7 @@ const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
 
     for (const toolDef of module.moduleData.tools) {
         const defaultPerms = module.moduleData.defaultPermissions || {};
-        const permissionConfig = {
+        const permissionConfig: ToolPermission = {
             ...extractPermissionConfig(toolDef),
             ...defaultPerms
         };
@@ -28,10 +28,8 @@ const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
         const declaredReturnType = extractDeclaredReturnType(toolDef);
 
         const tool: Tool = {
-            definition: {
-                ...toolDef,
-                ...permissionConfig
-            } satisfies ToolDefinitionWithPermission,
+            definition: toolDef,
+            permission: permissionConfig,
             declaredReturnType,
             execute: async (args: Record<string, any>) => {
                 const executor = isPython ? executeCustomPythonTool : executeCustomPowerShellTool;

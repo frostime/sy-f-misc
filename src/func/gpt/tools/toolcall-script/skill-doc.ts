@@ -16,7 +16,7 @@ const SKILL_DOCS: Record<string, string> = {
     'data-format-reference': `
 ## TOOL_CALL 返回数据说明 ##
 
-**核心差异**: 
+**核心差异**:
 - **Chat 对话中**: 工具返回结果通常是经过格式化（Format）和截断（Truncate）的**字符串**，为了方便 LLM 阅读。
 - **脚本 TOOL_CALL 中**: 你拿到的是工具返回的**原始数据，不一定是字符串（Raw Data）。
 
@@ -72,7 +72,7 @@ try {
 
 \`\`\`javascript
 // 1. 读取文件内容
-const content = await TOOL_CALL('ReadFile', { 
+const content = await TOOL_CALL('ReadFile', {
     path: '/home/user/data.txt',
     limit: -1 // 获取完整内容
 });
@@ -151,9 +151,9 @@ console.log('Search 2 results:', results[1].length);
 
 \`\`\`javascript
 // 1. 搜索相关网页
-const searchRes = await TOOL_CALL('TavilySearch', { 
+const searchRes = await TOOL_CALL('TavilySearch', {
     query: 'latest typescript features',
-    limit: 3 
+    limit: 3
 });
 
 // 假设 searchRes 是 [{ url: '...', title: '...' }, ...]
@@ -161,22 +161,22 @@ const searchRes = await TOOL_CALL('TavilySearch', {
 // 2. 遍历结果获取详情
 for (const item of searchRes) {
     console.log(\`Processing: \${item.title}\`);
-    
+
     try {
         // 获取网页内容
-        const content = await TOOL_CALL('WebPageContent', { 
+        const content = await TOOL_CALL('WebPageContent', {
             url: item.url,
             limit: 5000 // 限制长度避免上下文溢出
         });
-        
+
         // 3. 提取关键点 (使用 FORMALIZE)
         const features = await FORMALIZE(content, \`
             // Extract list of features mentioned
             string[]
         \`);
-        
+
         console.log(\`Features in \${item.url}:\`, features);
-        
+
     } catch (e) {
         console.error(\`Failed to process \${item.url}: \${e.message}\`);
     }
@@ -220,7 +220,10 @@ export const toolCallScriptDocTool: Tool = {
                 },
                 required: ['topics']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 

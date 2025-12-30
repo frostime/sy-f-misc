@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-22
  * @FilePath     : /src/func/gpt/tools/web/google.ts
- * @Description  : Google Search implementation with two modes: 
+ * @Description  : Google Search implementation with two modes:
  *                 1. Google Custom Search API (requires API key)
  *                 2. Direct scraping (fallback, may be blocked in mainland China)
  */
@@ -373,7 +373,10 @@ export const googleSearchTool: Tool = {
                 },
                 required: ['query']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE
     },
 

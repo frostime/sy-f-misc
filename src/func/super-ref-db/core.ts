@@ -74,7 +74,7 @@ const calculateDiff = async (
     // } else { // add-all
     //     result.toAdd = Array.from(refSet).map(id => ({ id, isDetached: false }));
     // }
-    const newRefsToAdd = refSet.difference(rowSet);
+    const newRefsToAdd: Set<BlockId> = refSet.difference(rowSet);
     result.toAdd = Array.from(newRefsToAdd).map(id => ({ id, isDetached: false }));
 
     const orphanRows = rowSet.difference(refSet);
@@ -107,7 +107,7 @@ const calculateDiff = async (
 
 /**
  * Sync database content with search results
- * 
+ *
  * @param input - Input parameters
  * @param input.database - Database object containing block and av IDs
  * @param input.refs - Block references to sync to the database

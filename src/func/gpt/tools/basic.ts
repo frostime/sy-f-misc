@@ -4,7 +4,7 @@
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
  * @LastEditTime : 2025-12-25 00:28:25
- * @Description  : 
+ * @Description  :
  */
 // import { importJavascriptFile } from '@frostime/siyuan-plugin-kits';
 import {
@@ -48,6 +48,11 @@ const datetimeTool: Tool = {
                 required: []
             }
         },
+        // OLD @deprecated
+        // permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -151,6 +156,9 @@ const textTool: Tool = {
                 required: ['input', 'operation']
             }
         },
+        // permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
     execute: async (args: {
@@ -256,6 +264,9 @@ const jsonInterfaceTool: Tool = {
                 required: ['json']
             }
         },
+        // permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 

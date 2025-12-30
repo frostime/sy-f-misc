@@ -6,7 +6,7 @@
  * @Description  : 工具审核 UI 组件和适配器
  */
 import { Component, JSX, Match, Show, Switch } from "solid-js";
-import { ToolExecuteResult, ApprovalUIAdapter, ToolDefinitionWithPermission, ToolPermissionLevel } from "./types";
+import { ToolExecuteResult, ApprovalUIAdapter, ToolPermission, ToolPermissionLevel } from "./types";
 import { ButtonInput } from "@/libs/components/Elements";
 import { solidDialog } from "@/libs/dialog";
 import { createSignalRef } from "@frostime/solid-signal-ref";
@@ -192,7 +192,7 @@ const BaseApprovalUI = (props: {
 export const ToolExecutionApprovalUI: Component<{
     toolName: string;
     toolDescription: string;
-    toolDefinition?: ToolDefinitionWithPermission;
+    toolDefinition?: IToolDefinition & ToolPermission;
     args: Record<string, any>;
     onApprove: () => void;
     onReject: (reason?: string) => void;
@@ -340,7 +340,7 @@ export class DefaultUIAdapter implements ApprovalUIAdapter {
         toolName: string,
         toolDescription: string,
         args: Record<string, any>,
-        toolDefinition?: ToolDefinitionWithPermission
+        toolDefinition?: IToolDefinition & ToolPermission
     ): Promise<{
         approved: boolean;
         rejectReason?: string;
@@ -442,7 +442,7 @@ export class InlineApprovalAdapter implements ApprovalUIAdapter {
         toolName: string,
         toolDescription: string,
         args: Record<string, any>,
-        toolDefinition?: ToolDefinitionWithPermission
+        toolDefinition?: IToolDefinition & ToolPermission
     ): Promise<{
         approved: boolean;
         persistDecision?: boolean;

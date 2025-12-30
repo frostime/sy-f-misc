@@ -37,7 +37,10 @@ export const getBlockMarkdownTool: Tool = {
                 },
                 required: ['blockId']
             }
-        },
+        }
+    },
+
+    permission: {
         // permissionLevel: ToolPermissionLevel.PUBLIC,
         requireExecutionApproval: false,
         requireResultApproval: true
@@ -105,7 +108,10 @@ export const appendMarkdownTool: Tool = {
                 },
                 required: ['document', 'markdown']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE
     },
 
@@ -153,7 +159,10 @@ export const appendDailyNoteTool: Tool = {
                 },
                 required: ['notebookId', 'markdown']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE
     },
 

@@ -9,7 +9,7 @@ import { BingSearchResult, BingSearchItem, WebToolError, WebToolErrorCode } from
  * @Date         : 2025-05-28 11:16:30
  * @FilePath     : /src/func/gpt/tools/web/bing.ts
  * @LastEditTime : 2025-12-14 12:17:31
- * @Description  : 
+ * @Description  :
  */
 function extractSearchResults(dom: Document): { title: string; link: string; description: string }[] {
 
@@ -259,7 +259,10 @@ export const bingSearchTool: Tool = {
                 },
                 required: ['query']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE
     },
 

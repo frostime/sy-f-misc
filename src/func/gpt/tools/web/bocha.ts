@@ -91,7 +91,10 @@ export const bochaSearchTool: Tool = {
                 },
                 required: ['query']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE
     },
 

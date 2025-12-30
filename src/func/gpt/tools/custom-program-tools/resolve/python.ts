@@ -5,7 +5,7 @@ import {
     createTempRunDir,
     cleanupTempDir
 } from '../utils';
-import { checkSyncIgnore, loadToolDefinition, needsReparse } from './common';
+import { checkSyncIgnore, needsReparse } from './common';
 import type { ParsedToolModule } from '../types';
 import { getEnvVars } from '../execute/common';
 

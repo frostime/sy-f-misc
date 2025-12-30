@@ -322,7 +322,10 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
                     },
                     required: ['path', 'blocks']
                 }
-            },
+            }
+        },
+
+        permission: {
             permissionLevel: ToolPermissionLevel.SENSITIVE,
             requireResultApproval: true
         },
@@ -448,7 +451,10 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
                     },
                     required: ['path', 'diff']
                 }
-            },
+            }
+        },
+
+        permission: {
             permissionLevel: ToolPermissionLevel.SENSITIVE,
             requireResultApproval: true
         },
@@ -573,7 +579,10 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
                     },
                     required: ['path', 'line', 'expected', 'newContent']
                 }
-            },
+            }
+        },
+
+        permission: {
             permissionLevel: ToolPermissionLevel.SENSITIVE,
             requireResultApproval: true
         },
@@ -648,7 +657,10 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
                     },
                     required: ['path', 'content']
                 }
-            },
+            }
+        },
+
+        permission: {
             permissionLevel: ToolPermissionLevel.SENSITIVE,
             requireResultApproval: true
         },

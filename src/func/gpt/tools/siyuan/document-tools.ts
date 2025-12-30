@@ -27,7 +27,10 @@ export const listActiveDocsTool: Tool = {
                 properties: {},
                 required: []
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -122,7 +125,10 @@ export const getDocumentTool: Tool = {
                 },
                 required: []
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -227,7 +233,10 @@ export const getParentDocTool: Tool = {
                 },
                 required: ['docId']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -295,7 +304,10 @@ export const listSubDocsTool: Tool = {
                 },
                 required: ['docId']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -343,7 +355,10 @@ export const listSiblingDocsTool: Tool = {
                 },
                 required: ['docId']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -430,7 +445,10 @@ export const listNotebookDocsTool: Tool = {
                 },
                 required: ['notebookId', 'depth']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -529,7 +547,10 @@ export const getDailyNoteDocsTool: Tool = {
                 },
                 required: []
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 

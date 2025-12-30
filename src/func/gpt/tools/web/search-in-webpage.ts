@@ -124,7 +124,7 @@ const SEARCH_LIMIT = 6000;
 
 /**
  * SearchInWebPage 工具 - 在网页中搜索关键词
- * 
+ *
  * 职责：
  * 1. 在网页内容中搜索关键词
  * 2. 返回匹配的段落及其上下文
@@ -181,7 +181,10 @@ export const searchInWebPageTool: Tool = {
                 },
                 required: ['url', 'keywords']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },

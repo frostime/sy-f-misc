@@ -5,7 +5,7 @@
  * @FilePath     : /src/func/gpt/tools/web/extract-html.ts
  * @LastEditTime : 2025-12-16 (重构)
  * @Description  : HTML 元素提取工具 - 使用 CSS 选择器提取特定 HTML 元素
- * 
+ *
  * 重构说明 (2025-12-16):
  * - 使用新 API：改用 fetchWebPageAsHTML() 直接获取 Element[]
  * - 移除重复解析：不再需要重新解析 HTML 字符串
@@ -201,7 +201,7 @@ function formatDOMNode(data: DOMNodeData, node: TreeNode<DOMNodeData>): string {
 
 /**
  * InspectDOMStructure 工具 - 探索网页 DOM 结构
- * 
+ *
  * 职责：
  * 1. 获取网页的 DOM 树形结构概览
  * 2. 帮助 LLM 理解页面结构，构建精确的 CSS 选择器
@@ -255,7 +255,10 @@ export const inspectDOMStructureTool: Tool = {
                 },
                 required: ['url']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },
@@ -410,7 +413,7 @@ export const inspectDOMStructureTool: Tool = {
 
 /**
  * ExtractHTML 工具 - 提取网页中特定的 HTML 元素
- * 
+ *
  * 职责：
  * 1. 使用 CSS 选择器提取元素
  * 2. 返回原始 HTML 和纯文本
@@ -460,7 +463,10 @@ export const extractHTMLTool: Tool = {
                 },
                 required: ['url', 'querySelector']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },

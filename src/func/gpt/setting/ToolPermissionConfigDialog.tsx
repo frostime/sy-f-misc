@@ -26,7 +26,7 @@ export type PermissionLevel = 'public' | 'moderate' | 'sensitive';
  * @returns 权限级别字符串
  */
 export const getToolPermissionLevel = (tool: Tool): PermissionLevel => {
-    const toolDef = tool.definition;
+    const toolDef = tool.permission;
     if (toolDef.permissionLevel === 'moderate') return 'moderate';
     if (toolDef.permissionLevel === 'sensitive') return 'sensitive';
     return 'public';
@@ -37,11 +37,11 @@ export const getToolPermissionLevel = (tool: Tool): PermissionLevel => {
  * @param tool 工具对象
  */
 export const getToolDefaultConfig = (tool: Tool) => {
-    const toolDef = tool.definition;
+    const toolPerm = tool.permission;
     return {
         permissionLevel: getToolPermissionLevel(tool),
-        requireExecutionApproval: toolDef.requireExecutionApproval ?? true,
-        requireResultApproval: toolDef.requireResultApproval ?? false
+        requireExecutionApproval: toolPerm.requireExecutionApproval ?? true,
+        requireResultApproval: toolPerm.requireResultApproval ?? false
     };
 };
 

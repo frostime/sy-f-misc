@@ -302,7 +302,10 @@ export const tavilySearchTool: Tool = {
                 },
                 required: ['query']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE
     },
 

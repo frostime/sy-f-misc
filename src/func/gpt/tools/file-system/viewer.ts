@@ -57,6 +57,8 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                     required: ['path']
                 }
             },
+        },
+        permission: {
             permissionLevel: ToolPermissionLevel.MODERATE,
             requireResultApproval: true
         },
@@ -225,6 +227,8 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                     required: ['path']
                 }
             },
+        },
+        permission: {
             permissionLevel: ToolPermissionLevel.MODERATE,
             requireResultApproval: true
         },
@@ -385,6 +389,8 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                     required: ['path']
                 }
             },
+        },
+        permission: {
             permissionLevel: ToolPermissionLevel.MODERATE,
             requireResultApproval: true
         },
@@ -481,9 +487,13 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
                     },
                     required: ['path']
                 }
-            },
+            }
+        },
+
+        permission: {
             permissionLevel: ToolPermissionLevel.PUBLIC
         },
+
         execute: async (args): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) return { status: ToolExecuteStatus.ERROR, error: '文件系统不可用' };
             try {

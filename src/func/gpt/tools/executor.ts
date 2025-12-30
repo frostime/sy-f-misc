@@ -264,7 +264,7 @@ ${ruleContent.trim()}
         const override = toolsManager().toolPermissionOverrides[toolName];
 
         // 转换字符串形式的权限级别到枚举
-        let effectivePermissionLevel = tool.definition.permissionLevel ?? ToolPermissionLevel.PUBLIC;
+        let effectivePermissionLevel = tool.permission.permissionLevel ?? ToolPermissionLevel.PUBLIC;
         if (override?.permissionLevel) {
             switch (override.permissionLevel) {
                 case 'public':
@@ -281,8 +281,8 @@ ${ruleContent.trim()}
 
         return {
             permissionLevel: effectivePermissionLevel,
-            requireExecutionApproval: override?.requireExecutionApproval ?? tool.definition.requireExecutionApproval ?? true,
-            requireResultApproval: override?.requireResultApproval ?? tool.definition.requireResultApproval ?? false
+            requireExecutionApproval: override?.requireExecutionApproval ?? tool.permission.requireExecutionApproval ?? true,
+            requireResultApproval: override?.requireResultApproval ?? tool.permission.requireResultApproval ?? false
         };
     }
 

@@ -19,9 +19,13 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
                     },
                     required: ['path']
                 }
-            },
+            }
+        },
+
+        permission: {
             permissionLevel: ToolPermissionLevel.MODERATE
         },
+
         execute: async (args: { path: string; recursive?: boolean }): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) {
                 return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
@@ -61,9 +65,13 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
                     },
                     required: ['from', 'to']
                 }
-            },
+            }
+        },
+
+        permission: {
             permissionLevel: ToolPermissionLevel.SENSITIVE
         },
+
         execute: async (args: { from: string; to: string }): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) {
                 return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };
@@ -125,9 +133,13 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
                     },
                     required: ['from', 'to']
                 }
-            },
+            }
+        },
+
+        permission: {
             permissionLevel: ToolPermissionLevel.SENSITIVE
         },
+
         execute: async (args: { from: string; to: string; recursive?: boolean }): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) {
                 return { status: ToolExecuteStatus.ERROR, error: '当前环境不支持文件系统操作' };

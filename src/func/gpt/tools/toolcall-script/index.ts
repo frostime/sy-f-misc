@@ -4,7 +4,7 @@
  * @Date         : 2025-11-22 16:00:00
  * @FilePath     : /src/func/gpt/tools/toolcall-script/index.ts
  * @Description  : 工具调用脚本执行器 - 允许 LLM 通过 JS 脚本编排复杂的工具调用
- * 
+ *
  * 为了节省 token，弥补 LLM 在复杂逻辑处理上的不足，我们允许 LLM 编写 JavaScript 代码来调用工具。
  * 允许通过 TOOL_CALL 等特殊 API 调用其他工具，并通过 FORMALIZE 将非结构化文本转换为结构化数据。
  * 最终返回脚本中的 console 输出，方便 LLM 查看执行结果。
@@ -283,7 +283,10 @@ Available APIs in script:
                 },
                 required: ['script']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE,
         requireExecutionApproval: true,
         requireResultApproval: true
@@ -374,6 +377,8 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
                     }
                 }
             },
+        },
+        permission: {
             permissionLevel: ToolPermissionLevel.PUBLIC
         },
 
@@ -467,7 +472,7 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
 
 2. **📚 查阅文档 (Learn)**: 如果不熟悉脚本写法，调用 \`ToolCallScriptDoc\` 查询 \`best-practices\` 或 \`example-basic\`。
 
-3. **✍️ 编写脚本 (Code)**: 
+3. **✍️ 编写脚本 (Code)**:
    - 使用 \`await TOOL_CALL(name, args)\` 调用工具。
    - 使用 \`console.log()\` 输出结果。
    - 必须处理错误 (try-catch)。

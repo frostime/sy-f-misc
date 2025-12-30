@@ -4,7 +4,7 @@
  * @Date         : 2025-12-30 16:54:14
  * @FilePath     : /src/func/gpt/tools/custom-program-tools/types.ts
  */
-import { ToolDefinitionWithPermission } from '../types';
+import { ToolPermission } from '../types';
 
 export interface ParsedToolModule {
     scriptName: string;
@@ -17,10 +17,7 @@ export interface ParsedToolModule {
         scriptPath: string;
         tools: IToolDefinition[];
         rulePrompt?: string;
-        defaultPermissions?: Pick<
-            ToolDefinitionWithPermission,
-            'permissionLevel' | 'requireExecutionApproval' | 'requireResultApproval'
-        >;
+        defaultPermissions?: ToolPermission;
     };
     lastModified: number;
 }

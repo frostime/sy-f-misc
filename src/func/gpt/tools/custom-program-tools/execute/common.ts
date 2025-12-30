@@ -4,9 +4,9 @@
  * @Date         : 2025-12-30 16:55:32
  * @Description  :
  * @FilePath     : /src/func/gpt/tools/custom-program-tools/execute/common.ts
- * @LastEditTime : 2025-12-30 16:55:40
+ * @LastEditTime : 2025-12-30 19:02:12
  */
-import { ToolDefinitionWithPermission, ToolPermissionLevel } from '../../types';
+import { ToolPermission, ToolPermissionLevel } from '../../types';
 import { globalMiscConfigs } from '../../../model/store';
 
 const process = window?.require?.('process') || (window as any).process;
@@ -24,7 +24,7 @@ export const getEnvVars = () => {
     return env;
 };
 
-export const extractPermissionConfig = (toolDef: IToolDefinition): Pick<ToolDefinitionWithPermission, 'permissionLevel' | 'requireExecutionApproval' | 'requireResultApproval'> => {
+export const extractPermissionConfig = (toolDef: IToolDefinition): ToolPermission => {
     const config: any = {};
 
     if ((toolDef as any).permissionLevel) {

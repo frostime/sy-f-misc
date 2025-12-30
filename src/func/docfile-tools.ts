@@ -4,7 +4,7 @@
  * @Date         : 2025-02-16 13:51:27
  * @FilePath     : /src/func/docfile-tools.ts
  * @LastEditTime : 2025-03-18 18:37:30
- * @Description  : 
+ * @Description  :
  */
 import type FMiscPlugin from "@/index";
 import { getActiveDoc, openBlock, thisPlugin } from "@frostime/siyuan-plugin-kits";
@@ -22,12 +22,12 @@ export const declareToggleEnabled = {
 
 
 // 定义文档类型
-interface DocInfo {
-    id: string;
-    title?: string;
-    content?: string;
-    path?: string;
-}
+// interface DocInfo {
+//     id: string;
+//     title?: string;
+//     content?: string;
+//     path?: string;
+// }
 
 // 位置: useDocItemSelection 函数
 const useDocItemSelection = () => {

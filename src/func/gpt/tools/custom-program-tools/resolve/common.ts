@@ -5,7 +5,7 @@
  * @FilePath     : /src/func/gpt/tools/custom-program-tools/resolve/common.ts
  */
 import { putFile } from '@/api';
-import { fileExists, getScriptPath, readJsonFile, getFileModifiedTime } from '../utils';
+import { fileExists, readJsonFile, getFileModifiedTime } from '../utils';
 import type { ParsedToolModule } from '../types';
 
 const fs = window?.require?.('fs');

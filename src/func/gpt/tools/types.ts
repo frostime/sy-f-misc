@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 01:45:14
  * @FilePath     : /src/func/gpt/tools/types.ts
- * @LastEditTime : 2025-12-23 00:50:20
+ * @LastEditTime : 2025-12-30 18:25:53
  * @Description  : 工具类型定义
  */
 /**
@@ -96,10 +96,7 @@ export type ResultApprovalCallback = (
     rejectReason?: string;
 }>;
 
-/**
- * 工具定义（带权限级别）
- */
-export type ToolDefinitionWithPermission = IToolDefinition & {
+export type ToolPermission = {
     // 工具权限级别
     permissionLevel?: ToolPermissionLevel;
 
@@ -110,7 +107,24 @@ export type ToolDefinitionWithPermission = IToolDefinition & {
     // 是否需要结果权限检查，默认为 false
     // 设置为 true 可以启用结果权限检查，要求用户确认是否将结果发送给 LLM
     requireResultApproval?: boolean;
-};
+}
+
+// @deprecated
+// /**
+//  * 工具定义（带权限级别）
+//  */
+// export type ToolDefinitionWithPermission = IToolDefinition & {
+//     // 工具权限级别
+//     permissionLevel?: ToolPermissionLevel;
+
+//     // 是否需要执行前权限检查，默认为 true
+//     // 设置为 false 可以跳过执行前权限检查，即使 permissionLevel 不是 PUBLIC
+//     requireExecutionApproval?: boolean;
+
+//     // 是否需要结果权限检查，默认为 false
+//     // 设置为 true 可以启用结果权限检查，要求用户确认是否将结果发送给 LLM
+//     requireResultApproval?: boolean;
+// };
 
 /**
  * 工具执行函数
@@ -124,7 +138,11 @@ export type ToolExecuteFunction = (
  * execute --> format --> truncate --> LLM 模型
  */
 export interface Tool {
-    definition: ToolDefinitionWithPermission;
+    // @deprecated
+    // definition: ToolDefinitionWithPermission
+    definition: IToolDefinition;
+
+    permission: ToolPermission;
 
     SKIP_EXTERNAL_TRUNCATE?: boolean;
     DEFAULT_OUTPUT_LIMIT_CHAR?: number;
@@ -211,7 +229,7 @@ export interface ApprovalUIAdapter {
         toolName: string,
         toolDescription: string,
         args: Record<string, any>,
-        toolDefinition?: ToolDefinitionWithPermission
+        toolDefinition?: IToolDefinition & ToolPermission
     ): Promise<{
         approved: boolean;
         persistDecision?: boolean;
@@ -248,7 +266,7 @@ export interface PendingApproval {
     type: 'execution' | 'result';
     toolName: string;
     toolDescription?: string;
-    toolDefinition?: ToolDefinitionWithPermission;
+    toolDefinition?: IToolDefinition & ToolPermission;
     args: Record<string, any>;
     result?: ToolExecuteResult;  // 仅 type='result' 时存在
     createdAt: number;

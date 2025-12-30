@@ -35,7 +35,10 @@ export const listNotebookTool: Tool = {
                 properties: {},
                 required: []
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -93,7 +96,10 @@ export const getNotebookTool: Tool = {
                     }
                 }
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 

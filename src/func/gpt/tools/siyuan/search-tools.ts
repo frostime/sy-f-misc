@@ -32,7 +32,10 @@ export const searchDocumentTool: Tool = {
                     }
                 }
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
@@ -99,7 +102,10 @@ export const sqlUsageHelperTool: Tool = {
                 properties: {},
                 required: []
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE
     },
 
@@ -129,7 +135,10 @@ export const querySQLTool: Tool = {
                 },
                 required: ['sql']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.SENSITIVE,
         requireResultApproval: true
     },
@@ -194,7 +203,10 @@ export const searchKeywordTool: Tool = {
                 },
                 required: ['keyword']
             }
-        },
+        }
+    },
+
+    permission: {
         permissionLevel: ToolPermissionLevel.MODERATE,
         requireResultApproval: true
     },
