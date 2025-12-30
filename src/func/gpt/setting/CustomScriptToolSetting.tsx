@@ -17,7 +17,7 @@ import {
     checkPythonAvailable,
     checkPowerShellAvailable
 } from '../tools/custom-program-tools';
-import type { ParsedToolModule } from '../tools/custom-program-tools/resolve-tools';
+import type { ParsedToolModule } from '../tools/custom-program-tools/types';
 import { documentDialog } from '@/libs/dialog';
 import styles from './CustomScriptToolSetting.module.scss';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
