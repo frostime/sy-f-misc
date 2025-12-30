@@ -16,13 +16,10 @@ import {
     checkPythonAvailable
 } from '../tools/custom-program-tools';
 import type { ParsedToolModule } from '../tools/custom-program-tools/resolve-tools';
-import { documentDialog, solidDialog } from '@/libs/dialog';
-import Markdown from '@/libs/components/Elements/Markdown';
+import { documentDialog } from '@/libs/dialog';
 import styles from './CustomScriptToolSetting.module.scss';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { globalMiscConfigs } from '../model/store';
-import { ButtonInput } from '@/libs/components/Elements';
-import { Cols } from '@/libs/components/Elements/Flex';
 
 
 const exampleScript = `允许编写 Python 脚本来扩展 LLM 能力。.py 脚本将被自动解析为 LLM Tools。

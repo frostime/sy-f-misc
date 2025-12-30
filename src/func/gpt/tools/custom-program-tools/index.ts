@@ -6,7 +6,7 @@
  * @Description  : Custom script tools - main entry point
  */
 
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup, ToolDefinitionWithPermission } from "../types";
 import { scanCustomScriptsWithSmartLoad, ParsedToolModule, getEnvVars } from './resolve-tools';
 import { createTempRunDir, cleanupTempDir } from './utils';
 
@@ -201,13 +201,101 @@ except Exception as e:
 };
 
 /**
+ * 执行自定义 PowerShell 工具
+ */
+const executeCustomPowerShellTool = async (context: CustomToolExecutionContext): Promise<ToolExecuteResult> => {
+    const { scriptPath, functionName, args, timeout = DEFAULT_TIMEOUT } = context;
+
+    try {
+        // 构建参数 splatting
+        const argsJson = JSON.stringify(args);
+
+        // PowerShell 执行脚本
+        // 使用 splatting 传参，支持复杂类型
+        const wrapperScript = `
+$ErrorActionPreference = 'Stop'
+try {
+    # 加载脚本（dot-source）
+    . '${scriptPath.replace(/'/g, "''")}'
+
+    # 解析参数
+    $argsJson = '${argsJson.replace(/'/g, "''")}'
+    $argsHash = $argsJson | ConvertFrom-Json -AsHashtable
+
+    # 调用函数
+    $result = ${functionName} @argsHash
+
+    # 构建输出
+    @{
+        success = $true
+        result = $result
+    } | ConvertTo-Json -Depth 10 -Compress
+} catch {
+    @{
+        success = $false
+        error = $_.Exception.Message
+        traceback = $_.ScriptStackTrace
+    } | ConvertTo-Json -Depth 10 -Compress
+}
+        `.trim();
+
+        return new Promise((resolve) => {
+            childProcess.exec(
+                `powershell -NoProfile -ExecutionPolicy Bypass -Command "${wrapperScript.replace(/"/g, '\\"')}"`,
+                {
+                    timeout,
+                    maxBuffer: 10 * 1024 * 1024,
+                    env: getEnvVars()
+                },
+                (error, stdout, stderr) => {
+                    if (error && !stdout) {
+                        resolve({
+                            status: ToolExecuteStatus.ERROR,
+                            error: `PowerShell 执行失败: ${error.message}\n${stderr}`
+                        });
+                        return;
+                    }
+
+                    try {
+                        const output = stdout.trim();
+                        const result = JSON.parse(output);
+
+                        if (!result.success) {
+                            resolve({
+                                status: ToolExecuteStatus.ERROR,
+                                error: `PowerShell 错误:\n${result.error}\n\n${result.traceback || ''}`
+                            });
+                            return;
+                        }
+
+                        resolve({
+                            status: ToolExecuteStatus.SUCCESS,
+                            data: result.result
+                        });
+
+                    } catch (parseError) {
+                        // JSON 解析失败，返回原始输出
+                        resolve({
+                            status: ToolExecuteStatus.SUCCESS,
+                            data: stdout.trim()
+                        });
+                    }
+                }
+            );
+        });
+
+    } catch (error) {
+        return {
+            status: ToolExecuteStatus.ERROR,
+            error: `准备执行环境失败: ${error.message}`
+        };
+    }
+};
+
+/**
  * 从工具定义中提取权限配置
  */
-const extractPermissionConfig = (toolDef: IToolDefinition): {
-    permissionLevel?: ToolPermissionLevel;
-    requireExecutionApproval?: boolean;
-    requireResultApproval?: boolean;
-} => {
+const extractPermissionConfig = (toolDef: IToolDefinition): Pick<ToolDefinitionWithPermission, 'permissionLevel' | 'requireExecutionApproval' | 'requireResultApproval'> => {
     const config: any = {};
 
     // 从 toolDef 中提取权限配置（如果存在）
@@ -251,29 +339,36 @@ const extractDeclaredReturnType = (toolDef: IToolDefinition): { type: string; no
 };
 
 /**
- * 为单个模块创建工具列表
+ * 为单个模块创建工具列表（支持 Python 和 PowerShell）
  */
 const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
     const tools: Tool[] = [];
+    const isPython = module.scriptType === 'python';
 
     for (const toolDef of module.moduleData.tools) {
-        const permissionConfig = extractPermissionConfig(toolDef);
+        // 合并默认权限配置
+        const defaultPerms = module.moduleData.defaultPermissions || {};
+        const permissionConfig = {
+            ...extractPermissionConfig(toolDef),
+            ...defaultPerms  // 模块级配置可覆盖
+        };
+
         const declaredReturnType = extractDeclaredReturnType(toolDef);
 
         const tool: Tool = {
             definition: {
                 ...toolDef,
                 ...permissionConfig
-            },
-            declaredReturnType: declaredReturnType,
+            } satisfies ToolDefinitionWithPermission,
+            declaredReturnType,
             execute: async (args: Record<string, any>) => {
-                return executeCustomPythonTool({
+                const executor = isPython ? executeCustomPythonTool : executeCustomPowerShellTool;
+                return executor({
                     scriptPath: module.scriptPath,
                     functionName: toolDef.function.name,
                     args
                 });
             },
-            // 可选：添加参数压缩函数
             compressArgs: (args: Record<string, any>) => {
                 return JSON.stringify(args).slice(0, 100);
             }
@@ -357,7 +452,8 @@ export const loadAndCacheCustomScriptTools = async (): Promise<{
     error?: string;
 }> => {
     try {
-        // 使用智能加载：检查时间戳，只在必要时重新解析
+        // #TODO 换成 scanAllCustomScriptsWithSmartLoad
+        // 使用智能加载：检查时间戳，只在必要时重新解析（支持 Python 和 PowerShell）
         const { modules, reparsedCount } = await scanCustomScriptsWithSmartLoad();
 
         // 缓存模块
@@ -389,5 +485,17 @@ export const loadAndCacheCustomScriptTools = async (): Promise<{
 /**
  * 导出用于设置页面的工具组创建函数
  */
-export { scanCustomScripts, scanCustomScriptsWithSmartLoad, parseAllScripts, reparseOutdatedScripts } from './resolve-tools';
-export { openCustomScriptsDir, checkPythonAvailable } from './utils';
+export {
+    scanCustomScripts,
+    scanCustomScriptsWithSmartLoad,
+    scanAllCustomScriptsWithSmartLoad,  // 新增：统一扫描
+    parseAllScripts,
+    parseAllPowerShellScripts,  // 新增
+    reparseOutdatedScripts
+} from './resolve-tools';
+
+export {
+    openCustomScriptsDir,
+    checkPythonAvailable,
+    checkPowerShellAvailable  // 新增
+} from './utils';

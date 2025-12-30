@@ -41,6 +41,15 @@ export const listPythonScripts = async (): Promise<string[]> => {
 };
 
 /**
+ * 列出自定义脚本目录下的所有 PowerShell 文件
+ */
+export const listPowerShellScripts = async (): Promise<string[]> => {
+    await ensureCustomScriptsDir();
+    const files = await fs.promises.readdir(CUSTOM_SCRIPTS_DIR);
+    return files.filter((f: string) => f.endsWith('.ps1') && !f.startsWith('_'));
+};
+
+/**
  * 列出所有 .tool.json 文件
  */
 export const listToolJsonFiles = async (): Promise<string[]> => {
@@ -79,6 +88,33 @@ export const checkPythonAvailable = async (): Promise<{
                 version
             });
         });
+    });
+};
+
+/**
+ * 检查 PowerShell 是否可用
+ */
+export const checkPowerShellAvailable = async (): Promise<{
+    available: boolean;
+    version?: string;
+    error?: string;
+}> => {
+    return new Promise((resolve) => {
+        childProcess.exec('powershell -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"', 
+            (error, stdout, stderr) => {
+                if (error) {
+                    resolve({
+                        available: false,
+                        error: `PowerShell not found: ${error.message}`
+                    });
+                    return;
+                }
+                resolve({
+                    available: true,
+                    version: stdout.trim()
+                });
+            }
+        );
     });
 };
 

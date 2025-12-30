@@ -10,6 +10,7 @@ import { thisPlugin } from '@frostime/siyuan-plugin-kits';
 import {
     getScriptPath,
     listPythonScripts,
+    listPowerShellScripts,
     listToolJsonFiles,
     getFileModifiedTime,
     fileExists,
@@ -19,6 +20,7 @@ import {
 } from './utils';
 import { putFile } from '@/api';
 import { globalMiscConfigs } from '../../model/store';
+import { ToolDefinitionWithPermission } from '../types';
 
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
@@ -42,24 +44,21 @@ export const getEnvVars = () => {
 }
 
 /**
- * 解析后的工具模块
+ * 解析后的工具模块（扩展支持 PowerShell）
  */
 export interface ParsedToolModule {
-    // Python 脚本文件名
     scriptName: string;
-    // Python 脚本完整路径
     scriptPath: string;
-    // .tool.json 文件路径
     toolJsonPath: string;
-    // 模块数据（从 .tool.json 加载）
+    scriptType: 'python' | 'powershell';
     moduleData: {
-        type: 'PythonModule';
+        type: 'PythonModule' | 'PowerShellModule';
         name: string;
         scriptPath: string;
         tools: IToolDefinition[];
         rulePrompt?: string;
+        defaultPermissions?: Pick<ToolDefinitionWithPermission, 'permissionLevel' | 'requireExecutionApproval' | 'requireResultApproval'>;
     };
-    // 脚本文件最后修改时间
     lastModified: number;
 }
 
@@ -72,6 +71,15 @@ const getPy2ToolPath = (): string => {
     const pluginDir = window.siyuan.config.system.dataDir + `/plugins/${plugin.name}`;
     const scriptPath = path.join(pluginDir, 'scripts/py2tool.py');
     return path.resolve(scriptPath);
+};
+
+/**
+ * 获取 ps2tool.ps1 脚本路径
+ */
+const getPs2ToolPath = (): string => {
+    const plugin = thisPlugin();
+    const pluginDir = window.siyuan.config.system.dataDir + `/plugins/${plugin.name}`;
+    return path.join(pluginDir, 'scripts/ps2tool.ps1');
 };
 
 export const checkSyncIgnore = async () => {
@@ -249,6 +257,7 @@ export const scanCustomScripts = async (): Promise<ParsedToolModule[]> => {
         modules.push({
             scriptName,
             scriptPath,
+            scriptType: 'python',
             toolJsonPath,
             moduleData,
             lastModified
@@ -332,6 +341,7 @@ export const scanCustomScriptsWithSmartLoad = async (): Promise<{
             scriptName,
             scriptPath,
             toolJsonPath,
+            scriptType: scriptName.endsWith('.py') ? 'python' : 'powershell',
             moduleData: {
                 type: moduleData.type,
                 name: moduleData.name,
@@ -395,3 +405,179 @@ export const reparseOutdatedScripts = async (): Promise<{
         errors: result.errors
     };
 };
+
+/**
+ * 批量解析 PowerShell 脚本
+ */
+export const parseAllPowerShellScripts = async (scriptPaths: string[]): Promise<{
+    success: boolean;
+    successCount: number;
+    errors: Array<{ script: string; error: string }>;
+}> => {
+    if (scriptPaths.length === 0) {
+        return { success: true, successCount: 0, errors: [] };
+    }
+
+    const ps2toolPath = getPs2ToolPath();
+    const tempDir = createTempRunDir();
+
+    try {
+        // 复制脚本到临时目录
+        const psScripts = await listPowerShellScripts();
+        for (const scriptName of psScripts) {
+            const srcPath = getScriptPath(scriptName);
+            const destPath = path.join(tempDir, scriptName);
+            fs.copyFileSync(srcPath, destPath);
+        }
+
+        return new Promise((resolve) => {
+            const command = `powershell -NoProfile -ExecutionPolicy Bypass -File "${ps2toolPath}" -Dir "${tempDir}" -WithMtime`;
+
+            childProcess.exec(command, { timeout: 60000 }, (error, stdout, stderr) => {
+                if (error) {
+                    cleanupTempDir(tempDir);
+                    resolve({
+                        success: false,
+                        successCount: 0,
+                        errors: [{ script: 'all', error: `${error.message}\n${stderr}` }]
+                    });
+                    return;
+                }
+
+                try {
+                    // 复制生成的 .tool.json 回原目录
+                    const files = fs.readdirSync(tempDir);
+                    const toolJsonFiles = files.filter(f => f.endsWith('.tool.json'));
+
+                    for (const jsonFile of toolJsonFiles) {
+                        const srcPath = path.join(tempDir, jsonFile);
+                        const destPath = getScriptPath(jsonFile);
+                        fs.copyFileSync(srcPath, destPath);
+                    }
+
+                    console.log('ps2tool.ps1 output:', stdout);
+                    resolve({
+                        success: true,
+                        successCount: scriptPaths.length,
+                        errors: []
+                    });
+                } catch (copyError) {
+                    resolve({
+                        success: false,
+                        successCount: 0,
+                        errors: [{ script: 'all', error: `复制结果失败: ${copyError.message}` }]
+                    });
+                } finally {
+                    cleanupTempDir(tempDir);
+                }
+            });
+        });
+    } catch (error) {
+        cleanupTempDir(tempDir);
+        return {
+            success: false,
+            successCount: 0,
+            errors: [{ script: 'all', error: error.message }]
+        };
+    }
+};
+
+/**
+ * 智能扫描所有自定义脚本（Python + PowerShell）
+ */
+export const scanAllCustomScriptsWithSmartLoad = async (): Promise<{
+    modules: ParsedToolModule[];
+    reparsedCount: number;
+}> => {
+    await checkSyncIgnore();
+
+    const pythonScripts = await listPythonScripts();
+    const powerShellScripts = await listPowerShellScripts();
+
+    const pythonToParse: string[] = [];
+    const psToParse: string[] = [];
+    const modules: ParsedToolModule[] = [];
+
+    // 检查 Python 脚本
+    for (const scriptName of pythonScripts) {
+        const scriptPath = getScriptPath(scriptName);
+        const toolJsonPath = scriptPath.replace('.py', '.tool.json');
+
+        if (needsReparse(scriptPath, toolJsonPath)) {
+            pythonToParse.push(scriptPath);
+        }
+    }
+
+    // 检查 PowerShell 脚本
+    for (const scriptName of powerShellScripts) {
+        const scriptPath = getScriptPath(scriptName);
+        const toolJsonPath = scriptPath.replace('.ps1', '.tool.json');
+
+        if (needsReparse(scriptPath, toolJsonPath)) {
+            psToParse.push(scriptPath);
+        }
+    }
+
+    // 执行解析
+    if (pythonToParse.length > 0) {
+        console.log(`解析 ${pythonToParse.length} 个 Python 脚本`);
+        await parseAllScripts(pythonToParse);
+    }
+
+    if (psToParse.length > 0) {
+        console.log(`解析 ${psToParse.length} 个 PowerShell 脚本`);
+        await parseAllPowerShellScripts(psToParse);
+    }
+
+    // 加载所有工具定义
+    const toolJsonFiles = await listToolJsonFiles();
+    for (const jsonFile of toolJsonFiles) {
+        const toolJsonPath = getScriptPath(jsonFile);
+        const moduleData = await loadToolDefinition(toolJsonPath);
+
+        if (!moduleData) continue;
+
+        // 确定脚本类型
+        const isPython = moduleData.type === 'PythonModule';
+        const scriptExt = isPython ? '.py' : '.ps1';
+        const scriptName = jsonFile.replace('.tool.json', scriptExt);
+        const scriptPath = getScriptPath(scriptName);
+
+        if (!fileExists(scriptPath)) {
+            console.warn(`脚本文件不存在: ${scriptPath}`);
+            continue;
+        }
+
+        modules.push({
+            scriptName,
+            scriptPath,
+            toolJsonPath,
+            scriptType: isPython ? 'python' : 'powershell',
+            moduleData,
+            lastModified: getFileModifiedTime(scriptPath)
+        });
+    }
+
+    return {
+        modules,
+        reparsedCount: pythonToParse.length + psToParse.length
+    };
+};
+
+function needsReparse(scriptPath: string, toolJsonPath: string): boolean {
+    if (!fileExists(toolJsonPath)) return true;
+
+    try {
+        const jsonContent = fs.readFileSync(toolJsonPath, 'utf-8');
+        const data = JSON.parse(jsonContent);
+
+        if (data.lastModified !== undefined) {
+            const currentScriptTime = getFileModifiedTime(scriptPath);
+            return currentScriptTime > data.lastModified;
+        }
+    } catch {
+        // 解析失败，需要重新解析
+    }
+
+    return true;
+}
