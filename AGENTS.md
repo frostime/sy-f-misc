@@ -3,44 +3,36 @@
 日常以 Vibe Coding 为主，当激活 SSPEC 规范时，以 SSPEC 为主。
 
 <!-- SSPEC:START -->
-# sspec — AI Collaboration Protocol
+# sspec
 
-SSPEC_SCHEMA::1.5
+SSPEC_SCHEMA::2.1
 
-This project uses **sspec** for structured AI collaboration.
+This project uses sspec for AI collaboration.
 
-## ⚡ Activation Rule
+## 🚀 Quick Start
 
-**When you see `sspec/` commands, ALWAYS read `.sspec/AGENTS.md` first.**
+**User mentioned these keywords?** Read `@/.sspec/AGENTS.md` immediately:
+- sspec
+- "new feature" / "create change" / `@new`
+- "change plans" / "pivot" / `@pivot`
+- "end session" / "handover" / `@handover`
+- "status" / "progress" / `@status`
+- "go on changes" / `@context`
 
-For specific command details: `.sspec/prompts/<cmd>.md`
+## 📍 Core Files
 
-Example: `sspec/handover` → read `.sspec/AGENTS.md`, then `.sspec/prompts/handover.md`
+- `@/.sspec/AGENTS.md` — Complete workflow instructions
+- `@/.sspec/knowledge/index.md` — Project context
+- `@/.sspec/changes/<name>/spec.md` — Current change plan
+- `@/.sspec/changes/<name>/handover.md` — Previous session state
 
+## ⚡ Cross Session Principles
 
-## Quick Reference
+1. **Session start**: Read handover.md (where we left off)
+2. **Task completed**: Update spec.md progress
+3. **Session end**: Write handover.md (where to continue)
 
-| Command | Purpose |
-|---------|---------|
-| `sspec/propose <name>` | Create new change |
-| `sspec/status` | Show current state |
-| `sspec/pivot` | Record direction change |
-| `sspec/handover` | End session handover |
-| `sspec/context` | Reload project context |
-| `sspec/archive` | Archive completed change |
-
-## First Time Here?
-
-1. Read `.sspec/AGENTS.md` — Full instructions
-2. Read `.sspec/knowledge/index.md` — Project context
-3. Check `.sspec/changes/` — Active work
-
-## When to Read `.sspec/AGENTS.md`
-
-- Any `sspec/` command
-- Multi-step changes or new features
-- Starting or ending a session
-- Feeling lost about project state
+Full instructions: `@/.sspec/AGENTS.md`
 
 <!-- Keep this block for `sspec update` to refresh -->
 <!-- SSPEC:END -->

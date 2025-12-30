@@ -142,7 +142,7 @@ export default defineConfig({
             ],
 
             external: [
-                "siyuan", 
+                "siyuan",
                 "process",
                 /^\/plugins\/sy-f-misc\//  // 排除运行时动态导入的插件资源
             ],
