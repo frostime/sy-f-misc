@@ -2,6 +2,13 @@
  * CustomScriptToolSetting 样式模块
  */
 
+.scriptType {
+    margin-left: 8px;
+    font-size: 0.85em;
+    color: var(--b3-theme-on-surface-light);
+    font-weight: normal;
+}
+
 .container {
     padding: 32px;
 }

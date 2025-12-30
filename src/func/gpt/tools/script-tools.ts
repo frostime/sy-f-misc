@@ -1,13 +1,13 @@
 // src/func/gpt/tools/script-tools.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
 import { DEFAULT_LIMIT_CHAR } from './utils';
-import { 
-    execScript, 
-    execPython, 
-    execFile, 
-    getPlatform, 
+import {
+    execScript,
+    execPython,
+    execFile,
+    getPlatform,
     getScriptName,
-    ExecResult 
+    ExecResult
 } from "@/libs/system-utils";
 
 // Import Node.js modules for file operations
@@ -62,9 +62,9 @@ const shellTool: Tool = {
         try {
             const cwd = args.directory ? path.resolve(args.directory) : process.cwd();
             const result = await execScript(args.command, { cwd });
-            
+
             const output = formatOutput(result);
-            
+
             if (!result.success) {
                 return {
                     status: ToolExecuteStatus.ERROR,
@@ -129,9 +129,9 @@ const pythonTool: Tool = {
     execute: async (args: { code: string; directory?: string; keepFile?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
         try {
             const cwd = args.directory ? path.resolve(args.directory) : undefined;
-            const result = await execPython(args.code, { 
-                cwd, 
-                keepFile: args.keepFile 
+            const result = await execPython(args.code, {
+                cwd,
+                keepFile: args.keepFile
             });
 
             const output = formatOutput(result);
@@ -272,7 +272,7 @@ const pandocTool: Tool = {
         try {
             // Get Pandoc path from SiYuan workspace
             const pandocPath = path.join(
-                globalThis.siyuan.config.system.workspaceDir, 
+                globalThis.siyuan.config.system.workspaceDir,
                 'temp/pandoc/bin/pandoc.exe'
             );
 
@@ -285,7 +285,7 @@ const pandocTool: Tool = {
             }
 
             // Build arguments
-            const args = params.customCommand 
+            const args = params.customCommand
                 ? params.customCommand.split(/\s+/)
                 : ['-s', params.file, '--to', 'markdown'];
 

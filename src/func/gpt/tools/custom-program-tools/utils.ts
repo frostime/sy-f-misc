@@ -6,11 +6,16 @@
  * @Description  : Custom script tools utility functions
  */
 
+import {
+    getTempDir,
+    hasCommand,
+    execFile as systemExecFile,
+    execCommand
+} from '@/libs/system-utils';
+
 // 通过 window.require 引入 Node.js 模块
 const fs = window?.require?.('fs');
 const path = window?.require?.('path');
-const childProcess = window?.require?.('child_process');
-const os = window?.require?.('os');
 
 const SIYUAN_DATA_DIR = window.siyuan.config.system.dataDir;
 const CUSTOM_SCRIPTS_DIR = path?.join(SIYUAN_DATA_DIR, 'snippets', 'fmisc-custom-toolscripts');
@@ -67,89 +72,80 @@ export const getScriptPath = (filename: string): string => {
 
 /**
  * 检查 Python 环境是否可用
+ * 复用 system-utils 的 hasCommand 和 execFile
  */
 export const checkPythonAvailable = async (): Promise<{
     available: boolean;
     version?: string;
     error?: string;
 }> => {
-    return new Promise((resolve) => {
-        childProcess.execFile('python', ['--version'], (error, stdout, stderr) => {
-            if (error) {
-                resolve({
-                    available: false,
-                    error: `Python not found: ${error.message}`
-                });
-                return;
-            }
-            const version = (stdout || stderr).trim();
-            resolve({
-                available: true,
-                version
-            });
-        });
-    });
+    const hasPython = await hasCommand('python');
+    if (!hasPython) {
+        return {
+            available: false,
+            error: 'Python not found in PATH'
+        };
+    }
+
+    const result = await systemExecFile('python', ['--version']);
+    if (!result.success) {
+        return {
+            available: false,
+            error: result.error || 'Failed to get Python version'
+        };
+    }
+
+    return {
+        available: true,
+        version: result.stdout || result.stderr
+    };
 };
 
 /**
  * 检查 PowerShell 是否可用
+ * 复用 system-utils 的 execCommand
  */
 export const checkPowerShellAvailable = async (): Promise<{
     available: boolean;
     version?: string;
     error?: string;
 }> => {
-    return new Promise((resolve) => {
-        childProcess.exec('powershell -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"', 
-            (error, stdout, stderr) => {
-                if (error) {
-                    resolve({
-                        available: false,
-                        error: `PowerShell not found: ${error.message}`
-                    });
-                    return;
-                }
-                resolve({
-                    available: true,
-                    version: stdout.trim()
-                });
-            }
-        );
-    });
+    const result = await execCommand(
+        'powershell -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"'
+    );
+
+    if (!result.success) {
+        return {
+            available: false,
+            error: `PowerShell not found: ${result.error}`
+        };
+    }
+
+    return {
+        available: true,
+        version: result.stdout
+    };
 };
 
 /**
  * 创建临时运行目录
- * 使用 realpathSync.native 避免 Windows 8.3 短文件名格式
+ * 复用 system-utils 的 getTempDir
  */
-// export const createTempRunDir = (): string => {
-//     const timestamp = Date.now();
-//     const random = Math.random().toString(36).substring(2, 10);
-//     const tmpdir = os.tmpdir();
-//     // 在 Windows 上将短路径转换为长路径，避免 ZUOYIP~1 这样的格式
-//     const fullPath = fs?.realpathSync?.native ? fs.realpathSync.native(tmpdir) : tmpdir;
-//     const tempDir = path.join(fullPath, 'siyuan_temp', `run_${timestamp}_${random}`);
-//     fs.mkdirSync(tempDir, { recursive: true });
-//     return tempDir;
-// };
 export const createTempRunDir = (): string => {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 10);
-    const tmpdir = os.tmpdir();
+    const baseDir = getTempDir();
 
-    // 先创建目录（使用原始路径）
-    const tempDir = path.join(tmpdir, 'siyuan_temp', `run_${timestamp}_${random}`);
+    const tempDir = path.join(baseDir, 'siyuan_temp', `run_${timestamp}_${random}`);
     fs.mkdirSync(tempDir, { recursive: true });
 
-    // 再对已存在的目录进行路径规范化
+    // 规范化路径（避免 Windows 8.3 短文件名）
     try {
         return fs.realpathSync.native?.(tempDir) ?? tempDir;
     } catch {
-        // 降级处理：如果 native 方法失败，使用普通 realpathSync
         return fs.realpathSync(tempDir);
     }
 };
-
 
 /**
  * 清理临时目录
@@ -171,7 +167,7 @@ export const getFileModifiedTime = (filePath: string): number => {
     try {
         const stats = fs.statSync(filePath);
         return stats.mtimeMs;
-    } catch (error) {
+    } catch {
         return 0;
     }
 };
@@ -209,4 +205,3 @@ export const openCustomScriptsDir = async (): Promise<void> => {
         electron.shell.openPath(CUSTOM_SCRIPTS_DIR);
     }
 };
-

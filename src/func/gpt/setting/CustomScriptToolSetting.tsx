@@ -10,10 +10,12 @@ import { Component, For, Show, createSignal, onMount } from 'solid-js';
 import { showMessage } from 'siyuan';
 import {
     getCachedModules,
-    parseAllScripts,
+    parseAllPythonScripts,
+    parseAllPowerShellScripts,
     loadAndCacheCustomScriptTools,
     openCustomScriptsDir,
-    checkPythonAvailable
+    checkPythonAvailable,
+    checkPowerShellAvailable
 } from '../tools/custom-program-tools';
 import type { ParsedToolModule } from '../tools/custom-program-tools/resolve-tools';
 import { documentDialog } from '@/libs/dialog';
@@ -22,7 +24,7 @@ import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { globalMiscConfigs } from '../model/store';
 
 
-const exampleScript = `允许编写 Python 脚本来扩展 LLM 能力。.py 脚本将被自动解析为 LLM Tools。
+const exampleScriptPython = `允许编写 Python 脚本来扩展 LLM 能力。.py 脚本将被自动解析为 LLM Tools。
 
 Python 脚本需要遵循一定的规范，并做好类型标注。例如：
 
@@ -91,6 +93,61 @@ get_weather.format = (
 - \`format(result: ReturnTypeOfFun, args: dict) -> str\`: 定义如何将返回结果格式化为字符串供 LLM 阅读
 `;
 
+const exampleScriptPowerShell = `允许编写 PowerShell 脚本来扩展 LLM 能力。
+
+PowerShell 脚本需要遵循 Comment-Based Help 规范：
+
+\`\`\`powershell
+<#
+.SYNOPSIS
+文件操作工具集
+
+.DESCRIPTION
+提供常用的文件系统操作功能
+#>
+
+# TOOL_CONFIG: { "permissionLevel": "moderate", "requireResultApproval": true }
+
+function Get-FilePreview {
+    <#
+    .SYNOPSIS
+    预览文件内容
+
+    .PARAMETER Path
+    文件路径
+
+    .PARAMETER Lines
+    预览行数
+
+    .PARAMETER Mode
+    模式：head 从头部，tail 从尾部
+
+    .OUTPUTS
+    object 包含 content, totalLines, displayedLines 属性
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+
+        [int]$Lines = 50,
+
+        [ValidateSet('head', 'tail')]
+        [string]$Mode = 'head'
+    )
+
+    # 实现逻辑...
+}
+\`\`\`
+
+**关键要点**:
+- 使用 \`[CmdletBinding()]\` 和 \`param()\` 块定义参数
+- \`[Parameter(Mandatory=$true)]\` 标记必需参数
+- \`[ValidateSet()]\` 定义枚举值
+- \`.OUTPUTS\` 描述返回值类型
+- \`TOOL_CONFIG\` 注释配置权限
+`;
+
 /**
  * 自定义脚本工具设置组件
  */
@@ -98,12 +155,17 @@ export const CustomScriptToolSetting: Component = () => {
     const [scripts, setScripts] = createSignal<ParsedToolModule[]>([]);
     const [loading, setLoading] = createSignal(false);
     const [pythonInfo, setPythonInfo] = createSignal<{ available: boolean; version?: string; error?: string }>({ available: false });
+    const [powershellInfo, setPowershellInfo] = createSignal<{ available: boolean; version?: string; error?: string }>({ available: false });
     const [expandedModules, setExpandedModules] = createSignal<Record<string, boolean>>({});
 
-    // 检查 Python 环境
-    const checkPython = async () => {
-        const info = await checkPythonAvailable();
-        setPythonInfo(info);
+    // 检查环境
+    const checkEnvironment = async () => {
+        const [pyInfo, psInfo] = await Promise.all([
+            checkPythonAvailable(),
+            checkPowerShellAvailable()
+        ]);
+        setPythonInfo(pyInfo);
+        setPowershellInfo(psInfo);
     };
 
     // 从缓存加载脚本列表
@@ -125,10 +187,16 @@ export const CustomScriptToolSetting: Component = () => {
         try {
             showMessage('正在解析所有脚本...', 3000, 'info');
 
-            // parseAllScripts 会解析整个目录，不需要传入具体路径
-            const result = await parseAllScripts([]);
+            // 分别解析 Python 和 PowerShell
+            const [pyResult, psResult] = await Promise.all([
+                parseAllPythonScripts([]),
+                parseAllPowerShellScripts([])
+            ]);
 
-            if (result.success) {
+            const allSuccess = pyResult.success && psResult.success;
+            const errors = [...pyResult.errors, ...psResult.errors];
+
+            if (allSuccess) {
                 showMessage('脚本解析完成，正在重新加载...', 2000, 'info');
 
                 // 重新加载缓存
@@ -137,7 +205,7 @@ export const CustomScriptToolSetting: Component = () => {
 
                 showMessage('工具定义已更新！', 3000, 'info');
             } else {
-                const errorMsg = result.errors.map(e => `${e.script}: ${e.error}`).join('\n');
+                const errorMsg = errors.map(e => `${e.script}: ${e.error}`).join('\n');
                 showMessage(`解析失败:\n${errorMsg}`, 5000, 'error');
             }
         } catch (error) {
@@ -191,80 +259,92 @@ export const CustomScriptToolSetting: Component = () => {
 
     // 组件挂载时检查环境和加载脚本
     onMount(() => {
-        checkPython();
+        checkEnvironment();
         loadScriptsFromCache();
     });
 
-    const CustomScriptModule = (module: ParsedToolModule) => (
-        <div class={styles.moduleCard}>
-            {/* 模块头部 */}
-            <div
-                class={`${styles.moduleHeader} ${expandedModules()[module.moduleData.name] ? styles.expanded : ''}`}
-                onClick={() => toggleModule(module.moduleData.name)}
-            >
-                <div class={styles.moduleInfo}>
-                    <div class={styles.moduleName}>
-                        {module.moduleData.name}
-                    </div>
-                    <div class={styles.moduleMeta}>
-                        <span>📄 {module.scriptName}</span>
-                        <span>🛠️ {module.moduleData.tools.length} 个工具</span>
-                    </div>
-                </div>
-                <svg
-                    class={`${styles.iconArrow} ${expandedModules()[module.moduleData.name] ? styles.expanded : ''}`}
+    const CustomScriptModule = (module: ParsedToolModule) => {
+        // 获取脚本类型图标
+        const getScriptIcon = () => {
+            return module.scriptType === 'python' ? '🐍' : '⚡';
+        };
+
+        const getScriptLabel = () => {
+            return module.scriptType === 'python' ? 'Python' : 'PowerShell';
+        };
+
+        return (
+            <div class={styles.moduleCard}>
+                {/* 模块头部 */}
+                <div
+                    class={`${styles.moduleHeader} ${expandedModules()[module.moduleData.name] ? styles.expanded : ''}`}
+                    onClick={() => toggleModule(module.moduleData.name)}
                 >
-                    <use href="#iconDown"></use>
-                </svg>
-            </div>
-
-            {/* 模块详情 */}
-            <Show when={expandedModules()[module.moduleData.name]}>
-                <div class={styles.moduleContent}>
-                    {/* 模块说明 */}
-                    <Show when={module.moduleData.rulePrompt}>
-                        <div class={styles.rulePrompt}>
-                            {module.moduleData.rulePrompt}
+                    <div class={styles.moduleInfo}>
+                        <div class={styles.moduleName}>
+                            {getScriptIcon()} {module.moduleData.name}
+                            <span class={styles.scriptType}>[{getScriptLabel()}]</span>
                         </div>
-                    </Show>
+                        <div class={styles.moduleMeta}>
+                            <span>📄 {module.scriptName}</span>
+                            <span>🛠️ {module.moduleData.tools.length} 个工具</span>
+                        </div>
+                    </div>
+                    <svg
+                        class={`${styles.iconArrow} ${expandedModules()[module.moduleData.name] ? styles.expanded : ''}`}
+                    >
+                        <use href="#iconDown"></use>
+                    </svg>
+                </div>
 
-                    {/* 工具列表 */}
-                    <div class={styles.toolsHeader}>工具列表:</div>
-                    <For each={module.moduleData.tools}>
-                        {(tool) => (
-                            <div class={styles.toolItem}>
-                                <div class={styles.toolHeader}>
-                                    <div class={styles.toolInfo}>
-                                        <div class={styles.toolName}>
-                                            {tool.function.name}()
+                {/* 模块详情 */}
+                <Show when={expandedModules()[module.moduleData.name]}>
+                    <div class={styles.moduleContent}>
+                        {/* 模块说明 */}
+                        <Show when={module.moduleData.rulePrompt}>
+                            <div class={styles.rulePrompt}>
+                                {module.moduleData.rulePrompt}
+                            </div>
+                        </Show>
+
+                        {/* 工具列表 */}
+                        <div class={styles.toolsHeader}>工具列表:</div>
+                        <For each={module.moduleData.tools}>
+                            {(tool) => (
+                                <div class={styles.toolItem}>
+                                    <div class={styles.toolHeader}>
+                                        <div class={styles.toolInfo}>
+                                            <div class={styles.toolName}>
+                                                {tool.function.name}()
+                                            </div>
+                                            <Show when={tool.function.description}>
+                                                <div class={styles.toolDescription}>
+                                                    {tool.function.description}
+                                                </div>
+                                            </Show>
+                                            <Show when={(tool as any).permissionLevel}>
+                                                <div class={styles.toolPermission}>
+                                                    <span
+                                                        class={`${styles.badge} ${styles[(tool as any).permissionLevel]}`}
+                                                    >
+                                                        {(tool as any).permissionLevel}
+                                                    </span>
+                                                </div>
+                                            </Show>
                                         </div>
-                                        <Show when={tool.function.description}>
-                                            <div class={styles.toolDescription}>
-                                                {tool.function.description}
-                                            </div>
-                                        </Show>
-                                        <Show when={(tool as any).permissionLevel}>
-                                            <div class={styles.toolPermission}>
-                                                <span
-                                                    class={`${styles.badge} ${styles[(tool as any).permissionLevel]}`}
-                                                >
-                                                    {(tool as any).permissionLevel}
-                                                </span>
-                                            </div>
-                                        </Show>
                                     </div>
                                 </div>
-                            </div>
-                        )}
-                    </For>
-                </div>
-            </Show>
-        </div>
-    )
+                            )}
+                        </For>
+                    </div>
+                </Show>
+            </div>
+        );
+    }
 
     return (
         <div class={styles.container}>
-            {/* Python 环境状态 */}
+            {/* 环境状态 */}
             <div class={styles.statusCard}>
                 <div class={styles.statusRow}>
                     <span class={styles.label}>Python 环境:</span>
@@ -281,50 +361,55 @@ export const CustomScriptToolSetting: Component = () => {
                         </span>
                     </Show>
                 </div>
+                <div class={styles.statusRow}>
+                    <span class={styles.label}>PowerShell 环境:</span>
+                    <Show
+                        when={powershellInfo().available}
+                        fallback={
+                            <span class={styles.unavailable}>
+                                ❌ PowerShell 未安装或不可用
+                            </span>
+                        }
+                    >
+                        <span class={styles.available}>
+                            ✅ {powershellInfo().version}
+                        </span>
+                    </Show>
+                </div>
             </div>
 
             {/* 说明信息 */}
             <div class={styles.infoCard}>
                 <div class={styles.header}>
                     <span class={styles.title}>
-                        <strong>自定义脚本工具</strong>允许你通过 Python 脚本扩展 GPT 工具能力。
+                        <strong>自定义脚本工具</strong>允许你通过 Python 或 PowerShell 脚本扩展 GPT 工具能力。
                     </span>
                     <button class="b3-button"
                         onClick={() => {
-                            // solidDialog({
-                            //     title: '关于脚本要求',
-                            //     loader: () => {
-                            //         return (
-                            //             <div style={{
-                            //                 padding: '1em'
-                            //             }}>
-                            //                 <Cols>
-                            //                     <div style={{ flex: 1 }}>编写符合要求的脚本并放入脚本目录, 点击"解析所有脚本"</div>
-                            //                     <ButtonInput onClick={() => {
-                            //                         navigator.clipboard.writeText(exampleScript);
-                            //                         showMessage('已复制到剪贴板', 2000, 'info');
-                            //                     }}>
-                            //                         拷贝这段要求
-                            //                     </ButtonInput>
-                            //                 </Cols>
-                            //                 <Markdown markdown={exampleScript} />
-                            //             </div>
-                            //         )
-                            //     }
-                            // })
                             documentDialog({
-                                markdown: exampleScript,
+                                title: 'Python 脚本示例',
+                                markdown: exampleScriptPython,
                             });
                         }}
                     >
-                        关于脚本要求
+                        Python 规范
+                    </button>
+                    <button class="b3-button"
+                        onClick={() => {
+                            documentDialog({
+                                title: 'PowerShell 脚本示例',
+                                markdown: exampleScriptPowerShell,
+                            });
+                        }}
+                    >
+                        PowerShell 规范
                     </button>
                 </div>
                 <ul>
-                    <li>将 Python 脚本（.py）放入脚本目录</li>
+                    <li>将 Python (.py) 或 PowerShell (.ps1) 脚本放入脚本目录</li>
                     <li>点击「解析所有脚本」生成工具定义并加载到系统</li>
                     <li>脚本中的公开函数将作为工具暴露给 LLM</li>
-                    <li>使用类型注解和文档字符串定义工具参数</li>
+                    <li>Python 使用类型注解和文档字符串，PowerShell 使用 Comment-Based Help</li>
                 </ul>
             </div>
 
@@ -341,7 +426,7 @@ export const CustomScriptToolSetting: Component = () => {
                 <button
                     class="b3-button b3-button--outline"
                     onClick={parseAndImport}
-                    disabled={loading() || !pythonInfo().available}
+                    disabled={loading() || (!pythonInfo().available && !powershellInfo().available)}
                 >
                     <svg class="b3-button__icon"><use href="#iconRefresh"></use></svg>
                     解析所有脚本
@@ -349,7 +434,7 @@ export const CustomScriptToolSetting: Component = () => {
                 <button
                     class="b3-button b3-button--outline"
                     onClick={configureCustomScriptEnvVars}
-                    disabled={loading() || !pythonInfo().available}
+                    disabled={loading()}
                 >
                     <svg class="b3-button__icon"><use href="#iconSettings"></use></svg>
                     脚本环境变量
@@ -369,7 +454,7 @@ export const CustomScriptToolSetting: Component = () => {
             {/* 脚本模块列表 */}
             <Show when={!loading() && scripts().length === 0}>
                 <div class={styles.emptyState}>
-                    暂无自定义脚本工具。请将 Python 脚本放入脚本目录后点击「解析所有脚本」。
+                    暂无自定义脚本工具。请将脚本放入脚本目录后点击「解析所有脚本」。
                 </div>
             </Show>
 
