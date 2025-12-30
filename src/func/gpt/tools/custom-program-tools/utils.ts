@@ -110,8 +110,20 @@ export const checkPowerShellAvailable = async (): Promise<{
     version?: string;
     error?: string;
 }> => {
+    let command: 'pwsh' | 'powershell' = 'pwsh';
+    const hasPwsh = await hasCommand('pwsh');
+    if (!hasPwsh) {
+        const hasPowershell = await hasCommand('powershell');
+        if (!hasPowershell) {
+            return {
+                available: false,
+                error: 'PowerShell not found in PATH'
+            };
+        }
+        command = 'powershell';
+    }
     const result = await execCommand(
-        'powershell -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"'
+        `${command} -NoProfile -Command "$PSVersionTable.PSVersion.ToString()"`
     );
 
     if (!result.success) {

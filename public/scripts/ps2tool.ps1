@@ -82,6 +82,12 @@ function Parse-FunctionDefinition {
         return $null
     }
 
+    # 🆕 跳过格式化函数（约定：Format-* 用于格式化工具返回值）
+    if ($funcName -like 'Format-*') {
+        Write-Host "  > 跳过格式化函数: $funcName()" -ForegroundColor DarkGray
+        return $null
+    }
+
     # 获取 Help 内容
     $helpContent = $FunctionAst.GetHelpContent()
     $description = ''

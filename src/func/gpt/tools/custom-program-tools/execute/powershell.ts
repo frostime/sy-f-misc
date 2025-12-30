@@ -37,7 +37,6 @@ if ($PSStyle) {
 $ErrorActionPreference = 'Stop'
 
 try {
-    # 使用 here-string 避免转义问题
     $argsJson = @'
 ${argsJson}
 '@
@@ -52,11 +51,22 @@ ${argsJson}
         result = $result
     }
 
-    # 输出 JSON（使用 -Compress 确保单行输出）
+    # 🆕 检查是否存在格式化函数：Format-{FunctionName}
+    $formatFunctionName = "Format-${functionName}"
+    if (Get-Command -Name $formatFunctionName -ErrorAction SilentlyContinue) {
+        try {
+            $formatted = & $formatFunctionName -Result $result -Arguments $argsHash
+            if ($formatted -is [string]) {
+                $output['formattedText'] = $formatted
+            }
+        } catch {
+            $output['formatWarning'] = $_.Exception.Message
+        }
+    }
+
     $output | ConvertTo-Json -Depth 10 -Compress
 
 } catch {
-    # 构建错误输出
     $errorOutput = @{
         success = $false
         error = $_.Exception.Message
