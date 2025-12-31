@@ -765,12 +765,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
             controller: controller!,
             onStream: (content, _toolCalls) => {
                 lifecycle.updateContent(targetId, content);
-                // 流式响应也需要 recover
-                // let displayContent = content;
-                // if (maskSchema && maskSchema.mappings.size > 0) {
-                //     displayContent = recoverContent(content, maskSchema);
-                // }
-                // lifecycle.updateContent(targetId, displayContent);
+                // 流式响应就先不 recover 了
                 scrollToBottom?.(false);
             }
         });

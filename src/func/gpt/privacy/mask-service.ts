@@ -13,6 +13,8 @@ import { IPrivacyField, IMaskSchema, MaskType } from './types';
  */
 export class PrivacyMaskService {
     private counter: number = 0;
+    private historyMappings: Map<string, string> = new Map(); // original -> token
+    private readonly MAX_HISTORY_SIZE = 1000; // 历史词表上限
 
     /**
      * 对文本执行屏蔽
@@ -60,7 +62,7 @@ export class PrivacyMaskService {
             try {
                 const regex = new RegExp(pattern, 'g');
                 result = result.replace(regex, (match) => {
-                    const token = this.generateToken(field.maskType);
+                    const token = this.getOrCreateToken(match, field.maskType);
                     schema.mappings.set(token, {
                         token,
                         original: match,
@@ -84,7 +86,7 @@ export class PrivacyMaskService {
         for (const pattern of field.patterns) {
             if (!pattern) continue;
 
-            const token = this.generateToken(field.maskType);
+            const token = this.getOrCreateToken(pattern, field.maskType);
             const occurrences = result.split(pattern).length - 1;
 
             if (occurrences > 0) {
@@ -123,6 +125,32 @@ export class PrivacyMaskService {
     }
 
     /**
+     * 获取或创建 token（保证同一个词的 token 一致性）
+     * @param original 原始文本
+     * @param type mask 类型
+     * @returns token
+     */
+    private getOrCreateToken(original: string, type: MaskType): string {
+        // 检查历史词表
+        const existingToken = this.historyMappings.get(original);
+        if (existingToken) {
+            return existingToken;
+        }
+
+        // 检查词表是否达到上限
+        if (this.historyMappings.size >= this.MAX_HISTORY_SIZE) {
+            console.warn(`Privacy mask history reached limit (${this.MAX_HISTORY_SIZE}), clearing history`);
+            this.historyMappings.clear();
+            this.counter = 0;
+        }
+
+        // 生成新 token
+        const newToken = this.generateToken(type);
+        this.historyMappings.set(original, newToken);
+        return newToken;
+    }
+
+    /**
      * 生成唯一的 mask token
      */
     private generateToken(type: MaskType): string {
@@ -135,6 +163,7 @@ export class PrivacyMaskService {
      */
     resetCounter(): void {
         this.counter = 0;
+        this.historyMappings.clear();
     }
 }
 
