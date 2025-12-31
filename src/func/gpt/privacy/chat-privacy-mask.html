@@ -1,0 +1,723 @@
+<!-- filepath: src\func\gpt\privacy\chat-privacy-mask.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>隐私屏蔽规则配置</title>
+    <style>
+        :root {
+            /* 基础变量映射 */
+            --font-family: var(--font-family, "Helvetica Neue", Helvetica, Arial, sans-serif);
+            --code-font: var(--font-family-code, monospace);
+            --font-size: var(--font-size, 15px);
+
+            /* 颜色系统 */
+            --bg-base: var(--theme-background, #fff);
+            --bg-surface: var(--theme-surface, #f8f9fa);
+            --bg-hover: var(--theme-surface-light, #f1f3f5);
+
+            --text-main: var(--theme-on-background, #212529);
+            --text-second: var(--theme-on-surface, #868e96);
+            --border: var(--theme-surface-lighter, #dee2e6);
+
+            --primary: var(--theme-primary, #228be6);
+            --primary-light: var(--theme-primary-light, #e7f5ff);
+            --on-primary: var(--theme-on-primary, #fff);
+
+            --danger: #fa5252;
+            --success: #40c057;
+            --warning: #fab005;
+
+            /* 布局尺寸 */
+            --radius: 6px;
+            --space-sm: 8px;
+            --space-md: 16px;
+        }
+
+        [data-theme-mode="dark"] {
+            --bg-hover: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            font-family: var(--font-family);
+            font-size: var(--font-size);
+            background: var(--bg-base);
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- Header --- */
+        header {
+            padding: var(--space-md);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-surface);
+            flex-shrink: 0;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        /* --- Main Table Area --- */
+        main {
+            flex: 1;
+            overflow: auto;
+            padding: var(--space-md);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--font-size);
+        }
+
+        .data-table th,
+        .data-table td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            font-weight: 500;
+            color: var(--text-second);
+            background: var(--bg-base);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .data-table tr:hover {
+            background: var(--bg-hover);
+        }
+
+        .data-table tr.disabled {
+            opacity: 0.6;
+        }
+
+        /* --- Components --- */
+        .btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-base);
+            color: var(--text-main);
+            cursor: pointer;
+            font-size: var(--font-size);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--bg-hover);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--on-primary);
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            background: var(--primary);
+        }
+
+        .btn-icon {
+            padding: 4px;
+            border: none;
+            background: transparent;
+            color: var(--text-second);
+        }
+
+        .btn-icon:hover {
+            color: var(--text-main);
+            background: var(--bg-hover);
+        }
+
+        .btn-icon.delete:hover {
+            color: var(--danger);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+        }
+
+        .badge[data-type="email"] {
+            color: #228be6;
+            background: #e7f5ff;
+            border-color: #d0ebff;
+        }
+
+        .badge[data-type="phone"] {
+            color: #40c057;
+            background: #ebfbee;
+            border-color: #d3f9d8;
+        }
+
+        .badge[data-type="bankcard"] {
+            color: #fab005;
+            background: #fff9db;
+            border-color: #ffec99;
+        }
+
+        .badge[data-type="password"] {
+            color: #fa5252;
+            background: #fff5f5;
+            border-color: #ffc9c9;
+        }
+
+        .badge[data-type="api_key"] {
+            color: #be4bdb;
+            background: #f8f0fc;
+            border-color: #eebefa;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 32px;
+            height: 18px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--primary);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(14px);
+        }
+
+        /* --- Footer --- */
+        footer {
+            padding: var(--space-md);
+            border-top: 1px solid var(--border);
+            background: var(--bg-surface);
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-md);
+        }
+
+        /* --- Dialog/Modal --- */
+        dialog {
+            border: none;
+            border-radius: var(--radius);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            padding: 0;
+            width: 500px;
+            max-width: 90vw;
+            background: var(--bg-base);
+            color: var(--text-main);
+        }
+
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .dialog-header {
+            padding: var(--space-md);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dialog-body {
+            padding: var(--space-md);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .dialog-footer {
+            padding: var(--space-md);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-sm);
+            background: var(--bg-surface);
+        }
+
+        /* Form Controls */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            color: var(--text-second);
+            font-weight: 500;
+        }
+
+        .form-control {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-base);
+            color: var(--text-main);
+            width: 100%;
+            font-size: var(--font-size);
+        }
+
+        textarea.form-control {
+            font-family: var(--code-font);
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .preset-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .preset-tag {
+            font-size: 12px;
+            padding: 2px 8px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .preset-tag:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-second);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>隐私屏蔽规则</h1>
+        <div class="toolbar">
+            <button class="btn btn-primary" id="btnAdd">
+                <span>＋</span> 新增规则
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th width="50">启用</th>
+                    <th width="100">类型</th>
+                    <th>描述</th>
+                    <th width="100">模式</th>
+                    <th width="80">规则数</th>
+                    <th width="80" style="text-align: right;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- Data rendered via JS -->
+            </tbody>
+        </table>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            暂无配置，请点击右上角新增
+        </div>
+    </main>
+
+    <footer>
+        <button class="btn" id="btnCancel">取消</button>
+        <button class="btn btn-primary" id="btnSaveAll">保存更改</button>
+    </footer>
+
+    <!-- Editor Dialog -->
+    <dialog id="editorDialog">
+        <div class="dialog-header">
+            <h3 id="dialogTitle">编辑规则</h3>
+            <button class="btn-icon" id="btnCloseDialog">✕</button>
+        </div>
+        <div class="dialog-body">
+            <!-- 快速预设 -->
+            <div class="form-group">
+                <label>快速预设 (点击应用)</label>
+                <div class="preset-tags" id="presetTags">
+                    <!-- Loaded via JS -->
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>规则类型</label>
+                <select id="inputType" class="form-control">
+                    <option value="custom">custom (自定义)</option>
+                    <option value="email">email (邮箱)</option>
+                    <option value="phone">phone (电话)</option>
+                    <option value="bankcard">bankcard (银行卡)</option>
+                    <option value="api_key">api_key (密钥)</option>
+                    <option value="password">password (密码)</option>
+                    <option value="id_card">id_card (身份证)</option>
+                    <option value="address">address (地址)</option>
+                    <option value="name">name (姓名)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>描述</label>
+                <input type="text" id="inputDesc" class="form-control" placeholder="例如：过滤内部测试账号">
+            </div>
+
+            <div class="form-group">
+                <label>匹配模式</label>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <label class="switch" style="width: 28px; height: 16px;">
+                        <input type="checkbox" id="inputIsRegex">
+                        <span class="slider"></span>
+                    </label>
+                    <span style="font-size: 12px;">使用正则表达式</span>
+                </div>
+                <textarea id="inputPatterns" class="form-control" placeholder="每行输入一个匹配规则"></textarea>
+                <div style="font-size: 12px; color: var(--text-second); margin-top: 4px;">
+                    非正则模式下将进行精确文本匹配
+                </div>
+            </div>
+        </div>
+        <div class="dialog-footer">
+            <button class="btn" id="btnDialogCancel">取消</button>
+            <button class="btn btn-primary" id="btnDialogConfirm">确定</button>
+        </div>
+    </dialog>
+
+    <script>
+        /**
+         * Logic & State Management
+         */
+        const PRESETS = {
+            email: {
+                patterns: ['\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b'],
+                isRegex: true,
+                maskType: 'EMAIL',
+                description: '标准邮箱匹配'
+            },
+            phone: {
+                patterns: ['1[3-9]\\d{9}'],
+                isRegex: true,
+                maskType: 'PHONE',
+                description: '手机号'
+            },
+            bankcard: {
+                patterns: ['\\b[0-9]{16,19}\\b'],
+                isRegex: true,
+                maskType: 'BANKCARD',
+                description: '银行卡号 (16-19位)'
+            },
+            api_key: {
+                patterns: ['sk-[A-Za-z0-9]{48}', 'Bearer\\s+[a-zA-Z0-9_-]+'],
+                isRegex: true,
+                maskType: 'API_KEY',
+                description: '常见 API Token'
+            },
+            id_card: {
+                patterns: ['\\b[1-9]\\d{5}(18|19|20)\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])\\d{3}[0-9Xx]\\b'],
+                isRegex: true,
+                maskType: 'CHINA_ID_CARD',
+                description: '身份证号'
+            }
+        };
+
+        // State
+        let privacyFields = [];
+        let editingIndex = -1; // -1 means creating new
+
+        // DOM Elements
+        const tableBody = document.getElementById('tableBody');
+        const emptyState = document.getElementById('emptyState');
+        const dialog = document.getElementById('editorDialog');
+
+        // Editor Inputs
+        const inputs = {
+            type: document.getElementById('inputType'),
+            desc: document.getElementById('inputDesc'),
+            isRegex: document.getElementById('inputIsRegex'),
+            patterns: document.getElementById('inputPatterns')
+        };
+
+        // --- Initialization ---
+
+        window.addEventListener('pluginSdkReady', async () => {
+            initTheme();
+            loadData();
+            renderTable();
+            initPresetsUI();
+        });
+
+        function initTheme() {
+            const theme = window.pluginSdk?.themeMode || 'light';
+            document.documentElement.setAttribute('data-theme-mode', theme);
+        }
+
+        async function loadData() {
+            // Priority: Custom API -> Generic Config -> Empty
+            if (window.pluginSdk?.getPrivacyFields) {
+                privacyFields = window.pluginSdk.getPrivacyFields() || [];
+            } else {
+                // const conf = await window.pluginSdk.loadConfig();
+                // privacyFields = conf.privacyFields || [];
+                window.pluginSdk?.showMessage('无法获取到隐私规则!', 5000, 'error')
+            }
+            renderTable();
+        }
+
+        // --- Rendering ---
+
+        function renderTable() {
+            tableBody.innerHTML = '';
+
+            if (!privacyFields || privacyFields.length === 0) {
+                emptyState.style.display = 'block';
+                return;
+            }
+            emptyState.style.display = 'none';
+
+            privacyFields.forEach((field, index) => {
+                const tr = document.createElement('tr');
+                if (!field.enabled) tr.classList.add('disabled');
+
+                tr.innerHTML = `
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" ${field.enabled ? 'checked' : ''} onchange="toggleField(${index})">
+                            <span class="slider"></span>
+                        </label>
+                    </td>
+                    <td><span class="badge" data-type="${field.maskType}">${field.maskType}</span></td>
+                    <td>${escapeHtml(field.description || '-')}</td>
+                    <td>
+                        <span style="font-family: var(--code-font); font-size: 12px; background: var(--bg-surface); padding: 2px 4px; border-radius: 4px;">
+                            ${field.isRegex ? 'Regex' : 'Text'}
+                        </span>
+                    </td>
+                    <td>${field.patterns?.length || 0}</td>
+                    <td style="text-align: right;">
+                        <button class="btn-icon" onclick="openEdit(${index})" title="编辑">✏️</button>
+                        <button class="btn-icon delete" onclick="deleteField(${index})" title="删除">🗑️</button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function initPresetsUI() {
+            const container = document.getElementById('presetTags');
+            Object.keys(PRESETS).forEach(key => {
+                const tag = document.createElement('span');
+                tag.className = 'preset-tag';
+                tag.textContent = PRESETS[key].description;
+                tag.onclick = () => applyPreset(key);
+                container.appendChild(tag);
+            });
+        }
+
+        // --- Actions ---
+
+        window.toggleField = (index) => {
+            privacyFields[index].enabled = !privacyFields[index].enabled;
+            renderTable(); // Re-render to update opacity
+        };
+
+        window.deleteField = async (index) => {
+            const ok = await window.pluginSdk.confirm('确定要删除这条规则吗？');
+            if (ok === true) {
+                privacyFields.splice(index, 1);
+                renderTable();
+            }
+        };
+
+        window.openEdit = (index) => {
+            editingIndex = index;
+            const field = privacyFields[index];
+
+            // Fill form
+            inputs.type.value = field.maskType;
+            inputs.desc.value = field.description || '';
+            inputs.isRegex.checked = field.isRegex;
+            inputs.patterns.value = (field.patterns || []).join('\n');
+
+            document.getElementById('dialogTitle').textContent = '编辑规则';
+            dialog.showModal();
+        };
+
+        function openCreate() {
+            editingIndex = -1;
+            // Reset form
+            inputs.type.value = 'custom';
+            inputs.desc.value = '';
+            inputs.isRegex.checked = false;
+            inputs.patterns.value = '';
+
+            document.getElementById('dialogTitle').textContent = '新增规则';
+            dialog.showModal();
+        }
+
+        function applyPreset(key) {
+            const p = PRESETS[key];
+            inputs.type.value = p.maskType;
+            inputs.desc.value = p.description;
+            inputs.isRegex.checked = p.isRegex;
+
+            // Append patterns if some exist, else replace
+            const current = inputs.patterns.value.trim();
+            const newPatterns = p.patterns.join('\n');
+            inputs.patterns.value = newPatterns;
+            // if (current) {
+            //     inputs.patterns.value = current + '\n' + newPatterns;
+            // } else {
+            //     inputs.patterns.value = newPatterns;
+            // }
+        }
+
+        function saveDialog() {
+            const rawPatterns = inputs.patterns.value.split('\n').map(s => s.trim()).filter(s => s);
+
+            if (rawPatterns.length === 0) {
+                window.pluginSdk?.showMessage?.('请至少输入一个匹配规则', 'error');
+                return;
+            }
+
+            // Validate Regex
+            if (inputs.isRegex.checked) {
+                for (let p of rawPatterns) {
+                    try { new RegExp(p); } catch (e) {
+                        window.pluginSdk?.showMessage?.(`无效的正则表达式: ${p}`, 'error');
+                        return;
+                    }
+                }
+            }
+
+            const newData = {
+                maskType: inputs.type.value,
+                description: inputs.desc.value,
+                isRegex: inputs.isRegex.checked,
+                patterns: rawPatterns,
+                enabled: true
+            };
+
+            if (editingIndex >= 0) {
+                // Keep enabled state if editing
+                newData.enabled = privacyFields[editingIndex].enabled;
+                privacyFields[editingIndex] = newData;
+            } else {
+                privacyFields.push(newData);
+            }
+
+            dialog.close();
+            renderTable();
+        }
+
+        // --- Persistence ---
+
+        document.getElementById('btnAdd').onclick = openCreate;
+        document.getElementById('btnCloseDialog').onclick = () => dialog.close();
+        document.getElementById('btnDialogCancel').onclick = () => dialog.close();
+        document.getElementById('btnDialogConfirm').onclick = saveDialog;
+
+        document.getElementById('btnCancel').onclick = () => {
+            window.pluginSdk?.close ? window.pluginSdk.close() : window.close();
+        };
+
+        document.getElementById('btnSaveAll').onclick = async () => {
+            try {
+                if (window.pluginSdk?.savePrivacyFields) {
+                    await window.pluginSdk.savePrivacyFields(privacyFields);
+                } else if (window.pluginSdk?.saveConfig) {
+                    await window.pluginSdk.saveConfig({ privacyFields });
+                }
+                window.pluginSdk?.showMessage?.('配置已保存', 'info');
+                // Optional: Close after save
+                // window.pluginSdk?.close?.();
+            } catch (e) {
+                window.pluginSdk?.showMessage?.('保存失败', 'error');
+                console.error(e);
+            }
+        };
+
+        // Utils
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Close dialog when clicking backdrop
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) dialog.close();
+        });
+    </script>
+</body>
+
+</html>

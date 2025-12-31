@@ -8,5 +8,4 @@
 
 export * from './types';
 export * from './mask-service';
-export * from './presets';
 export * from './message-mask';

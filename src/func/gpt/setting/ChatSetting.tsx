@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2025-12-31 19:20:25
+ * @LastEditTime : 2025-12-31 20:25:47
  * @Description  :
  */
 
@@ -15,9 +15,9 @@ import { UIConfig, defaultModelId, listAvialableModels, useModel } from "../mode
 import Heading from "./Heading";
 import { showMessage } from "siyuan";
 import { SelectInput, TextInput } from "@/libs/components/Elements";
-import { createSignal } from "solid-js";
-import PrivacyFieldsSetting from "./PrivacyFieldsSetting";
-import { solidDialog } from "@/libs/dialog";
+import { openIframDialog } from "@/func/html-pages/core";
+import { IPrivacyField } from "../privacy";
+import { confirmDialog } from "@frostime/siyuan-plugin-kits";
 
 
 const ChatSessionSetting = (props: {
@@ -25,7 +25,6 @@ const ChatSessionSetting = (props: {
 }) => {
 
     const { config } = props;
-    const [showPrivacyDialog, setShowPrivacyDialog] = createSignal(false);
 
     return (
         <>
@@ -278,20 +277,44 @@ const ChatSessionSetting = (props: {
                 <button
                     class="b3-button b3-button--outline"
                     onClick={() => {
-                        const dialog = solidDialog({
-                            title: '配置隐私字段',
-                            width: '1000px',
-                            loader: () => (
-                                <PrivacyFieldsSetting
-                                    fields={config().privacyFields ?? []}
-                                    onSave={(fields) => {
-                                        config.update('privacyFields', fields);
-                                        dialog.close();
-                                    }}
-                                    onClose={() => dialog.close()}
-                                />
-                            )
-                        })
+                        // const dialog = solidDialog({
+                        const dialog = openIframDialog({
+                            title: '配置隐私屏蔽规则',
+                            width: '900px',
+                            height: '800px',
+                            iframeConfig: {
+                                type: 'url',
+                                source: '/plugins/sy-f-misc/pages/chat-privacy-mask.html',
+                                inject: {
+                                    presetSdk: true,
+                                    siyuanCss: true,
+                                    customSdk: {
+                                        getPrivacyFields: () => {
+                                            // 注意一定要 unwrap，不然会传入一个 Proxy
+                                            return structuredClone(config.unwrap().privacyFields) ?? [];
+                                        },
+                                        savePrivacyFields: (fields: IPrivacyField[]) => {
+                                            config.update('privacyFields', fields);
+                                            showMessage('隐私规则已保存', 2000, 'info');
+                                            dialog.close();
+                                        },
+                                        close: () => {
+                                            dialog.close();
+                                        },
+                                        confirm: async (text: string) => {
+                                            return new Promise((resolve, reject) => {
+                                                confirmDialog({
+                                                    title: `确认`,
+                                                    content: text,
+                                                    confirm: () => resolve(true),
+                                                    cancel: () => resolve(false)
+                                                });
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                        });
                     }}
                 >
                     配置隐私字段

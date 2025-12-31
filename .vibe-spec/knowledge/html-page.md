@@ -8,6 +8,8 @@ To reduce bundle size of index.js , sometimes pure HTML pages are more appropria
 
 ## When creating HTML-based UI
 
+> [!warning]
+> You **MUST READ** the complete document before you write the page!
 1. **阅读文档 / Read documentation**:
    - `src/func/html-pages/html-page.md` - HTML page feature overview
    - `src/func/html-pages/core.md` - Core implementation details
@@ -20,6 +22,9 @@ To reduce bundle size of index.js , sometimes pure HTML pages are more appropria
    - Build output: All `src/**/*.html` → `pages/xxx.html`
    - Runtime URL: `/plugins/sy-f-misc/pages/xxx.html`
    - See `vite.config.ts` for build configuration
+
+> [!warning]
+> Event injected through `customSdk`, the handler should be still visited from `window.pluginSdk` within HTML page, do not make mistake!
 
 ## Use these methods to display HTML pages
 

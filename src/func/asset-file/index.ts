@@ -2,9 +2,9 @@
  * @Author       : frostime
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Date         : 2025-12-19 20:13:28
- * @Description  : 
+ * @Description  :
  * @FilePath     : /src/func/asset-file/index.ts
- * @LastEditTime : 2025-12-22 21:13:20
+ * @LastEditTime : 2025-12-31 20:28:32
  */
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
