@@ -291,6 +291,18 @@ const createChatHandler = (deps: ChatHandlerDeps) => {
     const buildSystemPrompt = (): string => {
         const ptime = `It's: ${new Date().toString()}`;
         let prompt = systemPrompt().trim() || '';
+
+        const privacyEnabled = config().enablePrivacyMask;
+        const privacyFields = config().privacyFields || [];
+        if (privacyEnabled && privacyFields.length > 0) {
+            prompt += `\n\n<PRIVACY_RULE>
+Note that the privacy mask rule is enabled by the system.
+Certain security-related words will be masked in the format "__MASK_<TYPE>_<ID>__" before being sent to the LLM, and then recovered to the user after receiving the response.
+
+This process is transparent to the user. However, if the assistant/LLM is asked about what was masked, it is permitted to acknowledge the privacy function and state that it does not know the original content.
+</PRIVACY_RULE>`;
+        }
+
         if (toolExecutor?.hasEnabledTools()) {
             prompt += toolExecutor.toolRules();
         }

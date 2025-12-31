@@ -277,6 +277,12 @@ const ChatSessionSetting = (props: {
                 <button
                     class="b3-button b3-button--outline"
                     onClick={() => {
+                        const getCSSVar = (name) => (getComputedStyle(document.documentElement)
+                            .getPropertyValue(name)
+                            .trim())
+                        // const colors = (1...13).forEach
+                        const colors = Array.from({ length: 13 }, (_, i) => ([getCSSVar(`--b3-font-background${i + 1}`), getCSSVar(`--b3-font-color${i + 1}`)])
+                        );
                         // const dialog = solidDialog({
                         const dialog = openIframDialog({
                             title: '配置隐私屏蔽规则',
@@ -310,7 +316,8 @@ const ChatSessionSetting = (props: {
                                                     cancel: () => resolve(false)
                                                 });
                                             })
-                                        }
+                                        },
+                                        colors
                                     }
                                 }
                             }
@@ -319,7 +326,7 @@ const ChatSessionSetting = (props: {
                 >
                     配置隐私字段
                 </button>
-            </Form.Wrap>
+            </Form.Wrap >
             <Heading>用户对话配置</Heading>
             <Form.Wrap
                 title="输入框字体"

@@ -11,7 +11,7 @@
             /* 基础变量映射 */
             --font-family: var(--font-family, "Helvetica Neue", Helvetica, Arial, sans-serif);
             --code-font: var(--font-family-code, monospace);
-            --font-size: var(--font-size, 15px);
+            --font-size: var(--font-size, 14px);
 
             /* 颜色系统 */
             --bg-base: var(--theme-background, #fff);
@@ -166,42 +166,20 @@
         /* Badge */
         .badge {
             display: inline-block;
-            padding: 2px 6px;
+            padding: 2px 8px;
             border-radius: 4px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600; /* 加粗一点 */
             background: var(--bg-surface);
-            border: 1px solid var(--border);
+            border: 1px solid transparent;
+            font-family: var(--code-font); /* 使用代码字体 */
         }
 
-        .badge[data-type="email"] {
-            color: #228be6;
-            background: #e7f5ff;
-            border-color: #d0ebff;
-        }
-
-        .badge[data-type="phone"] {
-            color: #40c057;
-            background: #ebfbee;
-            border-color: #d3f9d8;
-        }
-
-        .badge[data-type="bankcard"] {
-            color: #fab005;
-            background: #fff9db;
-            border-color: #ffec99;
-        }
-
-        .badge[data-type="password"] {
-            color: #fa5252;
-            background: #fff5f5;
-            border-color: #ffc9c9;
-        }
-
-        .badge[data-type="api_key"] {
-            color: #be4bdb;
-            background: #f8f0fc;
-            border-color: #eebefa;
+        /* 默认样式，JS 会动态覆盖 */
+        .badge-default {
+            color: var(--text-second);
+            background: var(--bg-surface);
+            border-color: var(--border);
         }
 
         /* Toggle Switch */
@@ -357,6 +335,16 @@
             padding: 40px;
             color: var(--text-second);
         }
+
+        /* 错误提示样式 */
+        .input-error {
+            border-color: var(--danger);
+        }
+        .error-msg {
+            font-size: 12px;
+            color: var(--danger);
+            margin-top: 4px;
+        }
     </style>
 </head>
 
@@ -427,6 +415,12 @@
                 </select>
             </div>
 
+            <!-- 自定义类型输入框，默认隐藏 -->
+            <div class="form-group" id="customTypeGroup" style="display: none;">
+                <label>自定义类型代码 (MaskType)</label>
+                <input type="text" id="inputCustomType" class="form-control" placeholder="例如：PROJECT_CODE (建议使用大写字母和下划线)">
+            </div>
+
             <div class="form-group">
                 <label>描述</label>
                 <input type="text" id="inputDesc" class="form-control" placeholder="例如：过滤内部测试账号">
@@ -462,7 +456,7 @@
                 patterns: ['\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b'],
                 isRegex: true,
                 maskType: 'EMAIL',
-                description: '标准邮箱匹配'
+                description: '邮箱'
             },
             phone: {
                 patterns: ['1[3-9]\\d{9}'],
@@ -485,14 +479,17 @@
             id_card: {
                 patterns: ['\\b[1-9]\\d{5}(18|19|20)\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])\\d{3}[0-9Xx]\\b'],
                 isRegex: true,
-                maskType: 'CHINA_ID_CARD',
+                maskType: 'ID_CARD',
                 description: '身份证号'
             }
         };
 
+        const STANDARD_TYPES = ['EMAIL', 'PHONE', 'BANKCARD', 'API_KEY', 'PASSWORD', 'ID_CARD', 'ADDRESS', 'NAME'];
+
         // State
         let privacyFields = [];
         let editingIndex = -1; // -1 means creating new
+        let palette = []; //[[back, front]]
 
         // DOM Elements
         const tableBody = document.getElementById('tableBody');
@@ -502,6 +499,8 @@
         // Editor Inputs
         const inputs = {
             type: document.getElementById('inputType'),
+            customType: document.getElementById('inputCustomType'),
+            customTypeGroup: document.getElementById('customTypeGroup'),
             desc: document.getElementById('inputDesc'),
             isRegex: document.getElementById('inputIsRegex'),
             patterns: document.getElementById('inputPatterns')
@@ -511,9 +510,15 @@
 
         window.addEventListener('pluginSdkReady', async () => {
             initTheme();
+
+            // 加载颜色配置
+            if (window.pluginSdk?.colors && Array.isArray(window.pluginSdk.colors) && window.pluginSdk.colors.length > 0) {
+                palette = window.pluginSdk.colors;
+            }
+
             loadData();
-            renderTable();
             initPresetsUI();
+            bindEvents();
         });
 
         function initTheme() {
@@ -521,16 +526,61 @@
             document.documentElement.setAttribute('data-theme-mode', theme);
         }
 
+        function bindEvents() {
+            // 类型选择变化监听
+            inputs.type.addEventListener('change', () => {
+                toggleCustomTypeInput();
+            });
+        }
+
+        function toggleCustomTypeInput() {
+            if (inputs.type.value === 'custom') {
+                inputs.customTypeGroup.style.display = 'flex';
+                // 自动聚焦
+                // setTimeout(() => inputs.customType.focus(), 50);
+            } else {
+                inputs.customTypeGroup.style.display = 'none';
+            }
+        }
+
         async function loadData() {
+            let rawData = [];
             // Priority: Custom API -> Generic Config -> Empty
             if (window.pluginSdk?.getPrivacyFields) {
-                privacyFields = window.pluginSdk.getPrivacyFields() || [];
+                rawData = window.pluginSdk.getPrivacyFields() || [];
             } else {
-                // const conf = await window.pluginSdk.loadConfig();
-                // privacyFields = conf.privacyFields || [];
-                window.pluginSdk?.showMessage('无法获取到隐私规则!', 5000, 'error')
+                window.pluginSdk?.showMessage?.('无法获取到隐私规则!', 5000, 'error')
             }
+            // ⚠️ Deep clone
+            privacyFields = JSON.parse(JSON.stringify(rawData));
             renderTable();
+        }
+
+        // --- Color Utils ---
+
+        /**
+         * Simple string hash to index
+         */
+        function getHashCode(str) {
+            let hash = 0;
+            if (str.length === 0) return hash;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32bit integer
+            }
+            return Math.abs(hash);
+        }
+
+        function getTypeStyle(type) {
+            if (!type) return '';
+            const index = getHashCode(type) % palette.length;
+            const colors = palette[index];
+
+            // 使用颜色作为文字颜色，并使用带透明度的背景色
+            // Hex color + alpha: 1A = ~10%, 22 = ~13%
+            // return `color: ${color}; background-color: ${color}22; border-color: ${color}44;`;
+            return `background-color: ${colors[0]}; color: ${colors[1]};`;
         }
 
         // --- Rendering ---
@@ -548,6 +598,9 @@
                 const tr = document.createElement('tr');
                 if (!field.enabled) tr.classList.add('disabled');
 
+                // 动态计算样式
+                const badgeStyle = getTypeStyle(field.maskType);
+
                 tr.innerHTML = `
                     <td>
                         <label class="switch">
@@ -555,7 +608,7 @@
                             <span class="slider"></span>
                         </label>
                     </td>
-                    <td><span class="badge" data-type="${field.maskType}">${field.maskType}</span></td>
+                    <td><span class="badge" style="${badgeStyle}">${escapeHtml(field.maskType)}</span></td>
                     <td>${escapeHtml(field.description || '-')}</td>
                     <td>
                         <span style="font-family: var(--code-font); font-size: 12px; background: var(--bg-surface); padding: 2px 4px; border-radius: 4px;">
@@ -587,7 +640,7 @@
 
         window.toggleField = (index) => {
             privacyFields[index].enabled = !privacyFields[index].enabled;
-            renderTable(); // Re-render to update opacity
+            renderTable();
         };
 
         window.deleteField = async (index) => {
@@ -603,7 +656,19 @@
             const field = privacyFields[index];
 
             // Fill form
-            inputs.type.value = field.maskType;
+            const typeValue = field.maskType;
+            // 判断是否为标准类型（忽略大小写，为了稳健）
+            const isStandard = STANDARD_TYPES.includes(typeValue.toLowerCase());
+
+            if (isStandard) {
+                inputs.type.value = typeValue.toLowerCase(); // 下拉框的 value 都是小写
+                inputs.customType.value = '';
+            } else {
+                inputs.type.value = 'custom';
+                inputs.customType.value = typeValue;
+            }
+            toggleCustomTypeInput();
+
             inputs.desc.value = field.description || '';
             inputs.isRegex.checked = field.isRegex;
             inputs.patterns.value = (field.patterns || []).join('\n');
@@ -616,6 +681,9 @@
             editingIndex = -1;
             // Reset form
             inputs.type.value = 'custom';
+            inputs.customType.value = '';
+            toggleCustomTypeInput();
+
             inputs.desc.value = '';
             inputs.isRegex.checked = false;
             inputs.patterns.value = '';
@@ -626,22 +694,37 @@
 
         function applyPreset(key) {
             const p = PRESETS[key];
+            // 预设肯定是标准类型
             inputs.type.value = p.maskType;
+            toggleCustomTypeInput();
+
             inputs.desc.value = p.description;
             inputs.isRegex.checked = p.isRegex;
 
-            // Append patterns if some exist, else replace
-            const current = inputs.patterns.value.trim();
+            // Replace patterns
             const newPatterns = p.patterns.join('\n');
             inputs.patterns.value = newPatterns;
-            // if (current) {
-            //     inputs.patterns.value = current + '\n' + newPatterns;
-            // } else {
-            //     inputs.patterns.value = newPatterns;
-            // }
         }
 
         function saveDialog() {
+            // 1. 获取 MaskType
+            let finalMaskType = inputs.type.value;
+            if (finalMaskType === 'custom') {
+                const customVal = inputs.customType.value.trim();
+                if (!customVal) {
+                    window.pluginSdk?.showMessage?.('请输入自定义类型代码', 'error');
+                    inputs.customType.focus();
+                    return;
+                }
+                // 简单的校验：允许字母、数字、下划线
+                if (!/^[a-zA-Z0-9_]+$/.test(customVal)) {
+                    window.pluginSdk?.showMessage?.('类型代码仅允许字母、数字和下划线', 'error');
+                    return;
+                }
+                finalMaskType = customVal;
+            }
+
+            // 2. 获取 Patterns
             const rawPatterns = inputs.patterns.value.split('\n').map(s => s.trim()).filter(s => s);
 
             if (rawPatterns.length === 0) {
@@ -649,7 +732,7 @@
                 return;
             }
 
-            // Validate Regex
+            // 3. 校验 Regex
             if (inputs.isRegex.checked) {
                 for (let p of rawPatterns) {
                     try { new RegExp(p); } catch (e) {
@@ -660,7 +743,7 @@
             }
 
             const newData = {
-                maskType: inputs.type.value,
+                maskType: finalMaskType,
                 description: inputs.desc.value,
                 isRegex: inputs.isRegex.checked,
                 patterns: rawPatterns,
