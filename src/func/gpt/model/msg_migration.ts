@@ -1,7 +1,7 @@
 // src/func/gpt/model/msg_migration.ts
 /**
  * V1 → V2 历史记录迁移模块
- * 
+ *
  * 设计原则：
  * 1. 读时迁移：每次读取旧格式自动转换，不自动回写
  * 2. 渐进兼容：支持 V0(无schema) → V1 → V2 的迁移路径
@@ -83,7 +83,7 @@ export function createEmptyHistoryV2(id: string, title: string): IChatSessionHis
         nodes: {},
         rootId: null,
         worldLine: [],
-        bookmarks: [],
+        bookmarks: {},
     };
 }
 
@@ -221,7 +221,7 @@ function migrateHistoryV1ToV2(v1: IChatSessionHistory): IChatSessionHistoryV2 {
         nodes,
         rootId: worldLine[0] ?? null,
         worldLine,
-        bookmarks: [],
+        bookmarks: {},
     };
 }
 

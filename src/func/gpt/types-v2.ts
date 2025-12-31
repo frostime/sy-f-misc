@@ -1,10 +1,10 @@
 /**
  * @future 未来会进行迁移
  * 引入 Tree 结构来管理对话消息节点
- * 
+ *
  * IChatSessionMsgItem --> IChatSessionMsgItemV2
  * IChatSessionHistory --> IChatSessionHistoryV2
- * 
+ *
  * ====
 1. rerun 不产生分支，而产生 version；可以想象这样一个情况：对一个我问题，我想要听GPT Claude Gemini 多个人的意见——所以会在一个 item 上出现多个 version; 后面我可能想要问不同类型的问题，我可以手动 branch 一个 item 在下方产生不同的世界线（用平行世界来比喻，很像）
 2. 目前不做 version 和 branch 的关联绑定，是因为做了的话处理逻辑会很复杂
@@ -19,7 +19,7 @@ type ItemID = string;
 
 /**
  * 单个版本的完整数据
- * 
+ *
  * - 同一问题的不同模型回答（GPT/Claude/Gemini）
  * - rerun 产生的新回复
  */
@@ -92,7 +92,7 @@ interface IMessagePayload {
 interface IChatSessionMsgItemV2 {
     id: ItemID;
     // WARN 注意 V1 里面为 seperator ，拼写错误
-    /** 
+    /**
      * message: 正常消息节点
      * separator: 上下文断点（versions 为空对象，currentVersionId 为空字符串）
      */
@@ -158,5 +158,6 @@ interface IChatSessionHistoryV2 {
     worldLine: ItemID[];      // 当前活跃路径 [root, ..., leaf]
 
     // Leaf 节点列表, 方便定位不同 thread
-    bookmarks?: ItemID[];
+    // bookmarks?: ItemID[];
+    bookmarks?: Record<ItemID, string>;  // 节点: 简要说明
 }

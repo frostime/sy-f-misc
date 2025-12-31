@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-01-01 14:55:08
  * @FilePath     : /src/func/gpt/persistence/import-platform.ts
- * @LastEditTime : 2025-12-31 00:31:33
+ * @LastEditTime : 2025-12-31 01:19:47
  * @Description  :
  */
 import { showMessage } from "siyuan";
@@ -203,7 +203,6 @@ const parseGoogleAIStudioFile = (content: string): ParsedChatResult => {
         nodes,
         rootId,
         worldLine,
-        bookmarks: [],
     };
     return { name: history.title, history };
 }
@@ -370,7 +369,6 @@ const parseAizexFile = (content: string): ParsedChatResult => {
         nodes,
         rootId,
         worldLine,
-        bookmarks: [],
     };
 
     return { name: history.title, history };
@@ -479,7 +477,6 @@ const parseCherryStudioMarkdown = (content: string): ParsedChatResult => {
         nodes,
         rootId,
         worldLine,
-        bookmarks: [],
     };
     return { name: history.title, history };
 };

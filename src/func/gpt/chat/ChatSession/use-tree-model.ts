@@ -1,6 +1,6 @@
 /**
  * V2 树形消息模型 Hook
- * 
+ *
  * 设计原则：
  * 1. 内部维护 nodes + worldLine 树结构
  * 2. 对外暴露 messages() 只读 Accessor，兼容现有 UI
@@ -34,7 +34,8 @@ export interface ITreeModel {
     /** 获取根节点 ID */
     getRootId: () => ItemID | null;
     /** 获取书签 */
-    getBookmarks: () => ItemID[];
+    // getBookmarks: () => ItemID[];
+    getBookmarks: () => Record<ItemID, string>;
 
     // ========== 节点访问 ==========
     /** 按 ID 获取节点 */
@@ -133,7 +134,8 @@ export const useTreeModel = (): ITreeModel => {
     const nodes = useStoreRef<Record<ItemID, IChatSessionMsgItemV2>>({});
     const rootId = useSignalRef<ItemID | null>(null);
     const worldLine = useStoreRef<ItemID[]>([]);
-    const bookmarks = useStoreRef<ItemID[]>([]);
+    // const bookmarks = useStoreRef<ItemID[]>([]);
+    const bookmarks = useStoreRef<Record<ItemID, string>>({});
 
     // ========== 派生状态 ==========
 
@@ -343,7 +345,16 @@ export const useTreeModel = (): ITreeModel => {
             }
 
             // 更新 bookmarks
-            bookmarks.update(prev => prev.filter(bid => !idsToDelete.has(bid)));
+            // bookmarks.update(prev => prev.filter(bid => !idsToDelete.has(bid)));
+            bookmarks.update(prev => {
+                const newBookmarks: Record<ItemID, string> = {};
+                Object.entries(prev).forEach(([bid, note]) => {
+                    if (!idsToDelete.has(bid)) {
+                        newBookmarks[bid] = note;
+                    }
+                });
+                return newBookmarks;
+            });
         });
     };
 
@@ -525,7 +536,7 @@ export const useTreeModel = (): ITreeModel => {
             ...meta,
             nodes: structuredClone(nodes.unwrap()),
             worldLine: [...worldLine.unwrap()],
-            bookmarks: [...bookmarks.unwrap()],
+            bookmarks: {...bookmarks.unwrap()},
             rootId: rootId(),
         };
     };
@@ -538,7 +549,8 @@ export const useTreeModel = (): ITreeModel => {
             // bookmarks.update(history.bookmarks || []);
             nodes.update(structuredClone(history.nodes || {}));
             worldLine.update([...(history.worldLine || [])]);
-            bookmarks.update([...(history.bookmarks || [])]);
+            // bookmarks.update([...(history.bookmarks || {})]);
+            bookmarks.update(structuredClone(history.bookmarks || {}));
         });
     };
 
@@ -547,7 +559,8 @@ export const useTreeModel = (): ITreeModel => {
             nodes.update({});
             rootId.value = null;
             worldLine.update([]);
-            bookmarks.update([]);
+            // bookmarks.update([]);
+            bookmarks.update({});
         });
     };
 

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-12-17 18:39:40
+ * @LastEditTime : 2025-12-31 01:15:27
  * @Description  :
  */
 // ============================================================================
@@ -459,6 +459,47 @@ interface IRuntimeLLM {
     provider?: Omit<ILLMProviderV2, 'models'>;
 }
 
+/**
+ * 聊天会话的快照数据，用于性能优化的历史记录列表显示
+ */
+interface IChatSessionSnapshot {
+    type: 'snapshot'; // 类型标识; 将 History 和 Snapshot 区分开来
+    id: string;
+    title: string;
+    timestamp: number;
+    updated?: number;
+    tags?: string[];
+    preview: string; // 前500字的内容预览
+    messageCount: number; // 消息数量
+    lastMessageAuthor: string; // 最后一条消息的作者
+    lastMessageTime: number; // 最后一条消息的时间
+    // systemPrompt?: string;
+}
+
+/**
+ * 历史记录快照文件的数据结构
+ */
+interface IHistorySnapshot {
+    schema: '1.0'; // snapshot数据结构版本，用于兼容性检查
+    lastUpdated: number; // snapshot最后更新时间
+    sessions: IChatSessionSnapshot[]; // 会话快照数组
+}
+
+interface IChatSessionConfig {
+    attachedHistory: number;
+    //GPT 常常使用 \( \) 语法，但是 md 习惯使用 $ $ 语法，需要转换
+    convertMathSyntax: boolean;
+    maxInputLenForAutoTitle: number;
+    utilityModelId?: string;
+    renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
+    toolCallMaxRounds: number; // 工具调用最大轮次
+    chatOption: IChatCompleteOption;
+}
+
+
+// ================================================================
+// 以下类型弃用，见 types-v2.ts
+// ================================================================
 
 /**
  * 对话 Session 中各个 item 记录
@@ -577,41 +618,4 @@ interface IChatSessionHistory {
     sysPrompt?: string;
     tags?: string[];
     customOptions?: Record<string, any>;
-}
-
-/**
- * 聊天会话的快照数据，用于性能优化的历史记录列表显示
- */
-interface IChatSessionSnapshot {
-    type: 'snapshot'; // 类型标识; 将 History 和 Snapshot 区分开来
-    id: string;
-    title: string;
-    timestamp: number;
-    updated?: number;
-    tags?: string[];
-    preview: string; // 前500字的内容预览
-    messageCount: number; // 消息数量
-    lastMessageAuthor: string; // 最后一条消息的作者
-    lastMessageTime: number; // 最后一条消息的时间
-    // systemPrompt?: string;
-}
-
-/**
- * 历史记录快照文件的数据结构
- */
-interface IHistorySnapshot {
-    schema: '1.0'; // snapshot数据结构版本，用于兼容性检查
-    lastUpdated: number; // snapshot最后更新时间
-    sessions: IChatSessionSnapshot[]; // 会话快照数组
-}
-
-interface IChatSessionConfig {
-    attachedHistory: number;
-    //GPT 常常使用 \( \) 语法，但是 md 习惯使用 $ $ 语法，需要转换
-    convertMathSyntax: boolean;
-    maxInputLenForAutoTitle: number;
-    utilityModelId?: string;
-    renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
-    toolCallMaxRounds: number; // 工具调用最大轮次
-    chatOption: IChatCompleteOption;
 }
