@@ -1,5 +1,4 @@
-<!-- VIBE-SPEC:START -->
-# .vibe-spec Agent Protocol - see `.vibe-spec` directory
+# .vibe-spec Agent Protocol
 
 ## 0) Hard Rules
 - High-signal only: bullets > prose. No filler.
@@ -124,12 +123,4 @@ Do:
   - list target files + minimal diff intent
 - If uncertain:
   - ask 1 question max, otherwise proceed with best-effort defaults
-<!-- VIBE-SPEC:END -->
-
-<!-- DEV-LOGS:START -->
-# Dev-Logs
-If the Agent needs to write a markdown document as a log file,
-place it in `/dev-logs/<yymmdd>-<title>.md`.
-The User/Agent will read these logs and, after the project concludes, decide whether to delete them or move them to `/dev-logs/archive`.
-<!-- DEV-LOGS:END -->
 
