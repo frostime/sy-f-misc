@@ -29,6 +29,7 @@ import { deepMerge } from '@frostime/siyuan-plugin-kits';
 import { quickComplete } from '../../openai/tiny-agent';
 import { FormatConverter, DataURL, Base64String } from '@gpt/chat-utils/msg-modal';
 import { ITreeModel } from './use-tree-model';
+import { maskMessages, recoverContent, IMaskSchema } from '@gpt/privacy';
 
 // ============================================================================
 // 类型定义
@@ -290,6 +291,18 @@ const createChatHandler = (deps: ChatHandlerDeps) => {
     const buildSystemPrompt = (): string => {
         const ptime = `It's: ${new Date().toString()}`;
         let prompt = systemPrompt().trim() || '';
+
+        const privacyEnabled = config().enablePrivacyMask;
+        const privacyFields = config().privacyFields || [];
+        if (privacyEnabled && privacyFields.length > 0) {
+            prompt += `\n\n<PRIVACY_RULE>
+Note that the privacy mask rule is enabled by the system.
+Certain security-related words will be masked in the format "__MASK_<TYPE>_<ID>__" before being sent to the LLM, and then recovered to the user after receiving the response.
+
+This process is transparent to the user. However, if the assistant/LLM is asked about what was masked, it is permitted to acknowledge the privacy function and state that it does not know the original content.
+</PRIVACY_RULE>`;
+        }
+
         if (toolExecutor?.hasEnabledTools()) {
             prompt += toolExecutor.toolRules();
         }
@@ -712,6 +725,10 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     // 当前的 AbortController
     let controller: AbortController | null = null;
 
+    // 当前的 privacy mask schema
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let currentMaskSchema: IMaskSchema | null = null;
+
     // ========================================================================
     // 核心执行逻辑
     // ========================================================================
@@ -724,22 +741,52 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
         targetId: string,
         scrollToBottom?: (force?: boolean) => void
     ): Promise<ExtendedCompletionResult> => {
-        // 执行初始请求
+        // 检查是否启用隐私屏蔽
+        const privacyEnabled = config().enablePrivacyMask;
+        const privacyFields = config().privacyFields || [];
+
+        let maskedMessages = msgToSend;
+        let maskSchema: IMaskSchema | null = null;
+
+        if (privacyEnabled && privacyFields.length > 0) {
+            const maskResult = maskMessages(msgToSend, privacyFields);
+            maskedMessages = maskResult.masked;
+            maskSchema = maskResult.schema;
+            currentMaskSchema = maskSchema; // 保存 schema 供流式响应使用
+
+            if (maskSchema.mappings.size > 0) {
+                console.log(`[Privacy] Masked ${maskSchema.mappings.size} sensitive items`);
+            }
+        }
+
+        // 执行初始请求（使用屏蔽后的消息）
         const initialResult = await chatHandler.execute({
-            msgToSend,
+            msgToSend: maskedMessages,
             controller: controller!,
             onStream: (content, _toolCalls) => {
                 lifecycle.updateContent(targetId, content);
+                // 流式响应就先不 recover 了
                 scrollToBottom?.(false);
             }
         });
+
+        // Recover 最终结果
+        if (maskSchema && maskSchema.mappings.size > 0) {
+            initialResult.content = recoverContent(initialResult.content, maskSchema);
+            if (initialResult.reasoning_content) {
+                initialResult.reasoning_content = recoverContent(initialResult.reasoning_content, maskSchema);
+            }
+        }
+
+        // 清除 schema
+        currentMaskSchema = null;
 
         // 处理工具调用链
         if (toolExecutor && initialResult.tool_calls?.length) {
             return handleToolChain({
                 toolExecutor,
                 initialResponse: initialResult,
-                contextMessages: msgToSend,
+                contextMessages: msgToSend, // 注意：这里使用原始消息，不是 masked
                 targetId,
                 controller: controller!,
                 model: model(),
@@ -757,7 +804,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     /**
      * 预检查：验证模态类型和必要的 attachments
      * 对于 image-edit，如果没有附件，允许稍后从上一条消息提取
-     * 
+     *
      * @returns true 表示检查通过，false 表示检查失败
      */
     const preValidateModalType = (
@@ -843,7 +890,7 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
 
     /**
      * 预检查 rerun 模态
-     * 
+     *
      * @returns true 表示检查通过，false 表示检查失败
      */
     const preValidateRerunModalType = (

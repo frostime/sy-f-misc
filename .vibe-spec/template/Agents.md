@@ -1,4 +1,4 @@
-# .vibe-spec Agent Protocol
+# .vibe-spec Agent Protocol - see `.vibe-spec` directory
 
 ## 0) Hard Rules
 - High-signal only: bullets > prose. No filler.
@@ -37,33 +37,26 @@ Do:
 
 ### 2.2 `@resume`  (Resume from handover)
 Goal: recover context in <30 seconds.
+When: a new start chat/agent session, user ask agent to resume the context.
 
 Do:
 1) Select active change:
    - If user provided a name in recent messages -> use it
    - Else choose the most recently updated change whose spec.Status ∈ {DOING, BLOCKED, REVIEW}
-2) Read:
-   - changes/<change>/handover.md (first)
-   - changes/<change>/tasks.md
-   - changes/<change>/spec.md
-3) Output fixed format:
-   - Context (<=5 bullets)
-   - Current status (1 line)
-   - Next tasks (top 3, copy exact items from tasks.md)
-   - Recommended VIBE mode (one word)
+2) Read: `changes/<change>/` `handover.md` (first), `tasks.md`, `spec.md`
+1) Import the context from last session, and move on in this session.
 
 ### 2.3 `@handover`  (Write/Update handover now)
 Goal: end this session cleanly.
+When: a chat/agent session going to end, user ask agent to record the context.
 
 Do:
-1) Update `changes/<change>/handover.md` using this strict schema:
-   - Done (bullets)
-   - Now (1 bullet: current blocking point or current state)
-   - Next (ordered bullets)
-   - Files touched (list)
-   - Commands to run (if any)
+1) Update `changes/<change>/handover.md` following the predifined schema.
 2) Also update `tasks.md` progress and "Last Updated".
 3) Output: short confirmation + paste the exact handover content you wrote.
+
+## 2.4 `@sync` (Sync current state with .vibe-spce/changes)
+Goal: make `changes/` up to date with current situation.
 
 ---
 
@@ -113,14 +106,4 @@ Do:
   `.vibe-spec/scripts/new-change-task.ps1 -changeName "<my-change-name>"`
 - New request:
   `.vibe-spec/scripts/new-request.ps1 -requestName "<my-request-name>"`
-
----
-
-## 6) Output Discipline (keep responses predictable)
-- If you propose edits to spec/tasks/handover:
-  - show the exact markdown sections to paste
-- If you plan code changes:
-  - list target files + minimal diff intent
-- If uncertain:
-  - ask 1 question max, otherwise proceed with best-effort defaults
 

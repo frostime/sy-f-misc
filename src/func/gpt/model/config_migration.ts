@@ -2,8 +2,8 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
- * @FilePath     : /src/func/gpt/model/migration.ts
- * @LastEditTime : 2025-12-10
+ * @FilePath     : /src/func/gpt/model/config_migration.ts
+ * @LastEditTime : 2025-12-31 18:35:57
  * @Description  : Schema version comparison and legacy data migration (internal)
  */
 
@@ -12,7 +12,7 @@ import { createModelConfig } from "./preset";
 import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_CHAT_ENDPOINT } from "./url_utils";
 import { asStorage } from "./config";
 
-export const CURRENT_SCHEMA = '2.0';
+export const CURRENT_SCHEMA = '2.1';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -88,7 +88,7 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
 
         /**
          * Transform from old provider to new provider
-         * @returns 
+         * @returns
          */
         const migrateLegacyProviders = () => {
             console.log('[GPT 配置迁移] 开始迁移旧版 Provider 配置...');
@@ -159,11 +159,61 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
             return true;
         };
         migrateLegacyProviders();
+
+        /**
+         * Migrate legacy privacy configuration (privacyKeywords) to new IPrivacyField[]
+         */
+        const migrateLegacyPrivacy = () => {
+            const globalMiscConfigs = (data as any).globalMiscConfigs;
+            if (!globalMiscConfigs) return false;
+
+            const legacyKeywords = globalMiscConfigs.privacyKeywords;
+            if (!legacyKeywords || typeof legacyKeywords !== 'string') return false;
+
+            console.log('[GPT 配置迁移] 开始迁移旧版隐私配置...');
+
+            const keywords = legacyKeywords.trim().split('\n').filter((k: string) => k.trim());
+            if (keywords.length === 0) return false;
+
+            // 转换为新格式 - 所有关键词合并到一个 Field
+            const privacyFields: any[] = [{
+                patterns: keywords.map((k: string) => k.trim()),
+                isRegex: false,
+                maskType: 'custom' as const,
+                enabled: true,
+                description: `从旧配置迁移 (${keywords.length} 个关键词)`
+            }];
+
+            globalMiscConfigs.privacyFields = privacyFields;
+            globalMiscConfigs.enablePrivacyMask = keywords.length > 0; // 如果有关键词，默认启用
+
+            console.log(`[GPT 配置迁移] 成功迁移 ${keywords.length} 个隐私关键词到新格式`);
+            // 保留旧字段以防降级，但标记已迁移
+            return true;
+        };
+        migrateLegacyPrivacy();
     }
 
+    // 2.1 版本: 向后兼容 schema <= 2.0; 变更: 隐私配置从 globalMiscConfigs 移到 defaultConfig
+    if (compareSchemaVersion(dataSchema, '2.1') < 0) {
+        const globalMiscConfigs = (data as any).globalMiscConfigs;
+        const config = (data as any).config;
+
+        if (globalMiscConfigs && config) {
+            // 迁移隐私配置到会话级别
+            if (globalMiscConfigs.enablePrivacyMask !== undefined) {
+                config.enablePrivacyMask = globalMiscConfigs.enablePrivacyMask;
+                delete globalMiscConfigs.enablePrivacyMask;
+            }
+            if (globalMiscConfigs.privacyFields !== undefined) {
+                config.privacyFields = globalMiscConfigs.privacyFields;
+                delete globalMiscConfigs.privacyFields;
+            }
+
+            console.log('[GPT 配置迁移] 隐私配置已从全局移至会话级别');
+        }
+    }
     migrated = true;
-
     (data as any).schema = CURRENT_SCHEMA;
-
     return { data, migrated };
 }

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-22 00:57:32
+ * @LastEditTime : 2025-12-31 19:44:08
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID, matchIDFormat, inputDialog } from "@frostime/siyuan-plugin-kits";
@@ -18,7 +18,7 @@ import { showMessage } from "siyuan";
  * iframe 页面配置
  */
 export interface IIframePageConfig {
-    /** 页面来源类型 
+    /** 页面来源类型
      * - 'url': 加载外部 URL 或本地文件路径
      * - 'html-text': 直接注入 HTML 文本内容
      */
@@ -347,15 +347,15 @@ const forwardIframePointerEvents = (iframe: HTMLIFrameElement): (() => void) => 
 
 /**
  * 打开一个包含 iframe 的自定义 tab
- * 
+ *
  * 这个函数封装了创建 iframe tab 的完整流程：
  * 1. 创建自定义 tab
  * 2. 在 tab 中渲染 iframe
  * 3. 注入 SDK（如果配置）
  * 4. 管理清理逻辑
- * 
+ *
  * @param options - Tab 配置选项
- * 
+ *
  * @example
  * ```typescript
  * openIframeTab({

@@ -494,6 +494,10 @@ interface IChatSessionConfig {
     renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
     toolCallMaxRounds: number; // 工具调用最大轮次
     chatOption: IChatCompleteOption;
+
+    // 隐私配置
+    enablePrivacyMask?: boolean;
+    privacyFields?: import('./privacy/types').IPrivacyField[];
 }
 
 
