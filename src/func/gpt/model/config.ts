@@ -8,6 +8,7 @@
  */
 
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
+import { IPrivacyField } from '../privacy/types';
 
 /**
  * `siyuan` or `modelName@providerName`
@@ -24,6 +25,8 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     utilityModelId: '',
     renderInStreamMode: true,
     toolCallMaxRounds: 7,
+    enablePrivacyMask: false, // 是否启用隐私屏蔽
+    privacyFields: [] as IPrivacyField[], // 隐私字段配置
     chatOption: {
         temperature: 0.7,
         stream: true,
@@ -57,8 +60,8 @@ const _defaultGlobalMiscConfigs = {
 ------
 {{content}}
 `.trim(),
-    privacyKeywords: '',  // 多行隐私关键词
-    privacyMask: '***',   // 隐私词替换为
+    privacyKeywords: '',  // @deprecated 多行隐私关键词，已迁移到 privacyFields
+    privacyMask: '***',   // @deprecated 隐私词替换为，已废弃
     defaultSystemPrompt: `You are a helpful assistant.`,
     enableMessageLogger: false,
     maxMessageLogItems: 500,

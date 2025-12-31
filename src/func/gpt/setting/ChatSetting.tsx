@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2025-02-14 20:51:33
+ * @LastEditTime : 2025-12-31 19:20:25
  * @Description  :
  */
 
@@ -15,6 +15,9 @@ import { UIConfig, defaultModelId, listAvialableModels, useModel } from "../mode
 import Heading from "./Heading";
 import { showMessage } from "siyuan";
 import { SelectInput, TextInput } from "@/libs/components/Elements";
+import { createSignal } from "solid-js";
+import PrivacyFieldsSetting from "./PrivacyFieldsSetting";
+import { solidDialog } from "@/libs/dialog";
 
 
 const ChatSessionSetting = (props: {
@@ -22,6 +25,7 @@ const ChatSessionSetting = (props: {
 }) => {
 
     const { config } = props;
+    const [showPrivacyDialog, setShowPrivacyDialog] = createSignal(false);
 
     return (
         <>
@@ -253,6 +257,45 @@ const ChatSessionSetting = (props: {
                         "xhigh": "xhing"
                     }}
                 />
+            </Form.Wrap>
+            <Heading>隐私配置</Heading>
+            <Form.Wrap
+                title="启用隐私屏蔽"
+                description="在发送消息给 LLM 之前自动屏蔽敏感信息，接收回复后自动恢复"
+            >
+                <Form.Input
+                    type="checkbox"
+                    value={config().enablePrivacyMask ?? false}
+                    changed={(v) => {
+                        config.update('enablePrivacyMask', v);
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
+                title="隐私字段配置"
+                description="配置需要屏蔽的敏感信息规则"
+            >
+                <button
+                    class="b3-button b3-button--outline"
+                    onClick={() => {
+                        const dialog = solidDialog({
+                            title: '配置隐私字段',
+                            width: '1000px',
+                            loader: () => (
+                                <PrivacyFieldsSetting
+                                    fields={config().privacyFields ?? []}
+                                    onSave={(fields) => {
+                                        config.update('privacyFields', fields);
+                                        dialog.close();
+                                    }}
+                                    onClose={() => dialog.close()}
+                                />
+                            )
+                        })
+                    }}
+                >
+                    配置隐私字段
+                </button>
             </Form.Wrap>
             <Heading>用户对话配置</Heading>
             <Form.Wrap
