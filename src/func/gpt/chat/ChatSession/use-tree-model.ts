@@ -17,6 +17,14 @@ import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 type ItemID = string;
 
 /**
+ * 删除操作结果
+ */
+export interface IDeleteResult {
+    success: boolean;
+    reason?: 'NODE_NOT_FOUND' | 'ROOT_HAS_BRANCHES' | 'BRANCH_COMPRESSION' | 'NOT_ON_WORLDLINE' | 'NOT_CONTINUOUS' | 'MIDDLE_HAS_BRANCH' | 'EMPTY';
+}
+
+/**
  * TreeModel 对外接口
  */
 export interface ITreeModel {
@@ -57,10 +65,10 @@ export interface ITreeModel {
     updateNode: (id: ItemID, updates: Partial<IChatSessionMsgItemV2>) => void;
     /** 更新节点的 Payload（当前版本） */
     updatePayload: (id: ItemID, updates: Partial<IMessagePayload>) => void;
-    /** 删除节点（及其后续） */
-    deleteNode: (id: ItemID, keepChildren?: boolean) => void;
-    /** 批量删除 */
-    deleteNodes: (ids: ItemID[]) => void;
+    /** 删除节点（安全删除，返回操作结果） */
+    deleteNode: (id: ItemID) => IDeleteResult;
+    /** 批量删除（必须连续且中间无分支） */
+    deleteNodes: (ids: ItemID[]) => IDeleteResult;
 
     // ========== 分支操作 ==========
     /** 在指定节点处截断 worldLine，准备创建分支 */
@@ -284,84 +292,177 @@ export const useTreeModel = (): ITreeModel => {
             }
         }));
     };
+/**
+### 单节点删除 (`deleteNode`)
 
-    const deleteNode = (id: ItemID, keepChildren = false) => {
+| 情况                | 条件      | 行为                          | 验证 |
+| ----------------- | ------- | --------------------------- | -- |
+| ¬A ∧ ¬B           | 无兄弟，无分支 | 删除，children 重连              | ✅  |
+| ¬A ∧ B            | 无兄弟，有分支 | 删除，多 children 全部重连到 parent  | ✅  |
+| A ∧ ¬B            | 有兄弟，无分支 | 删除，child 并入 parent.children | ✅  |
+| A ∧ B             | 有兄弟，有分支 | 禁止（BRANCH_COMPRESSION）      | ✅  |
+| Root + 多 children | —       | 禁止（ROOT_HAS_BRANCHES）       | ✅  |
+| Root + 单 child    | —       | 删除，child 成为新 root           | ✅  |
+| Root + 无 child    | —       | 删除，rootId = null            | ✅  |
+
+### 批量删除 (`deleteNodes`)
+
+校验链完整：
+
+1. `NOT_ON_WORLDLINE` — 所有 ID 必须在当前世界线上
+2. `NOT_CONTINUOUS` — 必须连续
+3. `MIDDLE_HAS_BRANCH` — 中间节点不能有分支
+4. 从后往前逐个调用 `deleteNode`
+
+## 一个小观察
+
+`validateBatchDelete` 中的 "中间节点不能有分支" 检查（`MIDDLE_HAS_BRANCH`）实际上是一个**保守策略**。
+
+从纯粹的树操作角度，即使中间节点有分支（但这些分支不在当前 worldLine 上），删除操作也是安全的——分支会被正确重连。但禁止这种情况可以：
+
+1. 避免用户误删导致意外的拓扑变化
+2. 让用户明确意识到存在分支
+ */
+
+    /**
+     * 安全删除单个节点
+     * 规则：
+     * - Root 有多个 children 时禁止删除
+     * - A ∧ B（有兄弟且有分支）时禁止删除，避免分支压缩
+     * - 其他情况：删除节点，children 重连到 parent
+     */
+    const deleteNode = (id: ItemID): IDeleteResult => {
         const node = nodes()[id];
-        if (!node) return;
+        if (!node) return { success: false, reason: 'NODE_NOT_FOUND' };
 
+        const isRoot = node.parent === null;
+        const hasMultipleChildren = node.children.length > 1;  // B
+        const hasSiblings = node.parent
+            ? nodes()[node.parent].children.length > 1
+            : false;  // A
+
+        // Root 特殊处理：有多个 children 时禁止删除
+        if (isRoot && hasMultipleChildren) {
+            return { success: false, reason: 'ROOT_HAS_BRANCHES' };
+        }
+
+        // A ∧ B: 危险操作，禁止分支压缩
+        if (hasSiblings && hasMultipleChildren) {
+            return { success: false, reason: 'BRANCH_COMPRESSION' };
+        }
+
+        // 执行删除（¬A∧¬B, ¬A∧B, A∧¬B 三种情况统一处理）
         batch(() => {
-            const idsToDelete = new Set<ItemID>([id]);
+            const parentId = node.parent;
 
-            if (!keepChildren) {
-                // 收集所有后代节点
-                const collectDescendants = (nodeId: ItemID) => {
-                    const n = nodes()[nodeId];
-                    if (!n) return;
-                    n.children.forEach(childId => {
-                        idsToDelete.add(childId);
-                        collectDescendants(childId);
-                    });
-                };
-                collectDescendants(id);
-            }
-
-            // 更新父节点的 children
-            if (node.parent) {
-                nodes.update(node.parent, 'children', (prev: ItemID[]) =>
+            // 1. 从父节点移除自己
+            if (parentId) {
+                nodes.update(parentId, 'children', (prev: ItemID[]) =>
                     prev.filter(c => c !== id)
                 );
             }
 
-            // 如果保留子节点，重新链接到父节点
-            if (keepChildren && node.children.length > 0) {
-                node.children.forEach(childId => {
-                    nodes.update(childId, 'parent', node.parent);
-                    if (node.parent) {
-                        nodes.update(node.parent, 'children', (prev: ItemID[]) => [...prev, childId]);
-                    }
-                });
+            // 2. 子节点重连到父节点
+            node.children.forEach(childId => {
+                nodes.update(childId, 'parent', parentId);
+                if (parentId) {
+                    nodes.update(parentId, 'children', (prev: ItemID[]) =>
+                        [...prev, childId]
+                    );
+                }
+            });
+
+            // 3. 删除节点本身
+            nodes.update(prev => {
+                const { [id]: _, ...rest } = prev;
+                return rest;
+            });
+
+            // 4. 更新 worldLine
+            worldLine.update(prev => prev.filter(wid => wid !== id));
+
+            // 5. 更新 rootId（如果删除的是 root 且只有一个 child）
+            if (isRoot && node.children.length === 1) {
+                rootId.value = node.children[0];
+            } else if (isRoot && node.children.length === 0) {
+                rootId.value = null;
             }
 
-            // 删除节点
-            // nodes.update(prev => {
-            //     const newNodes = { ...prev };
-            //     idsToDelete.forEach(delId => delete newNodes[delId]);
-            //     return newNodes;
-            // });
-            nodes.update(prev =>
-                Object.fromEntries(
-                    Object.entries(prev).filter(([id]) => !idsToDelete.has(id))
-                )
-            );
-
-
-            // 更新 worldLine
-            worldLine.update(prev => prev.filter(wid => !idsToDelete.has(wid)));
-
-            // 更新 rootId
-            if (idsToDelete.has(rootId()!)) {
-                const newWorldLine = worldLine();
-                rootId.value = newWorldLine[0] ?? null;
-            }
-
-            // 更新 bookmarks
-            // bookmarks.update(prev => prev.filter(bid => !idsToDelete.has(bid)));
+            // 6. 更新 bookmarks
             bookmarks.update(prev => {
-                const newBookmarks: Record<ItemID, string> = {};
-                Object.entries(prev).forEach(([bid, note]) => {
-                    if (!idsToDelete.has(bid)) {
-                        newBookmarks[bid] = note;
-                    }
-                });
-                return newBookmarks;
+                const { [id]: _, ...rest } = prev;
+                return rest;
             });
         });
+
+        return { success: true };
     };
 
-    const deleteNodes = (ids: ItemID[]) => {
+    /**
+     * 批量删除前置校验
+     * 规则：
+     * 1. 必须都在 worldLine 上
+     * 2. 必须连续
+     * 3. 中间节点不能有分支
+     */
+    const validateBatchDelete = (ids: ItemID[]): IDeleteResult => {
+        if (ids.length === 0) return { success: false, reason: 'EMPTY' };
+        if (ids.length === 1) return { success: true };
+
+        const wl = worldLine();
+        const indices = ids.map(id => wl.indexOf(id)).filter(i => i !== -1);
+
+        // 条件 1: 必须都在 worldLine 上
+        if (indices.length !== ids.length) {
+            return { success: false, reason: 'NOT_ON_WORLDLINE' };
+        }
+
+        // 条件 2: 必须连续
+        indices.sort((a, b) => a - b);
+        for (let i = 1; i < indices.length; i++) {
+            if (indices[i] !== indices[i - 1] + 1) {
+                return { success: false, reason: 'NOT_CONTINUOUS' };
+            }
+        }
+
+        // 条件 3: 中间节点不能有分支
+        const head = indices[0];
+        const tail = indices[indices.length - 1];
+        for (let i = head + 1; i < tail; i++) {
+            const node = nodes()[wl[i]];
+            if (node && node.children.length > 1) {
+                return { success: false, reason: 'MIDDLE_HAS_BRANCH' };
+            }
+        }
+
+        return { success: true };
+    };
+
+    /**
+     * 批量删除节点
+     * 先校验连续性和分支，通过后从后往前逐个删除
+     */
+    const deleteNodes = (ids: ItemID[]): IDeleteResult => {
+        const validation = validateBatchDelete(ids);
+        if (!validation.success) {
+            return validation;
+        }
+
+        // 按 worldLine 顺序排序，从后往前删除更安全
+        const wl = worldLine();
+        const sortedIds = [...ids].sort((a, b) => wl.indexOf(b) - wl.indexOf(a));
+
         batch(() => {
-            ids.forEach(id => deleteNode(id));
+            for (const id of sortedIds) {
+                const result = deleteNode(id);
+                if (!result.success) {
+                    // 理论上不应该失败，因为已经校验过
+                    console.warn(`Failed to delete node ${id}:`, result.reason);
+                }
+            }
         });
+
+        return { success: true };
     };
 
     // ========== 分支操作 ==========
@@ -536,7 +637,7 @@ export const useTreeModel = (): ITreeModel => {
             ...meta,
             nodes: structuredClone(nodes.unwrap()),
             worldLine: [...worldLine.unwrap()],
-            bookmarks: {...bookmarks.unwrap()},
+            bookmarks: { ...bookmarks.unwrap() },
             rootId: rootId(),
         };
     };

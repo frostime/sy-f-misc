@@ -699,7 +699,21 @@ export const useSession = (props: {
                 return loc.id;
             }).filter(Boolean) as string[];
 
-            idsToDelete.forEach(id => treeModel.deleteNode(id));
+            const show = (result: ReturnType<typeof treeModel.deleteNode>) => {
+                if (!result.success) {
+                    showMessage(`删除消息失败：${result.reason}`, 6000, 'error');
+                }
+            }
+
+            // idsToDelete.forEach(id => treeModel.deleteNode(id));
+            if (idsToDelete.length === 1) {
+                let result = treeModel.deleteNode(idsToDelete[0]);
+                show(result);
+            } else if (idsToDelete.length > 1) {
+                let result = treeModel.deleteNodes(idsToDelete);
+                show(result);
+            }
+
             renewUpdatedTimestamp();
         },
         insertMessageAfter: (after: MessageLocator, item: IChatSessionMsgItemV2) => {
@@ -758,7 +772,7 @@ export const useSession = (props: {
         createBranch: (at: MessageLocator) => {
             const item = hooks.getMessageAt(at);
             if (!item) return null;
-            
+
             const branchId = treeModel.forkAt(item.id);
             if (!branchId) return null;
 
