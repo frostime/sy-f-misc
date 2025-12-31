@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:20
  * @FilePath     : /src/func/gpt/setting/index.tsx
- * @LastEditTime : 2025-12-22 22:25:08
- * @Description  : 
+ * @LastEditTime : 2025-12-31 17:57:24
+ * @Description  :
  */
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import Form from "@/libs/components/Form";

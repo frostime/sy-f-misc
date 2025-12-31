@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2025-01-26 21:52:32
  * @FilePath     : /src/func/gpt/context-provider/index.ts
- * @LastEditTime : 2025-06-13 23:04:00
- * @Description  : 
+ * @LastEditTime : 2025-12-31 17:58:21
+ * @Description  :
  */
 // import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { FocusDocProvider, OpenedDocProvider } from './ActiveDocProvider';
