@@ -4,7 +4,7 @@
  * @Date         : 2025-12-12 11:54:23
  * @Description  :
  * @FilePath     : /src/func/gpt/openai/tiny-agent.ts
- * @LastEditTime : 2025-12-12 13:04:45
+ * @LastEditTime : 2025-12-31 13:54:33
  */
 // import { extractContentText } from '../chat-utils';
 import { defaultConfig, defaultModelId, useModel } from '../model';
@@ -76,23 +76,23 @@ const extractTemplateVars = (template: string): string[] => {
 
 /**
  * 制作一个简易的智能体
- * 
+ *
  * @param options 配置选项
  * @param options.inputTemplate 输入模板，支持 {{varName}} 变量占位符
  * @param options.taskRule 任务规则描述，支持 {{varName}} 变量占位符
  * @param options.completionOptions 补全选项
  * @param options.model 模型 ID
  * @param options.outputProcessor 输出处理器
- * 
+ *
  * @template T 变量类型，用于类型提示
- * 
+ *
  * @example
  * // 创建带类型提示的 agent
  * const agent = makeTinyAgent<{ name: string; age: string }>({
  *     inputTemplate: 'Hello {{name}}, you are {{age}} years old',
  *     taskRule: 'Generate a greeting message'
  * });
- * 
+ *
  * // execute 方法的 vars 参数会有类型提示
  * const result = await agent.execute({ name: 'Alice', age: '25' });
  */
@@ -177,7 +177,7 @@ export const makeTinyAgent = <T extends Record<string, string> = Record<string, 
 
 /**
  * 翻译智能体
- * 
+ *
  * @param options 翻译选项
  * @param options.text 要翻译的文本
  * @param options.targetLanguage 目标语言，默认为 'Chinese'
@@ -226,7 +226,7 @@ Output only the translated text without any explanations, notes, or additional c
 
 /**
  * JSON 格式化智能体
- * 
+ *
  * @param options JSON 处理选项
  * @param options.text 要格式化或提取的文本
  * @param options.schema 期望的 JSON 结构描述（可选）
@@ -317,4 +317,281 @@ Provide only the JSON output without explanations.`;
         content: jsonContent,
     };
 };
+
+
+// ================================================================
+// 委员会模式
+// ================================================================
+// tiny-agent.ts
+
+/**
+ * 辩论模式：提出者-挑战者往复改进
+ */
+export const makeDebateAgent = (options: {
+    proposer: ModelBareId;
+    challenger: ModelBareId;
+    rounds?: number;
+    taskRule?: string;
+    initialHistory?: IMessage[];
+    completionOptions?: Partial<IChatCompleteOption>;
+}) => {
+    const maxRounds = options.rounds || 3;
+
+    return {
+        execute: async (userPrompt: string): Promise<{
+            ok: boolean;
+            content: string;
+            error?: Error;
+            debateHistory?: IMessage[];
+        }> => {
+            const proposerLLM = useModel(options.proposer);
+            const challengerLLM = useModel(options.challenger);
+
+            if (!proposerLLM || !challengerLLM) {
+                return {
+                    ok: false,
+                    content: '',
+                    error: new Error('模型配置无效')
+                };
+            }
+
+            // 初始化消息历史
+            const messages: IMessage[] = [
+                ...(options.initialHistory || []),
+                { role: 'user', content: userPrompt }
+            ];
+
+            // === 第一轮：提出者初始回答 ===
+            let result = await complete(messages, {
+                model: proposerLLM,
+                systemPrompt: options.taskRule,
+                stream: false,
+                option: {
+                    temperature: 0.7,
+                    ...options.completionOptions
+                }
+            });
+
+            if (!result.ok) {
+                return { ok: false, content: result.content, error: new Error(result.content) };
+            }
+
+            messages.push({
+                role: 'assistant',
+                content: result.content,
+                name: options.proposer
+            });
+
+            let currentAnswer = result.content;
+
+            // === 后续轮次：挑战-改进循环 ===
+            for (let i = 0; i < maxRounds - 1; i++) {
+                // 挑战者批评
+                const challengeMessages: IMessage[] = [
+                    ...messages,
+                    {
+                        role: 'user',
+                        content: '请指出上述回答的问题：\n1. 逻辑漏洞\n2. 事实错误\n3. 论证不足\n提供具体改进建议。'
+                    }
+                ];
+
+                const challengeResult = await complete(challengeMessages, {
+                    model: challengerLLM,
+                    systemPrompt: '你是严格的批评者，擅长发现论证缺陷。',
+                    stream: false,
+                    option: {
+                        temperature: 0.5,
+                        ...options.completionOptions
+                    }
+                });
+
+                if (!challengeResult.ok) break;
+
+                messages.push({
+                    role: 'assistant',
+                    content: challengeResult.content,
+                    name: options.challenger
+                });
+
+                messages.push({
+                    role: 'user',
+                    content: '请根据批评意见改进你的回答。'
+                });
+
+                // 提出者改进
+                const improveResult = await complete(messages, {
+                    model: proposerLLM,
+                    systemPrompt: options.taskRule + '\n注意吸收批评中的合理建议。',
+                    stream: false,
+                    option: {
+                        temperature: 0.7,
+                        ...options.completionOptions
+                    }
+                });
+
+                if (!improveResult.ok) break;
+
+                currentAnswer = improveResult.content;
+                messages.push({
+                    role: 'assistant',
+                    content: currentAnswer,
+                    name: options.proposer
+                });
+            }
+
+            return {
+                ok: true,
+                content: currentAnswer,
+                debateHistory: messages
+            };
+        }
+    };
+};
+
+/**
+ * 并行评审模式：多模型独立思考后交叉评审
+ */
+export const makeEnsembleAgent = (options: {
+    models: ModelBareId[];
+    consolidator?: ModelBareId;
+    taskRule?: string;
+    initialHistory?: IMessage[];
+    completionOptions?: Partial<IChatCompleteOption>;
+}) => {
+    return {
+        execute: async (userPrompt: string): Promise<{
+            ok: boolean;
+            content: string;
+            error?: Error;
+            individualAnswers?: Array<{ model: string; content: string }>;
+            reviews?: string[];
+        }> => {
+            const baseMessages: IMessage[] = [
+                ...(options.initialHistory || []),
+                { role: 'user', content: userPrompt }
+            ];
+
+            // === 阶段 1：并行生成初始回答 ===
+            const modelLLMs = options.models.map(id => ({
+                id,
+                llm: useModel(id)
+            }));
+
+            if (modelLLMs.some(m => !m.llm)) {
+                return {
+                    ok: false,
+                    content: '',
+                    error: new Error('部分模型配置无效')
+                };
+            }
+
+            const initialAnswers = await Promise.all(
+                modelLLMs.map(async ({ id, llm }) => {
+                    const result = await complete(baseMessages, {
+                        model: llm,
+                        systemPrompt: options.taskRule,
+                        stream: false,
+                        option: {
+                            temperature: 0.7,
+                            ...options.completionOptions
+                        }
+                    });
+                    return { modelId: id, result };
+                })
+            );
+
+            const failed = initialAnswers.find(({ result }) => !result.ok);
+            if (failed) {
+                return {
+                    ok: false,
+                    content: failed.result.content,
+                    error: new Error(failed.result.content)
+                };
+            }
+
+            // === 阶段 2：交叉评审 ===
+            const reviews: string[] = [];
+
+            for (let i = 0; i < modelLLMs.length; i++) {
+                const { id, llm } = modelLLMs[i];
+                const myAnswer = initialAnswers[i].result.content;
+                const othersText = initialAnswers
+                    .filter((_, idx) => idx !== i)
+                    .map(({ modelId, result }) =>
+                        `### ${modelId}\n${result.content}`
+                    )
+                    .join('\n\n');
+
+                const reviewMessages: IMessage[] = [
+                    ...baseMessages,
+                    { role: 'assistant', content: myAnswer, name: id },
+                    {
+                        role: 'user',
+                        content: `其他模型的回答：\n\n${othersText}\n\n请对比分析各回答的优缺点，并指出你的回答可以如何改进。`
+                    }
+                ];
+
+                const reviewResult = await complete(reviewMessages, {
+                    model: llm,
+                    systemPrompt: '你需要客观评价不同回答的优劣。',
+                    stream: false,
+                    option: {
+                        temperature: 0.3,
+                        ...options.completionOptions
+                    }
+                });
+
+                if (reviewResult.ok) {
+                    reviews.push(reviewResult.content);
+                }
+            }
+
+            // === 阶段 3：综合整合 ===
+            const consolidatorId = options.consolidator || options.models[0];
+            const consolidatorLLM = useModel(consolidatorId);
+
+            if (!consolidatorLLM) {
+                return {
+                    ok: false,
+                    content: '',
+                    error: new Error('综合者模型配置无效')
+                };
+            }
+
+            const synthesisText = initialAnswers.map(({ modelId, result }, i) =>
+                `## ${modelId} 的回答\n${result.content}\n\n### 对应评审\n${reviews[i] || '无'}`
+            ).join('\n\n---\n\n');
+
+            const consolidationMessages: IMessage[] = [
+                ...baseMessages,
+                {
+                    role: 'user',
+                    content: `以下是多个模型的回答及评审：\n\n${synthesisText}\n\n请综合优点、规避缺陷，给出最优答案。`
+                }
+            ];
+
+            const finalResult = await complete(consolidationMessages, {
+                model: consolidatorLLM,
+                systemPrompt: options.taskRule + '\n你需要提炼集体智慧。',
+                stream: false,
+                option: {
+                    temperature: 0.5,
+                    ...options.completionOptions
+                }
+            });
+
+            return {
+                ok: finalResult.ok,
+                content: finalResult.content,
+                error: finalResult.ok ? undefined : new Error(finalResult.content),
+                individualAnswers: initialAnswers.map(({ modelId, result }) => ({
+                    model: modelId,
+                    content: result.content
+                })),
+                reviews
+            };
+        }
+    };
+};
+
 
