@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Editor</title>
+    <!-- CodeMirror 5 核心样式 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <!-- 主题样式 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
+
+    <style>
+        :root {
+            /* 基础变量，兜底值 */
+            --font-size-normal: 14px;
+            --bg-primary: #ffffff;
+            --text-primary: #333333;
+            --border-color: #e0e0e0;
+            --accent-color: #d23f31;
+
+            /* 状态色 */
+            --success-color: #34a853;
+        }
+
+        /* 注入的 CSS 变量会覆盖上面的 */
+
+        * {
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--theme-background, var(--bg-primary));
+            color: var(--theme-on-background, var(--text-primary));
+            font-family: var(--font-family, sans-serif);
+            overflow: hidden;
+        }
+
+        /* 工具栏 */
+        .toolbar {
+            flex-shrink: 0;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            border-bottom: 1px solid var(--theme-surface-lighter, var(--border-color));
+            background-color: var(--theme-surface, #f5f5f5);
+            gap: 12px;
+            user-select: none;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .divider {
+            width: 1px;
+            height: 20px;
+            background-color: var(--theme-surface-lighter, var(--border-color));
+        }
+
+        /* 控件样式 */
+        .control-label {
+            font-size: 12px;
+            color: var(--theme-on-surface-light, #888);
+            margin-right: 4px;
+        }
+
+        select,
+        input[type="number"] {
+            background: var(--theme-background, #fff);
+            color: var(--theme-on-background, #333);
+            border: 1px solid var(--theme-surface-lighter, #ccc);
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 13px;
+            height: 28px;
+            transition: border-color 0.2s;
+        }
+
+        select:focus,
+        input:focus {
+            border-color: var(--theme-primary, var(--accent-color));
+        }
+
+        select:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-color: var(--theme-surface-light, #eee);
+        }
+
+        input[type="number"] {
+            width: 50px;
+        }
+
+        /* 按钮 */
+        button {
+            height: 28px;
+            padding: 0 12px;
+            border: 1px solid var(--theme-surface-lighter, #ccc);
+            background: var(--theme-surface-light, #fff);
+            color: var(--theme-on-surface, #333);
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: var(--theme-surface-lighter, #eee);
+            border-color: var(--theme-primary, var(--accent-color));
+        }
+
+        button.primary {
+            background: var(--theme-primary, var(--accent-color));
+            color: var(--theme-on-primary, #fff);
+            border-color: var(--theme-primary, var(--accent-color));
+        }
+
+        button.primary:hover {
+            opacity: 0.9;
+        }
+
+        /* 编辑器主体 */
+        #editor-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            font-size: 16px;
+            /* 默认字号 */
+        }
+
+        /* 覆盖 CodeMirror 默认样式以适应 Flex */
+        .CodeMirror {
+            height: 100%;
+            font-family: var(--font-family-code, monospace);
+            line-height: 1.6;
+        }
+
+        /* 调整暗色模式下的滚动条轨道颜色 */
+        [data-theme-mode="dark"] .CodeMirror-scroll {
+            background-color: var(--theme-background);
+        }
+
+        /* 状态栏 */
+        .statusbar {
+            flex-shrink: 0;
+            height: 26px;
+            background-color: var(--theme-primary, #d23f31);
+            /* 使用主色调 */
+            color: var(--theme-on-primary, #fff);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            font-size: 12px;
+            font-family: var(--font-family-code, monospace);
+        }
+
+        /* Toast 提示 */
+        .toast {
+            position: fixed;
+            top: 50px;
+            right: 20px;
+            padding: 8px 16px;
+            background: var(--theme-surface, #fff);
+            border-left: 4px solid var(--theme-primary, #d23f31);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            border-radius: 2px;
+            z-index: 9999;
+            transform: translateX(120%);
+            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left-color: var(--success-color, #34a853);
+        }
+
+        /* Icon svg */
+        .icon {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <span class="control-label">语言</span>
+            <select id="langSelect">
+                <option value="">Plain Text</option>
+                <option value="markdown">Markdown</option>
+                <option value="javascript">JavaScript</option>
+                <option value="typescript">TypeScript</option>
+                <option value="python">Python</option>
+                <option value="java">Java</option>
+                <option value="cpp">C++</option>
+                <option value="htmlmixed">HTML</option>
+                <option value="css">CSS</option>
+                <option value="xml">XML</option>
+                <option value="application/json">JSON</option>
+                <option value="sql">SQL</option>
+            </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="toolbar-group">
+            <span class="control-label">字号</span>
+            <input type="number" id="fontSize" value="16" min="10" max="48" step="1">
+            <span class="control-label" style="margin-left:2px">px</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="toolbar-group" style="margin-left: auto;">
+            <button id="clearBtn">
+                <svg class="icon" viewBox="0 0 1024 1024">
+                    <path
+                        d="M899.1 869.6l-53-305.6H864c14.4 0 26-11.6 26-26V346c0-14.4-11.6-26-26-26H618V96c0-14.4-11.6-26-26-26H432c-14.4 0-26 11.6-26 26v224H160c-14.4 0-26 11.6-26 26v192c0 14.4 11.6 26 26 26h17.9l-53 305.6c-0.3 1.5-0.4 3-0.4 4.4 0 14.4 11.6 26 26 26h723c1.5 0 3-0.1 4.4-0.4 14.2-2.4 23.7-15.9 21.2-30zM204 390h276c4.4 0 8-3.6 8-8v-62h48v62c0 4.4 3.6 8 8 8h276v108H204V390z m126 464L376 568h272l46 286H330z">
+                    </path>
+                </svg>
+                清空
+            </button>
+            <button id="saveBtn" class="primary">
+                <svg class="icon" viewBox="0 0 1024 1024">
+                    <path
+                        d="M893.3 293.3L730.7 130.7c-7.5-7.5-16.7-13-26.7-16V112H144c-17.7 0-32 14.3-32 32v736c0 17.7 14.3 32 32 32h736c17.7 0 32-14.3 32-32V320c-2.8-10-8.5-19.2-16.7-26.7zM848 848H176V176h128v224c0 17.7 14.3 32 32 32h352c17.7 0 32-14.3 32-32V176h102.1L848 301.9V848zM576 432H368V176h208v256z">
+                    </path>
+                </svg>
+                保存
+            </button>
+        </div>
+    </div>
+
+    <div id="editor-wrapper">
+        <textarea id="code"></textarea>
+    </div>
+
+    <div class="statusbar">
+        <span id="cursorPos">Ln 1, Col 1</span>
+        <span id="langDisplay">Plain Text</span>
+    </div>
+
+    <div id="toast" class="toast">操作成功</div>
+
+    <!-- CodeMirror 5 核心 (南科大源) -->
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+
+    <!-- 常用插件 -->
+    <script
+        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+    <script
+        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script
+        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+
+    <!-- 语言包 -->
+    <script
+        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+    <script
+        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script
+        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+
+
+    <script>
+        // 核心变量
+        let editor;
+        let config = {
+            langType: '',
+            fontSize: 16,
+            fontFamily: ''
+        };
+        let allowSwitch = true;
+
+        // 语言映射 Mode
+        const modeMap = {
+            '': null,
+            'markdown': 'markdown',
+            'javascript': 'javascript',
+            'typescript': 'text/typescript', // 依赖 javascript mode
+            'application/json': 'application/json',
+            'sql': 'text/x-sql',
+            'python': 'python',
+            'htmlmixed': 'htmlmixed',
+            'css': 'css',
+            'xml': 'xml',
+            'java': 'text/x-java', // 依赖 clike mode
+            'cpp': 'text/x-c++src', // 依赖 clike mode
+        };
+
+        // UI 元素
+        const langSelect = document.getElementById('langSelect');
+        const fontSizeInput = document.getElementById('fontSize');
+        const editorWrapper = document.getElementById('editor-wrapper');
+        const cursorPosEl = document.getElementById('cursorPos');
+        const langDisplayEl = document.getElementById('langDisplay');
+        const toastEl = document.getElementById('toast');
+
+        // SDK 初始化
+        window.addEventListener('pluginSdkReady', async () => {
+            const sdk = window.pluginSdk;
+
+            // 1. 设置主题 (配合 SiYuan)
+            const themeMode = sdk.themeMode || 'light';
+            document.documentElement.setAttribute('data-theme-mode', themeMode);
+
+            // 2. 获取初始参数
+            const savedConfig = await sdk.loadConfig() || {};
+            const sdkLang = sdk.langType;
+
+            allowSwitch = (sdk.allowSwitch !== undefined) ? sdk.allowSwitch : true;
+
+            // 3. 合并配置
+            config.langType = sdkLang || savedConfig.langType || '';
+            config.fontSize = savedConfig.fontSize || 16;
+
+            // 字体优先顺序：配置 > SDK变量 > 默认
+            config.fontFamily = savedConfig.fontFamily ||
+                sdk.styleVar['font-family-code'] ||
+                'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace';
+
+            // 4. 初始化 UI 状态
+            initUI(themeMode);
+
+            // 5. 初始化编辑器
+            initEditor(themeMode);
+
+            // 6. 加载内容
+            loadContent();
+        });
+
+        function initUI(themeMode) {
+            // 语言选择器
+            langSelect.value = config.langType;
+            if (!allowSwitch) {
+                langSelect.disabled = true;
+                langSelect.title = "语言切换已被锁定";
+            }
+
+            // 字号
+            fontSizeInput.value = config.fontSize;
+
+            // 事件绑定
+            langSelect.addEventListener('change', (e) => {
+                setLanguage(e.target.value);
+            });
+
+            fontSizeInput.addEventListener('change', (e) => {
+                let size = parseInt(e.target.value);
+                if (size < 10) size = 10;
+                if (size > 64) size = 64;
+                setFontSize(size);
+            });
+
+            document.getElementById('saveBtn').addEventListener('click', saveContent);
+            document.getElementById('clearBtn').addEventListener('click', () => {
+                if (confirm('确认清空所有内容？')) {
+                    editor.setValue('');
+                    editor.focus();
+                }
+            });
+
+            // 快捷键 Ctrl+S / Cmd+S
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    saveContent();
+                }
+            });
+        }
+
+        function initEditor(themeMode) {
+            // 确定主题
+            const cmTheme = (themeMode === 'dark') ? 'dracula' : 'eclipse';
+
+            // 实例化 CodeMirror
+            editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+                mode: modeMap[config.langType],
+                theme: cmTheme,
+                lineNumbers: true,
+                lineWrapping: true,       // 自动换行
+                styleActiveLine: true,    // 高亮当前行
+                matchBrackets: true,      // 括号匹配
+                autoCloseBrackets: true,  // 自动闭合括号
+                indentUnit: 4,
+                tabSize: 4,
+                indentWithTabs: true,
+                extraKeys: {
+                    "Tab": function (cm) {
+                        if (cm.somethingSelected()) {
+                            cm.indentSelection("add");
+                        } else {
+                            cm.replaceSelection("\t", "end");
+                        }
+                    }
+                }
+            });
+
+            // 应用样式
+            setFontSize(config.fontSize);
+            editor.getWrapperElement().style.fontFamily = config.fontFamily;
+
+            // 状态栏更新监听
+            editor.on('cursorActivity', () => {
+                const pos = editor.getCursor();
+                const count = editor.getValue().length;
+                cursorPosEl.textContent = `Ln ${pos.line + 1}, Col ${pos.ch + 1} | Len ${count}`;
+            });
+
+            // 初始状态栏
+            updateStatusBar();
+        }
+
+        async function loadContent() {
+            try {
+                const text = await window.pluginSdk.getText();
+                if (text) {
+                    editor.setValue(text);
+                    editor.clearHistory(); // 清除 undo 栈
+                }
+            } catch (e) {
+                console.warn("Load content failed or empty", e);
+            }
+        }
+
+        async function saveContent() {
+            try {
+                const val = editor.getValue();
+                const ok = await window.pluginSdk.setText(val);
+                if (ok) showToast('保存成功', 'success');
+                else showToast('保存失败', 'error');
+            } catch (e) {
+                showToast('保存出错: ' + e.message, 'error');
+            }
+        }
+
+        function setLanguage(lang) {
+            if (!allowSwitch && lang !== config.langType) return;
+
+            config.langType = lang;
+            const mode = modeMap[lang];
+            editor.setOption('mode', mode);
+            updateStatusBar();
+            saveConfig();
+        }
+
+        function setFontSize(size) {
+            config.fontSize = size;
+            editor.getWrapperElement().style.fontSize = size + 'px';
+            editor.refresh(); // 刷新布局
+            saveConfig();
+        }
+
+        function updateStatusBar() {
+            const opt = langSelect.options[langSelect.selectedIndex];
+            langDisplayEl.textContent = opt ? opt.text : 'Plain Text';
+        }
+
+        function saveConfig() {
+            window.pluginSdk.saveConfig({
+                langType: config.langType,
+                fontSize: config.fontSize
+            });
+        }
+
+        function showToast(msg, type = 'info') {
+            toastEl.textContent = msg;
+            toastEl.className = 'toast show ' + type;
+            setTimeout(() => {
+                toastEl.classList.remove('show');
+            }, 2000);
+        }
+
+    </script>
+</body>
+
+</html>

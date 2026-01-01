@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-04-17 15:20:21
  * @FilePath     : /src/func/private-func/index.ts
- * @LastEditTime : 2025-12-17 02:20:36
+ * @LastEditTime : 2026-01-01 23:13:22
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
@@ -13,6 +13,8 @@ import * as toQuickDn from "./to-quick-dn";
 // import { showMessage } from "siyuan";
 
 import { config } from './config';
+import { launchEditor } from "@/libs/editor";
+import { text } from "stream/consumers";
 export { declareModuleConfig } from './config';
 
 export let name = "PrivateFunc";
@@ -64,6 +66,21 @@ export const load = (plugin_: FMiscPlugin) => {
 
     toQuickDn.load();
     // htmlPages.load(plugin_);
+
+    plugin_.registerMenuTopMenu('editor', [
+        {
+            label: '打开代码编辑器',
+            icon: 'iconCode',
+            click: () => {
+                launchEditor({
+                    source: '',
+                    onSave: async (text: string) => {
+                        return true;
+                    }
+                })
+            }
+        }
+    ])
 };
 
 export const unload = (_plugin: FMiscPlugin) => {
