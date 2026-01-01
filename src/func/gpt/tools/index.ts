@@ -33,18 +33,18 @@ const IS_IN_APP = window?.require?.('electron') !== undefined;
 export const toolExecutorFactory = (options: {
     approvalAdapter?: ApprovalUIAdapter;
 }) => {
-    // 创建工具执行器
-    const toolExecutor = new ToolExecutor();
-
-    // 注册工具组
-    toolExecutor.registerToolGroup(basicTool);
-    toolExecutor.registerToolGroup(toolGroupWeb);
-
     // vfs
     const vfs = createVFS({
         local: true,
         memory: true,
     });
+    // 创建工具执行器
+    const toolExecutor = new ToolExecutor({ vfs });
+
+    // 注册工具组
+    toolExecutor.registerToolGroup(basicTool);
+    toolExecutor.registerToolGroup(toolGroupWeb);
+
     toolExecutor.registerToolGroup(createFileSystemToolGroup(vfs));
     toolExecutor.registerToolGroup(createFileEditorToolGroup(vfs));
 

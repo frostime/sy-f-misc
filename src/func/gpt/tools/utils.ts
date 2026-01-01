@@ -127,7 +127,7 @@ const createTempfile = (
 
 /**
  * 防止临时目录下文件过多，删除较旧的文件
- * @returns 
+ * @returns
  */
 export const pruneOldTempToollogFiles = (): void => {
     if (!fs || !path || !os) {

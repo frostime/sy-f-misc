@@ -514,7 +514,7 @@ loadBlob(`/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy`);
 
 思源中以下路径被后端静态托管，可以直接用 `fetch` 访问
 
-- `/data/assets/*` -> `assets/*`  
+- `/data/assets/*` -> `assets/*`
    例如: `![image](assets/image-20240731195519-xgw9ya7.png)`
 - `/data/public/*` -> `public/*`
 - 其他不那么重要，不赘述

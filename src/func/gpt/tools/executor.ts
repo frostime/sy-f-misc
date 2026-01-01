@@ -10,6 +10,7 @@ import {
 } from './types';
 import { toolsManager } from '../model/store';
 import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
+import { createVFS, VFSManager } from '@/libs/vfs';
 
 /**
  * 工具注册表
@@ -33,6 +34,17 @@ export class ToolExecutor {
     private resultApprovalCallback: ResultApprovalCallback | null = null;
     private approvalRecords: ApprovalRecord = {};
     public groupRegistry: Record<string, ToolGroup> = {};
+
+    public vfs: VFSManager;
+
+    constructor(options: {
+        vfs?: VFSManager;
+    }) {
+        this.vfs = options.vfs || createVFS({
+            local: true,
+            memory: true,
+        });
+    }
 
     // public groupEnabled: Record<string, boolean> = {};
     // private toolEnabled: Record<string, boolean> = {};
