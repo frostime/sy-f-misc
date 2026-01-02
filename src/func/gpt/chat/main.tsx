@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2026-01-02 12:20:54
+ * @LastEditTime : 2026-01-03 00:10:29
  * @Description  :
  */
 // External libraries
@@ -28,7 +28,7 @@ import MessageItem from './components/MessageItem';
 import AttachmentList from './components/AttachmentList';
 import TitleTagEditor from './components/TitleTagEditor';
 import HistoryList from './components/HistoryList';
-import { openIframDialog } from '@/func/html-pages/core';
+import { openIframeDialog } from '@/func/html-pages/core';
 import SvgSymbol from '@/libs/components/Elements/IconSymbol';
 import SessionItemsManager from './components/SessionItemsManager';
 import { SessionToolsManager } from './components/SessionToolsManager';
@@ -679,7 +679,7 @@ export const ChatSession: Component<{
                 icon: 'iconHistory',
                 label: `删除历史 (${session.deleteHistory.count()})`,
                 click: () => {
-                    openIframDialog({
+                    openIframeDialog({
                         title: '删除历史记录',
                         width: '720px',
                         height: '640px',

@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2025-12-31 20:25:47
+ * @LastEditTime : 2026-01-03 00:09:57
  * @Description  :
  */
 
@@ -15,7 +15,7 @@ import { UIConfig, defaultModelId, listAvialableModels, useModel } from "../mode
 import Heading from "./Heading";
 import { showMessage } from "siyuan";
 import { SelectInput, TextInput } from "@/libs/components/Elements";
-import { openIframDialog } from "@/func/html-pages/core";
+import { openIframeDialog } from "@/func/html-pages/core";
 import { IPrivacyField } from "../privacy";
 import { confirmDialog } from "@frostime/siyuan-plugin-kits";
 
@@ -284,7 +284,7 @@ const ChatSessionSetting = (props: {
                         const colors = Array.from({ length: 13 }, (_, i) => ([getCSSVar(`--b3-font-background${i + 1}`), getCSSVar(`--b3-font-color${i + 1}`)])
                         );
                         // const dialog = solidDialog({
-                        const dialog = openIframDialog({
+                        const dialog = openIframeDialog({
                             title: '配置隐私屏蔽规则',
                             width: '900px',
                             height: '800px',
