@@ -1,0 +1,10 @@
+{
+  "schema_version": "3.0",
+  "package_version": "0.8.0",
+  "initialized_at": "2026-01-02T23:35:52",
+  "files": {
+    "skills/sspec-workflow.md": "d8575044c393f0f1",
+    "skills/sspec-status-guide.md": "1f1813831f398425",
+    "project.md": "37aef04992328622"
+  }
+}
