@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:29:32
  * @FilePath     : /src/func/gpt/persistence/index.ts
- * @LastEditTime : 2025-03-16 18:27:56
- * @Description  : 
+ * @LastEditTime : 2026-01-02 13:34:19
+ * @Description  :
  */
 import { saveToSiYuan, saveToSiYuanAssetFile } from "./sy-doc";
 import { saveToJson } from "./json-files";
@@ -17,7 +17,14 @@ export const persistHistory = async (history: IChatSessionHistoryV2, options?: {
     saveTo?: 'document' | 'asset'
     verbose?: string;
 }) => {
-    if (options?.saveJson !== false) await saveToJson(history)
+    if (!history || history.schema !== 2) {
+        showMessage('历史记录格式错误，无法归档保存');
+        return;
+    }
+
+    if (options?.saveJson !== false) {
+        await saveToJson(history);
+    }
     if (options?.saveTo === 'document') {
         await saveToSiYuan(history)
     } else if (options?.saveTo === 'asset') {

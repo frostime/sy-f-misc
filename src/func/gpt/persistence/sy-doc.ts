@@ -133,6 +133,11 @@ export const chatHistoryToMarkdown = (
     history: Readonly<IChatSessionMsgItemV2[] | IChatSessionHistoryV2>,
     options?: Parameters<typeof item2markdown>[1]
 ) => {
+    if (!history) {
+        showMessage('历史记录格式错误');
+        return;
+    }
+
     let markdownText = '';
     let items: Readonly<IChatSessionMsgItemV2[]> = null;
     let sysPrompt = null;

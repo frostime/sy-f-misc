@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2025-12-28 22:27:14
+ * @LastEditTime : 2026-01-02 12:20:54
  * @Description  :
  */
 // External libraries
@@ -851,7 +851,7 @@ export const ChatSession: Component<{
                         // 下载 md
                         menu.addItem({
                             icon: 'iconDownload',
-                            label: '下载 Markdown',
+                            label: '下载为 Markdown',
                             click: () => {
                                 const mdText = persist.chatHistoryToMarkdown(session.sessionHistory());
                                 const title = `${session.title()}.md`;
@@ -860,6 +860,13 @@ export const ChatSession: Component<{
                                 a.download = title;
                                 a.click();
                                 showMessage('下载到' + title);
+                            }
+                        });
+                        menu.addItem({
+                            icon: 'iconArrowDown',
+                            label: '下载原始对话文件',
+                            click: () => {
+                                persist.downloadJsonFile(session.sessionHistory());
                             }
                         });
                         menu.addSeparator();

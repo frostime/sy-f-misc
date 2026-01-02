@@ -50,7 +50,7 @@ interface RunResult {
 /** 扩展的完成结果（包含工具链数据） */
 interface ExtendedCompletionResult extends ICompletionResult {
     hintSize?: number;
-    toolChainData?: IMessagePayload['toolChainResult'];
+    toolChainResult?: IMessagePayload['toolChainResult'];
 }
 
 /** 消息完成时的元数据 */
@@ -86,7 +86,7 @@ const createMessageLifecycle = (
 
         if (mode === 'append') {
             const id = newID();
-            const vid = `v_${id}`;
+            const vid = `v${id}`;
 
             treeModel.appendNode({
                 id,
@@ -137,7 +137,7 @@ const createMessageLifecycle = (
         if (!afterId) throw new Error(`Invalid insertAt index: ${mode.insertAt}`);
 
         const id = newID();
-        const vid = `v_${id}`;
+        const vid = `v${id}`;
 
         treeModel.insertAfter(afterId, {
             id,
@@ -191,6 +191,7 @@ const createMessageLifecycle = (
                 time: result.time,
                 token: result.usage?.completion_tokens ?? null,
                 userPromptSlice: result.hintSize ? [result.hintSize, result.content.length] : undefined,
+                toolChainResult: result.toolChainResult ?? undefined
             });
 
             treeModel.updateNode(id, {
@@ -312,7 +313,25 @@ This process is transparent to the user. However, if the assistant/LLM is asked 
     /** 执行 chat completion */
     const execute = async (params: ChatExecuteParams): Promise<ICompletionResult> => {
         const chatOption = buildChatOption();
-        return gpt.complete(params.msgToSend, {
+
+        // 检查是否启用隐私屏蔽
+        const privacyEnabled = config().enablePrivacyMask;
+        const privacyFields = config().privacyFields || [];
+
+        let maskedMessages = params.msgToSend;
+        let maskSchema: IMaskSchema | null = null;
+
+        if (privacyEnabled && privacyFields.length > 0) {
+            const maskResult = maskMessages(params.msgToSend, privacyFields);
+            maskedMessages = maskResult.masked;
+            maskSchema = maskResult.schema;
+
+            if (maskSchema.mappings.size > 0) {
+                console.log(`[Privacy] Masked ${maskSchema.mappings.size} sensitive items`);
+            }
+        }
+
+        const result = await gpt.complete(maskedMessages, {
             model: model(),
             systemPrompt: buildSystemPrompt(),
             stream: chatOption.stream,
@@ -321,6 +340,16 @@ This process is transparent to the user. However, if the assistant/LLM is asked 
             abortController: params.controller,
             option: chatOption,
         });
+
+        // Recover 最终结果
+        if (maskSchema && maskSchema.mappings.size > 0) {
+            result.content = recoverContent(result.content, maskSchema);
+            if (result.reasoning_content) {
+                result.reasoning_content = recoverContent(result.reasoning_content, maskSchema);
+            }
+        }
+
+        return result;
     };
 
     return {
@@ -336,12 +365,10 @@ This process is transparent to the user. However, if the assistant/LLM is asked 
 // 2.2 Image Handler
 // ----------------------------------------------------------------------------
 
-interface ImageHandlerDeps {
+const createImageHandler = (deps: {
     model: Accessor<IRuntimeLLM>;
     customOptions: ISignalRef<IChatCompleteOption>;
-}
-
-const createImageHandler = (deps: ImageHandlerDeps) => {
+}) => {
     const { model, customOptions } = deps;
 
     /** 从 attachments 提取图片 */
@@ -416,12 +443,11 @@ const createImageHandler = (deps: ImageHandlerDeps) => {
 // 2.3 Audio Handler
 // ----------------------------------------------------------------------------
 
-interface AudioHandlerDeps {
+
+const createAudioHandler = (deps: {
     model: Accessor<IRuntimeLLM>;
     customOptions: ISignalRef<IChatCompleteOption>;
-}
-
-const createAudioHandler = (deps: AudioHandlerDeps) => {
+}) => {
     const { model, customOptions } = deps;
 
     /** 从 attachments 提取音频 */
@@ -649,7 +675,7 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
                 reasoning_content: initialResponse.reasoning_content,
                 time: initialResponse.time,
                 hintSize: toolChainResult.toolChainContent.length,
-                toolChainData: {
+                toolChainResult: {
                     toolCallHistory: toolChainResult.toolCallHistory,
                     stats: toolChainResult.stats,
                     status: toolChainResult.status,
@@ -671,7 +697,7 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
 // 4. Orchestrator - 编排层
 // ============================================================================
 
-interface UseGptCommunicationParams {
+const useGptCommunication = (params: {
     model: Accessor<IRuntimeLLM>;
     config: IStoreRef<IChatSessionConfig>;
     treeModel: ITreeModel;  // 从 messages 改为 treeModel
@@ -683,9 +709,7 @@ interface UseGptCommunicationParams {
     toolExecutor?: ToolExecutor;
     newID: () => string;
     getAttachedHistory: (itemNum?: number, fromIndex?: number) => IMessage[];
-}
-
-const useGptCommunication = (params: UseGptCommunicationParams) => {
+}) => {
     const {
         model,
         config,
@@ -725,10 +749,6 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
     // 当前的 AbortController
     let controller: AbortController | null = null;
 
-    // 当前的 privacy mask schema
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    let currentMaskSchema: IMaskSchema | null = null;
-
     // ========================================================================
     // 核心执行逻辑
     // ========================================================================
@@ -741,27 +761,9 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
         targetId: string,
         scrollToBottom?: (force?: boolean) => void
     ): Promise<ExtendedCompletionResult> => {
-        // 检查是否启用隐私屏蔽
-        const privacyEnabled = config().enablePrivacyMask;
-        const privacyFields = config().privacyFields || [];
-
-        let maskedMessages = msgToSend;
-        let maskSchema: IMaskSchema | null = null;
-
-        if (privacyEnabled && privacyFields.length > 0) {
-            const maskResult = maskMessages(msgToSend, privacyFields);
-            maskedMessages = maskResult.masked;
-            maskSchema = maskResult.schema;
-            currentMaskSchema = maskSchema; // 保存 schema 供流式响应使用
-
-            if (maskSchema.mappings.size > 0) {
-                console.log(`[Privacy] Masked ${maskSchema.mappings.size} sensitive items`);
-            }
-        }
-
-        // 执行初始请求（使用屏蔽后的消息）
+        // 执行初始请求
         const initialResult = await chatHandler.execute({
-            msgToSend: maskedMessages,
+            msgToSend,
             controller: controller!,
             onStream: (content, _toolCalls) => {
                 lifecycle.updateContent(targetId, content);
@@ -770,23 +772,12 @@ const useGptCommunication = (params: UseGptCommunicationParams) => {
             }
         });
 
-        // Recover 最终结果
-        if (maskSchema && maskSchema.mappings.size > 0) {
-            initialResult.content = recoverContent(initialResult.content, maskSchema);
-            if (initialResult.reasoning_content) {
-                initialResult.reasoning_content = recoverContent(initialResult.reasoning_content, maskSchema);
-            }
-        }
-
-        // 清除 schema
-        currentMaskSchema = null;
-
         // 处理工具调用链
         if (toolExecutor && initialResult.tool_calls?.length) {
             return handleToolChain({
                 toolExecutor,
                 initialResponse: initialResult,
-                contextMessages: msgToSend, // 注意：这里使用原始消息，不是 masked
+                contextMessages: msgToSend,
                 targetId,
                 controller: controller!,
                 model: model(),

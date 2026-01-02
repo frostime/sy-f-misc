@@ -6,25 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Code Editor</title>
     <!-- CodeMirror 5 核心样式 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <!-- 代码提示样式 -->
+    <link rel="stylesheet" href="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
     <!-- 主题样式 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
+    <link rel="stylesheet" href="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css">
 
     <style>
         :root {
-            /* 基础变量，兜底值 */
             --font-size-normal: 14px;
             --bg-primary: #ffffff;
             --text-primary: #333333;
             --border-color: #e0e0e0;
             --accent-color: #d23f31;
-
-            /* 状态色 */
             --success-color: #34a853;
         }
-
-        /* 注入的 CSS 变量会覆盖上面的 */
 
         * {
             box-sizing: border-box;
@@ -43,7 +40,12 @@
             overflow: hidden;
         }
 
-        /* 工具栏 */
+        /* 提升提示框层级，防止被遮挡 */
+        .CodeMirror-hints {
+            z-index: 99999 !important;
+            font-family: var(--font-family-code, monospace);
+        }
+
         .toolbar {
             flex-shrink: 0;
             height: 42px;
@@ -68,7 +70,6 @@
             background-color: var(--theme-surface-lighter, var(--border-color));
         }
 
-        /* 控件样式 */
         .control-label {
             font-size: 12px;
             color: var(--theme-on-surface-light, #888);
@@ -102,7 +103,6 @@
             width: 50px;
         }
 
-        /* 按钮 */
         button {
             height: 28px;
             padding: 0 12px;
@@ -133,33 +133,32 @@
             opacity: 0.9;
         }
 
-        /* 编辑器主体 */
+        button.icon-only {
+            width: 28px;
+            padding: 0;
+            justify-content: center;
+        }
+
         #editor-wrapper {
             flex: 1;
             position: relative;
             overflow: hidden;
-            font-size: 16px;
-            /* 默认字号 */
         }
 
-        /* 覆盖 CodeMirror 默认样式以适应 Flex */
         .CodeMirror {
             height: 100%;
             font-family: var(--font-family-code, monospace);
             line-height: 1.6;
         }
 
-        /* 调整暗色模式下的滚动条轨道颜色 */
         [data-theme-mode="dark"] .CodeMirror-scroll {
             background-color: var(--theme-background);
         }
 
-        /* 状态栏 */
         .statusbar {
             flex-shrink: 0;
             height: 26px;
             background-color: var(--theme-primary, #d23f31);
-            /* 使用主色调 */
             color: var(--theme-on-primary, #fff);
             display: flex;
             align-items: center;
@@ -169,7 +168,6 @@
             font-family: var(--font-family-code, monospace);
         }
 
-        /* Toast 提示 */
         .toast {
             position: fixed;
             top: 50px;
@@ -195,11 +193,28 @@
             border-left-color: var(--success-color, #34a853);
         }
 
-        /* Icon svg */
         .icon {
             width: 14px;
             height: 14px;
             fill: currentColor;
+        }
+
+        .loading-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--theme-primary, #d23f31);
+        }
+
+        .loading-indicator::before {
+            content: "●";
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
     </style>
 </head>
@@ -223,13 +238,16 @@
                 <option value="application/json">JSON</option>
                 <option value="sql">SQL</option>
             </select>
+            <span id="loadingIndicator" class="loading-indicator" style="display:none;">加载中</span>
         </div>
 
         <div class="divider"></div>
 
         <div class="toolbar-group">
             <span class="control-label">字号</span>
+            <button class="icon-only" id="fontSizeDec" title="减小字号">－</button>
             <input type="number" id="fontSize" value="16" min="10" max="48" step="1">
+            <button class="icon-only" id="fontSizeInc" title="增大字号">＋</button>
             <span class="control-label" style="margin-left:2px">px</span>
         </div>
 
@@ -238,17 +256,13 @@
         <div class="toolbar-group" style="margin-left: auto;">
             <button id="clearBtn">
                 <svg class="icon" viewBox="0 0 1024 1024">
-                    <path
-                        d="M899.1 869.6l-53-305.6H864c14.4 0 26-11.6 26-26V346c0-14.4-11.6-26-26-26H618V96c0-14.4-11.6-26-26-26H432c-14.4 0-26 11.6-26 26v224H160c-14.4 0-26 11.6-26 26v192c0 14.4 11.6 26 26 26h17.9l-53 305.6c-0.3 1.5-0.4 3-0.4 4.4 0 14.4 11.6 26 26 26h723c1.5 0 3-0.1 4.4-0.4 14.2-2.4 23.7-15.9 21.2-30zM204 390h276c4.4 0 8-3.6 8-8v-62h48v62c0 4.4 3.6 8 8 8h276v108H204V390z m126 464L376 568h272l46 286H330z">
-                    </path>
+                    <path d="M899.1 869.6l-53-305.6H864c14.4 0 26-11.6 26-26V346c0-14.4-11.6-26-26-26H618V96c0-14.4-11.6-26-26-26H432c-14.4 0-26 11.6-26 26v224H160c-14.4 0-26 11.6-26 26v192c0 14.4 11.6 26 26 26h17.9l-53 305.6c-0.3 1.5-0.4 3-0.4 4.4 0 14.4 11.6 26 26 26h723c1.5 0 3-0.1 4.4-0.4 14.2-2.4 23.7-15.9 21.2-30zM204 390h276c4.4 0 8-3.6 8-8v-62h48v62c0 4.4 3.6 8 8 8h276v108H204V390z m126 464L376 568h272l46 286H330z"></path>
                 </svg>
                 清空
             </button>
             <button id="saveBtn" class="primary">
                 <svg class="icon" viewBox="0 0 1024 1024">
-                    <path
-                        d="M893.3 293.3L730.7 130.7c-7.5-7.5-16.7-13-26.7-16V112H144c-17.7 0-32 14.3-32 32v736c0 17.7 14.3 32 32 32h736c17.7 0 32-14.3 32-32V320c-2.8-10-8.5-19.2-16.7-26.7zM848 848H176V176h128v224c0 17.7 14.3 32 32 32h352c17.7 0 32-14.3 32-32V176h102.1L848 301.9V848zM576 432H368V176h208v256z">
-                    </path>
+                    <path d="M893.3 293.3L730.7 130.7c-7.5-7.5-16.7-13-26.7-16V112H144c-17.7 0-32 14.3-32 32v736c0 17.7 14.3 32 32 32h736c17.7 0 32-14.3 32-32V320c-2.8-10-8.5-19.2-16.7-26.7zM848 848H176V176h128v224c0 17.7 14.3 32 32 32h352c17.7 0 32-14.3 32-32V176h102.1L848 301.9V848zM576 432H368V176h208v256z"></path>
                 </svg>
                 保存
             </button>
@@ -266,33 +280,20 @@
 
     <div id="toast" class="toast">操作成功</div>
 
-    <!-- CodeMirror 5 核心 (南科大源) -->
+    <!-- CodeMirror 核心 -->
     <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-
-    <!-- 常用插件 -->
-    <script
-        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
-    <script
-        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-    <script
-        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-
-    <!-- 语言包 -->
-    <script
-        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
-    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
-    <script
-        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
-    <script
-        src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
-    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
-    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
-    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
-
+    <!-- 核心插件 -->
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+    <!-- 代码提示核心 -->
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+    <!-- 通用单词补全 (作为 fallback) -->
+    <script src="https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16/addon/hint/anyword-hint.min.js"></script>
 
     <script>
-        // 核心变量
+        const CDN_BASE = "https://mirrors.sustech.edu.cn/cdnjs/ajax/libs/codemirror/5.65.16";
+
         let editor;
         let config = {
             langType: '',
@@ -300,27 +301,96 @@
             fontFamily: ''
         };
         let allowSwitch = true;
+        const loadedScripts = new Set();
 
-        // 语言映射 Mode
-        const modeMap = {
-            '': null,
-            'markdown': 'markdown',
-            'javascript': 'javascript',
-            'typescript': 'text/typescript', // 依赖 javascript mode
-            'application/json': 'application/json',
-            'sql': 'text/x-sql',
-            'python': 'python',
-            'htmlmixed': 'htmlmixed',
-            'css': 'css',
-            'xml': 'xml',
-            'java': 'text/x-java', // 依赖 clike mode
-            'cpp': 'text/x-c++src', // 依赖 clike mode
+        // 语言资源配置表 (包含依赖顺序)
+        const MODE_RESOURCES = {
+            'markdown': {
+                mode: 'markdown',
+                scripts: [`${CDN_BASE}/mode/markdown/markdown.min.js`],
+                hint: 'anyword' // Markdown 使用单词补全
+            },
+            'javascript': {
+                mode: 'javascript',
+                scripts: [
+                    `${CDN_BASE}/mode/javascript/javascript.min.js`,
+                    `${CDN_BASE}/addon/hint/javascript-hint.min.js`
+                ],
+                hint: 'javascript'
+            },
+            'typescript': {
+                mode: { name: 'javascript', typescript: true },
+                scripts: [
+                    `${CDN_BASE}/mode/javascript/javascript.min.js`,
+                    `${CDN_BASE}/addon/hint/javascript-hint.min.js`
+                ],
+                hint: 'javascript'
+            },
+            'python': {
+                mode: 'python',
+                scripts: [
+                    `${CDN_BASE}/mode/python/python.min.js`
+                    // 使用已加载的 anyword-hint
+                ],
+                hint: 'anyword'
+            },
+            'java': {
+                mode: 'text/x-java',
+                scripts: [`${CDN_BASE}/mode/clike/clike.min.js`],
+                hint: 'anyword'
+            },
+            'cpp': {
+                mode: 'text/x-c++src',
+                scripts: [`${CDN_BASE}/mode/clike/clike.min.js`],
+                hint: 'anyword'
+            },
+            'htmlmixed': {
+                mode: 'htmlmixed',
+                scripts: [
+                    `${CDN_BASE}/mode/xml/xml.min.js`,
+                    `${CDN_BASE}/mode/javascript/javascript.min.js`,
+                    `${CDN_BASE}/mode/css/css.min.js`,
+                    `${CDN_BASE}/mode/htmlmixed/htmlmixed.min.js`,
+                    `${CDN_BASE}/addon/hint/xml-hint.min.js`,
+                    `${CDN_BASE}/addon/hint/html-hint.min.js`
+                ],
+                hint: 'html'
+            },
+            'css': {
+                mode: 'css',
+                scripts: [
+                    `${CDN_BASE}/mode/css/css.min.js`,
+                    `${CDN_BASE}/addon/hint/css-hint.min.js`
+                ],
+                hint: 'css'
+            },
+            'xml': {
+                mode: 'xml',
+                scripts: [
+                    `${CDN_BASE}/mode/xml/xml.min.js`,
+                    `${CDN_BASE}/addon/hint/xml-hint.min.js`
+                ],
+                hint: 'xml'
+            },
+            'application/json': {
+                mode: 'application/json',
+                scripts: [`${CDN_BASE}/mode/javascript/javascript.min.js`],
+                hint: null // JSON 通常不需要提示，或使用 anyword
+            },
+            'sql': {
+                mode: 'text/x-sql',
+                scripts: [
+                    `${CDN_BASE}/mode/sql/sql.min.js`,
+                    `${CDN_BASE}/addon/hint/sql-hint.min.js`
+                ],
+                hint: 'sql'
+            }
         };
 
         // UI 元素
         const langSelect = document.getElementById('langSelect');
         const fontSizeInput = document.getElementById('fontSize');
-        const editorWrapper = document.getElementById('editor-wrapper');
+        const loadingIndicator = document.getElementById('loadingIndicator');
         const cursorPosEl = document.getElementById('cursorPos');
         const langDisplayEl = document.getElementById('langDisplay');
         const toastEl = document.getElementById('toast');
@@ -328,59 +398,46 @@
         // SDK 初始化
         window.addEventListener('pluginSdkReady', async () => {
             const sdk = window.pluginSdk;
-
-            // 1. 设置主题 (配合 SiYuan)
             const themeMode = sdk.themeMode || 'light';
             document.documentElement.setAttribute('data-theme-mode', themeMode);
 
-            // 2. 获取初始参数
             const savedConfig = await sdk.loadConfig() || {};
-            const sdkLang = sdk.langType;
-
+            config.langType = sdk.langType || savedConfig.langType || '';
+            config.fontSize = savedConfig.fontSize || 16;
             allowSwitch = (sdk.allowSwitch !== undefined) ? sdk.allowSwitch : true;
 
-            // 3. 合并配置
-            config.langType = sdkLang || savedConfig.langType || '';
-            config.fontSize = savedConfig.fontSize || 16;
-
-            // 字体优先顺序：配置 > SDK变量 > 默认
-            config.fontFamily = savedConfig.fontFamily ||
-                sdk.styleVar['font-family-code'] ||
+            // 字体配置
+            config.fontFamily = savedConfig.fontFamily || sdk.styleVar['font-family-code'] ||
                 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace';
 
-            // 4. 初始化 UI 状态
-            initUI(themeMode);
-
-            // 5. 初始化编辑器
-            initEditor(themeMode);
-
-            // 6. 加载内容
+            initUI();
+            await initEditor(themeMode);
             loadContent();
         });
 
-        function initUI(themeMode) {
-            // 语言选择器
+        function initUI() {
             langSelect.value = config.langType;
             if (!allowSwitch) {
                 langSelect.disabled = true;
                 langSelect.title = "语言切换已被锁定";
             }
-
-            // 字号
             fontSizeInput.value = config.fontSize;
 
-            // 事件绑定
-            langSelect.addEventListener('change', (e) => {
-                setLanguage(e.target.value);
-            });
+            // 事件监听
+            langSelect.addEventListener('change', (e) => setLanguage(e.target.value));
 
-            fontSizeInput.addEventListener('change', (e) => {
-                let size = parseInt(e.target.value);
-                if (size < 10) size = 10;
-                if (size > 64) size = 64;
+            // 字号控制
+            const updateFont = (size) => {
+                size = Math.max(10, Math.min(64, parseInt(size) || 16));
+                fontSizeInput.value = size;
                 setFontSize(size);
-            });
+            };
 
+            fontSizeInput.addEventListener('change', (e) => updateFont(e.target.value));
+            document.getElementById('fontSizeDec').addEventListener('click', () => updateFont(config.fontSize - 1));
+            document.getElementById('fontSizeInc').addEventListener('click', () => updateFont(config.fontSize + 1));
+
+            // 按钮操作
             document.getElementById('saveBtn').addEventListener('click', saveContent);
             document.getElementById('clearBtn').addEventListener('click', () => {
                 if (confirm('确认清空所有内容？')) {
@@ -389,7 +446,7 @@
                 }
             });
 
-            // 快捷键 Ctrl+S / Cmd+S
+            // 快捷键
             document.addEventListener('keydown', (e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                     e.preventDefault();
@@ -398,46 +455,53 @@
             });
         }
 
-        function initEditor(themeMode) {
-            // 确定主题
+        async function initEditor(themeMode) {
             const cmTheme = (themeMode === 'dark') ? 'dracula' : 'eclipse';
 
-            // 实例化 CodeMirror
             editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-                mode: modeMap[config.langType],
+                mode: null, // 稍后加载
                 theme: cmTheme,
                 lineNumbers: true,
-                lineWrapping: true,       // 自动换行
-                styleActiveLine: true,    // 高亮当前行
-                matchBrackets: true,      // 括号匹配
-                autoCloseBrackets: true,  // 自动闭合括号
+                lineWrapping: true,
+                styleActiveLine: true,
+                matchBrackets: true,
+                autoCloseBrackets: true,
                 indentUnit: 4,
                 tabSize: 4,
                 indentWithTabs: true,
                 extraKeys: {
-                    "Tab": function (cm) {
-                        if (cm.somethingSelected()) {
-                            cm.indentSelection("add");
-                        } else {
-                            cm.replaceSelection("\t", "end");
-                        }
+                    "Tab": (cm) => {
+                        if (cm.somethingSelected()) cm.indentSelection("add");
+                        else cm.replaceSelection("\t", "end");
+                    },
+                    "Ctrl-Space": "autocomplete" // 手动触发
+                },
+                hintOptions: { completeSingle: false }
+            });
+
+            setFontSize(config.fontSize);
+            editor.getWrapperElement().style.fontFamily = config.fontFamily;
+
+            // --- 核心：自动补全触发逻辑 ---
+            editor.on('inputRead', (cm, change) => {
+                if (change.origin !== '+input') return;
+
+                // 排除非单词字符输入（如空格、分号等）
+                if (change.text[0].match(/\w|\./)) {
+                    // 只有当 hint 功能已正确加载并配置时才调用
+                    if (cm.options.hintOptions && cm.options.hintOptions.hint) {
+                        cm.showHint({ completeSingle: false });
                     }
                 }
             });
 
-            // 应用样式
-            setFontSize(config.fontSize);
-            editor.getWrapperElement().style.fontFamily = config.fontFamily;
-
-            // 状态栏更新监听
-            editor.on('cursorActivity', () => {
-                const pos = editor.getCursor();
-                const count = editor.getValue().length;
-                cursorPosEl.textContent = `Ln ${pos.line + 1}, Col ${pos.ch + 1} | Len ${count}`;
-            });
-
-            // 初始状态栏
+            editor.on('cursorActivity', updateCursorPos);
             updateStatusBar();
+
+            // 初始加载
+            if (config.langType) {
+                await loadModeResources(config.langType);
+            }
         }
 
         async function loadContent() {
@@ -445,11 +509,9 @@
                 const text = await window.pluginSdk.getText();
                 if (text) {
                     editor.setValue(text);
-                    editor.clearHistory(); // 清除 undo 栈
+                    editor.clearHistory();
                 }
-            } catch (e) {
-                console.warn("Load content failed or empty", e);
-            }
+            } catch (e) {}
         }
 
         async function saveContent() {
@@ -463,21 +525,86 @@
             }
         }
 
-        function setLanguage(lang) {
+        async function setLanguage(lang) {
             if (!allowSwitch && lang !== config.langType) return;
-
             config.langType = lang;
-            const mode = modeMap[lang];
-            editor.setOption('mode', mode);
+            await loadModeResources(lang);
             updateStatusBar();
             saveConfig();
+        }
+
+        // --- 核心：按需加载资源与 Hint 配置 ---
+        async function loadModeResources(lang) {
+            // 重置
+            if (!lang) {
+                editor.setOption('mode', null);
+                editor.setOption('hintOptions', { completeSingle: false }); // 清除 hint
+                return;
+            }
+
+            const resource = MODE_RESOURCES[lang];
+            if (!resource) return; // 未知语言，不做处理
+
+            loadingIndicator.style.display = 'inline-flex';
+
+            try {
+                // 1. 并行加载脚本
+                await Promise.all(resource.scripts.map(loadScript));
+
+                // 2. 设置语言模式
+                editor.setOption('mode', resource.mode);
+
+                // 3. 设置智能提示 (Hint)
+                let hintFunc = null;
+                if (resource.hint && CodeMirror.hint[resource.hint]) {
+                    hintFunc = CodeMirror.hint[resource.hint];
+                } else if (resource.hint === 'anyword') {
+                    // 兜底：如果指定anyword或脚本加载失败，尝试用 anyword
+                    hintFunc = CodeMirror.hint.anyword;
+                }
+
+                if (hintFunc) {
+                    editor.setOption('hintOptions', {
+                        hint: hintFunc,
+                        completeSingle: false
+                    });
+                } else {
+                    // 清除 hint 以免报错
+                    editor.setOption('hintOptions', { completeSingle: false });
+                }
+
+            } catch (err) {
+                showToast(`资源加载失败: ${lang}`, 'error');
+                console.error(err);
+            } finally {
+                loadingIndicator.style.display = 'none';
+                editor.refresh();
+            }
+        }
+
+        function loadScript(url) {
+            if (loadedScripts.has(url)) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.async = true;
+                script.onload = () => { loadedScripts.add(url); resolve(); };
+                script.onerror = () => reject(new Error(url));
+                document.body.appendChild(script);
+            });
         }
 
         function setFontSize(size) {
             config.fontSize = size;
             editor.getWrapperElement().style.fontSize = size + 'px';
-            editor.refresh(); // 刷新布局
+            editor.refresh();
             saveConfig();
+        }
+
+        function updateCursorPos() {
+            const pos = editor.getCursor();
+            const count = editor.getValue().length;
+            cursorPosEl.textContent = `Ln ${pos.line + 1}, Col ${pos.ch + 1} | Len ${count}`;
         }
 
         function updateStatusBar() {
@@ -495,11 +622,8 @@
         function showToast(msg, type = 'info') {
             toastEl.textContent = msg;
             toastEl.className = 'toast show ' + type;
-            setTimeout(() => {
-                toastEl.classList.remove('show');
-            }, 2000);
+            setTimeout(() => toastEl.classList.remove('show'), 2000);
         }
-
     </script>
 </body>
 

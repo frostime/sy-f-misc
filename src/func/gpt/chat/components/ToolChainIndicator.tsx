@@ -17,8 +17,14 @@ interface ToolChainIndicatorProps {
 const ToolChainIndicator: Component<ToolChainIndicatorProps> = (props) => {
     const [expanded, setExpanded] = createSignal(false);
 
-    const hasToolChain = () => {
-        checkHasToolChain(props.messageItem);
+    const ifShowToolChain = () => {
+        if (props.messageItem.role !== 'assistant') {
+            return false;
+        }
+        if (props.messageItem.loading) {
+            return false;
+        }
+        return checkHasToolChain(props.messageItem);
     };
 
     // const toolChainData = () => props.messageItem.toolChainResult;
@@ -27,7 +33,7 @@ const ToolChainIndicator: Component<ToolChainIndicatorProps> = (props) => {
     }
 
     return (
-        <Show when={hasToolChain()}>
+        <Show when={ifShowToolChain()}>
             <div class={styles.toolChainIndicator}>
                 <button
                     class={styles.toggleButton}

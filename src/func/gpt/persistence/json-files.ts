@@ -3,12 +3,14 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:31:26
  * @FilePath     : /src/func/gpt/persistence/json-files.ts
- * @LastEditTime : 2025-12-28 16:16:59
- * @Description  : 
+ * @LastEditTime : 2026-01-02 14:26:40
+ * @Description  :
  */
+import { downloadBlob } from "@/libs/download";
+import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
 import { thisPlugin, api, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
 import { createSignalRef } from "@frostime/solid-signal-ref";
-import { extractMessageContent, getMessageProp, getMeta, getPayload } from '@gpt/chat-utils';
+import { extractMessageContent, getMessageProp, getPayload } from '@gpt/chat-utils';
 import { needsMigration, migrateHistory, isV1History, isV2History } from '@gpt/model/msg_migration';
 
 const rootName = 'chat-history';
@@ -112,22 +114,34 @@ export const saveToJson = async (history: IChatSessionHistoryV2, updateSnapshot:
             const userConfirmed = await showVersionConflictDialog(versionCheckResult);
             if (!userConfirmed) {
                 // 用户取消保存，直接返回
-                return;
+                return false;
             }
         }
     }
 
-    const plugin = thisPlugin();
+    // const plugin = thisPlugin();
 
     // 确保 schema 标记
     const toSave = { ...history, schema: 2 };
-    const filepath = `${rootName}/${history.id}.json`;
-    await plugin.saveData(filepath, toSave);
+    const filepath = siyuanVfs.join(siyuanVfs.SIYUAN_DIR.THIS_STORAGE, `${rootName}/${history.id}.json`);
+    // await plugin.saveData(filepath, toSave);
+    const blob = new Blob([JSON.stringify(toSave)], { type: 'application/json' });
+    await siyuanVfs.writeFile(filepath, blob);
 
     // 同步更新snapshot
     if (updateSnapshot) {
         await updateSessionInSnapshot(history);
     }
+    return true;
+}
+
+
+export const downloadJsonFile = async (history: IChatSessionHistoryV2) => {
+    const toSave = { ...history, schema: 2 };
+    const filename = `chat-history-${history.id}.json`;
+    const blob = new Blob([JSON.stringify(toSave, null, 2)], { type: 'application/json' });
+    // api.downloadBlob(blob, filename);
+    await downloadBlob(blob, filename);
 }
 
 

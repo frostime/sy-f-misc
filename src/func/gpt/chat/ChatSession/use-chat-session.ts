@@ -537,7 +537,7 @@ export const useSession = (props: {
             timestamp,
             updated,
             title: title(),
-            tags: sessionTags(),
+            tags: [...sessionTags.unwrap()],
             sysPrompt: systemPrompt(),
             customOptions: modelCustomOptions()
         });

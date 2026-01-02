@@ -3,12 +3,13 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:38:02
  * @FilePath     : /src/func/gpt/persistence/local-storage.ts
- * @LastEditTime : 2025-12-28 16:51:01
+ * @LastEditTime : 2026-01-02 11:14:22
  * @Description  :
  */
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
+import { showMessage } from "siyuan";
 
 const KEEP_N_CACHE_ITEM = 36;
 type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
@@ -83,6 +84,10 @@ export const restoreCache = async () => {
  * 支持 V2 格式
  */
 export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
+    if (!history || history.schema !== 2) {
+        showMessage('历史记录格式错误，无法保存到 localStorage');
+        return;
+    }
     // 确保类型标识和 schema
     const historyWithType = { ...history, type: 'history' as const, schema: 2 };
     const key = `gpt-chat-${history.id}`;

@@ -521,93 +521,93 @@ const MessageItem: Component<{
         </Show>
     );
 
-        const LegacyBranchIndicator = () => {
-            const switchSession = (sessionId: string, targetMsgId?: string) => {
-                // Save current
-                persist.saveToLocalStorage(session.sessionHistory());
+    const LegacyBranchIndicator = () => {
+        const switchSession = (sessionId: string, targetMsgId?: string) => {
+            // Save current
+            persist.saveToLocalStorage(session.sessionHistory());
 
-                // Load target
-                const key = `gpt-chat-${sessionId}`;
-                const data = localStorage.getItem(key);
-                if (data) {
-                    const history = JSON.parse(data);
-                    session.newSession();
-                    session.applyHistory(history);
+            // Load target
+            const key = `gpt-chat-${sessionId}`;
+            const data = localStorage.getItem(key);
+            if (data) {
+                const history = JSON.parse(data);
+                session.newSession();
+                session.applyHistory(history);
 
-                    if (targetMsgId) {
-                        setTimeout(() => {
-                            const selector = `[data-session-id="${sessionId}"] [data-msg-id="${targetMsgId}"]`;
-                            const element = document.querySelector(selector) as HTMLElement;
-                            if (element) {
-                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                element.classList.add(styles.highlight);
-                                setTimeout(() => {
-                                    element.classList.remove(styles.highlight);
-                                }, 2000);
-                            }
-                        }, 300);
-                    }
-                } else {
-                    showMessage('无法找到目标会话');
+                if (targetMsgId) {
+                    setTimeout(() => {
+                        const selector = `[data-session-id="${sessionId}"] [data-msg-id="${targetMsgId}"]`;
+                        const element = document.querySelector(selector) as HTMLElement;
+                        if (element) {
+                            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            element.classList.add(styles.highlight);
+                            setTimeout(() => {
+                                element.classList.remove(styles.highlight);
+                            }, 2000);
+                        }
+                    }, 300);
                 }
-            };
-
-            const showBranchMenu = (e: MouseEvent) => {
-                e.stopPropagation();
-                e.preventDefault();
-                const menu = new Menu("branch-menu");
-
-                if (getMeta(props.messageItem, 'branchFrom')) {
-                    const from = getMeta(props.messageItem, 'branchFrom');
-                    menu.addItem({
-                        icon: 'iconReply',
-                        label: `来自: ${from.sessionTitle}`,
-                        click: () => switchSession(from.sessionId, from.messageId)
-                    });
-                }
-
-                if (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0) {
-                    if (getMeta(props.messageItem, 'branchFrom')) menu.addSeparator();
-
-                    menu.addItem({
-                        label: '分支列表',
-                        type: 'readonly'
-                    });
-
-                    getMeta(props.messageItem, 'branchTo')?.forEach(to => {
-                        menu.addItem({
-                            icon: 'iconSplitLR',
-                            label: `前往: ${to.sessionTitle}`,
-                            click: () => switchSession(to.sessionId, to.messageId)
-                        });
-                    });
-                }
-
-                const target = e.target as HTMLElement;
-                const rect = target.getBoundingClientRect();
-                menu.open({
-                    x: rect.left,
-                    y: rect.bottom
-                });
-            };
-
-            const hasBranch = getMeta(props.messageItem, 'branchFrom') || (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0);
-
-            return (
-                <Show when={hasBranch}>
-                    <div
-                        class={styles.legacyBranchIndicator}
-                        onClick={showBranchMenu}
-                        title="分支信息"
-                    >
-                        <svg><use href="#iconSplitLR" /></svg>
-                        <Show when={getMeta(props.messageItem, 'branchTo')?.length}>
-                            <span>{getMeta(props.messageItem, 'branchTo')?.length}</span>
-                        </Show>
-                    </div>
-                </Show>
-            );
+            } else {
+                showMessage('无法找到目标会话');
+            }
         };
+
+        const showBranchMenu = (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const menu = new Menu("branch-menu");
+
+            if (getMeta(props.messageItem, 'branchFrom')) {
+                const from = getMeta(props.messageItem, 'branchFrom');
+                menu.addItem({
+                    icon: 'iconReply',
+                    label: `来自: ${from.sessionTitle}`,
+                    click: () => switchSession(from.sessionId, from.messageId)
+                });
+            }
+
+            if (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0) {
+                if (getMeta(props.messageItem, 'branchFrom')) menu.addSeparator();
+
+                menu.addItem({
+                    label: '分支列表',
+                    type: 'readonly'
+                });
+
+                getMeta(props.messageItem, 'branchTo')?.forEach(to => {
+                    menu.addItem({
+                        icon: 'iconSplitLR',
+                        label: `前往: ${to.sessionTitle}`,
+                        click: () => switchSession(to.sessionId, to.messageId)
+                    });
+                });
+            }
+
+            const target = e.target as HTMLElement;
+            const rect = target.getBoundingClientRect();
+            menu.open({
+                x: rect.left,
+                y: rect.bottom
+            });
+        };
+
+        const hasBranch = getMeta(props.messageItem, 'branchFrom') || (getMeta(props.messageItem, 'branchTo') && getMeta(props.messageItem, 'branchTo')?.length > 0);
+
+        return (
+            <Show when={hasBranch}>
+                <div
+                    class={styles.legacyBranchIndicator}
+                    onClick={showBranchMenu}
+                    title="分支信息"
+                >
+                    <svg><use href="#iconSplitLR" /></svg>
+                    <Show when={getMeta(props.messageItem, 'branchTo')?.length}>
+                        <span>{getMeta(props.messageItem, 'branchTo')?.length}</span>
+                    </Show>
+                </div>
+            </Show>
+        );
+    };
 
     /**
      * 新版分支指示器（基于 tree model）
@@ -660,7 +660,7 @@ const MessageItem: Component<{
 
             const targetLeafId = findLeaf(nextChildId);
             treeModel.switchWorldLine(targetLeafId);
-            
+
             showMessage(`已切换到分支 ${nextChildIndex + 1}/${currentChildren.length}`);
         };
 
@@ -788,7 +788,7 @@ const MessageItem: Component<{
 
                     </Show>
                 </div>
-                {/* 
+                {/*
                 <div class="fn__flex-1" /> */}
 
                 <div class={styles['toolbar-buttons']}>
@@ -914,10 +914,13 @@ const MessageItem: Component<{
                     />
                 </Show>
                 {/* 只在 assistant 消息中显示工具调用指示器 */}
-                <Show when={getMessageProp(props.messageItem, 'role') === 'assistant'}>
-                    <ToolChainIndicator messageItem={props.messageItem} />
+                {/* <Show when={getMessageProp(props.messageItem, 'role') === 'assistant'}>
+                </Show> */}
+                <ToolChainIndicator messageItem={props.messageItem} />
+
+                <Show when={!props.loading}>
+                    <MessageToolbar />
                 </Show>
-                <MessageToolbar />
                 <BranchIndicator />
             </div>
         </div>

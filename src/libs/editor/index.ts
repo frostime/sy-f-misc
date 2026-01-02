@@ -5,7 +5,7 @@
  * @Description  : CodeMirror 5 Editor Launcher
  * @FilePath     : /src/libs/editor/index.ts
  */
-import { openIframeTab } from "@/func/html-pages/core";
+import { IIframePageConfig, openIframDialog, openIframeTab } from "@/func/html-pages/core";
 
 const simpleHash = (str: string): number => {
     let hash = 0;
@@ -29,37 +29,47 @@ export const launchEditor = (options: {
     language?: string,
     allowSwitch?: boolean,
     onSave: (text: string) => Promise<boolean> | boolean,
+    container?: 'tab' | 'dialog'
 }) => {
     const sourceHash = simpleHash(options.source);
-    const { source, onSave, language, allowSwitch } = options;
-
-    openIframeTab({
-        tabId: 'editor' + String(sourceHash),
-        title: '代码编辑器',
-        icon: 'iconCode',
-        iframeConfig: {
-            type: 'url',
-            source: '/plugins/sy-f-misc/pages/code-editor.html',
-            inject: {
-                presetSdk: true,
-                siyuanCss: true,
-                customSdk: {
-                    getText: () => {
-                        return source;
-                    },
-                    setText: (text: string) => {
-                        const result = onSave(text);
-                        if (result instanceof Promise) {
-                            return result;
-                        } else {
-                            return Promise.resolve(result);
-                        }
-                    },
-                    // 传递配置给 HTML 页面
-                    langType: language,
-                    allowSwitch: allowSwitch ?? true,
-                }
+    const { source, onSave, language, allowSwitch, container } = options;
+    const iframeConfig = {
+        type: 'url',
+        source: '/plugins/sy-f-misc/pages/code-editor.html',
+        inject: {
+            presetSdk: true,
+            siyuanCss: true,
+            customSdk: {
+                getText: () => {
+                    return source;
+                },
+                setText: (text: string) => {
+                    const result = onSave(text);
+                    if (result instanceof Promise) {
+                        return result;
+                    } else {
+                        return Promise.resolve(result);
+                    }
+                },
+                // 传递配置给 HTML 页面
+                langType: language,
+                allowSwitch: allowSwitch ?? true,
             }
-        },
-    });
+        }
+    } satisfies IIframePageConfig;
+    if (container === 'dialog') {
+        openIframDialog({
+            title: '代码编辑器',
+            iframeConfig,
+            width: '1000px',
+            height: '840px'
+        })
+    } else {
+        openIframeTab({
+            tabId: 'editor' + String(sourceHash),
+            title: '代码编辑器',
+            icon: 'iconCode',
+            iframeConfig: iframeConfig
+        });
+    }
 }

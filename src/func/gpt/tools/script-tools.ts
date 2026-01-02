@@ -1,4 +1,5 @@
 // src/func/gpt/tools/script-tools.ts
+import JavaScriptSandBox from "@/libs/sandbox";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
 import { DEFAULT_LIMIT_CHAR } from './utils';
 import {
@@ -175,7 +176,7 @@ const javascriptTool: Tool = {
         type: 'function',
         function: {
             name: 'JavaScript',
-            description: '在当前环境中运行 JavaScript 代码（出于安全考虑，禁止访问 document 对象）',
+            description: '在沙盒环境中运行 JavaScript 代码',
             parameters: {
                 type: 'object',
                 properties: {
@@ -195,50 +196,46 @@ const javascriptTool: Tool = {
     },
 
     execute: async (args: { code: string }): Promise<ToolExecuteResult> => {
+        let sandboxInstance: JavaScriptSandBox | null = null;
+        const destroySandbox = () => {
+            if (sandboxInstance) {
+                sandboxInstance.destroy();
+                sandboxInstance = null;
+            }
+        };
         try {
-            // Create sandbox environment
-            const sandbox = {
-                console: {
-                    log: (...args: any[]) => sandbox._output.push(args.map(arg => String(arg)).join(' ')),
-                    error: (...args: any[]) => sandbox._errors.push(args.map(arg => String(arg)).join(' ')),
-                    warn: (...args: any[]) => sandbox._warnings.push(args.map(arg => String(arg)).join(' '))
-                },
-                _output: [] as string[],
-                _errors: [] as string[],
-                _warnings: [] as string[],
-                document: undefined
-            };
+            sandboxInstance = new JavaScriptSandBox(5000); // 5秒超时
+            await sandboxInstance.init();
 
-            // Execute code in sandbox
-            const scriptFn = new Function('sandbox', `
-                with (sandbox) {
-                    ${args.code}
-                }
-                return sandbox;
-            `);
+            const result = await sandboxInstance.run(args.code);
 
-            const result = scriptFn(sandbox);
+            if (!result.ok) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: result.stderr || 'Execution failed'
+                };
+            }
 
-            // Build output
             let output = '';
-            if (result._output.length > 0) {
-                output += result._output.join('\n');
+            if (result.stdout) output += result.stdout;
+            if (result.returned !== undefined && result.returned !== null) {
+                output += (output ? '\n\n' : '') + `返回值: ${result.returned}`;
             }
-            if (result._warnings.length > 0) {
-                output += '\n\nWarnings:\n' + result._warnings.join('\n');
+            if (result.stderr) {
+                output += '\n\nErrors:\n' + result.stderr;
             }
-            if (result._errors.length > 0) {
-                output += '\n\nErrors:\n' + result._errors.join('\n');
-            }
+
+            destroySandbox();
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: output || '代码执行成功，无输出'
             };
         } catch (error) {
+            destroySandbox();
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `JavaScript execution error: ${error.message}`
+                error: `Sandbox error: ${error.message}`
             };
         }
     }
@@ -339,7 +336,7 @@ export const scriptTools: ToolGroup = {
 **工具选择**:
 - Shell: ${getScriptName()} 命令/脚本（传入完整代码）
 - Python: 需系统已安装，返回 stdout
-- JavaScript: 沙盒环境（禁用 document），返回 console 输出
+- JavaScript: 沙盒环境，返回 console 输出以及可能的 return 值; 沙盒基于 ifream + postMessage，禁止打印、返回无法被序列化的对象
 - Pandoc: 文档格式转换（docx→Markdown 等），使用思源自带 Pandoc
 `.trim()
 };

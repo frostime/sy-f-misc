@@ -631,15 +631,23 @@ export const useTreeModel = (): ITreeModel => {
         sysPrompt?: string;
         customOptions?: Record<string, any>;
     }): IChatSessionHistoryV2 => {
-        return {
+        let nodesData: Record<ItemID, IChatSessionMsgItemV2> = {};
+        try {
+            nodesData = structuredClone(nodes.unwrap());
+        } catch (e) {
+            console.error('Failed to clone nodes for history export:', e);
+            return null;
+        }
+        const history = {
             schema: 2,
             type: 'history',
             ...meta,
-            nodes: structuredClone(nodes.unwrap()),
+            nodes: nodesData,
             worldLine: [...worldLine.unwrap()],
             bookmarks: { ...bookmarks.unwrap() },
             rootId: rootId(),
-        };
+        } satisfies IChatSessionHistoryV2;
+        return history;
     };
 
     const fromHistory = (history: IChatSessionHistoryV2) => {

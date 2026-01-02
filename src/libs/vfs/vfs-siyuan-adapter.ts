@@ -1,29 +1,29 @@
 /**
  * 思源笔记文件系统适配器
- * 
+ *
  * 使用思源的文件系统 API (readDir, getFile, putFile, removeFile) 实现 VFS 接口。
- * 
+ *
  * 功能特性：
  * - 支持思源内文件的统一管理
  * - 支持路径沙箱限制（可选的 basePath）
  * - 支持文本和二进制文件读写
  * - 支持目录操作（创建、读取、删除）
  * - 支持文件操作（读取、写入、追加、复制、重命名、删除）
- * 
+ *
  * 使用示例：
  * ```typescript
  * import { SiYuanVFS } from '@/libs/vfs';
- * 
+ *
  * // 创建适配器实例，限制在 data/temp 目录内
  * const vfs = new SiYuanVFS('data/temp');
- * 
+ *
  * // 写入文件
  * await vfs.writeFile('test.txt', 'Hello SiYuan!');
- * 
+ *
  * // 读取文件
  * const content = await vfs.readFile('test.txt');
  * ```
- * 
+ *
  * 注意事项：
  * - 思源 API 不支持原生的 rename 操作，通过复制+删除实现
  * - 目录重命名暂不支持
@@ -39,7 +39,8 @@ export class SiYuanVFS {
         DATA: '/data',
         PUBLIC: '/data/public',
         PLUGIN: '/data/plugins',
-        PETAL: '/data/storage/petals',
+        PETAL: '/data/storage/petal',
+        THIS_STORAGE: `/data/storage/petal/sy-f-misc`,
         THIS_PLUGIN: `/data/plugins/sy-f-misc`,
     } as const;
 

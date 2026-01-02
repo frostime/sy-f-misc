@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-21
  * @FilePath     : /src/func/gpt/tools/manual-execute.ts
- * @LastEditTime : 2025-12-21
+ * @LastEditTime : 2026-01-02 02:04:32
  * @Description  : 手动工具调用测试面板
  */
 import { openIframeTab } from "@/func/html-pages/core";
@@ -22,7 +22,7 @@ const IS_IN_APP = window?.require?.('electron') !== undefined;
  * 创建无权限限制的测试 ToolExecutor
  */
 const createTestExecutor = () => {
-    const executor = new ToolExecutor();
+    const executor = new ToolExecutor({});
 
     // 注册所有工具组（复用 toolExecutorFactory 的注册逻辑）
     executor.registerToolGroup(basicTool);
