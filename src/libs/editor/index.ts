@@ -5,7 +5,7 @@
  * @Description  : CodeMirror 5 Editor Launcher
  * @FilePath     : /src/libs/editor/index.ts
  */
-import { IIframePageConfig, openIframDialog, openIframeTab } from "@/func/html-pages/core";
+import { IIframePageConfig, openIframeDialog, openIframeTab } from "@/func/html-pages/core";
 
 const simpleHash = (str: string): number => {
     let hash = 0;
@@ -58,7 +58,7 @@ export const launchEditor = (options: {
         }
     } satisfies IIframePageConfig;
     if (container === 'dialog') {
-        openIframDialog({
+        openIframeDialog({
             title: '代码编辑器',
             iframeConfig,
             width: '1000px',

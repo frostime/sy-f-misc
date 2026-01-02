@@ -9,7 +9,7 @@
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { openIframDialog, openIframeTab } from "@/func/html-pages/core";
+import { openIframeDialog, openIframeTab } from "@/func/html-pages/core";
 import { LocalDiskVFS } from "@/libs/vfs";
 import { documentDialog } from "@/libs/dialog";
 import { err, ok, ResultData } from "@/libs/simple-fp";
@@ -260,7 +260,7 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             button: {
                 label: '上传文件',
                 callback: () => {
-                    openIframDialog({
+                    openIframeDialog({
                         title: '上传空白模板文件',
                         iframeConfig: {
                             type: 'url',
@@ -317,7 +317,7 @@ let disposers = [];
 const openAssetDialog = (protyle: Protyle, initialState?: { tab?: 'create' | 'rename'; assetPath?: string }) => {
     // let iframe: HTMLIFrameElement = null;
 
-    const dialog = openIframDialog({
+    const dialog = openIframeDialog({
         title: '附件管理',
         iframeConfig: {
             type: 'url',

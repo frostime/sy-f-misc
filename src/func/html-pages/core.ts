@@ -429,7 +429,7 @@ export const openIframeTab = (options: {
     });
 };
 
-export const openIframDialog = (options: {
+export const openIframeDialog = (options: {
     title: string
     iframeConfig: IIframePageConfig,
     width?: string;

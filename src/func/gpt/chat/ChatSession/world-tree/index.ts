@@ -2,11 +2,11 @@
  * @Author       : frostime
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Date         : 2025-12-28 22:15:10
- * @Description  : 
+ * @Description  :
  * @FilePath     : /src/func/gpt/chat/ChatSession/world-tree/index.ts
  * @LastEditTime : 2025-12-29 22:23:58
  */
-import { openIframDialog } from "@/func/html-pages/core";
+import { openIframeDialog } from "@/func/html-pages/core";
 import { ITreeModel } from "../use-tree-model";
 import { extractContentText } from "@/func/gpt/chat-utils/msg-content";
 import { getMessageProp, getPayload } from "@/func/gpt/chat-utils";
@@ -78,7 +78,7 @@ export const showChatWorldTree = (options: {
 
     const size = { ...defaultSize, ...options };
 
-    const dialog = openIframDialog({
+    const dialog = openIframeDialog({
         title: 'Chat Tree',
         width: size.width!,
         height: size.height!,
