@@ -754,42 +754,26 @@ const MessageItem: Component<{
                         {getPayload(props.messageItem, 'author')}
                     </span>
                     <span data-label="msgLength">
-                        消息长度: {msgLength()}
+                        {msgLength()} chars
                     </span>
                     <span data-label="attachedItems">
-                        {/* {props.messageItem.attachedItems ? `上下文条目: ${props.messageItem.attachedItems}` : ''} */}
                         {attachedText()}
                     </span>
-                    {/* <span data-label="attachedChars">
-                    {props.messageItem.attachedChars ? `上下文字数: ${props.messageItem.attachedChars}` : ''}
-                </span> */}
                     <Show when={getPayload(props.messageItem, 'usage')}>
-                        <span data-label="token" class="counter"
-                            style={{
-                                padding: 0, 'line-height': 'unset', 'font-size': '12px'
-                            }}
-                        >
-                            {/* Token: {props.messageItem.token} */}
-                            Token: {getPayload(props.messageItem, 'usage')?.total_tokens} ↑ {getPayload(props.messageItem, 'usage')?.prompt_tokens} ↓ {getPayload(props.messageItem, 'usage')?.completion_tokens}
+                        <span data-label="token">
+                            Token: {getPayload(props.messageItem, 'usage')?.total_tokens} ({getPayload(props.messageItem, 'usage')?.prompt_tokens}↑ {getPayload(props.messageItem, 'usage')?.completion_tokens}↓)
                         </span>
                     </Show>
 
                     <Show when={getPayload(props.messageItem, 'time')}>
-                        <span data-label="time" class="counter"
-                            style={{
-                                padding: 0, 'line-height': 'unset', 'font-size': '12px'
-                            }}
-                        >
-                            时延: {getPayload(props.messageItem, 'time')?.latency} ms
+                        <span data-label="time">
+                            {getPayload(props.messageItem, 'time')?.latency}ms
                             <Show when={getPayload(props.messageItem, 'time')?.throughput}>
-                                &nbsp;|&nbsp;吞吐量: {getPayload(props.messageItem, 'time')?.throughput?.toFixed(2)} tokens/s
+                                &nbsp;|&nbsp;{getPayload(props.messageItem, 'time')?.throughput?.toFixed(2)} token/s
                             </Show>
                         </span>
-
                     </Show>
                 </div>
-                {/*
-                <div class="fn__flex-1" /> */}
 
                 <div class={styles['toolbar-buttons']}>
                     <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
@@ -802,7 +786,7 @@ const MessageItem: Component<{
                     <ToolbarButton icon="iconSplitLR" title="新的分支" onclick={createNewBranch} />
                     <ToolbarButton
                         icon={getMeta(props.messageItem, 'hidden') ? "iconEyeoff" : "iconEye"}
-                        title={getMeta(props.messageItem, 'hidden') ? "在上下文中显示" : "固定消息"}
+                        title={getMeta(props.messageItem, 'hidden') ? "在上下文中显示" : "隐藏消息"}
                         onclick={(e: MouseEvent) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -841,8 +825,10 @@ const MessageItem: Component<{
         );
     };
 
+    const role = createMemo(() => getMessageProp(props.messageItem, 'role'));
+
     return (
-        <div class={styles.messageItem} data-role={getMessageProp(props.messageItem, 'role')}
+        <div class={styles.messageItem} data-role={role()}
             data-msg-id={getMeta(props.messageItem, 'id')}
             tabindex={props.index ?? -1}
             onKeyDown={(e: KeyboardEvent & { currentTarget: HTMLElement }) => {
@@ -869,7 +855,6 @@ const MessageItem: Component<{
             <Show when={props.multiSelect}>
                 <div class={styles.checkbox} onclick={(e) => {
                     e.stopPropagation();
-                    // Simplify the onSelect call since we're not tracking selection state here anymore
                     props.onSelect?.(props.messageItem.id);
                 }}>
                     <svg>
@@ -877,35 +862,46 @@ const MessageItem: Component<{
                     </svg>
                 </div>
             </Show>
+
             <VersionIndicator />
             <PinIndicator />
             <LegacyBranchIndicator />
-            {getMessageProp(props.messageItem, 'role') === 'user' ? (
-                <div class={styles.icon}><IconUser /></div>
-            ) : (
-                <div class={styles.icon}><IconAssistant /></div>
-            )}
-            <div class={styles.messageContainer}>
-                <div class="message-content" style={{
-                    'display': 'contents'
-                }}>
+
+            {/* 头像区域 */}
+            <div class={styles.avatarColumn}>
+                <div class={styles.avatar} data-role={role()}>
+                    {role() === 'user' ? <IconUser /> : <IconAssistant />}
+                </div>
+            </div>
+
+            {/* 内容区域 */}
+            <div class={styles.contentColumn}>
+                {/* 消息头部 */}
+                <div class={styles.messageHeader}>
+                    <span class={styles.roleName}>{role() === 'user' ? 'You' : 'Assistant'}</span>
+                    <span class={styles.timestamp}>
+                        {formatDateTime(null, new Date(getPayload(props.messageItem, 'timestamp')))}
+                    </span>
+                </div>
+
+                {/* 消息正文 */}
+                <div class={styles.messageBody}>
                     <ReasoningSection />
                     <div
                         oncontextmenu={onContextMenu}
                         classList={{
                             [styles.message]: true,
-                            [styles[getMessageProp(props.messageItem, 'role')]]: true,
+                            [styles[role()]]: true,
                             'b3-typography': true,
                             [styles.hidden]: getMeta(props.messageItem, 'hidden'),
                             [styles.pinned]: getMeta(props.messageItem, 'pinned')
                         }}
-                        // style={{
-                        //     'white-space': props.loading ? 'pre-wrap' : '',
-                        // }}
                         innerHTML={messageAsHTML()}
                         ref={msgRef}
                     />
                 </div>
+
+                {/* 附件区域 */}
                 <Show when={multiModalAttachments().length > 0 || getMeta(props.messageItem, 'context')?.length > 0}>
                     <AttachmentList
                         multiModalAttachments={multiModalAttachments()}
@@ -913,9 +909,7 @@ const MessageItem: Component<{
                         size="small"
                     />
                 </Show>
-                {/* 只在 assistant 消息中显示工具调用指示器 */}
-                {/* <Show when={getMessageProp(props.messageItem, 'role') === 'assistant'}>
-                </Show> */}
+
                 <ToolChainIndicator messageItem={props.messageItem} />
 
                 <Show when={!props.loading}>

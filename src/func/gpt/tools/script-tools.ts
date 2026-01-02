@@ -204,12 +204,13 @@ const javascriptTool: Tool = {
             }
         };
         try {
-            sandboxInstance = new JavaScriptSandBox(5000); // 5秒超时
+            sandboxInstance = new JavaScriptSandBox();
             await sandboxInstance.init();
 
             const result = await sandboxInstance.run(args.code);
 
-            if (!result.ok) {
+            if (result.ok !== true) {
+                destroySandbox();
                 return {
                     status: ToolExecuteStatus.ERROR,
                     error: result.stderr || 'Execution failed'
@@ -336,7 +337,7 @@ export const scriptTools: ToolGroup = {
 **工具选择**:
 - Shell: ${getScriptName()} 命令/脚本（传入完整代码）
 - Python: 需系统已安装，返回 stdout
-- JavaScript: 沙盒环境，返回 console 输出以及可能的 return 值; 沙盒基于 ifream + postMessage，禁止打印、返回无法被序列化的对象
+- JavaScript: 沙盒环境，返回 console 输出以及最后一个被 eval 的变量; 沙盒基于 iframe，内部封装为 async 函数来执行代码; 禁止打印、返回无法被序列化的对象
 - Pandoc: 文档格式转换（docx→Markdown 等），使用思源自带 Pandoc
 `.trim()
 };

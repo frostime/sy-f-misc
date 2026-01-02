@@ -560,7 +560,7 @@ export const ChatSession: Component<{
                 }
                 props.onclick?.(e);
             }}
-            class={`b3-label__text b3-button b3-button--outline ariaLabel ${styles.toolbarLabel}`}
+            class={`ariaLabel ${styles.toolbarLabel}`}
             data-role={props.role}
             aria-label={props.label}
             style={{
@@ -626,15 +626,16 @@ export const ChatSession: Component<{
                 label={props.label}
                 role={props?.role}
                 styles={{
-                    background: 'var(--chat-bg-color)',
-                    color: 'var(--chat-text-color)',
+                    background: 'transparent',
+                    color: 'var(--b3-theme-on-surface-light)',
                     border: 'none',
                     'box-shadow': 'none',
                     cursor: props.placeholder ? 'default' : 'pointer',
+                    padding: '8px',
                     ...(props.styles ?? {})
                 }}
             >
-                <SvgSymbol size="var(--topbar-btn-size)">{props.icon}</SvgSymbol>
+                <SvgSymbol size="18px">{props.icon}</SvgSymbol>
             </ToolbarLabel>
         );
 
@@ -765,7 +766,7 @@ export const ChatSession: Component<{
                 label: '完整对话结构',
                 click: () => {
                     showChatWorldTree({
-                       treeModel: session.treeModel
+                        treeModel: session.treeModel
                     });
                 }
             });
@@ -1125,6 +1126,28 @@ export const ChatSession: Component<{
                                 index={index()}
                                 totalCount={session.getMessageCount()}
                             />
+
+                            {/* 工具审批 */}
+                            <Show when={item.loading === true}>
+                                <For each={session.pendingApprovals()}>
+                                    {(approval) => (
+                                        <InlineApprovalCard
+                                            approval={approval}
+                                            onApprove={() => {
+                                                session.resolvePendingApproval(approval.id, { approved: true });
+                                                scrollToBottom(false);
+                                            }}
+                                            onReject={(reason) => {
+                                                session.resolvePendingApproval(approval.id, {
+                                                    approved: false,
+                                                    rejectReason: reason || '用户拒绝'
+                                                });
+                                                scrollToBottom(false);
+                                            }}
+                                        />
+                                    )}
+                                </For>
+                            </Show>
                         </Match>
                         <Match when={item.type === 'separator'}>
                             <Seperator title="新的对话" id={item.id} />
@@ -1133,230 +1156,212 @@ export const ChatSession: Component<{
                 )}
             </For>
 
-            {/* ========== 新增：内联审批卡片 ========== */}
-            <For each={session.pendingApprovals()}>
-                {(approval) => (
-                    <InlineApprovalCard
-                        approval={approval}
-                        onApprove={() => {
-                            session.resolvePendingApproval(approval.id, { approved: true });
-                            scrollToBottom(false);
-                        }}
-                        onReject={(reason) => {
-                            session.resolvePendingApproval(approval.id, {
-                                approved: false,
-                                rejectReason: reason || '用户拒绝'
-                            });
-                            scrollToBottom(false);
-                        }}
-                    />
-                )}
-            </For>
         </div>
     );
 
     const InputContainer = () => (
         <section class={styles.inputContainer} onSubmit={handleSubmit}>
             <div class={styles.toolbar}>
-                <Show when={session.loading()}>
-                    <ToolbarLabel onclick={session.abortMessage} label='暂停' forceClick={true} >
-                        <SvgSymbol size="15px">iconPause</SvgSymbol>
-                    </ToolbarLabel>
-                </Show>
-                {/* 新增工具按钮 */}
-                <ToolbarLabel onclick={(e: MouseEvent) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-
-                    const attachedHistoryContainer = document.createElement('div');
-                    const dispose = render(() => (
-                        <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
-                            <SliderInput
-                                value={config().attachedHistory}
-                                changed={(v) => {
-                                    config.update('attachedHistory', v);
-                                }}
-                                min={-1}
-                                max={24}
-                                step={1}
-                            />
-                            <span>{config().attachedHistory} 条</span>
-                        </div>
-                    ), attachedHistoryContainer);
-
-                    const temperatureContainer = document.createElement('div');
-                    const disposeTemp = render(() => (
-                        <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
-                            <SliderInput
-                                value={config().chatOption.temperature}
-                                changed={(v) => {
-                                    config.update('chatOption', 'temperature', v);
-                                }}
-                                min={0}
-                                max={2}
-                                step={0.05}
-                            />
-                            <span>{config().chatOption.temperature.toFixed(2)}</span>
-                        </div>
-                    ), temperatureContainer);
-
-                    let menu = new Menu("tools-menu", () => {
-                        dispose();
-                        disposeTemp();
-                    });
-
-                    // 新的上下文选项
-                    menu.addItem({
-                        icon: 'iconLine',
-                        label: '新的上下文',
-                        click: () => {
-                            session.toggleNewThread();
-                        }
-                    });
-
-                    // 字数选项
-                    menu.addItem({
-                        icon: 'iconFont',
-                        label: '字数: ' + input().length
-                    });
-
-                    // 附带消息选项
-                    menu.addItem({
-                        icon: 'iconList',
-                        label: '附带消息: ' + config().attachedHistory,
-                        submenu: [
-                            {
-                                element: attachedHistoryContainer
-                            }
-                        ]
-                    });
-
-                    // 温度选项
-                    menu.addItem({
-                        icon: 'iconLight',
-                        label: '温度: ' + config().chatOption.temperature.toFixed(2),
-                        submenu: [
-                            {
-                                element: temperatureContainer
-                            }
-                        ]
-                    });
-
-                    // System Prompt
-                    menu.addItem({
-                        icon: 'iconUsers',
-                        label: 'System Prompt',
-                        click: editSystemPrompt,
-                        checked: session.systemPrompt().length > 0
-                    });
-
-                    menu.addSeparator();
-                    // 设置
-                    menu.addItem({
-                        icon: 'iconSettings',
-                        label: '打开设置',
-                        click: () => {
-                            openSetting();
-                        }
-                    });
-
-                    const target = e.target as HTMLElement;
-                    const rect = target.getBoundingClientRect();
-                    menu.open({
-                        x: rect.left,
-                        y: rect.top
-                    });
-                }} label='工具' >
-                    <SvgSymbol size="15px">iconMenu</SvgSymbol>
-                </ToolbarLabel>
-                <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
-                    <SvgSymbol size="15px">iconEdit</SvgSymbol>
-                </ToolbarLabel>
-                <div style={{ display: 'contents' }} ref={AddContextButton}>
-                    <ToolbarLabel onclick={addContext} label='Use Context'>
-                        <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
-                    </ToolbarLabel>
-                </div>
-                <ToolbarLabel
-                    onclick={(e: MouseEvent) => {
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <Show when={session.loading()}>
+                        <ToolbarLabel onclick={session.abortMessage} label='暂停' forceClick={true} >
+                            <SvgSymbol size="15px">iconPause</SvgSymbol>
+                        </ToolbarLabel>
+                    </Show>
+                    {/* 新增工具按钮 */}
+                    <ToolbarLabel onclick={(e: MouseEvent) => {
                         e.stopPropagation();
                         e.preventDefault();
-                        const { container } = solidDialog({
-                            title: '可用工具',
-                            loader: () => (
-                                <SessionToolsManager
-                                    toolExecutor={session.toolExecutor}
-                                    onToggleGroup={(_groupName, _enabled) => {
-                                        // 工具组状态已在组件内部更新，这里可以添加额外逻辑
+
+                        const attachedHistoryContainer = document.createElement('div');
+                        const dispose = render(() => (
+                            <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
+                                <SliderInput
+                                    value={config().attachedHistory}
+                                    changed={(v) => {
+                                        config.update('attachedHistory', v);
                                     }}
-                                    onToggleTool={(_toolName, _enabled) => {
-                                        // 工具状态已在组件内部更新，这里可以添加额外逻辑
-                                    }}
+                                    min={-1}
+                                    max={24}
+                                    step={1}
                                 />
-                            ),
-                            width: '840px',
-                            height: '640px',
-                            callback: () => {
-                                hasToolEnabled.update(session.toolExecutor.hasEnabledTools());
+                                <span>{config().attachedHistory} 条</span>
+                            </div>
+                        ), attachedHistoryContainer);
+
+                        const temperatureContainer = document.createElement('div');
+                        const disposeTemp = render(() => (
+                            <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
+                                <SliderInput
+                                    value={config().chatOption.temperature}
+                                    changed={(v) => {
+                                        config.update('chatOption', 'temperature', v);
+                                    }}
+                                    min={0}
+                                    max={2}
+                                    step={0.05}
+                                />
+                                <span>{config().chatOption.temperature.toFixed(2)}</span>
+                            </div>
+                        ), temperatureContainer);
+
+                        let menu = new Menu("tools-menu", () => {
+                            dispose();
+                            disposeTemp();
+                        });
+
+                        // 新的上下文选项
+                        menu.addItem({
+                            icon: 'iconLine',
+                            label: '新的上下文',
+                            click: () => {
+                                session.toggleNewThread();
                             }
                         });
-                        (container.querySelector('.dialog-content') as HTMLElement).style.height = 'unset';
-                    }}
-                    label='工具'
-                    role='tool-calls'
-                    styles={
-                        hasToolEnabled() ? {
-                            'background-color': 'var(--b3-theme-primary)',
-                            'color': 'var(--b3-theme-on-primary)'
-                        } : {}
-                    }
-                >
-                    <SvgSymbol size="15px">iconBazaar</SvgSymbol>
-                </ToolbarLabel>
 
-                <div data-role="spacer" style={{ flex: 1 }}></div>
-
-                <ToolbarLabel onclick={editCustomOptions} label='自定义对话参数' role='chat-options' >
-                    <SvgSymbol size="15px">iconKeymap</SvgSymbol>
-                </ToolbarLabel>
-                <ToolbarLabel onclick={editSystemPrompt} label='系统提示' role="system-prompt" >
-                    {session.systemPrompt().length > 0 ? `✅ ` : ''}System
-                </ToolbarLabel>
-                <ToolbarLabel
-                    label={`模型 ${model().model} | ${model().type ?? 'chat'}`}
-                    role="model"
-                    onclick={(e: MouseEvent) => {
-                        e.stopImmediatePropagation();
-                        e.preventDefault();
-                        let menu = new Menu();
-                        Object.entries(listAvialableModels()).forEach(([id, name]) => {
-                            menu.addItem({
-                                icon: id === modelId() ? 'iconSelect' : null,
-                                label: name,
-                                click: () => {
-                                    modelId.value = id;
-                                }
-                            });
+                        // 字数选项
+                        menu.addItem({
+                            icon: 'iconFont',
+                            label: '字数: ' + input().length
                         });
-                        const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
-                        let rect = targetElement.getBoundingClientRect();
+
+                        // 附带消息选项
+                        menu.addItem({
+                            icon: 'iconList',
+                            label: '附带消息: ' + config().attachedHistory,
+                            submenu: [
+                                {
+                                    element: attachedHistoryContainer
+                                }
+                            ]
+                        });
+
+                        // 温度选项
+                        menu.addItem({
+                            icon: 'iconLight',
+                            label: '温度: ' + config().chatOption.temperature.toFixed(2),
+                            submenu: [
+                                {
+                                    element: temperatureContainer
+                                }
+                            ]
+                        });
+
+                        // System Prompt
+                        menu.addItem({
+                            icon: 'iconUsers',
+                            label: 'System Prompt',
+                            click: editSystemPrompt,
+                            checked: session.systemPrompt().length > 0
+                        });
+
+                        menu.addSeparator();
+                        // 设置
+                        menu.addItem({
+                            icon: 'iconSettings',
+                            label: '打开设置',
+                            click: () => {
+                                openSetting();
+                            }
+                        });
+
+                        const target = e.target as HTMLElement;
+                        const rect = target.getBoundingClientRect();
                         menu.open({
                             x: rect.left,
                             y: rect.top
                         });
-                    }}
-                >
-                    <span data-role="full-name">
-                        {modelDisplayLable()}
-                    </span>
-                    <span data-role="symbol">
-                        <SvgSymbol size="15px">iconSparkles</SvgSymbol>
-                    </span>
-                    {/* <SvgSymbol size="15px">iconSparkles</SvgSymbol> */}
-                </ToolbarLabel>
-                <ToolbarLabel onclick={openSetting} label='设置' role='setting' >
-                    <SvgSymbol size="15px">iconSettings</SvgSymbol>
-                </ToolbarLabel>
+                    }} label='工具' >
+                        <SvgSymbol size="15px">iconMenu</SvgSymbol>
+                    </ToolbarLabel>
+                    <ToolbarLabel onclick={useUserPrompt} label='使用模板 Prompt' >
+                        <SvgSymbol size="15px">iconEdit</SvgSymbol>
+                    </ToolbarLabel>
+                    <div style={{ display: 'contents' }} ref={AddContextButton}>
+                        <ToolbarLabel onclick={addContext} label='Use Context'>
+                            <SvgSymbol size="15px">iconSymbolAt</SvgSymbol>
+                        </ToolbarLabel>
+                    </div>
+                    <ToolbarLabel
+                        onclick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            const { container } = solidDialog({
+                                title: '可用工具',
+                                loader: () => (
+                                    <SessionToolsManager
+                                        toolExecutor={session.toolExecutor}
+                                        onToggleGroup={(_groupName, _enabled) => {
+                                            // 工具组状态已在组件内部更新，这里可以添加额外逻辑
+                                        }}
+                                        onToggleTool={(_toolName, _enabled) => {
+                                            // 工具状态已在组件内部更新，这里可以添加额外逻辑
+                                        }}
+                                    />
+                                ),
+                                width: '840px',
+                                height: '640px',
+                                callback: () => {
+                                    hasToolEnabled.update(session.toolExecutor.hasEnabledTools());
+                                }
+                            });
+                            (container.querySelector('.dialog-content') as HTMLElement).style.height = 'unset';
+                        }}
+                        label='工具'
+                        role='tool-calls'
+                        styles={
+                            hasToolEnabled() ? {
+                                'background-color': 'var(--b3-theme-primary)',
+                                'color': 'var(--b3-theme-on-primary)'
+                            } : {}
+                        }
+                    >
+                        <SvgSymbol size="15px">iconBazaar</SvgSymbol>
+                    </ToolbarLabel>
+                </div>
+
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <ToolbarLabel onclick={editCustomOptions} label='自定义对话参数' role='chat-options' >
+                        <SvgSymbol size="15px">iconKeymap</SvgSymbol>
+                    </ToolbarLabel>
+                    <ToolbarLabel onclick={editSystemPrompt} label='系统提示' role="system-prompt" >
+                        {session.systemPrompt().length > 0 ? `✅ ` : ''}System
+                    </ToolbarLabel>
+                    <ToolbarLabel
+                        label={`模型 ${model().model} | ${model().type ?? 'chat'}`}
+                        role="model"
+                        onclick={(e: MouseEvent) => {
+                            e.stopImmediatePropagation();
+                            e.preventDefault();
+                            let menu = new Menu();
+                            Object.entries(listAvialableModels()).forEach(([id, name]) => {
+                                menu.addItem({
+                                    icon: id === modelId() ? 'iconSelect' : null,
+                                    label: name,
+                                    click: () => {
+                                        modelId.value = id;
+                                    }
+                                });
+                            });
+                            const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
+                            let rect = targetElement.getBoundingClientRect();
+                            menu.open({
+                                x: rect.left,
+                                y: rect.top
+                            });
+                        }}
+                    >
+                        <span data-role="full-name">
+                            {modelDisplayLable()}
+                        </span>
+                        <span data-role="symbol">
+                            <SvgSymbol size="15px">iconSparkles</SvgSymbol>
+                        </span>
+                    </ToolbarLabel>
+                    <ToolbarLabel onclick={openSetting} label='设置' role='setting' >
+                        <SvgSymbol size="15px">iconSettings</SvgSymbol>
+                    </ToolbarLabel>
+                </div>
             </div>
             <div class={styles.inputWrapper}
                 {...attachmentInputHandler.createDropHandlers(styles.dropTarget)}>
@@ -1411,12 +1416,14 @@ export const ChatSession: Component<{
             </div>
             <div class={styles.attachmentArea} style={{
                 display: session.multiModalAttachments()?.length > 0 || session.contexts()?.length > 0 ? "block" : "none",
+                padding: '8px 16px',
+                'border-top': 'none'
             }}>
                 <AttachmentList
                     multiModalAttachments={session.multiModalAttachments()}
                     contexts={session.contexts()}
                     showDelete={true}
-                    size="medium"
+                    size="small"
                     onDelete={(key: number | string, type: 'attachment' | 'context') => {
                         if (type === 'attachment') {
                             session.removeAttachment(key as number);

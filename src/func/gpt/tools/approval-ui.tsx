@@ -23,19 +23,19 @@ const ArgsListComponent = (props: { args: Record<string, any> }) => {
     }
     return (
         <>
-            <h3 style={{ "margin": "8px 0 4px 0" }}>参数:</h3>
+            <h3 style={{ "margin": "12px 0 8px 0", "font-size": "14px" }}>参数:</h3>
             <ul class="b3-list" style={{
                 "margin": "0",
-                "padding": "0 0 0 16px",
-                "overflow": "hidden"  // 防止列表溢出
+                "padding": "0 0 0 20px",
+                "overflow": "hidden"
             }}>
                 {Object.keys(props.args).map(key => (
                     <li style={{
-                        "margin-bottom": "6px",
-                        "word-break": "break-all",  // 强制长单词换行
-                        "overflow-wrap": "anywhere"  // 确保任意位置可换行
+                        "margin-bottom": "8px",
+                        "word-break": "break-all",
+                        "overflow-wrap": "anywhere"
                     }}>
-                        <strong>{key}:</strong>{' '}
+                        <strong style={{ "color": "var(--b3-theme-on-background)" }}>{key}:</strong>{' '}
                         {
                             typeof props.args[key] === 'string' && (props.args[key].includes('\n') || props.args[key].length > 100) ? (
                                 <textarea
@@ -48,20 +48,21 @@ const ArgsListComponent = (props: { args: Record<string, any> }) => {
                                         "margin": "4px 0",
                                         "resize": "vertical",
                                         "font-family": "var(--b3-font-family-code)",
-                                        // "font-size": "12px",
-                                        "box-sizing": "border-box"
+                                        "font-size": "13px",
+                                        "box-sizing": "border-box",
+                                        "border-radius": "var(--radius-sm)"
                                     }}
                                 />
                             ) : (
                                 <code style={{
                                     "word-break": "break-all",
                                     "overflow-wrap": "anywhere",
-                                    "white-space": "pre-wrap",  // 允许换行但保留空格
+                                    "white-space": "pre-wrap",
                                     "display": "inline",
-                                    // "font-size": "12px",
+                                    "font-size": "13px",
                                     "background": "var(--b3-theme-surface-lighter)",
-                                    "padding": "1px 4px",
-                                    "border-radius": "3px"
+                                    "padding": "2px 6px",
+                                    "border-radius": "4px"
                                 }}>
                                     {JSON.stringify(props.args[key])}
                                 </code>
@@ -93,30 +94,33 @@ const BaseApprovalUI = (props: {
 
     return (
         <div style={{
-            "padding": "12px 16px",  // 稍微减小内边距
+            "padding": "16px 20px",
             "width": "100%",
-            "box-sizing": "border-box",  // 确保 padding 不会撑大容器
-            "overflow": "hidden"  // 防止内容溢出
+            "box-sizing": "border-box",
+            "overflow": "hidden",
         }}>
             <div class="b3-typography" style={{
-                "margin": "0 0 8px 0",
-                "overflow": "hidden"  // 防止内部溢出
+                "margin": "0 0 12px 0",
+                "overflow": "hidden"
             }}>
                 <h3 style={{
                     "margin": "0 0 8px 0",
-                    // "font-size": "15px",
-                    "word-break": "break-all"  // 长工具名也能换行
+                    "font-size": "15px",
+                    "font-weight": "600",
+                    "word-break": "break-all",
+                    "color": "var(--b3-theme-on-background)"
                 }}>
                     {props.title}
                 </h3>
                 {props.description && (
                     <p style={{
-                        "margin": "0 0 8px 0",
-                        // "font-size": "13px",
-                        "color": "var(--b3-theme-on-surface-light)",
-                        "word-break": "break-word"
+                        "margin": "0 0 12px 0",
+                        "font-size": "13px",
+                        "color": "var(--b3-theme-on-background-light)",
+                        "word-break": "break-word",
+                        "line-height": "1.5"
                     }}>
-                        <strong>{descriptionShort}</strong>
+                        {descriptionShort}
                     </p>
                 )}
                 {props.children}
@@ -126,8 +130,10 @@ const BaseApprovalUI = (props: {
                 "display": "flex",
                 "align-items": "center",
                 "gap": "8px",
-                "flex-wrap": "wrap",  // 按钮区域允许换行
-                "margin-top": "12px"
+                "flex-wrap": "wrap",
+                "margin-top": "16px",
+                "padding-top": "12px",
+                "border-top": "1px solid var(--b3-border-color)"
             }}>
                 {props.extraButtons}
 
@@ -142,8 +148,9 @@ const BaseApprovalUI = (props: {
                             "width": "unset",
                             "max-width": "unset",
                             "flex": "1",
-                            "min-width": "120px",  // 最小宽度，防止过窄
-                            "display": "inline-block"
+                            "min-width": "150px",
+                            "display": "inline-block",
+                            "border-radius": "var(--radius-sm)"
                         }}
                     />
                 )}
@@ -161,10 +168,11 @@ const BaseApprovalUI = (props: {
                     }}
                     style={{
                         "background-color": "var(--b3-theme-error)",
-                        // "font-size": "12px",
-                        "opacity": decided() ? "0.6" : "1",
+                        "opacity": decided() ? "0.5" : "1",
                         "pointer-events": decided() ? "none" : "auto",
-                        "flex-shrink": "0"  // 防止按钮被压缩
+                        "flex-shrink": "0",
+                        "border-radius": "var(--radius-sm)",
+                        "transition": "all var(--transition-fast)"
                     }}
                 />
                 <ButtonInput
@@ -175,10 +183,12 @@ const BaseApprovalUI = (props: {
                         props.onApprove()
                     }}
                     style={{
-                        // "font-size": "12px",
-                        "opacity": decided() ? "0.6" : "1",
+                        "background-color": "var(--b3-theme-primary)",
+                        "opacity": decided() ? "0.5" : "1",
                         "pointer-events": decided() ? "none" : "auto",
-                        "flex-shrink": "0"  // 防止按钮被压缩
+                        "flex-shrink": "0",
+                        "border-radius": "var(--radius-sm)",
+                        "transition": "all var(--transition-fast)"
                     }}
                 />
             </div>
@@ -216,8 +226,6 @@ export const ToolExecutionApprovalUI: Component<{
         return props.toolDefinition?.permissionLevel;
     };
 
-    const isSensitiveTool = () => getEffectivePermissionLevel() === ToolPermissionLevel.SENSITIVE;
-
     const handleSafetyReview = async () => {
         if (!props.toolDefinition || isReviewing()) return;
         isReviewing(true);
@@ -232,21 +240,32 @@ export const ToolExecutionApprovalUI: Component<{
         }
     };
 
-    const SafetyReviewButton = () => (
-        <Show when={isSensitiveTool() && props.toolDefinition}>
-            <ButtonInput
-                label={isReviewing() ? "审查中..." : "AI安全审查"}
-                onClick={handleSafetyReview}
-                style={{
-                    // "font-size": "12px",
-                    "opacity": isReviewing() ? "0.6" : "1",
-                    "pointer-events": isReviewing() ? "none" : "auto",
-                    "background-color": "var(--b3-theme-secondary)"
-                }}
-            />
-            {/* <div style={{ "flex": 1 }} /> */}
-        </Show>
-    );
+    // ✅ 修复：放宽显示条件，MODERATE 及以上都显示
+    const SafetyReviewButton = () => {
+        const shouldShowButton = () => {
+            if (!props.toolDefinition) return false;
+            const level = getEffectivePermissionLevel();
+            return level === ToolPermissionLevel.SENSITIVE ||
+                   level === ToolPermissionLevel.MODERATE;
+        };
+
+        return (
+            <Show when={shouldShowButton()}>
+                <ButtonInput
+                    label={isReviewing() ? "审查中..." : "🛡️ AI安全审查"}
+                    onClick={handleSafetyReview}
+                    disabled={isReviewing()}
+                    style={{
+                        "opacity": isReviewing() ? "0.5" : "1",
+                        "background-color": "var(--b3-theme-secondary)",
+                        "flex-shrink": "0",
+                        "border-radius": "var(--radius-sm)",
+                        "transition": "all var(--transition-fast)"
+                    }}
+                />
+            </Show>
+        );
+    };
 
     return (
         <BaseApprovalUI
@@ -261,14 +280,25 @@ export const ToolExecutionApprovalUI: Component<{
 
             <Show when={safetyReviewResult()}>
                 <div style={{
-                    "margin-top": "12px",
-                    "padding": "12px",
-                    "background-color": "var(--b3-theme-surface)",
-                    "border-radius": "4px",
+                    "margin-top": "16px",
+                    "padding": "12px 16px",
+                    "background-color": "var(--b3-theme-surface-light)",
+                    "border-radius": "var(--radius-md)",
                     "border": "1px solid var(--b3-border-color)"
                 }}>
-                    <h4 style={{ "margin": "0 0 8px 0" }}>🛡️ AI 安全审查结果</h4>
-                    <div class="b3-typography" style={{ "white-space": "pre-wrap", /* "font-size": "13px" */ }}>
+                    <h4 style={{
+                        "margin": "0 0 8px 0",
+                        "font-size": "14px",
+                        "font-weight": "600",
+                        "color": "var(--b3-theme-on-surface)"
+                    }}>
+                        🛡️ AI 安全审查结果
+                    </h4>
+                    <div class="b3-typography" style={{
+                        "white-space": "pre-wrap",
+                        "font-size": "13px",
+                        "line-height": "1.6"
+                    }}>
                         <Markdown markdown={safetyReviewResult() ?? ""} />
                     </div>
                 </div>
@@ -288,15 +318,8 @@ export const ToolResultApprovalUI: Component<{
     onReject: (reason?: string) => void;
 }> = (props) => {
 
-    // const dataContent = instanceof(props.result.data, string) ? props.result.data : JSON.stringify(props.result.data);
-    // let dataContent = props.result.finalText;
     let dataContent = props.result.finalText ??
         (typeof props.result.data === 'string' ? props.result.data : JSON.stringify(props.result.data));
-    // if (typeof props.result.data === 'string') {
-    //     dataContent = props.result.data;
-    // } else {
-    //     dataContent = JSON.stringify(props.result.data);
-    // }
 
     return (
         <BaseApprovalUI
@@ -307,15 +330,22 @@ export const ToolResultApprovalUI: Component<{
         >
             <ArgsListComponent args={props.args} />
 
-            <h3>结果 (共 {dataContent.length} 字符)</h3>
+            <h3 style={{
+                "margin": "12px 0 8px 0",
+                "font-size": "14px",
+                "font-weight": "600"
+            }}>
+                结果 (共 {dataContent.length} 字符)
+            </h3>
             <textarea
                 class="b3-text-field"
                 style={{
                     "width": "100%",
-                    // "height": "120px",
                     "margin": "8px 0",
                     "resize": "vertical",
-                    "font-family": "var(--b3-font-family-code)"
+                    "font-family": "var(--b3-font-family-code)",
+                    "font-size": "13px",
+                    "border-radius": "var(--radius-sm)"
                 }}
                 rows={10}
                 readOnly
@@ -327,7 +357,7 @@ export const ToolResultApprovalUI: Component<{
 
 // 审核对话框的共同配置
 const dialogConfig = {
-    width: '640px',
+    width: '680px',
     maxHeight: '90%'
 };
 
@@ -500,14 +530,14 @@ export const InlineApprovalCard: Component<{
 }> = (props) => {
     return (
         <div style={{
-            "margin": "12px 32px",  // 左右留出边距
+            "margin": "16px 0",
             "padding": "0",
             "border": "1px solid var(--b3-theme-primary-lighter)",
-            "border-radius": "8px",
-            "background": "var(--b3-theme-surface)",
-            "box-shadow": "0 2px 8px rgba(0,0,0,0.08)",
-            "overflow": "hidden",  // 防止内容溢出
-            "max-width": "100%",   // 限制最大宽度
+            "border-radius": "var(--radius-md)",
+            "background": "var(--b3-theme-background)",
+            "box-shadow": "0 1px 3px rgba(0,0,0,0.06)",
+            "overflow": "hidden",
+            "max-width": "100%",
             "box-sizing": "border-box"
         }}>
             <Switch>

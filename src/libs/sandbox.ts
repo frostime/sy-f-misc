@@ -8,78 +8,176 @@ interface IExecutionResult {
 class JavaScriptSandBox {
     private iframe: HTMLIFrameElement | null = null;
     private timeoutMs: number;
-    private messageId: number = 0;
-    private pendingExecutions: Map<number, {
-        resolve: (result: IExecutionResult) => void;
-        timer: number;
-    }> = new Map();
+    private allowSameOrigin: boolean;
+    private logViolations: boolean;
 
     private isReady: boolean = false;
     private readyPromise: Promise<void> | null = null;
-    private readyResolve: (() => void) | null = null;
 
-    constructor(timeoutMs: number = 5000) {
-        this.timeoutMs = timeoutMs;
-        // 绑定消息监听器（全局，只需绑定一次）
-        window.addEventListener('message', this.handleMessage.bind(this));
+    constructor(options: {
+        timeoutMs?: number;
+        allowSameOrigin?: boolean;
+        logViolations?: boolean;
+    } = {}) {
+        this.timeoutMs = options.timeoutMs ?? 5000;
+        this.allowSameOrigin = options.allowSameOrigin ?? true;
+        this.logViolations = options.logViolations ?? true;
     }
 
-    /**
-     * 初始化沙盒环境（必须在使用前调用）
-     * @returns Promise，resolve 时表示沙盒已完全就绪
-     */
     public async init(): Promise<void> {
-        // 如果已经初始化完成，直接返回
         if (this.isReady) {
             return Promise.resolve();
         }
 
-        // 如果正在初始化，返回现有的 Promise
         if (this.readyPromise) {
             return this.readyPromise;
         }
 
-        // 创建新的初始化 Promise
         this.readyPromise = new Promise<void>((resolve, reject) => {
-            this.readyResolve = resolve;
-
-            // 设置初始化超时（防止 iframe 加载失败导致永久挂起）
             const initTimeout = setTimeout(() => {
-                this.readyResolve = null;
                 this.readyPromise = null;
                 reject(new Error('Sandbox initialization timeout'));
-            }, 10000); // 10秒初始化超时
+            }, 10000);
 
-            // 清理旧 iframe（如果存在）
             if (this.iframe && this.iframe.parentNode) {
                 document.body.removeChild(this.iframe);
             }
 
-            // 创建新 iframe
             this.iframe = document.createElement('iframe');
-            this.iframe.setAttribute('sandbox', 'allow-scripts');
+
+            const sandboxAttr = this.allowSameOrigin
+                ? 'allow-scripts allow-same-origin'
+                : 'allow-scripts';
+
+            this.iframe.setAttribute('sandbox', sandboxAttr);
             this.iframe.style.display = 'none';
 
-            const sandboxHTML = `
+            const sandboxHTML = this.buildSandboxHTML();
+
+            this.iframe.onload = () => {
+                clearTimeout(initTimeout);
+                // 等待沙盒 API 初始化
+                const checkReady = () => {
+                    if (this.iframe?.contentWindow?.['__sandboxAPI']) {
+                        this.isReady = true;
+                        resolve();
+                    } else {
+                        setTimeout(checkReady, 10);
+                    }
+                };
+                checkReady();
+            };
+
+            this.iframe.onerror = () => {
+                clearTimeout(initTimeout);
+                this.readyPromise = null;
+                reject(new Error('Failed to load sandbox iframe'));
+            };
+
+            this.iframe.srcdoc = sandboxHTML;
+            document.body.appendChild(this.iframe);
+        });
+
+        return this.readyPromise;
+    }
+
+    private buildSandboxHTML(): string {
+        const logViolations = this.logViolations;
+
+        return `
 <!DOCTYPE html>
 <html>
+<head>
+<meta charset="UTF-8">
+</head>
 <body>
 <script>
 (function() {
-  // 全局输出缓冲区（持久化，每次执行会追加）
+  'use strict';
+
+  const LOG_VIOLATIONS = ${logViolations};
+
+  // ============ 安全防护：劫持全局属性 ============
+
+  const createBlockedProxy = (targetName) => {
+    return new Proxy({}, {
+      get(target, prop) {
+        if (LOG_VIOLATIONS) {
+          console.error(\`[Security] Blocked access to \${targetName}.\${String(prop)}\`);
+        }
+        return undefined;
+      },
+      set(target, prop) {
+        if (LOG_VIOLATIONS) {
+          console.error(\`[Security] Blocked modification of \${targetName}.\${String(prop)}\`);
+        }
+        return false;
+      },
+      has() { return false; },
+      deleteProperty() { return false; },
+      ownKeys() { return []; },
+      getOwnPropertyDescriptor() { return undefined; }
+    });
+  };
+
+  // 尝试劫持危险属性
+  const dangerousProps = ['parent', 'top', 'frameElement', 'opener'];
+
+  dangerousProps.forEach(prop => {
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(window, prop);
+      if (descriptor && descriptor.configurable) {
+        Object.defineProperty(window, prop, {
+          get() {
+            if (LOG_VIOLATIONS) {
+              console.error(\`[Security] Blocked access to window.\${prop}\`);
+            }
+            return createBlockedProxy(\`window.\${prop}\`);
+          },
+          set() {
+            if (LOG_VIOLATIONS) {
+              console.error(\`[Security] Blocked modification of window.\${prop}\`);
+            }
+            return false;
+          },
+          configurable: false,
+          enumerable: true
+        });
+      } else if (LOG_VIOLATIONS) {
+        console.warn(\`[Security] Cannot protect window.\${prop} (not configurable)\`);
+      }
+    } catch (e) {
+      if (LOG_VIOLATIONS) {
+        console.warn(\`[Security] Failed to protect window.\${prop}:\`, e.message);
+      }
+    }
+  });
+
+  if (LOG_VIOLATIONS) {
+    console.log('[Security] Sandbox protection initialized');
+  }
+
+  // ============ 执行环境 ============
+
   const globalStdout = [];
   const globalStderr = [];
 
-  // 工具函数：安全序列化
   const safeStringify = (arg) => {
     try {
-      return (typeof arg === 'object' && arg !== null) ? JSON.stringify(arg) : String(arg);
-    } catch(e) {
-      return '[Circular/Unserializable]';
+      if (arg === null) return 'null';
+      if (arg === undefined) return 'undefined';
+      if (typeof arg === 'object') {
+        return JSON.stringify(arg);
+      }
+      return String(arg);
+    } catch (e) {
+      return '[Unserializable]';
     }
   };
 
-  // 劫持 console（持久化劫持）
+  // 劫持 console
+  const originalConsole = { ...console };
+
   console.log = (...args) => {
     globalStdout.push(args.map(safeStringify).join(' '));
   };
@@ -88,18 +186,25 @@ class JavaScriptSandBox {
     globalStderr.push(args.map(safeStringify).join(' '));
   };
 
-  // 监听来自父页面的执行请求
-  window.addEventListener('message', (event) => {
-    const { type, id, code } = event.data;
+  console.warn = (...args) => {
+    globalStderr.push('[WARN] ' + args.map(safeStringify).join(' '));
+  };
 
-    if (type === 'sandbox_execute') {
-      // 清空本次执行的输出缓冲区
+  console.debug = originalConsole.debug || (() => {});
+
+  // ============ 暴露给父页面的 API ============
+
+  window.__sandboxAPI = {
+    /**
+     * 执行代码（支持 async/await）
+     * @param {string} code - 用户代码
+     * @returns {Promise<object>} 执行结果
+     */
+    execute: async (code) => {
       const currentStdoutLength = globalStdout.length;
       const currentStderrLength = globalStderr.length;
 
       const result = {
-        type: 'sandbox_result',
-        id: id,
         ok: true,
         stdout: '',
         stderr: '',
@@ -107,136 +212,86 @@ class JavaScriptSandBox {
       };
 
       try {
-        // 执行用户代码（在全局作用域中，因此可以复用之前定义的变量）
-        const evalResult = (0, eval)(code);
-        result.returned = evalResult;
+        // ✅ 使用 async function 包装，支持 await
+        const wrappedCode = \`
+          (async function() {
+            // 遮蔽全局变量
+            const parent = undefined;
+            const top = undefined;
+            const frameElement = undefined;
+            const opener = undefined;
+
+            // 执行用户代码（支持 await）
+            return await (async function() {
+              "use strict";
+              \${code}
+            })();
+          })()
+        \`;
+
+        // await 异步执行结果
+        result.returned = await (0, eval)(wrappedCode);
+
       } catch (e) {
         result.ok = false;
-        globalStderr.push(e.toString());
+        globalStderr.push(\`\${e.name}: \${e.message}\`);
+        if (e.stack) {
+          globalStderr.push(e.stack);
+        }
       }
 
-      // 获取本次执行产生的输出
+      // 收集输出
       result.stdout = globalStdout.slice(currentStdoutLength).join('\\n');
       result.stderr = globalStderr.slice(currentStderrLength).join('\\n');
 
-      // 处理返回值的序列化
-      if (typeof result.returned === 'function' || typeof result.returned === 'symbol') {
-        result.returned = String(result.returned);
+      // 序列化返回值
+      if (typeof result.returned === 'function') {
+        result.returned = '[Function]';
+      } else if (typeof result.returned === 'symbol') {
+        result.returned = result.returned.toString();
+      } else if (result.returned instanceof Promise) {
+        // 理论上不会到这里，因为外层已经 await 了
+        result.returned = '[Promise]';
       }
 
-      // 发送结果回父页面
-      window.parent.postMessage(result, '*');
-    } else if (type === 'sandbox_reset') {
-      // 重置环境：清空输出缓冲区
+      return result;
+    },
+
+    reset: () => {
       globalStdout.length = 0;
       globalStderr.length = 0;
+      return { ok: true };
+    },
 
-      window.parent.postMessage({
-        type: 'sandbox_reset_complete',
-        id: id
-      }, '*');
+    getState: () => {
+      return {
+        stdoutLength: globalStdout.length,
+        stderrLength: globalStderr.length
+      };
     }
-  });
+  };
 
-  // 通知父页面沙盒已准备就绪
-  window.parent.postMessage({ type: 'sandbox_ready' }, '*');
+  window.__sandboxReady = true;
+
+  if (LOG_VIOLATIONS) {
+    console.debug('[Sandbox] API ready');
+  }
 })();
-<\/script>
+</script>
 </body>
 </html>
 `;
-
-            // 监听 iframe 加载完成
-            this.iframe.onload = () => {
-                // iframe DOM 加载完成，但内部脚本可能还未执行
-                // 真正的就绪状态由 sandbox_ready 消息确认
-            };
-
-            this.iframe.onerror = () => {
-                clearTimeout(initTimeout);
-                this.readyResolve = null;
-                this.readyPromise = null;
-                reject(new Error('Failed to load sandbox iframe'));
-            };
-
-            // 注入 HTML 并添加到 DOM
-            this.iframe.srcdoc = sandboxHTML;
-            document.body.appendChild(this.iframe);
-
-            // 保存 timeout 引用以便在 ready 消息中清理
-            (this.iframe as any)._initTimeout = initTimeout;
-        });
-
-        return this.readyPromise;
     }
 
-    /**
-     * 处理来自 iframe 的消息
-     */
-    private handleMessage(event: MessageEvent): void {
-        if (!this.iframe || event.source !== this.iframe.contentWindow) {
-            return;
-        }
 
-        const data = event.data;
-
-        if (data.type === 'sandbox_ready') {
-            // 沙盒准备就绪
-            this.isReady = true;
-
-            // 清理初始化超时
-            if ((this.iframe as any)._initTimeout) {
-                clearTimeout((this.iframe as any)._initTimeout);
-                delete (this.iframe as any)._initTimeout;
-            }
-
-            // resolve 初始化 Promise
-            if (this.readyResolve) {
-                this.readyResolve();
-                this.readyResolve = null;
-            }
-        } else if (data.type === 'sandbox_result') {
-            const execution = this.pendingExecutions.get(data.id);
-            if (execution) {
-                clearTimeout(execution.timer);
-                this.pendingExecutions.delete(data.id);
-                execution.resolve({
-                    ok: data.ok,
-                    stdout: data.stdout,
-                    stderr: data.stderr,
-                    returned: data.returned
-                });
-            }
-        } else if (data.type === 'sandbox_reset_complete') {
-            const execution = this.pendingExecutions.get(data.id);
-            if (execution) {
-                clearTimeout(execution.timer);
-                this.pendingExecutions.delete(data.id);
-                execution.resolve({
-                    ok: true,
-                    stdout: '',
-                    stderr: '',
-                    returned: null
-                });
-            }
-        }
-    }
-
-    /**
-     * 执行代码
-     * @throws Error 如果沙盒未初始化
-     */
-    public run(code: string): Promise<IExecutionResult> {
-        if (!this.isReady || !this.iframe || !this.iframe.contentWindow) {
+    public async run(code: string): Promise<IExecutionResult> {
+        if (!this.isReady || !this.iframe?.contentWindow) {
             return Promise.reject(new Error('Sandbox not initialized. Call init() first.'));
         }
 
-        return new Promise((resolve) => {
-            const id = ++this.messageId;
-
+        return new Promise(async (resolve) => {
             // 设置超时
-            const timer = window.setTimeout(() => {
-                this.pendingExecutions.delete(id);
+            const timer = setTimeout(() => {
                 resolve({
                     ok: false,
                     stdout: '',
@@ -245,54 +300,57 @@ class JavaScriptSandBox {
                 });
             }, this.timeoutMs);
 
-            this.pendingExecutions.set(id, { resolve, timer });
+            try {
+                const api = this.iframe.contentWindow['__sandboxAPI'];
 
-            // 发送执行请求
-            this.iframe!.contentWindow!.postMessage({
-                type: 'sandbox_execute',
-                id: id,
-                code: code
-            }, '*');
+                if (!api || typeof api.execute !== 'function') {
+                    clearTimeout(timer);
+                    resolve({
+                        ok: false,
+                        stdout: '',
+                        stderr: 'Sandbox API not available',
+                        returned: null
+                    });
+                    return;
+                }
+
+                const result = await api.execute(code);
+
+                clearTimeout(timer);
+                resolve(result);
+
+            } catch (error) {
+                clearTimeout(timer);
+                resolve({
+                    ok: false,
+                    stdout: '',
+                    stderr: `Execution error: ${error.message}`,
+                    returned: null
+                });
+            }
         });
     }
 
-    /**
-     * 重置沙盒环境（完全重建 iframe）
-     */
     public async reset(): Promise<void> {
-        this.isReady = false;
-        this.readyPromise = null;
-        this.readyResolve = null;
+        if (!this.iframe?.contentWindow) {
+            throw new Error('Sandbox not initialized');
+        }
 
-        // 清理所有待处理的执行
-        this.pendingExecutions.forEach(({ timer }) => {
-            clearTimeout(timer);
-        });
-        this.pendingExecutions.clear();
-
-        // 重新初始化
-        await this.init();
+        try {
+            const api = this.iframe.contentWindow['__sandboxAPI'];
+            if (api && typeof api.reset === 'function') {
+                api.reset();
+            }
+        } catch (e) {
+            console.warn('Reset failed:', e);
+        }
     }
 
-    /**
-     * 销毁沙盒，释放资源
-     */
     public destroy(): void {
         this.isReady = false;
         this.readyPromise = null;
-        this.readyResolve = null;
 
-        // 清理所有待处理的执行
-        this.pendingExecutions.forEach(({ timer }) => {
-            clearTimeout(timer);
-        });
-        this.pendingExecutions.clear();
-
-        // 移除 iframe
         if (this.iframe) {
-            if ((this.iframe as any)._initTimeout) {
-                clearTimeout((this.iframe as any)._initTimeout);
-            }
             if (this.iframe.parentNode) {
                 document.body.removeChild(this.iframe);
             }
@@ -300,54 +358,53 @@ class JavaScriptSandBox {
         this.iframe = null;
     }
 
-    /**
-     * 检查沙盒是否已就绪
-     */
     public get ready(): boolean {
         return this.isReady;
     }
 }
 
+export default JavaScriptSandBox;
+
+
+
 // --- 使用示例 ---
 
 /*
-// 创建沙盒实例
 const sandbox = new JavaScriptSandBox();
-
-// 必须先初始化
 await sandbox.init();
 
-// 现在可以安全使用
-const result1 = await sandbox.run(`
-  const greeting = "Hello";
-  function sayHello(name) {
-    console.log(greeting + ", " + name + "!");
-    return greeting + ", " + name;
-  }
-  sayHello("World");
+// ✅ 支持 async/await
+const result = await sandbox.run(`
+  console.log('开始请求...');
+  const response = await fetch('/api/notebook/lsNotebooks');
+  const data = await response.json();
+  console.log('请求完成，笔记本数量:', data.data.notebooks.length);
+  return data;
 `);
-console.log('执行结果:', result1);
 
-// 复用之前定义的变量和函数
-const result2 = await sandbox.run(`
-  console.log("变量 greeting 的值:", greeting);
-  sayHello("Alice");
+console.log(result);
+// {
+//   ok: true,
+//   stdout: "开始请求...\n请求完成，笔记本数量: 3",
+//   stderr: "",
+//   returned: { code: 0, data: { notebooks: [...] }, msg: "" }
+// }
+
+// ✅ 支持顶层 await
+await sandbox.run(`
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+  await delay(100);
+  console.log('延迟完成');
+  return 'done';
 `);
-console.log('第二次执行:', result2);
 
-// 重置环境
-await sandbox.reset();
-
-// 重置后之前的变量不再存在
-const result3 = await sandbox.run(`
-  console.log(typeof greeting); // undefined
-  const newVar = "New Environment";
-  newVar;
+// ✅ 无法访问父页面
+await sandbox.run(`
+  console.log(typeof parent);  // "undefined"
+  console.log(typeof top);     // "undefined"
 `);
-console.log('重置后执行:', result3);
+
 
 // 使用完毕后销毁沙盒
 sandbox.destroy();
 */
-
-export default JavaScriptSandBox;
