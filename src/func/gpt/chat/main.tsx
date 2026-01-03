@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2026-01-03 00:10:29
+ * @LastEditTime : 2026-01-03 20:47:13
  * @Description  :
  */
 // External libraries
@@ -627,7 +627,7 @@ export const ChatSession: Component<{
                 role={props?.role}
                 styles={{
                     background: 'transparent',
-                    color: 'var(--b3-theme-on-surface-light)',
+                    color: 'var(--b3-theme-on-background)',
                     border: 'none',
                     'box-shadow': 'none',
                     cursor: props.placeholder ? 'default' : 'pointer',

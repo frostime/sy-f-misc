@@ -25,8 +25,8 @@
 
     // 圆角
     --radius-sm: 6px;
-    --radius-md: 12px;
-    --radius-lg: 20px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
     --radius-full: 9999px;
 
     // 过渡
@@ -75,7 +75,8 @@ $chat-very-narrow-container: 400px;
     top: 0;
     height: auto;
     min-height: 48px;
-    padding: 8px 16px;
+    // padding: 8px 16px;
+    padding: 4px 16px 0px 16px;
     margin-top: 0;
     background: transparent;
     border-bottom: 1px solid var(--b3-border-color);
@@ -169,11 +170,12 @@ $chat-very-narrow-container: 400px;
 .inputContainer {
     position: sticky;
     bottom: 0;
-    padding: 16px 0;
+    // padding: 16px 0;
     background: linear-gradient(to bottom, transparent 0%, var(--chat-bg-color) 20%);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+
+    // gap: 8px;
 
     .toolbar {
         display: flex;
@@ -194,12 +196,12 @@ $chat-very-narrow-container: 400px;
             align-items: center;
             gap: 4px;
             cursor: pointer;
-            color: var(--b3-theme-on-surface-light);
+            color: var(--b3-theme-on-background-light);
             transition: all var(--transition-fast);
 
             &:hover {
                 background: var(--b3-theme-surface-light);
-                color: var(--b3-theme-on-surface);
+                color: var(--b3-theme-on-background);
             }
 
             svg {
@@ -258,6 +260,7 @@ $chat-very-narrow-container: 400px;
         border: 1px solid var(--b3-border-color);
         border-radius: var(--radius-lg);
         padding: 8px 16px;
+        margin: 0 8px;
         transition: all var(--transition-fast);
 
         &:focus-within {
