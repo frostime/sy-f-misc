@@ -375,11 +375,11 @@ $chat-very-narrow-container: 400px;
         textarea.input {
             border: none;
             background: transparent;
-            padding: 8px 16px 16px 16px;
+            padding: 8px 16px 8px 16px;
             padding-right: 80px;
             font-size: var(--chat-input-font-size);
             line-height: 1.5;
-            min-height: 60px;
+            min-height: 40px;
             max-height: 200px;
             color: var(--chat-text-color);
             resize: none;

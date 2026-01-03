@@ -534,7 +534,7 @@
         }
 
         function toggleCustomTypeInput() {
-            if (inputs.type.value === 'custom') {
+            if (inputs.type.value === 'CUSTOM') {
                 inputs.customTypeGroup.style.display = 'flex';
                 // 自动聚焦
                 // setTimeout(() => inputs.customType.focus(), 50);
@@ -664,7 +664,7 @@
                 inputs.type.value = typeValue.toLowerCase(); // 下拉框的 value 都是小写
                 inputs.customType.value = '';
             } else {
-                inputs.type.value = 'custom';
+                inputs.type.value = 'CUSTOM';
                 inputs.customType.value = typeValue;
             }
             toggleCustomTypeInput();
@@ -680,7 +680,7 @@
         function openCreate() {
             editingIndex = -1;
             // Reset form
-            inputs.type.value = 'custom';
+            inputs.type.value = 'CUSTOM';
             inputs.customType.value = '';
             toggleCustomTypeInput();
 
@@ -709,7 +709,7 @@
         function saveDialog() {
             // 1. 获取 MaskType
             let finalMaskType = inputs.type.value;
-            if (finalMaskType === 'custom') {
+            if (finalMaskType === 'CUSTOM') {
                 const customVal = inputs.customType.value.trim();
                 if (!customVal) {
                     window.pluginSdk?.showMessage?.('请输入自定义类型代码', 'error');
