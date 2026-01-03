@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2025-12-31 19:44:08
+ * @LastEditTime : 2026-01-03 22:20:11
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID, matchIDFormat, inputDialog } from "@frostime/siyuan-plugin-kits";
@@ -404,6 +404,7 @@ export const openIframeTab = (options: {
         plugin: thisPlugin(),
         title,
         render: (container: Element) => {
+            console.debug(`Render HTML Page`, iframeConfig);
             // 创建 iframe 并获取 API
             const iframe = createIframePage(
                 container as HTMLElement,

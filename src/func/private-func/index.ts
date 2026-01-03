@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-04-17 15:20:21
  * @FilePath     : /src/func/private-func/index.ts
- * @LastEditTime : 2026-01-01 23:13:22
+ * @LastEditTime : 2026-01-03 21:25:04
  * @Description  :
  */
 import type FMiscPlugin from "@/index";
@@ -14,7 +14,6 @@ import * as toQuickDn from "./to-quick-dn";
 
 import { config } from './config';
 import { launchEditor } from "@/libs/editor";
-import { text } from "stream/consumers";
 export { declareModuleConfig } from './config';
 
 export let name = "PrivateFunc";

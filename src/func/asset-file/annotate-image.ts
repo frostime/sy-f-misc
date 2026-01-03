@@ -1,5 +1,13 @@
+/*
+ * @Author       : frostime
+ * Copyright (c) 2026 by frostime. All Rights Reserved.
+ * @Date         : 2025-12-22 18:51:36
+ * @Description  :
+ * @FilePath     : /src/func/asset-file/annotate-image.ts
+ * @LastEditTime : 2026-01-03 21:30:31
+ */
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
-import { openIframeTab } from "../html-pages/core";
+import { openIframeDialog } from "../html-pages/core";
 import { showMessage } from "siyuan";
 
 export const openImageAnnotator = (sourcePath?: string, position?: 'right' | 'bottom' | null) => {
@@ -35,10 +43,8 @@ export const openImageAnnotator = (sourcePath?: string, position?: 'right' | 'bo
             }
         }
     }
-    const dashboard = openIframeTab({
-        tabId: 'asset-file-dashboard' + window.Lute.NewNodeID(),
+    const dashboard = openIframeDialog({
         title: '图片标注',
-        icon: 'iconImage',
         iframeConfig: {
             type: 'url',
             source: '/plugins/sy-f-misc/pages/image-annotator.html',
@@ -48,7 +54,8 @@ export const openImageAnnotator = (sourcePath?: string, position?: 'right' | 'bo
                 customSdk: handler
             }
         },
-        position: position,
+        width: '1200px',
+        height: '960px'
     });
     return dashboard;
 }
