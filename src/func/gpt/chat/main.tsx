@@ -118,7 +118,14 @@ export const ChatSession: Component<{
     const config = useStoreRef<IChatSessionConfig>(defaultConfigVal);
     const multiSelect = useSignalRef(false);
     const isReadingMode = useSignalRef(false);  // 改为阅读模式状态控制
+    const isInputFolded = useSignalRef(false);
     // const webSearchEnabled = useSignalRef(false); // 控制是否启用网络搜索
+
+    createEffect(on(isInputFolded.signal, (folded) => {
+        if (!folded) {
+            setTimeout(adjustTextareaHeight, 0);
+        }
+    }));
 
     // 删除历史面板状态管理
     // const showDeleteHistoryPanel = useSignalRef(false);
@@ -1364,7 +1371,15 @@ export const ChatSession: Component<{
                 </div>
             </div>
             <div class={styles.inputWrapper}
+                classList={{
+                    [styles.folded]: isInputFolded()
+                }}
                 {...attachmentInputHandler.createDropHandlers(styles.dropTarget)}>
+                <div class={styles.foldHandle} onclick={() => isInputFolded.update(!isInputFolded())}>
+                    <div class={styles.foldButton}>
+                        <SvgSymbol size="12px">{isInputFolded() ? 'iconUp' : 'iconDown'}</SvgSymbol>
+                    </div>
+                </div>
                 <textarea
                     ref={textareaRef}
                     value={input()}
@@ -1378,16 +1393,10 @@ export const ChatSession: Component<{
                     placeholder="输入消息..."
                     class={`${styles.input}`}
                     onKeyDown={onKeyDown}
+                    style={{ display: isInputFolded() ? 'none' : 'block' }}
                 />
-                <div style={{
-                    position: 'absolute',
-                    right: '8px',
-                    bottom: '8px',
-                    display: 'flex',
-                    padding: '0px',
-                    margin: '0px',
-                    "align-items": 'center',
-                    gap: '7px'
+                <div class={styles.inputButtons} style={{
+                    display: isInputFolded() ? 'none' : 'flex',
                 }}>
                     <button
                         type="submit"

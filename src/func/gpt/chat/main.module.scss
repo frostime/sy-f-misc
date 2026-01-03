@@ -255,17 +255,85 @@ $chat-very-narrow-container: 400px;
     .inputWrapper {
         position: relative;
         display: flex;
-        align-items: flex-end;
+        flex-direction: column;
+        align-items: stretch;
         background: var(--b3-theme-surface);
         border: 1px solid var(--b3-border-color);
         border-radius: var(--radius-lg);
-        padding: 8px 16px;
+        padding: 0;
         margin: 0 8px;
         transition: all var(--transition-fast);
+        overflow: hidden;
 
         &:focus-within {
             border-color: var(--b3-theme-primary);
             box-shadow: 0 0 0 3px var(--b3-theme-primary-lightest);
+        }
+
+        &.folded {
+            border-color: transparent;
+            background: transparent;
+            .foldHandle {
+                height: 12px;
+                background: var(--b3-theme-surface-light);
+                border-radius: var(--radius-sm);
+            }
+        }
+
+        .foldHandle {
+            height: 8px;
+            width: 100%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            z-index: 3;
+            transition: all var(--transition-fast);
+
+            &:hover {
+                background-color: var(--b3-theme-surface-light);
+                .foldButton {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+            }
+        }
+
+        .foldButton {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            opacity: 0;
+            transform: translateX(-50%) translateY(-100%);
+            transition: all var(--transition-fast);
+            background: var(--b3-theme-surface);
+            border: 1px solid var(--b3-border-color);
+            border-radius: 0 0 4px 4px;
+            padding: 0px 12px;
+            display: flex;
+            align-items: center;
+            box-shadow: var(--b3-dialog-shadow);
+            color: var(--b3-theme-on-surface-light);
+            pointer-events: none;
+
+            svg {
+                width: 12px;
+                height: 12px;
+                fill: currentColor;
+            }
+        }
+
+        .inputButtons {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            display: flex;
+            padding: 0px;
+            margin: 0px;
+            align-items: center;
+            gap: 7px;
+            z-index: 2;
         }
 
         &.dropTarget {
@@ -305,10 +373,9 @@ $chat-very-narrow-container: 400px;
         }
 
         textarea.input {
-            flex: 1;
             border: none;
             background: transparent;
-            padding: 8px 0;
+            padding: 8px 16px 16px 16px;
             padding-right: 80px;
             font-size: var(--chat-input-font-size);
             line-height: 1.5;
