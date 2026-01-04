@@ -91,6 +91,14 @@ For a complete list of available APIs in `window.pluginSdk`, refer to:
 - [src/func/html-pages/html-page.md](src/func/html-pages/html-page.md) - **Primary API Reference**
 - [src/func/html-pages/core.ts](src/func/html-pages/core.ts) - Implementation details
 
+> [!note]
+>
+> About `src/func/html-pages/html-page.md`
+>
+> This markdown file is user-oriented and provides a custom SDK for HTML SPAs (Single Page Applications), including functions such as `loadConfig`, `saveConfig`, `loadAsset`, and `saveAsset`. It serves as a guide for users to develop their own DIY micro HSPAs.
+>
+> These HSPA SDK functions are intended for user-facing HTML SPAs and are not automatically available when developing internal plugin pages within `sy-f-misc`.
+
 ## Best Practices
 - **Styling**: Always use injected CSS variables (e.g., `--theme-primary`, `--font-family`) for a native look. See [[## 🎨 UI 设计建议]] in src/func/html-pages/html-page.md for details.
 - **Cleanup**: If your page needs to perform cleanup when closed, use the `onDestroy` callback in `IIframePageConfig`.
