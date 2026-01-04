@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2025-12-29 21:41:19
+ * @LastEditTime : 2026-01-04 17:20:32
  * @Description  : HTML Pages 功能模块 - 管理自定义 HTML 页面和 URL
  */
 import FMiscPlugin from "@/index";
@@ -13,7 +13,7 @@ import { showMessage } from "siyuan";
 import { documentDialog, selectIconDialog, simpleFormDialog } from "@/libs/dialog";
 
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
-import { openIframeTab, IIframePageConfig } from "./core";
+import { openIframeTab, openIframeDialog, IIframePageConfig } from "./core";
 
 // ============ 类型与常量 ============
 
@@ -23,6 +23,8 @@ interface IPageConfig {
     source: string;
     title?: string;
     icon?: string;
+    // per-page open mode: 'tab' or 'dialog' (optional, fallback to module default)
+    openMode?: 'tab' | 'dialog';
 }
 
 const DATA_DIR = '/data/snippets/fmisc-custom-pages/';
@@ -30,6 +32,12 @@ const CONFIG_FILE = 'config.json';
 
 let plugin: FMiscPlugin;
 let zoom: number = 1;
+
+// 打开模式: 'tab' | 'dialog'
+let DEFAULT_OPEN_MODE: 'tab' | 'dialog' = 'tab';
+// Dialog 默认尺寸
+const DEFAULT_DIALOG_WIDTH = '1280px';
+const DEFAULT_DIALOG_HEIGHT = '768px';
 
 // ============ 工具函数 ============
 
@@ -122,12 +130,26 @@ const openPage = (config: IPageConfig) => {
         } : undefined
     };
 
-    openIframeTab({
-        tabId,
-        title,
-        icon: config.icon,
-        iframeConfig
-    });
+    // 使用每个页面的 openMode 优先，其次回退到全局默认
+    const mode = config.openMode ?? DEFAULT_OPEN_MODE;
+    if (mode === 'tab') {
+        openIframeTab({
+            tabId,
+            title,
+            icon: config.icon,
+            iframeConfig
+        });
+    } else {
+        // Dialog 模式，默认尺寸 1024x768
+        openIframeDialog({
+            title,
+            iframeConfig,
+            width: DEFAULT_DIALOG_WIDTH,
+            height: DEFAULT_DIALOG_HEIGHT,
+            maxWidth: '90%',
+            maxHeight: '90%'
+        });
+    }
 };
 
 const registerMenus = async () => {
@@ -230,8 +252,11 @@ const createConfigPanel = (): ExternalElementWithDispose => {
             ">
                 ${iconHtml}
                 <div style="flex: 1; min-width: 0;">
-                    <div style="font-weight: 500; margin-bottom: 4px;">
-                        ${config.title || config.source}
+                    <div style="font-weight: 500; margin-bottom: 4px; display: flex; gap: 8px; align-items: center;">
+                        <div style="min-width: 0;">${config.title || config.source}</div>
+                        <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); background: var(--b3-theme-surface); padding: 2px 8px; border-radius: 12px;">
+                            ${(config.openMode || DEFAULT_OPEN_MODE) === 'tab' ? 'Tab' : 'Dialog'}
+                        </div>
                     </div>
                     <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         ${config.source}
@@ -289,7 +314,8 @@ const createConfigPanel = (): ExternalElementWithDispose => {
                 id: pageId,
                 type: 'html',
                 source: filename, // 保留用于显示
-                title: filename.replace('.html', '')
+                title: filename.replace('.html', ''),
+                openMode: DEFAULT_OPEN_MODE
             };
             configs.push(newConfig);
             await saveConfig(configs);
@@ -315,20 +341,14 @@ const createConfigPanel = (): ExternalElementWithDispose => {
         const icon = result.values?.icon;
         const pageId = Date.now().toString();
 
-        // 创建页面文件夹和 manifest（即使是 URL 类型）
-        await siyuanVfs.mkdir(getPagePath(pageId));
-        const manifest = {
-            id: pageId,
-            name: title
-        };
-        await siyuanVfs.writeFile(getPagePath(pageId, 'manifest.json'), manifest);
-
+        // 对于 URL 类型，不创建页面文件夹或 asset（URL 通常为外部页面，不需要 HSPA 资源）
         const newConfig: IPageConfig = {
             id: pageId,
             type: 'url',
             source: url,
             title,
-            icon
+            icon,
+            openMode: DEFAULT_OPEN_MODE
         };
         configs.push(newConfig);
         await saveConfig(configs);
@@ -372,7 +392,8 @@ const createConfigPanel = (): ExternalElementWithDispose => {
             type: 'html',
             source: `${title}.html`, // 用于显示
             title,
-            icon
+            icon,
+            openMode: DEFAULT_OPEN_MODE
         };
         configs.push(newConfig);
         await saveConfig(configs);
@@ -386,9 +407,16 @@ const createConfigPanel = (): ExternalElementWithDispose => {
             title: '确认删除？',
             content: `是否删除页面 "${displayName}"？此操作将删除所有相关文件，不可撤销。`,
             confirm: async () => {
-                // 删除整个页面文件夹
+                // 删除整个页面文件夹（若存在）
                 const pagePath = getPagePath(id);
-                await siyuanVfs.unlink(pagePath);
+                try {
+                    if (await siyuanVfs.exists(pagePath)) {
+                        await siyuanVfs.unlink(pagePath);
+                    }
+                } catch (e) {
+                    // 如果目录不存在或删除失败，忽略错误并继续移除配置
+                    console.warn('删除页面文件夹失败或不存在:', e);
+                }
 
                 // 从配置中移除
                 configs = configs.filter(c => c.id !== id);
@@ -418,6 +446,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
             fields: [
                 { key: 'title', type: 'text', value: config.title || '', label: '标题' },
                 { key: 'icon', type: 'text', value: config.icon || '', label: '图标 (Emoji 或 iconID)' },
+                { key: 'openMode', type: 'select', value: config.openMode || DEFAULT_OPEN_MODE, label: '打开方式', options: { tab: '标签页 (Tab)', dialog: '弹窗 (Dialog)' } },
                 //@ts-ignore
                 ...(config.type === 'url' ? [{ key: 'source', type: 'text', value: config.source, label: 'URL' }] : [])
             ]
@@ -427,6 +456,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
 
         config.title = result.values?.title;
         config.icon = result.values?.icon;
+        config.openMode = result.values?.openMode;
         if (config.type === 'url') {
             config.source = result.values?.source;
         }
@@ -544,7 +574,8 @@ const initializeDefaults = async () => {
             type: 'html' as const,
             source: presetHtmlFile, // 保留用于显示
             title,
-            icon
+            icon,
+            openMode: DEFAULT_OPEN_MODE
         };
     };
 
@@ -556,14 +587,13 @@ const initializeDefaults = async () => {
 
     // 添加 URL 类型示例（也需要创建文件夹）
     const urlPageId = 'default-url-docs';
-    await siyuanVfs.mkdir(getPagePath(urlPageId));
-    const urlManifest = { id: urlPageId, name: '思源笔记 GitHub' };
-    await siyuanVfs.writeFile(getPagePath(urlPageId, 'manifest.json'), urlManifest);
+    // URL 类型为外部链接，不创建页面文件夹
     defaultConfigs.push({
         id: urlPageId,
         type: 'url',
         source: 'https://github.com/siyuan-note/siyuan',
-        title: '思源笔记 GitHub'
+        title: '思源笔记 GitHub',
+        openMode: DEFAULT_OPEN_MODE
     });
 
     await saveConfig(defaultConfigs);
@@ -605,7 +635,23 @@ export const declareToggleEnabled = {
 export const declareModuleConfig = {
     key: name,
     title: '自定义单页面 HTML 应用',
-    items: [],
+    load: (data: { openMode?: 'tab' | 'dialog' }) => {
+        if (data?.openMode) DEFAULT_OPEN_MODE = data.openMode;
+    },
+    items: [
+        {
+            key: 'openMode',
+            title: '打开方式',
+            description: '在点击菜单打开页面时，使用标签页 (Tab) 还是弹窗 (Dialog)',
+            type: 'select',
+            options: {
+                tab: '标签页 (Tab)',
+                dialog: '弹窗 (Dialog)'
+            },
+            get: () => DEFAULT_OPEN_MODE,
+            set: (value: 'tab' | 'dialog') => { DEFAULT_OPEN_MODE = value; }
+        }
+    ],
     customPanel: () => createConfigPanel(),
     help: () => {
         documentDialog({

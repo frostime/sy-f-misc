@@ -97,7 +97,7 @@ For a complete list of available APIs in `window.pluginSdk`, refer to:
 >
 > This markdown file is user-oriented and provides a custom SDK for HTML SPAs (Single Page Applications), including functions such as `loadConfig`, `saveConfig`, `loadAsset`, and `saveAsset`. It serves as a guide for users to develop their own DIY micro HSPAs.
 >
-> These SDK functions are not available when developing within `sy-f-misc`. We should define our own specific custom SDK and ignore these user-oriented HSPA conventions.
+> These HSPA SDK functions are intended for user-facing HTML SPAs and are not automatically available when developing internal plugin pages within `sy-f-misc`.
 
 ## Best Practices
 - **Styling**: Always use injected CSS variables (e.g., `--theme-primary`, `--font-family`) for a native look. See [[## 🎨 UI 设计建议]] in src/func/html-pages/html-page.md for details.
