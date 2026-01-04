@@ -120,14 +120,16 @@ description: What this skill does
   - WHEN: Use when you're unsure about status meanings or transition rules.
   - HOW: Reference status definitions, allowed transitions, and edge cases.
 
-**To list all skills**: run shell command: `sspec list --skills`
-
-# **Adding custom skills**: Place `.md` files or folders (with `SKILL.md`) in `.sspec/skills/`.
+**Adding custom skills**: Place `.md` files or folders (with `SKILL.md`) in `.sspec/skills/`.
 Add project-specific skills:
 - Simple Skill: Create `.sspec/skills/<skill-name>.md` with proper front matter.
 - Complex Skill: Create `.sspec/skills/<skill-name>/` with
   - `skill.md` with proper front matter.
   - Other reference file or scripts could be used as part of skill.
+
+
+**To list all skills**: run shell command: `sspec list --skills`.
+
 ------
 
 ## File Responsibilities
