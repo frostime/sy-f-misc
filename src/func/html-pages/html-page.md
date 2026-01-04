@@ -1,11 +1,61 @@
-请你根据用户的指令需要编写一个单 HTML 页面应用以满足他的需求。
+请你根据用户的指令需要编写一个单 HTML 页面 (以下简称 HSPA )应用以满足他的需求。
+该 HTML HSPA 会作为独立的微应用，以思源笔记作为后端，并利用注入的 SDK/API 实现数据流功能。
 
 ## 📦 pluginSdk API 参考
 
-页面会从外部注入 `window.pluginSdk` 对象，提供完整的 TypeScript 接口：
+页面会从外部注入 `window.pluginSdk` 对象，提供完整的 TypeScript 接口。
 
 ```typescript
 interface PluginSdk {
+
+    // ========================================
+    // SDK for HTML SPA Itself
+    // ========================================
+
+    /**
+     * 加载 HSPA 的配置数据
+     * 配置保存在页面文件夹下的 config.json
+     * @returns 配置对象，如果无配置则返回空对象 {}
+     */
+    loadConfig(): Promise<Record<string, any>>;
+
+    /**
+     * 保存 HSPA 的配置数据
+     * 配置保存在页面文件夹下的 config.json
+     * @param newConfig - 要保存的配置对象
+     */
+    saveConfig(newConfig: Record<string, any>): Promise<void>;
+
+    /**
+     * 保存资源文件到 HSPA 的 私有 asset 目录
+     * 适用于图片、数据文件等 HSPA 专属资源
+     * @param filename - 文件名
+     * @param file - Blob 或 File 对象
+     * @returns 操作结果
+     * @example
+     * const data = { key: 'value' };
+     * const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+     * await window.pluginSdk.saveAsset('data.json', blob);
+     */
+    saveAsset(filename: string, file: Blob | File): Promise<{ ok: boolean; error?: string }>;
+
+    /**
+     * 从 HSPA 的 私有 asset 目录加载资源文件
+     * @param filename - 文件名
+     * @returns Blob 对象
+     * @example
+     * const result = await window.pluginSdk.loadAsset('data.json');
+     * if (result.ok) {
+     *     const text = await result.data.text();
+     *     const data = JSON.parse(text);
+     * }
+     */
+    loadAsset(filename: string): Promise<{ ok: boolean; data?: Blob; error?: string }>;
+
+    // ========================================
+    // SDK Integrated with SiYuan Note App
+    // ========================================
+
     /**
      * 向思源笔记的后端 API 发起请求
      * @param endpoint - API 端点，如 '/api/block/getBlockInfo'
@@ -15,24 +65,20 @@ interface PluginSdk {
     request(endpoint: string, data: any): Promise<{ ok: boolean; data: any }>;
 
     /**
-     * 加载当前页面的配置数据
-     * @returns 配置对象，如果无配置则返回空对象 {}
+     * 保存文件到思源笔记工作空间
+     * ⚠️ 禁止写入 /data/.../<ID>.sy 文件
+     * 注意：对于页面专属资源，推荐使用 saveAsset 而非此方法
+     * @param path - 完整路径
+     * @param data - Blob 或 File 对象
      */
-    loadConfig(): Promise<Record<string, any>>;
+    saveBlob(path: string, data: Blob | File): Promise<{ ok: boolean; error?: 'Unsupported Data' | 'Save Error' }>;
 
     /**
-     * 保存当前页面的配置数据
-     * @param newConfig - 要保存的配置对象
+     * 从思源笔记工作空间加载文件
+     * 注意：对于页面专属资源，推荐使用 loadAsset 而非此方法
+     * @param path - 完整路径
      */
-    saveConfig(newConfig: Record<string, any>): Promise<void>;
-
-    // 保存文件到完整路径
-    // 禁止写入 /data/.../<ID>.sy 文件
-    saveBlob(path: string, data: Blob | File): Promise<{ ok: boolean; error: 'Unsupported Data' | 'Save Error' }>
-
-    // 从完整路径加载文件
-    loadBlob(path: string): Promise<{ ok: boolean; data: Blob | null }>
-
+    loadBlob(path: string): Promise<{ ok: boolean; data?: Blob | null }>;
 
     /**
      * 执行 SQL 查询
@@ -125,6 +171,10 @@ interface PluginSdk {
      * 部分后端 API 需要传入 app 常量, 可以使用这个 api 获取
      */
     argApp: () => string,
+
+    // ========================================
+    // Universally applicable SDK
+    // ========================================
 
     showMessage: (message: string, type: 'info' | 'error' = 'info', duration = 3000) => void;
 
@@ -274,6 +324,25 @@ async function initApp(config) {
 
 ### 💡 使用示例
 
+#### 配置管理
+
+```javascript
+// 保存应用配置
+await window.pluginSdk.saveConfig({
+    theme: 'dark',
+    pageSize: 20,
+    lastUpdate: Date.now(),
+    favoriteBlocks: ['block-id-1', 'block-id-2']
+});
+
+// 加载应用配置
+const config = await window.pluginSdk.loadConfig();
+const theme = config.theme || 'light'; // 提供默认值
+const pageSize = config.pageSize || 10;
+```
+
+#### 思源 API 调用
+
 ```javascript
 // 插入内容到日记
 const result = await window.pluginSdk.request('/api/block/appendDailyNoteBlock', {
@@ -285,7 +354,7 @@ if (result.ok) {
     console.log('插入成功', result.data);
 }
 
-// 获取文件
+// 获取思源资源文件（使用 loadBlob）
 const fileResult = await window.pluginSdk.loadBlob('/data/assets/image-20231010.png');
 if (fileResult.ok) {
     const blob = fileResult.data;
@@ -538,6 +607,11 @@ loadBlob(`/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy`);
 - 块路径为 `Block` 中的属性
 
 ## 📝 鲁棒性建议
+
+### Independent HSPA or Work with SiYuan
+
+- 当用户提出的功能需要和思源笔记本体无关的时候，没有必要使用 SiYuan 特定的 SDK，完全可以基于 HSPA SDK 开发功能，仅仅将思源笔记作为服务后端
+- 当用户提出的功能需要和思源笔记集成的时候，需要首先思考调研和思源本体的交互方案，想清楚用什么 SDK，或者利用 request 访问哪些内核后端 API，再编写 HSPA
 
 ### 能力限制
 
