@@ -14,6 +14,29 @@ import { createVFS, VFSManager } from '@/libs/vfs';
 import { createValSystemTools } from './vars/index';
 import { VariableSystem } from './vars/core';
 
+
+const VAR_RULE = `**变量引用机制**
+
+当工具返回大量数据时，系统会自动保存到变量。可以在后续工具参数中引用这些变量，实现零 Token 数据传递。
+**语法**：
+- \`$VAR_REF{{name}}\` - 引用完整变量内容
+- \`$VAR_REF{{name:start:length}}\` - 引用切片（从 start 开始，读取 length 字符）
+
+**支持位置**：工具参数中的任何位置（字符串、嵌套对象、数组）
+
+**使用示例**：
+// 步骤 1：调用工具产生大结果
+{ "name": "FetchWebPage", "arguments": { "url": "..." } }
+// → 系统提示：完整结果已保存至变量 FetchWebPage_123456
+
+// 步骤 2：使用变量引用，避免重复传输
+{
+    "name": "ExtractTable",
+    "arguments": {
+        "html": "$VAR_REF{{FetchWebPage_123456}}"  // ← 直接引用
+    }
+}`; //后面再说，先放着
+
 /**
  * 工具注册表
  */
@@ -124,7 +147,6 @@ ${ruleContent.trim()}
 **处理截断结果**
 - 如果工具返回结果过长被截断，系统会自动将完整结果保存到变量中，并在结果中提示变量名。
 - 你可以使用 ListVars/ReadVar 工具来读取变量内容。
-
 
 **特别工具组: ListVars/ReadVar**
 - 专门用于缓存长文本使用; 总是可用
@@ -417,6 +439,98 @@ ${ruleContent.trim()}
 
 
     // ==================== Execute ====================
+    /**
+     * 递归解析对象中的变量引用
+     */
+    private resolveVarReferences(
+        obj: any,
+        visited: Set<string> = new Set()
+    ): any {
+        if (typeof obj === 'string') {
+            return this.replaceVarInString(obj, visited);
+        }
+
+        if (Array.isArray(obj)) {
+            // ✅ 每个元素独立的 visited
+            return obj.map(item =>
+                this.resolveVarReferences(item, new Set(visited))
+            );
+        }
+
+        if (obj && typeof obj === 'object') {
+            const resolved: Record<string, any> = {};
+            for (const [key, val] of Object.entries(obj)) {
+                // ✅ 每个属性独立的 visited
+                resolved[key] = this.resolveVarReferences(val, new Set(visited));
+            }
+            return resolved;
+        }
+
+        return obj;
+    }
+
+
+    /**
+     * 在字符串中替换变量引用，并检测循环引用
+     */
+    private replaceVarInString(str: string, visited: Set<string>): string {
+        const varRefRegex = /\$VAR_REF\{\{([a-zA-Z0-9_-]+)(?::(\d+)(?::(\d+))?)?\}\}/g;
+
+        return str.replace(varRefRegex, (match, varName, start, length) => {
+            // ✅ 检测循环引用
+            if (visited.has(varName)) {
+                const chain = Array.from(visited).join(' → ');
+                throw new Error(
+                    `Circular variable reference detected: ${chain} → ${varName}`
+                );
+            }
+
+            const variable = this.varSystem.getVariable(varName);
+            if (!variable) {
+                const available = this.varSystem.listVariables()
+                    .map(v => v.name)
+                    .join(', ');
+                throw new Error(
+                    `Variable '${varName}' not found. Available: ${available || '(none)'}`
+                );
+            }
+
+            let value = variable.value;
+
+            // 处理切片
+            if (start !== undefined) {
+                const startIdx = parseInt(start);
+                const endIdx = length ? startIdx + parseInt(length) : undefined;
+
+                if (typeof value === 'string') {
+                    value = value.slice(startIdx, endIdx);
+                } else {
+                    throw new Error(
+                        `Cannot slice non-string variable '${varName}' (type: ${typeof value})`
+                    );
+                }
+            }
+
+            // ✅ 类型转换
+            let resolvedValue: string;
+            if (typeof value === 'string') {
+                resolvedValue = value;
+            } else if (typeof value === 'object' && value !== null) {
+                resolvedValue = JSON.stringify(value);
+            } else {
+                resolvedValue = String(value);
+            }
+
+            // ✅ 递归解析嵌套引用
+            visited.add(varName);
+            const finalValue = this.replaceVarInString(resolvedValue, visited);
+            visited.delete(varName);
+
+            return finalValue;
+        });
+    }
+
+
 
     /**
      * 执行工具
@@ -436,6 +550,17 @@ ${ruleContent.trim()}
             return {
                 status: ToolExecuteStatus.NOT_FOUND,
                 error: `Tool ${toolName} not found`
+            };
+        }
+
+        // 检查变量引用机制
+        try {
+            args = this.resolveVarReferences(args);
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: error instanceof Error ? error.message : String(error),
+                finalText: error instanceof Error ? error.message : String(error)
             };
         }
 
@@ -536,23 +661,50 @@ ${ruleContent.trim()}
             result.cacheFile = cacheFile;
         }
 
-        if (formatted.length > 300) {
-            // Save to varSystem
-            const varName = `${toolName}_${Date.now()}`;
-            this.varSystem.addVariable(varName, formatted, `@type=ToolCallCache; Result of tool ${toolName} execution`);
 
-            const sysHintHeader = ['<!--ToolCallLog:Begin-->'];
-            sysHintHeader.push(`[system log] 原始完整结果已保存至变量: ${varName}`);
-            if (isTruncated) {
-                sysHintHeader.push(`[system log] 原始完整结果内容过长 (${originalLength} 字符)，已截断为 ${finalForLLM.length} 字符; 如有需求可尝试使用 'ReadVar' 工具读取; 例如 function: {"name": "ReadVar", "arguments": {"name": "${varName}", "start": ${finalForLLM.length}, "length": 1000}}`);
-            }
-            if (result.cacheFile && isTruncated) {
-                sysHintHeader.push(`[system log] 工具调用日志记录缓存至文件: ${cacheFile}`);
-            }
-            if (sysHintHeader.length > 0) {
-                result.finalText = sysHintHeader.join('\n') + '\n<!--ToolCallLog:End-->-\n' + result.finalText;
-            }
+        // ================================================================
+        // 变量缓存机制
+        // ================================================================
+        // 保存策略：仅在截断时保存，或结果超过一定阈值
+        const SAVE_THRESHOLD = 1000;
+
+        let shouldSaveToVar = false;
+        let varName: string | null = null;
+
+        if (isTruncated || formatted.length > SAVE_THRESHOLD) {
+            shouldSaveToVar = true;
+            varName = `${toolName}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+            const vitalArgs = Object.entries(args).map(([key, val]) => {
+                let valStr = typeof val === 'string' ? val : JSON.stringify(val);
+                if (valStr.length > 20) {
+                    valStr = valStr.slice(0, 20) + '...';
+                }
+                return `${key}=${valStr}`;
+            });
+            this.varSystem.addVariable(varName, formatted, `@type=ToolCallCache; Call ${toolName} with: ${vitalArgs.join(', ')}`);
         }
+
+        // 生成提示信息
+        const sysHintHeader = [];
+        if (shouldSaveToVar && varName) {
+            sysHintHeader.push(`<!--ToolCallLog:Begin-->`);
+            sysHintHeader.push(`[system log] 完整结果已保存至变量: ${varName} (${formatted.length} 字符)`);
+
+            if (isTruncated) {
+                sysHintHeader.push(`[system log] 结果已截断为 ${finalForLLM.length} 字符`);
+                sysHintHeader.push(`[system hint] 使用变量引用获取完整内容: $VAR_REF{{${varName}}}`);
+                sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${varName}", "start": 0, "length": 2000}}`);
+            } else {
+                sysHintHeader.push(`[system hint] 可使用变量引用: $VAR_REF{{${varName}}}`);
+            }
+
+            if (result.cacheFile) {
+                sysHintHeader.push(`[system log] 日志已缓存至: ${cacheFile}`);
+            }
+
+            result.finalText = sysHintHeader.join('\n') + '\n<!--ToolCallLog:End-->\n' + result.finalText;
+        }
+
 
         // const formattedData = formatToolOutputForLLM({
         //     tool: {
