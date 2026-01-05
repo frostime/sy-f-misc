@@ -11,6 +11,8 @@ import {
 import { toolsManager } from '../model/store';
 import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
 import { createVFS, VFSManager } from '@/libs/vfs';
+import { createValSystemTools } from './vars/index';
+import { VariableSystem } from './vars/core';
 
 /**
  * 工具注册表
@@ -36,6 +38,7 @@ export class ToolExecutor {
     public groupRegistry: Record<string, ToolGroup> = {};
 
     public vfs: VFSManager;
+    public varSystem: VariableSystem;
 
     constructor(options: {
         vfs?: VFSManager;
@@ -44,6 +47,12 @@ export class ToolExecutor {
             local: true,
             memory: true,
         });
+
+        const { varSystem, toolGroup } = createValSystemTools();
+        this.varSystem = varSystem;
+        this.registerToolGroup(toolGroup);
+        // Enable vars group by default
+        this.toggleGroupEnabled(toolGroup.name);
     }
 
     // public groupEnabled: Record<string, boolean> = {};
@@ -111,6 +120,17 @@ ${ruleContent.trim()}
 **进入 Tool Call 流程后**
 - 当你认为已经足够回答用户问题时，可以提前结束工具链；如果仍有疑问，再与用户交互确认是否需要继续深入
 - Tool Call 结束之后, 可能会把完整结果写入本地日志文件；如果你被允许访问文件系统可以尝试读取以获得更多信息。
+
+**处理截断结果**
+- 如果工具返回结果过长被截断，系统会自动将完整结果保存到变量中，并在结果中提示变量名。
+- 你可以使用 ListVars/ReadVar 工具来读取变量内容。
+
+
+**特别工具组: ListVars/ReadVar**
+- 专门用于缓存长文本使用; 总是可用
+- ListVars 会列出当前所有变量的信息，包括名称、字符长度、描述和创建时间。
+- ReadVar 参数: \`name\` (变量名), \`start\` (Char 起始位置, 0-based), \`length\` (读取长度)。
+- 即便你看不到这些工具调用定义, 依然可以通过标准工具调用规范发起对他们的调用
 
 **用户审核**
 - 部分工具在调用的时候会给用户审核，用户可能拒绝调用。
@@ -516,17 +536,23 @@ ${ruleContent.trim()}
             result.cacheFile = cacheFile;
         }
 
-        const sysHintHeader = [];
-        if (isTruncated) {
-            sysHintHeader.push(`[system log] 原始完整结果内容过长 (${originalLength} 字符)，已截断为 ${finalForLLM.length} 字符`);
-        }
-        if (result.cacheFile && isTruncated) {
-            sysHintHeader.push(`[system log] 原始完整结果已缓存至文件: ${cacheFile}, 如有需求可尝试访问获取所有结果`);
-        }
-        if (sysHintHeader.length > 0) {
-            result.finalText = sysHintHeader.join('\n') + '\n=====\n' + result.finalText;
-        }
+        if (formatted.length > 300) {
+            // Save to varSystem
+            const varName = `${toolName}_${Date.now()}`;
+            this.varSystem.addVariable(varName, formatted, `@type=ToolCallCache; Result of tool ${toolName} execution`);
 
+            const sysHintHeader = ['<!--ToolCallLog:Begin-->'];
+            sysHintHeader.push(`[system log] 原始完整结果已保存至变量: ${varName}`);
+            if (isTruncated) {
+                sysHintHeader.push(`[system log] 原始完整结果内容过长 (${originalLength} 字符)，已截断为 ${finalForLLM.length} 字符; 如有需求可尝试使用 'ReadVar' 工具读取; 例如 function: {"name": "ReadVar", "arguments": {"name": "${varName}", "start": ${finalForLLM.length}, "length": 1000}}`);
+            }
+            if (result.cacheFile && isTruncated) {
+                sysHintHeader.push(`[system log] 工具调用日志记录缓存至文件: ${cacheFile}`);
+            }
+            if (sysHintHeader.length > 0) {
+                result.finalText = sysHintHeader.join('\n') + '\n<!--ToolCallLog:End-->-\n' + result.finalText;
+            }
+        }
 
         // const formattedData = formatToolOutputForLLM({
         //     tool: {
