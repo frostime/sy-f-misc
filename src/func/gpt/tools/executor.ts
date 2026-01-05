@@ -74,8 +74,6 @@ export class ToolExecutor {
         const { varSystem, toolGroup } = createValSystemTools();
         this.varSystem = varSystem;
         this.registerToolGroup(toolGroup);
-        // Enable vars group by default
-        this.toggleGroupEnabled(toolGroup.name);
     }
 
     // public groupEnabled: Record<string, boolean> = {};
@@ -175,6 +173,12 @@ ${ruleContent.trim()}
                 prompt += `\n\n${rule}`;
             }
         }
+
+        // ✅ 如果 vars 组启用，添加变量引用说明
+        if (this.isGroupEnabled('vars')) {
+            prompt += `\n\n<variable-reference-system>\n${VAR_RULE}\n</variable-reference-system>`;
+        }
+
         return prompt;
     }
 
@@ -278,13 +282,32 @@ ${ruleContent.trim()}
      * 获取启用的工具定义
      */
     getEnabledToolDefinitions(): IToolDefinition[] {
-        return Object.entries(this.enablingStore()['group'])
+        const allTools = Object.entries(this.enablingStore()['group'])
             .filter(([_groupName, enabled]) => enabled)
             .flatMap(([groupName]) =>
                 this.groupRegistry[groupName].tools
                     .filter(tool => this.isToolEnabled(tool.definition.function.name))
                     .map(tool => tool.definition)
             );
+        if (allTools.length > 0) {
+            // 检查是否有 ReadVar 和 ListVars 工具
+            const toolNames = allTools.map(t => t.function.name);
+            const varGroup = this.groupRegistry['vars'];
+
+            if (!toolNames.includes('ReadVar')) {
+                const readVarTool = varGroup.tools.find(t => t.definition.function.name === 'ReadVar');
+                if (readVarTool) {
+                    allTools.push(readVarTool.definition);
+                }
+            }
+            if (!toolNames.includes('ListVars')) {
+                const listVarsTool = varGroup.tools.find(t => t.definition.function.name === 'ListVars');
+                if (listVarsTool) {
+                    allTools.push(listVarsTool.definition);
+                }
+            }
+        }
+        return allTools;
     }
 
     getGroupToolDefinitions(groupName: string, shouldBeEnabled = true): IToolDefinition[] {
@@ -476,7 +499,7 @@ ${ruleContent.trim()}
     private replaceVarInString(str: string, visited: Set<string>): string {
         const varRefRegex = /\$VAR_REF\{\{([a-zA-Z0-9_-]+)(?::(\d+)(?::(\d+))?)?\}\}/g;
 
-        return str.replace(varRefRegex, (match, varName, start, length) => {
+        return str.replace(varRefRegex, (_match, varName, start, length) => {
             // ✅ 检测循环引用
             if (visited.has(varName)) {
                 const chain = Array.from(visited).join(' → ');
@@ -671,7 +694,9 @@ ${ruleContent.trim()}
         let shouldSaveToVar = false;
         let varName: string | null = null;
 
-        if (isTruncated || formatted.length > SAVE_THRESHOLD) {
+        const isVarTool = this.getGroupToolDefinitions('vars', false).map(def => def.function.name).includes(toolName);
+
+        if (!isVarTool && (isTruncated || formatted.length > SAVE_THRESHOLD)) {
             shouldSaveToVar = true;
             varName = `${toolName}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
             const vitalArgs = Object.entries(args).map(([key, val]) => {
@@ -681,7 +706,23 @@ ${ruleContent.trim()}
                 }
                 return `${key}=${valStr}`;
             });
-            this.varSystem.addVariable(varName, formatted, `@type=ToolCallCache; Call ${toolName} with: ${vitalArgs.join(', ')}`);
+
+            // ✅ 改进：使用结构化描述
+            const metadata = {
+                type: 'ToolCallCache',
+                tool: toolName,
+                truncated: isTruncated,
+                originalLength: formatted.length,
+                timestamp: Date.now(),
+                argsPreview: vitalArgs.join(', ')
+            };
+
+            this.varSystem.addVariable(
+                varName,
+                formatted,
+                'ToolCallCache',
+                JSON.stringify(metadata)  // 结构化存储
+            );
         }
 
         // 生成提示信息

@@ -4,7 +4,7 @@
  * @Date         : 2026-01-05 15:29:32
  * @Description  :
  * @FilePath     : /src/func/gpt/tools/vars/index.ts
- * @LastEditTime : 2026-01-05 16:13:03
+ * @LastEditTime : 2026-01-05 19:11:15
  */
 
 import { Tool, ToolGroup, ToolPermissionLevel, ToolExecuteStatus } from "../types";
@@ -37,18 +37,72 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
         execute: async () => {
             const vars = varSystem.listVariables().map(v => ({
                 name: v.name,
+                type: v.type,
                 length: v.value.length,
                 desc: v.desc,
-                created: v.created.toISOString()
+                created: v.created.toISOString(),
+                keep: v.keep || false
             }));
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: vars
             };
         },
-        formatForLLM(data: Array<any>, args) {
-            return `Available Variables:\n` + data.map((v: any) => `- Name: ${v.name}, Length: ${v.length} chars, Description: ${v.desc || 'N/A'}, Created: ${v.created}`).join('\n');
+        formatForLLM(data: Array<any>, _args) {
+            return `Available Variables:\n` + data.map((v: any) =>
+                `- ${v.name} [${v.type}]${v.keep ? ' [KEEP]' : ''}\n` +
+                `  Length: ${v.length} chars\n` +
+                `  Desc: ${v.desc || 'N/A'}\n` +
+                `  Created: ${v.created}`
+            ).join('\n\n');
         },
+    };
+
+    const listVarsByType: Tool = {
+        definition: {
+            type: 'function',
+            function: {
+                name: 'ListVarsByType',
+                description: 'List variables filtered by type (RULE/ToolCallCache/MessageCache/LLMAdd).',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        type: {
+                            type: 'string',
+                            enum: ['RULE', 'ToolCallCache', 'MessageCache', 'LLMAdd'],
+                            description: 'Filter variables by type.'
+                        }
+                    },
+                    required: ['type']
+                }
+            }
+        },
+        permission: {
+            permissionLevel: ToolPermissionLevel.PUBLIC,
+            requireExecutionApproval: false
+        },
+        execute: async (args) => {
+            const { type } = args;
+            const filtered = varSystem.searchVariables(v => v.type === type);
+            const result = filtered.map(v => ({
+                name: v.name,
+                type: v.type,
+                length: v.value.length,
+                desc: v.desc,
+                created: v.created.toISOString()
+            }));
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: result
+            };
+        },
+        formatForLLM(data: Array<any>, args) {
+            if (data.length === 0) {
+                return `No variables found with type '${args.type}'.`;
+            }
+            return `Variables with type '${args.type}':\n` +
+                data.map((v: any) => `- ${v.name} (${v.length} chars): ${v.desc || 'N/A'}`).join('\n');
+        }
     };
 
     const readVar: Tool = {
@@ -137,7 +191,7 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
         },
         execute: async (args) => {
             const { name, value, desc } = args;
-            varSystem.addVariable(name, value, desc);
+            varSystem.addVariable(name, value, 'LLMAdd', desc);
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: `Variable '${name}' written/updated successfully.`
@@ -145,14 +199,59 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
         }
     }
 
+    const clearVars: Tool = {
+        definition: {
+            type: 'function',
+            function: {
+                name: 'ClearVars',
+                description: 'Clear variables by type or all non-keep variables.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        type: {
+                            type: 'string',
+                            enum: ['RULE', 'ToolCallCache', 'MessageCache', 'LLMAdd', 'ALL'],
+                            description: 'Type of variables to clear. Use ALL to clear all non-keep variables.'
+                        }
+                    },
+                    required: ['type']
+                }
+            }
+        },
+        permission: {
+            permissionLevel: ToolPermissionLevel.PUBLIC,
+            requireExecutionApproval: false
+        },
+        execute: async (args) => {
+            const { type } = args;
+            let removed = 0;
+
+            if (type === 'ALL') {
+                const beforeCount = varSystem.varQueue.length;
+                varSystem.varQueue = varSystem.varQueue.filter(v => v.keep);
+                removed = beforeCount - varSystem.varQueue.length;
+            } else {
+                const toRemove = varSystem.searchVariables(v => v.type === type && !v.keep);
+                toRemove.forEach(v => varSystem.removeVariable(v.name));
+                removed = toRemove.length;
+            }
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: `Cleared ${removed} variable(s).`
+            };
+        }
+    };
+
     return {
         name: 'vars',
-        tools: [listVars, readVar, writeVar],
+        tools: [listVars, listVarsByType, readVar, writeVar],
         rulePrompt: `
 You can use 'ListVars' to see available variables and 'ReadVar' to read their content.
 When a tool output is truncated, the full content is often saved to a variable.
 Use 'ReadVar' with 'start' and 'length' to read large content in chunks if necessary.
 You can also use 'WriteVar' to create or update variables as needed.
+Use 'ListVarsByType' to filter variables by type.
 
 If necessary, use this tool group as a simple memory system.
 `

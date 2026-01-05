@@ -6,6 +6,11 @@ interface Variable {
     created: Date;
     updated: Date;
     lastVisited: Date;
+
+    keep?: boolean;  // 总是保留在 queue 中不被删除
+    type: 'RULE' | 'ToolCallCache' | 'MessageCache' | 'LLMAdd';  // 变量类型，方便分类管理
+    // RULE | ToolCallCache | MessageCache | LLMAdd
+    referenceCount?: number;  // 被引用次数
 }
 
 const defaultCompare = (a: Variable, b: Variable) => {
@@ -32,23 +37,46 @@ export class VariableSystem {
         this.varQueue = [];
     }
 
-    addVariable(name: string, value: string, desc?: string) {
+    addVariable(name: string, value: string, type: Variable['type'], desc?: string) {
         const now = new Date();
+
+        // ✅ 检查是否存在同名变量
+        const existingIndex = this.varQueue.findIndex(v => v.name === name);
+
+        if (existingIndex !== -1) {
+            // 更新已有变量
+            this.varQueue[existingIndex] = {
+                ...this.varQueue[existingIndex],
+                value,
+                type,
+                desc,
+                updated: now,
+                lastVisited: now
+            };
+            return;
+        }
+
+        // 创建新变量
         const variable: Variable = {
-            name,
-            value,
+            name, value, type, desc,
             created: now,
             updated: now,
             lastVisited: now,
-            desc
+            referenceCount: 0
         };
+
         this.varQueue.push(variable);
-        // 超过容量，删除最不常用的变量
+
+        // 超过容量，删除最不常用的变量（考虑 keep）
         if (this.varQueue.length > this.capacity) {
-            this.varQueue.sort((a, b) => {
-                return defaultCompare(a, b);
-            });
-            this.varQueue.pop();
+            const keepVars = this.varQueue.filter(v => v.keep);
+            const normalVars = this.varQueue.filter(v => !v.keep);
+
+            if (normalVars.length > 0) {
+                normalVars.sort((a, b) => defaultCompare(a, b));
+                normalVars.pop();
+                this.varQueue = [...keepVars, ...normalVars];
+            }
         }
     }
 
@@ -56,6 +84,7 @@ export class VariableSystem {
         const variable = this.varQueue.find(v => v.name === name);
         if (variable) {
             variable.lastVisited = new Date();
+            variable.referenceCount = (variable.referenceCount || 0) + 1;  // ✅ 统计使用
         }
         return variable;
     }
@@ -74,5 +103,10 @@ export class VariableSystem {
             return true;
         }
         return false;
+    }
+
+    searchVariables(predicate: (v: Variable) => boolean): Array<Variable> {
+        const results = this.varQueue.filter(predicate);
+        return results;
     }
 }
