@@ -3,16 +3,47 @@
  * @Author       : frostime
  * @Date         : 2025-11-26
  * @FilePath     : /src/func/gpt/tools/siyuan/skill-doc.ts
- * @Description  : 思源笔记技能文档查询工具
+ * @Description  : 思源笔记技能文档声明（供 declareSkillRules 使用）
  */
 
-import { Tool, ToolExecuteStatus, ToolPermissionLevel, ToolExecuteResult } from "../types";
+import type { ToolGroup } from "../types";
 
-/**
- * 技能文档主题定义
- */
-const SKILL_DOCS: Record<string, string> = {
-    'sql-overview': `
+type SkillRule = NonNullable<ToolGroup['declareSkillRules']>[string];
+
+const SKILL_RULES: Record<string, SkillRule> = {
+    'tool-selection': {
+        desc: '工具选择决策指南（不确定用哪个思源工具时查阅）',
+        prompt: `
+## 工具选择指南 ##
+
+**文档查找**:
+- 知道文档名 → searchDocument
+- 需要当前打开的 → listActiveDocs
+- 需要层级结构 → listSubDocs / listSiblingDocs / getParentDoc
+- 需要笔记本概览 → listNotebookDocs
+
+**内容获取**:
+- 读取文档/块内容 → getBlockMarkdown
+- 获取文档元信息 → getDocument
+
+**内容写入**:
+- 追加到文档末尾 → appendMarkdown
+- 追加到今日日记 → appendDailyNote
+
+**高级查询**:
+- 简单关键词搜索 → searchKeyword
+- 复杂条件/统计/跨表 → querySQL
+
+**querySQL 使用时机**:
+- 需要 JOIN 多表（如查反链、带属性筛选）
+- 需要聚合统计（COUNT, GROUP BY）
+- 现有工具无法满足的复杂查询
+- 使用前建议查阅相关 SQL 文档主题
+`.trim()
+    },
+    'sql-overview': {
+        desc: 'SQL 查询基础与核心表',
+        prompt: `
 ## SQL 查询概述 ##
 
 思源使用 SQLite 数据库存储笔记数据，通过 querySQL 工具可执行 SQL 查询。
@@ -29,9 +60,11 @@ const SKILL_DOCS: Record<string, string> = {
 
 - 完整SQL表结构文档: https://docs.siyuan-note.club/zh-Hans/reference/database/table.html
 - SQL 查询 CheatSheet: https://ld246.com/article/1739546865001
-`.trim(),
-
-    'sql-blocks-table': `
+`.trim()
+    },
+    'sql-blocks-table': {
+        desc: 'blocks 表字段与查询示例',
+        prompt: `
 ## blocks 表字段说明 ##
 
 | 字段 | 说明 | 示例值 |
@@ -51,9 +84,11 @@ const SKILL_DOCS: Record<string, string> = {
 **常用查询示例**:
 - 搜索文档: \`SELECT * FROM blocks WHERE type='d' AND content LIKE '%关键词%' LIMIT 32\`
 - 最近更新: \`SELECT * FROM blocks WHERE type='d' ORDER BY updated DESC LIMIT 10\`
-`.trim(),
-
-    'sql-refs-table': `
+`.trim()
+    },
+    'sql-refs-table': {
+        desc: 'refs 反链查询示例',
+        prompt: `
 ## refs 表（块引用关系）##
 
 记录块之间的引用关系，用于查询反链。
@@ -78,9 +113,11 @@ LIMIT 32
 SELECT def_block_id, def_block_root_id FROM refs
 WHERE block_id IN (SELECT id FROM blocks WHERE root_id = '<文档ID>')
 \`\`\`
-`.trim(),
-
-    'sql-attributes-table': `
+`.trim()
+    },
+    'sql-attributes-table': {
+        desc: 'attributes 自定义属性查询',
+        prompt: `
 ## attributes 表（块属性）##
 
 存储块的自定义属性，用户属性必须以 "custom-" 前缀。
@@ -114,31 +151,11 @@ JOIN attributes AS A ON B.id = A.block_id
 WHERE A.name = 'custom-myattr' AND A.value = 'somevalue'
 LIMIT 32
 \`\`\`
-`.trim(),
-
-    'block-markdown-syntax': `
-## 块内容特殊语法 ##
-
-思源块/文档的内容用 Markdown 格式表示
-附加一些 Markdown 内容中的特殊语法：
-
-**块链接** (可点击跳转):
-\`[显示文本](siyuan://blocks/<BlockId>)\`
-
-**块引用** (动态显示被引用块内容):
-\`((<BlockId> "锚文本"))\` 或 \`((<BlockId> '锚文本'))\`
-
-**块嵌入/查询块** (动态执行 SQL 并嵌入结果):
-\`{{SELECT * FROM blocks WHERE type='d' LIMIT 5}}\`
-注意: SQL 中换行需用 \`_esc_newline_\` 转义
-
-**标签**:
-\`#标签名#\`
-
-**回答时引用块**: 建议使用块链接格式 \`[锚文本](siyuan://blocks/xxx)\` 方便用户溯源
-`.trim(),
-
-    'dailynote': `
+`.trim()
+    },
+    'dailynote': {
+        desc: '日记机制、路径模板与 SQL 示例',
+        prompt: `
 ## 日记文档 ##
 
 每个笔记本可独立配置日记功能，日记文档按模板路径自动创建。
@@ -165,9 +182,35 @@ where A.name like 'custom-dailynote-%' and B.type='d'
 and A.value >= '20231010' and A.value <= '20231013'
 order by A.value desc;
 \`\`\`
-`.trim(),
+`.trim()
+    },
+    'block-markdown-syntax': {
+        desc: '块链接、引用与嵌入语法',
+        prompt: `
+## 块内容特殊语法 ##
 
-    'id-and-path': `
+思源块/文档的内容用 Markdown 格式表示
+附加一些 Markdown 内容中的特殊语法：
+
+**块链接** (可点击跳转):
+\`[显示文本](siyuan://blocks/<BlockId>)\`
+
+**块引用** (动态显示被引用块内容):
+\`((<BlockId> "锚文本"))\` 或 \`((<BlockId> '锚文本'))\`
+
+**块嵌入/查询块** (动态执行 SQL 并嵌入结果):
+\`{{SELECT * FROM blocks WHERE type='d' LIMIT 5}}\`
+注意: SQL 中换行需用 \`_esc_newline_\` 转义
+
+**标签**:
+\`#标签名#\`
+
+**回答时引用块**: 建议使用块链接格式 \`[锚文本](siyuan://blocks/xxx)\` 方便用户溯源
+`.trim()
+    },
+    'id-and-path': {
+        desc: 'ID、path 与 hpath 规则',
+        prompt: `
 ## ID 与路径规则 ##
 
 **ID 格式**: \`/\\d{14,}-\\w{7}/\`
@@ -186,119 +229,9 @@ order by A.value desc;
 - 人类可读
 
 **重要规则**: 所有 API 的 docId/notebookId/blockId 参数必须使用 ID，不能用名称或路径！
-`.trim(),
-
-    'tool-selection': `
-## 工具选择指南 ##
-
-**文档查找**:
-- 知道文档名 → searchDocument
-- 需要当前打开的 → listActiveDocs
-- 需要层级结构 → listSubDocs / listSiblingDocs / getParentDoc
-- 需要笔记本概览 → listNotebookDocs
-
-**内容获取**:
-- 读取文档/块内容 → getBlockMarkdown
-- 获取文档元信息 → getDocument
-
-**内容写入**:
-- 追加到文档末尾 → appendMarkdown
-- 追加到今日日记 → appendDailyNote
-
-**高级查询**:
-- 简单关键词搜索 → searchKeyword
-- 复杂条件/统计/跨表 → querySQL
-
-**querySQL 使用时机**:
-- 需要 JOIN 多表（如查反链、带属性筛选）
-- 需要聚合统计（COUNT, GROUP BY）
-- 现有工具无法满足的复杂查询
-- 使用前建议查阅相关 SQL 文档主题
 `.trim()
-};
-
-/**
- * 获取所有可用主题
- */
-const getAvailableTopics = (): string[] => Object.keys(SKILL_DOCS);
-
-/**
- * 思源技能文档查询工具
- */
-export const siyuanSkillDocTool: Tool = {
-    SKIP_CACHE_RESULT: true,
-    SKIP_EXTERNAL_TRUNCATE: true,
-
-    definition: {
-        type: 'function',
-        function: {
-            name: 'SiYuanSkillDoc',
-            description: `查询思源笔记高级功能文档。当需要使用 querySQL 或理解复杂概念时调用。
-可用主题: ${getAvailableTopics().join(', ')}
-返回 \`string\`（Markdown 格式文档）`,
-            parameters: {
-                type: 'object',
-                properties: {
-                    topics: {
-                        type: 'array',
-                        items: {
-                            type: 'string',
-                            enum: getAvailableTopics()
-                        },
-                        description: '要查询的主题列表，可一次查询多个相关主题'
-                    }
-                },
-                required: ['topics']
-            }
-        }
-    },
-
-    permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
-    },
-
-    execute: async (args: { topics: string[] }): Promise<ToolExecuteResult> => {
-        const { topics } = args;
-
-        if (!topics || topics.length === 0) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `请指定要查询的主题。可用主题: ${getAvailableTopics().join(', ')}`
-            };
-        }
-
-        const results: string[] = [];
-        const notFound: string[] = [];
-
-        for (const topic of topics) {
-            if (SKILL_DOCS[topic]) {
-                results.push(SKILL_DOCS[topic]);
-            } else {
-                notFound.push(topic);
-            }
-        }
-
-        if (results.length === 0) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `未找到主题: ${notFound.join(', ')}。可用主题: ${getAvailableTopics().join(', ')}`
-            };
-        }
-
-        let output = results.join('\n\n---\n\n');
-
-        if (notFound.length > 0) {
-            output += `\n\n[注意] 未找到主题: ${notFound.join(', ')}`;
-        }
-
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: output
-        };
-    },
-
-    // 参数压缩显示
-    compressArgs: (args: Record<string, any>) => {
-        return `topics: [${args.topics?.join(', ') || ''}]`;
     }
 };
+
+export const siyuanSkillRules = SKILL_RULES;
+export const siyuanSkillTopics = Object.keys(SKILL_RULES);

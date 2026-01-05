@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 01:45:14
  * @FilePath     : /src/func/gpt/tools/types.ts
- * @LastEditTime : 2025-12-30 18:25:53
+ * @LastEditTime : 2026-01-05 19:47:52
  * @Description  : 工具类型定义
  */
 /**
@@ -189,7 +189,15 @@ export interface ToolGroup {
      * - 函数：动态提示，接收当前启用的工具名列表作为参数
      */
     rulePrompt?: string | ((enabledToolNames: string[]) => string);
-    // dynamicStatePrompt?: () => string;  //为后面做 Memory 机制做准备
+
+    declareSkillRules?: Record<string, {
+        /** 规则简要描述（会出现在 System Prompt 中） */
+        desc: string;
+        /** 完整规则内容（保存到变量中） */
+        prompt: string;
+        /** 是否总是加载（默认 false，按需加载） */
+        alwaysLoad?: boolean;
+    }>;
 }
 
 export interface IExternalToolUnit {

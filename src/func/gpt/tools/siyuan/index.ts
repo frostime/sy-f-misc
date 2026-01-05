@@ -23,7 +23,7 @@ import {
     appendDailyNoteTool
 } from './content-tools';
 import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
-import { siyuanSkillDocTool } from './skill-doc';
+import { siyuanSkillRules } from './skill-doc';
 
 // 导出思源笔记工具列表
 export const siyuanTool = {
@@ -44,8 +44,7 @@ export const siyuanTool = {
         appendDailyNoteTool,
         searchDocumentTool,
         querySQLTool,
-        searchKeywordTool,
-        siyuanSkillDocTool
+        searchKeywordTool
     ],
     rulePrompt: `
 ## 思源笔记工具组 ##
@@ -80,23 +79,13 @@ export const siyuanTool = {
 - 基于块内容回答时，附上 siyuan 链接方便用户溯源
 - 优先使用现成工具，仅在复杂查询时使用 querySQL
 
-## SiYuanSkillDoc - 技能文档索引 ##
-
-调用 **SiYuanSkillDoc** 获取详细文档。**使用 querySQL 前必须先查阅相关主题！**
-
-| 主题 | 内容摘要 | 何时查询 |
-|------|----------|----------|
-| \`tool-selection\` | 工具选择决策指南 | 不确定用哪个工具时 |
-| \`sql-overview\` | SQL 查询基础、核心表、参考链接 | 首次使用 querySQL |
-| \`sql-blocks-table\` | blocks 表字段详解 (type/content/path等) | 查询块/文档数据 |
-| \`sql-refs-table\` | refs 表、反链查询示例 | 查询块引用关系 |
-| \`sql-attributes-table\` | attributes 表、自定义属性查询 | 按属性筛选块 |
-| \`dailynote\` | 日记机制、路径模板、SQL 示例 | 操作日记文档 |
-| \`block-markdown-syntax\` | 块链接/引用/嵌入块/标签语法 | 生成特殊 Markdown |
-| \`id-and-path\` | ID 格式、path/hpath 规则详解 | 解析 ID 或路径 |
+## 高级文档 ##
+- 需要工具选择/SQL 说明时，查阅高级文档主题（tool-selection, sql-overview 等）；使用 querySQL 前先读相关 SQL 主题。
+- Markdown 语法、日记、ID 规则等专题也可在高级文档中查看。
 
 ## 通用参数 ##
 
 所有工具支持可选 \`limit\` 参数（数字）控制输出长度，默认约 8000 字符，-1 或 0 表示不限制。
-`.trim()
+`.trim(),
+    declareSkillRules: siyuanSkillRules
 };
