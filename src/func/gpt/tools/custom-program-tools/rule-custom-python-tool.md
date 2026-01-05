@@ -1,3 +1,33 @@
+## 任务：编写 py 脚本工具组
+
+编写的 python script 脚本会被解析为一套 LLM 工具组，给大模型作为工具调用来源。
+故此，请严格遵循下列规范。
+
+```ts
+/**
+ * 工具对象
+ * execute --> format --> truncate --> LLM 模型
+ */
+export interface Tool {
+    definition: IToolDefinition;  // Openai Tool Definition with JSON Schema
+    permission: ToolPermission;
+}
+
+export interface ToolGroup {
+    name: string;
+    tools: Tool[];
+    /**
+     * 工具组的规则提示
+     */
+    rulePrompt: string;
+}
+```
+
+**重点规则**
+
+- `__doc__` 会被解析为工具组的 Rule Prompt
+- 所有非私有函数，会被解析为 Tool，函数的内部文档，会被解析为 definition
+
 ## Python 自定义工具脚本规范
 
 ### 基本结构

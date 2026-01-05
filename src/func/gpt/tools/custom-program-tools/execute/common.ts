@@ -4,7 +4,7 @@
  * @Date         : 2025-12-30 16:55:32
  * @Description  :
  * @FilePath     : /src/func/gpt/tools/custom-program-tools/execute/common.ts
- * @LastEditTime : 2025-12-30 19:02:12
+ * @LastEditTime : 2026-01-05 14:55:37
  */
 import { ToolPermission, ToolPermissionLevel } from '../../types';
 import { globalMiscConfigs } from '../../../model/store';
@@ -18,7 +18,10 @@ export const getEnvVars = () => {
     for (const line of lines) {
         const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
         if (match) {
-            env[match[1]] = match[2].trim();
+            const name = match[1];
+            let value = match[2];
+            value = value.replaceAll('{{SIYUAN_WORKSPACE}}', window.siyuan.config.system.workspaceDir);
+            env[name] = value.trim();
         }
     }
     return env;

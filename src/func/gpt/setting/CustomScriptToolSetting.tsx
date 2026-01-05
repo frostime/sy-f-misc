@@ -93,7 +93,7 @@ export const CustomScriptToolSetting: Component = () => {
 
     const configureCustomScriptEnvVars = async () => {
         inputDialog({
-            title: '配置自定义脚本环境变量, 格式为 KEY=VALUE，每行一个',
+            title: '配置自定义脚本环境变量, 格式为 KEY=VALUE，每行一个; 模式 {{SIYUAN_WORKSPACE}} 会被替换为思源工作空间目录',
             defaultText: globalMiscConfigs().CustomScriptEnvVars || '',
             type: 'textarea',
             width: '1000px',
