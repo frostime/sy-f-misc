@@ -13,7 +13,7 @@
 <!-- SSPEC:START -->
 # .sspec Agent Protocol
 
-SSPEC_SCHEMA::3.0
+SSPEC_SCHEMA::3.1
 
 ## Hard Rules
 - Bridge between user and assistant agent.
@@ -41,7 +41,7 @@ SSPEC_SCHEMA::3.0
 Do:
 1. Set active change = `<name>`
 2. If `changes/<name>/` exists → read spec.md, tasks.md, handover.md (in order)
-3. If not exists → run shell command `sspec change <name>`, instruct user to fill spec.md
+3. If not exists → run shell command `sspec change new <name>`, instruct user to fill spec.md
 4. Output: context summary + next 3 actions
 
 ### 2.2 `@resume` — Recover session context
@@ -98,7 +98,10 @@ Do:
 ├── requests/*.md           # Incoming requests (OPEN → DOING → DONE)
 └── skills/                 # Reusable knowledge modules
     ├── sspec-workflow.md   # Complete workflow guide
-    └── status-guide.md     # Status definitions & transitions
+    ├── status-guide.md     # Status definitions & transitions
+    └──  <CUSTOM_SKILL> /
+        ├── SKILL.md
+        └── <Others>
 ```
 ------
 
@@ -111,6 +114,10 @@ skill: my-skill-name
 description: What this skill does
 ---
 ```
+**Adding custom skills**: run shell command `sspec skill new --mode [simple|complex]`
+  - Simple Skill: Create `.sspec/skills/<skill-name>.md` with proper front matter.
+  - Complex Skill: Create `.sspec/skills/<skill-name>/` with `SKILL.md`.
+**To list all skills**: run shell command: `sspec skill list`.
 
 <!-- Built-In Skills -->
 - **.sspec/skills/sspec-workflow**
@@ -119,41 +126,40 @@ description: What this skill does
 - **.sspec/skills/sspec-status-guide**
   - WHEN: Use when you're unsure about status meanings or transition rules.
   - HOW: Reference status definitions, allowed transitions, and edge cases.
-
-**Adding custom skills**: Place `.md` files or folders (with `SKILL.md`) in `.sspec/skills/`.
-Add project-specific skills:
-- Simple Skill: Create `.sspec/skills/<skill-name>.md` with proper front matter.
-- Complex Skill: Create `.sspec/skills/<skill-name>/` with
-  - `skill.md` with proper front matter.
-  - Other reference file or scripts could be used as part of skill.
-
-
-**To list all skills**: run shell command: `sspec list --skills`.
-
 ------
 
 ## File Responsibilities
 
 **spec.md** (WHY/WHAT):
-
 - Problem statement, constraints, decisions, solution outline
-- Front yaml: status, type, created
 - Update when: strategy/decision changes, status transitions
-
 **tasks.md** (HOW):
-
 - Tasks completable in <2h, with verification criteria
 - Update when: before coding (planning), after completing tasks (progress)
-
 **handover.md** (SESSION BRIDGE):
-
 - Done / Now / Next / Key Files / Commands
 - Update when: end of session, before switching changes
-
 **requests/\*.md** (INTAKE):
-
 - Raw user requests with front yaml metadata
 - Lifecycle: OPEN → link to change → DOING → DONE
+
+## SSPEC CLI Command
+
+```shell
+Usage: sspec [OPTIONS] COMMAND [ARGS]...
+
+  sspec - Lightweight AI collaboration spec for solo/small projects.
+
+Options:
+  --version  Show the version and exit.
+  --help     Show this message and exit.
+
+Commands:
+  change   Change management operations (new, list, archive).
+  project  Project-level operations (init, status, update).
+  request  Create or manage user requests.
+  skill    Skill management operations (list, new).
+```
 <!-- SSPEC:END -->
 
 <!-- PROJECT-OVERVIEW:START -->

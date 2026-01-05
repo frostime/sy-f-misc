@@ -6,5 +6,8 @@
     "skills/sspec-workflow.md": "d8575044c393f0f1",
     "skills/sspec-status-guide.md": "1f1813831f398425",
     "project.md": "37aef04992328622"
-  }
+  },
+  "file_hashes": {},
+  "updated_at": "2026-01-04T21:38:31.872185",
+  "sspec_version": "0.9.2.dev0+gd2ec0ac40.d20260104"
 }
