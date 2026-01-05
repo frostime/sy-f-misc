@@ -15,9 +15,10 @@ import { createValSystemTools } from './vars/index';
 import { VariableSystem } from './vars/core';
 
 
-const VAR_RULE = `**变量引用机制**
-
-当工具返回大量数据时，系统会自动保存到变量。可以在后续工具参数中引用这些变量，实现零 Token 数据传递。
+const AgentSkillRules: ToolGroup['declareSkillRules'] = {
+    VarRef: {
+        desc: '使用 $VAR_REF{{name}} 语法直接引用变量作为 Tool Call 的参数值',
+        prompt: `当工具返回大量数据时，系统会自动保存到变量。可以在后续工具参数中引用这些变量，实现零 Token 数据传递。
 **语法**：
 - \`$VAR_REF{{name}}\` - 引用完整变量内容
 - \`$VAR_REF{{name:start:length}}\` - 引用切片（从 start 开始，读取 length 字符）
@@ -35,7 +36,9 @@ const VAR_RULE = `**变量引用机制**
     "arguments": {
         "html": "$VAR_REF{{FetchWebPage_123456}}"  // ← 直接引用
     }
-}`; //后面再说，先放着
+}`
+    }
+};
 
 /**
  * 工具注册表
@@ -80,6 +83,8 @@ export class ToolExecutor {
         toolGroup.tools.forEach(tool => {
             this.varToolNames.add(tool.definition.function.name);
         });
+
+        this.registerSkillRules('Agent', AgentSkillRules);
     }
 
     // public groupEnabled: Record<string, boolean> = {};
@@ -143,37 +148,37 @@ ${finalContent}
     toolRules() {
         if (!this.hasEnabledTools()) return '';
         let prompt = `<tool-rules>
-在当前对话中，如果发现有必要，请使用提供的工具(tools)。以下是使用工具的指导原则：
+在当前对话中，如果发现有必要，请使用提供的工具(tools)。
+
+### 基本规范
 
 **工作规范**
 - 在调用工具前，请在内部充分规划；当任务复杂或用户明确要求时，再在输出中简要说明你的计划（3–5 行）。
-- 在工具调用后，如有必要，可对关键结果做简要反思，但不要输出冗长的思考过程。
 - 每个 TOOL 都有一个隐藏可选参数 \`limit\`，来截断限制返回给 LLM 的输出长度。设置为 -1 或 0 表示不限制。
-
-**进入 Tool Call 流程后**
-- 当你认为已经足够回答用户问题时，可以提前结束工具链；如果仍有疑问，再与用户交互确认是否需要继续深入
-- Tool Call 结束之后, 可能会把完整结果写入本地日志文件；如果你被允许访问文件系统可以尝试读取以获得更多信息。
-
-**处理截断结果**
-- 如果工具返回结果过长被截断，系统会自动将完整结果保存到变量中，并在结果中提示变量名。
-- 你可以使用 ListVars/ReadVar 工具来读取变量内容。
-
-**特别工具组: ListVars/ReadVar**
-- 专门用于缓存长文本使用; 总是可用
-- ListVars 会列出当前所有变量的信息，包括名称、字符长度、描述和创建时间。
-- ReadVar 参数: \`name\` (变量名), \`start\` (Char 起始位置, 0-based), \`length\` (读取长度)。
 
 **用户审核**
 - 部分工具在调用的时候会给用户审核，用户可能拒绝调用。
 - 如果用户在拒绝的时候提供了原因，请**一定要仔细参考用户给出的原因并适当调整你的方案**
 
-**工具结果呈现**
-- 如果USER希望手动调用工具并查看结果（例如网络搜索等），请将工具结果**完整**呈现给USER，不要仅提供总结或选择性提供而导致信息丢失。
-
-**工具调用记录**
+### Toolcall History Log - 重要约束
 - 为了节省资源，工具调用的中间过程消息不会显示给USER，务必确保你最后给出一个完善的回答。
 - SYSTEM 会生成工具调用记录 <toolcall-history-log>...</toolcall-history-log> 并插入到消息里，这部分内容不会显示给 USER 看，也不由 ASSISTANT 生成。
 - ASSISTANT(你) **不得自行提及或生成** <toolcall-history-log> 标签; 否则可能严重误导后续工具调用 !!IMPORTANT!!
+
+### 变量机制
+
+**处理截断结果**
+- 如果工具返回结果过长被截断，系统会自动将完整结果保存到变量中，并在结果中提示变量名。
+- 你可以使用 ListVars/ReadVar 工具来读取变量内容。
+
+**工具组: ListVars/ReadVar**
+- 专门用于缓存长文本使用; 总是可用
+- ListVars 会列出当前所有变量的信息，包括名称、字符长度、描述和创建时间。
+- ReadVar 参数: \`name\` (变量名), \`start\` (Char 起始位置, 0-based), \`length\` (读取长度)。
+
+**变量引用机制**
+- 使用类似 $VAR_REF 语法直接引用变量的值作为工具调用参数 —— 可大大节省 Token
+- 具体用法使用 ReadVar 查看 Rule::Agent::VarRef 中的高级文档
 </tool-rules>`;
 
         // 动态解析每个启用的工具组的 rulePrompt
@@ -183,11 +188,6 @@ ${finalContent}
             if (rule) {
                 prompt += `\n\n${rule}`;
             }
-        }
-
-        // ✅ 如果 vars 组启用，添加变量引用说明
-        if (this.isGroupEnabled('vars')) {
-            prompt += `\n\n<variable-reference-system>\n${VAR_RULE}\n</variable-reference-system>`;
         }
 
         return prompt;
@@ -757,14 +757,13 @@ ${finalContent}
         // 变量缓存机制
         // ================================================================
         // 保存策略：仅在截断时保存，或结果超过一定阈值
-        const SAVE_THRESHOLD = 1000;
 
         let shouldSaveToVar = false;
         let varName: string | null = null;
 
         const isVarTool = this.varToolNames.has(toolName);
 
-        if (!isVarTool && (isTruncated || formatted.length > SAVE_THRESHOLD)) {
+        if (!isVarTool) {
             shouldSaveToVar = true;
             varName = `${toolName}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
             const vitalArgs = Object.entries(args).map(([key, val]) => {
@@ -775,21 +774,11 @@ ${finalContent}
                 return `${key}=${valStr}`;
             });
 
-            // ✅ 改进：使用结构化描述
-            const metadata = {
-                type: 'ToolCallCache',
-                tool: toolName,
-                truncated: isTruncated,
-                originalLength: formatted.length,
-                timestamp: Date.now(),
-                argsPreview: vitalArgs.join(', ')
-            };
-
             this.varSystem.addVariable(
                 varName,
                 formatted,
                 'ToolCallCache',
-                JSON.stringify(metadata)  // 结构化存储
+                `Call ${toolName} with args: ${vitalArgs.join(', ')}.`,
             );
         }
 

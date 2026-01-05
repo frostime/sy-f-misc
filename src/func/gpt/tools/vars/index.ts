@@ -4,7 +4,7 @@
  * @Date         : 2026-01-05 15:29:32
  * @Description  :
  * @FilePath     : /src/func/gpt/tools/vars/index.ts
- * @LastEditTime : 2026-01-05 21:43:35
+ * @LastEditTime : 2026-01-05 22:23:00
  */
 
 import { openIframeDialog } from "@/func/html-pages/core";
@@ -53,11 +53,10 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
         },
         formatForLLM(data: Array<any>, _args) {
             return `Available Variables:\n` + data.map((v: any) =>
-                `- ${v.name} [${v.type}]${v.keep ? ' [KEEP]' : ''}\n` +
-                `  Length: ${v.length} chars\n` +
-                `  Desc: ${v.desc || 'N/A'}\n` +
-                `  Created: ${v.created}`
-            ).join('\n\n');
+                `- ${v.name}\n` +
+                `  - Type: ${v.type}; Len: ${v.length}\n` +
+                `  - Desc: ${v.desc || 'N/A'}`
+            ).join('\n');
         },
     };
 
