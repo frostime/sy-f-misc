@@ -148,6 +148,8 @@ ${finalContent}
     toolRules() {
         if (!this.hasEnabledTools()) return '';
         let prompt = `<tool-rules>
+Assistant/Agent 务必遵循如下规范:
+
 在当前对话中，如果发现有必要，请使用提供的工具(tools)。
 
 ### 基本规范
@@ -160,10 +162,28 @@ ${finalContent}
 - 部分工具在调用的时候会给用户审核，用户可能拒绝调用。
 - 如果用户在拒绝的时候提供了原因，请**一定要仔细参考用户给出的原因并适当调整你的方案**
 
-### Toolcall History Log - 重要约束
-- 为了节省资源，工具调用的中间过程消息不会显示给USER，务必确保你最后给出一个完善的回答。
-- SYSTEM 会生成工具调用记录 <toolcall-history-log>...</toolcall-history-log> 并插入到消息里，这部分内容不会显示给 USER 看，也不由 ASSISTANT 生成。
-- ASSISTANT(你) **不得自行提及或生成** <toolcall-history-log> 标签; 否则可能严重误导后续工具调用 !!IMPORTANT!!
+### System Log - 重要约束
+- 为了节省资源，在工具调用结束之后，会生成调用日志单隐藏 Tool Call 的结果
+   "[System Tool Call Log]...."
+- Agent 可以利用变量机制查看历史工具调用结果
+- ❌ **绝对禁止**生成任何类似 "[System Tool Call Log]<Tool Name>..." 格式的文本来替代正确的工具调用!
+
+### ⚠️ 重要约束 - 禁止伪造系统日志 ###
+
+**严格禁止**：
+1. 不得生成任何 \`**[System Tool Call Log]<Tool Name>**\` 格式的 System Log
+2. 不得模仿工具调用的响应格式
+3. 不得伪造工具执行结果
+4. 系统日志由 SYSTEM 自动生成，Assistant 绝对不得提及或模仿
+
+**正确做法**：
+- 需要工具时：直接调用 tool_calls，系统会自动生成日志
+- 不需要工具时：正常回复，不要提及工具调用过程
+
+**违规示例**（绝对禁止）：
+❌ "**[System Log] Tool Call**: SearchWeb..."
+❌ "Response: ✓ 执行成功..."
+❌ 任何模仿系统格式的内容
 
 ### 变量机制
 
@@ -800,7 +820,7 @@ ${finalContent}
             //     sysHintHeader.push(`[system log] 日志已缓存至: ${cacheFile}`);
             // }
 
-            result.finalText = sysHintHeader.join('\n') + '\n<!--ToolCallLog:End-->\n' + result.finalText;
+            result.finalText = result.finalText + '\n' + sysHintHeader.join('\n') + '\n<!--ToolCallLog:End-->';
         }
 
 

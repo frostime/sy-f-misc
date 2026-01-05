@@ -173,6 +173,7 @@ interface JSONSchemaProperty {
 
 interface IToolCall {
     id: string;
+    index?: number;
     type: 'function';
     function: {
         name: string;
@@ -212,14 +213,7 @@ type IToolChoice =
 /**
  * 工具调用响应，模型生成的工具调用
  */
-interface IToolCallResponse {
-    id: string;
-    index: number;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string; // JSON 字符串
-    };
+interface IToolCallResponse extends IToolCall {
 }
 
 interface IChatCompleteOption {
