@@ -252,20 +252,18 @@ export const truncateContent = (content: string, maxLength: number): TruncateRes
         };
     }
 
-    const headLength = Math.floor(maxLength / 2);
-    const tailLength = maxLength - headLength;
-    const head = content.slice(0, headLength);
-    const tail = content.slice(-tailLength);
+    const head = content.slice(0, maxLength);
     const omitted = content.length - maxLength;
 
     return {
-        content: `${head}\n\n...输出过长，省略中间 ${omitted} 个字符...\n\n${tail}`,
+        content: `${head}\n\n...输出过长，省略后 ${omitted} 个字符...`,
         isTruncated: true,
         originalLength: content.length,
         shownLength: maxLength,
         omittedLength: omitted
     };
 };
+
 
 
 /**

@@ -63,6 +63,8 @@ export class ToolExecutor {
     public vfs: VFSManager;
     public varSystem: VariableSystem;
 
+    private varToolNames: Set<string> = new Set();
+
     constructor(options: {
         vfs?: VFSManager;
     }) {
@@ -74,6 +76,10 @@ export class ToolExecutor {
         const { varSystem, toolGroup } = createValSystemTools();
         this.varSystem = varSystem;
         this.registerToolGroup(toolGroup);
+
+        toolGroup.tools.forEach(tool => {
+            this.varToolNames.add(tool.definition.function.name);
+        });
     }
 
     // public groupEnabled: Record<string, boolean> = {};
@@ -119,11 +125,17 @@ export class ToolExecutor {
 
         if (!ruleContent?.trim()) return '';
 
+        let finalContent = ruleContent.trim();
+
+        if (group.declareSkillRules) {
+            finalContent += '\n\n' + this.generateSkillRuleIndex(groupName, group.declareSkillRules);
+        }
+
         return `
 <tool-group-rule group="${groupName}">
 Group "${groupName}" contains following tools: ${enabledToolNames.join(', ')}.
 
-${ruleContent.trim()}
+${finalContent}
 </tool-group-rule>
 `;
     }
@@ -257,11 +269,16 @@ ${ruleContent.trim()}
             group = group();
         }
         if (group.tools.length === 0) return;
+
         group.tools.forEach(tool => this.registerTool(tool));
         this.groupRegistry[group.name] = group;
         // rulePrompt 现在在 toolRules() 中动态解析，不再在此处静态存储
         //工具组默认禁用
         this.enablingStore.update('group', group.name, false);
+
+        if (group.declareSkillRules) {
+            this.registerSkillRules(group.name, group.declareSkillRules);
+        }
     }
 
     /**
@@ -269,6 +286,48 @@ ${ruleContent.trim()}
      */
     setToolEnabled(toolName: string, enabled: boolean): void {
         this.enablingStore.update('tool', toolName, enabled);
+    }
+
+    private registerSkillRules(
+        groupName: string,
+        rules: NonNullable<ToolGroup['declareSkillRules']>
+    ): void {
+        for (const [ruleName, rule] of Object.entries(rules)) {
+            const varName = `Rule::${groupName}::${ruleName}`;
+
+            this.varSystem.addVariable(
+                varName,
+                rule.prompt,
+                'RULE',
+                `Skill rule for ${groupName}: ${rule.desc}`
+            );
+
+            const variable = this.varSystem.getVariable(varName);
+            if (variable) {
+                variable.keep = true;
+            }
+        }
+    }
+
+    private generateSkillRuleIndex(
+        groupName: string,
+        rules: NonNullable<ToolGroup['declareSkillRules']>
+    ): string {
+        const lines = ['**Advanced Documentation (Stored as Variables):**'];
+
+        for (const [ruleName, rule] of Object.entries(rules)) {
+            const varName = `Rule::${groupName}::${ruleName}`;
+
+            if (rule.alwaysLoad) {
+                lines.push(`\n**${rule.desc}:**`);
+                lines.push(rule.prompt);
+            } else {
+                lines.push(`- ${rule.desc}`);
+                lines.push(`  Access via: ReadVar({"name": "${varName}"})`);
+            }
+        }
+
+        return lines.join('\n');
     }
 
     /**
@@ -293,6 +352,11 @@ ${ruleContent.trim()}
             // 检查是否有 ReadVar 和 ListVars 工具
             const toolNames = allTools.map(t => t.function.name);
             const varGroup = this.groupRegistry['vars'];
+
+            if (!varGroup) {
+                console.warn('vars group not registered, skipping auto-injection');
+                return allTools;
+            }
 
             if (!toolNames.includes('ReadVar')) {
                 const readVarTool = varGroup.tools.find(t => t.definition.function.name === 'ReadVar');
@@ -653,6 +717,7 @@ ${ruleContent.trim()}
         let originalLength = formatted.length;
         let finalForLLM = formatted;
         let isTruncated = false;
+        let keptLength = originalLength;
         if (tool.SKIP_EXTERNAL_TRUNCATE === true) {
             // 不截断
         }
@@ -669,6 +734,7 @@ ${ruleContent.trim()}
             // 使用默认的头尾截断
             const truncResult = truncateContent(formatted, limit);
             finalForLLM = truncResult.content;
+            keptLength = truncResult.shownLength;
             // isTruncated = truncResult.isTruncated;
             isTruncated = finalForLLM.length < originalLength;
         }
@@ -676,6 +742,8 @@ ${ruleContent.trim()}
         result.formattedText = formatted;
         result.isTruncated = isTruncated;
         result.finalText = finalForLLM;
+
+        const leftLength = originalLength - keptLength;
 
         // 3. 缓存原始数据到本地文件
         let cacheFile = null;
@@ -694,7 +762,7 @@ ${ruleContent.trim()}
         let shouldSaveToVar = false;
         let varName: string | null = null;
 
-        const isVarTool = this.getGroupToolDefinitions('vars', false).map(def => def.function.name).includes(toolName);
+        const isVarTool = this.varToolNames.has(toolName);
 
         if (!isVarTool && (isTruncated || formatted.length > SAVE_THRESHOLD)) {
             shouldSaveToVar = true;
@@ -732,9 +800,9 @@ ${ruleContent.trim()}
             sysHintHeader.push(`[system log] 完整结果已保存至变量: ${varName} (${formatted.length} 字符)`);
 
             if (isTruncated) {
-                sysHintHeader.push(`[system log] 结果已截断为 ${finalForLLM.length} 字符`);
+                sysHintHeader.push(`[system log] 结果已截断为 ${keptLength} 字符`);
                 sysHintHeader.push(`[system hint] 使用变量引用获取完整内容: $VAR_REF{{${varName}}}`);
-                sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${varName}", "start": 0, "length": 2000}}`);
+                sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${varName}", "start": ${keptLength}, "length": ${Math.min(leftLength, 2000)}}`);
             } else {
                 sysHintHeader.push(`[system hint] 可使用变量引用: $VAR_REF{{${varName}}}`);
             }
