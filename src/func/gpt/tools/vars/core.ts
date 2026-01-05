@@ -1,5 +1,5 @@
 //缓存大模型过程中各种文本，作为变量方便后面 LLM 复用
-interface Variable {
+export interface Variable {
     name: string;
     value: string;
     desc?: string
@@ -80,9 +80,9 @@ export class VariableSystem {
         }
     }
 
-    getVariable(name: string): Variable | undefined {
+    getVariable(name: string, recordRef: boolean = true): Variable | undefined {
         const variable = this.varQueue.find(v => v.name === name);
-        if (variable) {
+        if (variable && recordRef) {
             variable.lastVisited = new Date();
             variable.referenceCount = (variable.referenceCount || 0) + 1;  // ✅ 统计使用
         }

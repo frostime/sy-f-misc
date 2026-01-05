@@ -4,11 +4,14 @@
  * @Date         : 2026-01-05 15:29:32
  * @Description  :
  * @FilePath     : /src/func/gpt/tools/vars/index.ts
- * @LastEditTime : 2026-01-05 19:11:15
+ * @LastEditTime : 2026-01-05 21:43:35
  */
 
+import { openIframeDialog } from "@/func/html-pages/core";
+import { type ToolExecutor } from "../executor";
 import { Tool, ToolGroup, ToolPermissionLevel, ToolExecuteStatus } from "../types";
 import { VariableSystem } from "./core";
+import { createVarsManagerSdk } from "./manager";
 
 /**
  * 包含如下工具
@@ -266,4 +269,24 @@ export const createValSystemTools = () => {
         varSystem,
         toolGroup
     }
+}
+
+export function openVarsManager(toolExecutor: ToolExecutor) {
+    const customSdk = createVarsManagerSdk(toolExecutor.varSystem);
+
+    openIframeDialog({
+        title: 'Variables Manager',
+        iframeConfig: {
+            type: 'url',
+            source: '/plugins/sy-f-misc/pages/vars-manager.html',
+            inject: {
+                presetSdk: true,
+                siyuanCss: true,
+                customSdk
+            }
+        },
+        width: '1300px',
+        height: '800px',
+        maxWidth: '80%'
+    });
 }

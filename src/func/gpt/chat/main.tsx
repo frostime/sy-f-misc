@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2026-01-03 20:47:13
+ * @LastEditTime : 2026-01-05 21:38:59
  * @Description  :
  */
 // External libraries
@@ -52,6 +52,7 @@ import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
 import { jsonAgent } from '../openai/tiny-agent';
 import { showChatWorldTree } from './ChatSession/world-tree';
+import { openVarsManager } from '../tools/vars';
 
 
 export const ChatSession: Component<{
@@ -735,6 +736,14 @@ export const ChatSession: Component<{
                 checked: isReadingMode(),
                 click: () => {
                     isReadingMode.update(!isReadingMode());
+                }
+            });
+
+            menu.addItem({
+                icon: 'iconSpreadEven',
+                label: '变量管理',
+                click: () => {
+                    openVarsManager(session.toolExecutor);
                 }
             });
 

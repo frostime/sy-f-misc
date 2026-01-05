@@ -162,7 +162,6 @@ ${finalContent}
 - 专门用于缓存长文本使用; 总是可用
 - ListVars 会列出当前所有变量的信息，包括名称、字符长度、描述和创建时间。
 - ReadVar 参数: \`name\` (变量名), \`start\` (Char 起始位置, 0-based), \`length\` (读取长度)。
-- 即便你看不到这些工具调用定义, 依然可以通过标准工具调用规范发起对他们的调用
 
 **用户审核**
 - 部分工具在调用的时候会给用户审核，用户可能拒绝调用。
@@ -746,11 +745,12 @@ ${finalContent}
         const leftLength = originalLength - keptLength;
 
         // 3. 缓存原始数据到本地文件
-        let cacheFile = null;
-        if (tool.SKIP_CACHE_RESULT !== true) {
-            cacheFile = cacheToolCallResult(toolName, args, result);
-            result.cacheFile = cacheFile;
-        }
+        // 暂时先放在这里; 这段代码姑且保留，以后可能会用到
+        // let cacheFile = null;
+        // if (tool.SKIP_CACHE_RESULT !== true) {
+        //     cacheFile = cacheToolCallResult(toolName, args, result);
+        //     result.cacheFile = cacheFile;
+        // }
 
 
         // ================================================================
@@ -802,14 +802,14 @@ ${finalContent}
             if (isTruncated) {
                 sysHintHeader.push(`[system log] 结果已截断为 ${keptLength} 字符`);
                 sysHintHeader.push(`[system hint] 使用变量引用获取完整内容: $VAR_REF{{${varName}}}`);
-                sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${varName}", "start": ${keptLength}, "length": ${Math.min(leftLength, 2000)}}`);
+                sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${varName}", "start": ${keptLength}, "length": ${Math.min(leftLength, 2000)}} —— 注意, 请认真考虑是否有必要读取完整内容`);
             } else {
                 sysHintHeader.push(`[system hint] 可使用变量引用: $VAR_REF{{${varName}}}`);
             }
 
-            if (result.cacheFile) {
-                sysHintHeader.push(`[system log] 日志已缓存至: ${cacheFile}`);
-            }
+            // if (result.cacheFile) {
+            //     sysHintHeader.push(`[system log] 日志已缓存至: ${cacheFile}`);
+            // }
 
             result.finalText = sysHintHeader.join('\n') + '\n<!--ToolCallLog:End-->\n' + result.finalText;
         }
