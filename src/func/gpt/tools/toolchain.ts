@@ -105,70 +105,45 @@ namespace MessageFlowFormatter {
 
         // 工具调用头部
         lines.push(`**[System Tool Call Log]**: ${toolName}`);
-        lines.push('```json');
-        lines.push(JSON.stringify(compressedArgs));
-        lines.push('```');
-        if (toolResult.cacheVarArgs) {
-            lines.push(`📝 完成工具调用参数缓存在: $VAR_REF{{${toolResult.cacheVarArgs}}}`);
-        }
-        lines.push('');
+        lines.push('```accesslog');
+        lines.push(`Args: ${JSON.stringify(compressedArgs)}`);
 
-        // 响应部分
-        lines.push('Response:');
-
+        // 结果状态
+        let resultStatus = '';
         if (toolResult.status === ToolExecuteStatus.SUCCESS) {
-            // 直接使用 cacheVarResult，不再从 finalText 中匹配
-            const varId = toolResult.cacheVarResult;
+            resultStatus = '✓ 执行成功';
 
-            if (varId) {
-                // 有 VarID：显示引用和预览
-                lines.push('```txt');
-                lines.push(`✓ 执行成功`);
+            // 添加预览
+            if (toolResult.data) {
+                const text = toolResult.data as string;
+                const preview = text.length > 200
+                    ? text.substring(0, 200) + '...'
+                    : text;
 
-                if (toolResult.formattedText) {
-                    const preview = toolResult.formattedText.length > 200
-                        ? toolResult.formattedText.substring(0, 200) + '...'
-                        : toolResult.formattedText;
+                // 清理预览（移除注释）
+                const cleanPreview = preview
+                    .replace(/<!--.*?-->/gs, '')
+                    .trim();
 
-                    // 清理预览（移除注释）
-                    const cleanPreview = preview
-                        .replace(/<!--.*?-->/gs, '')
-                        .trim();
-
-                    if (cleanPreview) {
-                        lines.push('');
-                        lines.push('📋 预览:');
-                        lines.push(cleanPreview);
-                    }
+                if (cleanPreview) {
+                    lines.push(`Result: ${resultStatus}`);
+                    lines.push('');
+                    lines.push(cleanPreview);
+                    lines.push('```');
+                    lines.push('');
+                    return lines.join('\n');
                 }
-                lines.push('```');
-                lines.push(`📦 完整结果缓存在: $VAR_REF{{${varId}}}`);
-            } else {
-                // 无 VarID（小内容）：直接显示
-                const content = toolResult.finalText || JSON.stringify(toolResult.data);
-                const display = content.length > 300
-                    ? content.substring(0, 300) + '...'
-                    : content;
-
-                lines.push('```txt');
-                lines.push('✓ 执行成功');
-                lines.push('');
-                lines.push(display);
-                lines.push('```');
             }
         } else {
             // 失败或拒绝
             const statusIcon = toolResult.status === ToolExecuteStatus.ERROR ? '✗' : '⚠️';
             const statusText = toolResult.status === ToolExecuteStatus.ERROR ? '执行失败' : '执行被拒绝';
             const errorMsg = toolResult.error || toolResult.rejectReason || '未知错误';
-
-            lines.push('```txt');
-            lines.push(`${statusIcon} ${statusText}`);
-            lines.push(`💬 原因: ${errorMsg}`);
-            lines.push('```');
+            resultStatus = `${statusIcon} ${statusText}: ${errorMsg}`;
         }
 
-        lines.push('---');
+        lines.push(`Result: ${resultStatus}`);
+        lines.push('```');
         lines.push('');
 
         return lines.join('\n');
@@ -221,14 +196,31 @@ namespace MessageFlowFormatter {
     }
 
     /**
-     * 生成系统提示（放在最开头）
+     * 生成系统提示（包含工具调用记录汇总）
      */
-    export function generateSystemHint(): string {
-        return `[System Tool Call Log]: 为了压缩 Token 占用, System 隐藏了中间的 Tool Message，但保留了完整 Tool Call 记录日志。工具结果已缓存在变量（VarID），如需完整内容可使用 ReadVar 或 $VAR_REF{{}} 引用。Agent 可使用 ListVars 工具查看工作区中缓存的工具调用记录。注：变量并非永久保存，可能会被系统清理。
+    export function generateSystemHint(toolCallHistory?: ToolChainResult['toolCallHistory']): string {
+        const lines: string[] = [];
 
----
+        lines.push('[System Tool Call Log]: 为了压缩 Token 占用, System 隐藏了中间的 Tool Message，但保留了完整 Tool Call 记录日志。工具结果已缓存在变量（VarID），如需完整内容可使用 ReadVar 或 $VAR_REF{{}} 引用。Agent 可使用 ListVars 工具查看工作区中缓存的工具调用记录。注：变量并非永久保存，可能会被系统清理。');
+        lines.push('');
 
-`;
+        // 添加工具调用汇总
+        if (toolCallHistory && toolCallHistory.length > 0) {
+            lines.push('[System Tool Call Log]: 工具调用记录如下');
+            for (const call of toolCallHistory) {
+                const { toolName, result } = call;
+                const argsRef = result.cacheVarArgs ? `参数缓存: $VAR_REF{{${result.cacheVarArgs}}}` : '';
+                const resultRef = result.cacheVarResult ? `结果缓存: $VAR_REF{{${result.cacheVarResult}}}` : '';
+                const refs = [argsRef, resultRef].filter(Boolean).join('; ');
+                lines.push(`- ${toolName}${refs ? `, ${refs}` : ''}`);
+            }
+            lines.push('');
+        }
+
+        lines.push('---');
+        lines.push('');
+
+        return lines.join('\n');
     }
 }
 
@@ -717,13 +709,12 @@ Provide a complete, helpful response even if some planned tool calls could not b
 
     if (state.toolCallHistory.length > 0) {
         // 有工具调用：转换为自然流
-        const systemHint = MessageFlowFormatter.generateSystemHint();
+        toolChainContent = MessageFlowFormatter.generateSystemHint(toolCallHistoryClean);
         const naturalFlow = MessageFlowFormatter.convertMessagesToNaturalFlow(
             state.toolChainMessages,
             toolCallHistoryClean,
             // toolExecutor
         );
-        toolChainContent = systemHint;
         responseContent = naturalFlow;
     } else {
         // 无工具调用：直接使用最终回复
