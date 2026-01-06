@@ -779,13 +779,12 @@ Assistant/Agent 务必遵循如下规范:
         // 保存策略：仅在截断时保存，或结果超过一定阈值
 
         let shouldSaveToVar = false;
-        let varName: string | null = null;
 
         const isVarTool = this.varToolNames.has(toolName);
 
         if (!isVarTool) {
             shouldSaveToVar = true;
-            varName = `${toolName}_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+            const varName = `${toolName}_${window.Lute.NewNodeID()}`;
             const vitalArgs = Object.entries(args).map(([key, val]) => {
                 let valStr = typeof val === 'string' ? val : JSON.stringify(val);
                 if (valStr.length > 20) {
@@ -794,26 +793,38 @@ Assistant/Agent 务必遵循如下规范:
                 return `${key}=${valStr}`;
             });
 
+            result.cacheVarResult = varName + '_result';
             this.varSystem.addVariable(
-                varName,
+                result.cacheVarResult,
                 formatted,
-                'ToolCallCache',
+                'ToolCallResult',
                 `Call ${toolName} with args: ${vitalArgs.join(', ')}.`,
             );
+
+            // 保存参数到变量
+            const argsVarName = varName + '_args';
+            const argsJson = JSON.stringify(args, null, 2);
+            this.varSystem.addVariable(
+                argsVarName,
+                argsJson,
+                'ToolCallArgs',
+                `Arguments for tool call: ${toolName}`,
+            );
+            result.cacheVarArgs = argsVarName;
         }
 
         // 生成提示信息
         const sysHintHeader = [];
-        if (shouldSaveToVar && varName) {
+        if (shouldSaveToVar && result.cacheVarResult) {
             sysHintHeader.push(`<!--ToolCallLog:Begin-->`);
-            sysHintHeader.push(`[system log] 完整结果已保存至变量: ${varName} (${formatted.length} 字符)`);
+            sysHintHeader.push(`[system log] 完整结果已保存至变量: ${result.cacheVarResult} (${formatted.length} 字符)`);
 
             if (isTruncated) {
                 sysHintHeader.push(`[system log] 结果已截断为 ${keptLength} 字符`);
-                sysHintHeader.push(`[system hint] 使用变量引用获取完整内容: $VAR_REF{{${varName}}}`);
-                sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${varName}", "start": ${keptLength}, "length": ${Math.min(leftLength, 2000)}} —— 注意, 请认真考虑是否有必要读取完整内容`);
+                sysHintHeader.push(`[system hint] 使用变量引用获取完整内容: $VAR_REF{{${result.cacheVarResult}}}`);
+                sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${result.cacheVarResult}", "start": ${keptLength}, "length": ${Math.min(leftLength, 2000)}} —— 注意, 请认真考虑是否有必要读取完整内容`);
             } else {
-                sysHintHeader.push(`[system hint] 可使用变量引用: $VAR_REF{{${varName}}}`);
+                sysHintHeader.push(`[system hint] 可使用变量引用: $VAR_REF{{${result.cacheVarResult}}}`);
             }
 
             // if (result.cacheFile) {

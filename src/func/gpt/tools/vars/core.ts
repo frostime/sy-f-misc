@@ -8,7 +8,7 @@ export interface Variable {
     lastVisited: Date;
 
     keep?: boolean;  // 总是保留在 queue 中不被删除
-    type: 'RULE' | 'ToolCallCache' | 'MessageCache' | 'LLMAdd';  // 变量类型，方便分类管理
+    type: 'RULE' | 'ToolCallResult' | 'ToolCallArgs' | 'MessageCache' | 'LLMAdd';  // 变量类型，方便分类管理
     // RULE | ToolCallCache | MessageCache | LLMAdd
     referenceCount?: number;  // 被引用次数
 }

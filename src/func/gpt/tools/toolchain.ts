@@ -85,7 +85,7 @@ namespace MessageFlowFormatter {
     function formatToolCallBlock(
         toolCall: IToolCallResponse,
         toolResult: ToolExecuteResult,
-        toolExecutor: ToolExecutor
+        // toolExecutor: ToolExecutor
     ): string {
         const toolName = toolCall.function.name;
 
@@ -108,21 +108,22 @@ namespace MessageFlowFormatter {
         lines.push('```json');
         lines.push(JSON.stringify(compressedArgs));
         lines.push('```');
+        if (toolResult.cacheVarArgs) {
+            lines.push(`📝 完成工具调用参数缓存在: $VAR_REF{{${toolResult.cacheVarArgs}}}`);
+        }
         lines.push('');
 
         // 响应部分
         lines.push('Response:');
 
         if (toolResult.status === ToolExecuteStatus.SUCCESS) {
-            // 提取 VarID（从 finalText 中匹配）
-            const varMatch = toolResult.finalText?.match(/完整结果已保存至变量: (\S+)/);
-            const varId = varMatch ? varMatch[1] : null;
+            // 直接使用 cacheVarResult，不再从 finalText 中匹配
+            const varId = toolResult.cacheVarResult;
 
             if (varId) {
                 // 有 VarID：显示引用和预览
                 lines.push('```txt');
                 lines.push(`✓ 执行成功`);
-                lines.push(`📦 完整结果已保存: $VAR_REF{{${varId}}}`);
 
                 if (toolResult.formattedText) {
                     const preview = toolResult.formattedText.length > 200
@@ -141,6 +142,7 @@ namespace MessageFlowFormatter {
                     }
                 }
                 lines.push('```');
+                lines.push(`📦 完整结果缓存在: $VAR_REF{{${varId}}}`);
             } else {
                 // 无 VarID（小内容）：直接显示
                 const content = toolResult.finalText || JSON.stringify(toolResult.data);
@@ -178,7 +180,7 @@ namespace MessageFlowFormatter {
     export function convertMessagesToNaturalFlow(
         messages: IMessage[],
         toolCallHistory: ToolChainResult['toolCallHistory'],
-        toolExecutor: ToolExecutor
+        // toolExecutor: ToolExecutor
     ): string {
         const parts: string[] = [];
 
@@ -205,7 +207,7 @@ namespace MessageFlowFormatter {
                             const formatted = formatToolCallBlock(
                                 toolCall,
                                 historyEntry.result,
-                                toolExecutor
+                                // toolExecutor
                             );
                             parts.push(formatted);
                         }
@@ -222,7 +224,7 @@ namespace MessageFlowFormatter {
      * 生成系统提示（放在最开头）
      */
     export function generateSystemHint(): string {
-        return `[System Tool Call Log]: 为了压缩 Token 占用, System 隐藏了中间的 Tool Message，但保留了完整 Tool Call 记录日志。工具结果已保存为变量（VarID），如需完整内容可使用 ReadVar 或 $VAR_REF{{}} 引用。
+        return `[System Tool Call Log]: 为了压缩 Token 占用, System 隐藏了中间的 Tool Message，但保留了完整 Tool Call 记录日志。工具结果已缓存在变量（VarID），如需完整内容可使用 ReadVar 或 $VAR_REF{{}} 引用。Agent 可使用 ListVars 工具查看工作区中缓存的工具调用记录。注：变量并非永久保存，可能会被系统清理。
 
 ---
 
@@ -686,8 +688,11 @@ Provide a complete, helpful response even if some planned tool calls could not b
     // 清理工具调用历史数据
     // ========================================================================
     const toolCallHistoryClean = state.toolCallHistory.map(call => {
-        const { status, data, error, rejectReason } = call.result;
-        const resultClean: any = { status, data, error, rejectReason };
+        const { status, data, error, rejectReason, cacheVarArgs, cacheVarResult } = call.result;
+        const resultClean: any = {
+            status, data, error, rejectReason, cacheVarArgs,
+            cacheVarResult
+        };
 
         // 使用实际发送给 LLM 的内容
         if (call.result.finalText !== undefined) {
@@ -696,7 +701,7 @@ Provide a complete, helpful response even if some planned tool calls could not b
 
         return {
             ...call,
-            result: resultClean
+            result: resultClean,
         };
     });
 
@@ -716,7 +721,7 @@ Provide a complete, helpful response even if some planned tool calls could not b
         const naturalFlow = MessageFlowFormatter.convertMessagesToNaturalFlow(
             state.toolChainMessages,
             toolCallHistoryClean,
-            toolExecutor
+            // toolExecutor
         );
         toolChainContent = systemHint;
         responseContent = naturalFlow;

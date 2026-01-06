@@ -70,6 +70,9 @@ export interface ToolExecuteResult {
 
     // 缓存文件路径（原始数据保存位置）
     cacheFile?: string;
+
+    cacheVarResult?: string;
+    cacheVarArgs?: string;
 }
 
 /**

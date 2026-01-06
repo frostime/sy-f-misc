@@ -126,6 +126,15 @@ description: What this skill does
 - **.sspec/skills/sspec-status-guide**
   - WHEN: Use when you're unsure about status meanings or transition rules.
   - HOW: Reference status definitions, allowed transitions, and edge cases.
+
+<!-- Current Skills (Update if necessary) -->
+| Skill | Description | File |
+|-------|-------------|-------|
+| html-page | Develop UI via single HTML page in sy-f-misc | html-page.md |
+| solid-signal-ref | Use `@frostime/solid-signal-ref` with SolidJS | solid-signal-ref.md |
+| sspec-status-guide | Status definitions, transitions, validation, edge cases | sspec-status-guide.md |
+| sspec-workflow | Full sspec workflow, session patterns, file timing, best practices | sspec-workflow.md |
+
 ------
 
 ## File Responsibilities

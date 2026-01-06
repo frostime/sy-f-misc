@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-12-31 01:15:27
+ * @LastEditTime : 2026-01-06 14:03:19
  * @Description  :
  */
 // ============================================================================
@@ -339,7 +339,7 @@ interface ICompletionResult {
         latency: number; // ms
         throughput?: number; // tokens/s
     };
-    tool_calls?: IToolCallResponse[];
+    tool_calls?: IToolCall[];
 }
 
 
