@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-20 01:32:32
  * @FilePath     : /src/func/gpt/types.ts
- * @LastEditTime : 2025-12-31 01:15:27
+ * @LastEditTime : 2026-01-06 14:03:19
  * @Description  :
  */
 // ============================================================================
@@ -173,6 +173,7 @@ interface JSONSchemaProperty {
 
 interface IToolCall {
     id: string;
+    index?: number;
     type: 'function';
     function: {
         name: string;
@@ -212,14 +213,7 @@ type IToolChoice =
 /**
  * 工具调用响应，模型生成的工具调用
  */
-interface IToolCallResponse {
-    id: string;
-    index: number;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string; // JSON 字符串
-    };
+interface IToolCallResponse extends IToolCall {
 }
 
 interface IChatCompleteOption {
@@ -345,7 +339,7 @@ interface ICompletionResult {
         latency: number; // ms
         throughput?: number; // tokens/s
     };
-    tool_calls?: IToolCallResponse[];
+    tool_calls?: IToolCall[];
 }
 
 

@@ -4,7 +4,7 @@
  * @Date         : 2026-01-05 15:29:32
  * @Description  :
  * @FilePath     : /src/func/gpt/tools/vars/index.ts
- * @LastEditTime : 2026-01-05 22:23:00
+ * @LastEditTime : 2026-01-06 14:44:57
  */
 
 import { openIframeDialog } from "@/func/html-pages/core";
@@ -28,7 +28,16 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
                 description: 'List all available variables that store truncated tool outputs or other large content.',
                 parameters: {
                     type: 'object',
-                    properties: {},
+                    properties: {
+                        page: {
+                            type: 'number',
+                            description: 'Optional. Page number to return (1-based). Default is 1.'
+                        },
+                        pageSize: {
+                            type: 'number',
+                            description: 'Optional. Number of items per page. Default is 25.'
+                        }
+                    },
                     required: []
                 }
             }
@@ -37,8 +46,9 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
             permissionLevel: ToolPermissionLevel.PUBLIC,
             requireExecutionApproval: false
         },
-        execute: async () => {
-            const vars = varSystem.listVariables().map(v => ({
+        execute: async (args) => {
+            const { page = 1, pageSize = 25 } = args || {};
+            const all = varSystem.listVariables().map(v => ({
                 name: v.name,
                 type: v.type,
                 length: v.value.length,
@@ -46,17 +56,45 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
                 created: v.created.toISOString(),
                 keep: v.keep || false
             }));
+
+            const total = all.length;
+            const ps = Math.max(1, Math.floor(pageSize));
+            const p = Math.max(1, Math.floor(page));
+            const totalPage = Math.max(1, Math.ceil(total / ps));
+            const start = (p - 1) * ps;
+            const items = all.slice(start, start + ps);
+
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: vars
+                data: {
+                    items,
+                    page: p,
+                    pageSize: ps,
+                    total,
+                    totalPage
+                }
             };
         },
-        formatForLLM(data: Array<any>, _args) {
-            return `Available Variables:\n` + data.map((v: any) =>
+        formatForLLM(data: any, _args) {
+            const items = Array.isArray(data) ? data : (data && data.items) || [];
+            const page = data && !Array.isArray(data) ? data.page : undefined;
+            const totalPage = data && !Array.isArray(data) ? data.totalPage : undefined;
+            const total = data && !Array.isArray(data) ? data.total : undefined;
+
+            let out = `Available Variables:\n` + items.map((v: any) =>
                 `- ${v.name}\n` +
                 `  - Type: ${v.type}; Len: ${v.length}\n` +
                 `  - Desc: ${v.desc || 'N/A'}`
             ).join('\n');
+
+            if (page !== undefined && totalPage !== undefined) {
+                out += `\n\nPage ${page}/${totalPage} (total: ${total}).`;
+                if (page < totalPage) {
+                    out += ` To fetch the next page call ListVars with {"page": ${page + 1}, "pageSize": ${data.pageSize}}.`;
+                }
+            }
+
+            return out;
         },
     };
 
@@ -71,8 +109,16 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
                     properties: {
                         type: {
                             type: 'string',
-                            enum: ['RULE', 'ToolCallCache', 'MessageCache', 'LLMAdd'],
+                            enum: ['RULE', 'ToolCallResult', 'ToolCallArgs'],
                             description: 'Filter variables by type.'
+                        },
+                        page: {
+                            type: 'number',
+                            description: 'Optional. Page number to return (1-based). Default is 1.'
+                        },
+                        pageSize: {
+                            type: 'number',
+                            description: 'Optional. Number of items per page. Default is 25.'
                         }
                     },
                     required: ['type']
@@ -84,26 +130,55 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
             requireExecutionApproval: false
         },
         execute: async (args) => {
-            const { type } = args;
+            const { type, page = 1, pageSize = 25 } = args;
             const filtered = varSystem.searchVariables(v => v.type === type);
-            const result = filtered.map(v => ({
+            const all = filtered.map(v => ({
                 name: v.name,
                 type: v.type,
                 length: v.value.length,
                 desc: v.desc,
                 created: v.created.toISOString()
             }));
+
+            const total = all.length;
+            const ps = Math.max(1, Math.floor(pageSize));
+            const p = Math.max(1, Math.floor(page));
+            const totalPage = Math.max(1, Math.ceil(total / ps));
+            const start = (p - 1) * ps;
+            const items = all.slice(start, start + ps);
+
             return {
                 status: ToolExecuteStatus.SUCCESS,
-                data: result
+                data: {
+                    items,
+                    page: p,
+                    pageSize: ps,
+                    total,
+                    totalPage
+                }
             };
         },
-        formatForLLM(data: Array<any>, args) {
-            if (data.length === 0) {
+        formatForLLM(data: any, args) {
+            const items = Array.isArray(data) ? data : (data && data.items) || [];
+            const page = data && !Array.isArray(data) ? data.page : undefined;
+            const totalPage = data && !Array.isArray(data) ? data.totalPage : undefined;
+            const total = data && !Array.isArray(data) ? data.total : undefined;
+
+            if (items.length === 0) {
                 return `No variables found with type '${args.type}'.`;
             }
-            return `Variables with type '${args.type}':\n` +
-                data.map((v: any) => `- ${v.name} (${v.length} chars): ${v.desc || 'N/A'}`).join('\n');
+
+            let out = `Variables with type '${args.type}':\n` +
+                items.map((v: any) => `- ${v.name} (${v.length} chars): ${v.desc || 'N/A'}`).join('\n');
+
+            if (page !== undefined && totalPage !== undefined) {
+                out += `\n\nPage ${page}/${totalPage} (total: ${total}).`;
+                if (page < totalPage) {
+                    out += ` To fetch the next page call ListVarsByType with {"type": "${args.type}", "page": ${page + 1}, "pageSize": ${data.pageSize}}.`;
+                }
+            }
+
+            return out;
         }
     };
 
@@ -250,11 +325,13 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
         tools: [listVars, listVarsByType, readVar, writeVar],
         rulePrompt: `
 You can use 'ListVars' to see available variables and 'ReadVar' to read their content.
+Both 'ListVars' and 'ListVarsByType' accept optional parameters 'page' and 'pageSize' for pagination (defaults: page=1, pageSize=25).
 When a tool output is truncated, the full content is often saved to a variable.
 Use 'ReadVar' with 'start' and 'length' to read large content in chunks if necessary.
 You can also use 'WriteVar' to create or update variables as needed.
 Use 'ListVarsByType' to filter variables by type.
 
+If there are more pages, the tool response will indicate "Page {page}/{totalPage}" and you can fetch the next page by calling the same tool with {"page": <next>, "pageSize": <same>}.
 If necessary, use this tool group as a simple memory system.
 `
     };

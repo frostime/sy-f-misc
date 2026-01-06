@@ -1,8 +1,10 @@
 @use './HistoryList.module.scss';
 
+// ==================== 变量定义 ====================
 $chat-narrow-container: 600px;
 $chat-very-narrow-container: 400px;
 
+// ==================== 消息项容器 ====================
 .messageItem {
     --chat-hidden-message-max-height: 7.5em;
 
@@ -23,12 +25,12 @@ $chat-very-narrow-container: 400px;
         flex-direction: row;
     }
 
-    // 分隔线替代 margin
+    // 分隔线
     & + & {
         border-top: 1px solid color-mix(in srgb, var(--b3-border-color) 50%, transparent);
     }
 
-    // Add focus styles
+    // 焦点样式
     &:focus {
         outline: none;
     }
@@ -39,66 +41,65 @@ $chat-very-narrow-container: 400px;
         border-radius: var(--radius-md);
     }
 
+    // 响应式
     @container (max-width: #{$chat-narrow-container}) {
         padding: 16px 0;
         gap: 12px;
     }
+}
 
-    .versionIndicator {
-        --horizontal-padding: 0;
-        --vertical-padding: 0;
+// ==================== 指示器组件 ====================
+.versionIndicator {
+    position: absolute;
+    top: 12px;
+    right: 0;
+    z-index: 2;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background-color: var(--b3-theme-surface);
+    border: 1px solid var(--b3-border-color);
+    font-size: 11px;
+    opacity: 0.6;
+    transition: opacity var(--transition-fast);
 
-        position: absolute;
-        top: 12px;
-        right: 0;
-        z-index: 2;
-        cursor: pointer;
-        padding: 4px 8px;
-        border-radius: var(--radius-sm);
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        background-color: var(--b3-theme-surface);
-        border: 1px solid var(--b3-border-color);
-        font-size: 11px;
-        opacity: 0.6;
-        transition: opacity var(--transition-fast);
-
-        &:hover {
-            opacity: 1;
-            background-color: var(--b3-theme-surface-light);
-        }
-
-        svg {
-            width: 12px;
-            height: 12px;
-            fill: var(--b3-theme-on-surface);
-        }
+    &:hover {
+        opacity: 1;
+        background-color: var(--b3-theme-surface-light);
     }
 
-    .pinIndicator {
-        @extend .versionIndicator;
-        right: 60px;
-        color: var(--b3-theme-primary);
-
-        svg {
-            fill: var(--b3-theme-primary);
-        }
-    }
-
-    .legacyBranchIndicator {
-        @extend .versionIndicator;
-        right: 0;
-        top: 50px;
-        color: var(--b3-theme-secondary);
-
-        svg {
-            fill: var(--b3-theme-secondary);
-        }
+    svg {
+        width: 12px;
+        height: 12px;
+        fill: var(--b3-theme-on-surface);
     }
 }
 
-// 头像列
+.pinIndicator {
+    @extend .versionIndicator;
+    right: 60px;
+    color: var(--b3-theme-primary);
+
+    svg {
+        fill: var(--b3-theme-primary);
+    }
+}
+
+.legacyBranchIndicator {
+    @extend .versionIndicator;
+    right: 0;
+    top: 50px;
+    color: var(--b3-theme-secondary);
+
+    svg {
+        fill: var(--b3-theme-secondary);
+    }
+}
+
+// ==================== 头像区域 ====================
 .avatarColumn {
     flex-shrink: 0;
     width: var(--avatar-size);
@@ -113,13 +114,11 @@ $chat-very-narrow-container: 400px;
     justify-content: center;
     overflow: hidden;
 
-    // 用户头像
     &[data-role="user"] {
         background: var(--avatar-user-bg);
         color: white;
     }
 
-    // AI 头像
     &[data-role="assistant"] {
         background: var(--avatar-assistant-bg);
         color: white;
@@ -132,7 +131,7 @@ $chat-very-narrow-container: 400px;
     }
 }
 
-// 内容列
+// ==================== 内容区域 ====================
 .contentColumn {
     flex: 1;
     min-width: 0;
@@ -141,7 +140,6 @@ $chat-very-narrow-container: 400px;
     gap: 8px;
 }
 
-// 消息头部（角色 + 时间）
 .messageHeader {
     display: flex;
     align-items: center;
@@ -159,7 +157,6 @@ $chat-very-narrow-container: 400px;
     }
 }
 
-// 消息正文
 .messageBody {
     display: flex;
     flex-direction: column;
@@ -175,28 +172,6 @@ $chat-very-narrow-container: 400px;
         user-select: text;
         max-width: 100%;
 
-        // 仅代码块保留背景
-        :global(pre) {
-            background: var(--b3-theme-surface);
-            border: 1px solid var(--b3-border-color);
-            border-radius: var(--radius-md);
-            margin: 16px 0;
-            position: relative;
-            overflow: hidden;
-
-            :global(code) {
-                display: block;
-                padding: 16px;
-                overflow-x: auto;
-                font-size: 0.9em;
-                line-height: 1.45;
-                background: transparent;
-                border: none;
-                white-space: pre;
-                word-wrap: normal;
-            }
-        }
-
         &.hidden {
             opacity: 0.5;
             border-left: 3px solid var(--b3-theme-on-surface-light);
@@ -211,6 +186,7 @@ $chat-very-narrow-container: 400px;
     }
 }
 
+// ==================== 推理过程 ====================
 .reasoningDetails {
     border-radius: var(--radius-md);
     border: 1px solid var(--b3-border-color);
@@ -241,7 +217,8 @@ $chat-very-narrow-container: 400px;
     }
 }
 
-.toolbar {
+// ==================== 消息项工具栏 (Message Item Toolbar) ====================
+.msgItemToolbar {
     opacity: 0;
     transition: opacity var(--transition-fast);
     display: flex;
@@ -253,8 +230,9 @@ $chat-very-narrow-container: 400px;
         opacity: 1;
     }
 
+    // 响应式隐藏部分信息
     @container (max-width: #{$chat-narrow-container}) {
-        .toolbar-text {
+        .msgItemToolbarText {
             >span {
                 &[data-label="timestamp"],
                 &[data-label="msgLength"],
@@ -267,40 +245,40 @@ $chat-very-narrow-container: 400px;
     }
 
     @container (max-width: #{$chat-very-narrow-container}) {
-        .toolbar-text {
+        .msgItemToolbarText {
             >span {
                 display: none;
             }
         }
     }
+}
 
-    .toolbar-text {
-        display: flex;
-        gap: 8px;
-        font-size: 11px;
-        color: var(--b3-theme-on-surface-light);
-        flex-wrap: wrap;
+.msgItemToolbarText {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--b3-theme-on-surface-light);
+    flex-wrap: wrap;
 
-        span {
-            &::after {
-                content: '•';
-                margin-left: 8px;
-                opacity: 0.5;
-            }
-
-            &:last-child::after {
-                content: '';
-            }
+    span {
+        &::after {
+            content: '•';
+            margin-left: 8px;
+            opacity: 0.5;
         }
-    }
 
-    .toolbar-buttons {
-        display: flex;
-        gap: 4px;
+        &:last-child::after {
+            content: '';
+        }
     }
 }
 
-.toolbarButton {
+.msgItemToolbarButtons {
+    display: flex;
+    gap: 4px;
+}
+
+.msgItemToolbarButton {
     width: 28px;
     height: 28px;
     padding: 6px;
@@ -320,12 +298,13 @@ $chat-very-narrow-container: 400px;
     }
 
     svg {
-        width: 16px;
-        height: 16px;
+        width: 14px;
+        height: 14px;
         fill: currentColor;
     }
 }
 
+// ==================== 多选框 ====================
 .checkbox {
     position: absolute;
     left: 0.1em;
@@ -345,43 +324,143 @@ $chat-very-narrow-container: 400px;
     }
 }
 
-.code-toolbar {
+// ==================== 代码块操作栏 (Code Action Bar) ====================
+.codeActionBar {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 10;
     display: flex;
     align-items: center;
-    padding: 2px 12px;
-    gap: 8px;
-    border-bottom: 1px solid var(--b3-border-color);
-    background-color: var(--b3-theme-surface);
-    line-height: 1.0;
+    gap: 4px;
+    padding: 2px 4px;
+    background: transparent;
+    backdrop-filter: blur(8px);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transform: translateY(-2px);
+    transition: all 0.2s ease;
+    pointer-events: none;
 }
 
-.toolbarButton {
-    padding: 2px !important;
-    opacity: 0.6;
+.codeActionLangBadge {
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--b3-tooltips-color);
+    border-radius: 4px;
+    font-family: var(--b3-font-family-code, 'Courier New', monospace);
+    user-select: none;
+    white-space: nowrap;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.codeActionButtons {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.codeActionButton {
+    width: 20px;
+    height: 20px;
+    padding: 2px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    opacity: 0.6;
+    transition: all 0.15s ease;
+    color: var(--b3-tooltips-color);
 
     &:hover {
         opacity: 1;
+        background: var(--b3-tooltips-background);
+        transform: scale(1.1);
+    }
+
+    &:active {
+        transform: scale(0.95);
     }
 
     svg {
         width: 14px;
         height: 14px;
-        margin: 0px;
+        fill: currentColor;
+        pointer-events: none;
     }
 }
 
+// ==================== 代码块样式 ====================
+.messageItem pre {
+    position: relative;
+    margin: 16px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--b3-theme-surface, #fafafa);
+    border: 1px solid var(--b3-border-color, #e0e0e0);
+
+    // 悬停时显示代码操作栏
+    &:hover .codeActionBar {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+        background: var(--b3-tooltips-background);
+        color: var(--b3-tooltips-color);
+    }
+
+    code {
+        display: block;
+        padding: 12px;
+        overflow-x: auto;
+        font-size: 0.9em;
+        line-height: 1.5;
+        background: transparent;
+        border: none;
+        white-space: pre;
+        word-wrap: normal;
+    }
+
+    // 优化滚动条样式
+    &::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: var(--b3-theme-surface, #f5f5f5);
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: var(--b3-scroll-color, #bbb);
+        border-radius: 4px;
+
+        &:hover {
+            background: var(--b3-theme-on-surface-light, #999);
+        }
+    }
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--b3-scroll-color, #bbb) var(--b3-theme-surface, #f5f5f5);
+}
+
+// ==================== 数学公式 ====================
 .katex-center-display {
     display: flex;
     justify-content: center;
     margin: 1em 0;
 }
 
+// ==================== 流式文本 ====================
 .streamingText {
-    // font-family: var(--b3-font-family-code);
-    // font-size: 90%;
     padding: 8px 0;
     margin-top: 8px;
     border-top: 1px dashed var(--b3-border-color);
@@ -390,11 +469,7 @@ $chat-very-narrow-container: 400px;
     opacity: 0.85;
 }
 
-.pre-scroll-container {
-    overflow-x: auto;
-    max-width: 100%;
-}
-
+// ==================== 高亮动画 ====================
 .highlight {
     animation: highlight 2s ease-out;
 }
@@ -411,7 +486,7 @@ $chat-very-narrow-container: 400px;
     }
 }
 
-// Checkpoint-style branch indicator
+// ==================== 世界线分支指示器 ====================
 .worldlineBranch {
     display: flex;
     align-items: center;
@@ -477,3 +552,15 @@ $chat-very-narrow-container: 400px;
         }
     }
 }
+
+// ==================== 响应式优化 ====================
+@media (max-width: 480px) {
+    .codeActionLangBadge {
+        display: none;
+    }
+
+    .codeActionBar {
+        padding: 2px;
+    }
+}
+

@@ -8,138 +8,237 @@
 import { complete } from '../openai/complete';
 import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '.';
 
+/**
+ * 提取消息内容文本（处理 string | array 类型）
+ */
+function extractContentText(content: string | any[] | undefined | null): string {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+    if (Array.isArray(content)) {
+        // 处理 content 数组格式（如包含 text 和 image_url）
+        return content
+            .filter(item => item.type === 'text')
+            .map(item => item.text)
+            .join('\n');
+    }
+    return '';
+}
 
-namespace DataCompressor {
-
-    export namespace Text {
-        export function truncate(text: string, maxLength: number = 50): string {
-            if (!text || text.length <= maxLength) return text;
-            return text.substring(0, maxLength) + '...[trunc]';
-        }
-
-        export function truncateMiddle(text: string, maxLength: number = 50): string {
-            if (!text || text.length <= maxLength) return text;
-            const prefixLength = Math.floor(maxLength / 2);
-            const suffixLength = maxLength - prefixLength;
-            return text.substring(0, prefixLength) + '...[trunc]...' + text.substring(text.length - suffixLength);
-        }
-
-        export function truncateStart(text: string, maxLength: number = 50): string {
-            if (!text || text.length <= maxLength) return text;
-            return '...[trunc]' + text.substring(text.length - maxLength);
-        }
+/**
+ * 压缩 JSON 对象中的字符串值
+ * 递归遍历，将字符串类型的 leaf 节点截断到 maxLength
+ * @param obj 要压缩的对象
+ * @param maxLength 字符串最大长度
+ * @param excludeKeys 排除的键名（不截断）
+ */
+function truncateJson(
+    obj: any,
+    maxLength: number = 50,
+    excludeKeys: Set<string> = new Set(['id', 'path'])
+): any {
+    if (obj === null || obj === undefined) {
+        return obj;
     }
 
-
-    export function compressArgs(args: Record<string, any>): string {
-        if (!args || typeof args !== 'object') {
-            return '';
+    // 处理字符串
+    if (typeof obj === 'string') {
+        if (obj.length <= maxLength) {
+            return obj;
         }
+        return obj.substring(0, maxLength) + '...';
+    }
 
-        const keys = Object.keys(args);
-        if (keys.length === 0) return '';
+    // 处理数组
+    if (Array.isArray(obj)) {
+        return obj.map(item => truncateJson(item, maxLength, excludeKeys));
+    }
 
-        return keys.map(k => {
-            const value = args[k];
-            if (typeof value === 'string') {
-                return `${k}="${Text.truncate(value, 50)}"`;
-            } else if (typeof value === 'number' || typeof value === 'boolean') {
-                return `${k}=${value}`;
-            } else if (Array.isArray(value)) {
-                return `${k}[${value.length}]`;
+    // 处理对象
+    if (typeof obj === 'object') {
+        const result: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+            if (typeof value === 'string' && !excludeKeys.has(key)) {
+                // 字符串类型且不在排除列表中：截断
+                result[key] = value.length > maxLength
+                    ? value.substring(0, maxLength) + '...'
+                    : value;
             } else {
-                return `${k}=${typeof value}`;
+                // 递归处理
+                result[key] = truncateJson(value, maxLength, excludeKeys);
             }
-        }).join(', ');
+        }
+        return result;
     }
 
-    export function compressResult(result: ToolExecuteResult): string {
+    // 其他类型（数字、布尔等）直接返回
+    return obj;
+}
 
-        if (!result.data) return '';
+// ============================================================================
+// MessageFlowFormatter - 消息流转换为自然对话格式
+// ============================================================================
+namespace MessageFlowFormatter {
 
-        // 如果结果很短，直接返回
-        const dataStr = JSON.stringify(result.data);
-        if (dataStr.length <= 50) {
-            return dataStr;
+    /**
+     * 格式化单个工具调用为纯 Markdown 块
+     */
+    function formatToolCallBlock(
+        toolCall: IToolCallResponse,
+        toolResult: ToolExecuteResult,
+        // toolExecutor: ToolExecutor
+    ): string {
+        const toolName = toolCall.function.name;
+
+        // 安全解析参数
+        let args: Record<string, any>;
+        try {
+            args = JSON.parse(toolCall.function.arguments);
+        } catch {
+            args = { _raw: toolCall.function.arguments };
         }
 
-        // 智能压缩：根据数据结构特征进行针对性处理
-        return compressDataByType(result.data);
+        // 压缩参数（截断长字符串）
+        const compressedArgs = truncateJson(args, 50);
+
+        // 构建工具调用块
+        const lines: string[] = [];
+
+        // 工具调用头部
+        lines.push(`**[System Tool Call Log]**: ${toolName}`);
+        lines.push('```accesslog');
+        lines.push(`Args: ${JSON.stringify(compressedArgs)}`);
+
+        // 结果状态
+        let resultStatus = '';
+        if (toolResult.status === ToolExecuteStatus.SUCCESS) {
+            resultStatus = '✓ 执行成功';
+
+            // 添加预览
+            if (toolResult.data) {
+                const text = toolResult.data as string;
+                const preview = text.length > 200
+                    ? text.substring(0, 200) + '...'
+                    : text;
+
+                // 清理预览（移除注释）
+                const cleanPreview = preview
+                    .replace(/<!--.*?-->/gs, '')
+                    .trim();
+
+                if (cleanPreview) {
+                    lines.push(`Result: ${resultStatus}`);
+                    lines.push('');
+                    lines.push(cleanPreview);
+                    lines.push('```');
+                    lines.push('');
+                    return lines.join('\n');
+                }
+            }
+        } else {
+            // 失败或拒绝
+            const statusIcon = toolResult.status === ToolExecuteStatus.ERROR ? '✗' : '⚠️';
+            const statusText = toolResult.status === ToolExecuteStatus.ERROR ? '执行失败' : '执行被拒绝';
+            const errorMsg = toolResult.error || toolResult.rejectReason || '未知错误';
+            resultStatus = `${statusIcon} ${statusText}: ${errorMsg}`;
+        }
+
+        lines.push(`Result: ${resultStatus}`);
+        lines.push('```');
+        lines.push('');
+
+        return lines.join('\n');
     }
 
-    function compressDataByType(data: any): string {
-        // 处理数组类型
-        if (Array.isArray(data)) {
-            if (data.length === 0) {
-                return 'Empty Array';
+    /**
+     * 将消息数组转换为自然的对话流
+     */
+    export function convertMessagesToNaturalFlow(
+        messages: IMessage[],
+        toolCallHistory: ToolChainResult['toolCallHistory'],
+        // toolExecutor: ToolExecutor
+    ): string {
+        const parts: string[] = [];
+
+        // 建立 tool_call_id → 结果的映射
+        const toolResultMap = new Map<string, ToolChainResult['toolCallHistory'][number]>();
+        toolCallHistory.forEach(call => {
+            toolResultMap.set(call.callId, call);
+        });
+
+        for (const msg of messages) {
+            if (msg.role === 'assistant') {
+                // Assistant 的思考内容
+                const content = extractContentText(msg.content);
+                if (content && content.trim()) {
+                    parts.push(content.trim());
+                    parts.push('');
+                }
+
+                // 格式化工具调用
+                if (msg.tool_calls && msg.tool_calls.length > 0) {
+                    for (const toolCall of msg.tool_calls) {
+                        const historyEntry = toolResultMap.get(toolCall.id);
+                        if (historyEntry) {
+                            const formatted = formatToolCallBlock(
+                                toolCall,
+                                historyEntry.result,
+                                // toolExecutor
+                            );
+                            parts.push(formatted);
+                        }
+                    }
+                }
             }
-            const firstElem = data[0];
-            if (typeof firstElem === 'object') {
-                return `Array[${data.length}]: Object{${Object.keys(firstElem).join(',')}}`;
-            } else {
-                return `Array[${data.length}]: ${typeof firstElem}`;
+            // tool 消息已在 assistant.tool_calls 中处理，跳过
+        }
+
+        return parts.join('\n').trim();
+    }
+
+    /**
+     * 生成系统提示（包含工具调用记录汇总）
+     */
+    export function generateSystemHint(toolCallHistory?: ToolChainResult['toolCallHistory']): string {
+        const lines: string[] = [];
+
+        lines.push('[System Tool Call Log]: 为了压缩 Token 占用, System 隐藏了中间的 Tool Message，但保留了完整 Tool Call 记录日志。工具结果已缓存在变量（VarID），如需完整内容可使用 ReadVar 或 $VAR_REF{{}} 引用。Agent 可使用 ListVars 工具查看工作区中缓存的工具调用记录。注：变量并非永久保存，可能会被系统清理。');
+        lines.push('');
+
+        // 添加工具调用汇总
+        if (toolCallHistory && toolCallHistory.length > 0) {
+            lines.push('[System Tool Call Log]: 工具调用记录如下');
+            for (const call of toolCallHistory) {
+                const { toolName, result } = call;
+                const argsRef = result.cacheVarArgs ? `参数缓存: $VAR_REF{{${result.cacheVarArgs}}}` : '';
+                const resultRef = result.cacheVarResult ? `结果缓存: $VAR_REF{{${result.cacheVarResult}}}` : '';
+                const refs = [argsRef, resultRef].filter(Boolean).join('; ');
+                lines.push(`- ${toolName}${refs ? `, ${refs}` : ''}`);
             }
+            lines.push('');
         }
 
-        // 处理字符串类型
-        if (typeof data === 'string') {
-            const preview = Text.truncate(data, 40);
-            return `String[${data.length}]: ${preview}`;
-        }
+        lines.push('---');
+        lines.push('');
 
-        // 处理对象类型
-        if (typeof data === 'object' && data !== null) {
-            const keys = Object.keys(data);
-            return `Object{${keys.join(',')}}`;
-        }
-
-        return `${typeof data}`;
+        return lines.join('\n');
     }
 }
 
+// ============================================================================
+// 辅助函数
+// ============================================================================
 
-const isEmptyResponse = (content: string): boolean => {
+/**
+ * 检查响应是否为空
+ */
+const isEmptyResponse = (content: string | undefined | null): boolean => {
     return !content || content.trim().length === 0;
 };
 
-/**
- * 创建工具调用的智能摘要
- * @param call 工具调用历史项
- * @param toolExecutor 工具执行器，用于获取工具定义
- * @returns 压缩后的摘要字符串
- */
-const createToolSummary = (call: ToolChainResult['toolCallHistory'][number], toolExecutor: ToolExecutor): string => {
-    const { toolName, args, result } = call;
-    const status = result.status === ToolExecuteStatus.SUCCESS ? 'OK' :
-        result.status === ToolExecuteStatus.ERROR ? 'ERR' : 'REJ';
 
-    const tool = toolExecutor.getTool(toolName);
-
-    let compressedArgs = tool?.compressArgs ?
-        tool.compressArgs(args) :
-        DataCompressor.compressArgs(args);
-    compressedArgs = compressedArgs.replace('\\n', '\\\\n'); // 转义换行，避免日志换行混乱
-
-    let resultPart = '';
-    if (result.status !== ToolExecuteStatus.SUCCESS) {
-        if (result.error) {
-            resultPart = `e="${DataCompressor.Text.truncate(result.error)}"`;
-        }
-        if (result.rejectReason) {
-            resultPart = `rejected="${DataCompressor.Text.truncate(result.rejectReason)}"`;
-        }
-    } else {
-        const compressedResult = tool?.compressResult ?
-            tool.compressResult(result) :
-            DataCompressor.compressResult(result);
-        resultPart = `r=${compressedResult}`
-    }
-    resultPart = resultPart.replace('\\n', '\\\\n'); // 转义换行，避免日志换行混乱
-
-    return `${toolName}(${compressedArgs}, s=${status}, ${resultPart})`;
-};
-
-
+// ============================================================================
+// 类型定义
+// ============================================================================
 
 /**
  * 工具调用链配置选项
@@ -194,8 +293,11 @@ export interface ToolChainOptions {
 export interface ToolChainResult {
     // 最终响应内容
     responseContent: string;
+
+    // 工具链内容（新版本为空字符串，保持向后兼容）
     toolChainContent: string;
 
+    // Token 使用统计
     usage: ICompletionResult['usage'];
 
     // 消息分类
@@ -242,8 +344,13 @@ export interface ToolChainResult {
     };
 }
 
+// ============================================================================
+// 主函数：执行工具调用链
+// ============================================================================
+
 /**
  * 执行工具调用链
+ * @param toolExecutor 工具执行器
  * @param llmResponseWithToolCalls 带有工具调用的 LLM 响应
  * @param options 工具调用链配置
  * @returns 工具调用链执行结果
@@ -259,12 +366,12 @@ export async function executeToolChain(
         roundIndex: 0,
         callCount: 0,
         contextMessages: options.contextMessages || [],
-        toolChainMessages: [],
+        toolChainMessages: [] as IMessage[],
         allMessages: [...(options.contextMessages || [])],
         toolCallHistory: [] as ToolChainResult['toolCallHistory'],
         startTime: Date.now(),
         status: 'running' as 'running' | 'completed' | 'aborted' | 'error' | 'timeout',
-        usage: llmResponseWithToolCalls.usage // 添加 usage 属性以跟踪令牌使用情况
+        usage: llmResponseWithToolCalls.usage
     };
 
     // 设置默认值
@@ -273,12 +380,11 @@ export async function executeToolChain(
     const checkToolResults = options.checkToolResults ?? false;
 
     // 添加初始响应
-    const initialAssistantMessage = {
-        role: 'assistant' as const,
+    const initialAssistantMessage: IMessage = {
+        role: 'assistant',
         content: llmResponseWithToolCalls.content,
         reasoning_content: llmResponseWithToolCalls.reasoning_content,
-        tool_calls: llmResponseWithToolCalls.tool_calls,
-        usage: llmResponseWithToolCalls.usage
+        tool_calls: llmResponseWithToolCalls.tool_calls
     };
     state.toolChainMessages.push(initialAssistantMessage);
     state.allMessages.push(initialAssistantMessage);
@@ -288,52 +394,49 @@ export async function executeToolChain(
     let stopDueToLimit = false;
 
     try {
+        // ====================================================================
         // 工具调用轮次循环
+        // ====================================================================
         while (
             currentResponse.tool_calls?.length > 0 &&
             state.roundIndex < maxRounds &&
             state.status === 'running'
         ) {
-            // 增加轮次
             state.roundIndex++;
-
-            // 本轮工具调用结果
-            const roundResults = [];
+            const roundResults: ToolChainResult['toolCallHistory'] = [];
 
             // 处理所有工具调用
             for (const toolCall of currentResponse.tool_calls) {
-                // 增加调用次数
                 state.callCount++;
 
                 // 解析参数
-                let args;
+                let args: Record<string, any>;
                 try {
                     args = JSON.parse(toolCall.function.arguments);
                 } catch (error) {
-                    console.warn(`Tool Call 调用参数无法正常解析: ${toolCall.function.arguments}`);
+                    console.warn(`Tool call arguments parse failed: ${toolCall.function.arguments}`);
                     args = {};
                     callbacks.onError?.(error, 'parse_arguments');
-                    const toolResultMessage = {
-                        role: 'tool' as const,
-                        content: JSON.stringify({ error: `Failed to parse arguments string as json: ${toolCall.function.arguments}` }),
+
+                    const toolResultMessage: IMessage = {
+                        role: 'tool',
+                        content: JSON.stringify({
+                            error: `Failed to parse arguments as JSON: ${toolCall.function.arguments}`
+                        }),
                         tool_call_id: toolCall.id
                     };
 
-                    // 添加工具结果消息
                     state.toolChainMessages.push(toolResultMessage);
                     state.allMessages.push(toolResultMessage);
+                    continue;
                 }
 
-                // 记录开始时间
+                // 执行工具
                 const startTime = Date.now();
-
-                // 通知工具调用开始
                 callbacks.onToolCallStart?.(toolCall.function.name, args, toolCall.id);
 
-                // 执行工具
                 let toolResult: ToolExecuteResult;
                 try {
-                    // 执行工具（集成了执行前审批检查和结果审批检查）
                     toolResult = await toolExecutor.execute(
                         toolCall.function.name,
                         args,
@@ -350,14 +453,11 @@ export async function executeToolChain(
                     callbacks.onError?.(error, 'tool_execution');
                 }
 
-                // 记录结束时间
                 const endTime = Date.now();
-
-                // 通知工具调用完成
                 callbacks.onToolCallComplete?.(toolResult, toolCall.id);
 
-                // 记录工具调用历史
-                const historyEntry = {
+                // 记录历史
+                const historyEntry: ToolChainResult['toolCallHistory'][number] = {
                     callId: toolCall.id,
                     toolName: toolCall.function.name,
                     args,
@@ -367,22 +467,21 @@ export async function executeToolChain(
                     roundIndex: state.roundIndex
                 };
 
-                // 如果结果被拒绝，更新历史记录
                 if (toolResult.status === ToolExecuteStatus.RESULT_REJECTED) {
-                    historyEntry['resultRejected'] = true;
-                    historyEntry['resultRejectReason'] = toolResult.rejectReason;
+                    historyEntry.resultRejected = true;
+                    historyEntry.resultRejectReason = toolResult.rejectReason;
                 }
 
                 state.toolCallHistory.push(historyEntry);
                 roundResults.push(historyEntry);
 
-                // 如果工具执行被拒绝或结果被拒绝，跳过后续处理
-                if (toolResult.status === ToolExecuteStatus.EXECUTION_REJECTED ||
-                    toolResult.status === ToolExecuteStatus.RESULT_REJECTED) {
-
-                    // 添加拒绝消息
-                    const rejectionMessage = {
-                        role: 'tool' as const,
+                // 处理拒绝情况
+                if (
+                    toolResult.status === ToolExecuteStatus.EXECUTION_REJECTED ||
+                    toolResult.status === ToolExecuteStatus.RESULT_REJECTED
+                ) {
+                    const rejectionMessage: IMessage = {
+                        role: 'tool',
                         content: JSON.stringify({
                             status: 'rejected',
                             message: toolResult.rejectReason || 'Tool execution or result rejected'
@@ -392,32 +491,22 @@ export async function executeToolChain(
 
                     state.toolChainMessages.push(rejectionMessage);
                     state.allMessages.push(rejectionMessage);
-
                     continue;
                 }
 
                 // 构建工具结果消息
-                let toolResultContent: string;
-
-                if (toolResult.status === ToolExecuteStatus.SUCCESS) {
-                    // 直接使用 executor 已经处理好的 finalText
-                    // executor.execute 已经完成了：缓存 + 格式化 + 截断 + hints
-                    toolResultContent = toolResult.finalText ?? JSON.stringify(toolResult.data);
-                } else {
-                    // 错误情况：使用 executor 生成的 finalText 或 fallback
-                    toolResultContent = toolResult.finalText ?? JSON.stringify({
+                const toolResultContent = toolResult.status === ToolExecuteStatus.SUCCESS
+                    ? (toolResult.finalText ?? JSON.stringify(toolResult.data))
+                    : (toolResult.finalText ?? JSON.stringify({
                         error: toolResult.error || 'Tool execution failed'
-                    });
-                }
+                    }));
 
-                // 创建工具结果消息
-                const toolResultMessage = {
-                    role: 'tool' as const,
+                const toolResultMessage: IMessage = {
+                    role: 'tool',
                     content: toolResultContent,
                     tool_call_id: toolCall.id
                 };
 
-                // 添加工具结果消息
                 state.toolChainMessages.push(toolResultMessage);
                 state.allMessages.push(toolResultMessage);
             }
@@ -428,18 +517,15 @@ export async function executeToolChain(
                 break;
             }
 
-            // 准备发送给 LLM 的消息
+            // 准备发送给 LLM
             let messagesToSend = [...state.allMessages];
-
-            // 允许修改发送给 LLM 的消息
             const modifiedMessages = callbacks.onBeforeSendToLLM?.(messagesToSend);
             if (modifiedMessages) {
                 messagesToSend = modifiedMessages;
             }
 
-            // 发送更新后的消息给 OpenAI
+            // 调用 LLM
             try {
-                // TODO 轮次快结束的时候提醒，防止最后一轮生成无用的工具调用
                 const response = await complete(messagesToSend, {
                     model: options.model,
                     systemPrompt: options.systemPrompt,
@@ -449,22 +535,16 @@ export async function executeToolChain(
                     option: options.chatOption
                 });
 
-                // 更新当前响应
                 currentResponse = response;
-
-                // 通知 LLM 响应完成
                 callbacks.onLLMResponseComplete?.(response);
 
-                // 创建 LLM 响应消息
-                const llmResponseMessage = {
-                    role: 'assistant' as const,
+                const llmResponseMessage: IMessage = {
+                    role: 'assistant',
                     content: response.content,
                     reasoning_content: response.reasoning_content,
-                    tool_calls: response.tool_calls,
-                    usage: response.usage
+                    tool_calls: response.tool_calls
                 };
 
-                // 添加 LLM 响应到消息历史
                 state.toolChainMessages.push(llmResponseMessage);
                 state.allMessages.push(llmResponseMessage);
 
@@ -479,10 +559,8 @@ export async function executeToolChain(
                     }
                 }
 
-                // 将 LLM usage 附加到本轮的工具调用历史中
+                // 记录 LLM usage 到本轮工具调用
                 if (response.usage && roundResults.length > 0) {
-                    // 将 usage 平均分配给本轮的所有工具调用
-                    // 或者只记录在第一个工具调用上
                     roundResults.forEach(entry => {
                         const historyIndex = state.toolCallHistory.findIndex(h => h.callId === entry.callId);
                         if (historyIndex !== -1) {
@@ -497,12 +575,12 @@ export async function executeToolChain(
             }
         }
 
-        // 检查是否需要生成最终回复
-        // 情况1: 因限制而中止（还有未执行的 tool_calls）
-        // 情况2: 工具调用完成但 LLM 没有给出文字回复
+        // ====================================================================
+        // 处理结束：检查是否需要生成最终回复
+        // ====================================================================
         stopDueToLimit = state.status === 'running' && (
-            currentResponse.tool_calls?.length > 0 ||  // 还有未执行的工具调用
-            isEmptyResponse(currentResponse.content)    // 或者没有文字回复
+            currentResponse.tool_calls?.length > 0 ||
+            isEmptyResponse(currentResponse.content)
         );
 
         if (stopDueToLimit) {
@@ -511,13 +589,12 @@ export async function executeToolChain(
                 isContentEmpty: isEmptyResponse(currentResponse.content),
                 reason: state.roundIndex >= maxRounds ? 'max_rounds_reached' : 'empty_response'
             });
-            console.debug(currentResponse);
 
-            // 处理未完成的工具调用（添加占位符以保持消息序列完整性）
+            // 为未执行的工具调用添加占位符
             if (currentResponse.tool_calls?.length > 0) {
                 for (const toolCall of currentResponse.tool_calls) {
-                    const placeholderMessage = {
-                        role: 'tool' as const,
+                    const placeholderMessage: IMessage = {
+                        role: 'tool',
                         content: JSON.stringify({
                             status: 'incomplete',
                             message: 'Tool chain execution stopped due to max rounds limit',
@@ -531,33 +608,23 @@ export async function executeToolChain(
                 }
             }
 
-            // 构建适当的提示消息
-            let promptContent: string;
-            if (currentResponse.tool_calls?.length > 0) {
-                // 因限制而中止的情况
-                promptContent = `[SYSTEM] Tool chain execution stopped: reached maximum rounds (${maxRounds}).
+            // 构建提示
+            const promptContent = currentResponse.tool_calls?.length > 0
+                ? `[SYSTEM] Tool chain execution stopped: reached maximum rounds (${maxRounds}).
 
 Based on the information gathered so far, please provide a response to the user that:
 1. Acknowledges any incomplete investigations due to the limit
 2. Summarizes what HAS been accomplished/discovered
 3. Provides useful insights based on available information
-4. If appropriate, suggests what additional information could not be gathered
+4. If appropriate, suggests what additional information could not be gathered, how could subsequent agent handovers address it, or what next steps the user might take.
 
-Provide a complete, helpful response even if some planned tool calls could not be executed.
+Provide a complete, helpful response even if some planned tool calls could not be executed.`
+                : '[SYSTEM] Tool calls completed. Please provide a final response to the user based on the tool results.';
 
-NOTE: Since the tool integration is not yet complete, your response will inevitably be incomplete. Please acknowledge this limitation instead of pretending everything is working normally.
-`;
-            } else {
-                // 只是没有文字回复的情况
-                promptContent = '[SYSTEM] Tool calls completed. Please provide a final response to the user based on the tool results.';
-            }
-
-            const followUpMessage = {
-                role: 'user' as const,
+            state.allMessages.push({
+                role: 'user',
                 content: promptContent
-            };
-
-            state.allMessages.push(followUpMessage);
+            });
 
             try {
                 const followUpResponse = await complete(state.allMessages, {
@@ -572,18 +639,19 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
                 currentResponse = followUpResponse;
                 callbacks.onLLMResponseComplete?.(followUpResponse);
 
-                const finalAssistantMessage = {
-                    role: 'assistant' as const,
+                state.toolChainMessages.push({
+                    role: 'assistant',
                     content: followUpResponse.content,
-                    reasoning_content: followUpResponse.reasoning_content,
-                    // 不保留新的 tool_calls（避免再次触发工具调用）
-                    usage: followUpResponse.usage
-                };
+                    reasoning_content: followUpResponse.reasoning_content
+                });
 
-                state.toolChainMessages.push(finalAssistantMessage);
-                state.allMessages.push(finalAssistantMessage);
+                state.allMessages.push({
+                    role: 'assistant',
+                    content: followUpResponse.content,
+                    reasoning_content: followUpResponse.reasoning_content
+                });
 
-                // 累积 token 使用量
+                // 累积 token
                 if (followUpResponse.usage) {
                     if (!state.usage) {
                         state.usage = { ...followUpResponse.usage };
@@ -596,7 +664,6 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
             } catch (error) {
                 console.error('Failed to generate final response:', error);
                 callbacks.onError?.(error, 'final_response');
-                // 即使失败也继续，使用现有的响应
             }
         }
 
@@ -609,196 +676,63 @@ NOTE: Since the tool integration is not yet complete, your response will inevita
         callbacks.onError?.(error, 'chain_execution');
     }
 
-    // ---------- 生成工具调用总结 ----------
-    // 只在工具调用足够复杂时生成总结（避免简单调用的额外开销）
-    let summaryContent = '';
-    const shouldGenerateSummary =
-        state.toolCallHistory.length >= 3 || state.roundIndex >= 3;
-
-    if (shouldGenerateSummary) {
-        try {
-            // 检测是否有失败的工具调用
-            // const hasFailures = state.toolCallHistory.some(
-            //     call => call.result.status !== ToolExecuteStatus.SUCCESS
-            // );
-
-            // 根据成功/失败情况使用不同的 prompt
-            let prompt = `[system] 工具调用链完成，请你生成工具使用经验总结。
-
-## 背景说明 ##
-
-system 后续会删除刚刚的工具调用记录以节省 token，并创建一份简报:
-
-\`\`\`
-<toolcall-history-log>
-Summary:
-{{经验记录}}  <-- 由 Assistant/助手 生成
-
-Trace:
-{{工具调用历史}}  <-- System 自动生成
-
-</toolcall-history-log>
-[system warn]: <toolcall-history-log> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
-
-以下是给User的回答:
----
-{{用户呈现的正式回答}}  <-- User 只能看到这些
-\`\`\`
-${stopDueToLimit ? `
-[IMPORTANT] ⚠️ 本次工具调用链因达到最大轮次限制 (${maxRounds}) 而提前终止，**调研未完全完成**。
-` : ''}
-**你现在的任务**: 生成{{经验记录}}部分，关注工具调用应用在任务上的经验总结。
-
-
-### {{经验记录}}需关注 ###
--  **总结**：调用逻辑是怎么设计的
--  **工具失败经验**: 哪些数据源/网站/参数设置无效或有问题？（如"知乎反爬严重，websearch无法获取内容"）
--  **调用策略**: 什么样的工具组合或调用顺序更高效？（如"先listnotes确认ID，再get_note获取内容"）
--  **参数技巧**（如未知目录使用 treeList 可以设置 depth 参数查看嵌套结构）
--  **失败模式**: 工具返回错误或空结果的典型原因？（如"tavily检索失败可能是关键词过于具体"）
--  **有用的技巧**: 本次发现了什么操作，下次可直接学习，避免绕弯路${stopDueToLimit ? `
--  **调研状态**: 因限制提前终止，哪些调研未完成？建议的后续策略？` : ''}
-- etc. (注：请根据实际调用情况调整，不必须也不局限于示例)
-
-### 要求 ###
-- [Vital] 纯粹：只生成 {{经验记录}} 的内容，**不允许包含** <toolcall-history-log> 等结构标签，这不是你的任务
-- [Vital] 只负责tool call的技术细节，不要重复{{用户呈现的正式回答}}的信息，也不用重复列举 {{工具调用历史}}
-- [Vital] 凝练: 生成的经验通常 500 字内，最多700字；高信息密度信噪比
-- [Important] 记录可复用的操作经验（下次遇到类似工具使用场景时有用）
-- [Important] 无废话：1) 如果工具调用非常顺利无特殊经验，简短说明即可; 2) 不用重复记录之前已经记录过的经验信息${stopDueToLimit ? `
-- [Important] 调研中止情况：说明哪些调研未完成（基于最后未执行的 tool_calls），建议后续如何继续` : ''}
-
-好的总结 vs 坏的总结:
-✅ "WebPage获取遇到知乎链接时建议跳过（反爬严重）；XX 目录下的 README 前 200 行都是废话，可以跳过不看" -> 对Assistant调用工具的建议
-❌ "经过调研后发现原型学习天然适合few-shot学习和跨域问题" -> 对User有用，但是对调用工具没用
-${stopDueToLimit ? `
-格式参考（因调研中止时）：
-"""
-#### 工具使用经验
-[调用策略和技巧总结]
-
-#### 调研状态
-⚠️ 因达到限制而提前终止。已完成 X 项调研，未完成：[具体说明]
-建议后续：[具体建议]
-"""` : ''}`;
-
-            // 清理消息：移除可能导致 API 错误的字段
-            const cleanedMessages = state.allMessages.map(msg => {
-                const cleaned = { ...msg };
-                // 移除空的 tool_calls 数组（OpenAI API 不接受空数组）
-                // @ts-ignore
-                if (cleaned.tool_calls && Array.isArray(cleaned.tool_calls) && cleaned.tool_calls.length === 0) {
-                    // @ts-ignore
-                    delete cleaned.tool_calls;
-                }
-                // 移除 usage 字段（不是标准的 message 字段）
-                if ('usage' in cleaned) {
-                    delete cleaned.usage;
-                }
-                return cleaned;
-            });
-
-            const payload = [...cleanedMessages, {
-                role: 'user' as const,
-                content: prompt
-            }];
-
-            const summaryResponse = await complete(payload, {
-                model: options.model,
-                systemPrompt: options.systemPrompt,
-                stream: false,
-                option: options.chatOption
-            });
-
-            summaryContent = summaryResponse.content;
-
-            // 累积总结生成的 token 统计
-            if (summaryResponse.usage) {
-                if (!state.usage) {
-                    state.usage = { ...summaryResponse.usage };
-                } else {
-                    state.usage.prompt_tokens += summaryResponse.usage.prompt_tokens || 0;
-                    state.usage.completion_tokens += summaryResponse.usage.completion_tokens || 0;
-                    state.usage.total_tokens += summaryResponse.usage.total_tokens || 0;
-                }
-            }
-        } catch (error) {
-            console.warn('Failed to generate tool chain summary:', error);
-            // 降级方案：使用简单的描述
-            summaryContent = `工具调用链完成：${state.toolCallHistory.length} 次调用，${state.roundIndex} 轮对话`;
-        }
-    }
-
-    // ---------- 构建 toolcall-history-log ----------
-    let toolHistory = state.toolCallHistory.map((call, index) => {
-        return `${index + 1}. ${createToolSummary(call, toolExecutor)}`;
-    }).join('\n');
-
-    // 添加状态信息（如果是不正常结束）
-    let statusInfo = '';
-    if (stopDueToLimit) {
-        statusInfo = `\n\nStatus: INCOMPLETE - stopped due to max_rounds(${maxRounds})`;
-    }
-
-    let hint = '';
-    if (toolHistory) {
-        if (summaryContent) {
-            // 有总结时，提供结构化的信息
-            hint = `<toolcall-history-log>
-Summary:
-${summaryContent}
-
-Trace:
-${toolHistory}${statusInfo}
-
-</toolcall-history-log>
-[system warn]: <toolcall-history-log> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
-
-以下是给User的回答:
----
-`;
-        } else {
-            // 简单调用，只提供 trace
-            hint = `<toolcall-history-log>
-${toolHistory}${statusInfo}
-</toolcall-history-log>
-[system warn]: <toolcall-history-log> 标签内的信息为系统自动生成的工具调用记录，仅供 Assistant 查看，对 User 隐藏。Assistant 不得提及、模仿生成或伪造此类信息！!!IMPORTANT!!
-
-以下是给User的回答:
----
-`;
-        }
-    }
-
-    //不把过多内容返回给上层
+    // ========================================================================
+    // 清理工具调用历史数据
+    // ========================================================================
     const toolCallHistoryClean = state.toolCallHistory.map(call => {
-        const { status, data, error, rejectReason } = call.result;
-        const resultClean = {
-            status, data, error ,rejectReason
+        const { status, data, error, rejectReason, cacheVarArgs, cacheVarResult } = call.result;
+        const resultClean: any = {
+            status, data, error, rejectReason, cacheVarArgs,
+            cacheVarResult
         };
-        //实际发送给 LLM 的内容
+
+        // 使用实际发送给 LLM 的内容
         if (call.result.finalText !== undefined) {
             resultClean.data = call.result.finalText;
         }
+
         return {
             ...call,
-            result: resultClean
+            result: resultClean,
         };
     });
 
-    // 构建结果
+    // ========================================================================
+    // 构建最终返回结果
+    // ========================================================================
+
+    // toolChainContent 设为空（废弃旧的 hack）
+    let toolChainContent = '';
+
+    // responseContent 转换为自然消息流
+    let responseContent: string;
+
+    if (state.toolCallHistory.length > 0) {
+        // 有工具调用：转换为自然流
+        toolChainContent = MessageFlowFormatter.generateSystemHint(toolCallHistoryClean);
+        const naturalFlow = MessageFlowFormatter.convertMessagesToNaturalFlow(
+            state.toolChainMessages,
+            toolCallHistoryClean,
+            // toolExecutor
+        );
+        responseContent = naturalFlow;
+    } else {
+        // 无工具调用：直接使用最终回复
+        responseContent = currentResponse.content || '';
+    }
+
     const result: ToolChainResult = {
-        toolChainContent: hint,
-        responseContent: currentResponse.content,
-        usage: state.usage, // 使用累积的 token 统计
+        toolChainContent,
+        responseContent,
+        usage: state.usage,
         messages: {
             context: state.contextMessages,
             toolChain: state.toolChainMessages,
             complete: state.allMessages
         },
-        // toolCallHistory: state.toolCallHistory,
         toolCallHistory: toolCallHistoryClean,
-        status: 'completed',
+        // @ts-ignore
+        status: state.status === 'running' ? 'completed' : state.status,
         error: state.status === 'error' ? 'Error executing tool chain' : undefined,
         stats: {
             totalRounds: state.roundIndex,
@@ -808,6 +742,5 @@ ${toolHistory}${statusInfo}
             endTime: Date.now()
         }
     };
-
     return result;
 }

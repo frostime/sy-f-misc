@@ -5,7 +5,7 @@
  * @FilePath     : /src/func/gpt/tools/web/webpage.ts
  * @LastEditTime : 2025-12-22 23:33:09
  * @Description  : 网页内容获取工具
- * 
+ *
  * 重构说明 (2025-12-16):
  * - 拆分 API：fetchWebPageAsMarkdown() 和 fetchWebPageAsHTML() 单一职责
  * - 返回结构化数据：HTMLPageContent 直接返回 Element[] 而不是 HTML 字符串
