@@ -18,7 +18,7 @@ const minify = env.NO_MINIFY ? false : true;
 const outputDir = isDev ? "dev" : "dist";
 
 // ============ 配置区域 ============
-const EXTERNAL_MODULES = ["sandbox"];  // 在此配置需要独立打包的模块
+const EXTERNAL_MODULES = ["sandbox", "text-edit-engine"];  // 在此配置需要独立打包的模块
 const PLUGIN_BASE_PATH = '/plugins/sy-f-misc';
 // =================================
 

@@ -124,6 +124,8 @@ export function externalModulesPlugin(options: ExternalModuleOptions): Plugin {
           const moduleName = dynamicMatch[1].replace(/\.(ts|tsx|js|jsx)$/, '');
           if (externalModules.includes(moduleName)) {
             discoveredModules.add(moduleName);
+          } else {
+            console.warn(`Detect unregistered external module "@external/${moduleName}" in ${file}. Please register it in the externalModules list in vite.config.ts`);
           }
         }
       }
