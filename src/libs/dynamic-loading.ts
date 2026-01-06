@@ -12,12 +12,11 @@ import { siyuanVfs } from "./vfs/vfs-siyuan-adapter";
 
 const PATH_PREFIX = {
     plugin: '/plugins/sy-f-misc/',
+    pluginScripts: '/plugins/sy-f-misc/scripts/',
     petal: '/storage/petal/sy-f-misc/',
     public: '/public/',
     snippet: '/snippets/'
 }
-
-const cache = new Map<string, any>();
 
 export const importModule = async (name: string, prefix: keyof typeof PATH_PREFIX): Promise<Result<any, string>> => {
     if (!name.endsWith('.js')) {
@@ -27,15 +26,10 @@ export const importModule = async (name: string, prefix: keyof typeof PATH_PREFI
         return err('不支持的前缀类型');
     }
     const path = siyuanVfs.join(PATH_PREFIX[prefix], name);
-    if (cache.has(path)) {
-        return ok(cache.get(path));
-    }
     try {
         const module = await import(/* @vite-ignore */ path);
-        cache.set(path, module);
         return ok(module);
     } catch (e) {
         return err(`导入脚本失败: ${(e as Error).message}`);
     }
-
 }
