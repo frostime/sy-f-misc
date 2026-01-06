@@ -3,46 +3,51 @@
  * Edit Engine - 智能代码编辑引擎
  * ============================================
  *
- * 核心能力：
  * 1. SEARCH/REPLACE 编辑算法
  * 2. Unified Diff 编辑算法
- *
- * 特点：
- * - 基于内容匹配（不依赖行号）
- * - 智能容错（支持空格/格式差异）
- * - 冲突检测
- * - 详细的错误报告
- *
- * 适用场景：
- * - AI 辅助代码编辑
- * - 自动化代码重构
- * - 补丁应用系统
- * - 批量代码修改
  * ============================================
  */
+
+// ============================================================
+// 配置常量
+// ============================================================
+
+export const CONFIG = {
+    /** 长度差异阈值（超过此比例直接认为不相似） */
+    MAX_LENGTH_DIFF_RATIO: 0.2,
+
+    /** 长文本阈值（超过此长度使用 Jaccard 相似度） */
+    LONG_TEXT_THRESHOLD: 750,
+
+    /** 模糊匹配相似度阈值 */
+    FUZZY_MATCH_THRESHOLD: 0.98,  // 建议高一些
+
+    /** 可接受匹配相似度阈值 */
+    ACCEPTABLE_MATCH_THRESHOLD: 0.95,
+
+    /** 模糊匹配最少行数要求 */
+    MIN_LINES_FOR_FUZZY: 3
+} as const;
 
 // ============================================================
 // 公共类型
 // ============================================================
 
-/** 编辑选项 */
 export interface EditOptions {
-    /** 搜索范围（1-based 行号） */
     withinRange?: {
         startLine?: number;
         endLine?: number;
     };
+    /** 是否启用模糊匹配（默认 false，推荐生产环境禁用） */
+    enableFuzzyMatch?: boolean;
+    /** 自定义模糊匹配阈值（0-1） */
+    fuzzyMatchThreshold?: number;
 }
 
-/** 编辑结果 */
 export interface EditResult {
-    /** 是否成功 */
     success: boolean;
-    /** 编辑后的内容 */
     content?: string;
-    /** 错误信息 */
     error?: string;
-    /** 编辑统计 */
     stats?: {
         blocksApplied: number;
         linesRemoved: number;
@@ -51,27 +56,17 @@ export interface EditResult {
     };
 }
 
-/** 单次变更信息 */
 export interface ChangeInfo {
-    /** 起始行号（1-based） */
     startLine: number;
-    /** 删除行数 */
     removed: number;
-    /** 新增行数 */
     added: number;
-    /** 匹配类型 */
     matchType: 'exact' | 'normalized' | 'fuzzy';
 }
 
-/** SEARCH/REPLACE 块 */
 export interface SearchReplaceBlock {
     search: string;
     replace: string;
 }
-
-// ============================================================
-// 内部类型
-// ============================================================
 
 interface MatchResult {
     found: boolean;
@@ -93,29 +88,221 @@ interface RangeSpec {
 }
 
 // ============================================================
-// 核心编辑算法 API
+// 匹配算法
 // ============================================================
 
 /**
- * 应用 SEARCH/REPLACE 编辑
- *
- * @param fileContent - 文件内容（字符串）
- * @param blocks - SEARCH/REPLACE 块（可以是多个块）
- * @param options - 编辑选项
- * @returns 编辑结果
- *
- * @example
- * const result = applySearchReplace(fileContent, [
- *   { search: "old code", replace: "new code" }
- * ]);
- *
- * if (result.success) {
- *   console.log("编辑成功:", result.stats);
- *   fs.writeFileSync("file.txt", result.content);
- * } else {
- *   console.error("编辑失败:", result.error);
- * }
+ * 归一化字符串用于匹配
+ * 保留缩进结构，只归一化其他空格
  */
+function normalizeForMatch(s: string): string {
+    return s
+        .replace(/\r\n/g, '\n')
+        .replace(/\t/g, '  ')
+        .replace(/\s+$/gm, '')
+        .replace(/[ ]+/g, ' ')
+        .trim();
+}
+
+/**
+ * 计算两个字符串的相似度
+ */
+function similarity(a: string, b: string): number {
+    if (a === b) return 1;
+    if (a.length === 0 || b.length === 0) return 0;
+
+    const lenDiff = Math.abs(a.length - b.length);
+    const maxLen = Math.max(a.length, b.length);
+
+    // 长度差异超过20%，直接返回低相似度
+    if (lenDiff / maxLen > CONFIG.MAX_LENGTH_DIFF_RATIO) {
+        return 0.5;
+    }
+
+    // 长文本使用 Jaccard 相似度
+    if (maxLen > CONFIG.LONG_TEXT_THRESHOLD) {
+        const aWords = new Set(a.split(/\s+/));
+        const bWords = new Set(b.split(/\s+/));
+        const intersection = [...aWords].filter(w => bWords.has(w)).length;
+        const union = new Set([...aWords, ...bWords]).size;
+        return union > 0 ? intersection / union : 0;
+    }
+
+    // Levenshtein 编辑距离（移除早期退出逻辑）
+    const matrix: number[][] = [];
+    for (let i = 0; i <= a.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= b.length; j++) {
+        matrix[0][j] = j;
+    }
+
+     for (let i = 1; i <= a.length; i++) {
+        let minInRow = Infinity;
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+            );
+            minInRow = Math.min(minInRow, matrix[i][j]);
+        }
+
+        // 早期退出：返回保守值
+        if (minInRow > maxLen * 0.15) {
+            // 字符串差异太大，直接返回低相似度
+            return 0;  // 保守策略：肯定不相似
+        }
+    }
+
+    const distance = matrix[a.length][b.length];
+    return 1 - distance / maxLen;
+}
+
+/**
+ * 在文件行中查找匹配块
+ */
+function findBlockInLines(
+    fileLines: string[],
+    searchLines: string[],
+    range?: RangeSpec,
+    enableFuzzy: boolean = false,
+    fuzzyThreshold: number = CONFIG.FUZZY_MATCH_THRESHOLD
+): MatchResult[] {
+    const results: MatchResult[] = [];
+    const startLine = Math.max(0, (range?.startLine ?? 1) - 1);
+    const endLine = Math.min(fileLines.length, range?.endLine ?? fileLines.length);
+    const searchText = searchLines.join('\n');
+    const searchNormalized = normalizeForMatch(searchText);
+    const searchLen = searchLines.length;
+
+    if (searchLen === 0) return results;
+
+    let hasExactOrNormalized = false;
+
+    // 第一遍：查找精确和归一化匹配
+    for (let i = startLine; i <= endLine - searchLen; i++) {
+        const windowLines = fileLines.slice(i, i + searchLen);
+        const windowText = windowLines.join('\n');
+
+        // 精确匹配
+        if (windowText === searchText) {
+            results.push({
+                found: true,
+                startIdx: i,
+                endIdx: i + searchLen,
+                matchType: 'exact',
+                confidence: 1.0
+            });
+            hasExactOrNormalized = true;
+            continue;
+        }
+
+        // 归一化匹配
+        const windowNormalized = normalizeForMatch(windowText);
+        if (windowNormalized === searchNormalized) {
+            results.push({
+                found: true,
+                startIdx: i,
+                endIdx: i + searchLen,
+                matchType: 'normalized',
+                confidence: 0.95
+            });
+            hasExactOrNormalized = true;
+        }
+    }
+
+    // 如果找到精确或归一化匹配，直接返回
+    if (hasExactOrNormalized) {
+        results.sort((a, b) => b.confidence - a.confidence);
+        return results;
+    }
+
+    // 第二遍：模糊匹配（仅在启用时）
+    if (enableFuzzy && searchLines.length >= CONFIG.MIN_LINES_FOR_FUZZY) {
+        for (let i = startLine; i <= endLine - searchLen; i++) {
+            const windowLines = fileLines.slice(i, i + searchLen);
+            const windowText = windowLines.join('\n');
+            const windowNormalized = normalizeForMatch(windowText);
+
+            const sim = similarity(windowNormalized, searchNormalized);
+            // 使用统一的阈值
+            if (sim >= fuzzyThreshold) {
+                results.push({
+                    found: true,
+                    startIdx: i,
+                    endIdx: i + searchLen,
+                    matchType: 'fuzzy',
+                    confidence: sim
+                });
+            }
+        }
+    }
+
+    results.sort((a, b) => b.confidence - a.confidence);
+
+    // 去重
+    const seen = new Set<number>();
+    const dedupedResults: MatchResult[] = [];
+    for (const r of results) {
+        if (!seen.has(r.startIdx)) {
+            seen.add(r.startIdx);
+            dedupedResults.push(r);
+        }
+    }
+
+    return dedupedResults;
+}
+
+function findUniqueMatch(
+    fileLines: string[],
+    searchLines: string[],
+    range?: RangeSpec,
+    enableFuzzy?: boolean,
+    fuzzyThreshold?: number
+): { match: MatchResult | null; error?: string } {
+    const matches = findBlockInLines(
+        fileLines,
+        searchLines,
+        range,
+        enableFuzzy,
+        fuzzyThreshold
+    );
+
+    if (matches.length === 0) {
+        return { match: null, error: '未找到匹配的代码块' };
+    }
+
+    // 使用统一的阈值
+    const acceptableMatches = matches.filter(
+        m => m.confidence >= CONFIG.ACCEPTABLE_MATCH_THRESHOLD
+    );
+
+    if (acceptableMatches.length === 0) {
+        const bestMatch = matches[0];
+        const matchedLines = fileLines.slice(bestMatch.startIdx, bestMatch.endIdx);
+
+        return {
+            match: null,
+            error: `未找到精确匹配，但在第 ${bestMatch.startIdx + 1} 行发现相似代码（相似度 ${(bestMatch.confidence * 100).toFixed(1)}%）：\n\n${matchedLines.join('\n')}\n\n请先用 ReadFile 查看文件，然后使用实际的代码内容重新提交。`
+        };
+    }
+
+    if (acceptableMatches.length > 1) {
+        const locations = acceptableMatches
+            .map(m => `第 ${m.startIdx + 1} 行`)
+            .join(', ');
+        return {
+            match: null,
+            error: `发现 ${acceptableMatches.length} 个匹配位置（${locations}），无法确定修改哪一个。请增加上下文或使用 withinRange 缩小范围。`
+        };
+    }
+
+    return { match: acceptableMatches[0] };
+}
+
+
 export function applySearchReplace(
     fileContent: string,
     blocks: SearchReplaceBlock[],
@@ -136,10 +323,19 @@ export function applySearchReplace(
         }> = [];
 
         // === 第一步：匹配所有块 ===
+        const enableFuzzy = options?.enableFuzzyMatch ?? false;
+        const fuzzyThreshold = options?.fuzzyMatchThreshold ?? CONFIG.FUZZY_MATCH_THRESHOLD;
+
         for (let i = 0; i < blocks.length; i++) {
             const block = blocks[i];
             const searchLines = block.search.split('\n');
-            const result = findUniqueMatch(lines, searchLines, options?.withinRange);
+            const result = findUniqueMatch(
+                lines,
+                searchLines,
+                options?.withinRange,
+                enableFuzzy,
+                fuzzyThreshold
+            );
 
             if (result.error) {
                 return {
@@ -245,11 +441,13 @@ export function applyDiff(
             };
         }
 
-        // === 第一步：匹配所有 hunk ===
         const operations: Array<{
             hunk: DiffHunk;
             match: MatchResult;
         }> = [];
+
+        const enableFuzzy = options?.enableFuzzyMatch ?? false;
+        const fuzzyThreshold = options?.fuzzyMatchThreshold ?? CONFIG.FUZZY_MATCH_THRESHOLD;
 
         for (let i = 0; i < hunks.length; i++) {
             const hunk = hunks[i];
@@ -261,7 +459,14 @@ export function applyDiff(
                 };
             }
 
-            const result = findUniqueMatch(lines, hunk.oldContent, options?.withinRange);
+            const result = findUniqueMatch(
+                lines,
+                hunk.oldContent,
+                options?.withinRange,
+                enableFuzzy,
+                fuzzyThreshold
+            );
+
             if (result.error) {
                 return {
                     success: false,
@@ -357,185 +562,6 @@ export function parseSearchReplaceBlocks(text: string): SearchReplaceBlock[] {
     return blocks;
 }
 
-// ============================================================
-// 内部实现：匹配算法
-// ============================================================
-
-function normalizeForMatch(s: string): string {
-    return s
-        .replace(/\r\n/g, '\n')
-        .replace(/\t/g, '  ')
-        .replace(/\s+$/gm, '')
-        .replace(/[ ]+/g, ' ')
-        .trim();
-}
-
-function similarity(a: string, b: string): number {
-    if (a === b) return 1;
-    if (a.length === 0 || b.length === 0) return 0;
-
-    const lenDiff = Math.abs(a.length - b.length);
-    const maxLen = Math.max(a.length, b.length);
-
-    if (lenDiff / maxLen > 0.2) {
-        return 0.5;
-    }
-
-    if (maxLen > 500) {
-        const aWords = new Set(a.split(/\s+/));
-        const bWords = new Set(b.split(/\s+/));
-        const intersection = [...aWords].filter(w => bWords.has(w)).length;
-        const union = new Set([...aWords, ...bWords]).size;
-        return union > 0 ? intersection / union : 0;
-    }
-
-    const matrix: number[][] = [];
-    for (let i = 0; i <= a.length; i++) {
-        matrix[i] = [i];
-    }
-    for (let j = 0; j <= b.length; j++) {
-        matrix[0][j] = j;
-    }
-
-    for (let i = 1; i <= a.length; i++) {
-        let minInRow = Infinity;
-        for (let j = 1; j <= b.length; j++) {
-            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-            matrix[i][j] = Math.min(
-                matrix[i - 1][j] + 1,
-                matrix[i][j - 1] + 1,
-                matrix[i - 1][j - 1] + cost
-            );
-            minInRow = Math.min(minInRow, matrix[i][j]);
-        }
-        if (minInRow > maxLen * 0.15) {
-            return 1 - minInRow / maxLen;
-        }
-    }
-
-    const distance = matrix[a.length][b.length];
-    return 1 - distance / maxLen;
-}
-
-function findBlockInLines(
-    fileLines: string[],
-    searchLines: string[],
-    range?: RangeSpec
-): MatchResult[] {
-    const results: MatchResult[] = [];
-    const startLine = Math.max(0, (range?.startLine ?? 1) - 1);
-    const endLine = Math.min(fileLines.length, range?.endLine ?? fileLines.length);
-    const searchText = searchLines.join('\n');
-    const searchNormalized = normalizeForMatch(searchText);
-    const searchLen = searchLines.length;
-
-    if (searchLen === 0) return results;
-
-    let hasExactOrNormalized = false;
-
-    for (let i = startLine; i <= endLine - searchLen; i++) {
-        const windowLines = fileLines.slice(i, i + searchLen);
-        const windowText = windowLines.join('\n');
-
-        if (windowText === searchText) {
-            results.push({
-                found: true,
-                startIdx: i,
-                endIdx: i + searchLen,
-                matchType: 'exact',
-                confidence: 1.0
-            });
-            hasExactOrNormalized = true;
-            continue;
-        }
-
-        const windowNormalized = normalizeForMatch(windowText);
-        if (windowNormalized === searchNormalized) {
-            results.push({
-                found: true,
-                startIdx: i,
-                endIdx: i + searchLen,
-                matchType: 'normalized',
-                confidence: 0.95
-            });
-            hasExactOrNormalized = true;
-        }
-    }
-
-    if (hasExactOrNormalized) {
-        results.sort((a, b) => b.confidence - a.confidence);
-        return results;
-    }
-
-    if (searchLines.length >= 3) {
-        for (let i = startLine; i <= endLine - searchLen; i++) {
-            const windowLines = fileLines.slice(i, i + searchLen);
-            const windowText = windowLines.join('\n');
-            const windowNormalized = normalizeForMatch(windowText);
-
-            const sim = similarity(windowNormalized, searchNormalized);
-            if (sim > 0.92) {
-                results.push({
-                    found: true,
-                    startIdx: i,
-                    endIdx: i + searchLen,
-                    matchType: 'fuzzy',
-                    confidence: sim
-                });
-            }
-        }
-    }
-
-    results.sort((a, b) => b.confidence - a.confidence);
-
-    const seen = new Set<number>();
-    const dedupedResults: MatchResult[] = [];
-    for (const r of results) {
-        if (!seen.has(r.startIdx)) {
-            seen.add(r.startIdx);
-            dedupedResults.push(r);
-        }
-    }
-
-    return dedupedResults;
-}
-
-function findUniqueMatch(
-    fileLines: string[],
-    searchLines: string[],
-    range?: RangeSpec
-): { match: MatchResult | null; error?: string } {
-    const matches = findBlockInLines(fileLines, searchLines, range);
-
-    if (matches.length === 0) {
-        return { match: null, error: '未找到匹配的代码块' };
-    }
-
-    const acceptableMatches = matches.filter(m => m.confidence >= 0.95);
-
-    if (acceptableMatches.length === 0) {
-        const bestMatch = matches[0];
-        const matchedLines = fileLines.slice(bestMatch.startIdx, bestMatch.endIdx);
-
-        return {
-            match: null,
-            error: `未找到精确匹配，但在第 ${bestMatch.startIdx + 1} 行发现相似代码（相似度 ${(bestMatch.confidence * 100).toFixed(1)}%）：\n\n${matchedLines.join('\n')}\n\n请先用 ReadFile 查看文件，然后使用实际的代码内容重新提交。`
-        };
-    }
-
-    if (acceptableMatches.length > 1) {
-        const locations = acceptableMatches
-            .map(m => `第 ${m.startIdx + 1} 行`)
-            .join(', ');
-        return {
-            match: null,
-            error: `发现 ${acceptableMatches.length} 个匹配位置（${locations}），无法确定修改哪一个。请增加上下文或使用 withinRange 缩小范围。`
-        };
-    }
-
-    return { match: acceptableMatches[0] };
-}
-
 function parseUnifiedDiffRelaxed(diffText: string): DiffHunk[] {
     const lines = diffText.split('\n');
     const hunks: DiffHunk[] = [];
@@ -587,12 +613,9 @@ function parseUnifiedDiffRelaxed(diffText: string): DiffHunk[] {
     return hunks;
 }
 
-// ============================================================
-// 默认导出
-// ============================================================
-
 export default {
     applySearchReplace,
     applyDiff,
-    parseSearchReplaceBlocks
+    parseSearchReplaceBlocks,
+    CONFIG
 };
