@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工具选择器</title>
+    <style>
+        :root {
+            /* 字体大小 */
+            --font-size-normal: var(--font-size, 14px);
+            --font-size-large: calc(var(--font-size-normal) * 1.2);
+            --font-size-small: calc(var(--font-size-normal) * 0.9);
+
+            /* 颜色 */
+            --bg-primary: var(--theme-background, #ffffff);
+            --text-primary: var(--theme-on-background, #333333);
+            --text-secondary: var(--theme-on-surface-light, #666666);
+            --accent-color: var(--theme-primary, #d23f31);
+            --border-color: var(--theme-surface-lighter, #e0e0e0);
+            --hover-bg: var(--theme-surface-light, #f5f5f5);
+            --selected-bg: var(--theme-primary-lightest, #ffe8e6);
+        }
+
+        [data-theme-mode="dark"] {
+            --bg-primary: var(--theme-background, #1a1a1a);
+            --text-primary: var(--theme-on-background, #e0e0e0);
+            --text-secondary: var(--theme-on-surface-light, #999999);
+            --border-color: var(--theme-surface-lighter, #333333);
+            --hover-bg: var(--theme-surface-light, #2a2a2a);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family, sans-serif);
+            font-size: var(--font-size-normal);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .search-bar {
+            margin-bottom: 16px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: var(--font-size-normal);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .search-bar input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .tool-groups {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px;
+        }
+
+        .tool-group {
+            margin-bottom: 16px;
+        }
+
+        .tool-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .group-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background-color: var(--hover-bg);
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .group-header:hover {
+            background-color: var(--border-color);
+        }
+
+        .group-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .group-name {
+            font-weight: bold;
+            font-size: var(--font-size-large);
+            flex: 1;
+        }
+
+        .group-count {
+            font-size: var(--font-size-small);
+            color: var(--text-secondary);
+        }
+
+        .expand-icon {
+            font-size: var(--font-size-small);
+            transition: transform 0.2s;
+        }
+
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .tool-list {
+            padding-left: 24px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .tool-list.expanded {
+            display: block;
+        }
+
+        .tool-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 4px;
+        }
+
+        .tool-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .tool-item.selected {
+            background-color: var(--selected-bg);
+        }
+
+        .tool-checkbox {
+            width: 16px;
+            height: 16px;
+            margin-top: 2px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .tool-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .tool-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+
+        .tool-description {
+            font-size: var(--font-size-small);
+            color: var(--text-secondary);
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .selection-info {
+            font-size: var(--font-size-small);
+            color: var(--text-secondary);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: var(--font-size-normal);
+            font-family: var(--font-family);
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        .btn:active {
+            opacity: 0.6;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: var(--border-color);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="搜索工具名称或描述...">
+        </div>
+        <div class="tool-groups" id="toolGroups"></div>
+    </div>
+    <div class="footer">
+        <div class="selection-info">
+            已选择 <span id="selectedCount">0</span> 个工具
+        </div>
+        <div class="button-group">
+            <button class="btn btn-secondary" id="cancelBtn">取消</button>
+            <button class="btn btn-primary" id="confirmBtn">确定</button>
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+        let toolGroups = [];
+        let selectedTools = new Set();
+        let expandedGroups = new Set();
+
+        window.addEventListener('pluginSdkReady', async () => {
+            const sdk = window.pluginSdk;
+            const themeMode = sdk.themeMode || 'light';
+            document.documentElement.setAttribute('data-theme-mode', themeMode);
+
+            await init();
+        });
+
+        async function init() {
+            const sdk = window.pluginSdk;
+
+            // 获取工具组列表
+            toolGroups = sdk.listToolGroups();
+
+            // 获取预选工具
+            const preSelected = sdk.getPreSelected();
+            selectedTools = new Set(preSelected);
+
+            // 默认展开所有组
+            toolGroups.forEach(group => expandedGroups.add(group.name));
+
+            // 渲染界面
+            renderToolGroups();
+            updateSelectionCount();
+
+            // 绑定事件
+            bindEvents();
+        }
+
+        function renderToolGroups(filterText = '') {
+            const container = document.getElementById('toolGroups');
+            container.innerHTML = '';
+
+            const filter = filterText.toLowerCase();
+
+            toolGroups.forEach(group => {
+                const filteredTools = filter
+                    ? group.tools.filter(tool =>
+                        tool.name.toLowerCase().includes(filter) ||
+                        tool.description.toLowerCase().includes(filter)
+                    )
+                    : group.tools;
+
+                if (filteredTools.length === 0) return;
+
+                const groupEl = createGroupElement(group, filteredTools);
+                container.appendChild(groupEl);
+            });
+        }
+
+        function createGroupElement(group, tools) {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'tool-group';
+
+            // 计算选中数量
+            const selectedInGroup = tools.filter(t => selectedTools.has(t.name)).length;
+            const isExpanded = expandedGroups.has(group.name);
+            const allSelected = selectedInGroup === tools.length && tools.length > 0;
+            const someSelected = selectedInGroup > 0 && selectedInGroup < tools.length;
+
+            // 组头部
+            const header = document.createElement('div');
+            header.className = 'group-header';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'group-checkbox';
+            checkbox.checked = allSelected;
+            checkbox.indeterminate = someSelected;
+
+            const groupName = document.createElement('span');
+            groupName.className = 'group-name';
+            groupName.textContent = group.name;
+
+            const groupCount = document.createElement('span');
+            groupCount.className = 'group-count';
+            groupCount.textContent = `${selectedInGroup}/${tools.length}`;
+
+            const expandIcon = document.createElement('span');
+            expandIcon.className = `expand-icon ${isExpanded ? 'expanded' : ''}`;
+            expandIcon.textContent = '▶';
+
+            header.appendChild(checkbox);
+            header.appendChild(groupName);
+            header.appendChild(groupCount);
+            header.appendChild(expandIcon);
+
+            // 工具列表
+            const toolList = document.createElement('div');
+            toolList.className = `tool-list ${isExpanded ? 'expanded' : ''}`;
+
+            tools.forEach(tool => {
+                const toolItem = createToolElement(tool);
+                toolList.appendChild(toolItem);
+            });
+
+            // 组头部点击展开/折叠
+            header.addEventListener('click', (e) => {
+                if (e.target === checkbox) {
+                    return;
+                }
+                toggleGroup(group.name);
+            });
+
+            // 组复选框全选/取消全选
+            checkbox.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleGroupSelection(group.name, tools, e.target.checked);
+            });
+
+            groupDiv.appendChild(header);
+            groupDiv.appendChild(toolList);
+
+            return groupDiv;
+        }
+
+        function createToolElement(tool) {
+            const toolDiv = document.createElement('div');
+            toolDiv.className = `tool-item ${selectedTools.has(tool.name) ? 'selected' : ''}`;
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'tool-checkbox';
+            checkbox.checked = selectedTools.has(tool.name);
+
+            const toolInfo = document.createElement('div');
+            toolInfo.className = 'tool-info';
+
+            const toolName = document.createElement('div');
+            toolName.className = 'tool-name';
+            toolName.textContent = tool.name;
+
+            const toolDesc = document.createElement('div');
+            toolDesc.className = 'tool-description';
+            toolDesc.textContent = tool.description || '无描述';
+
+            toolInfo.appendChild(toolName);
+            toolInfo.appendChild(toolDesc);
+
+            toolDiv.appendChild(checkbox);
+            toolDiv.appendChild(toolInfo);
+
+            // 整行点击切换选中状态
+            toolDiv.addEventListener('click', (e) => {
+                if (e.target === checkbox) {
+                    return;
+                }
+                toggleToolSelection(tool.name);
+            });
+
+            // 复选框点击
+            checkbox.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleToolSelection(tool.name, e.target.checked);
+            });
+
+            return toolDiv;
+        }
+
+        function toggleGroup(groupName) {
+            if (expandedGroups.has(groupName)) {
+                expandedGroups.delete(groupName);
+            } else {
+                expandedGroups.add(groupName);
+            }
+            renderToolGroups(document.getElementById('searchInput').value);
+        }
+
+        function toggleGroupSelection(groupName, tools, checked) {
+            tools.forEach(tool => {
+                if (checked) {
+                    selectedTools.add(tool.name);
+                } else {
+                    selectedTools.delete(tool.name);
+                }
+            });
+            renderToolGroups(document.getElementById('searchInput').value);
+            updateSelectionCount();
+        }
+
+        function toggleToolSelection(toolName, forceState) {
+            const newState = forceState !== undefined ? forceState : !selectedTools.has(toolName);
+            if (newState) {
+                selectedTools.add(toolName);
+            } else {
+                selectedTools.delete(toolName);
+            }
+            renderToolGroups(document.getElementById('searchInput').value);
+            updateSelectionCount();
+        }
+
+        function updateSelectionCount() {
+            document.getElementById('selectedCount').textContent = selectedTools.size;
+        }
+
+        function bindEvents() {
+            // 搜索
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                renderToolGroups(e.target.value);
+            });
+
+            // 确定按钮
+            document.getElementById('confirmBtn').addEventListener('click', () => {
+                const sdk = window.pluginSdk;
+                sdk.onConfirm(Array.from(selectedTools));
+            });
+
+            // 取消按钮
+            document.getElementById('cancelBtn').addEventListener('click', () => {
+                const sdk = window.pluginSdk;
+                sdk.onCancel();
+            });
+        }
+    </script>
+</body>
+</html>

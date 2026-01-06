@@ -3,10 +3,10 @@
  * @Author       : frostime
  * @Date         : 2025-12-21
  * @FilePath     : /src/func/gpt/tools/manual-execute.ts
- * @LastEditTime : 2026-01-02 02:04:32
+ * @LastEditTime : 2026-01-07 01:08:42
  * @Description  : 手动工具调用测试面板
  */
-import { openIframeTab } from "@/func/html-pages/core";
+import { openIframeTab, openIframeDialog } from "@/func/html-pages/core";
 import { ToolExecutor } from './executor';
 import { basicTool } from './basic';
 import { toolGroupWeb } from './web';
@@ -110,3 +110,85 @@ export const openManualExecutePanel = () => {
         }
     });
 };
+
+
+export interface ToolSelectorResult {
+    selectedTools: string[];  // 选中的工具名称数组
+}
+
+export interface ToolSelectorOptions {
+    title?: string;
+    preSelected?: string[];  // 预选的工具
+    onConfirm?: (result: ToolSelectorResult) => void;
+    onCancel?: () => void;
+}
+
+/**
+ * 打开工具选择器对话框
+ * @param executor ToolExecutor 实例
+ * @param options 选项配置
+ */
+export const openToolSelector = (
+    options?: ToolSelectorOptions
+): void => {
+    const {
+        title = '选择工具',
+        preSelected = [],
+        onConfirm,
+        onCancel
+    } = options || {};
+
+    const executor = createTestExecutor();
+
+    openIframeDialog({
+        title,
+        iframeConfig: {
+            type: 'url',
+            source: '/plugins/sy-f-misc/pages/manual-selector.html',
+            inject: {
+                presetSdk: true,
+                customSdk: {
+                    /**
+                     * 列出所有工具组及其工具
+                     */
+                    listToolGroups: () => {
+                        return Object.keys(executor.groupRegistry).map(name => {
+                            const group = executor.groupRegistry[name];
+                            return {
+                                name,
+                                enabled: true,
+                                tools: group.tools.map(t => ({
+                                    name: t.definition.function.name,
+                                    description: t.definition.function.description || '',
+                                    parameters: t.definition.function.parameters
+                                }))
+                            };
+                        });
+                    },
+
+                    /**
+                     * 获取预选的工具
+                     */
+                    getPreSelected: () => preSelected,
+
+                    /**
+                     * 确认选择的回调
+                     */
+                    onConfirm: (selectedTools: string[]) => {
+                        onConfirm?.({ selectedTools });
+                    },
+
+                    /**
+                     * 取消选择的回调
+                     */
+                    onCancel: () => {
+                        onCancel?.();
+                    }
+                }
+            }
+        },
+        width: '800px',
+        height: '600px'
+    });
+};
+
