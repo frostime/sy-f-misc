@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
- * @LastEditTime : 2025-12-25 00:28:25
+ * @LastEditTime : 2026-01-06 17:07:04
  * @Description  :
  */
 // import { importJavascriptFile } from '@frostime/siyuan-plugin-kits';

@@ -260,7 +260,7 @@ const MessageItem: Component<{
     }) => {
         return (
             <button
-                class={`${styles.toolbarButton} b3-button b3-button--text`}
+                class={`${styles.msgItemToolbarButton} b3-button b3-button--text`}
                 onclick={(e) => {
                     e.stopImmediatePropagation();
                     e.preventDefault();
@@ -712,7 +712,7 @@ const MessageItem: Component<{
                     <summary>
                         推理过程
                         <button
-                            class={`${styles.toolbarButton} b3-button b3-button--text`}
+                            class={`${styles.msgItemToolbarButton} b3-button b3-button--text`}
                             style={{ "margin-left": "8px" }}
                             onclick={copyReasoningContent}
                             title="复制推理过程"
@@ -745,8 +745,8 @@ const MessageItem: Component<{
 
     const MessageToolbar = () => {
         return (
-            <div class={styles.toolbar}>
-                <div class={styles['toolbar-text']}>
+            <div class={styles.msgItemToolbar}>
+                <div class={styles.msgItemToolbarText}>
                     <span data-label="timestamp">
                         {formatDateTime(null, new Date(getPayload(props.messageItem, 'timestamp')))}
                     </span>
@@ -775,7 +775,7 @@ const MessageItem: Component<{
                     </Show>
                 </div>
 
-                <div class={styles['toolbar-buttons']}>
+                <div class={styles.msgItemToolbarButtons}>
                     <ToolbarButton icon="iconEdit" title="编辑" onclick={editMessage} />
                     <ToolbarButton icon="iconCopy" title="复制" onclick={copyMessage} />
                     <ToolbarButton icon="iconLine" title="下方添加分隔" onclick={(e: MouseEvent) => {
