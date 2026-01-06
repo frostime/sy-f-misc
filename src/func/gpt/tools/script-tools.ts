@@ -1,5 +1,4 @@
 // src/func/gpt/tools/script-tools.ts
-import JavaScriptSandBox from "@/libs/sandbox";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
 import { DEFAULT_LIMIT_CHAR } from './utils';
 import {
@@ -196,21 +195,19 @@ const javascriptTool: Tool = {
     },
 
     execute: async (args: { code: string }): Promise<ToolExecuteResult> => {
-        let sandboxInstance: JavaScriptSandBox | null = null;
-        const destroySandbox = () => {
-            if (sandboxInstance) {
-                sandboxInstance.destroy();
-                sandboxInstance = null;
-            }
-        };
+        let sandboxInstance = null;
+
         try {
+            const JavaScriptSandBoxModule = await import("@external/sandbox");
+            const JavaScriptSandBox = JavaScriptSandBoxModule.JavaScriptSandBox;
+
             sandboxInstance = new JavaScriptSandBox();
             await sandboxInstance.init();
 
             const result = await sandboxInstance.run(args.code);
 
             if (result.ok !== true) {
-                destroySandbox();
+                sandboxInstance?.destroy();
                 return {
                     status: ToolExecuteStatus.ERROR,
                     error: result.stderr || 'Execution failed'
@@ -226,14 +223,14 @@ const javascriptTool: Tool = {
                 output += '\n\nErrors:\n' + result.stderr;
             }
 
-            destroySandbox();
+            sandboxInstance?.destroy();
 
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: output || '代码执行成功，无输出'
             };
         } catch (error) {
-            destroySandbox();
+            sandboxInstance?.destroy();
             return {
                 status: ToolExecuteStatus.ERROR,
                 error: `Sandbox error: ${error.message}`

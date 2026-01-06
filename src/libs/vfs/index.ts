@@ -127,7 +127,7 @@ export class VFSManager {
 
     /**
      * 解析 VFS 路径，返回对应的 FS 和相对路径
-     * 
+     *
      * 支持格式：
      * - `memory:///path` 或 `memory://path` → 使用 memory 协议
      * - `/path` → 使用默认 FS

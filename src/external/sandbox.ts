@@ -5,7 +5,7 @@ interface IExecutionResult {
     returned: any;
 }
 
-class JavaScriptSandBox {
+export class JavaScriptSandBox {
     private iframe: HTMLIFrameElement | null = null;
     private timeoutMs: number;
     private allowSameOrigin: boolean;
@@ -363,7 +363,7 @@ class JavaScriptSandBox {
     }
 }
 
-export default JavaScriptSandBox;
+// export default JavaScriptSandBox;
 
 
 
