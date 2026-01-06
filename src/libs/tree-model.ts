@@ -12,7 +12,7 @@
 
 /**
  * 树节点数据源接口 - 用于构建树
- * 
+ *
  * @template T - 节点数据类型
  */
 export interface ITreeDataSource<T = any> {
@@ -404,27 +404,27 @@ export class TreeFormatter {
 
 /**
  * 创建树数据源（工厂函数）- 统一处理单/多数据源
- * 
+ *
  * 避免每次都要创建 class，直接返回满足接口的对象
  * 自动判断输入是单个数据还是数组，返回相应类型
- * 
+ *
  * @template T - 节点数据类型
  * @template S - 源数据类型
- * 
+ *
  * @example
  * // 单个数据源
  * const source = createTreeSource({
  *   data: rootElement,
  *   getChildren: (el) => Array.from(el.children)
  * });
- * 
+ *
  * @example
  * // 多个数据源
  * const sources = createTreeSource({
  *   data: fileList,
  *   getChildren: (file) => file.children || []
  * });
- * 
+ *
  * @example
  * // 带数据转换
  * const source = createTreeSource({
@@ -470,20 +470,20 @@ export function createTreeSource<T, S = T>(options: {
 
 /**
  * 格式化树为字符串
- * 
+ *
  * @template T - 节点数据类型
- * 
+ *
  * @example
  * // 基本用法
  * const output = formatTree({ tree });
- * 
+ *
  * @example
  * // 自定义格式化
  * const output = formatTree({
  *   tree,
  *   formatter: (data) => `[${data.id}] ${data.name}`
  * });
- * 
+ *
  * @example
  * // 隐藏子元素计数
  * const output = formatTree({
@@ -509,11 +509,11 @@ export function formatTree<T>(options: {
 
 /**
  * 快速构建并格式化树 - 一步到位的便捷函数
- * 
+ *
  * 自动处理单个根节点或多个根节点的情况
- * 
+ *
  * @template T - 数据类型
- * 
+ *
  * @example
  * // 多根节点
  * const output = await quickTree({
@@ -521,7 +521,7 @@ export function formatTree<T>(options: {
  *   getChildren: (file) => file.children || [],
  *   formatter: (file) => `${file.name} (${file.size} bytes)`
  * });
- * 
+ *
  * @example
  * // 单根节点
  * const output = await quickTree({
@@ -529,7 +529,7 @@ export function formatTree<T>(options: {
  *   getChildren: (el) => Array.from(el.children),
  *   formatter: (el) => el.tagName
  * });
- * 
+ *
  * @example
  * // 带深度限制和过滤
  * const output = await quickTree({

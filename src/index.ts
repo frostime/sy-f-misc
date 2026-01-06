@@ -4,7 +4,7 @@
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
  * @LastEditTime : 2025-12-29 20:53:49
- * @Description  : 
+ * @Description  :
  */
 import {
     IMenu,
@@ -24,6 +24,7 @@ import { initSetting } from "./settings";
 import { registerPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { useLocalDeviceStorage } from "@frostime/siyuan-plugin-kits";
+// import { testExternalModulesLoad } from "./test-external-load";
 
 const electron = window?.require?.('electron');
 
@@ -76,6 +77,9 @@ export default class FMiscPlugin extends Plugin {
         this.addIcons(svgs.join(''));
         await initSetting(this);
         load(this);
+
+        // 测试外部模块加载（可选，取消注释以测试）
+        // testExternalModulesLoad();
     }
 
     async onunload() {

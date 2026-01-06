@@ -1,5 +1,4 @@
 // src/func/gpt/tools/script-tools.ts
-import JavaScriptSandBox from "@/libs/sandbox";
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
 import { DEFAULT_LIMIT_CHAR } from './utils';
 import {
@@ -10,6 +9,9 @@ import {
     getScriptName,
     ExecResult
 } from "@/libs/system-utils";
+
+// import * as SandboxModule from '@external/sandbox';
+
 
 // Import Node.js modules for file operations
 const fs = window?.require?.('fs');
@@ -196,7 +198,11 @@ const javascriptTool: Tool = {
     },
 
     execute: async (args: { code: string }): Promise<ToolExecuteResult> => {
-        let sandboxInstance: JavaScriptSandBox | null = null;
+        // 动态导入 sandbox 模块，减少主 bundle 体积
+        const SandboxModule = await import('@external/sandbox');
+        const JavaScriptSandBox = SandboxModule.default;
+
+        let sandboxInstance: InstanceType<typeof JavaScriptSandBox> | null = null;
         const destroySandbox = () => {
             if (sandboxInstance) {
                 sandboxInstance.destroy();
