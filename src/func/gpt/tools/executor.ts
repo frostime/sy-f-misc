@@ -12,7 +12,7 @@ import { toolsManager } from '../model/store';
 import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
 import { createVFS, VFSManager } from '@/libs/vfs';
 import { createValSystemTools } from './vars/index';
-import { VariableSystem } from './vars/core';
+import { VariableSystem, formatRuleVar } from './vars/core';
 
 
 const AgentSkillRules: ToolGroup['declareSkillRules'] = {
@@ -312,7 +312,7 @@ Assistant/Agent 务必遵循如下规范:
         rules: NonNullable<ToolGroup['declareSkillRules']>
     ): void {
         for (const [ruleName, rule] of Object.entries(rules)) {
-            const varName = `Rule::${groupName}::${ruleName}`;
+            const varName = formatRuleVar(ruleName, groupName);
 
             this.varSystem.addVariable(
                 varName,
@@ -332,18 +332,43 @@ Assistant/Agent 务必遵循如下规范:
         groupName: string,
         rules: NonNullable<ToolGroup['declareSkillRules']>
     ): string {
-        const lines = ['**Advanced Documentation (Stored as Variables):**'];
+        const lines: string[] = [];
+        const alwaysLoadRules: Array<[string, NonNullable<ToolGroup['declareSkillRules']>[string]]> = [];
+        const onDemandRules: Array<[string, NonNullable<ToolGroup['declareSkillRules']>[string]]> = [];
 
+        // 分类规则
         for (const [ruleName, rule] of Object.entries(rules)) {
-            const varName = `Rule::${groupName}::${ruleName}`;
-
             if (rule.alwaysLoad) {
+                alwaysLoadRules.push([ruleName, rule]);
+            } else {
+                onDemandRules.push([ruleName, rule]);
+            }
+        }
+
+        // 渲染总是加载的规则
+        if (alwaysLoadRules.length > 0) {
+            lines.push('**Pinned Rules:**');
+            for (const [_ruleName, rule] of alwaysLoadRules) {
                 lines.push(`\n**${rule.desc}:**`);
                 lines.push(rule.prompt);
-            } else {
-                lines.push(`- ${rule.desc}`);
-                lines.push(`  Access via: ReadVar({"name": "${varName}"})`);
             }
+        }
+
+        // 渲染按需加载的规则（表格格式）
+        if (onDemandRules.length > 0) {
+            if (alwaysLoadRules.length > 0) {
+                lines.push('');  // 添加空行分隔
+            }
+            lines.push('**On-Demand Documentation (Stored as Variables):**');
+            lines.push('| Var | Description | When to Use |');
+            lines.push('|-----|-------------|-------------|');
+            for (const [ruleName, rule] of onDemandRules) {
+                const varName = formatRuleVar(ruleName, groupName);
+                const when = rule.when || 'As needed';
+                lines.push(`| \`${varName}\` | ${rule.desc} | ${when} |`);
+            }
+            lines.push('');
+            lines.push('*Access via: ReadVar({"name": "<VarName>"})*');
         }
 
         return lines.join('\n');

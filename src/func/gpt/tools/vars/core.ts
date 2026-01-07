@@ -1,5 +1,18 @@
 //缓存大模型过程中各种文本，作为变量方便后面 LLM 复用
-export const VAR_TYPE_ENUM = ['RULE', 'ToolCallResult', 'ToolCallArgs', 'MessageCache', 'LLMAdd'] as const;
+export const VAR_TYPE_ENUM = ['RULE', 'ToolCallResult', 'ToolCallArgs', 'MessageCache', 'LLMAdd', 'USER_ADD'] as const;
+
+/**
+ * 格式化 Rule 变量名
+ * @param varName 变量名
+ * @param scope 作用域（可选）
+ * @returns 格式化的 Rule 变量名，如 "Rule::scope::varName" 或 "Rule::varName"
+ */
+export function formatRuleVar(varName: string, scope?: string): string {
+    if (scope) {
+        return `Rule/${scope}/${varName}`;
+    }
+    return `Rule/${varName}`;
+}
 
 export interface Variable {
     name: string;
