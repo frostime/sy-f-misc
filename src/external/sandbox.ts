@@ -60,6 +60,10 @@ export class JavaScriptSandBox {
                 const checkReady = () => {
                     if (this.iframe?.contentWindow?.['__sandboxAPI']) {
                         this.isReady = true;
+                        // 注入一些东西进去
+                        if (this.iframe.contentWindow) {
+                          this.iframe.contentWindow['lute'] = window.Lute.New();
+                        }
                         resolve();
                     } else {
                         setTimeout(checkReady, 10);
