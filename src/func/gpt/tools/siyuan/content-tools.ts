@@ -7,9 +7,8 @@
  */
 
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { getBlockByID, getMarkdown, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { BlockTypeShort, getBlockByID, getMarkdown, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { appendBlock, request } from "@frostime/siyuan-plugin-kits/api";
-import { normalizeLimit, DEFAULT_LIMIT_CHAR } from '../utils';
 import { isIDFormat, isContainerBlock, getChildBlocks, getToc, HeaderNode } from './utils';
 
 // ============ BlockInfo 类型定义 ============
@@ -160,8 +159,8 @@ export const inspectBlockInfoTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'inspectBlock',
-            description: '获取块（包括文档）的详细信息。支持单个或多个ID',
+            name: 'inspectBlockInfo',
+            description: '获取块（包括文档）的元信息和。支持单个或多个ID',
             parameters: {
                 type: 'object',
                 properties: {
@@ -294,18 +293,29 @@ export const inspectBlockInfoTool: Tool = {
 /**
  * 获取块完整Markdown内容工具
  */
-export const getBlockMarkdownTool: Tool = {
+export const inspectBlockMarkdownTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'getBlockMarkdown',
-            description: '获取块的完整Markdown内容',
+            name: 'inspectBlockMarkdown',
+            description: `获取块的完整Markdown内容; 可以是普通块或容器块
+- 对于普通块，返回该块的Markdown内容
+- 对于容器块，返回该容器内所有子块内容的拼接
+- 对比文档块，返回文档内所有块内容的拼接
+- 对于标题块，返回当前标题范围下所有块内容的拼接 (标题块非容器)
+
+如果需要分析块的内容结构，可设置 showId 为 true，则在每个块内容前添加 @@块ID@@块类型 标记，以便保持块结构和 Markdown 文本之间的映射关联
+`,
             parameters: {
                 type: 'object',
                 properties: {
                     blockId: {
                         type: 'string',
                         description: '块ID'
+                    },
+                    showId: {
+                        type: 'boolean',
+                        description: '显示块 ID 以便保持块结构和 Markdown 文本之间的映射关联'
                     }
                 },
                 required: ['blockId']
@@ -323,17 +333,33 @@ export const getBlockMarkdownTool: Tool = {
         note: 'Markdown 文本内容'
     },
 
-    execute: async (args: { blockId: string }): Promise<ToolExecuteResult> => {
+    execute: async (args: { blockId: string, showId?: boolean }): Promise<ToolExecuteResult> => {
+        const id = args.blockId;
+        const showId = args.showId ?? false;
         try {
-            // const content = await getMarkdown(args.blockId);
-            const result = await request('/api/block/getChildBlocks', { id: args.blockId }, 'data');
-            if (!result || result.length === 0) {
+            let block = await getBlockByID(id);
+            if (!block) {
                 return {
                     status: ToolExecuteStatus.NOT_FOUND,
-                    error: `未找到块或块内容为空: ${args.blockId}`
+                    error: `未找到块: ${id}`
                 };
             }
-            let content = result.map(b => b.markdown).join('\n\n');
+            let blocks = [];
+            const childBlocks = await request('/api/block/getChildBlocks', { id });
+            if (childBlocks && childBlocks.length > 0) {
+                blocks = childBlocks.map(b => ({ id: b.id, markdown: b.markdown , type: b.type ?? ''}));
+            }
+            else {
+                blocks = [{ id: block.id, markdown: block.markdown, type: block.type ?? '' }];
+            }
+            let content: string;
+
+            if (showId === true) {
+                content = blocks.map(b => `@@${b.id}@@${BlockTypeShort[b.type] || ''}\n${b.markdown}`).join('\n\n');
+            } else {
+                content = blocks.map(b => b.markdown).join('\n\n');
+            }
+
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: content

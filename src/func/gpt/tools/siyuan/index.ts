@@ -15,7 +15,7 @@ import {
 } from './document-tools';
 import {
     inspectBlockInfoTool,
-    getBlockMarkdownTool,
+    inspectBlockMarkdownTool,
     appendContentTool
 } from './content-tools';
 import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
@@ -65,7 +65,7 @@ export const siyuanTool = {
         listActiveDocsTool,
         getDailyNoteDocsTool,
         inspectBlockInfoTool,
-        getBlockMarkdownTool,
+        inspectBlockMarkdownTool,
         appendContentTool,
         searchDocumentTool,
         querySQLTool,
@@ -93,8 +93,8 @@ export const siyuanTool = {
 - 笔记本: inspectNotebooksTool
 - 文档系统导航: listActiveDocs, inspectDocTree
 - 分析块、文档的属性结构等: inspectBlockTool (特别适合分析长文档内部块结构)
-- 日记: getDailyNoteDocs, appendContentTool(dailynote)
-- 内容读写: getBlockMarkdown, appendContentTool(block/document)
+- 日记: getDailyNoteDocs, appendContent(dailynote)
+- 内容读写: inspectBlockMarkdown, appendContent(block/document)
 - 搜索查询: searchDocument, searchKeyword, querySQL
 
 ## 关键规则 ##

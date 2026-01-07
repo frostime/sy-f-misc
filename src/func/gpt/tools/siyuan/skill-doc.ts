@@ -11,36 +11,6 @@ import type { ToolGroup } from "../types";
 type SkillRule = NonNullable<ToolGroup['declareSkillRules']>[string];
 
 const SKILL_RULES: Record<string, SkillRule> = {
-    'tool-selection': {
-        desc: '工具选择决策指南（不确定用哪个思源工具时查阅）',
-        prompt: `
-## 工具选择指南 ##
-
-**文档查找**:
-- 知道文档名 → searchDocument
-- 需要当前打开的 → listActiveDocs
-- 需要层级结构 → listSubDocs / listSiblingDocs / getParentDoc
-- 需要笔记本概览 → listNotebookDocs
-
-**内容获取**:
-- 读取文档/块内容 → getBlockMarkdown
-- 获取文档元信息 → getDocument
-
-**内容写入**:
-- 追加到文档末尾 → appendMarkdown
-- 追加到今日日记 → appendDailyNote
-
-**高级查询**:
-- 简单关键词搜索 → searchKeyword
-- 复杂条件/统计/跨表 → querySQL
-
-**querySQL 使用时机**:
-- 需要 JOIN 多表（如查反链、带属性筛选）
-- 需要聚合统计（COUNT, GROUP BY）
-- 现有工具无法满足的复杂查询
-- 使用前建议查阅相关 SQL 文档主题
-`.trim()
-    },
     'sql-overview': {
         desc: 'SQL 查询基础与核心表',
         prompt: `
