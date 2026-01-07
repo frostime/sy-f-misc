@@ -28,11 +28,11 @@ const listNotebook = () => {
 /**
  * 笔记本检查工具（合并 list 和 get）
  */
-export const inspectNotebooksTool: Tool = {
+export const listNotebooksTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'inspectNotebooks',
+            name: 'listNotebooks',
             description: '查看笔记本信息。不提供参数时列出所有笔记本；提供 id 或 name 时返回匹配的笔记本',
             parameters: {
                 type: 'object',
@@ -438,13 +438,13 @@ function countNodes(roots: DocNode[]): number {
     return count;
 }
 
-// ============ inspectDocTreeTool ============
+// ============ navigateDocTreeTool ============
 
-export const inspectDocTreeTool: Tool = {
+export const navigateDocTreeTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'inspectDocTree',
+            name: 'navigateDocTree',
             description: '文档树层级导航工具，支持向上、平级、向下遍历',
             parameters: {
                 type: 'object',

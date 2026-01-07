@@ -153,13 +153,13 @@ function formatBlockInfo(block: BlockInfo): string {
     return lines.join('\n');
 }
 
-// ============ inspectBlockTool ============
+// ============ getBlockInfoTool ============
 
-export const inspectBlockInfoTool: Tool = {
+export const getBlockInfoTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'inspectBlockInfo',
+            name: 'getBlockInfo',
             description: '获取块（包括文档）的元信息与结构。支持单个或多个ID，返回类型、路径、内容长度、子块数量、文档大纲等信息',
             parameters: {
                 type: 'object',
@@ -293,11 +293,11 @@ export const inspectBlockInfoTool: Tool = {
 /**
  * 获取块完整Markdown内容工具
  */
-export const inspectBlockMarkdownTool: Tool = {
+export const getBlockMarkdownTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'inspectBlockMarkdown',
+            name: 'getBlockMarkdown',
             description: `获取块的完整Markdown内容; 可以是普通块或容器块
 - 对于普通块，返回该块的Markdown内容
 - 对于容器块，返回该容器内所有子块内容的拼接

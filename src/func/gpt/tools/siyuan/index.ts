@@ -3,19 +3,19 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2026-01-07 22:33:56
+ * @LastEditTime : 2026-01-08 00:10:23
  * @Description  : 思源笔记工具导出文件
  */
 
 import {
-    inspectNotebooksTool,
-    inspectDocTreeTool,
+    listNotebooksTool,
+    navigateDocTreeTool,
     listActiveDocsTool,
     getDailyNoteDocsTool,
 } from './document-tools';
 import {
-    inspectBlockInfoTool,
-    inspectBlockMarkdownTool,
+    getBlockInfoTool,
+    getBlockMarkdownTool,
     appendContentTool
 } from './content-tools';
 import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
@@ -60,12 +60,12 @@ export const siyuanTool = {
     name: 'siyuan-tools',
     description: '思源笔记工具',
     tools: [
-        inspectNotebooksTool,
-        inspectDocTreeTool,
+        listNotebooksTool,
+        navigateDocTreeTool,
         listActiveDocsTool,
         getDailyNoteDocsTool,
-        inspectBlockInfoTool,
-        inspectBlockMarkdownTool,
+        getBlockInfoTool,
+        getBlockMarkdownTool,
         appendContentTool,
         searchDocumentTool,
         querySQLTool,
@@ -103,14 +103,14 @@ export const siyuanTool = {
 <<<
 步骤1: listActiveDocs()  → 检查是否为当前打开的文档
 步骤2: 若不是 → searchDocument() 或 searchKeyword()
-步骤3: 确认目标后 → inspectBlockInfo() 查看结构
+步骤3: 确认目标后 → getBlockInfo() 查看结构
 >>>
 
 **场景：需要分析长文档内部结构**
 <<<
-inspectBlockInfo(docId)  → 获取 TOC（文档大纲）
+getBlockInfo(docId)  → 获取 TOC（文档大纲）
                          → 定位目标标题的 blockId
-inspectBlockMarkdown(blockId, showId=true)  → 获取该部分内容并保持结构映射
+getBlockMarkdown(blockId, showId=true)  → 获取该部分内容并保持结构映射
 >>>
 
 **场景：复杂查询（需要编写 SQL）**
@@ -122,7 +122,7 @@ inspectBlockMarkdown(blockId, showId=true)  → 获取该部分内容并保持�
 **场景：涉及到添加日记文档**
 <<<
 和用户确认是哪个笔记本(notebook)的日记
-利用inspectNotebooks定位确认目标笔记本，再操作日记
+利用lsNotebooks定位确认目标笔记本，再操作日记
 >>>
 
 ### 高级文档索引
