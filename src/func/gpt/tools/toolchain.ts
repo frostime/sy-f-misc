@@ -105,6 +105,9 @@ namespace MessageFlowFormatter {
         lines.push(`Arguments: ${JSON.stringify(compressedArgs)}`);
 
         let resultStatus = '';
+        // normalize possible reject reason keys (camelCase or snake_case)
+        const rejectReasonFromResult = toolResult.rejectReason ?? undefined;
+
         if (toolResult.status === ToolExecuteStatus.SUCCESS) {
             resultStatus = '✓ Success';
 
@@ -130,11 +133,16 @@ namespace MessageFlowFormatter {
         } else {
             const statusIcon = toolResult.status === ToolExecuteStatus.ERROR ? '✗' : '⚠️';
             const statusText = toolResult.status === ToolExecuteStatus.ERROR ? 'Failed' : 'Rejected';
-            const errorMsg = toolResult.error || toolResult.rejectReason || 'Unknown error';
+            const errorMsg = toolResult.error || (toolResult as any).rejectReason || 'Unknown error';
             resultStatus = `${statusIcon} ${statusText}: ${errorMsg}`;
         }
 
         lines.push(`Status: ${resultStatus}`);
+        // 如果存在 reject reason，单独展示以便排查（这是非常重要的信息）
+        if (rejectReasonFromResult) {
+            lines.push('');
+            lines.push(`Reject reason: ${rejectReasonFromResult}`);
+        }
         lines.push('```');
         lines.push('');
 
@@ -681,13 +689,17 @@ Provide a complete, helpful response even if some planned tool calls could not b
     const toolCallHistoryClean = state.toolCallHistory.map(call => {
         const { status, data, error, rejectReason, cacheVarArgs, cacheVarResult } = call.result;
         const resultClean: any = {
-            status, data, error, rejectReason, cacheVarArgs,
+            status,
+            data,
+            error,
+            rejectReason: rejectReason ?? undefined,
+            cacheVarArgs,
             cacheVarResult
         };
 
         // 使用实际发送给 LLM 的内容
-        if (call.result.finalText !== undefined) {
-            resultClean.data = call.result.finalText;
+        if ((call.result as any).finalText !== undefined) {
+            resultClean.data = (call.result as any).finalText;
         }
 
         return {
