@@ -41,7 +41,13 @@ const AgentSkillRules: ToolGroup['declareSkillRules'] = {
     "arguments": {
         "html": "$VAR_REF{{FetchWebPage_123456}}"  // ← 直接引用
     }
-}`
+}
+
+**推荐用法**
+
+1. 使用 VAR 机制实现工具之前的管道连接，避免重复生成相同的文本
+2. 利用 Script 等脚本(如果可访问), 实现对工具结果文本的智能分析 —— Agent 可以在必要的时候要求 User 开放 javascript/shell/python 工具组来方便其做自动分析
+`
     }
 };
 
