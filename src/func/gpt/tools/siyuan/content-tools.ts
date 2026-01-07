@@ -160,13 +160,13 @@ export const inspectBlockInfoTool: Tool = {
         type: 'function',
         function: {
             name: 'inspectBlockInfo',
-            description: '获取块（包括文档）的元信息和。支持单个或多个ID',
+            description: '获取块（包括文档）的元信息与结构。支持单个或多个ID，返回类型、路径、内容长度、子块数量、文档大纲等信息',
             parameters: {
                 type: 'object',
                 properties: {
                     ids: {
                         type: 'string',
-                        description: '块ID。可以是单个ID，或逗号分隔的多个ID（如 "id1,id2,id3"）'
+                        description: '块ID。单个ID或逗号分隔的多个ID（如 "id1,id2,id3"）'
                     }
                 },
                 required: ['ids']
@@ -381,7 +381,13 @@ export const appendContentTool: Tool = {
         type: 'function',
         function: {
             name: 'appendContent',
-            description: '向指定目标追加 Markdown 内容。支持追加到日记、文档或块',
+            description: `向指定目标追加 Markdown 内容。支持追加到日记、文档或块
+
+- daily note / document: 追加到文档末尾
+- block
+  - 追加到容器块(如引述块超级块)、 标题块的末尾
+  - 追加到普通叶子块(如段落块)的后面，作为同级块追加
+`,
             parameters: {
                 type: 'object',
                 properties: {

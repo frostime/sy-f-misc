@@ -33,7 +33,7 @@ const SKILL_RULES: Record<string, SkillRule> = {
 `.trim()
     },
     'sql-blocks-table': {
-        desc: 'blocks 表字段与查询示例',
+        desc: 'SQL blocks 表字段与查询示例',
         prompt: `
 ## blocks 表字段说明 ##
 
@@ -57,7 +57,7 @@ const SKILL_RULES: Record<string, SkillRule> = {
 `.trim()
     },
     'sql-refs-table': {
-        desc: 'refs 反链查询示例',
+        desc: 'SQL refs 反链查询示例',
         prompt: `
 ## refs 表（块引用关系）##
 
@@ -86,7 +86,7 @@ WHERE block_id IN (SELECT id FROM blocks WHERE root_id = '<文档ID>')
 `.trim()
     },
     'sql-attributes-table': {
-        desc: 'attributes 自定义属性查询',
+        desc: 'SQL attributes 自定义属性查询',
         prompt: `
 ## attributes 表（块属性）##
 
@@ -178,27 +178,43 @@ order by A.value desc;
 **回答时引用块**: 建议使用块链接格式 \`[锚文本](siyuan://blocks/xxx)\` 方便用户溯源
 `.trim()
     },
-    'id-and-path': {
-        desc: 'ID、path 与 hpath 规则',
+    'doc-tree': {
+        desc: '思源中文档结构和路径、文档ID规则',
         prompt: `
-## ID 与路径规则 ##
+## 文档结构与块属性 ##
 
-**ID 格式**: \`/\\d{14,}-\\w{7}/\`
-- 结构: 创建时间戳 + 随机字符
-- 示例: \`20241016135347-zlrn2cz\` (2024-10-16 13:53:47 创建)
-- 可从 ID 推断创建时间
+文档块的 block 表（从数据库查询获得）属性中，记录了文档 id，所在 notebook id，还有在笔记本下方的 path。其中 "<思源笔记工作空间>/data/box/path" 就是这个文档在机器文件系统中的实际物理位置。
 
-**path (ID 路径)**:
-- 格式: \`/<父文档ID>/<当前文档ID>.sy\`
-- 笔记本内唯一
-- 可推断文档层级关系
+例如假设有一个文档，他在思源笔记空间中的实际路径如下：
 
-**hpath (名称路径)**:
-- 格式: \`/<父文档名>/<当前文档名>\`
-- 可能重复（不同笔记本可能有同名文档）
-- 人类可读
+/data/20260101215354-j0c5gvk/20260107143325-zbrtqup/20260107143334-l5eqs5i.sy
+     └── 笔记本 ID ──┘          └── 上层文档 ID ──┘           └── 文档 ID ──┘
 
-**重要规则**: 所有 API 的 docId/notebookId/blockId 参数必须使用 ID，不能用名称或路径！
+
+对应文档 block 如下：
+
+- content： “文档结构”为文档名称（标题）
+- hpath：“/思源笔记开发/文档结构”为思源笔记内的路径和 path 属性对应
+- path：“/20260107143325-zbrtqup/20260107143334-l5eqs5i.sy”为在笔记本下的相对路径
+- 上层文档：ID 为20260107143325-zbrtqu，标题为 思源笔记开发
+- 所在笔记本 ID：20260101215354-j0c5gvk
+
+<json>
+{
+"box": "20260101215354-j0c5gvk",  // 所属笔记本 ID
+"content": "文档结构",             // 文档名称
+"created": "20260107143334",
+"fcontent": "文档结构",
+"hpath": "/思源笔记开发/文档结构",   // 人类可读路径（名称）
+"id": "20260107143334-l5eqs5i",  // 文档 ID（块 ID）
+"parent_id": "",
+"path": "/20260107143325-zbrtqup/20260107143334-l5eqs5i.sy", // ID 路径（笔记本内唯一）
+"root_id": "20260107143334-l5eqs5i", // 所在文档 ID，对文档块而言就是他自身
+"type": "d",
+"updated": "20260107144148"
+...(其他还有一些字段)
+}
+</json>
 `.trim()
     }
 };

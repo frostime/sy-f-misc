@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2026-01-07 19:21:01
+ * @LastEditTime : 2026-01-07 22:33:56
  * @Description  : 思源笔记工具导出文件
  */
 
@@ -75,10 +75,11 @@ export const siyuanTool = {
     rulePrompt: `
 ## 思源笔记工具组 ##
 
-思源笔记是块结构的笔记软件，数据组织层级：笔记本(Notebook/box) → 文档(Document, 最大嵌套7层) → 内容块(Block)
+### 基础知识
+
+**数据结构**：笔记本(Notebook) → 文档(Document, 最大7层) → 块(Block)
 
 **ID 规则**: 格式 \`/\\d{14,}-\\w{7}/\`，如 \`20241016135347-zlrn2cz\`（可推断创建时间）
-- 所有 docId/notebookId/blockId 参数必须使用 ID，不能用名称或路径 !IMPORTANT!
 
 **路径属性**:
 - path: ID路径，如 \`/20241020-xxx/20240331-yyy.sy\`（可推断层级）
@@ -89,31 +90,44 @@ export const siyuanTool = {
 - 块引用: \`((<BlockId> "锚文本"))\` (又称为 ref, 反向链接等)
 - 嵌入块: \`{{SQL语句}}\` (动态执行 SQL 并嵌入结果，SQL 内换行用 \`_esc_newline_\` 转义)
 
-**工具分类概览**:
-- 笔记本: inspectNotebooksTool
-- 文档系统导航: listActiveDocs, inspectDocTree
-- 分析块、文档的属性结构等: inspectBlockTool (特别适合分析长文档内部块结构)
-- 日记: getDailyNoteDocs, appendContent(dailynote)
-- 内容读写: inspectBlockMarkdown, appendContent(block/document)
-- 搜索查询: searchDocument, searchKeyword, querySQL
+### 核心约束（必须遵守）
 
-## 关键规则 ##
+1. **ID 格式**：所有 ID 参数必须使用 \`\\d{14}-\\w{7}\` 格式（如 \`20241016135347-zlrn2cz\`），禁止使用名称或路径
+2. **SQL LIMIT**：\`querySQL\` 必须指定 LIMIT（建议默认 32）
+3. **写入反馈**：\`appendContent\` 成功后，回复中必须包含文档链接 \`[文档名](siyuan://blocks/xxx)\`
+4. **鼓励链接**: 当提及某个文档、块的时候，鼓励在回复中包含对应的 siyuan 链接
 
-- 用户提及文档但无上下文时，先用 listActiveDocs 检查是否为当前打开的文档
-- 写入文档时(appendContentTool)，回答中必须附上 \`[文档名](siyuan://blocks/xxx)\` 链接 !IMPORTANT!
-- 日记文档按笔记本独立管理，操作前需确认目标笔记本
-- querySQL 必须指定 LIMIT（建议默认 32）!IMPORTANT!
-- 基于块内容回答时，附上 siyuan 链接方便用户溯源
-- 优先使用现成工具，仅在复杂查询时使用 querySQL
-- 谨慎访问 siyuanKernalAPI
+### 工具流经验
 
-## 高级文档 ##
-- 需要工具选择/SQL 说明时，查阅高级文档主题（tool-selection, sql-overview 等）；使用 querySQL 前先读相关 SQL 主题。
-- Markdown 语法、日记、ID 规则等专题也可在高级文档中查看。
+**场景：用户提及文档但未给ID**
+<<<
+步骤1: listActiveDocs()  → 检查是否为当前打开的文档
+步骤2: 若不是 → searchDocument() 或 searchKeyword()
+步骤3: 确认目标后 → inspectBlockInfo() 查看结构
+>>>
 
-## 通用参数 ##
+**场景：需要分析长文档内部结构**
+<<<
+inspectBlockInfo(docId)  → 获取 TOC（文档大纲）
+                         → 定位目标标题的 blockId
+inspectBlockMarkdown(blockId, showId=true)  → 获取该部分内容并保持结构映射
+>>>
 
-所有工具支持可选 \`limit\` 参数（数字）控制输出长度，默认约 8000 字符，-1 或 0 表示不限制。
+**场景：复杂查询（需要编写 SQL）**
+<<<
+先查阅 Rule::siyuan-tools::sql-refs-table
+再构造 SQL（必须包含 LIMIT）
+>>>
+
+**场景：涉及到添加日记文档**
+<<<
+和用户确认是哪个笔记本(notebook)的日记
+利用inspectNotebooks定位确认目标笔记本，再操作日记
+>>>
+
+### 高级文档索引
+
+复杂场景请通过 \`ReadVar\` 查阅
 `.trim(),
     declareSkillRules: siyuanSkillRules
 };

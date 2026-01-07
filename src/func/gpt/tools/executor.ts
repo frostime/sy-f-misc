@@ -817,14 +817,15 @@ Assistant/Agent 务必遵循如下规范:
         const sysHintHeader = [];
         if (shouldSaveToVar && result.cacheVarResult) {
             sysHintHeader.push(`<!--ToolCallLog:Begin-->`);
-            sysHintHeader.push(`[system log] 完整结果已保存至变量: ${result.cacheVarResult} (${formatted.length} 字符)`);
-
             if (isTruncated) {
                 sysHintHeader.push(`[system log] 结果已截断为 ${keptLength} 字符`);
+                sysHintHeader.push(`[system log] 完整结果已保存至变量: ${result.cacheVarResult} (${formatted.length} 字符)`);
+
                 sysHintHeader.push(`[system hint] 使用变量引用获取完整内容: $VAR_REF{{${result.cacheVarResult}}}`);
                 sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${result.cacheVarResult}", "start": ${keptLength}, "length": ${Math.min(leftLength, 2000)}} —— 注意, 请认真考虑是否有必要读取完整内容`);
             } else {
-                sysHintHeader.push(`[system hint] 可使用变量引用: $VAR_REF{{${result.cacheVarResult}}}`);
+                sysHintHeader.push(`[system log] 已返回完整结果 (${formatted.length} 字符)`);
+                sysHintHeader.push(`[system log] 同时结果缓存在变量: ${result.cacheVarResult}; 后续如有需求可使用变量引用: $VAR_REF{{${result.cacheVarResult}}}`);
             }
 
             // if (result.cacheFile) {

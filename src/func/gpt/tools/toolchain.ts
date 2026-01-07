@@ -101,7 +101,7 @@ namespace MessageFlowFormatter {
         const lines: string[] = [];
 
         lines.push(`**[Tool Execution Log]**: ${toolName}`);
-        lines.push('``​`accesslog');
+        lines.push('```accesslog');
         lines.push(`Arguments: ${JSON.stringify(compressedArgs)}`);
 
         let resultStatus = '';
@@ -122,7 +122,7 @@ namespace MessageFlowFormatter {
                     lines.push(`Status: ${resultStatus}`);
                     lines.push('');
                     lines.push(cleanPreview);
-                    lines.push('``​`');
+                    lines.push('```');
                     lines.push('');
                     return lines.join('\n');
                 }
@@ -135,7 +135,7 @@ namespace MessageFlowFormatter {
         }
 
         lines.push(`Status: ${resultStatus}`);
-        lines.push('``​`');
+        lines.push('```');
         lines.push('');
 
         return lines.join('\n');
