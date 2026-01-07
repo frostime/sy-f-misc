@@ -652,7 +652,11 @@ Assistant/Agent 务必遵循如下规范:
             if (typeof value === 'string') {
                 resolvedValue = value;
             } else if (typeof value === 'object' && value !== null) {
-                resolvedValue = JSON.stringify(value);
+                try {
+                    resolvedValue = JSON.stringify(value);
+                } catch (error) {
+                    resolvedValue = String(value) + '\n[system error]: VAR serialization failed';
+                }
             } else {
                 resolvedValue = String(value);
             }
