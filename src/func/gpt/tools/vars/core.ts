@@ -1,4 +1,6 @@
 //缓存大模型过程中各种文本，作为变量方便后面 LLM 复用
+export const VAR_TYPE_ENUM = ['RULE', 'ToolCallResult', 'ToolCallArgs', 'MessageCache', 'LLMAdd'] as const;
+
 export interface Variable {
     name: string;
     value: string;
@@ -8,7 +10,8 @@ export interface Variable {
     lastVisited: Date;
 
     keep?: boolean;  // 总是保留在 queue 中不被删除
-    type: 'RULE' | 'ToolCallResult' | 'ToolCallArgs' | 'MessageCache' | 'LLMAdd';  // 变量类型，方便分类管理
+    // type: 'RULE' | 'ToolCallResult' | 'ToolCallArgs' | 'MessageCache' | 'LLMAdd';  // 变量类型，方便分类管理
+    type: typeof VAR_TYPE_ENUM[number];
     // RULE | ToolCallCache | MessageCache | LLMAdd
     referenceCount?: number;  // 被引用次数
 }
