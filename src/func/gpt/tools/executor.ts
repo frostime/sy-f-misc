@@ -23,6 +23,11 @@ const AgentSkillRules: ToolGroup['declareSkillRules'] = {
 - \`$VAR_REF{{name}}\` - 引用完整变量内容
 - \`$VAR_REF{{name:start:length}}\` - 引用切片（从 start 开始，读取 length 字符）
 
+**注意**:
+
+1. 使用 $VAR_REF 必须使用两个花括号引用 $VAR_REF{{name}}
+2. $VAR_REF 引用变量的类型**总是字符串**；所以不建议在内部存储复杂结构，或者读取的时候进行 json 解码以恢复结构化数据
+
 **支持位置**：工具参数中的任何位置（字符串、嵌套对象、数组）
 
 **使用示例**：

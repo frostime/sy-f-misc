@@ -381,9 +381,14 @@ export const scriptTools: ToolGroup = {
     declareSkillRules: {
         'var-ref-inject': {
             when: '需要利用 VAR_REF 机制将变量传递给脚本工具',
-            desc: 'VAR_REF + injectSdk 案例',
+            desc: 'VAR_REF + injectVar 案例',
             prompt: `
 结合 VAR_REF 机制，可将大量数据通过变量引用传递给脚本
+
+注意:
+
+1. 使用 VAR_REF 必须使用两个大括号引用 $VAR_REF{{name}}
+2. $VAR_REF 引用变量的类型**总是字符串**；所以不建议在内部存储复杂结构，或者读取的时候进行 json 解码以恢复结构化数据
 
 假设已经存在 large_json_data 变量 (建议通过 ListVars 检查)
 
@@ -434,6 +439,8 @@ export const scriptTools: ToolGroup = {
   - Bash: \`$VAR_NAME\`
 - **Python**: 变量会在代码开头自动声明，可直接使用
 - **JavaScript**: 通过代码前置声明注入
+
+可与 VAR_REF 机制结合，直接引用变量以节省 Token，详情见相关 Rule 文档。
 
 `.trim()
 };
