@@ -7,10 +7,10 @@
  * @Description  : 思源笔记工具导出文件
  */
 
-import { inspectNotebooksTool } from './notebook-tools';
 import {
-    listActiveDocsTool,
+    inspectNotebooksTool,
     inspectDocTreeTool,
+    listActiveDocsTool,
     getDailyNoteDocsTool,
 } from './document-tools';
 import {
