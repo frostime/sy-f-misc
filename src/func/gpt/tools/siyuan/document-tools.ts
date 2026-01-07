@@ -11,8 +11,7 @@
 import { getBlockByID, listDailynote } from "@frostime/siyuan-plugin-kits";
 import { lsNotebooks } from "@frostime/siyuan-plugin-kits/api";
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { documentMapper, DocumentSummary, formatDocList, getDocument } from './utils';
-import { formatArraysToToon } from "../utils";
+import { documentMapper, DocumentSummary, formatDocList } from './utils';
 import { siyuanVfs } from '@/libs/vfs/vfs-siyuan-adapter';
 
 /**
@@ -98,122 +97,6 @@ export const listActiveDocsTool: Tool = {
         }
 
         return lines.join('\n');
-    }
-};
-
-/**
- * 获取文档信息工具
- */
-export const getDocumentTool: Tool = {
-    definition: {
-        type: 'function',
-        function: {
-            name: 'getDocument',
-            description: '获取文档信息; docId/docIdList 只能提供一个',
-            parameters: {
-                type: 'object',
-                properties: {
-                    docId: {
-                        type: 'string',
-                        description: '文档ID'
-                    },
-                    docIdList: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
-                        description: '文档ID列表，可同时获取多个文档信息'
-                    }
-                },
-                required: []
-            }
-        }
-    },
-
-    permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
-    },
-
-    declaredReturnType: {
-        type: 'DocumentSummary | { docs: DocumentSummary[]; notFoundIds?: string[] }',
-        note: '单个 docId 返回 DocumentSummary，docIdList 返回对象格式'
-    },
-
-    execute: async (args: { docId?: string; docIdList?: string[] }): Promise<ToolExecuteResult> => {
-        try {
-            // 处理单个文档ID的情况
-            if (args.docId && !args.docIdList) {
-                const doc = await getDocument({ docId: args.docId });
-                if (!doc) {
-                    return {
-                        status: ToolExecuteStatus.NOT_FOUND,
-                        data: '',
-                        error: `未找到文档: ${args.docId}`
-                    };
-                }
-                return {
-                    status: ToolExecuteStatus.SUCCESS,
-                    data: doc
-                };
-            }
-
-            // 处理多个文档ID的情况
-            if (args.docIdList && args.docIdList.length > 0) {
-                const docs = [];
-                const notFoundIds = [];
-
-                for (const docId of args.docIdList) {
-                    const doc = await getDocument({ docId });
-                    if (doc) {
-                        docs.push(doc);
-                    } else {
-                        notFoundIds.push(docId);
-                    }
-                }
-
-                if (docs.length === 0) {
-                    return {
-                        status: ToolExecuteStatus.NOT_FOUND,
-                        error: `未找到任何文档: ${notFoundIds.join(', ')}`
-                    };
-                }
-
-                return {
-                    status: ToolExecuteStatus.SUCCESS,
-                    data: {
-                        docs,
-                        notFoundIds: notFoundIds.length > 0 ? notFoundIds : undefined
-                    }
-                };
-            }
-
-            // 如果既没有提供 docId 也没有提供 docIdList
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: '请提供 docId 或 docIdList 参数'
-            };
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `获取文档信息失败: ${error.message}`
-            };
-        }
-    },
-
-    formatForLLM: (data: DocumentSummary | { docs: DocumentSummary[]; notFoundIds?: string[] }): string => {
-        // 单个文档
-        if ('id' in data && 'hpath' in data) {
-            // return `[${data.id}] ${data.hpath} (box: ${data.box})`;
-            return formatArraysToToon([data], 'Docs');
-        }
-        // 多个文档
-        const result = data as { docs: DocumentSummary[]; notFoundIds?: string[] };
-        // const lines = result.docs.map(doc => `- [${doc.id}] ${doc.hpath}`);
-        let output = `---文档列表 (共 ${result.docs.length} 个)---\n${formatArraysToToon(result.docs, 'Docs')}`;
-        if (result.notFoundIds && result.notFoundIds.length > 0) {
-            output += `\n\n[未找到] ${result.notFoundIds.join(', ')}`;
-        }
-        return output;
     }
 };
 

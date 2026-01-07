@@ -10,14 +10,13 @@
 import { inspectNotebooksTool } from './notebook-tools';
 import {
     listActiveDocsTool,
-    getDocumentTool,
     inspectDocTreeTool,
     getDailyNoteDocsTool,
 } from './document-tools';
 import {
+    inspectBlockInfoTool,
     getBlockMarkdownTool,
-    appendMarkdownTool,
-    appendDailyNoteTool
+    appendContentTool
 } from './content-tools';
 import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
 import { siyuanSkillRules } from './skill-doc';
@@ -64,11 +63,10 @@ export const siyuanTool = {
         inspectNotebooksTool,
         inspectDocTreeTool,
         listActiveDocsTool,
-        getDocumentTool,
         getDailyNoteDocsTool,
+        inspectBlockInfoTool,
         getBlockMarkdownTool,
-        appendMarkdownTool,
-        appendDailyNoteTool,
+        appendContentTool,
         searchDocumentTool,
         querySQLTool,
         searchKeywordTool,
@@ -94,15 +92,15 @@ export const siyuanTool = {
 **工具分类概览**:
 - 笔记本: inspectNotebooksTool
 - 文档系统导航: listActiveDocs, inspectDocTree
-- 文档结构预览: getDocument
-- 日记: getDailyNoteDocs, appendDailyNote
-- 内容读写: getBlockMarkdown, appendMarkdown
+- 分析块、文档的属性结构等: inspectBlockTool (特别适合分析长文档内部块结构)
+- 日记: getDailyNoteDocs, appendContentTool(dailynote)
+- 内容读写: getBlockMarkdown, appendContentTool(block/document)
 - 搜索查询: searchDocument, searchKeyword, querySQL
 
 ## 关键规则 ##
 
 - 用户提及文档但无上下文时，先用 listActiveDocs 检查是否为当前打开的文档
-- 写入文档时(appendMarkdown/appendDailyNote)，回答中必须附上 \`[文档名](siyuan://blocks/xxx)\` 链接 !IMPORTANT!
+- 写入文档时(appendContentTool)，回答中必须附上 \`[文档名](siyuan://blocks/xxx)\` 链接 !IMPORTANT!
 - 日记文档按笔记本独立管理，操作前需确认目标笔记本
 - querySQL 必须指定 LIMIT（建议默认 32）!IMPORTANT!
 - 基于块内容回答时，附上 siyuan 链接方便用户溯源

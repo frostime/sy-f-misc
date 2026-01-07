@@ -6,9 +6,8 @@
  * @Description  : 思源笔记工具辅助函数
  */
 
-import { BlockTypeName, getBlockByID } from "@frostime/siyuan-plugin-kits";
-import { listDocsByPath, readDir } from "@/api";
-import { createTreeSource, TreeBuilder, formatTree, Tree, type Tree as DocumentTree } from '@/libs/tree-model';
+import { getBlockByID } from "@frostime/siyuan-plugin-kits";
+import { request, sql } from "@frostime/siyuan-plugin-kits/api";
 
 /**
  * 文档映射函数
@@ -34,24 +33,6 @@ export const documentMapper = (doc: Block | any, subFileCount?: number) => {
 export type DocumentSummary = ReturnType<typeof documentMapper>;
 
 /**
- * 块映射函数
- */
-export const blockMapper = (block: Block | any) => {
-    let ans: Partial<Block> = {
-        id: block.id,
-        type: BlockTypeName[block.type],
-        root_id: block.root_id
-    };
-    if (block.type === 'd') {
-        ans.content = block.content;
-    } else {
-        ans.markdown = block.markdown;
-    }
-    return ans;
-}
-
-
-/**
  * 获取文档信息
  */
 export const getDocument = async (opts: {
@@ -64,75 +45,6 @@ export const getDocument = async (opts: {
     return documentMapper(block);
 }
 
-
-/**
- * 获取文档的子文档
- */
-export async function getDocChildren(doc: DocumentSummary): Promise<DocumentSummary[]> {
-    const parentPath = doc.path.endsWith('.sy') ? doc.path : doc.path + '.sy';
-    const childDirPath = parentPath.replace(/\.sy$/, '');
-    const dataDirPath = `/data/${doc.box}${childDirPath}`;
-
-    // 检查目录是否存在
-    const dirContent = await readDir(dataDirPath);
-    if (!dirContent?.length) return [];
-
-    // 检查是否有 .sy 文件
-    const hasSyFiles = dirContent.some(item => !item.isDir && item.name.endsWith('.sy'));
-    if (!hasSyFiles) return [];
-
-    // 获取子文档详细信息
-    const response = await listDocsByPath(doc.box, childDirPath);
-    if (!response?.files?.length) return [];
-
-    return response.files.map(file => documentMapper({
-        id: file.id,
-        hpath: file.hPath ?? file.name,
-        path: file.path,
-        content: file.name1 || file.name,
-        box: doc.box
-    }, file.subFileCount));
-}
-
-/**
- * 列出子文档 - 返回文档树
- * @param root 根文档ID
- * @param maxDepth 展开的层数，depth=1 表示展开一层子文档，depth=2 表示展开两层，以此类推
- */
-export const listSubDocs = async (root: BlockId, maxDepth = 1): Promise<DocumentTree> => {
-    const MAX_DEPTH = 7;
-    // maxDepth 表示要展开的层数
-    // TreeBuilder 的 maxDepth 需要 +1（因为要包含根节点本身）
-    const effectiveMaxDepth = Math.min(maxDepth + 1, MAX_DEPTH + 1);
-
-    if (!root) {
-        return new Tree([]);
-    }
-
-    // 获取根文档
-    const rootDoc = await getBlockByID(root);
-    if (!rootDoc) {
-        return new Tree([]);
-    }
-
-    const rootSummary = documentMapper(rootDoc);
-
-    // 使用 tree-model 构建树
-    const source = createTreeSource<DocumentSummary>({
-        root: rootSummary,
-        getChildren: getDocChildren
-    });
-
-    return await TreeBuilder.build<DocumentSummary>([source], { maxDepth: effectiveMaxDepth });
-}
-
-
-export type DocumentSummaryWithChildren = DocumentSummary & { children?: DocumentSummaryWithChildren[] };
-
-/**
- * 文档树类型
- */
-export type { DocumentTree };
 
 /**
  * 格式化单个文档条目，包含子文档信息
@@ -158,29 +70,93 @@ export const formatDocList = (docs: DocumentSummary[]): string => {
     return `---文档列表 (共 ${docs.length} 个)---\n${lines.join('\n')}`;
 }
 
+
+// ================================================================
+// For Inspect
+// ================================================================
+// 添加到 utils.ts
+
 /**
- * 格式化文档树为树形结构
- * @param tree 文档树
- * @returns 格式化后的字符串
+ * 判断是否是有效的思源 ID 格式
+ * 格式: 14位数字-7位字母数字
  */
-export const formatDocTree = (tree: DocumentTree): string => {
-    if (!tree || tree.roots.length === 0) {
-        return '(空列表)';
+export function isIDFormat(str: string): boolean {
+    return /^\d{14}-[a-z0-9]{7}$/.test(str);
+}
+
+/**
+ * 容器块类型列表
+ */
+const CONTAINER_TYPES = new Set(['d', 'b', 'l', 's', 'c']); // document, blockquote, list, superblock, container
+
+/**
+ * 判断块是否是容器块
+ */
+export async function isContainerBlock(id: string): Promise<boolean> {
+    const block = await getBlockByID(id);
+    if (!block) return false;
+    return CONTAINER_TYPES.has(block.type);
+}
+
+/**
+ * 获取容器块的直接子块 ID 列表
+ */
+export async function getChildBlocks(id: string): Promise<string[]> {
+    const result = await request('/api/block/getChildBlocks', { id });
+    if (!result || result.length === 0) return [];
+    return result.map((row: any) => row.id);
+}
+
+/**
+ * 标题节点结构
+ */
+export interface HeaderNode {
+    blockId: string;
+    content: string;
+    children: HeaderNode[];
+}
+
+/**
+ * 获取文档的标题大纲 (TOC)
+ */
+export async function getToc(docId: string): Promise<HeaderNode[]> {
+    // 获取文档中所有标题块，按顺序排列
+    const headers = await sql(`
+        SELECT id, content, subtype FROM blocks
+        WHERE root_id = '${docId}' AND type = 'h'
+        ORDER BY sort
+    `);
+
+    if (!headers || headers.length === 0) return [];
+
+    // 构建层级结构
+    const root: HeaderNode[] = [];
+    const stack: { node: HeaderNode; level: number }[] = [];
+
+    for (const h of headers) {
+        // subtype: h1, h2, h3, ...
+        const level = parseInt(h.subtype?.replace('h', '') || '1', 10);
+
+        const node: HeaderNode = {
+            blockId: h.id,
+            content: h.content,
+            children: []
+        };
+
+        // 找到正确的父节点
+        while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+            stack.pop();
+        }
+
+        if (stack.length === 0) {
+            root.push(node);
+        } else {
+            stack[stack.length - 1].node.children.push(node);
+        }
+
+        stack.push({ node, level });
     }
 
-    const stats = tree.getStats();
-    const formatted = formatTree({
-        tree,
-        formatter: (doc, node) => {
-            const hasUnexpandedChildren = node.children.length === 0 && doc.subFileCount && doc.subFileCount > 0;
-            if (hasUnexpandedChildren) {
-                return `[${doc.id}] ${doc.hpath}/ (+${doc.subFileCount})`;
-            }
-            return `[${doc.id}] ${doc.hpath}`;
-        },
-        showChildCount: true
-    });
-
-    return `---文档树 (共 ${stats.totalNodes} 个)---\n${formatted}`;
+    return root;
 }
 
