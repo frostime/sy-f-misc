@@ -3,19 +3,16 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-11-26
+ * @LastEditTime : 2026-01-07 19:21:01
  * @Description  : 思源笔记工具导出文件
  */
 
-import { getNotebookTool, listNotebookTool } from './notebook-tools';
+import { inspectNotebooksTool } from './notebook-tools';
 import {
     listActiveDocsTool,
     getDocumentTool,
-    getParentDocTool,
-    listSubDocsTool,
-    listSiblingDocsTool,
+    inspectDocTreeTool,
     getDailyNoteDocsTool,
-    listNotebookDocsTool
 } from './document-tools';
 import {
     getBlockMarkdownTool,
@@ -24,27 +21,58 @@ import {
 } from './content-tools';
 import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
 import { siyuanSkillRules } from './skill-doc';
+import { request } from '@frostime/siyuan-plugin-kits/api';
+import { Tool, ToolPermissionLevel } from '../types';
+
+export const siyuanKernalAPI: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'siyuanKernalAPI',
+            description: '思源笔记内核API调用接口',
+            parameters: {
+                type: 'object',
+                properties: {
+                    endpoint: {
+                        type: 'string',
+                        description: 'API端点，例如 /api/attr/getBlockAttrs'
+                    },
+                    payload: {
+                        type: 'object',
+                        description: '请求负载，依据具体API而定'
+                    }
+                },
+                required: ['endpoint']
+            }
+        }
+    },
+    permission: {
+        permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    execute: async (args: { endpoint: string; payload?: any }): Promise<any> => {
+        const response = await request(args.endpoint, args.payload, 'response');
+        return { ok: response.code === 0, code: response.code, data: response.data };
+    }
+}
 
 // 导出思源笔记工具列表
 export const siyuanTool = {
     name: 'siyuan-tools',
     description: '思源笔记工具',
     tools: [
-        listNotebookTool,
-        getNotebookTool,
+        inspectNotebooksTool,
+        inspectDocTreeTool,
         listActiveDocsTool,
         getDocumentTool,
         getDailyNoteDocsTool,
-        getParentDocTool,
-        listSubDocsTool,
-        listSiblingDocsTool,
-        listNotebookDocsTool,
         getBlockMarkdownTool,
         appendMarkdownTool,
         appendDailyNoteTool,
         searchDocumentTool,
         querySQLTool,
-        searchKeywordTool
+        searchKeywordTool,
+        siyuanKernalAPI
     ],
     rulePrompt: `
 ## 思源笔记工具组 ##
@@ -64,8 +92,9 @@ export const siyuanTool = {
 - 嵌入块: \`{{SQL语句}}\` (动态执行 SQL 并嵌入结果，SQL 内换行用 \`_esc_newline_\` 转义)
 
 **工具分类概览**:
-- 笔记本: listNotebook, getNotebook
-- 文档导航: listActiveDocs, getDocument, getParentDoc, listSubDocs, listSiblingDocs, listNotebookDocs
+- 笔记本: inspectNotebooksTool
+- 文档系统导航: listActiveDocs, inspectDocTree
+- 文档结构预览: getDocument
 - 日记: getDailyNoteDocs, appendDailyNote
 - 内容读写: getBlockMarkdown, appendMarkdown
 - 搜索查询: searchDocument, searchKeyword, querySQL
@@ -78,6 +107,7 @@ export const siyuanTool = {
 - querySQL 必须指定 LIMIT（建议默认 32）!IMPORTANT!
 - 基于块内容回答时，附上 siyuan 链接方便用户溯源
 - 优先使用现成工具，仅在复杂查询时使用 querySQL
+- 谨慎访问 siyuanKernalAPI
 
 ## 高级文档 ##
 - 需要工具选择/SQL 说明时，查阅高级文档主题（tool-selection, sql-overview 等）；使用 querySQL 前先读相关 SQL 主题。

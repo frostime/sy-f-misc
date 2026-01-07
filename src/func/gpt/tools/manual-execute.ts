@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-21
  * @FilePath     : /src/func/gpt/tools/manual-execute.ts
- * @LastEditTime : 2026-01-07 01:08:42
+ * @LastEditTime : 2026-01-07 18:30:20
  * @Description  : 手动工具调用测试面板
  */
 import { openIframeTab, openIframeDialog } from "@/func/html-pages/core";
@@ -100,10 +100,14 @@ export const openManualExecutePanel = () => {
                      * 执行工具（跳过所有审批）
                      */
                     executeTool: async (toolName: string, args: Record<string, any>) => {
-                        return await executor.execute(toolName, args, {
+                        const ans = await executor.execute(toolName, args, {
                             skipExecutionApproval: true,
                             skipResultApproval: true
                         });
+                        if (ans.status === 'error' && !ans.data) {
+                            ans.data = ans.error || 'Execution Error';
+                        }
+                        return ans;
                     }
                 }
             }

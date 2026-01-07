@@ -6,8 +6,7 @@
  * @Description  : 思源笔记工具辅助函数
  */
 
-import { BlockTypeName, getBlockByID, getMarkdown, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { appendBlock, request } from "@frostime/siyuan-plugin-kits/api";
+import { BlockTypeName, getBlockByID } from "@frostime/siyuan-plugin-kits";
 import { listDocsByPath, readDir } from "@/api";
 import { createTreeSource, TreeBuilder, formatTree, Tree, type Tree as DocumentTree } from '@/libs/tree-model';
 
@@ -65,17 +64,11 @@ export const getDocument = async (opts: {
     return documentMapper(block);
 }
 
-/**
- * 获取块的完整Markdown内容
- */
-export const getBlockFullMarkdownContent = async (blockId: BlockId) => {
-    return await getMarkdown(blockId);
-}
 
 /**
  * 获取文档的子文档
  */
-async function getDocChildren(doc: DocumentSummary): Promise<DocumentSummary[]> {
+export async function getDocChildren(doc: DocumentSummary): Promise<DocumentSummary[]> {
     const parentPath = doc.path.endsWith('.sy') ? doc.path : doc.path + '.sy';
     const childDirPath = parentPath.replace(/\.sy$/, '');
     const dataDirPath = `/data/${doc.box}${childDirPath}`;
@@ -104,11 +97,13 @@ async function getDocChildren(doc: DocumentSummary): Promise<DocumentSummary[]> 
 /**
  * 列出子文档 - 返回文档树
  * @param root 根文档ID
- * @param maxDepth 最大递归深度，默认为1（只获取直接子文档）
+ * @param maxDepth 展开的层数，depth=1 表示展开一层子文档，depth=2 表示展开两层，以此类推
  */
 export const listSubDocs = async (root: BlockId, maxDepth = 1): Promise<DocumentTree> => {
     const MAX_DEPTH = 7;
-    const effectiveMaxDepth = Math.min(maxDepth, MAX_DEPTH);
+    // maxDepth 表示要展开的层数
+    // TreeBuilder 的 maxDepth 需要 +1（因为要包含根节点本身）
+    const effectiveMaxDepth = Math.min(maxDepth + 1, MAX_DEPTH + 1);
 
     if (!root) {
         return new Tree([]);
@@ -130,6 +125,7 @@ export const listSubDocs = async (root: BlockId, maxDepth = 1): Promise<Document
 
     return await TreeBuilder.build<DocumentSummary>([source], { maxDepth: effectiveMaxDepth });
 }
+
 
 export type DocumentSummaryWithChildren = DocumentSummary & { children?: DocumentSummaryWithChildren[] };
 
@@ -188,21 +184,3 @@ export const formatDocTree = (tree: DocumentTree): string => {
     return `---文档树 (共 ${stats.totalNodes} 个)---\n${formatted}`;
 }
 
-/**
- * 添加Markdown内容
- */
-export const appendMarkdown = async (document: BlockId, markdown: string) => {
-    await appendBlock('markdown', markdown, document);
-}
-
-/**
- * 添加日记
- */
-export const appendDailyNote = async (notebookId: BlockId, markdown: string) => {
-    let url = '/api/filetree/createDailyNote';
-    let app = thisPlugin().app;
-    let ans = await request(url, { notebook: notebookId, app: app?.appId });
-    let docId = ans.id;
-    await appendMarkdown(docId, markdown);
-    return docId;
-}

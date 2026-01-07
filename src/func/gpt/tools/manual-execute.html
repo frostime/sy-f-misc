@@ -1108,6 +1108,10 @@
                     break;
             }
 
+            if (!displayText) {
+                displayText = `(无内容)\n\n原始返回如下: ${JSON.stringify(result)}`;
+            }
+
             content.innerHTML = `
                 <div style="margin-bottom: 12px;">
                     ${statusBadge}

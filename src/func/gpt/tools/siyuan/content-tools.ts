@@ -7,7 +7,8 @@
  */
 
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { appendDailyNote, appendMarkdown, getBlockFullMarkdownContent } from './utils';
+import { getMarkdown, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { appendBlock, request } from "@frostime/siyuan-plugin-kits/api";
 import { normalizeLimit, DEFAULT_LIMIT_CHAR } from '../utils';
 
 /**
@@ -93,7 +94,7 @@ export const appendMarkdownTool: Tool = {
         type: 'function',
         function: {
             name: 'appendMarkdown',
-            description: '向文档添加Markdown内容',
+            description: '向文档块末尾添加Markdown内容',
             parameters: {
                 type: 'object',
                 properties: {
@@ -186,3 +187,33 @@ export const appendDailyNoteTool: Tool = {
         }
     }
 };
+
+// ================================================================
+// Utils
+// ================================================================
+
+/**
+ * 添加Markdown内容
+ */
+export const appendMarkdown = async (document: BlockId, markdown: string) => {
+    await appendBlock('markdown', markdown, document);
+}
+
+/**
+ * 添加日记
+ */
+export const appendDailyNote = async (notebookId: BlockId, markdown: string) => {
+    let url = '/api/filetree/createDailyNote';
+    let app = thisPlugin().app;
+    let ans = await request(url, { notebook: notebookId, app: app?.appId });
+    let docId = ans.id;
+    await appendMarkdown(docId, markdown);
+    return docId;
+}
+
+/**
+ * 获取块的完整Markdown内容
+ */
+export const getBlockFullMarkdownContent = async (blockId: BlockId) => {
+    return await getMarkdown(blockId);
+}

@@ -6,12 +6,14 @@
  * @Description  : 思源文档相关工具
  */
 
+
+
 import { getBlockByID, listDailynote } from "@frostime/siyuan-plugin-kits";
-import { listDocsByPath } from "@/api";
+import { lsNotebooks } from "@frostime/siyuan-plugin-kits/api";
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { documentMapper, DocumentSummary, DocumentTree, getDocument, listSubDocs, formatDocList, formatDocTree } from './utils';
+import { documentMapper, DocumentSummary, formatDocList, getDocument } from './utils';
 import { formatArraysToToon } from "../utils";
-import { Tree } from '@/libs/tree-model';
+import { siyuanVfs } from '@/libs/vfs/vfs-siyuan-adapter';
 
 /**
  * 获取活动文档列表工具
@@ -145,6 +147,7 @@ export const getDocumentTool: Tool = {
                 if (!doc) {
                     return {
                         status: ToolExecuteStatus.NOT_FOUND,
+                        data: '',
                         error: `未找到文档: ${args.docId}`
                     };
                 }
@@ -214,307 +217,6 @@ export const getDocumentTool: Tool = {
     }
 };
 
-/**
- * 获取父文档工具
- */
-export const getParentDocTool: Tool = {
-    definition: {
-        type: 'function',
-        function: {
-            name: 'getParentDoc',
-            description: '获取文档的父文档',
-            parameters: {
-                type: 'object',
-                properties: {
-                    docId: {
-                        type: 'string',
-                        description: '文档ID'
-                    }
-                },
-                required: ['docId']
-            }
-        }
-    },
-
-    permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
-    },
-
-    declaredReturnType: {
-        type: 'DocumentSummary'
-    },
-
-    execute: async (args: { docId: string }): Promise<ToolExecuteResult> => {
-        const doc = await getDocument({ docId: args.docId });
-        if (!doc) {
-            return {
-                status: ToolExecuteStatus.NOT_FOUND,
-                error: `未找到文档: ${args.docId}`
-            };
-        }
-
-        const path = doc.path;
-        const parts = path.split('/').filter(p => p !== '');
-        if (parts.length <= 1) {
-            return {
-                status: ToolExecuteStatus.NOT_FOUND,
-                error: `文档 ${args.docId} 没有父文档`
-            };
-        }
-        // 获取倒数第二个
-        const parentId = parts[parts.length - 2];
-        const parentDoc = await getDocument({ docId: parentId });
-        if (!parentDoc) {
-            return {
-                status: ToolExecuteStatus.NOT_FOUND,
-                error: `未找到父文档: ${parentId}`
-            };
-        }
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: documentMapper(parentDoc)
-        };
-    },
-
-    formatForLLM: (data: DocumentSummary): string => {
-        return `[${data.id}] ${data.hpath} (box: ${data.box})`;
-    }
-};
-
-/**
- * 列出子文档工具
- */
-export const listSubDocsTool: Tool = {
-    definition: {
-        type: 'function',
-        function: {
-            name: 'listSubDocs',
-            description: '列出文档的子文档',
-            parameters: {
-                type: 'object',
-                properties: {
-                    docId: {
-                        type: 'string',
-                        description: '文档ID'
-                    },
-                    depth: {
-                        type: 'number',
-                        description: '递归深度，默认为1'
-                    }
-                },
-                required: ['docId']
-            }
-        }
-    },
-
-    permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
-    },
-
-    declaredReturnType: {
-        type: 'Tree<DocumentSummary>',
-        note: '文档树结构，使用 Tree 模型管理层级关系'
-    },
-
-    execute: async (args: { docId: string; depth?: number }): Promise<ToolExecuteResult> => {
-        try {
-            const result = await listSubDocs(args.docId, args.depth || 1);
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: result
-            };
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `列出子文档失败: ${error.message}`
-            };
-        }
-    },
-
-    formatForLLM: (data: DocumentTree): string => {
-        return formatDocTree(data);
-    }
-};
-
-/**
- * 列出同级文档工具
- */
-export const listSiblingDocsTool: Tool = {
-    definition: {
-        type: 'function',
-        function: {
-            name: 'listSiblingDocs',
-            description: '列出文档的同级文档',
-            parameters: {
-                type: 'object',
-                properties: {
-                    docId: {
-                        type: 'string',
-                        description: '文档ID'
-                    }
-                },
-                required: ['docId']
-            }
-        }
-    },
-
-    permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
-    },
-
-    declaredReturnType: {
-        type: 'DocumentSummary[]'
-    },
-
-    execute: async (args: { docId: BlockId }): Promise<ToolExecuteResult> => {
-        try {
-            const doc = await getDocument({ docId: args.docId });
-            if (!doc) {
-                return {
-                    status: ToolExecuteStatus.NOT_FOUND,
-                    error: `未找到文档: ${args.docId}`
-                };
-            }
-
-            const path = doc.path;
-            const parts = path.split('/');
-            if (parts.length <= 1) {
-                return {
-                    status: ToolExecuteStatus.NOT_FOUND,
-                    error: `文档 ${args.docId} 没有同级文档`
-                };
-            }
-
-            const parentPath = parts.slice(0, -1).join('/');
-            const response = await listDocsByPath(doc.box, parentPath);
-            if (!response || !response.files || response.files.length === 0) {
-                return {
-                    status: ToolExecuteStatus.NOT_FOUND,
-                    error: `未找到同级文档`
-                };
-            }
-
-            // 直接从 listDocsByPath 构建文档列表，保留 subFileCount 信息
-            const siblingDocs = response.files.map((file: any) => {
-                // 构建 hpath：父级 hpath + 文档名
-                const parentHpath = doc.hpath.split('/').slice(0, -1).join('/');
-                return documentMapper({
-                    id: file.id,
-                    hpath: parentHpath + '/' + file.name,
-                    path: file.path,
-                    content: file.name1 || file.name,
-                    box: doc.box
-                }, file.subFileCount);
-            });
-
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: siblingDocs
-            };
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `列出同级文档失败: ${error.message}`
-            };
-        }
-    },
-
-    formatForLLM: (data: DocumentSummary[]): string => {
-        return formatDocList(data);
-    }
-};
-
-export const listNotebookDocsTool: Tool = {
-    definition: {
-        type: 'function',
-        function: {
-            name: 'listNotebookDocs',
-            description: '列出笔记本下的文档, 若 depth 则列出子文档森林',
-            parameters: {
-                type: 'object',
-                properties: {
-                    notebookId: {
-                        type: 'string',
-                        description: '笔记本ID'
-                    },
-                    depth: {
-                        type: 'number',
-                        description: '递归深度，默认为1',
-                        minimum: 1,
-                    }
-                },
-                required: ['notebookId', 'depth']
-            }
-        }
-    },
-
-    permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
-    },
-
-    declaredReturnType: {
-        type: 'DocumentSummary[] | Array<DocumentSummary & { children }>',
-        note: 'depth=1 返回平坦列表，depth>1 返回嵌套结构'
-    },
-
-    execute: async (args: { notebookId: string; depth?: number }): Promise<ToolExecuteResult> => {
-        let topLevel = await listDocsByPath(args.notebookId, '');
-        if (!topLevel || !topLevel.files || topLevel.files.length === 0) {
-            return {
-                status: ToolExecuteStatus.NOT_FOUND,
-                error: `未找到笔记本下的文档: ${args.notebookId}`
-            };
-        }
-
-        // 从 listDocsByPath 返回的数据直接构建文档列表，包含 subFileCount
-        const topLevelDocs = topLevel.files.map((file: any) => documentMapper({
-            id: file.id,
-            hpath: '/' + file.name,  // 顶级文档的 hpath 就是 /文档名
-            path: file.path,
-            content: file.name1 || file.name,
-            box: args.notebookId
-        }, file.subFileCount));
-
-        if (args.depth === undefined || args.depth === 1) {
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: topLevelDocs
-            };
-        }
-
-        // 如果 depth > 1, 需要递归获取子文档
-        const subDepth = args.depth - 1;
-        const trees = await Promise.all(
-            topLevelDocs
-                .filter(doc => doc.subFileCount > 0)
-                .map(doc => listSubDocs(doc.id, subDepth))
-        );
-
-        // 合并所有树的根节点
-        const allRoots = trees.flatMap(tree => tree.roots);
-        // const { Tree } = await import('@/libs/tree-model');
-        const combinedTree = new Tree(allRoots);
-
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: combinedTree
-        };
-    },
-
-    formatForLLM: (data: DocumentSummary[] | DocumentTree): string => {
-        if (!data) return '(空列表)';
-
-        // 检查是否为 Tree 类型
-        if ('roots' in data && 'getStats' in data) {
-            return formatDocTree(data as DocumentTree);
-        }
-
-        // 否则为 DocumentSummary 数组
-        const docs = data as DocumentSummary[];
-        if (!docs.length) return '(空列表)';
-        return formatDocList(docs);
-    }
-}
 
 /**
  * 获取日记文档工具
@@ -613,3 +315,386 @@ export const getDailyNoteDocsTool: Tool = {
         return formatDocList(data);
     }
 };
+
+// ================================================================
+// List
+// ================================================================
+
+// ============ 辅助函数 ============
+
+/**
+ * 从 .sy 文件名提取文档 ID
+ */
+function extractDocId(filename: string): string {
+    return filename.replace('.sy', '');
+}
+
+/**
+ * 列出目录下的 .sy 文件名
+ */
+async function listSyFiles(dirPath: string): Promise<string[]> {
+    const result = await siyuanVfs.readdir(dirPath);
+    if (!result.ok || !result.items) return [];
+    return result.items
+        .filter(item => !item.isDir && item.name.endsWith('.sy'))
+        .map(item => item.name);
+}
+
+/**
+ * 获取文档的子文档目录路径
+ * @param box 笔记本 ID
+ * @param docPath 文档的 path 属性（如 /xxx/yyy.sy）
+ */
+function getChildDirPath(box: string, docPath: string): string {
+    // docPath: /20260107143325-zbrtqup/20260107143334-l5eqs5i.sy
+    // 子文档目录: /data/{box}/20260107143325-zbrtqup/20260107143334-l5eqs5i/
+    const dirPath = docPath.replace('.sy', '');
+    return `/data/${box}${dirPath}`;
+}
+
+/**
+ * 文档节点（用于树结构）
+ */
+interface DocNode {
+    doc: DocumentSummary;
+    children: DocNode[];
+}
+
+/**
+ * 获取文档摘要（包括 subFileCount）
+ */
+async function fetchDocSummary(docId: string, box?: string): Promise<DocumentSummary | null> {
+    const block = await getBlockByID(docId);
+    if (!block) return null;
+
+    const actualBox = box || block.box;
+    const childDirPath = getChildDirPath(actualBox, block.path);
+    const syFiles = await listSyFiles(childDirPath);
+
+    return {
+        id: block.id,
+        hpath: block.hpath,
+        path: block.path,
+        content: block.content,
+        box: block.box,
+        subFileCount: syFiles.length
+    };
+}
+
+/**
+ * 递归构建文档树
+ * @param docId 文档 ID
+ * @param box 笔记本 ID
+ * @param remainingDepth 剩余展开层数（0 表示不再展开子节点）
+ */
+async function buildDocTree(
+    docId: string,
+    box: string,
+    remainingDepth: number
+): Promise<DocNode | null> {
+    const block = await getBlockByID(docId);
+    if (!block) return null;
+
+    const childDirPath = getChildDirPath(box, block.path);
+    const syFiles = await listSyFiles(childDirPath);
+
+    const doc: DocumentSummary = {
+        id: block.id,
+        hpath: block.hpath,
+        path: block.path,
+        content: block.content,
+        box: block.box,
+        subFileCount: syFiles.length
+    };
+
+    // 没有更多深度可展开，或者没有子文档
+    if (remainingDepth <= 0 || syFiles.length === 0) {
+        return { doc, children: [] };
+    }
+
+    // 递归构建子节点
+    const children: DocNode[] = [];
+    for (const syFile of syFiles) {
+        const childId = extractDocId(syFile);
+        const childNode = await buildDocTree(childId, box, remainingDepth - 1);
+        if (childNode) {
+            children.push(childNode);
+        }
+    }
+
+    return { doc, children };
+}
+
+/**
+ * 将 DocNode 树格式化为字符串
+ */
+function formatDocNodeTree(roots: DocNode[], indent: string = ''): string {
+    const lines: string[] = [];
+    for (let i = 0; i < roots.length; i++) {
+        const node = roots[i];
+        const isLast = i === roots.length - 1;
+        const prefix = indent + (isLast ? '└─ ' : '├─ ');
+
+        const hasUnexpanded = node.children.length === 0 && node.doc.subFileCount > 0;
+        const suffix = hasUnexpanded ? ` (+${node.doc.subFileCount})` : '';
+        lines.push(`${prefix}[${node.doc.id}] ${node.doc.hpath}${suffix}`);
+
+        if (node.children.length > 0) {
+            const childIndent = indent + (isLast ? '   ' : '│  ');
+            lines.push(formatDocNodeTree(node.children, childIndent));
+        }
+    }
+    return lines.join('\n');
+}
+
+/**
+ * 统计树中节点总数
+ */
+function countNodes(roots: DocNode[]): number {
+    let count = 0;
+    for (const node of roots) {
+        count += 1 + countNodes(node.children);
+    }
+    return count;
+}
+
+// ============ inspectDocTreeTool ============
+
+export const inspectDocTreeTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'inspectDocTree',
+            description: '文档树层级导航工具，支持向上、平级、向下遍历',
+            parameters: {
+                type: 'object',
+                properties: {
+                    entry: {
+                        type: 'string',
+                        description: `导航起点：
+- notebook/box id = 笔记本（仅支持 children）
+- document id = 文档
+示例："20220112192155-gzmnt6y"`
+                    },
+                    direction: {
+                        type: 'string',
+                        enum: ['parent', 'siblings', 'children'],
+                        description: `导航方向：
+- parent: 获取父文档（entry 须为 document id）
+- siblings: 获取同级文档（entry 须为 document id）
+- children: 获取子文档/下级文档`
+                    },
+                    depth: {
+                        type: 'number',
+                        description: '展开层数（仅 children 有效）。depth=1 返回下一层文档列表；depth>1 返回树结构。默认 1，最大 7',
+                        minimum: 1,
+                        maximum: 7
+                    }
+                },
+                required: ['entry', 'direction']
+            }
+        }
+    },
+
+    declaredReturnType: {
+        type: 'DocumentSummary[] | DocNode[]',
+        note: 'depth=1 返回列表，depth>1 返回树'
+    },
+
+    permission: {
+        permissionLevel: ToolPermissionLevel.PUBLIC
+    },
+
+    execute: async (args: {
+        entry: string;
+        direction: 'parent' | 'siblings' | 'children';
+        depth?: number;
+    }): Promise<ToolExecuteResult> => {
+        const { entry, direction, depth = 1 } = args;
+        const clampedDepth = Math.min(Math.max(depth, 1), 7);
+
+        if (!entry) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: '必须提供 entry 参数'
+            };
+        }
+
+        try {
+            // ===== 判断 entry 类型 =====
+            const notebooksResp = await lsNotebooks();
+            const isNotebook = notebooksResp.notebooks.some(nb => nb.id === entry);
+
+            // ===== Notebook 分支 =====
+            if (isNotebook) {
+                if (direction !== 'children') {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: 'entry 是笔记本 ID，只支持 direction="children"'
+                    };
+                }
+
+                const notebookDirPath = `/data/${entry}`;
+                const syFiles = await listSyFiles(notebookDirPath);
+
+                if (syFiles.length === 0) {
+                    return { status: ToolExecuteStatus.SUCCESS, data: [] };
+                }
+
+                if (clampedDepth === 1) {
+                    // 只返回顶层文档列表
+                    const docs: DocumentSummary[] = [];
+                    for (const syFile of syFiles) {
+                        const docId = extractDocId(syFile);
+                        const docSummary = await fetchDocSummary(docId, entry);
+                        if (docSummary) docs.push(docSummary);
+                    }
+                    return { status: ToolExecuteStatus.SUCCESS, data: docs };
+                }
+
+                // depth > 1：构建树
+                const roots: DocNode[] = [];
+                for (const syFile of syFiles) {
+                    const docId = extractDocId(syFile);
+                    // remainingDepth = depth - 1，因为顶层本身算第一层
+                    const node = await buildDocTree(docId, entry, clampedDepth - 1);
+                    if (node) roots.push(node);
+                }
+                return { status: ToolExecuteStatus.SUCCESS, data: roots };
+            }
+
+            // ===== Document 分支 =====
+            const block = await getBlockByID(entry);
+            if (!block) {
+                return {
+                    status: ToolExecuteStatus.NOT_FOUND,
+                    error: `未找到文档: ${entry}`
+                };
+            }
+
+            // ----- parent -----
+            if (direction === 'parent') {
+                // path: /20260107143325-zbrtqup/20260107143334-l5eqs5i.sy
+                const pathParts = block.path.split('/').filter(p => p);
+                // pathParts: ['20260107143325-zbrtqup', '20260107143334-l5eqs5i.sy']
+
+                if (pathParts.length <= 1) {
+                    return {
+                        status: ToolExecuteStatus.NOT_FOUND,
+                        error: '该文档没有父文档（已是笔记本顶层文档）'
+                    };
+                }
+
+                // 倒数第二个元素（可能带 .sy 也可能不带）
+                const parentPart = pathParts[pathParts.length - 2];
+                const parentId = parentPart.replace('.sy', '');
+
+                const parentDoc = await fetchDocSummary(parentId, block.box);
+                if (!parentDoc) {
+                    return {
+                        status: ToolExecuteStatus.NOT_FOUND,
+                        error: `未找到父文档: ${parentId}`
+                    };
+                }
+                return { status: ToolExecuteStatus.SUCCESS, data: parentDoc };
+            }
+
+            // ----- siblings -----
+            if (direction === 'siblings') {
+                const pathParts = block.path.split('/').filter(p => p);
+
+                let siblingDirPath: string;
+                if (pathParts.length <= 1) {
+                    // 顶层文档，兄弟目录就是笔记本根目录
+                    siblingDirPath = `/data/${block.box}`;
+                } else {
+                    // 非顶层文档，兄弟目录是父文档的子文档目录
+                    // path: /aaa/bbb/ccc.sy → 兄弟目录: /data/{box}/aaa/bbb/
+                    const parentPath = pathParts.slice(0, -1).join('/');
+                    siblingDirPath = `/data/${block.box}/${parentPath}`;
+                }
+
+                const syFiles = await listSyFiles(siblingDirPath);
+                const siblings: DocumentSummary[] = [];
+                for (const syFile of syFiles) {
+                    const siblingId = extractDocId(syFile);
+                    const siblingDoc = await fetchDocSummary(siblingId, block.box);
+                    if (siblingDoc) siblings.push(siblingDoc);
+                }
+                return { status: ToolExecuteStatus.SUCCESS, data: siblings };
+            }
+
+            // ----- children -----
+            if (direction === 'children') {
+                const childDirPath = getChildDirPath(block.box, block.path);
+                const syFiles = await listSyFiles(childDirPath);
+
+                if (syFiles.length === 0) {
+                    return { status: ToolExecuteStatus.SUCCESS, data: [] };
+                }
+
+                if (clampedDepth === 1) {
+                    // 只返回直接子文档列表
+                    const children: DocumentSummary[] = [];
+                    for (const syFile of syFiles) {
+                        const childId = extractDocId(syFile);
+                        const childDoc = await fetchDocSummary(childId, block.box);
+                        if (childDoc) children.push(childDoc);
+                    }
+                    return { status: ToolExecuteStatus.SUCCESS, data: children };
+                }
+
+                // depth > 1：构建子树（不包括 entry 自身）
+                const roots: DocNode[] = [];
+                for (const syFile of syFiles) {
+                    const childId = extractDocId(syFile);
+                    // remainingDepth = depth - 1
+                    const node = await buildDocTree(childId, block.box, clampedDepth - 1);
+                    if (node) roots.push(node);
+                }
+                return { status: ToolExecuteStatus.SUCCESS, data: roots };
+            }
+
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `未知的 direction: ${direction}`
+            };
+
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `导航失败: ${error.message}`
+            };
+        }
+    },
+
+    formatForLLM: (data: DocumentSummary[] | DocNode[] | DocumentSummary): string => {
+        if (!data) return '(空)';
+
+        // 单个文档（parent 返回）
+        if ('id' in data && 'hpath' in data && !Array.isArray(data)) {
+            const doc = data as DocumentSummary;
+            const subInfo = doc.subFileCount > 0 ? ` (+${doc.subFileCount})` : '';
+            return `[${doc.id}] ${doc.hpath}${subInfo}`;
+        }
+
+        // 数组
+        if (!Array.isArray(data) || data.length === 0) {
+            return '(空列表)';
+        }
+
+        // 判断是 DocumentSummary[] 还是 DocNode[]
+        const first = data[0];
+        if ('doc' in first && 'children' in first) {
+            // DocNode[] - 树结构
+            const nodes = data as DocNode[];
+            const totalNodes = countNodes(nodes);
+            const formatted = formatDocNodeTree(nodes);
+            return `---文档树 (共 ${totalNodes} 个)---\n${formatted}`;
+        } else {
+            // DocumentSummary[] - 列表
+            return formatDocList(data as DocumentSummary[]);
+        }
+    }
+};
+

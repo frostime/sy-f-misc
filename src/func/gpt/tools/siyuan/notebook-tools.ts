@@ -22,17 +22,26 @@ const listNotebook = () => {
 }
 
 /**
- * 笔记本列表工具
+ * 笔记本检查工具（合并 list 和 get）
  */
-export const listNotebookTool: Tool = {
+export const inspectNotebooksTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'listNotebook',
-            description: '获取思源笔记中的笔记本列表',
+            name: 'inspectNotebooks',
+            description: '查看笔记本信息。不提供参数时列出所有笔记本；提供 id 或 name 时返回匹配的笔记本',
             parameters: {
                 type: 'object',
-                properties: {},
+                properties: {
+                    id: {
+                        type: 'string',
+                        description: '笔记本 ID（唯一标识）'
+                    },
+                    name: {
+                        type: 'string',
+                        description: '笔记本名称（可能不唯一，返回所有匹配项）'
+                    }
+                },
                 required: []
             }
         }
@@ -43,19 +52,39 @@ export const listNotebookTool: Tool = {
     },
 
     declaredReturnType: {
-        type: '{ id: string; name: string; dailynotePathTemplate: string }[]'
+        type: '{ id: string; name: string; dailynotePathTemplate: string }[]',
+        note: 'id 查询返回 0-1 个结果，name 查询可能返回多个结果'
     },
 
-    execute: async (): Promise<ToolExecuteResult> => {
+    execute: async (args: { id?: string; name?: string }): Promise<ToolExecuteResult> => {
         try {
-            const notebooks = listNotebook();
+            let notebooks = listNotebook();
+
+            // 过滤笔记本
+            if (args.id) {
+                notebooks = notebooks.filter(nb => nb.id === args.id);
+            } else if (args.name) {
+                notebooks = notebooks.filter(nb => nb.name === args.name);
+            }
+            // 如果没有参数，返回所有笔记本
+
+            // 获取配置信息
             const boxes = await Promise.all(notebooks.map(async (notebook) => {
                 const conf = await getNotebookConf(notebook.id);
                 return {
                     ...notebook,
                     dailynotePathTemplate: conf.conf.dailyNoteSavePath
-                }
+                };
             }));
+
+            // 如果查询了 id 或 name 但没有结果
+            if ((args.id || args.name) && boxes.length === 0) {
+                return {
+                    status: ToolExecuteStatus.NOT_FOUND,
+                    error: `未找到笔记本: ${args.id || args.name}`
+                };
+            }
+
             return {
                 status: ToolExecuteStatus.SUCCESS,
                 data: boxes
@@ -63,7 +92,7 @@ export const listNotebookTool: Tool = {
         } catch (error) {
             return {
                 status: ToolExecuteStatus.ERROR,
-                error: `获取笔记本列表失败: ${error.message}`
+                error: `查询笔记本失败: ${error.message}`
             };
         }
     },
@@ -72,71 +101,7 @@ export const listNotebookTool: Tool = {
         if (!data || data.length === 0) {
             return '(无笔记本)';
         }
-        const lines = data.map(nb => `- [${nb.id}] ${nb.name} (日记模板: ${nb.dailynotePathTemplate})`);
-        return `---笔记本列表 (共 ${data.length} 个)---\n${lines.join('\n')}`;
-    }
-};
-
-export const getNotebookTool: Tool = {
-    definition: {
-        type: 'function',
-        function: {
-            name: 'getNotebook',
-            description: '获取笔记本信息, id可以唯一确定笔记本, name可以不唯一',
-            parameters: {
-                type: 'object',
-                properties: {
-                    id: {
-                        type: 'string',
-                        description: '笔记本ID'
-                    },
-                    name: {
-                        type: 'string',
-                        description: '笔记本名称'
-                    }
-                }
-            }
-        }
-    },
-
-    permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
-    },
-
-    declaredReturnType: {
-        type: '{ id: string; name: string; dailynotePathTemplate: string }'
-    },
-
-    execute: async (args: { id?: string; name?: string }): Promise<ToolExecuteResult> => {
-        if (!args.id && !args.name) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: '至少提供 id 或 name 参数'
-            };
-        }
-        let notebook;
-        if (args.id) {
-            notebook = listNotebook().find(notebook => notebook.id === args.id);
-        } else if (args.name) {
-            notebook = listNotebook().find(notebook => notebook.name === args.name);
-        }
-        if (!notebook) {
-            return {
-                status: ToolExecuteStatus.NOT_FOUND,
-                error: `未找到笔记本: ${args.id || args.name}`
-            };
-        }
-        const conf = await getNotebookConf(notebook.id);
-        return {
-            status: ToolExecuteStatus.SUCCESS,
-            data: {
-                ...notebook,
-                dailynotePathTemplate: conf.conf.dailyNoteSavePath
-            }
-        };
-    },
-
-    formatForLLM: (data: { id: string; name: string; dailynotePathTemplate: string }): string => {
-        return `[${data.id}] ${data.name} (日记模板: ${data.dailynotePathTemplate})`;
+        const lines = data.map(nb => `- [${nb.id}] ${nb.name} (日记: ${nb.dailynotePathTemplate})`);
+        return `---笔记本 (共 ${data.length} 个)---\n${lines.join('\n')}`;
     }
 };
