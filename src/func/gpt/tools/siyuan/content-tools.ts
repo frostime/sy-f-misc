@@ -293,29 +293,37 @@ export const getBlockInfoTool: Tool = {
 /**
  * 获取块完整Markdown内容工具
  */
-export const getBlockMarkdownTool: Tool = {
+export const getBlockContentTool: Tool = {
     definition: {
         type: 'function',
         function: {
-            name: 'getBlockMarkdown',
-            description: `获取块的完整Markdown内容; 可以是普通块或容器块
-- 对于普通块，返回该块的Markdown内容
-- 对于容器块，返回该容器内所有子块内容的拼接
-- 对比文档块，返回文档内所有块内容的拼接
-- 对于标题块，返回当前标题范围下所有块内容的拼接 (标题块非容器)
+            name: 'getBlockContent',
+            description: `获取块的 Markdown 内容，支持不同的查看模式
 
-如果需要分析块的内容结构，可设置 showId 为 true，则在每个块内容前添加 @@块ID@@块类型 标记，以便保持块结构和 Markdown 文本之间的映射关联
-`,
+**使用场景**
+- 阅读内容: 默认参数
+- 定位编辑目标: 设置 showId=true
+- 细粒度编辑子块: 设置 showId=true, showSubStructure=true
+
+**块类型行为**
+- 普通块: 返回自身 markdown
+- 文档块: 总是返回所有子块内容拼接 (文档无自身 markdown)
+- 标题块: 默认返回标题范围内所有内容; showSubStructure=true 时展开子块 ID
+- 容器块 (引述/列表/超级块等): 默认返回格式化整体; showSubStructure=true 时展开原始子块`,
             parameters: {
                 type: 'object',
                 properties: {
                     blockId: {
                         type: 'string',
-                        description: '块ID'
+                        description: '块 ID'
                     },
                     showId: {
                         type: 'boolean',
-                        description: '显示块 ID 以便保持块结构和 Markdown 文本之间的映射关联'
+                        description: '为每个块添加 @@{id}@@ 前缀，用于精确定位编辑目标。默认: showSubStructure 为 true 时自动启用'
+                    },
+                    showSubStructure: {
+                        type: 'boolean',
+                        description: '展开容器块/标题块的子块结构，显示每个子块的独立内容和 ID。用于细粒度编辑。默认: false'
                     }
                 },
                 required: ['blockId']
@@ -324,40 +332,62 @@ export const getBlockMarkdownTool: Tool = {
     },
 
     permission: {
-        requireExecutionApproval: false,
-        requireResultApproval: true
+        permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
-    declaredReturnType: {
-        type: 'string',
-        note: 'Markdown 文本内容'
-    },
-
-    execute: async (args: { blockId: string, showId?: boolean }): Promise<ToolExecuteResult> => {
+    execute: async (args: { blockId: string, showId?: boolean, showSubStructure?: boolean }): Promise<ToolExecuteResult> => {
         const id = args.blockId;
-        const showId = args.showId ?? false;
+        const showSubStructure = args.showSubStructure ?? false;
+        const showId = args.showId ?? (showSubStructure ? true : false); // 优化默认值逻辑
+
         try {
-            let block = await getBlockByID(id);
+            const block = await getBlockByID(id);
             if (!block) {
                 return {
                     status: ToolExecuteStatus.NOT_FOUND,
                     error: `未找到块: ${id}`
                 };
             }
-            let blocks = [];
-            const childBlocks = await request('/api/block/getChildBlocks', { id });
-            if (childBlocks && childBlocks.length > 0) {
-                blocks = childBlocks.map(b => ({ id: b.id, markdown: b.markdown , type: b.type ?? ''}));
-            }
-            else {
-                blocks = [{ id: block.id, markdown: block.markdown, type: block.type ?? '' }];
-            }
-            let content: string;
 
-            if (showId === true) {
-                content = blocks.map(b => `@@${b.id}@@${BlockTypeShort[b.type] || ''}\n${b.markdown}`).join('\n\n');
+            let blocks = [];
+            const isDocument = block.type === 'd';
+            const isHeading = block.type === 'h';
+            const needExpand = showSubStructure || isDocument || isHeading;
+
+            if (needExpand) {
+                const childBlocks = await request('/api/block/getChildBlocks', { id });
+                blocks = childBlocks.map(b => ({
+                    id: b.id,
+                    markdown: b.markdown,
+                    type: b.type ?? ''
+                }));
+
+                // 标题块特殊处理: 将标题自身插入顶部
+                if (isHeading) {
+                    blocks.unshift({
+                        id: block.id,
+                        markdown: block.markdown,
+                        type: block.type ?? ''
+                    });
+                }
             } else {
-                content = blocks.map(b => b.markdown).join('\n\n');
+                // 非展开模式：只返回当前块
+                blocks = [{
+                    id: block.id,
+                    markdown: block.markdown,
+                    type: block.type ?? ''
+                }];
+            }
+
+            let content: string;
+            if (showId) {
+                content = blocks
+                    .map(b => `@@${b.id}@@${BlockTypeShort[b.type] || ''}\n${b.markdown}`)
+                    .join('\n\n');
+            } else {
+                content = blocks
+                    .map(b => b.markdown)
+                    .join('\n\n');
             }
 
             return {
@@ -372,6 +402,7 @@ export const getBlockMarkdownTool: Tool = {
         }
     }
 };
+
 
 /**
  * 统一的追加内容工具

@@ -15,7 +15,7 @@ import {
 } from './document-tools';
 import {
     getBlockInfoTool,
-    getBlockMarkdownTool,
+    getBlockContentTool,
     appendContentTool
 } from './content-tools';
 import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
@@ -65,7 +65,7 @@ export const siyuanTool = {
         listActiveDocsTool,
         getDailyNoteDocsTool,
         getBlockInfoTool,
-        getBlockMarkdownTool,
+        getBlockContentTool,
         appendContentTool,
         searchDocumentTool,
         querySQLTool,
