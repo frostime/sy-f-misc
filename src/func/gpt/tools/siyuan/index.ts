@@ -90,7 +90,9 @@ export const siyuanTool = {
 1. **ID 格式**：所有 ID 参数必须使用 \`\\d{14}-\\w{7}\` 格式（如 \`20241016135347-zlrn2cz\`），禁止使用名称或路径
 2. **SQL LIMIT**：\`querySQL\` 必须指定 LIMIT（建议默认 32）
 3. **写入反馈**：\`appendContent\` 成功后，回复中必须包含文档链接 \`[文档名](siyuan://blocks/xxx)\`
-4. **编辑文档**：推荐使用 \`applyBlockDiff\` 或者 \`appendContent\` 工具，避免直接操作 API
+4. **编辑文档**
+   - appendContent 和 createNewDoc 是安全的，推荐优先使用
+   - applyDiff 有风险，使用前必须认真阅读 block-diff-edit RULE 并充分理解 "重要守则" 部分，避免承担风险和责任
 5. **鼓励链接**：回复中提及文档/块时，使用 siyuan:// 链接
 
 ### 工具流经验
