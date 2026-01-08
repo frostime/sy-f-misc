@@ -47,7 +47,57 @@ const AgentSkillRules: ToolGroup['declareSkillRules'] = {
 
 1. 使用 VAR 机制实现工具之前的管道连接，避免重复生成相同的文本
 2. 利用 Script 等脚本(如果可访问), 实现对工具结果文本的智能分析 —— Agent 可以在必要的时候要求 User 开放 javascript/shell/python 工具组来方便其做自动分析
-`
+`,
+    },
+    TODO: {
+        desc: '使用变量系统搭建 TODO 列表管理',
+        prompt: `变量系统支持通过 tags 和类型分类，可以用来构建简单的 TODO 管理系统。
+
+**实现方案**：
+1. 使用 VAR 变量存储 TODO 项 (系统将标记类型为 "LLMAdd")
+2. 使用 tags 标记状态：['TODO', 'PENDING'] / ['TODO', 'DONE'] / ['TODO', 'BLOCKED']
+3. 使用变量名作为 TODO ID（建议格式：TODO_<index>_<short brief in few letters>）
+4. 使用 desc 字段存储 TODO 的简要描述
+5. 使用 value 字段存储 TODO 的详细内容; 纯文本, markdown 语法
+
+**基本操作**：
+- 创建 TODO：\`WriteVar({name: "TODO_<id>", value: "<details>", desc: "<brief>", tags: ["TODO", "PENDING"]})\`
+- 列出 TODO：\`ListVars({filter: {tag: "TODO"}})\`
+- 列出待办：\`ListVars({filter: {tag: "PENDING"}})\`
+- 标记完成：\`WriteVar({name: "TODO_<id>", tags: ["TODO", "DONE"]})\`
+- 删除 TODO：\`RemoveVars({names: ["TODO_<id>"]})\`
+
+**高级用法**：
+- 使用多个 tags 实现分类：['TODO', 'URGENT', 'PENDING']
+- 使用 search 过滤：\`ListVars({filter: {tag: "TODO", search: "bug"}})\`
+- 在 value 中存储 JSON 格式的结构化数据（创建时间、优先级、依赖等）
+
+**示例工作流**：
+\`\`\`javascript
+// 1. 创建 TODO
+WriteVar({
+    name: "TODO_1_fix_bug",
+    value: JSON.stringify({created: "2026-01-08", priority: "high", details: "Fix the login bug"}),
+    desc: "Fix login bug",
+    tags: ["TODO", "PENDING", "URGENT"]
+})
+
+// 2. 查看所有待办
+ListVars({filter: {tag: "PENDING"}})
+
+// 3. 标记完成
+WriteVar({name: "TODO_1_fix_bug", tags: ["TODO", "DONE"]})
+
+// 4. 清理已完成的 TODO
+ListVars({filter: {tag: "DONE"}})  // 获取所有完成的 TODO 名称
+RemoveVars({names: ["TODO_1_fix_bug", ...]})  // 批量删除
+\`\`\`
+
+**注意**：
+- RULE 类型的变量不能被删除，不要用于 TODO
+- 建议定期清理已完成的 TODO 以释放空间
+- 可以结合其他工具（如文件系统）实现持久化存储
+`,
     }
 };
 

@@ -1,7 +1,6 @@
 // 在 src/func/gpt/tools/vars/ 中添加新文件: manager.ts
 
 import { VariableSystem, VAR_TYPE_ENUM } from './core';
-import type { Variable } from './core';
 
 /**
  * Vars Manager 的自定义 SDK
@@ -13,6 +12,7 @@ export interface VarsManagerSdk {
         type: typeof VAR_TYPE_ENUM[number];
         length: number;
         desc?: string;
+        tags?: string[];
         created: string;
         updated: string;
         lastVisited: string;
@@ -26,6 +26,7 @@ export interface VarsManagerSdk {
             type: string;
             value: string;
             desc?: string;
+            tags?: string[];
             created: string;
             updated: string;
             lastVisited: string;
@@ -34,8 +35,8 @@ export interface VarsManagerSdk {
         };
         error?: string;
     }>;
-    addVariable(name: string, value: string, type: typeof VAR_TYPE_ENUM[number], desc?: string): Promise<{ ok: boolean; error?: string }>;
-    updateVariable(name: string, updates: { value?: string; type?: typeof VAR_TYPE_ENUM[number]; desc?: string; keep?: boolean; }): Promise<{ ok: boolean; error?: string }>;
+    addVariable(name: string, value: string, type: typeof VAR_TYPE_ENUM[number], desc?: string, tags?: string[]): Promise<{ ok: boolean; error?: string }>;
+    updateVariable(name: string, updates: { value?: string; type?: typeof VAR_TYPE_ENUM[number]; desc?: string; tags?: string[]; keep?: boolean; }): Promise<{ ok: boolean; error?: string }>;
     deleteVariable(name: string): Promise<{ ok: boolean; error?: string }>;
     clearByType(type: 'RULE' | 'ToolCallCache' | 'MessageCache' | 'LLMAdd' | 'ALL'): Promise<{ ok: boolean; removed: number; error?: string; }>;
     getStats(): Promise<{ total: number; byType: Record<string, number>; totalSize: number; keepCount: number; }>;
@@ -52,6 +53,7 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                 type: v.type,
                 length: v.value.length,
                 desc: v.desc,
+                tags: v.tags,
                 created: v.created.toISOString(),
                 updated: v.updated.toISOString(),
                 lastVisited: v.lastVisited.toISOString(),
@@ -71,6 +73,7 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                     type: variable.type,
                     value: variable.value,
                     desc: variable.desc,
+                    tags: variable.tags,
                     created: variable.created.toISOString(),
                     updated: variable.updated.toISOString(),
                     lastVisited: variable.lastVisited.toISOString(),
@@ -79,32 +82,20 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                 }
             };
         },
-        addVariable: async (name: string, value: string, type: typeof VAR_TYPE_ENUM[number], desc?: string) => {
+        addVariable: async (name: string, value: string, type: typeof VAR_TYPE_ENUM[number], desc?: string, tags?: string[]) => {
             const existing = varSystem.getVariable(name, false);
             if (existing) {
                 return { ok: false, error: `Variable '${name}' already exists` };
             }
-            varSystem.addVariable(name, value, type, desc);
+            varSystem.addVariable(name, value, type, desc, tags);
             return { ok: true };
         },
         updateVariable: async (name: string, updates) => {
-            const variable = varSystem.getVariable(name);
+            const variable = varSystem.getVariable(name, false);
             if (!variable) {
                 return { ok: false, error: `Variable '${name}' not found` };
             }
-            if (updates.value !== undefined) {
-                variable.value = updates.value;
-                variable.updated = new Date();
-            }
-            if (updates.type !== undefined) {
-                variable.type = updates.type;
-            }
-            if (updates.desc !== undefined) {
-                variable.desc = updates.desc;
-            }
-            if (updates.keep !== undefined) {
-                variable.keep = updates.keep;
-            }
+            varSystem.updateVariable(name, updates);
             return { ok: true };
         },
         deleteVariable: async (name: string) => {
@@ -151,6 +142,7 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                 type: v.type,
                 length: v.value.length,
                 desc: v.desc,
+                tags: v.tags,
                 created: v.created.toISOString(),
                 updated: v.updated.toISOString(),
                 lastVisited: v.lastVisited.toISOString(),

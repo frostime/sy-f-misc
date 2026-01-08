@@ -27,6 +27,8 @@ export interface Variable {
     type: typeof VAR_TYPE_ENUM[number];
     // RULE | ToolCallCache | MessageCache | LLMAdd
     referenceCount?: number;  // 被引用次数
+
+    tags?: string[];
 }
 
 const defaultCompare = (a: Variable, b: Variable) => {
@@ -53,28 +55,50 @@ export class VariableSystem {
         this.varQueue = [];
     }
 
-    addVariable(name: string, value: string, type: Variable['type'], desc?: string) {
+    /**
+     * 更新变量（支持更新 value 和 tags）
+     */
+    updateVariable(
+        name: string,
+        options: {
+            value?: string;
+            type?: Variable['type'];
+            desc?: string;
+            tags?: string[];
+            keep?: boolean;
+        }
+    ) {
         const now = new Date();
-
-        // ✅ 检查是否存在同名变量
         const existingIndex = this.varQueue.findIndex(v => v.name === name);
 
         if (existingIndex !== -1) {
             // 更新已有变量
+            const existing = this.varQueue[existingIndex];
             this.varQueue[existingIndex] = {
-                ...this.varQueue[existingIndex],
-                value,
-                type,
-                desc,
+                ...existing,
+                ...(options.value !== undefined && { value: options.value }),
+                ...(options.type !== undefined && { type: options.type }),
+                ...(options.desc !== undefined && { desc: options.desc }),
+                ...(options.tags !== undefined && { tags: options.tags }),
+                ...(options.keep !== undefined && { keep: options.keep }),
                 updated: now,
                 lastVisited: now
             };
             return;
         }
 
-        // 创建新变量
+        // 创建新变量（需要 value 和 type）
+        if (options.value === undefined || options.type === undefined) {
+            throw new Error('Cannot create variable without value and type');
+        }
+
         const variable: Variable = {
-            name, value, type, desc,
+            name,
+            value: options.value,
+            type: options.type,
+            desc: options.desc,
+            tags: options.tags,
+            keep: options.keep,
             created: now,
             updated: now,
             lastVisited: now,
@@ -94,6 +118,13 @@ export class VariableSystem {
                 this.varQueue = [...keepVars, ...normalVars];
             }
         }
+    }
+
+    /**
+     * 添加变量（简化接口）
+     */
+    addVariable(name: string, value: string, type: Variable['type'], desc?: string, tags?: string[]) {
+        this.updateVariable(name, { value, type, desc, tags });
     }
 
     getVariable(name: string, recordRef: boolean = true): Variable | undefined {
@@ -119,6 +150,37 @@ export class VariableSystem {
             return true;
         }
         return false;
+    }
+
+    /**
+     * 批量删除变量（不能删除 Rule 类型的变量）
+     * @returns 成功删除的变量名列表和失败的变量名列表
+     */
+    removeVariables(names: string[]): { removed: string[]; failed: string[] } {
+        const removed: string[] = [];
+        const failed: string[] = [];
+
+        for (const name of names) {
+            const variable = this.getVariable(name, false);
+            if (!variable) {
+                failed.push(name);
+                continue;
+            }
+
+            // 不能删除 Rule 类型的变量
+            if (variable.type === 'RULE') {
+                failed.push(name);
+                continue;
+            }
+
+            if (this.removeVariable(name)) {
+                removed.push(name);
+            } else {
+                failed.push(name);
+            }
+        }
+
+        return { removed, failed };
     }
 
     searchVariables(predicate: (v: Variable) => boolean): Array<Variable> {
