@@ -442,6 +442,7 @@ export async function executeToolChain(
                 const startTime = Date.now();
                 callbacks.onToolCallStart?.(toolCall.function.name, args, toolCall.id);
 
+                callbacks.onLLMResponseUpdate(`[Executing tool]: ${toolCall.function.name}`);
                 let toolResult: ToolExecuteResult;
                 try {
                     toolResult = await toolExecutor.execute(
@@ -458,6 +459,7 @@ export async function executeToolChain(
                         error: error.message || 'Tool execution failed'
                     };
                     callbacks.onError?.(error, 'tool_execution');
+                    callbacks.onLLMResponseUpdate(`[Executing Error]: ${toolCall.function.name}\n${toolResult.error}`);
                 }
 
                 const endTime = Date.now();
@@ -498,6 +500,8 @@ export async function executeToolChain(
 
                     state.toolChainMessages.push(rejectionMessage);
                     state.allMessages.push(rejectionMessage);
+                    callbacks.onLLMResponseUpdate(`[Executing Rejected]: ${toolCall.function.name}, reason=${toolResult.rejectReason}`);
+
                     continue;
                 }
 

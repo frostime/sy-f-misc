@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2026-01-08 17:58:38
  * @FilePath     : /src/func/gpt/tools/siyuan/diff-edit/parser.ts
- * @LastEditTime : 2026-01-08 22:06:42
+ * @LastEditTime : 2026-01-08 22:46:20
  * @Description  : Block Diff 解析器（严格模式）
  */
 
@@ -63,10 +63,10 @@ export function parseHunk(hunkText: string): ParsedHunk {
         throw new Error('空的 hunk');
     }
 
-    // 解析头部: @@[MODIFIER:|DELETE:]blockId@@[类型标签]
+    // 解析头部: @@[MODIFIER:|DELETE:|REPLACE:]blockId@@[类型标签]
     const headerLine = rawLines[0];
     const headerMatch = headerLine.match(
-        /^@@(DELETE:|BEFORE:|AFTER:|PREPEND:|APPEND:)?([a-z0-9-]+)@@(.*)$/i
+        /^@@(DELETE:|REPLACE:|BEFORE:|AFTER:|PREPEND:|APPEND:)?([a-z0-9-]+)@@(.*)$/i
     );
 
     if (!headerMatch) {
@@ -82,42 +82,74 @@ export function parseHunk(hunkText: string): ParsedHunk {
         throw new Error(formatIdError(blockId, `解析 hunk 失败`));
     }
 
-    // 判断是否为 DELETE 命令
+    // 判断是否为特殊命令
     let command: HunkCommand = null;
     let modifier: string | null = null;
 
     if (rawModifier === 'DELETE') {
         command = 'DELETE';
+    } else if (rawModifier === 'REPLACE') {
+        command = 'REPLACE';
     } else if (rawModifier) {
         modifier = rawModifier;
     }
 
-    // 解析内容行（保持顺序）
+    // 解析内容行（严格格式要求）
     const lines: DiffLine[] = [];
 
     for (let i = 1; i < rawLines.length; i++) {
         const line = rawLines[i];
         const lineNumber = i + 1; // 1-based
 
-        if (line.startsWith('-')) {
-            // 减号行：去除 '-'，如果后面紧跟空格则去除一个空格
-            const content = line.startsWith('- ') ? line.slice(2) : line.slice(1);
-            lines.push({ type: 'minus', content, lineNumber });
-        } else if (line.startsWith('+')) {
-            // 加号行：去除 '+'，如果后面紧跟空格则去除一个空格
-            const content = line.startsWith('+ ') ? line.slice(2) : line.slice(1);
-            lines.push({ type: 'plus', content, lineNumber });
+        // ===== 严格格式解析 =====
+        // 格式要求：前缀 + 一个空格 + 内容
+        // - `- ` + content → minus 行
+        // - `+ ` + content → plus 行
+        // - ` ` + content → context 行
+        // 特殊情况：
+        // - `-` 单独 → minus 空行（表示删除空行）
+        // - `+` 单独 → plus 空行（表示添加空行）
+        // - 真正的空行 → context 空行
+
+        if (line.startsWith('- ')) {
+            // 减号行：`- ` 开头（减号+一个空格）
+            lines.push({ type: 'minus', content: line.slice(2), lineNumber });
+        } else if (line === '-') {
+            // 减号空行：表示删除一个空行
+            lines.push({ type: 'minus', content: '', lineNumber });
+        } else if (line.startsWith('-') && line.length > 1) {
+            // 减号后面有内容但没有空格 → 格式错误
+            throw new Error(
+                `第 ${lineNumber} 行格式错误: "${truncateForError(line)}"\n` +
+                `减号行必须是 "- " 开头（减号+空格+内容）\n` +
+                `如果内容以 "-" 开头（如列表），应写成: "- - 列表项"`
+            );
+        } else if (line.startsWith('+ ')) {
+            // 加号行：`+ ` 开头（加号+一个空格）
+            lines.push({ type: 'plus', content: line.slice(2), lineNumber });
+        } else if (line === '+') {
+            // 加号空行：表示添加一个空行
+            lines.push({ type: 'plus', content: '', lineNumber });
+        } else if (line.startsWith('+') && line.length > 1) {
+            // 加号后面有内容但没有空格 → 格式错误
+            throw new Error(
+                `第 ${lineNumber} 行格式错误: "${truncateForError(line)}"\n` +
+                `加号行必须是 "+ " 开头（加号+空格+内容）\n` +
+                `如果内容以 "+" 开头，应写成: "+ + 内容"`
+            );
         } else if (line.startsWith(' ')) {
-            // 上下文行：去除前导空格
+            // 上下文行：一个空格开头
             lines.push({ type: 'context', content: line.slice(1), lineNumber });
         } else if (line === '') {
-            // 空行：视为上下文行（空内容）
-            // 注意：这里改变了之前的逻辑，空行统一作为 context
-            // 如果用户想表示删除空行，需要写 "- "（减号后跟空格）
+            // 真正的空行：视为上下文空行
             lines.push({ type: 'context', content: '', lineNumber });
         } else {
-            // 无前缀行：视为上下文行
-            lines.push({ type: 'context', content: line, lineNumber });
+            // 无有效前缀 → 格式错误
+            throw new Error(
+                `第 ${lineNumber} 行格式错误: "${truncateForError(line)}"\n` +
+                `每行必须以 "- "、"+ " 或 " "（空格）开头\n` +
+                `上下文行请在行首添加一个空格`
+            );
         }
     }
 
@@ -142,12 +174,24 @@ export function parseHunk(hunkText: string): ParsedHunk {
 export function validateHunk(hunk: ParsedHunk): HunkValidation {
     const { command, modifier, lines } = hunk;
 
-    // 1. DELETE 命令：不需要内容校验
+    // 1. DELETE 命令：不需要内容
     if (command === 'DELETE') {
         return { valid: true };
     }
 
-    // 2. 位置修饰符（BEFORE, AFTER, PREPEND, APPEND）：需要 plus 行
+    // 2. REPLACE 命令：需要 plus 行（新内容）
+    if (command === 'REPLACE') {
+        const hasPlus = lines.some(l => l.type === 'plus');
+        if (!hasPlus) {
+            return {
+                valid: false,
+                error: `REPLACE 操作需要 + 行（新内容）`
+            };
+        }
+        return { valid: true };
+    }
+
+    // 3. 位置修饰符（BEFORE, AFTER, PREPEND, APPEND）：需要 plus 行
     if (modifier) {
         const hasPlus = lines.some(l => l.type === 'plus');
         if (!hasPlus) {
@@ -159,12 +203,11 @@ export function validateHunk(hunk: ParsedHunk): HunkValidation {
         return { valid: true };
     }
 
-    // 3. 普通 hunk：检查是否有实际操作
+    // 4. 普通 hunk：检查是否有实际操作
     const hasMinus = lines.some(l => l.type === 'minus');
     const hasPlus = lines.some(l => l.type === 'plus');
-    const hasContext = lines.some(l => l.type === 'context');
 
-    // 3.1 没有 minus 也没有 plus，只有 context → 跳过并警告
+    // 4.1 没有 minus 也没有 plus，只有 context → 跳过并警告
     if (!hasMinus && !hasPlus) {
         return {
             valid: true,
@@ -252,7 +295,17 @@ export function hunkToEdit(hunk: ParsedHunk): BlockEdit | null {
         return { type: 'DELETE', blockId };
     }
 
-    // 2. 位置修饰符
+    // 2. REPLACE 命令（跳过校验，直接替换）
+    if (command === 'REPLACE') {
+        const newContent = computeNewContent(hunk);
+        if (!newContent) {
+            return null;
+        }
+        // 使用 UPDATE 类型，但不设置 oldContent（跳过校验）
+        return { type: 'UPDATE', blockId, newContent };
+    }
+
+    // 3. 位置修饰符
     if (modifier) {
         const newContent = computeNewContent(hunk);
         if (!newContent) {
@@ -275,7 +328,7 @@ export function hunkToEdit(hunk: ParsedHunk): BlockEdit | null {
         }
     }
 
-    // 3. 普通 hunk：根据内容推断类型
+    // 4. 普通 hunk：根据内容推断类型
     const hasMinus = lines.some(l => l.type === 'minus');
     const hasPlus = lines.some(l => l.type === 'plus');
 
@@ -403,12 +456,37 @@ export function parseBlockDiff(diffText: string, options: ParseOptions = {}): {
 /**
  * 格式化编辑操作为可读字符串
  */
+// export function formatEdit(edit: BlockEdit): string {
+//     const { type, blockId, oldContent, newContent } = edit;
+
+//     switch (type) {
+//         case 'UPDATE':
+//             return `UPDATE ${blockId}: "${truncate(oldContent!, 30)}" → "${truncate(newContent!, 30)}"`;
+//         case 'DELETE':
+//             return `DELETE ${blockId}${oldContent ? `: "${truncate(oldContent, 50)}"` : ''}`;
+//         case 'INSERT_AFTER':
+//             return `INSERT_AFTER ${blockId}: "${truncate(newContent!, 50)}"`;
+//         case 'INSERT_BEFORE':
+//             return `INSERT_BEFORE ${blockId}: "${truncate(newContent!, 50)}"`;
+//         case 'PREPEND':
+//             return `PREPEND ${blockId}: "${truncate(newContent!, 50)}"`;
+//         case 'APPEND':
+//             return `APPEND ${blockId}: "${truncate(newContent!, 50)}"`;
+//         default:
+//             return `UNKNOWN ${blockId}`;
+//     }
+// }
 export function formatEdit(edit: BlockEdit): string {
     const { type, blockId, oldContent, newContent } = edit;
 
     switch (type) {
         case 'UPDATE':
-            return `UPDATE ${blockId}: "${truncate(oldContent!, 30)}" → "${truncate(newContent!, 30)}"`;
+            // 处理 REPLACE 命令（有 oldContent）
+            if (oldContent) {
+                return `UPDATE ${blockId}: "${truncate(oldContent, 30)}" → "${truncate(newContent!, 30)}"`;
+            } else {
+                return `REPLACE ${blockId}: → "${truncate(newContent!, 30)}"`;
+            }
         case 'DELETE':
             return `DELETE ${blockId}${oldContent ? `: "${truncate(oldContent, 50)}"` : ''}`;
         case 'INSERT_AFTER':
@@ -424,10 +502,19 @@ export function formatEdit(edit: BlockEdit): string {
     }
 }
 
+
 function truncate(str: string, maxLen: number): string {
     const oneLine = str.replace(/\n/g, '\\n');
     if (oneLine.length <= maxLen) return oneLine;
     return oneLine.slice(0, maxLen - 3) + '...';
+}
+
+/**
+ * 截断用于错误消息的行内容
+ */
+function truncateForError(line: string): string {
+    if (line.length <= 40) return line;
+    return line.slice(0, 37) + '...';
 }
 
 /**
@@ -451,4 +538,3 @@ export function formatValidationError(error: ValidationError): string {
 
     return lines.join('\n');
 }
-

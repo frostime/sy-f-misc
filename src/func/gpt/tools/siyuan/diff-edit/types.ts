@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2026-01-08 17:58:38
  * @FilePath     : /src/func/gpt/tools/siyuan/diff-edit/types.ts
- * @LastEditTime : 2026-01-08 22:06:27
- * @Description  : Block Diff 类型定义（严格模式）
+ * @LastEditTime : 2026-01-08 22:31:03
+ * @Description  : Block Diff 类型定义
  */
 
 // ============ 块编辑操作类型 ============
@@ -52,8 +52,9 @@ export interface DiffLine {
 /**
  * 特殊命令
  * - DELETE: 删除整个块（无需内容）
+ * - REPLACE: 直接替换整个块（跳过内容校验，需要 + 行）
  */
-export type HunkCommand = 'DELETE' | null;
+export type HunkCommand = 'DELETE' | 'REPLACE' | null;
 
 /**
  * 解析后的 Hunk（严格模式）
@@ -131,4 +132,3 @@ export interface ValidationResult {
     /** 有效的编辑操作（跳过警告的） */
     edits: BlockEdit[];
 }
-

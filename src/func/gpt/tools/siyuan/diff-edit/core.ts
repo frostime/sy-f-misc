@@ -107,7 +107,24 @@ export async function validateAllHunks(
             continue;
         }
 
-        // 2. 位置修饰符（BEFORE, AFTER, PREPEND, APPEND）
+        // 2. REPLACE 命令（@@REPLACE:id@@）跳过内容校验
+        if (hunk.command === 'REPLACE') {
+            // 只需要验证块存在
+            const block = await api.getBlockByID(blockId);
+            if (!block) {
+                errors.push({
+                    hunkIndex: index,
+                    blockId,
+                    errorType: 'BLOCK_NOT_FOUND',
+                    message: `块不存在: ${blockId}`
+                });
+                continue;
+            }
+            validEdits.push(edit);
+            continue;
+        }
+
+        // 3. 位置修饰符（BEFORE, AFTER, PREPEND, APPEND）
         if (hunk.modifier) {
             // 需要验证目标块存在
             const block = await api.getBlockByID(blockId);
@@ -124,7 +141,7 @@ export async function validateAllHunks(
             continue;
         }
 
-        // 3. 普通 UPDATE/DELETE（需要内容校验）
+        // 4. 普通 UPDATE/DELETE（需要内容校验）
         if (edit.type === 'UPDATE' || edit.type === 'DELETE') {
             // 获取实际块内容
             const block = await api.getBlockByID(blockId);
@@ -162,7 +179,7 @@ export async function validateAllHunks(
             continue;
         }
 
-        // 4. INSERT_AFTER（只有 + 行）
+        // 5. INSERT_AFTER（只有 + 行）
         if (edit.type === 'INSERT_AFTER') {
             // 需要验证目标块存在
             const block = await api.getBlockByID(blockId);
@@ -428,4 +445,3 @@ export function createSiyuanAPI(
         },
     };
 }
-
