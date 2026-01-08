@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2026-01-08 18:56:44
+ * @LastEditTime : 2026-01-08 20:48:36
  * @Description  : 思源笔记工具导出文件
  */
 
@@ -16,7 +16,8 @@ import {
 import {
     getBlockInfoTool,
     getBlockContentTool,
-    appendContentTool
+    appendContentTool,
+    createNewDocTool
 } from './content-tools';
 
 import { applyBlockDiffTool } from './diff-edit';
@@ -70,11 +71,12 @@ export const siyuanTool = {
         getBlockInfoTool,
         getBlockContentTool,
         appendContentTool,
+        createNewDocTool,
         applyBlockDiffTool,
         searchDocumentTool,
         querySQLTool,
         searchKeywordTool,
-        siyuanKernalAPI
+        // siyuanKernalAPI
     ],
     rulePrompt: `
 ## 思源笔记工具组 ##

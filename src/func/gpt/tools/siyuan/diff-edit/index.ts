@@ -53,7 +53,9 @@ export const applyBlockDiffTool: Tool = {
 + 这是追加到文档末尾的新内容
 \`\`\`
 
-IMPORTANT: 如果不清楚如何使用，请首先阅读 ${SKILL_NAME}.
+IMPORTANT: 当且仅当阅读过 ${SKILL_NAME}，才可以调用此工具.
+
+IMPORTANT: 如果只涉及增加内容，请使用 appendContent/createDoc 工具，不要使用本工具
 
 \`\`\``,
             parameters: {

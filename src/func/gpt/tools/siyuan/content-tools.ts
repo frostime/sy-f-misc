@@ -8,7 +8,7 @@
 
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
 import { BlockTypeShort, getBlockByID, getMarkdown, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { appendBlock, request } from "@frostime/siyuan-plugin-kits/api";
+import { appendBlock, request, createDocWithMd } from "@frostime/siyuan-plugin-kits/api";
 import { isIDFormat, isContainerBlock, getChildBlocks, getToc, HeaderNode } from './utils';
 
 // ============ BlockInfo 类型定义 ============
@@ -382,11 +382,11 @@ export const getBlockContentTool: Tool = {
             let content: string;
             if (showId) {
                 content = blocks
-                    .map(b => `@@${b.id}@@${BlockTypeShort[b.type] || ''}\n${b.markdown}`)
+                    .map(b => `@@${b.id}@@${BlockTypeShort[b.type] || ''}\n${b.markdown ?? ''}`)
                     .join('\n\n');
             } else {
                 content = blocks
-                    .map(b => b.markdown)
+                    .map(b => b.markdown ?? '')
                     .join('\n\n');
             }
 
@@ -545,6 +545,194 @@ export const appendContentTool: Tool = {
         }[data.targetType] || data.targetType;
 
         return `已成功追加内容到${typeLabel} [${data.targetId}]`;
+    }
+};
+
+
+/**
+ * 创建新文档工具
+ */
+export const createNewDocTool: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'createNewDoc',
+            description: `创建新的文档。支持在指定位置创建文档`,
+            parameters: {
+                type: 'object',
+                properties: {
+                    title: {
+                        type: 'string',
+                        description: '新文档标题, 不得包含 "/" 非法字符'
+                    },
+                    markdown: {
+                        type: 'string',
+                        description: '文档内容（Markdown 格式）。默认为空'
+                    },
+                    anchorDocumentId: {
+                        type: 'string',
+                        description: '锚点文档 ID，用于确定新文档的创建位置'
+                    },
+                    location: {
+                        type: 'string',
+                        enum: ['siblings', 'children', 'parent'],
+                        description: `相对于锚点文档的位置：
+- siblings: 同级（在同一父目录下）
+- children: 子文档（在锚点文档内部）
+- parent: 父级同级（与锚点的父文档同级）`
+                    }
+                },
+                required: ['title', 'anchorDocumentId', 'location']
+            }
+        }
+    },
+
+    permission: {
+        permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    declaredReturnType: {
+        type: '{ success: true; docId: string; hpath: string; location: string }',
+        note: 'docId 为新创建的文档 ID，hpath 为文档的可读路径'
+    },
+
+    execute: async (args: {
+        title: string;
+        markdown?: string;
+        anchorDocumentId: string;
+        location: 'siblings' | 'children' | 'parent';
+    }): Promise<ToolExecuteResult> => {
+        let { title, markdown = '', anchorDocumentId, location } = args;
+
+        // 参数验证
+        if (!title || title.trim().length === 0) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: '请提供文档标题'
+            };
+        }
+
+        if (title.includes('/')) {
+            title = title.replace(/\//g, '-');
+        }
+
+        if (!anchorDocumentId || !isIDFormat(anchorDocumentId)) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `无效的锚点文档 ID: ${anchorDocumentId}`
+            };
+        }
+
+        if (!['siblings', 'children', 'parent'].includes(location)) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `无效的 location 参数: ${location}，应为 siblings/children/parent`
+            };
+        }
+
+        try {
+            // 获取锚点文档信息
+            const anchorDoc = await getBlockByID(anchorDocumentId);
+            if (!anchorDoc) {
+                return {
+                    status: ToolExecuteStatus.NOT_FOUND,
+                    error: `未找到锚点文档: ${anchorDocumentId}`
+                };
+            }
+
+            if (anchorDoc.type !== 'd') {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: `锚点 ID 不是文档类型，而是 ${anchorDoc.type} 类型的块`
+                };
+            }
+
+            const notebookId = anchorDoc.box;
+            let newDocPath: string;
+
+            // 根据 location 计算新文档路径
+            // anchorDoc.path 格式: /20260107143325-zbrtqup/20260107143334-l5eqs5i.sy
+            const pathParts = anchorDoc.path.split('/').filter(p => p);
+            // pathParts: ['20260107143325-zbrtqup', '20260107143334-l5eqs5i.sy']
+
+            if (location === 'children') {
+                // 子文档：在锚点文档下创建
+                // 新路径: /锚点文档hpath/新标题
+                newDocPath = `${anchorDoc.hpath}/${title}`;
+            } else if (location === 'siblings') {
+                // 同级：在锚点文档的同一父目录下创建
+                if (pathParts.length <= 1) {
+                    // 锚点文档在笔记本根目录，同级就是根目录
+                    newDocPath = `/${title}`;
+                } else {
+                    // 取父目录的 hpath
+                    const hpathParts = anchorDoc.hpath.split('/').filter(p => p);
+                    hpathParts.pop(); // 移除锚点文档自身
+                    const parentHpath = hpathParts.length > 0 ? `/${hpathParts.join('/')}` : '';
+                    newDocPath = `${parentHpath}/${title}`;
+                }
+            } else if (location === 'parent') {
+                // 父级同级：在锚点文档的父文档同级创建
+                if (pathParts.length <= 1) {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: '锚点文档位于笔记本根目录，没有父文档'
+                    };
+                }
+                if (pathParts.length <= 2) {
+                    // 父文档在根目录，父级同级就是根目录
+                    newDocPath = `/${title}`;
+                } else {
+                    // 取祖父目录的 hpath
+                    const hpathParts = anchorDoc.hpath.split('/').filter(p => p);
+                    hpathParts.pop(); // 移除锚点文档自身
+                    hpathParts.pop(); // 移除父文档
+                    const grandparentHpath = hpathParts.length > 0 ? `/${hpathParts.join('/')}` : '';
+                    newDocPath = `${grandparentHpath}/${title}`;
+                }
+            }
+
+            // 创建文档
+            const newDocId = await createDocWithMd(notebookId, newDocPath, markdown);
+
+            if (!newDocId) {
+                return {
+                    status: ToolExecuteStatus.ERROR,
+                    error: '创建文档失败'
+                };
+            }
+
+            // 获取新文档信息以返回完整路径
+            const newDoc = await getBlockByID(newDocId);
+
+            return {
+                status: ToolExecuteStatus.SUCCESS,
+                data: {
+                    success: true,
+                    docId: newDocId,
+                    hpath: newDoc?.hpath || newDocPath,
+                    location
+                }
+            };
+
+        } catch (error) {
+            return {
+                status: ToolExecuteStatus.ERROR,
+                error: `创建文档失败: ${error.message}`
+            };
+        }
+    },
+
+    formatForLLM: (data: { success: boolean; docId: string; hpath: string; location: string }): string => {
+        if (!data || !data.success) return '(创建失败)';
+
+        const locationLabel = {
+            siblings: '同级',
+            children: '子文档',
+            parent: '父级同级'
+        }[data.location] || data.location;
+
+        return `已成功创建文档 [${data.hpath}](siyuan://blocks/${data.docId}) (位置: ${locationLabel})`;
     }
 };
 
