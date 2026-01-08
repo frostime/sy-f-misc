@@ -17,10 +17,63 @@ import Markdown from "@/libs/components/Elements/Markdown";
 /**
  * 渲染参数列表组件
  */
-const ArgsListComponent = (props: { args: Record<string, any> }) => {
+const ArgsListComponent = (props: { args: Record<string, any>, showArgAsDiff?: string }) => {
     const rows = (text: string) => {
         return Math.max(Math.min(text.split('\n').length, 20), 5);
     }
+
+    const Args = (key: string) => {
+        if (props.showArgAsDiff === key) {
+            const content = props.args[key];
+            // 转移所有 ```
+            const escapedContent = content.replace(/```/g, "\\`\\`\\`");
+            return (
+                <Markdown
+                    markdown={`\`\`\`$diff\n${escapedContent}\n\`\`\``}
+                    fontSize="15px"
+                    style={{
+                        "width": "100%",
+                        "min-height": `8em`,
+                        "height": `${rows(props.args[key])}em`,
+                        "max-height": "20em"
+                    }}
+                />
+            )
+        }
+        return (
+            typeof props.args[key] === 'string' && (props.args[key].includes('\n') || props.args[key].length > 100) ? (
+                <textarea
+                    class="b3-text-field"
+                    readOnly
+                    value={props.args[key]}
+                    rows={rows(props.args[key])}
+                    style={{
+                        "width": "100%",
+                        "margin": "4px 0",
+                        "resize": "vertical",
+                        "font-family": "var(--b3-font-family-code)",
+                        "font-size": "13px",
+                        "box-sizing": "border-box",
+                        "border-radius": "var(--radius-sm)"
+                    }}
+                />
+            ) : (
+                <code style={{
+                    "word-break": "break-all",
+                    "overflow-wrap": "anywhere",
+                    "white-space": "pre-wrap",
+                    "display": "inline",
+                    "font-size": "13px",
+                    "background": "var(--b3-theme-surface-lighter)",
+                    "padding": "2px 6px",
+                    "border-radius": "4px"
+                }}>
+                    {JSON.stringify(props.args[key])}
+                </code>
+            )
+        )
+    }
+
     return (
         <>
             <h3 style={{ "margin": "12px 0 8px 0", "font-size": "14px" }}>参数:</h3>
@@ -36,37 +89,9 @@ const ArgsListComponent = (props: { args: Record<string, any> }) => {
                         "overflow-wrap": "anywhere"
                     }}>
                         <strong style={{ "color": "var(--b3-theme-on-background)" }}>{key}:</strong>{' '}
+
                         {
-                            typeof props.args[key] === 'string' && (props.args[key].includes('\n') || props.args[key].length > 100) ? (
-                                <textarea
-                                    class="b3-text-field"
-                                    readOnly
-                                    value={props.args[key]}
-                                    rows={rows(props.args[key])}
-                                    style={{
-                                        "width": "100%",
-                                        "margin": "4px 0",
-                                        "resize": "vertical",
-                                        "font-family": "var(--b3-font-family-code)",
-                                        "font-size": "13px",
-                                        "box-sizing": "border-box",
-                                        "border-radius": "var(--radius-sm)"
-                                    }}
-                                />
-                            ) : (
-                                <code style={{
-                                    "word-break": "break-all",
-                                    "overflow-wrap": "anywhere",
-                                    "white-space": "pre-wrap",
-                                    "display": "inline",
-                                    "font-size": "13px",
-                                    "background": "var(--b3-theme-surface-lighter)",
-                                    "padding": "2px 6px",
-                                    "border-radius": "4px"
-                                }}>
-                                    {JSON.stringify(props.args[key])}
-                                </code>
-                            )
+                            Args(key)
                         }
                     </li>
                 ))}
@@ -246,7 +271,7 @@ export const ToolExecutionApprovalUI: Component<{
             if (!props.toolDefinition) return false;
             const level = getEffectivePermissionLevel();
             return level === ToolPermissionLevel.SENSITIVE ||
-                   level === ToolPermissionLevel.MODERATE;
+                level === ToolPermissionLevel.MODERATE;
         };
 
         return (
@@ -267,6 +292,11 @@ export const ToolExecutionApprovalUI: Component<{
         );
     };
 
+    let showArgAsDiff = null;
+    if (props.toolName === 'applyBlockDiff') {
+        showArgAsDiff = 'diff';
+    }
+
     return (
         <BaseApprovalUI
             title={`允许执行工具 ${props.toolName}？`}
@@ -276,7 +306,7 @@ export const ToolExecutionApprovalUI: Component<{
             showReasonInput={true}
             extraButtons={<SafetyReviewButton />}
         >
-            <ArgsListComponent args={props.args} />
+            <ArgsListComponent args={props.args} showArgAsDiff={showArgAsDiff} />
 
             <Show when={safetyReviewResult()}>
                 <div style={{
