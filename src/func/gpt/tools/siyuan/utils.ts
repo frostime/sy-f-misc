@@ -87,15 +87,17 @@ export function isIDFormat(str: string): boolean {
 /**
  * 容器块类型列表
  */
-const CONTAINER_TYPES = new Set(['d', 'b', 'l', 's', 'c']); // document, blockquote, list, superblock, container
+// const CONTAINER_TYPES = new Set(['d', 'b', 'l', 's', 'c']); // document, blockquote, list, superblock, container
 
 /**
  * 判断块是否是容器块
  */
 export async function isContainerBlock(id: string): Promise<boolean> {
-    const block = await getBlockByID(id);
-    if (!block) return false;
-    return CONTAINER_TYPES.has(block.type);
+    // const block = await getBlockByID(id);
+    // if (!block) return false;
+    // return CONTAINER_TYPES.has(block.type);
+    const childs = await getChildBlocks(id);
+    return childs.length > 0;
 }
 
 /**

@@ -7,7 +7,7 @@
  */
 
 import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
-import { BlockTypeShort, getBlockByID, getMarkdown, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { BlockTypeShort, getBlockByID, getMarkdown, NodeType2BlockType, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { appendBlock, request, createDocWithMd } from "@frostime/siyuan-plugin-kits/api";
 import { isIDFormat, isContainerBlock, getChildBlocks, getToc, HeaderNode } from './utils';
 
@@ -26,8 +26,13 @@ interface BlockInfo {
     content?: string;
     box?: string;
     root_id?: string;
+    parent_id?: string;
+    created: string;
+    updated: string;
     // 容器块
     childBlockCount?: number;
+
+    breadcrumb?: string;
     // 文档大纲
     toc?: HeaderNode[];
 }
@@ -54,6 +59,8 @@ async function fetchBlockInfo(id: string): Promise<BlockInfo | null> {
     const info: BlockInfo = {
         id: block.id,
         type: block.type,
+        created: block.created,
+        updated: block.updated,
         contentLength: block.content?.length ?? 0,
         markdownLength: markdown.length,
         markdownPreview: markdown.substring(0, 10)
@@ -63,11 +70,13 @@ async function fetchBlockInfo(id: string): Promise<BlockInfo | null> {
     if (block.path) info.path = block.path;
     if (block.hpath) info.hpath = block.hpath;
 
+    info.box = block.box;
+    info.root_id = block.root_id;
+    info.parent_id = block.parent_id;
+
     // 文档专属属性
     if (isDocument) {
         info.content = block.content;
-        info.box = block.box;
-        info.root_id = block.root_id;
 
         // 获取 TOC
         try {
@@ -88,6 +97,19 @@ async function fetchBlockInfo(id: string): Promise<BlockInfo | null> {
         } catch {
             info.childBlockCount = 0;
         }
+    }
+
+    const breadcrumb = await request('/api/block/getBlockBreadcrumb', {
+        id: id
+    });
+    if (breadcrumb) {
+        const formatBreadItem = (item) => {
+            return `- [${item.id}][${NodeType2BlockType[item.type] ?? '?'}] ${item.name}`
+        }
+        const breadcrumbInfo = `当前块在文档中的面包屑层级关系:
+${breadcrumb.map(formatBreadItem).join('\n')}
+`;
+        info.breadcrumb = breadcrumbInfo;
     }
 
     return info;
@@ -126,9 +148,12 @@ function formatBlockInfo(block: BlockInfo): string {
     // 文档块：显示完整 content
     if (block.type === 'd') {
         lines.push(`content: ${block.content}`);
-        lines.push(`box: ${block.box}`);
-        lines.push(`root_id: ${block.root_id}`);
     }
+    lines.push(`笔记本ID(box): ${block.box}`);
+    lines.push(`文档ID(root_id): ${block.root_id}`);
+    lines.push(`父块ID(parent_id): ${block.parent_id}`);
+    lines.push(`创建时间: ${block.created}`);
+    lines.push(`最后更新时间: ${block.updated}`);
 
     // 非文档块：显示长度和预览
     lines.push(`content长度: ${block.contentLength}`);
@@ -148,6 +173,12 @@ function formatBlockInfo(block: BlockInfo): string {
         lines.push('');
         lines.push('文档标题大纲:');
         lines.push(formatToc(block.toc));
+    }
+
+    // === 面包屑 ===
+    if (block.breadcrumb) {
+        lines.push('');
+        lines.push(block.breadcrumb);
     }
 
     return lines.join('\n');
