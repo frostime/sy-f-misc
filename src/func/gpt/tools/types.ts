@@ -198,6 +198,8 @@ export interface ToolGroup {
         desc: string;
         /** 完整规则内容（保存到变量中） */
         prompt: string;
+        /** 何时使用该规则 */
+        when?: string;
         /** 是否总是加载（默认 false，按需加载） */
         alwaysLoad?: boolean;
     }>;

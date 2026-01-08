@@ -12,7 +12,7 @@ import { toolsManager } from '../model/store';
 import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
 import { createVFS, VFSManager } from '@/libs/vfs';
 import { createValSystemTools } from './vars/index';
-import { VariableSystem } from './vars/core';
+import { VariableSystem, formatRuleVar } from './vars/core';
 
 
 const AgentSkillRules: ToolGroup['declareSkillRules'] = {
@@ -22,6 +22,11 @@ const AgentSkillRules: ToolGroup['declareSkillRules'] = {
 **语法**：
 - \`$VAR_REF{{name}}\` - 引用完整变量内容
 - \`$VAR_REF{{name:start:length}}\` - 引用切片（从 start 开始，读取 length 字符）
+
+**注意**:
+
+1. 使用 $VAR_REF 必须使用两个花括号引用 $VAR_REF{{name}}
+2. $VAR_REF 引用变量的类型**总是字符串**；所以不建议在内部存储复杂结构，或者读取的时候进行 json 解码以恢复结构化数据
 
 **支持位置**：工具参数中的任何位置（字符串、嵌套对象、数组）
 
@@ -36,7 +41,63 @@ const AgentSkillRules: ToolGroup['declareSkillRules'] = {
     "arguments": {
         "html": "$VAR_REF{{FetchWebPage_123456}}"  // ← 直接引用
     }
-}`
+}
+
+**推荐用法**
+
+1. 使用 VAR 机制实现工具之前的管道连接，避免重复生成相同的文本
+2. 利用 Script 等脚本(如果可访问), 实现对工具结果文本的智能分析 —— Agent 可以在必要的时候要求 User 开放 javascript/shell/python 工具组来方便其做自动分析
+`,
+    },
+    TODO: {
+        desc: '使用变量系统搭建 TODO 列表管理',
+        prompt: `变量系统支持通过 tags 和类型分类，可以用来构建简单的 TODO 管理系统。
+
+**实现方案**：
+1. 使用 VAR 变量存储 TODO 项 (系统将标记类型为 "LLMAdd")
+2. 使用 tags 标记状态：['TODO', 'PENDING'] / ['TODO', 'DONE'] / ['TODO', 'BLOCKED']
+3. 使用变量名作为 TODO ID（建议格式：TODO_<index>_<short brief in few letters>）
+4. 使用 desc 字段存储 TODO 的简要描述
+5. 使用 value 字段存储 TODO 的详细内容; 纯文本, markdown 语法
+
+**基本操作**：
+- 创建 TODO：\`WriteVar({name: "TODO_<id>", value: "<details>", desc: "<brief>", tags: ["TODO", "PENDING"]})\`
+- 列出 TODO：\`ListVars({filter: {tag: "TODO"}})\`
+- 列出待办：\`ListVars({filter: {tag: "PENDING"}})\`
+- 标记完成：\`WriteVar({name: "TODO_<id>", tags: ["TODO", "DONE"]})\`
+- 删除 TODO：\`RemoveVars({names: ["TODO_<id>"]})\`
+
+**高级用法**：
+- 使用多个 tags 实现分类：['TODO', 'URGENT', 'PENDING']
+- 使用 search 过滤：\`ListVars({filter: {tag: "TODO", search: "bug"}})\`
+- 在 value 中存储 JSON 格式的结构化数据（创建时间、优先级、依赖等）
+
+**示例工作流**：
+\`\`\`javascript
+// 1. 创建 TODO
+WriteVar({
+    name: "TODO_1_fix_bug",
+    value: JSON.stringify({created: "2026-01-08", priority: "high", details: "Fix the login bug"}),
+    desc: "Fix login bug",
+    tags: ["TODO", "PENDING", "URGENT"]
+})
+
+// 2. 查看所有待办
+ListVars({filter: {tag: "PENDING"}})
+
+// 3. 标记完成
+WriteVar({name: "TODO_1_fix_bug", tags: ["TODO", "DONE"]})
+
+// 4. 清理已完成的 TODO
+ListVars({filter: {tag: "DONE"}})  // 获取所有完成的 TODO 名称
+RemoveVars({names: ["TODO_1_fix_bug", ...]})  // 批量删除
+\`\`\`
+
+**注意**：
+- RULE 类型的变量不能被删除，不要用于 TODO
+- 建议定期清理已完成的 TODO 以释放空间
+- 可以结合其他工具（如文件系统）实现持久化存储
+`,
     }
 };
 
@@ -312,7 +373,7 @@ Assistant/Agent 务必遵循如下规范:
         rules: NonNullable<ToolGroup['declareSkillRules']>
     ): void {
         for (const [ruleName, rule] of Object.entries(rules)) {
-            const varName = `Rule::${groupName}::${ruleName}`;
+            const varName = formatRuleVar(ruleName, groupName);
 
             this.varSystem.addVariable(
                 varName,
@@ -332,18 +393,43 @@ Assistant/Agent 务必遵循如下规范:
         groupName: string,
         rules: NonNullable<ToolGroup['declareSkillRules']>
     ): string {
-        const lines = ['**Advanced Documentation (Stored as Variables):**'];
+        const lines: string[] = [];
+        const alwaysLoadRules: Array<[string, NonNullable<ToolGroup['declareSkillRules']>[string]]> = [];
+        const onDemandRules: Array<[string, NonNullable<ToolGroup['declareSkillRules']>[string]]> = [];
 
+        // 分类规则
         for (const [ruleName, rule] of Object.entries(rules)) {
-            const varName = `Rule::${groupName}::${ruleName}`;
-
             if (rule.alwaysLoad) {
+                alwaysLoadRules.push([ruleName, rule]);
+            } else {
+                onDemandRules.push([ruleName, rule]);
+            }
+        }
+
+        // 渲染总是加载的规则
+        if (alwaysLoadRules.length > 0) {
+            lines.push('**Pinned Rules:**');
+            for (const [_ruleName, rule] of alwaysLoadRules) {
                 lines.push(`\n**${rule.desc}:**`);
                 lines.push(rule.prompt);
-            } else {
-                lines.push(`- ${rule.desc}`);
-                lines.push(`  Access via: ReadVar({"name": "${varName}"})`);
             }
+        }
+
+        // 渲染按需加载的规则（表格格式）
+        if (onDemandRules.length > 0) {
+            if (alwaysLoadRules.length > 0) {
+                lines.push('');  // 添加空行分隔
+            }
+            lines.push('**On-Demand Documentation (Stored as Variables):**');
+            lines.push('| Var | Description | When to Use |');
+            lines.push('|-----|-------------|-------------|');
+            for (const [ruleName, rule] of onDemandRules) {
+                const varName = formatRuleVar(ruleName, groupName);
+                const when = rule.when || 'As needed';
+                lines.push(`| \`${varName}\` | ${rule.desc} | ${when} |`);
+            }
+            lines.push('');
+            lines.push('*Access via: ReadVar({"name": "<VarName>"})*');
         }
 
         return lines.join('\n');
@@ -622,7 +708,11 @@ Assistant/Agent 务必遵循如下规范:
             if (typeof value === 'string') {
                 resolvedValue = value;
             } else if (typeof value === 'object' && value !== null) {
-                resolvedValue = JSON.stringify(value);
+                try {
+                    resolvedValue = JSON.stringify(value);
+                } catch (error) {
+                    resolvedValue = String(value) + '\n[system error]: VAR serialization failed';
+                }
             } else {
                 resolvedValue = String(value);
             }
@@ -817,14 +907,15 @@ Assistant/Agent 务必遵循如下规范:
         const sysHintHeader = [];
         if (shouldSaveToVar && result.cacheVarResult) {
             sysHintHeader.push(`<!--ToolCallLog:Begin-->`);
-            sysHintHeader.push(`[system log] 完整结果已保存至变量: ${result.cacheVarResult} (${formatted.length} 字符)`);
-
             if (isTruncated) {
                 sysHintHeader.push(`[system log] 结果已截断为 ${keptLength} 字符`);
+                sysHintHeader.push(`[system log] 完整结果已保存至变量: ${result.cacheVarResult} (${formatted.length} 字符)`);
+
                 sysHintHeader.push(`[system hint] 使用变量引用获取完整内容: $VAR_REF{{${result.cacheVarResult}}}`);
                 sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${result.cacheVarResult}", "start": ${keptLength}, "length": ${Math.min(leftLength, 2000)}} —— 注意, 请认真考虑是否有必要读取完整内容`);
             } else {
-                sysHintHeader.push(`[system hint] 可使用变量引用: $VAR_REF{{${result.cacheVarResult}}}`);
+                sysHintHeader.push(`[system log] 已返回完整结果 (${formatted.length} 字符)`);
+                sysHintHeader.push(`[system log] 同时结果缓存在变量: ${result.cacheVarResult}; 后续如有需求可使用变量引用: $VAR_REF{{${result.cacheVarResult}}}`);
             }
 
             // if (result.cacheFile) {

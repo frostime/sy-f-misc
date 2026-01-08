@@ -231,6 +231,59 @@
             font-weight: 600;
         }
 
+        .tag-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-small);
+            background-color: #607d8b;
+            color: white;
+            font-weight: 500;
+            margin-right: 4px;
+        }
+
+        .tags-input-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-sm);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background-color: var(--bg-primary);
+            min-height: 40px;
+        }
+
+        .tag-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background-color: #607d8b;
+            color: white;
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-small);
+        }
+
+        .tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.7;
+        }
+
+        .tag-remove:hover {
+            opacity: 1;
+        }
+
+        .tag-input {
+            flex: 1;
+            min-width: 100px;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: var(--font-size-normal);
+            color: var(--text-primary);
+        }
+
         /* ===== 详情面板 ===== */
         .detail-panel {
             width: 650px;
@@ -404,6 +457,9 @@
         let stats = null;
         let currentFilter = 'ALL';
         let searchQuery = '';
+        let varTypes = []; // 从 SDK 获取的变量类型枚举
+        let isAddingVariable = false; // 是否正在添加新变量
+        let newVariableData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] }; // 新变量数据
 
         // ===== 工具函数 =====
         function formatSize(bytes) {
@@ -438,6 +494,12 @@
             try {
                 variables = await sdk.listVariables();
                 stats = await sdk.getStats();
+
+                // 获取变量类型枚举
+                if (!varTypes || varTypes.length === 0) {
+                    varTypes = sdk.getVarTypes();
+                }
+
                 applyFilters();
             } catch (error) {
                 console.error('Failed to load data:', error);
@@ -504,11 +566,9 @@
                         <input type="text" class="search-input" placeholder="搜索变量..." id="searchInput" value="${escapeHtml(searchQuery)}">
                         <select class="filter-select" id="filterSelect">
                             <option value="ALL" ${currentFilter === 'ALL' ? 'selected' : ''}>全部类型</option>
-                            <option value="RULE" ${currentFilter === 'RULE' ? 'selected' : ''}>RULE</option>
-                            <option value="ToolCallCache" ${currentFilter === 'ToolCallCache' ? 'selected' : ''}>ToolCallCache</option>
-                            <option value="MessageCache" ${currentFilter === 'MessageCache' ? 'selected' : ''}>MessageCache</option>
-                            <option value="LLMAdd" ${currentFilter === 'LLMAdd' ? 'selected' : ''}>LLMAdd</option>
+                            ${varTypes.map(type => `<option value="${type}" ${currentFilter === type ? 'selected' : ''}>${type}</option>`).join('')}
                         </select>
+                        <button class="btn" onclick="handleAddVariable()">➥ 添加</button>
                         <button class="btn" onclick="handleRefresh()">🔄 刷新</button>
                         <button class="btn btn-danger" onclick="handleClearAll()">🗑️ 清空</button>
                     </div>
@@ -517,8 +577,8 @@
                     <div class="table-container">
                         ${renderTable()}
                     </div>
-                    <div class="detail-panel ${selectedVariable ? '' : 'hidden'}" id="detailPanel">
-                        ${selectedVariable ? renderDetail() : ''}
+                    <div class="detail-panel ${(selectedVariable || isAddingVariable) ? '' : 'hidden'}" id="detailPanel">
+                        ${isAddingVariable ? renderAddVariableForm() : (selectedVariable ? renderDetail() : '')}
                     </div>
                 </div>
             `;
@@ -533,6 +593,13 @@
                 currentFilter = e.target.value;
                 applyFilters();
             });
+
+            // 绑定 tag input 事件
+            if (selectedVariable) {
+                setTimeout(() => bindTagInputEvents(), 0);
+            } else if (isAddingVariable) {
+                setTimeout(() => bindNewTagInputEvents(), 0);
+            }
         }
 
         function renderTable() {
@@ -560,9 +627,10 @@
                         ${filteredVariables.map(v => `
                             <tr class="${selectedVariable?.name === v.name ? 'selected' : ''}" onclick="handleSelectVariable('${escapeHtml(v.name)}')">
                                 <td>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        ${escapeHtml(v.name)}
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <div>${escapeHtml(v.name)}</div>
                                         ${v.keep ? '<span class="keep-badge">🔒</span>' : ''}
+                                        ${v.tags && v.tags.length > 0 ? v.tags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join('') : ''}
                                     </div>
                                 </td>
                                 <td>
@@ -593,8 +661,23 @@
                 </div>
                 <div class="detail-content">
                     <div class="detail-section">
+                        <div class="detail-label">类型</div>
+                        <select class="detail-input" id="typeSelect">
+                            ${varTypes.map(type => `<option value="${type}" ${selectedVariable.type === type ? 'selected' : ''}>${type}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="detail-section">
                         <div class="detail-label">描述</div>
                         <input type="text" class="detail-input" id="descInput" value="${escapeHtml(selectedVariable.desc || '')}" placeholder="添加描述...">
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-label">标签 (Tags)</div>
+                        <div class="tags-input-wrapper" id="tagsInputWrapper">
+                            ${(selectedVariable.tags || []).map((tag, idx) => `<div class="tag-item"><span>${escapeHtml(tag)}</span><span class="tag-remove" onclick="handleRemoveTag(${idx})">✕</span></div>`).join('')}
+                            <input type="text" class="tag-input" id="tagInput" placeholder="输入标签后按回车...">
+                        </div>
                     </div>
 
                     <div class="detail-section">
@@ -636,6 +719,50 @@
             `;
         }
 
+        function renderAddVariableForm() {
+            return `
+                <div class="detail-header">
+                    <div class="detail-title">添加新变量</div>
+                    <button class="close-btn" onclick="handleCancelAdd()">✕</button>
+                </div>
+                <div class="detail-content">
+                    <div class="detail-section">
+                        <div class="detail-label">变量名 *</div>
+                        <input type="text" class="detail-input" id="newVarName" placeholder="输入变量名..." value="${escapeHtml(newVariableData.name)}">
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-label">类型 *</div>
+                        <select class="detail-input" id="newVarType">
+                            ${varTypes.map(type => `<option value="${type}" ${newVariableData.type === type ? 'selected' : ''}>${type}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-label">描述</div>
+                        <input type="text" class="detail-input" id="newVarDesc" placeholder="添加描述..." value="${escapeHtml(newVariableData.desc)}">
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-label">标签 (Tags)</div>
+                        <div class="tags-input-wrapper" id="newTagsInputWrapper">
+                            ${(newVariableData.tags || []).map((tag, idx) => `<div class="tag-item"><span>${escapeHtml(tag)}</span><span class="tag-remove" onclick="handleRemoveNewTag(${idx})">✕</span></div>`).join('')}
+                            <input type="text" class="tag-input" id="newTagInput" placeholder="输入标签后按回车...">
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-label">内容 *</div>
+                        <textarea class="detail-textarea content-textarea" id="newVarValue" placeholder="输入变量内容...">${escapeHtml(newVariableData.value)}</textarea>
+                    </div>
+                </div>
+                <div class="detail-actions">
+                    <button class="btn" onclick="handleCancelAdd()">取消</button>
+                    <button class="btn" onclick="handleConfirmAdd()">✓ 添加</button>
+                </div>
+            `;
+        }
+
         // ===== 事件处理 =====
         async function handleSelectVariable(name) {
             try {
@@ -654,19 +781,73 @@
 
         function handleCloseDetail() {
             selectedVariable = null;
+            isAddingVariable = false;
             render();
+        }
+
+        function handleAddVariable() {
+            isAddingVariable = true;
+            selectedVariable = null;
+            newVariableData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
+            render();
+        }
+
+        function handleCancelAdd() {
+            isAddingVariable = false;
+            newVariableData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
+            render();
+        }
+
+        async function handleConfirmAdd() {
+            try {
+                const name = document.getElementById('newVarName').value.trim();
+                const type = document.getElementById('newVarType').value;
+                const desc = document.getElementById('newVarDesc').value.trim();
+                const value = document.getElementById('newVarValue').value;
+
+                if (!name) {
+                    window.pluginSdk.showMessage('请输入变量名', 'error');
+                    return;
+                }
+
+                if (!value) {
+                    window.pluginSdk.showMessage('请输入变量内容', 'error');
+                    return;
+                }
+
+                const result = await sdk.addVariable(name, value, type, desc || undefined, newVariableData.tags);
+                if (result.ok) {
+                    window.pluginSdk.showMessage('添加成功', 'info');
+                    isAddingVariable = false;
+                    newVariableData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
+                    await loadData();
+                } else {
+                    window.pluginSdk.showMessage('添加失败: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Failed to add variable:', error);
+                window.pluginSdk.showMessage('添加失败: ' + error.message, 'error');
+            }
         }
 
         async function handleSave() {
             try {
+                const type = document.getElementById('typeSelect').value;
                 const desc = document.getElementById('descInput').value;
                 const value = document.getElementById('valueTextarea').value;
                 const keep = document.getElementById('keepCheckbox').checked;
 
+                // 收集 tags
+                const currentTags = selectedVariable.tags || [];
+
                 const updates = {};
+                if (type !== selectedVariable.type) updates.type = type;
                 if (desc !== selectedVariable.desc) updates.desc = desc;
                 if (value !== selectedVariable.value) updates.value = value;
                 if (keep !== selectedVariable.keep) updates.keep = keep;
+                if (JSON.stringify(currentTags) !== JSON.stringify(selectedVariable.tags)) {
+                    updates.tags = currentTags;
+                }
 
                 if (Object.keys(updates).length === 0) {
                     window.pluginSdk.showMessage('没有修改', 'info');
@@ -753,6 +934,65 @@
                 console.error('Failed to copy:', err);
                 window.pluginSdk.showMessage('复制失败', 'error');
             });
+        }
+
+        // ===== Tag 处理函数 =====
+        function handleRemoveTag(index) {
+            if (selectedVariable && selectedVariable.tags) {
+                selectedVariable.tags = selectedVariable.tags.filter((_, i) => i !== index);
+                render();
+                // 重新绑定 tag input 事件
+                setTimeout(() => bindTagInputEvents(), 0);
+            }
+        }
+
+        function handleRemoveNewTag(index) {
+            if (newVariableData.tags) {
+                newVariableData.tags = newVariableData.tags.filter((_, i) => i !== index);
+                render();
+                // 重新绑定 tag input 事件
+                setTimeout(() => bindNewTagInputEvents(), 0);
+            }
+        }
+
+        function bindTagInputEvents() {
+            const tagInput = document.getElementById('tagInput');
+            if (tagInput) {
+                tagInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && tagInput.value.trim()) {
+                        e.preventDefault();
+                        const tag = tagInput.value.trim();
+                        if (!selectedVariable.tags) {
+                            selectedVariable.tags = [];
+                        }
+                        if (!selectedVariable.tags.includes(tag)) {
+                            selectedVariable.tags.push(tag);
+                            render();
+                            setTimeout(() => bindTagInputEvents(), 0);
+                        }
+                    }
+                });
+            }
+        }
+
+        function bindNewTagInputEvents() {
+            const newTagInput = document.getElementById('newTagInput');
+            if (newTagInput) {
+                newTagInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && newTagInput.value.trim()) {
+                        e.preventDefault();
+                        const tag = newTagInput.value.trim();
+                        if (!newVariableData.tags) {
+                            newVariableData.tags = [];
+                        }
+                        if (!newVariableData.tags.includes(tag)) {
+                            newVariableData.tags.push(tag);
+                            render();
+                            setTimeout(() => bindNewTagInputEvents(), 0);
+                        }
+                    }
+                });
+            }
         }
 
         // ===== 初始化 =====

@@ -1,30 +1,24 @@
 // 在 src/func/gpt/tools/vars/ 中添加新文件: manager.ts
 
-import { VariableSystem } from './core';
-import type { Variable } from './core';
+import { VariableSystem, VAR_TYPE_ENUM } from './core';
 
 /**
  * Vars Manager 的自定义 SDK
  */
 export interface VarsManagerSdk {
-    /**
-     * 获取所有变量列表（包含完整信息）
-     */
+    getVarTypes(): typeof VAR_TYPE_ENUM;
     listVariables(): Promise<Array<{
         name: string;
-        type: 'RULE' | 'ToolCallCache' | 'MessageCache' | 'LLMAdd';
+        type: typeof VAR_TYPE_ENUM[number];
         length: number;
         desc?: string;
+        tags?: string[];
         created: string;
         updated: string;
         lastVisited: string;
         referenceCount: number;
         keep: boolean;
     }>>;
-
-    /**
-     * 获取变量的完整内容
-     */
     getVariable(name: string): Promise<{
         ok: boolean;
         data?: {
@@ -32,6 +26,7 @@ export interface VarsManagerSdk {
             type: string;
             value: string;
             desc?: string;
+            tags?: string[];
             created: string;
             updated: string;
             lastVisited: string;
@@ -40,54 +35,17 @@ export interface VarsManagerSdk {
         };
         error?: string;
     }>;
-
-    /**
-     * 更新变量
-     */
-    updateVariable(
-        name: string,
-        updates: {
-            value?: string;
-            desc?: string;
-            keep?: boolean;
-        }
-    ): Promise<{ ok: boolean; error?: string }>;
-
-    /**
-     * 删除变量
-     */
+    addVariable(name: string, value: string, type: typeof VAR_TYPE_ENUM[number], desc?: string, tags?: string[]): Promise<{ ok: boolean; error?: string }>;
+    updateVariable(name: string, updates: { value?: string; type?: typeof VAR_TYPE_ENUM[number]; desc?: string; tags?: string[]; keep?: boolean; }): Promise<{ ok: boolean; error?: string }>;
     deleteVariable(name: string): Promise<{ ok: boolean; error?: string }>;
-
-    /**
-     * 按类型清理变量
-     */
-    clearByType(type: 'RULE' | 'ToolCallCache' | 'MessageCache' | 'LLMAdd' | 'ALL'): Promise<{
-        ok: boolean;
-        removed: number;
-        error?: string;
-    }>;
-
-    /**
-     * 获取统计信息
-     */
-    getStats(): Promise<{
-        total: number;
-        byType: Record<string, number>;
-        totalSize: number;
-        keepCount: number;
-    }>;
-
-    /**
-     * 搜索变量
-     */
+    clearByType(type: 'RULE' | 'ToolCallCache' | 'MessageCache' | 'LLMAdd' | 'ALL'): Promise<{ ok: boolean; removed: number; error?: string; }>;
+    getStats(): Promise<{ total: number; byType: Record<string, number>; totalSize: number; keepCount: number; }>;
     searchVariables(query: string): Promise<Array<any>>;
 }
 
-/**
- * 创建 Vars Manager SDK
- */
 export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk {
     return {
+        getVarTypes: () => VAR_TYPE_ENUM,
         listVariables: async () => {
             const vars = varSystem.listVariables();
             return vars.map(v => ({
@@ -95,6 +53,7 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                 type: v.type,
                 length: v.value.length,
                 desc: v.desc,
+                tags: v.tags,
                 created: v.created.toISOString(),
                 updated: v.updated.toISOString(),
                 lastVisited: v.lastVisited.toISOString(),
@@ -102,13 +61,11 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                 keep: v.keep || false
             }));
         },
-
         getVariable: async (name: string) => {
             const variable = varSystem.getVariable(name, false);
             if (!variable) {
                 return { ok: false, error: `Variable '${name}' not found` };
             }
-
             return {
                 ok: true,
                 data: {
@@ -116,6 +73,7 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                     type: variable.type,
                     value: variable.value,
                     desc: variable.desc,
+                    tags: variable.tags,
                     created: variable.created.toISOString(),
                     updated: variable.updated.toISOString(),
                     lastVisited: variable.lastVisited.toISOString(),
@@ -124,46 +82,35 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                 }
             };
         },
-
+        addVariable: async (name: string, value: string, type: typeof VAR_TYPE_ENUM[number], desc?: string, tags?: string[]) => {
+            const existing = varSystem.getVariable(name, false);
+            if (existing) {
+                return { ok: false, error: `Variable '${name}' already exists` };
+            }
+            varSystem.addVariable(name, value, type, desc, tags);
+            return { ok: true };
+        },
         updateVariable: async (name: string, updates) => {
-            const variable = varSystem.getVariable(name);
+            const variable = varSystem.getVariable(name, false);
             if (!variable) {
                 return { ok: false, error: `Variable '${name}' not found` };
             }
-
-            if (updates.value !== undefined) {
-                variable.value = updates.value;
-                variable.updated = new Date();
-            }
-            if (updates.desc !== undefined) {
-                variable.desc = updates.desc;
-            }
-            if (updates.keep !== undefined) {
-                variable.keep = updates.keep;
-            }
-
+            varSystem.updateVariable(name, updates);
             return { ok: true };
         },
-
         deleteVariable: async (name: string) => {
             const variable = varSystem.getVariable(name);
             if (!variable) {
                 return { ok: false, error: `Variable '${name}' not found` };
             }
-
             if (variable.keep) {
                 return { ok: false, error: 'Cannot delete protected variable' };
             }
-
             const success = varSystem.removeVariable(name);
-            return success
-                ? { ok: true }
-                : { ok: false, error: 'Failed to delete variable' };
+            return success ? { ok: true } : { ok: false, error: 'Failed to delete variable' };
         },
-
         clearByType: async (type) => {
             let removed = 0;
-
             if (type === 'ALL') {
                 const beforeCount = varSystem.varQueue.length;
                 varSystem.varQueue = varSystem.varQueue.filter(v => v.keep);
@@ -173,57 +120,35 @@ export function createVarsManagerSdk(varSystem: VariableSystem): VarsManagerSdk 
                 toRemove.forEach(v => varSystem.removeVariable(v.name));
                 removed = toRemove.length;
             }
-
             return { ok: true, removed };
         },
-
         getStats: async () => {
             const vars = varSystem.listVariables();
-            const byType: Record<string, number> = {
-                RULE: 0,
-                ToolCallCache: 0,
-                MessageCache: 0,
-                LLMAdd: 0
-            };
-
+            const byType: Record<string, number> = { RULE: 0, ToolCallCache: 0, MessageCache: 0, LLMAdd: 0 };
             let totalSize = 0;
             let keepCount = 0;
-
             vars.forEach(v => {
                 byType[v.type] = (byType[v.type] || 0) + 1;
                 totalSize += v.value.length;
                 if (v.keep) keepCount++;
             });
-
-            return {
-                total: vars.length,
-                byType,
-                totalSize,
-                keepCount
-            };
+            return { total: vars.length, byType, totalSize, keepCount };
         },
-
         searchVariables: async (query: string) => {
             const lowerQuery = query.toLowerCase();
             const vars = varSystem.listVariables();
-
-            return vars
-                .filter(v =>
-                    v.name.toLowerCase().includes(lowerQuery) ||
-                    v.desc?.toLowerCase().includes(lowerQuery) ||
-                    v.value.toLowerCase().includes(lowerQuery)
-                )
-                .map(v => ({
-                    name: v.name,
-                    type: v.type,
-                    length: v.value.length,
-                    desc: v.desc,
-                    created: v.created.toISOString(),
-                    updated: v.updated.toISOString(),
-                    lastVisited: v.lastVisited.toISOString(),
-                    referenceCount: v.referenceCount || 0,
-                    keep: v.keep || false
-                }));
+            return vars.filter(v => v.name.toLowerCase().includes(lowerQuery) || v.desc?.toLowerCase().includes(lowerQuery) || v.value.toLowerCase().includes(lowerQuery)).map(v => ({
+                name: v.name,
+                type: v.type,
+                length: v.value.length,
+                desc: v.desc,
+                tags: v.tags,
+                created: v.created.toISOString(),
+                updated: v.updated.toISOString(),
+                lastVisited: v.lastVisited.toISOString(),
+                referenceCount: v.referenceCount || 0,
+                keep: v.keep || false
+            }));
         }
     };
 }

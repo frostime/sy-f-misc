@@ -142,7 +142,7 @@
   ```sql
   SELECT * from blocks
   WHERE type = 'l' AND subtype = 't'
-  AND created > strftime('%Y%m%d%H%M%S', datetime('now', '-7 day')) 
+  AND created > strftime('%Y%m%d%H%M%S', datetime('now', '-7 day'))
   AND markdown like'- [ ] %'
   AND parent_id not in (
     select id from blocks where subtype = 't'

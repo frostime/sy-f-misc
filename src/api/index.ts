@@ -9,10 +9,17 @@
 import { fetchPost, fetchSyncPost, IWebSocketData } from "siyuan";
 
 
-export async function request(url: string, data: any, returnType: 'data' | 'response' = 'data') {
+export async function request(url: string, data: any, returnType: 'data' | 'response' | 'result' = 'data') {
     let response: IWebSocketData = await fetchSyncPost(url, data);
-    let res = response.code === 0 ? response.data : null;
-    return returnType === 'data' ? res : response;
+    let resData = response.code === 0 ? response.data : null;
+    // return returnType === 'data' ? res : response;
+    if (returnType === 'data') {
+        return resData;
+    } else if (returnType === 'response') {
+        return response;
+    } else {
+        return  { ok: response.code === 0, ...response};
+    }
 }
 
 export const postMessage = async(channel: string, message: any) => {

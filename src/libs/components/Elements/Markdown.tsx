@@ -4,17 +4,18 @@
  * @Date         : 2024-03-25 14:19:10
  * @FilePath     : /src/libs/components/Elements/Markdown.tsx
  * @LastEditTime : 2025-01-28 20:47:35
- * @Description  : 
+ * @Description  :
  */
 
 import { getLute } from "@frostime/siyuan-plugin-kits";
-import { createEffect, createMemo } from "solid-js";
+import { createEffect, createMemo, JSX } from "solid-js";
 import { runMarkdownPostRender } from "@/func/gpt/chat/components/MessageItem.helper";
 
 
 const Markdown = (props: {
     markdown: string;
     fontSize?: string;
+    style?: JSX.CSSProperties;
 }) => {
     const lute = getLute();
     let content = createMemo(() => {
@@ -34,7 +35,7 @@ const Markdown = (props: {
         <div
             class="item__readme b3-typography"
             innerHTML={content()}
-            style={`font-size: ${font()}`}
+            style={{ "font-size": font(), ...props.style }}
             ref={eleRef}
         />
     );

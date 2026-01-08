@@ -3,89 +3,138 @@
  * @Author       : frostime
  * @Date         : 2025-06-02 21:30:36
  * @FilePath     : /src/func/gpt/tools/siyuan/index.ts
- * @LastEditTime : 2025-11-26
+ * @LastEditTime : 2026-01-08 20:48:36
  * @Description  : 思源笔记工具导出文件
  */
 
-import { getNotebookTool, listNotebookTool } from './notebook-tools';
 import {
+    listNotebooksTool,
+    navigateDocTreeTool,
     listActiveDocsTool,
-    getDocumentTool,
-    getParentDocTool,
-    listSubDocsTool,
-    listSiblingDocsTool,
     getDailyNoteDocsTool,
-    listNotebookDocsTool
 } from './document-tools';
 import {
-    getBlockMarkdownTool,
-    appendMarkdownTool,
-    appendDailyNoteTool
+    getBlockInfoTool,
+    getBlockContentTool,
+    appendContentTool,
+    createNewDocTool
 } from './content-tools';
+
+import { applyBlockDiffTool } from './diff-edit';
+
 import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
 import { siyuanSkillRules } from './skill-doc';
+import { request } from '@frostime/siyuan-plugin-kits/api';
+import { Tool, ToolPermissionLevel } from '../types';
+
+export const siyuanKernalAPI: Tool = {
+    definition: {
+        type: 'function',
+        function: {
+            name: 'siyuanKernalAPI',
+            description: '思源笔记内核API调用接口',
+            parameters: {
+                type: 'object',
+                properties: {
+                    endpoint: {
+                        type: 'string',
+                        description: 'API端点，例如 /api/attr/getBlockAttrs'
+                    },
+                    payload: {
+                        type: 'object',
+                        description: '请求负载，依据具体API而定'
+                    }
+                },
+                required: ['endpoint']
+            }
+        }
+    },
+    permission: {
+        permissionLevel: ToolPermissionLevel.SENSITIVE
+    },
+
+    execute: async (args: { endpoint: string; payload?: any }): Promise<any> => {
+        const response = await request(args.endpoint, args.payload, 'response');
+        return { ok: response.code === 0, code: response.code, data: response.data };
+    }
+}
 
 // 导出思源笔记工具列表
 export const siyuanTool = {
     name: 'siyuan-tools',
     description: '思源笔记工具',
     tools: [
-        listNotebookTool,
-        getNotebookTool,
+        listNotebooksTool,
+        navigateDocTreeTool,
         listActiveDocsTool,
-        getDocumentTool,
         getDailyNoteDocsTool,
-        getParentDocTool,
-        listSubDocsTool,
-        listSiblingDocsTool,
-        listNotebookDocsTool,
-        getBlockMarkdownTool,
-        appendMarkdownTool,
-        appendDailyNoteTool,
+        getBlockInfoTool,
+        getBlockContentTool,
+        appendContentTool,
+        createNewDocTool,
+        applyBlockDiffTool,
         searchDocumentTool,
         querySQLTool,
-        searchKeywordTool
+        searchKeywordTool,
+        // siyuanKernalAPI
     ],
     rulePrompt: `
 ## 思源笔记工具组 ##
 
-思源笔记是块结构的笔记软件，数据组织层级：笔记本(Notebook/box) → 文档(Document, 最大嵌套7层) → 内容块(Block)
+### 数据结构
 
-**ID 规则**: 格式 \`/\\d{14,}-\\w{7}/\`，如 \`20241016135347-zlrn2cz\`（可推断创建时间）
-- 所有 docId/notebookId/blockId 参数必须使用 ID，不能用名称或路径 !IMPORTANT!
+笔记本(Notebook) → 文档(Document, 最大7层) → 块(Block)
 
-**路径属性**:
-- path: ID路径，如 \`/20241020-xxx/20240331-yyy.sy\`（可推断层级）
-- hpath: 名称路径，如 \`/Inbox/我的文档\`（人类可读但可能重复）
+### 核心约束（必须遵守）
 
-**块内容语法**:
-- 块链接: \`[文本](siyuan://blocks/<BlockId>)\`
-- 块引用: \`((<BlockId> "锚文本"))\` (又称为 ref, 反向链接等)
-- 嵌入块: \`{{SQL语句}}\` (动态执行 SQL 并嵌入结果，SQL 内换行用 \`_esc_newline_\` 转义)
+1. **ID 格式**：所有 ID 参数必须使用 \`\\d{14}-\\w{7}\` 格式（如 \`20241016135347-zlrn2cz\`），禁止使用名称或路径
+2. **SQL LIMIT**：\`querySQL\` 必须指定 LIMIT（建议默认 32）
+3. **写入反馈**：\`appendContent\` 成功后，回复中必须包含文档链接 \`[文档名](siyuan://blocks/xxx)\`
+4. **编辑文档**
+   - appendContent 和 createNewDoc 是安全的，推荐优先使用
+   - applyDiff 有风险，使用前必须认真阅读 block-diff-edit RULE 并充分理解 "重要守则" 部分，避免承担风险和责任
+5. **鼓励链接**：回复中提及文档/块时，使用 siyuan:// 链接
 
-**工具分类概览**:
-- 笔记本: listNotebook, getNotebook
-- 文档导航: listActiveDocs, getDocument, getParentDoc, listSubDocs, listSiblingDocs, listNotebookDocs
-- 日记: getDailyNoteDocs, appendDailyNote
-- 内容读写: getBlockMarkdown, appendMarkdown
-- 搜索查询: searchDocument, searchKeyword, querySQL
+### 工具流经验
 
-## 关键规则 ##
+**场景：用户提及文档但未给ID**
+\`\`\`
+步骤1: listActiveDocs() → 检查当前打开的文档
+步骤2: 若不是 → searchDocument() 或 searchKeyword()
+步骤3: 确认目标后 → getBlockInfo() 查看结构
+\`\`\`
 
-- 用户提及文档但无上下文时，先用 listActiveDocs 检查是否为当前打开的文档
-- 写入文档时(appendMarkdown/appendDailyNote)，回答中必须附上 \`[文档名](siyuan://blocks/xxx)\` 链接 !IMPORTANT!
-- 日记文档按笔记本独立管理，操作前需确认目标笔记本
-- querySQL 必须指定 LIMIT（建议默认 32）!IMPORTANT!
-- 基于块内容回答时，附上 siyuan 链接方便用户溯源
-- 优先使用现成工具，仅在复杂查询时使用 querySQL
+**场景：需要编辑/修改文档内容**
+\`\`\`
+步骤1: getBlockContent(docId, showId=true) → 获取带 ID 标记的内容
+步骤2: 参考 block-diff-edit 规则构造 diff
+步骤3: applyBlockDiff(diff) → 应用修改
+\`\`\`
 
-## 高级文档 ##
-- 需要工具选择/SQL 说明时，查阅高级文档主题（tool-selection, sql-overview 等）；使用 querySQL 前先读相关 SQL 主题。
-- Markdown 语法、日记、ID 规则等专题也可在高级文档中查看。
+**场景：分析长文档内部结构**
+\`\`\`
+步骤1: getBlockInfo(docId) → 获取 TOC（文档大纲）
+步骤2: 定位目标标题的 blockId
+步骤3: getBlockContent(blockId, showId=true) → 获取该部分内容
+\`\`\`
 
-## 通用参数 ##
+**场景：复杂查询（需要编写 SQL）**
+\`\`\`
+步骤1: ReadVar('siyuan-sql-overview') → 查阅 SQL 基础
+步骤2: 根据需要查阅具体表结构（sql-blocks-table / sql-refs-table 等）
+步骤3: 构造 SQL（必须包含 LIMIT）
+\`\`\`
 
-所有工具支持可选 \`limit\` 参数（数字）控制输出长度，默认约 8000 字符，-1 或 0 表示不限制。
+**场景：涉及到添加日记文档**
+\`\`\`
+步骤1: 和用户确认是哪个笔记本(notebook)的日记
+步骤2: 利用 listNotebooks 定位确认目标笔记本
+步骤3: appendContent(targetType='dailynote', target=notebookId)
+\`\`\`
+
+### 高级文档索引
+
+复杂场景请通过 \`ReadVar\` 查阅
 `.trim(),
     declareSkillRules: siyuanSkillRules
 };
