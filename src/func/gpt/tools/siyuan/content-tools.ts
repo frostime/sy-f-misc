@@ -16,19 +16,13 @@ import { isIDFormat, isContainerBlock, getChildBlocks, getToc, HeaderNode } from
 interface BlockInfo {
     id: string;
     type: string;
-    // 基础属性
-    path?: string;
-    hpath?: string;
+    // 原始的完整 block 对象（来自 getBlockByID），用于以 YAML-like 形式展示元信息
+    block?: Block;
+
     contentLength: number;
     markdownLength: number;
     markdownPreview: string; // 前 10 个字符
-    // 文档专属 (type='d')
-    content?: string;
-    box?: string;
-    root_id?: string;
-    parent_id?: string;
-    created: string;
-    updated: string;
+
     // 容器块
     childBlockCount?: number;
 
@@ -59,25 +53,15 @@ async function fetchBlockInfo(id: string): Promise<BlockInfo | null> {
     const info: BlockInfo = {
         id: block.id,
         type: block.type,
-        created: block.created,
-        updated: block.updated,
+        block: block as Block,
         contentLength: block.content?.length ?? 0,
         markdownLength: markdown.length,
         markdownPreview: markdown.substring(0, 10)
     };
 
-    // 所有块都有 path（如果存在）
-    if (block.path) info.path = block.path;
-    if (block.hpath) info.hpath = block.hpath;
-
-    info.box = block.box;
-    info.root_id = block.root_id;
-    info.parent_id = block.parent_id;
 
     // 文档专属属性
     if (isDocument) {
-        info.content = block.content;
-
         // 获取 TOC
         try {
             const toc = await getToc(id);
@@ -135,50 +119,77 @@ function formatToc(nodes: HeaderNode[], depth: number = 0): string {
 /**
  * 格式化单个 BlockInfo
  */
-function formatBlockInfo(block: BlockInfo): string {
+function formatBlockInfo(blockInfo: BlockInfo): string {
     const lines: string[] = [];
+    // === 属性部分（YAML-like） ===
+    lines.push(`=== Block [${blockInfo.id}] attributes ===`);
 
-    // === 属性部分 ===
-    lines.push(`=== Block [${block.id}] ===`);
-    lines.push(`type: ${block.type}`);
+    const ignoreKeys = new Set([
+        'fcontent',
+        'content',
+        'markdown',
+        'children',
+    ]);
 
-    if (block.path) lines.push(`path: ${block.path}`);
-    if (block.hpath) lines.push(`hpath: ${block.hpath}`);
-
-    // 文档块：显示完整 content
-    if (block.type === 'd') {
-        lines.push(`content: ${block.content}`);
+    const attrMap = {
+        id: '块ID',
+        box: '笔记本ID(box)',
+        root_id: '文档ID(root_id)',
+        parent_id: '父块ID(parent_id)',
+        type: '块类型(type)',
     }
-    lines.push(`笔记本ID(box): ${block.box}`);
-    lines.push(`文档ID(root_id): ${block.root_id}`);
-    lines.push(`父块ID(parent_id): ${block.parent_id}`);
-    lines.push(`创建时间: ${block.created}`);
-    lines.push(`最后更新时间: ${block.updated}`);
 
-    // 非文档块：显示长度和预览
-    lines.push(`content长度: ${block.contentLength}`);
-    const preview = block.markdownPreview
-        ? `"${block.markdownPreview}${block.markdownLength > 10 ? '...' : ''}"`
-        : '(空)';
-    lines.push(`内部 markdown 长度: ${block.markdownLength} (预览: ${preview})`);
+    const raw = blockInfo.block;
+    const stringify = (v: any) => {
+        if (v === null || v === undefined) return '';
+        if (typeof v === 'string') {
+            const s = v.length > 200 ? v.substring(0, 200) + '...' : v;
+            return s.replace(/\n/g, '\\n');
+        }
+        try {
+            return JSON.stringify(v);
+        } catch {
+            return String(v);
+        }
+    };
+
+    for (const key of Object.keys(blockInfo.block)) {
+        if (ignoreKeys.has(key)) continue;
+        let name = attrMap[key] || key;
+        lines.push(`  ${name}: ${stringify((raw)[key])}`);
+    }
+
+    // === 保留的自定义/关键信息 ===
+    // 文档块：展示完整 content（保留原有行为）
+    if (blockInfo.type === 'd') {
+        lines.push('');
+        lines.push(`content: ${blockInfo.block.content}`);
+    } else {
+        lines.push('');
+        lines.push(`content长度: ${blockInfo.contentLength}`);
+        const preview = blockInfo.markdownPreview
+            ? `"${blockInfo.markdownPreview}${blockInfo.markdownLength > 10 ? '...' : ''}"`
+            : '(空)';
+        lines.push(`内部 markdown 长度: ${blockInfo.markdownLength} (预览: ${preview})`);
+    }
 
     // === 容器块子块数量 ===
-    if (block.childBlockCount !== undefined) {
+    if (blockInfo.childBlockCount !== undefined) {
         lines.push('');
-        lines.push(`容器内部子块数量: ${block.childBlockCount}`);
+        lines.push(`容器内部子块数量: ${blockInfo.childBlockCount}`);
     }
 
     // === 文档大纲 ===
-    if (block.toc && block.toc.length > 0) {
+    if (blockInfo.toc && blockInfo.toc.length > 0) {
         lines.push('');
         lines.push('文档标题大纲:');
-        lines.push(formatToc(block.toc));
+        lines.push(formatToc(blockInfo.toc));
     }
 
     // === 面包屑 ===
-    if (block.breadcrumb) {
+    if (blockInfo.breadcrumb) {
         lines.push('');
-        lines.push(block.breadcrumb);
+        lines.push(blockInfo.breadcrumb);
     }
 
     return lines.join('\n');
