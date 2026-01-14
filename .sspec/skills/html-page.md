@@ -104,3 +104,9 @@ For a complete list of available APIs in `window.pluginSdk`, refer to:
 - **Cleanup**: If your page needs to perform cleanup when closed, use the `onDestroy` callback in `IIframePageConfig`.
 - **Communication**: Use `window.pluginSdk` for all interactions with the main plugin process.
 
+
+## Common Mistake to Avoid
+
+- Use `customSdk` indead of `pluginSdk` -> wrong
+- Use `--b3-theme-background` instead of `--theme-background` -> no `b3` prefix
+- Use `window.alert`, `confirm` -> prohibit ! Use `pluginSdk.showMessage` and `pluginSdk.confirm` instead.

@@ -975,18 +975,9 @@
         function deleteTemplate() {
             if (!currentTemplate) return;
 
-            if (sdk?.confirmDialog) {
-                sdk.confirmDialog({
-                    title: '删除模板',
-                    content: `确定要删除模板 "${currentTemplate.name}" 吗？此操作无法撤销。`,
-                    confirm: async () => {
-                        performDelete();
-                    }
-                });
-            } else {
-                // Fallback won't happen if SDK correct, but just in case
-                if (confirm('确认删除?')) performDelete();
-            }
+            sdk.confirm('删除模板', `确定要删除模板 "${currentTemplate.name}" 吗？此操作无法撤销。`, () => {
+                performDelete();
+            });
         }
 
         function performDelete() {

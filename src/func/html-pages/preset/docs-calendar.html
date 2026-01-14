@@ -503,10 +503,10 @@
 
                 // 查询：文档类型 (type='d')
                 const sql = `
-                    SELECT id, box, name, content, created 
-                    FROM blocks 
-                    WHERE type = 'd' 
-                    AND created >= '${startStr}' 
+                    SELECT id, box, name, content, created
+                    FROM blocks
+                    WHERE type = 'd'
+                    AND created >= '${startStr}'
                     AND created < '${endStr}'
                     LIMIT 2000
                 `;
@@ -557,8 +557,8 @@
 
             const syDatePrefix = formatDateToSy(date).substring(0, 8);
             const sql = `
-                SELECT id, box, name, hpath 
-                FROM blocks 
+                SELECT id, box, name, hpath
+                FROM blocks
                 WHERE type = 'd' AND created LIKE '${syDatePrefix}%'
                 ORDER BY created DESC
             `;
@@ -613,7 +613,7 @@
                 calendar.refetchEvents();
                 closeModal();
             } catch (e) {
-                alert("创建失败: " + e);
+                window.pluginSdk.showMessage("创建失败: " + e, "error");
             } finally {
                 btn.classList.remove('is-loading');
             }
