@@ -1,8 +1,8 @@
 ---
-status: PLANNING
+status: REVIEW
 type: "feature"
 created: 2026-01-09T16:51:41
-updated: 2026-01-09
+updated: 2026-01-09T19:30:00
 ---
 
 # Quick Input Template (快速输入模板)
