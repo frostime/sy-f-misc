@@ -173,18 +173,12 @@ export interface INewInputTemplate<T extends InputPlace = InputPlace> {
  * 基础变量（时间相关）
  */
 export interface IBasicVar {
-    year: number; // 年份，如 2026
-    month: number; // 月份 1-12
-    day: number; // 日期 1-31
-    hour: number; // 小时 0-23
-    minute: number; // 分钟 0-59
-    second: number; // 秒 0-59
-    yearStr: string; // 年份字符串，如 "2026"
-    monthStr: string; // 月份字符串（补零），如 "01"
-    dayStr: string; // 日期字符串（补零），如 "09"
-    hourStr: string; // 小时字符串（补零）
-    minuteStr: string; // 分钟字符串（补零）
-    secondStr: string; // 秒字符串（补零）
+    year: string; // 年份，如 2026
+    month: string; // 月份 01-12
+    day: string; // 日期 01-31
+    hour: string; // 小时 0-23
+    minute: string; // 分钟 00-59
+    second: string; // 秒 00-59
     date: string; // 日期格式 YYYY-MM-DD
     time: string; // 时间格式 HH:mm:ss
     datetime: string; // 日期时间格式 YYYY-MM-DD HH:mm:ss

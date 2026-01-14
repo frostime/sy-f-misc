@@ -176,6 +176,14 @@ interface PluginSdk {
     // Universally applicable SDK
     // ========================================
 
+    /**
+     * RULE: 使用 pluginSdk.confirm, 而不得使用默认内置的 window.confirm
+     */
+    confirm: (title: string, text: string, confirmCallback?: () => void, cancelCallback?: () => void) => void;
+
+    /**
+     * RULE: 使用 pluginSdk.showMessage 而不得使用默认内置的 window.alert
+     */
     showMessage: (message: string, type: 'info' | 'error' = 'info', duration = 3000) => void;
 
     /**
@@ -193,6 +201,7 @@ interface PluginSdk {
 
     /**
      * 显示一个输入对话框
+     * RULE: 使用 pluginSdk.inputDialog 而不得使用默认内置的 window.prompt
      * @param options 输入对话框配置
      * @returns 包含关闭方法和容器元素的引用
      */

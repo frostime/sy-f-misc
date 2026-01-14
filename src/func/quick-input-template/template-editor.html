@@ -15,7 +15,7 @@
             font-family: var(--font-family);
             background-color: var(--theme-background);
             color: var(--theme-on-background);
-            font-size: var(--font-size);
+            font-size: 14px;
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -23,7 +23,7 @@
 
         .toolbar {
             padding: 12px 16px;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--theme-surface-lighter);
             display: flex;
             gap: 8px;
             align-items: center;
@@ -41,10 +41,12 @@
             display: flex;
             align-items: center;
             gap: 4px;
+            transition: all 0.2s;
         }
 
         .toolbar button:hover {
             background: var(--theme-surface-hover);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
         .toolbar button.primary {
@@ -80,6 +82,11 @@
             background: var(--theme-background);
             color: var(--theme-on-background);
             font-size: 13px;
+            outline: none;
+        }
+
+        .list-search input:focus {
+            border-color: var(--theme-primary);
         }
 
         .list-items {
@@ -113,7 +120,8 @@
 
         .list-item-desc {
             font-size: 12px;
-            color: var(--text-secondary);
+            color: var(--theme-on-surface);
+            opacity: 0.7;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -121,14 +129,16 @@
 
         .editor-panel {
             flex: 1;
-            padding: 20px;
+            padding: 24px;
             overflow-y: auto;
+            background: var(--theme-background);
         }
 
         .editor-empty {
             text-align: center;
-            padding: 48px 24px;
-            color: var(--text-secondary);
+            padding: 64px 24px;
+            color: var(--theme-on-surface);
+            opacity: 0.5;
         }
 
         .form-group {
@@ -138,8 +148,9 @@
         .form-label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 500;
+            font-weight: 600;
             font-size: 14px;
+            color: var(--theme-on-background);
         }
 
         .form-input,
@@ -150,32 +161,43 @@
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background: var(--theme-surface);
-            color: var(--theme-on-surface);
+            color: var(--theme-on-background);
             font-family: var(--font-family);
-            font-size: 13px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            border-color: var(--theme-primary);
+            box-shadow: 0 0 0 2px var(--theme-primary-light);
         }
 
         .form-textarea {
-            min-height: 100px;
+            min-height: 120px;
             resize: vertical;
-            font-family: 'Consolas', 'Monaco', monospace;
+            font-family: var(--font-family-code);
+            line-height: 1.5;
         }
 
         .form-help {
-            margin-top: 4px;
+            margin-top: 6px;
             font-size: 12px;
-            color: var(--text-secondary);
+            color: var(--theme-on-surface);
+            opacity: 0.6;
         }
 
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 16px;
         }
 
         .btn-group {
             display: flex;
-            gap: 8px;
+            gap: 12px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            margin-top: 32px;
         }
 
         .btn {
@@ -185,7 +207,8 @@
             color: var(--theme-on-surface);
             border-radius: 4px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 14px;
+            transition: all 0.2s;
         }
 
         .btn:hover {
@@ -198,20 +221,93 @@
             border-color: var(--theme-primary);
         }
 
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
         .btn-danger {
             background: var(--theme-error);
             color: var(--theme-on-error);
             border-color: var(--theme-error);
         }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+        /* Table Styles */
+        .var-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            font-size: 13px;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: var(--scrollbar-thumb);
-            border-radius: 3px;
+        .var-table th, .var-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .var-table th {
+            background: var(--theme-surface);
+            font-weight: 600;
+        }
+
+        .var-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .var-table tr:hover {
+            background: var(--theme-surface-light);
+        }
+
+        /* Dialog Styles */
+        dialog {
+            padding: 0;
+            border: none;
+            border-radius: 8px;
+            background: var(--theme-surface);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 400px;
+            color: var(--theme-on-surface);
+        }
+
+        dialog::backdrop {
+            background: rgba(0,0,0,0.5);
+        }
+
+        .dialog-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dialog-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .dialog-body {
+            padding: 16px;
+            background: var(--theme-background);
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        /* Form Custom */
+        .input-with-tip {
+            position: relative;
         }
     </style>
 </head>
@@ -221,7 +317,7 @@
         <button onclick="importTemplates()">📥 导入</button>
         <button onclick="exportTemplates()">📤 导出</button>
         <div style="flex: 1"></div>
-        <button onclick="saveAll()">💾 保存所有</button>
+        <button onclick="saveAll()">💾 保存所有更改</button>
     </div>
 
     <div class="content">
@@ -233,31 +329,90 @@
         </div>
 
         <div class="editor-panel" id="editorPanel">
-            <div class="editor-empty">
-                <div style="font-size: 48px; opacity: 0.3;">📝</div>
-                <div style="margin-top: 16px;">请选择或创建一个模板</div>
-            </div>
+            <!-- Content rendered by JS -->
         </div>
     </div>
 
+    <!-- Variable Editor Dialog -->
+    <dialog id="varDialog">
+        <div class="dialog-header">
+            <span id="varDialogTitle">添加变量</span>
+            <button class="btn btn-sm" onclick="closeVarDialog()">✖</button>
+        </div>
+        <div class="dialog-body">
+            <div class="form-group">
+                <label class="form-label">变量名 (Key) *</label>
+                <input type="text" class="form-input" id="vKey" placeholder="例如: title">
+                <div class="form-help">在模板中引用时使用, 如 {{title}}</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">显示名称 (Label)</label>
+                <input type="text" class="form-input" id="vLabel" placeholder="例如: 文章标题">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">类型</label>
+                    <select class="form-select" id="vType" onchange="updateVarTypeFields()">
+                        <option value="text">文本 (Text)</option>
+                        <option value="number">数字 (Number)</option>
+                        <option value="bool">布尔 (Boolean)</option>
+                        <option value="enum">选项 (Enum)</option>
+                    </select>
+                </div>
+                <!-- Extra Type fields -->
+            </div>
+
+            <!-- Type Specific Fields -->
+             <div id="typeParams"></div>
+
+            <div class="form-group">
+                <label class="form-label">默认值</label>
+                <input type="text" class="form-input" id="vDefault" placeholder="">
+            </div>
+
+             <div class="form-group">
+                <label class="form-label">描述</label>
+                <input type="text" class="form-input" id="vDesc" placeholder="变量用途提示">
+            </div>
+        </div>
+        <div class="dialog-footer">
+            <button class="btn" onclick="closeVarDialog()">取消</button>
+            <button class="btn btn-primary" onclick="saveVariable()">确定</button>
+        </div>
+    </dialog>
+
     <script>
+        // State
         let sdk = null;
         let templates = [];
         let currentTemplate = null;
         let onSaveCallback = null;
 
+        // Variable Editor State
+        let editingVarKey = null; // null for new, key for editing
+
+        // Initialization
         window.addEventListener('pluginSdkReady', async () => {
             sdk = window.pluginSdk;
 
             if (sdk.getTemplates) {
                 templates = sdk.getTemplates();
+                // Data Migration: contentTemplate -> template
+                // Migration: variables array -> declaredInputVar object
+                // We'll trust the provided data but if we create new ones we stick to new schema
             }
             if (sdk.onSave) {
                 onSaveCallback = sdk.onSave;
             }
 
+            // Sync with Theme
+            document.documentElement.style.setProperty('--theme-primary', getComputedStyle(document.body).getPropertyValue('--theme-primary'));
+
             renderList();
+            renderEditor();
         });
+
+        // --- List View Logic ---
 
         function renderList() {
             const container = document.getElementById('templateList');
@@ -267,9 +422,14 @@
             const filtered = searchText
                 ? templates.filter(t =>
                     t.name.toLowerCase().includes(searchText) ||
-                    (t.description && t.description.toLowerCase().includes(searchText))
+                    (t.group && t.group.toLowerCase().includes(searchText))
                   )
                 : templates;
+
+            if (filtered.length === 0) {
+                 container.innerHTML = `<div style="padding:20px; text-align:center; color:gray;">无结果</div>`;
+                 return;
+            }
 
             filtered.forEach(template => {
                 const item = document.createElement('div');
@@ -281,7 +441,7 @@
                         <span>${template.icon || '📝'}</span>
                         <span>${template.name}</span>
                     </div>
-                    <div class="list-item-desc">${template.description || '无描述'}</div>
+                    <div class="list-item-desc">${template.group ? '['+template.group+'] ' : ''}${template.desc || template.description || '无描述'}</div>
                 `;
 
                 container.appendChild(item);
@@ -293,177 +453,437 @@
         }
 
         function selectTemplate(template) {
+            // Before switching, maybe auto-save current? For now manual save.
             currentTemplate = template;
             renderList();
             renderEditor();
         }
 
+        // --- Editor Logic ---
+
         function renderEditor() {
+            const panel = document.getElementById('editorPanel');
+
             if (!currentTemplate) {
-                document.getElementById('editorPanel').innerHTML = `
+                panel.innerHTML = `
                     <div class="editor-empty">
                         <div style="font-size: 48px; opacity: 0.3;">📝</div>
-                        <div style="margin-top: 16px;">请选择或创建一个模板</div>
+                        <div style="margin-top: 16px;">请选择模板进行编辑，或创建新模板</div>
                     </div>
                 `;
                 return;
             }
 
             const t = currentTemplate;
+            // Compatible with legacy 'contentTemplate' or new 'template'
+            const content = t.template !== undefined ? t.template : (t.contentTemplate || '');
+            const desc = t.desc !== undefined ? t.desc : (t.description || '');
 
-            document.getElementById('editorPanel').innerHTML = `
-                <h2 style="margin-bottom: 24px;">编辑模板</h2>
+            panel.innerHTML = `
+                <h2 style="margin-bottom: 24px; border-left: 4px solid var(--theme-primary); padding-left: 12px;">编辑模板</h2>
 
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">模板名称 *</label>
-                        <input type="text" class="form-input" id="name" value="${t.name}" required>
+                        <input type="text" class="form-input" id="name" value="${escapeHtml(t.name)}" oninput="updateModel('name', this.value)">
                     </div>
                     <div class="form-group">
                         <label class="form-label">图标</label>
-                        <input type="text" class="form-input" id="icon" value="${t.icon || ''}" placeholder="📝">
+                        <input type="text" class="form-input" id="icon" value="${escapeHtml(t.icon || '')}" placeholder="📝" oninput="updateModel('icon', this.value)">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">描述</label>
-                    <input type="text" class="form-input" id="description" value="${t.description || ''}" placeholder="简短描述此模板的用途">
+                    <input type="text" class="form-input" id="desc" value="${escapeHtml(desc)}" placeholder="简短描述此模板的用途" oninput="updateModel('desc', this.value)">
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">分组</label>
-                        <input type="text" class="form-input" id="group" value="${t.group || ''}" placeholder="工作、生活等">
+                        <input type="text" class="form-input" id="group" value="${escapeHtml(t.group || '')}" placeholder="工作、生活等" oninput="updateModel('group', this.value)">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">插入类型 *</label>
-                        <select class="form-select" id="newtype" onchange="updateInsertFields()">
-                            <option value="block" ${t.newtype === 'block' ? 'selected' : ''}>块插入</option>
-                            <option value="document" ${t.newtype === 'document' ? 'selected' : ''}>文档</option>
-                            <option value="dailynote" ${t.newtype === 'dailynote' ? 'selected' : ''}>日记</option>
+                        <label class="form-label">插入类型</label>
+                        <select class="form-select" id="newtype" onchange="updateModel('newtype', this.value); renderEditor();">
+                            <option value="block" ${t.newtype === 'block' ? 'selected' : ''}>块插入 (Block)</option>
+                            <option value="document" ${t.newtype === 'document' ? 'selected' : ''}>新文档 (Document)</option>
+                            <option value="dailynote" ${t.newtype === 'dailynote' ? 'selected' : ''}>日记 (Daily Note)</option>
                         </select>
                     </div>
                 </div>
 
+                <!-- Template Content -->
                 <div class="form-group">
-                    <label class="form-label">内容模板 *</label>
-                    <textarea class="form-textarea" id="contentTemplate" style="min-height: 150px;" placeholder="支持 {{变量名}} 语法">${t.contentTemplate || ''}</textarea>
-                    <div class="form-help">支持变量：{{year}}, {{month}}, {{day}}, {{date}}, {{time}}, {{datetime}} 等</div>
+                    <label class="form-label">内容模板 (Markdown) *</label>
+                    <textarea class="form-textarea" id="templateContent" style="min-height: 200px;"
+                        placeholder="在此输入内容，支持 {{变量名}} 语法" oninput="updateModel('template', this.value)">${escapeHtml(content)}</textarea>
+                    <div class="form-help">可以使用 <code>{{today}}</code>, <code>{{title}}</code> 等变量</div>
                 </div>
 
-                <div id="insertConfig"></div>
+                <!-- Insert To Config (Dynamic) -->
+                ${renderInsertConfig(t)}
 
+                <!-- Variable Editor -->
                 <div class="form-group">
-                    <label class="form-label">变量定义 (JSON)</label>
-                    <textarea class="form-textarea" id="variables" placeholder='[{"name": "title", "label": "标题", "type": "text", "defaultValue": ""}]'>${JSON.stringify(t.variables || [], null, 2)}</textarea>
-                    <div class="form-help">定义用户输入的变量</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                        <label class="form-label" style="margin-bottom:0;">输入变量定义</label>
+                    </div>
+
+                    <table class="var-table" id="varTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%">Key</th>
+                                <th style="width: 20%">名称</th>
+                                <th style="width: 15%">类型</th>
+                                <th style="width: 30%">默认值</th>
+                                <th style="width: 15%">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="varListBody">
+                            <!-- Helper will render rows here -->
+                        </tbody>
+                    </table>
+                    <button class="btn btn-sm" style="margin-top: 8px; width: 100%; border-style: dashed;" onclick="openVarDialog()">+ 添加变量</button>
                 </div>
 
                 <div class="btn-group">
-                    <button class="btn btn-primary" onclick="saveCurrent()">💾 保存</button>
-                    <button class="btn" onclick="duplicateTemplate()">📋 复制</button>
-                    <button class="btn btn-danger" onclick="deleteTemplate()">🗑️ 删除</button>
+                    <button class="btn btn-primary" onclick="saveCurrent()">💾 保存当前模板</button>
+                    <button class="btn" onclick="duplicateTemplate()">📋 创建副本</button>
+                    <button class="btn btn-danger" onclick="deleteTemplate()">🗑️ 删除模板</button>
                 </div>
+
+                <div style="height: 40px;"></div>
             `;
 
-            updateInsertFields();
+            renderVarTable();
         }
 
-        function updateInsertFields() {
-            const newtype = document.getElementById('newtype')?.value;
-            const container = document.getElementById('insertConfig');
-            if (!container) return;
+        function renderInsertConfig(t) {
+            // Helper to safe access nested properties
+            const get = (path, def) => {
+                const parts = path.split('.');
+                let current = t.insertTo || {};
+                for (const p of parts) {
+                    if (current === undefined || current === null) return def;
+                    current = current[p];
+                }
+                return current !== undefined ? current : def;
+            };
 
-            const t = currentTemplate;
+            let html = `<div style="border-radius: 4px; margin-bottom: 20px; border: 1px solid var(--border-color);">`;
+            html += `<h3 style="background: var(--theme-surface-light); padding: 2px 0px; font-size: 1em; margin-bottom: 12px; ">📍 插入位置配置</h3>`;
 
-            if (newtype === 'block') {
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label class="form-label">锚点定位方式</label>
-                        <select class="form-select" id="anchorType">
-                            <option value="sql" ${t.insertTo?.anchorGenerator?.type === 'sql' ? 'selected' : ''}>SQL 查询</option>
-                            <option value="js" ${t.insertTo?.anchorGenerator?.type === 'js' ? 'selected' : ''}>JavaScript</option>
-                        </select>
+            if (t.newtype === 'block') {
+                const type = get('anchorGenerator.type', 'sql');
+                const usage = get('usage', 'insert'); // legacy 'usage' ? or anchorUsage?
+                // In generic type InsertToAnchor, structure depends.
+                // Let's rely on standard structure from types.ts if possible, but UI must be robust.
+
+                html += `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">锚点定位方式</label>
+                            <select class="form-select" onchange="updateInsertTo('anchorGenerator.type', this.value)">
+                                <option value="sql" ${type === 'sql' ? 'selected' : ''}>SQL 查询 (SQL)</option>
+                                <option value="js" ${type === 'js' ? 'selected' : ''}>JS 脚本 (JS)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">插入方式</label>
+                            <select class="form-select" onchange="updateInsertTo('usage', this.value)">
+                                <option value="insert" ${usage === 'insert' ? 'selected' : ''}>插入 (Insert)</option>
+                                <option value="append" ${usage === 'append' ? 'selected' : ''}>追加 (Append)</option>
+                                <option value="prepend" ${usage === 'prepend' ? 'selected' : ''}>开头 (Prepend)</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">锚点代码</label>
-                        <textarea class="form-textarea" id="anchorCode" placeholder="SELECT * FROM blocks WHERE ...">${t.insertTo?.anchorGenerator?.searchCode || ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">插入位置</label>
-                        <select class="form-select" id="usage">
-                            <option value="insert" ${t.insertTo?.usage === 'insert' ? 'selected' : ''}>插入到块前</option>
-                            <option value="append" ${t.insertTo?.usage === 'append' ? 'selected' : ''}>追加到块后</option>
-                            <option value="append-child" ${t.insertTo?.usage === 'append-child' ? 'selected' : ''}>插入为子块</option>
-                        </select>
+                        <label class="form-label">定位代码 (SQL/JS)</label>
+                        <textarea class="form-textarea" style="min-height: 80px;" onchange="updateInsertTo('anchorGenerator.searchCode', this.value)">${escapeHtml(get('anchorGenerator.searchCode', ''))}</textarea>
                     </div>
                 `;
-            } else if (newtype === 'document') {
-                const anchorType = t.insertTo?.anchorGenerator?.type || 'hpath';
-                container.innerHTML = `
-                    <div class="form-group">
+            } else if (t.newtype === 'document') {
+                const type = get('anchorGenerator.type', 'hpath');
+                html += `
+                     <div class="form-group">
                         <label class="form-label">文档定位方式</label>
-                        <select class="form-select" id="docAnchorType" onchange="updateDocFields()">
-                            <option value="hpath" ${anchorType === 'hpath' ? 'selected' : ''}>文档路径</option>
-                            <option value="search" ${anchorType === 'search' ? 'selected' : ''}>搜索</option>
-                        </select>
-                    </div>
-                    <div id="docFields"></div>
-                `;
-                updateDocFields();
-            } else if (newtype === 'dailynote') {
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label class="form-label">笔记本 ID *</label>
-                        <input type="text" class="form-input" id="notebookId" value="${t.insertTo?.notebook || ''}" placeholder="笔记本ID">
-                        <div class="form-help">日记文档所在的笔记本</div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">插入位置</label>
-                        <select class="form-select" id="dailyUsage">
-                            <option value="prepend" ${t.insertTo?.usage === 'prepend' ? 'selected' : ''}>开头</option>
-                            <option value="append" ${t.insertTo?.usage === 'append' ? 'selected' : ''}>末尾</option>
+                        <select class="form-select" onchange="updateInsertTo('anchorGenerator.type', this.value)">
+                            <option value="hpath" ${type === 'hpath' ? 'selected' : ''}>路径模板 (HPath)</option>
+                            <option value="search" ${type === 'search' ? 'selected' : ''}>高级搜索 (Search)</option>
                         </select>
                     </div>
                 `;
-            }
-        }
-
-        function updateDocFields() {
-            const docAnchorType = document.getElementById('docAnchorType')?.value;
-            const container = document.getElementById('docFields');
-            if (!container) return;
-
-            const t = currentTemplate;
-
-            if (docAnchorType === 'hpath') {
-                container.innerHTML = `
-                    <div class="form-group">
-                        <label class="form-label">笔记本 ID</label>
-                        <input type="text" class="form-input" id="docNotebook" value="${t.insertTo?.anchorGenerator?.notebook || ''}" placeholder="笔记本ID">
-                    </div>
+                if (type === 'hpath') {
+                    html += `
                     <div class="form-group">
                         <label class="form-label">文档路径模板</label>
-                        <input type="text" class="form-input" id="hpathTemplate" value="${t.insertTo?.anchorGenerator?.hpathTemplate || ''}" placeholder="/日记/{{year}}/{{monthStr}}">
-                        <div class="form-help">支持变量模板语法</div>
+                        <input type="text" class="form-input" value="${escapeHtml(get('anchorGenerator.hpathTemplate', ''))}"
+                            placeholder="/Note/{{year}}/{{month}}" onchange="updateInsertTo('anchorGenerator.hpathTemplate', this.value)">
                     </div>
-                `;
-            } else {
-                container.innerHTML = `
                     <div class="form-group">
-                        <label class="form-label">搜索类型</label>
-                        <select class="form-select" id="searchType">
-                            <option value="sql">SQL</option>
-                            <option value="js">JavaScript</option>
+                        <label class="form-label">笔记本 ID (可选)</label>
+                        <input type="text" class="form-input" value="${escapeHtml(get('anchorGenerator.notebook', ''))}"
+                            placeholder="留空则使用当前打开笔记本" onchange="updateInsertTo('anchorGenerator.notebook', this.value)">
+                    </div>`
+                } else {
+                     html += `
+                    <div class="form-group">
+                        <label class="form-label">搜索代码 (JS/SQL)</label>
+                        <textarea class="form-textarea" onchange="updateInsertTo('anchorGenerator.searchCode', this.value)">${escapeHtml(get('anchorGenerator.searchCode', ''))}</textarea>
+                    </div>`
+                }
+            } else if (t.newtype === 'dailynote') {
+                const usage = get('usage', 'append');
+                html += `
+                    <div class="form-group">
+                        <label class="form-label">笔记本 ID</label>
+                        <input type="text" class="form-input" value="${escapeHtml(get('notebook', ''))}"
+                             placeholder="留空则使用当前笔记本" onchange="updateInsertTo('notebook', this.value)">
+                    </div>
+                     <div class="form-group">
+                        <label class="form-label">插入位置</label>
+                        <select class="form-select" onchange="updateInsertTo('usage', this.value)">
+                            <option value="append" ${usage === 'append' ? 'selected' : ''}>文档末尾</option>
+                            <option value="prepend" ${usage === 'prepend' ? 'selected' : ''}>文档开头</option>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">搜索代码</label>
-                        <textarea class="form-textarea" id="searchCode">${t.insertTo?.anchorGenerator?.searchCode || ''}</textarea>
                     </div>
                 `;
             }
+
+            html += `</div>`;
+            return html;
         }
+
+        // --- Model Update Logic ---
+
+        function updateModel(field, value) {
+            if (!currentTemplate) return;
+            currentTemplate[field] = value;
+            // Debounce list update?
+            if (field === 'name' || field === 'icon' || field === 'group') {
+                // simple Update list title UI directly? Or re-render list
+                // Re-rendering list is cheap enough usually
+                // setTimeout(() => renderList(), 500);
+            }
+        }
+
+        function updateInsertTo(path, value) {
+             if (!currentTemplate) return;
+             if (!currentTemplate.insertTo) currentTemplate.insertTo = {};
+
+             const parts = path.split('.');
+             let target = currentTemplate.insertTo;
+             for (let i = 0; i < parts.length - 1; i++) {
+                 if (!target[parts[i]]) target[parts[i]] = {};
+                 target = target[parts[i]];
+             }
+             target[parts[parts.length - 1]] = value;
+
+             // If type changed, re-render to show appropriate fields
+             if (path === 'anchorGenerator.type') {
+                 renderEditor();
+             }
+        }
+
+        // --- Variable Logic ---
+
+        function getVarsAsArray() {
+            const t = currentTemplate;
+            if (!t) return [];
+
+            // Handle legacy Array format
+            if (Array.isArray(t.variables)) {
+                return t.variables;
+            }
+
+            // Handle Object format (declaredInputVar)
+            const vars = t.declaredInputVar || {};
+            return Object.entries(vars).map(([key, conf]) => ({
+                name: key,
+                ...conf
+            }));
+        }
+
+        function saveVarsFromArray(arr) {
+           if (!currentTemplate) return;
+
+           // Convert array back to declaredInputVar object
+           const decl = {};
+           arr.forEach(v => {
+               const { name, ...rest } = v;
+               decl[name] = rest;
+           });
+
+           currentTemplate.declaredInputVar = decl;
+
+           // Clear legacy if exists
+           delete currentTemplate.variables;
+        }
+
+        function renderVarTable() {
+            const tbody = document.getElementById('varListBody');
+            if (!tbody) return;
+
+            const vars = getVarsAsArray();
+            tbody.innerHTML = '';
+
+            if (vars.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:gray; padding: 20px;">暂无变量</td></tr>`;
+                return;
+            }
+
+            vars.forEach(v => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><code>${escapeHtml(v.name)}</code></td>
+                    <td>${escapeHtml(v.label || v.name)}</td>
+                    <td><span style="font-size:12px; padding:2px 6px; background:#e0e0e0; border-radius:10px;">${v.type}</span></td>
+                    <td>${escapeHtml(String(v.default === undefined ? '' : v.default))}</td>
+                    <td>
+                        <button class="btn btn-sm" onclick="editVariable('${v.name}')" title="编辑">✏️</button>
+                        <button class="btn btn-sm btn-danger" onclick="removeVariable('${v.name}')" title="删除">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openVarDialog(key = null) {
+            const dialog = document.getElementById('varDialog');
+            const vars = getVarsAsArray();
+            editingVarKey = key;
+
+            document.getElementById('varDialogTitle').textContent = key ? '编辑变量' : '添加变量';
+
+            // Reset Form
+            document.getElementById('vKey').value = '';
+            document.getElementById('vLabel').value = '';
+            document.getElementById('vType').value = 'text';
+            document.getElementById('vDefault').value = '';
+            document.getElementById('vDesc').value = '';
+            document.getElementById('vKey').disabled = false;
+
+            // Fill if editing
+            if (key) {
+                const v = vars.find(x => x.name === key);
+                if (v) {
+                    document.getElementById('vKey').value = v.name;
+                    document.getElementById('vKey').disabled = true; // Key cannot allow rename easily, simpler to re-create
+                    document.getElementById('vLabel').value = v.label || '';
+                    document.getElementById('vType').value = v.type || 'text';
+                    document.getElementById('vDefault').value = v.default || '';
+                    document.getElementById('vDesc').value = v.description || '';
+                }
+            }
+
+            updateVarTypeFields();
+            dialog.showModal();
+        }
+
+        function closeVarDialog() {
+            document.getElementById('varDialog').close();
+        }
+
+        function updateVarTypeFields() {
+            const type = document.getElementById('vType').value;
+            const container = document.getElementById('typeParams');
+
+            if (type === 'enum') {
+                // Get current enum options if editing
+                let currentOpts = '';
+                if (editingVarKey) {
+                    const vars = getVarsAsArray();
+                    const v = vars.find(x => x.name === editingVarKey);
+                    if (v && v.enum) currentOpts = v.enum.join(', ');
+                }
+
+                container.innerHTML = `
+                    <div class="form-group">
+                         <label class="form-label">选项列表 (逗号分隔)</label>
+                         <textarea class="form-textarea" id="vEnumOpts" style="min-height:60px;" placeholder="选项A, 选项B, 选项C">${currentOpts}</textarea>
+                    </div>
+                `;
+            } else if (type === 'number') {
+                container.innerHTML = `
+                   <div class="form-group">
+                       <label class="form-label">数字范围 (可选)</label>
+                       <div style="display:flex; gap:8px;">
+                           <input type="number" class="form-input" id="vMin" placeholder="Min" style="width: 33%">
+                           <input type="number" class="form-input" id="vMax" placeholder="Max" style="width: 33%">
+                           <input type="number" class="form-input" id="vStep" placeholder="Step" style="width: 33%">
+                       </div>
+                   </div>
+                `;
+                // Fill values if editing... (simplified for brevity)
+            } else {
+                container.innerHTML = '';
+            }
+        }
+
+        function saveVariable() {
+            const key = document.getElementById('vKey').value.trim();
+            if (!key) {
+                sdk?.showMessage('请输入变量名', 'error');
+                return;
+            }
+
+            const label = document.getElementById('vLabel').value.trim();
+            const type = document.getElementById('vType').value;
+            const defVal = document.getElementById('vDefault').value;
+            const desc = document.getElementById('vDesc').value;
+
+            const newVar = {
+                name: key,
+                label: label,
+                type: type,
+                description: desc,
+                default: defVal // Convert type later?
+            };
+
+            if (type === 'number') newVar.default = Number(defVal) || 0;
+            if (type === 'bool') newVar.default = (defVal === 'true' || defVal === '1');
+
+            // Enum handling
+            const enumInput = document.getElementById('vEnumOpts');
+            if (enumInput) {
+                newVar.enum = enumInput.value.split(/[,，]/).map(s => s.trim()).filter(s => s);
+            }
+
+            let vars = getVarsAsArray();
+
+            if (editingVarKey) {
+                // Update
+                const idx = vars.findIndex(v => v.name === editingVarKey);
+                if (idx >= 0) {
+                     vars[idx] = { ...vars[idx], ...newVar };
+                }
+            } else {
+                // Create
+                if (vars.find(v => v.name === key)) {
+                    sdk?.showMessage('变量名已存在', 'error');
+                    return;
+                }
+                vars.push(newVar);
+            }
+
+            saveVarsFromArray(vars);
+            renderVarTable();
+            closeVarDialog();
+        }
+
+        function editVariable(key) {
+            openVarDialog(key);
+        }
+
+        function removeVariable(key) {
+            let vars = getVarsAsArray();
+            vars = vars.filter(v => v.name !== key);
+            saveVarsFromArray(vars);
+            renderVarTable();
+        }
+
+        // --- Core Actions ---
 
         function createTemplate() {
             const newTemplate = {
@@ -471,7 +891,8 @@
                 name: '新模板',
                 icon: '📝',
                 newtype: 'block',
-                contentTemplate: '',
+                template: '', // Use 'template' property
+                declaredInputVar: {},
                 insertTo: {
                     anchorGenerator: { type: 'sql', searchCode: '' },
                     usage: 'insert'
@@ -483,78 +904,8 @@
             renderEditor();
         }
 
-        function saveCurrent() {
-            if (!currentTemplate) return;
-
-            // 收集表单数据
-            currentTemplate.name = document.getElementById('name').value;
-            currentTemplate.icon = document.getElementById('icon').value;
-            currentTemplate.description = document.getElementById('description').value;
-            currentTemplate.group = document.getElementById('group').value;
-            currentTemplate.newtype = document.getElementById('newtype').value;
-            currentTemplate.contentTemplate = document.getElementById('contentTemplate').value;
-
-            try {
-                const varsText = document.getElementById('variables').value.trim();
-                currentTemplate.variables = varsText ? JSON.parse(varsText) : [];
-            } catch (e) {
-                sdk?.showMessage('变量定义 JSON 格式错误', 'error');
-                return;
-            }
-
-            // 收集 insertTo 配置
-            const newtype = currentTemplate.newtype;
-            if (newtype === 'block') {
-                currentTemplate.insertTo = {
-                    anchorGenerator: {
-                        type: document.getElementById('anchorType').value,
-                        searchCode: document.getElementById('anchorCode').value
-                    },
-                    usage: document.getElementById('usage').value
-                };
-            } else if (newtype === 'document') {
-                const docAnchorType = document.getElementById('docAnchorType').value;
-                if (docAnchorType === 'hpath') {
-                    currentTemplate.insertTo = {
-                        anchorGenerator: {
-                            type: 'hpath',
-                            notebook: document.getElementById('docNotebook').value,
-                            hpathTemplate: document.getElementById('hpathTemplate').value
-                        }
-                    };
-                } else {
-                    currentTemplate.insertTo = {
-                        anchorGenerator: {
-                            type: 'search',
-                            searchType: document.getElementById('searchType').value,
-                            searchCode: document.getElementById('searchCode').value
-                        }
-                    };
-                }
-            } else if (newtype === 'dailynote') {
-                currentTemplate.insertTo = {
-                    notebook: document.getElementById('notebookId').value,
-                    usage: document.getElementById('dailyUsage').value
-                };
-            }
-
-            renderList();
-            sdk?.showMessage('保存成功', 'info');
-        }
-
-        function saveAll() {
-            if (currentTemplate) {
-                saveCurrent();
-            }
-            if (onSaveCallback) {
-                onSaveCallback(templates);
-            }
-            sdk?.showMessage('已保存所有模板', 'info');
-        }
-
         function duplicateTemplate() {
             if (!currentTemplate) return;
-
             const copy = JSON.parse(JSON.stringify(currentTemplate));
             copy.id = Date.now().toString();
             copy.name = currentTemplate.name + ' (副本)';
@@ -567,17 +918,56 @@
         function deleteTemplate() {
             if (!currentTemplate) return;
 
-            if (confirm(`确定删除模板 "${currentTemplate.name}" 吗？`)) {
-                templates = templates.filter(t => t.id !== currentTemplate.id);
-                currentTemplate = null;
-                renderList();
-                renderEditor();
-                sdk?.showMessage('已删除', 'info');
+            if (sdk?.confirmDialog) {
+                sdk.confirmDialog({
+                    title: '删除模板',
+                    content: `确定要删除模板 "${currentTemplate.name}" 吗？此操作无法撤销。`,
+                    confirm: async () => {
+                        performDelete();
+                    }
+                });
+            } else {
+                // Fallback won't happen if SDK correct, but just in case
+                if (confirm('确认删除?')) performDelete();
             }
         }
 
+        function performDelete() {
+            templates = templates.filter(t => t.id !== currentTemplate.id);
+            currentTemplate = null;
+            renderList();
+            renderEditor();
+            sdk?.showMessage('模板已删除', 'info');
+            saveAll();
+        }
+
+        function saveCurrent() {
+            if (currentTemplate) {
+                // Ensure textareas are synced (though oninput should cover it)
+                const tContent = document.getElementById('templateContent');
+                if (tContent) currentTemplate.template = tContent.value;
+            }
+            saveAll();
+        }
+
+        function saveAll() {
+            if (!onSaveCallback) {
+                console.error("No save callback");
+                return;
+            }
+
+            onSaveCallback(templates).then(() => {
+                sdk?.showMessage('✅ 所有更改已保存', 'info');
+                renderList(); // Refresh list to update titles
+            }).catch(err => {
+                sdk?.showMessage('保存失败: ' + err, 'error');
+            });
+        }
+
+        // --- Import/Export ---
+
         function importTemplates() {
-            const input = document.createElement('input');
+             const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.json';
             input.onchange = async (e) => {
@@ -589,9 +979,17 @@
                     try {
                         const imported = JSON.parse(event.target.result);
                         if (Array.isArray(imported)) {
+                            // Validate/Migrate imported
+                            imported.forEach(t => {
+                                if(!t.id) t.id = Date.now() + Math.random().toString().slice(2);
+                                // Ensure template property key
+                                if(t.contentTemplate && !t.template) t.template = t.contentTemplate;
+                            });
+
                             templates.push(...imported);
                             renderList();
-                            sdk?.showMessage(`导入 ${imported.length} 个模板`, 'info');
+                            sdk?.showMessage(`成功导入 ${imported.length} 个模板`, 'info');
+                            saveAll();
                         }
                     } catch (err) {
                         sdk?.showMessage('导入失败：' + err.message, 'error');
@@ -608,9 +1006,20 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `quick-input-templates-${new Date().toISOString().slice(0, 10)}.json`;
+            a.download = `siyuan-templates-backup.json`;
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        // --- Utils ---
+        function escapeHtml(unsafe) {
+            if (unsafe === undefined || unsafe === null) return '';
+            return String(unsafe)
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
         }
     </script>
 </body>

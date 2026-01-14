@@ -34,18 +34,12 @@ function getBasicVar(): IBasicVar {
     const second = now.getSeconds();
 
     return {
-        year,
-        month,
-        day,
-        hour,
-        minute,
-        second,
-        yearStr: year.toString(),
-        monthStr: month.toString().padStart(2, '0'),
-        dayStr: day.toString().padStart(2, '0'),
-        hourStr: hour.toString().padStart(2, '0'),
-        minuteStr: minute.toString().padStart(2, '0'),
-        secondStr: second.toString().padStart(2, '0'),
+        year: year.toString(),
+        month: month.toString().padStart(2, '0'),
+        day: day.toString().padStart(2, '0'),
+        hour: hour.toString().padStart(2, '0'),
+        minute: minute.toString().padStart(2, '0'),
+        second: second.toString().padStart(2, '0'),
         date: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`,
         time: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:${second.toString().padStart(2, '0')}`,
         datetime: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')} ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:${second.toString().padStart(2, '0')}`
@@ -115,7 +109,7 @@ async function renderTemplate(template: string | undefined, vars: Record<string,
         let value: any = vars;
 
         for (const part of parts) {
-            if (value && typeof value === 'object' && part in value) {
+            if (value && typeof value === 'object' && part in value && value[part]) {
                 value = value[part];
             } else {
                 return match; // 保留原始占位符如果变量不存在
