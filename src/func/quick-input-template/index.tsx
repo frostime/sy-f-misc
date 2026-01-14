@@ -47,6 +47,7 @@ function showQuickInputDialog() {
             }
         },
         width: '700px',
+        height: '540px',
         maxHeight: '80vh'
     });
 }
@@ -76,6 +77,18 @@ function showTemplateEditor() {
                         });
                         templateStore.storage.templates = templatesRecord;
                         await templateStore.save();
+                    },
+                    notebooks: () => {
+                        // return window.siyuan.notebook
+                        return window.siyuan.notebooks
+                            // .filter((notebook) => notebook.closed !== true)
+                            .map((notebook) => {
+                                return {
+                                    name: notebook.name,
+                                    id: notebook.id,
+                                    closed: notebook.closed
+                                }
+                            });
                     }
                 }
             }
