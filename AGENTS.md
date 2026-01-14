@@ -16,7 +16,6 @@
 SSPEC_SCHEMA::3.1
 
 ## Hard Rules
-- Bridge between user and assistant agent.
 - `.sspec` = single source of truth for planning/tracking/handover.
 - All `@xxx` are explicit user commands, not auto-executable.
 ------
@@ -35,139 +34,83 @@ SSPEC_SCHEMA::3.1
 
 ## User Triggers
 
-### 2.1 `@change <name>` — Switch/create change context
-**Purpose**: Quickly move work context to a specific change.
+### `@change <name>`
+Switch/create change context.
+1. If `changes/<name>/` exists → read spec.md, tasks.md, handover.md
+2. If not exists → run shell `sspec change new <name>`,  fill spec.md with user's help
+3. Output: context summary + next actions
 
-Do:
-1. Set active change = `<name>`
-2. If `changes/<name>/` exists → read spec.md, tasks.md, handover.md (in order)
-3. If not exists → run shell command `sspec change new <name>`, instruct user to fill spec.md
-4. Output: context summary + next 3 actions
+### `@resume`
+Resume work after session break. e.g. Start a New Chat in copilot, cursor etc, or start new cli for claude code.
+1. Pick user specified change with status ∈ {DOING, BLOCKED, REVIEW}
+2. Read: handover.md → tasks.md → spec.md
+3. Output: current state + next actions
 
-### 2.2 `@resume` — Recover session context
-**Purpose**: Resume work after session break with minimal context loss.
+### `@handover`
+End session and write handover doc, enabling next agent quickly know the context.
+1. Update handover.md with session summary, must include
+  * Background of the Major Task
+  * What Was Accomplished in the Previous (Current) Session
+  * Current Status
+  * Next Steps
+  * Conventions and Standards to Follow
+2. Update tasks.md progress
+3. Update spec.md status if changed
 
-Do:
-1. Select active change:
-   - If user specified name → use it
-   - Else → pick most recently modified with status ∈ {DOING, BLOCKED, REVIEW}
-2. Read: handover.md → tasks.md → spec.md (in order)
-3. Output: "Resuming <name>..." + current state + next actions
-
-### 2.3 `@handover` — End session cleanly
-**Purpose**: Close session with proper context preservation for next session.
-
-Do:
-1. Update `changes/<change>/handover.md` with session summary
-2. Update `tasks.md`: mark completed tasks, add discovered tasks
-3. Update spec.md front yaml `status` if changed
-4. Output: confirmation + handover content written
-
-### 2.4 `@sync` — Sync .sspec with current reality
-**Purpose**: After autonomous coding sessions (Claude Code, Copilot, etc.), ensure .sspec reflects actual progress.
-
-Do:
-1. Scan recent file changes (git diff or file timestamps)
+### `@sync`
+After autonomous coding sessions (Claude Code, Copilot, etc.), ensure .sspec reflects actual progress.
+1. Scan recent changes (agent chat history, git diff or timestamps)
 2. For active change, update:
    - `tasks.md`: mark completed tasks, add discovered tasks
    - `spec.md`: update status in front yaml if appropriate
-3. Output: diff summary of .sspec updates
 
-### 2.5 `@argue` — User raises objection
-**Purpose**: Handle user disagreement with implementation approach, design, or requirements during DOING.
 
-Do:
-1. STOP current implementation immediately
-2. Analyze objection scope:
-   - Implementation detail → update tasks.md only
-   - Design flaw → update spec.md sections B/C, regenerate tasks.md
-   - Requirement misunderstanding → update spec.md section A, may need full replanning
-3. If major direction change → add PIVOT marker in spec.md
-4. Output: impact analysis + proposed changes + await user confirmation
----
+### `@argue`
+Handle user disagreement with implementation approach, design, or requirements during implementing.
+1. STOP current implementation
+2. Analyze scope: detail / design / requirement level
+3. Update relevant files, add PIVOT marker if major change
+4. Await user confirmation
+------
 
 ## Folder Structure
 
 ```text
 .sspec/
-├── project.md              # Project overview, conventions, constraints
+├── project.md              # Project overview, conventions
 ├── changes/<name>/
-│   ├── spec.md             # WHY/WHAT: problem, constraints, decisions
+│   ├── spec.md             # WHY/WHAT: problem, decisions
 │   ├── tasks.md            # HOW: executable tasks + progress
 │   └── handover.md         # SESSION BRIDGE: done/now/next
-├── requests/*.md           # Incoming requests (OPEN → DOING → DONE)
-└── skills/                 # Reusable knowledge modules
-    ├── sspec-workflow.md   # Complete workflow guide
-    ├── status-guide.md     # Status definitions & transitions
-    └──  <CUSTOM_SKILL> /
-        ├── SKILL.md
-        └── <Others>
+└── requests/*.md           # Incoming requests
 ```
-------
-
-## Skills Reference
-
-Skills are reusable knowledge modules in `.sspec/skills/`. Each skill has front matter:
-```yaml
----
-skill: my-skill-name
-description: What this skill does
----
-```
-**Adding custom skills**: run shell command `sspec skill new --mode [simple|complex]`
-  - Simple Skill: Create `.sspec/skills/<skill-name>.md` with proper front matter.
-  - Complex Skill: Create `.sspec/skills/<skill-name>/` with `SKILL.md`.
-**To list all skills**: run shell command: `sspec skill list`.
-
-<!-- Built-In Skills -->
-- **.sspec/skills/sspec-workflow**
-  - WHEN: Use when you're a first-time sspec user or need a complete workflow reference.
-  - HOW: Read for session patterns, file update timing, and best practices.
-- **.sspec/skills/sspec-status-guide**
-  - WHEN: Use when you're unsure about status meanings or transition rules.
-  - HOW: Reference status definitions, allowed transitions, and edge cases.
-
-<!-- Current Skills (Update if necessary) -->
-| Skill | Description | File |
-|-------|-------------|-------|
-| html-page | Develop UI via single HTML page in sy-f-misc | html-page.md |
-| solid-signal-ref | Use `@frostime/solid-signal-ref` with SolidJS | solid-signal-ref.md |
-| sspec-status-guide | Status definitions, transitions, validation, edge cases | sspec-status-guide.md |
-| sspec-workflow | Full sspec workflow, session patterns, file timing, best practices | sspec-workflow.md |
-
 ------
 
 ## File Responsibilities
 
-**spec.md** (WHY/WHAT):
-- Problem statement, constraints, decisions, solution outline
-- Update when: strategy/decision changes, status transitions
-**tasks.md** (HOW):
-- Tasks completable in <2h, with verification criteria
-- Update when: before coding (planning), after completing tasks (progress)
-**handover.md** (SESSION BRIDGE):
-- Done / Now / Next / Key Files / Commands
-- Update when: end of session, before switching changes
-**requests/\*.md** (INTAKE):
-- Raw user requests with front yaml metadata
-- Lifecycle: OPEN → link to change → DOING → DONE
+| File | Content | Update When |
+|------|---------|-------------|
+| spec.md | Problem, constraints, decisions | Strategy/status change |
+| tasks.md | Tasks (<2h each) + progress | Planning, task completion |
+| handover.md | Done / Now / Next | Every session end |
+| requests/*.md | Raw user requests | Lifecycle: OPEN → DOING → DONE |
 
-## SSPEC CLI Command
+------
+
+## Skills
+
+For detailed guidance on status definitions, transitions, and edge cases, read the **sspec** skill:
+- Location: `.github/skills/sspec/SKILL.md` or `.claude/skills/sspec/SKILL.md`
+- Use when: uncertain about status meanings, transition rules, or quality standards
+
+## CLI Reference
 
 ```shell
-Usage: sspec [OPTIONS] COMMAND [ARGS]...
-
-  sspec - Lightweight AI collaboration spec for solo/small projects.
-
-Options:
-  --version  Show the version and exit.
-  --help     Show this message and exit.
-
-Commands:
-  change   Change management operations (new, list, archive).
-  project  Project-level operations (init, status, update).
-  request  Create or manage user requests.
-  skill    Skill management operations (list, new).
+sspec change new <name>      # Create change
+sspec change list            # List changes
+sspec change archive <name>  # Archive completed change
+sspec project status         # Show project overview
+sspec request <name>         # Create request
 ```
 <!-- SSPEC:END -->
 
