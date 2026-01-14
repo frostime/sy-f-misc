@@ -2,10 +2,34 @@
 status: REVIEW
 type: "feature"
 created: 2026-01-09T16:51:41
-updated: 2026-01-09T19:30:00
+updated: 2026-01-09T20:30:00
+pivot: "2026-01-09 - UI方案从SolidJS改为HSPA"
 ---
 
 # Quick Input Template (快速输入模板)
+
+## 🔄 PIVOT HISTORY
+
+**2026-01-09 20:00 - UI Implementation Pivot**
+
+**原方案**: SolidJS 组件（QuickInputDialog.tsx）
+**问题**:
+1. UI 显示效果不佳
+2. 模板功能故障（executor.ts 逻辑错误）
+3. 缺少配置管理界面
+
+**新方案**: HSPA (HTML Single Page Application)
+- quick-input-dialog.html - 快速输入对话框
+- template-editor.html - 模板管理编辑器
+- 通过 openIframeDialog 打开，使用 customSdk 传递数据
+
+**优势**:
+- 原生 HTML/CSS，无组件渲染问题
+- 更好的交互体验
+- 减少 bundle 体积
+- 易于维护和调试
+
+---
 
 ## A. Proposal and Problem Statement
 

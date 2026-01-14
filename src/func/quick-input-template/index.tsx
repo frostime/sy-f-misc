@@ -3,40 +3,87 @@
  * @Author       : frostime
  * @Date         : 2026-01-09
  * @FilePath     : /src/func/quick-input-template/index.tsx
- * @Description  : Quick Input Template 模块入口
+ * @Description  : Quick Input Template 模块入口（HSPA 版本）
  */
 
 import type FMiscPlugin from "@/index";
 
-import { solidDialog } from "@/libs/dialog";
+import { translateHotkey, confirmDialog } from "@frostime/siyuan-plugin-kits";
+import { openIframeDialog } from "@/func/html-pages/core";
 import { templateStore } from "./template-store";
 import { templateExecutor } from "./executor";
-import QuickInputDialog from "./components/QuickInputDialog";
-import { translateHotkey } from "@frostime/siyuan-plugin-kits";
+import type { INewInputTemplate } from "./types";
 
 export let name = "QuickInputTemplate";
 export let enabled = false;
 
 /**
- * 显示快速输入对话框
+ * 显示快速输入对话框 (HSPA)
  */
 function showQuickInputDialog() {
     const templates = templateStore.list();
+    const showGroups = templateStore.storage?.settings?.showGroupsInDialog ?? true;
 
-    const { close } = solidDialog({
+    const dialog = openIframeDialog({
         title: '快速输入',
-        loader: () => (
-            <QuickInputDialog
-                templates={templates}
-                onSelect={async (template) => {
-                    close();
-                    await templateExecutor.execute(template);
-                }}
-                showGroups={templateStore.storage?.settings?.showGroupsInDialog ?? true}
-            />
-        ),
+        iframeConfig: {
+            type: 'url',
+            source: '/plugins/sy-f-misc/pages/quick-input-dialog.html',
+            inject: {
+                presetSdk: true,
+                siyuanCss: true,
+                customSdk: {
+                    getTemplates: () => templates,
+                    getShowGroups: () => showGroups,
+                    onSelect: async (template: INewInputTemplate<any>) => {
+                        dialog.close();
+                        await templateExecutor.execute(template);
+                    },
+                    openManager: () => {
+                        dialog.close();
+                        showTemplateEditor();
+                    }
+                }
+            }
+        },
         width: '700px',
         maxHeight: '80vh'
+    });
+}
+
+/**
+ * 显示模板编辑器 (HSPA)
+ */
+function showTemplateEditor() {
+    const templates = templateStore.list();
+
+    openIframeDialog({
+        title: '模板管理',
+        iframeConfig: {
+            type: 'url',
+            source: '/plugins/sy-f-misc/pages/template-editor.html',
+            inject: {
+                presetSdk: true,
+                siyuanCss: true,
+                customSdk: {
+                    getTemplates: () => templates,
+                    confirmDialog: (options: any) => confirmDialog(options),
+                    onSave: async (updatedTemplates: INewInputTemplate<any>[]) => {
+                        // 将数组转换为 Record
+                        const templatesRecord: Record<string, INewInputTemplate<any>> = {};
+                        updatedTemplates.forEach(t => {
+                            templatesRecord[t.id] = t;
+                        });
+                        templateStore.storage.templates = templatesRecord;
+                        await templateStore.save();
+                    }
+                }
+            }
+        },
+        width: '1000px',
+        height: '700px',
+        maxWidth: '95%',
+        maxHeight: '95%'
     });
 }
 
@@ -104,6 +151,18 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             }
         }
     ],
+    customPanel: () => {
+        const container = document.createElement('div');
+        container.style.padding = '16px';
+
+        const btn = document.createElement('button');
+        btn.className = 'b3-button b3-button--outline';
+        btn.textContent = '🛠️ 管理模板';
+        btn.onclick = () => showTemplateEditor();
+
+        container.appendChild(btn);
+        return container;
+    },
     help: () => {
         const { documentDialog } = require('@/libs/dialog');
         documentDialog({
@@ -118,7 +177,7 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
 - 在不同位置插入预定义的模板内容（块、文档、日记）
 - 支持用户输入变量
 - 支持前后置脚本执行
-- 支持模板渲染（Squirrelly 模板引擎）
+- 支持模板渲染
 
 ## 使用方法
 
@@ -140,10 +199,9 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
 
 ## 模板语法
 
-使用 Squirrelly 模板引擎，支持：
+支持简单模板变量：
 - 变量：\`{{variable}}\`
-- 条件：\`{{if(condition)}} ... {{/if}}\`
-- 循环：\`{{foreach(items)}} ... {{/foreach}}\`
+- 嵌套属性：\`{{variable.property}}\`
 
 ## 可用变量
 
@@ -156,7 +214,7 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
 
 ## 管理模板
 
-目前模板需要通过导入/导出 JSON 文件管理。后续版本会提供可视化编辑界面。
+点击设置面板中的"管理模板"按钮，打开可视化编辑器。
 
 ## 示例
 
