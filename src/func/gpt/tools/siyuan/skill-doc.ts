@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-11-26
  * @FilePath     : /src/func/gpt/tools/siyuan/skill-doc.ts
- * @LastEditTime : 2026-01-08 22:26:06
+ * @LastEditTime : 2026-01-18 15:34:37
  * @Description  : 思源笔记技能文档声明（供 declareSkillRules 使用）
  */
 
@@ -320,6 +320,63 @@ WHERE A.name LIKE 'custom-dailynote-%'
 ORDER BY A.value DESC
 LIMIT 32
 \`\`\`
+`.trim()
+    },
+
+    'slice-reading': {
+        desc: '长文档/容器的分页阅读策略',
+        when: '需要使用 slice 参数以应对读取长文档内容，指定阅读给定文档 ID 中，给定某个块位置的内容',
+        prompt: `
+## 长文档/容器阅读策略 ##
+
+当读取文档 (type='d') 或复杂容器块时，推荐使用 \`getBlockContent\` 的 \`slice\` 参数进行分段读取。
+
+### 推荐工作流 (Cursor Pagination)
+
+1. **初始读取**: 获取前 N 个块
+   \`getBlockContent(id, slice="0:20")\`
+
+2. **处理内容**: 阅读返回的内容，并记录下**最后一个块的 ID** (例如 \`2023...-lastid\`)。
+
+3. **获取下一页**: 使用 "ID:+N" 语法
+   \`getBlockContent(id, slice="2023...-lastid:+20")\`
+   *注: 这会从 lastid 开始向后取 20 个块。*
+
+4. **重复步骤 3** 直到读完。
+
+### 聚焦工作流
+
+已经确定在文档 DID 中，关注某个块 ID 位置附近的内容时：
+
+1. **定位块**: 确定目标块 ID (例如 \`2023...-targetid\`)。
+2. **获取前后内容**:
+   - 向前阅读:
+     \`getBlockContent(DID, slice="2023...-targetid:-10")\`
+   - 向后阅读:
+     \`getBlockContent(DID, slice="2023...-targetid:+10")\`
+
+### Slice 语法参考
+
+| 语法 | 含义 | 场景 |
+| :--- | :--- | :--- |
+| \`0:20\` | 索引切片：前 20 个 | 预览开头 |
+| \`<ID>:+20\` | 游标切片：从 ID 开始向后 20 个 | **逐页顺序阅读 (推荐)** |
+| \`<ID>:-10\` | 游标切片：从 ID 结束向前 10 个 | 向上回顾上下文 |
+| \`<ID1>:<ID2>\` | 范围切片：读取两个 ID 之间的内容 | 精确提取特定段落 |
+
+假设 blockList 为文档下完整的块列表；有 10 个块，ID 分别为 \`id0\` 到 \`id9\`。
+
+| 输入语法 | 解析逻辑 | 结果范围 (索引) | 备注 |
+| :--- | :--- | :--- | :--- |
+| \`"id2:id5"\` | Start=\`idx(2)\`, End=\`idx(5)+1\` | \`[2, 3, 4, 5]\` | **ID 闭区间** |
+| \`"id2:+3"\` | Start=\`2\`, End=\`2+3\` | \`[2, 3, 4]\` | **游标翻页** |
+| \`"id5:-3"\` | End=\`5+1\`, Start=\`6-3\` | \`[3, 4, 5]\` | **向上翻页** (含 id5) |
+| \`"0:5"\` | Start=\`0\`, End=\`5\` | \`[0, 1, 2, 3, 4]\` | **普通分页** |
+| \`"-2:"\` | Start=\`-2\`, End=\`undefined\` | \`[8, 9]\` | **取末尾** |
+| \`"id8:END"\` | Start=\`8\`, End=\`undefined\` | \`[8, 9]\` | **阅读剩余** |
+| \`"BEGIN:id2"\` | Start=\`0\`, End=\`2+1\` | \`[0, 1, 2]\` | **阅读开头** |
+
+**注意**: 使用 slice 时，工具会自动附带 ID (@@id@@)，无需手动开启 showId。
 `.trim()
     },
 

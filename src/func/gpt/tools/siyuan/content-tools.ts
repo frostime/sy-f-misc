@@ -332,6 +332,110 @@ export const getBlockInfoTool: Tool = {
 
 // ============ 其他工具保持不变 ============
 
+
+/**
+ * 解析 Slice 语法并返回过滤后的块列表
+ *
+ *
+ * @description
+假设 `blockList` 有 10 个块，ID 分别为 `id0` 到 `id9`。
+
+| 输入语法 | 解析逻辑 | 结果范围 (索引) | 备注 |
+| :--- | :--- | :--- | :--- |
+| `"id2:id5"` | Start=`idx(2)`, End=`idx(5)+1` | `[2, 3, 4, 5]` | **ID 闭区间** |
+| `"id2:+3"` | Start=`2`, End=`2+3` | `[2, 3, 4]` | **游标翻页** |
+| `"id5:-3"` | End=`5+1`, Start=`6-3` | `[3, 4, 5]` | **向上翻页** (含 id5) |
+| `"0:5"` | Start=`0`, End=`5` | `[0, 1, 2, 3, 4]` | **普通分页** |
+| `"-2:"` | Start=`-2`, End=`undefined` | `[8, 9]` | **取末尾** |
+| `"id8:END"` | Start=`8`, End=`undefined` | `[8, 9]` | **阅读剩余** |
+| `"BEGIN:id2"` | Start=`0`, End=`2+1` | `[0, 1, 2]` | **阅读开头** |
+ *
+ * @param blockList - 原始子块列表
+ * @param sliceSyntax - 切片语法字符串 (e.g., "id1:id2", "id1:+5", "0:10")
+ * @returns 截取后的 Block 数组
+ */
+function parseSlice(blockList: any[], sliceSyntax: string): any[] {
+    if (!sliceSyntax || !sliceSyntax.trim()) {
+        return blockList;
+    }
+
+    const syntax = sliceSyntax.trim();
+
+    // --- Helper: 查找 ID 索引 ---
+    const findIndex = (id: string): number => {
+        const idx = blockList.findIndex(b => b.id === id);
+        if (idx === -1) throw new Error(`Slice Error: Anchor ID '${id}' not found in children list.`);
+        return idx;
+    };
+
+    // --- Helper: 检查是否为思源 ID 格式 ---
+    const isSiyuanID = (str: string): boolean => /^\d{14}-\w{7}$/.test(str);
+
+    // --- 场景 1: 相对数量模式 (ID:+N 或 ID:-N) ---
+    const relativeMatch = syntax.match(/^(.+):([+-])(\d+)$/);
+    if (relativeMatch) {
+        const [, anchorStr, sign, numStr] = relativeMatch;
+        const count = parseInt(numStr, 10);
+
+        // 只有 anchor 是 ID 时才在这里处理
+        if (isSiyuanID(anchorStr)) {
+            const anchorIdx = findIndex(anchorStr);
+
+            if (sign === '+') {
+                // <ID>:+N  -> 从 ID 开始(含)，向后取 N 个
+                return blockList.slice(anchorIdx, anchorIdx + count);
+            } else {
+                // <ID>:-N  -> 从 ID 结束(含)，向前取 N 个
+                // 逻辑：包含 anchor 本身，所以 end 是 anchorIdx + 1
+                const end = anchorIdx + 1;
+                const start = Math.max(0, end - count);
+                return blockList.slice(start, end);
+            }
+        }
+    }
+
+    // --- 场景 2: 范围模式 (Start:End) ---
+    const parts = syntax.split(':');
+    if (parts.length !== 2) {
+        // 单个 ID (只取这一个块)
+        if (isSiyuanID(syntax)) {
+            const idx = findIndex(syntax);
+            return blockList.slice(idx, idx + 1);
+        }
+        // 纯数字兼容 "5" -> slice(5)
+        if (/^-?\d+$/.test(syntax)) {
+             return blockList.slice(parseInt(syntax, 10));
+        }
+        throw new Error(`Slice Syntax Error: Invalid format '${syntax}'. Expected 'start:end' or 'id:+N'.`);
+    }
+
+    const [startRaw, endRaw] = parts.map(s => s.trim());
+
+    // --- 解析 Start ---
+    let start: number | undefined;
+    if (startRaw === '' || startRaw === 'BEGIN') {
+        start = 0;
+    } else if (isSiyuanID(startRaw)) {
+        start = findIndex(startRaw);
+    } else {
+        start = parseInt(startRaw, 10);
+    }
+
+    // --- 解析 End ---
+    let end: number | undefined;
+    if (endRaw === '' || endRaw === 'END') {
+        end = undefined;
+    } else if (isSiyuanID(endRaw)) {
+        // ID 范围通常是闭区间 [Start, End]，所以 +1
+        end = findIndex(endRaw) + 1;
+    } else {
+        end = parseInt(endRaw, 10);
+    }
+
+    return blockList.slice(start, end);
+}
+
+
 /**
  * 获取块完整Markdown内容工具
  */
@@ -351,7 +455,14 @@ export const getBlockContentTool: Tool = {
 - 普通块: 返回自身 markdown
 - 文档块: 总是返回所有子块内容拼接 (文档无自身 markdown)
 - 标题块: 默认返回标题范围内所有内容; showSubStructure=true 时展开子块 ID
-- 容器块 (引述/列表/超级块等): 默认返回格式化整体; showSubStructure=true 时展开原始子块`,
+- 容器块 (引述/列表/超级块等): 默认返回格式化整体; showSubStructure=true 时展开原始子块
+
+**切片(Slice)语法**: 读取读取长文档/容器时可用; 具体详情阅读 Skill Rule "slice-reading"
+- 分页阅读: "<LastID>:+10" (从LastID开始再读10个)
+- 范围读取: "<StartID>:<EndID>" (闭区间)
+- 索引切片: "0:10" (前10个), "-5:" (最后5个)
+- 只要使用了 slice，系统会自动开启 showId=true'
+`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -366,7 +477,11 @@ export const getBlockContentTool: Tool = {
                     showSubStructure: {
                         type: 'boolean',
                         description: '展开容器块/标题块的子块结构，显示每个子块的独立内容和 ID。用于细粒度编辑。默认: false'
-                    }
+                    },
+                    slice: {
+                        type: 'string',
+                        description: '可选。切片语法，用于分页读取子块。例如: "id1:+10", "0:20"。仅对文档或容器块有效。'
+                    },
                 },
                 required: ['blockId']
             }
@@ -377,10 +492,13 @@ export const getBlockContentTool: Tool = {
         permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
-    execute: async (args: { blockId: string, showId?: boolean, showSubStructure?: boolean }): Promise<ToolExecuteResult> => {
+    execute: async (args: { blockId: string, slice?: string, showId?: boolean, showSubStructure?: boolean }): Promise<ToolExecuteResult> => {
         const id = args.blockId;
-        const showSubStructure = args.showSubStructure ?? false;
-        const showId = args.showId ?? (showSubStructure ? true : false); // 优化默认值逻辑
+        const slice = args.slice;
+
+        // 智能参数调整：如果使用了 slice，强制开启结构展开和 ID 显示
+        const showSubStructure = slice ? true : (args.showSubStructure ?? false);
+        const showId = slice ? true : (args.showId ?? (showSubStructure ? true : false));
 
         try {
             const block = await getBlockByID(id);
@@ -394,6 +512,7 @@ export const getBlockContentTool: Tool = {
             let blocks = [];
             const isDocument = block.type === 'd';
             const isHeading = block.type === 'h';
+            // 标题块在思源中不是容器 (出于性能考虑）；但是将其作为一个逻辑上的容器块来处理更符合直觉
             const needExpand = showSubStructure || isDocument || isHeading;
 
             if (needExpand) {
@@ -421,6 +540,28 @@ export const getBlockContentTool: Tool = {
                 }];
             }
 
+            // === 应用 Slice 逻辑 ===
+            if (slice && blocks.length > 0) {
+                try {
+                    const originalLength = blocks.length;
+                    blocks = parseSlice(blocks, slice);
+
+                    // 如果切片后为空，提示用户可能翻页过头了
+                    if (blocks.length === 0 && originalLength > 0) {
+                         return {
+                            status: ToolExecuteStatus.SUCCESS,
+                            data: `(Slice result is empty. Original children count: ${originalLength}. Check your slice range.)`
+                        };
+                    }
+                } catch (e) {
+                    return {
+                        status: ToolExecuteStatus.ERROR,
+                        error: e.message // 返回 parseSlice 的具体错误 (如 ID not found)
+                    };
+                }
+            }
+
+            // === 格式化输出 ===
             let content: string;
             if (showId) {
                 content = blocks
@@ -430,6 +571,12 @@ export const getBlockContentTool: Tool = {
                 content = blocks
                     .map(b => b.markdown ?? '')
                     .join('\n\n');
+            }
+
+            // 如果使用了 slice，添加一个元信息头，告诉 LLM 当前进度
+            if (slice) {
+                const headInfo = `> [Slice View] Filter: "${slice}" | Count: ${blocks.length}\n\n`;
+                content = headInfo + content;
             }
 
             return {

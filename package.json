@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "7.8.0",
+  "version": "7.8.1",
   "type": "module",
   "description": "Frostime 自动工具代码",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -19,11 +19,11 @@
     "build:srcmap": "cross-env NODE_ENV=production PRIVATE_ADD=true VITE_SOURCEMAP=inline PRIVATE_REMOVE=true vite build",
     "build:analyze": "cross-env ANALYZE_BUNDLE=true NODE_ENV=production vite build",
     "build:analyze-private": "cross-env ANALYZE_BUNDLE=true NODE_ENV=production PRIVATE_ADD=true PRIVATE_REMOVE=true vite build",
-    "make-link": "npx make-link-win",
-    "update-version": "npx update-version",
-    "make-install": "pnpm run build && npx make-install",
-    "make-install:srcmap": "pnpm run build:srcmap && npx make-install",
-    "make-install:private": "pnpm run build:private && npx make-install"
+    "make-link": "npx --package siyuan-plugin-cli make-link-win",
+    "update-version": "npx --package siyuan-plugin-cli up-ver",
+    "make-install": "pnpm run build && npx --package siyuan-plugin-cli make-install",
+    "make-install:srcmap": "pnpm run build:srcmap && npx --package siyuan-plugin-cli make-install",
+    "make-install:private": "pnpm run build:private && npx --package siyuan-plugin-cli make-install"
   },
   "devDependencies": {
     "@types/node": "^20.3.0",
