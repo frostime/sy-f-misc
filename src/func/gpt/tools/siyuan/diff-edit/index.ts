@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2026-01-08 17:58:38
  * @FilePath     : /src/func/gpt/tools/siyuan/diff-edit/index.ts
- * @LastEditTime : 2026-01-08 22:38:23
+ * @LastEditTime : 2026-01-22 16:15:25
  * @Description  : applyBlockDiff Tool（严格模式）
  */
 
@@ -41,6 +41,11 @@ export const applyBlockDiffTool: Tool = {
 - 任何一个 hunk 校验失败，整个 diff 都会被拒绝
 - 必须先用 getBlockContent(showId=true) 获取准确的块内容
 
+**推荐经验**
+- 指令模式一般更稳定，非精细编辑，推荐使用 REPLACE 等指令操作
+- 精细编辑时，仔细编写 DIFF (参考${DIFF_SKILL_NAME})
+  - 如果编写多次 DIFF 精细编辑都失败，建议改用 REPLACE 替换块内容 (大容器块建议定位到需要更改的子块REPLACE)
+
 **Diff 格式**
 
 \`\`\`diff
@@ -62,16 +67,18 @@ export const applyBlockDiffTool: Tool = {
 | 只有 - | DELETE（删除） |
 | 只有 + | INSERT_AFTER（插入） |
 
-**特殊命令**
+**指令模式**
 
 | 语法 | 作用 |
 |------|------|
-| @@DELETE:id@@ | 删除整个块（无需内容） |
 | @@REPLACE:id@@ | 直接替换（需要 + 行，跳过校验） |
 | @@BEFORE:id@@ | 在块前插入 |
 | @@AFTER:id@@ | 在块后插入 |
 | @@PREPEND:id@@ | 在容器开头插入 |
 | @@APPEND:id@@ | 在容器末尾追加 |
+| @@DELETE:id@@ | 删除整个块（无需内容） |
+
+**Diff修订模式**
 
 **示例**
 
@@ -79,6 +86,12 @@ export const applyBlockDiffTool: Tool = {
 \`\`\`diff
 @@20260108164554-m5ar6vb@@
 - Hello World
++ 你好，世界
+\`\`\`
+
+替换内容（REPLACE 指令）
+\`\`\`diff
+@@REPLACE:20260108164554-m5ar6vb@@
 + 你好，世界
 \`\`\`
 
