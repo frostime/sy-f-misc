@@ -253,6 +253,35 @@ export const runMarkdownPostRender = async (contentRef: HTMLElement) => {
     }
 };
 
+function escapeNestedCodeBlocks(text: string): string {
+    const lines = text.split('\n');
+    const result: string[] = [];
+
+    let inMarkdownBlock = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (/^```(markdown|md)\b/.test(trimmed)) {
+        // 进入 markdown/md 块
+        inMarkdownBlock = true;
+        result.push(line);
+        } else if (inMarkdownBlock && trimmed === '```') {
+        // 退出 markdown 块
+        inMarkdownBlock = false;
+        result.push(line);
+        } else if (inMarkdownBlock && /^```\w+/.test(trimmed)) {
+        // 在 markdown 块内，遇到其他语言代码块：转义
+        result.push(line.replace(/```/g, '\\`\\`\\`'));
+        } else {
+        result.push(line);
+        }
+    }
+
+    return result.join('\n');
+}
+
+
 export function createMarkdownRenderer() {
     let lute = getLute();
     const { config } = useSimpleContext();
@@ -295,6 +324,10 @@ export function createMarkdownRenderer() {
             }
             return html;
         } else {
+            if (text.includes('```markdown') || text.includes('```md')) {
+                text = escapeNestedCodeBlocks(text);
+            }
+
             //@ts-ignore
             const html = lute.Md2HTML(text);
             cachedRenderablePart = '';
