@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>快速输入</title>
     <style>
+
         * {
             margin: 0;
             padding: 0;
@@ -12,146 +13,244 @@
         }
 
         body {
-            font-family: var(--font-family);
-            background-color: var(--theme-background);
-            color: var(--theme-on-background);
-            padding: 16px;
-            font-size: var(--font-size);
+            font-family: var(--b3-font-family);
+            background-color: var(--b3-theme-background);
+            color: var(--b3-theme-on-background);
+            padding: 20px;
+            font-size: 14px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
+        /* --- Header & Search --- */
         .header {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
+        .search-box {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            border: 1px solid var(--b3-border-color);
+            border-radius: 6px;
+            background: var(--b3-theme-surface);
+            color: var(--b3-theme-on-background);
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--b3-theme-primary);
+            box-shadow: 0 0 0 2px var(--b3-theme-primary-light);
+            background: var(--b3-theme-background);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* --- Tabs / Groups --- */
         .group-selector {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
-            margin-bottom: 16px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--b3-border-color);
             padding-bottom: 12px;
-            border-bottom: 1px solid var(--border-color);
         }
 
         .group-btn {
-            padding: 6px 12px;
-            border: 1px solid var(--border-color);
-            background: var(--theme-surface);
-            color: var(--theme-on-surface);
-            border-radius: 4px;
+            padding: 6px 16px;
+            border: none;
+            background: transparent;
+            color: var(--b3-theme-on-background);
+            border-radius: 20px;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: var(--font-size-small);
+            font-size: 13px;
+            opacity: 0.7;
         }
 
         .group-btn:hover {
-            background: var(--theme-surface-hover);
+            background: var(--b3-theme-surface);
+            opacity: 1;
         }
 
         .group-btn.active {
-            background: var(--theme-primary);
-            color: var(--theme-on-primary);
-            border-color: var(--theme-primary);
+            background: var(--b3-theme-primary-light);
+            color: var(--b3-theme-primary);
+            font-weight: 600;
+            opacity: 1;
         }
 
+        /* --- Grid --- */
         .templates-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
-            max-height: 60vh;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
             overflow-y: auto;
+            flex: 1;
+            padding-bottom: 20px;
         }
 
+        /* --- Card --- */
         .template-card {
-            padding: 16px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background: var(--theme-surface);
+            padding: 20px;
+            border: 1px solid var(--b3-border-color);
+            border-radius: 12px;
+            background: var(--b3-theme-surface);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
         }
 
         .template-card:hover {
-            background: var(--theme-surface-hover);
-            border-color: var(--theme-primary);
+            background: var(--b3-theme-background);
+            border-color: var(--b3-theme-primary);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        .template-card:active {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .template-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .template-icon {
-            font-size: 24px;
-            line-height: 1;
+            font-size: 28px;
+            width: 48px;
+            height: 48px;
+            background: var(--b3-theme-surface-light);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+
+        .template-info {
+            flex: 1;
+            min-width: 0;
         }
 
         .template-name {
-            font-weight: 500;
-            font-size: 14px;
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .template-desc {
             font-size: 12px;
-            color: var(--text-secondary);
+            color: var(--b3-theme-on-background);
+            opacity: 0.6;
             line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .template-group {
-            display: inline-block;
-            padding: 2px 6px;
-            background: var(--theme-surface-light);
-            border-radius: 3px;
+        .template-type-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
             font-size: 10px;
-            color: var(--text-secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--b3-theme-surface);
+            color: var(--b3-theme-on-background);
+            opacity: 0.5;
+            border: 1px solid var(--b3-border-color);
         }
 
+        /* --- Empty State --- */
         .empty-state {
-            text-align: center;
-            padding: 48px 24px;
-            color: var(--text-secondary);
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 0;
+            color: var(--b3-theme-on-background);
+            opacity: 0.6;
         }
 
         .empty-state-icon {
-            font-size: 48px;
+            font-size: 56px;
             margin-bottom: 16px;
-            opacity: 0.3;
-        }
-
-        .empty-state-text {
-            font-size: 14px;
+            opacity: 0.5;
         }
 
         .manage-btn {
-            margin-top: 16px;
-            padding: 8px 16px;
-            background: var(--theme-primary);
-            color: var(--theme-on-primary);
+            margin-top: 24px;
+            padding: 10px 24px;
+            background: var(--b3-theme-primary);
+            color: var(--b3-theme-on-primary);
             border: none;
-            border-radius: 4px;
+            border-radius: 20px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+            box-shadow: 0 4px 12px rgba(32, 127, 204, 0.2);
         }
 
         .manage-btn:hover {
             opacity: 0.9;
+            box-shadow: 0 6px 16px rgba(32, 127, 204, 0.3);
         }
 
-        /* 滚动条样式 */
-        .templates-grid::-webkit-scrollbar {
+        /* Scrollbar */
+        ::-webkit-scrollbar {
             width: 6px;
+            height: 6px;
         }
-
-        .templates-grid::-webkit-scrollbar-thumb {
-            background: var(--scrollbar-thumb);
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.1);
             border-radius: 3px;
+        }
+        :hover::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.2);
         }
     </style>
 </head>
 <body>
-    <div class="header" id="groupSelector" style="display: none;">
-        <div class="group-selector" id="groupButtons"></div>
+    <div class="header" id="toolbar">
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" placeholder="搜索模板..." id="searchInput" oninput="handleSearch()">
+        </div>
+        <button class="manage-btn" style="margin:0; padding: 6px 16px; font-size: 12px; background: transparent; color: var(--b3-theme-on-background); border: 1px solid var(--b3-border-color); box-shadow:none;" onclick="openManage()">⚙️ 管理</button>
     </div>
 
+    <div class="group-selector" id="groupButtons" style="display: none;"></div>
     <div class="templates-grid" id="templatesGrid"></div>
 
     <script>
@@ -164,7 +263,10 @@
         window.addEventListener('pluginSdkReady', async () => {
             sdk = window.pluginSdk;
 
-            // 从 customSdk 获取数据
+            // Sync Theme Vars (if parent passes b3 vars, we are good, usually they are inherited or injected as css)
+            // If the parent only passes 'siyuanCss', we should utilize standard b3 vars.
+            // The template uses specific CSS variable names, let's just ensure we have data.
+
             if (sdk.getTemplates) {
                 allTemplates = sdk.getTemplates();
             }
@@ -175,7 +277,24 @@
                 onSelectCallback = sdk.onSelect;
             }
 
+            // Init focus
+            document.getElementById('searchInput').focus();
+
             render();
+
+            // Add global shortcut support
+            document.addEventListener('keydown', (e) => {
+                const items = document.querySelectorAll('.template-card');
+                if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                    // Navigate focus? For now simple focus logic if desired
+                }
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    // Maybe confirm first item?
+                }
+                if (e.key === 'Escape') {
+                    // Usually Dialog handles this, but just in case
+                }
+            });
         });
 
         function render() {
@@ -184,112 +303,102 @@
         }
 
         function renderGroupSelector() {
+            const container = document.getElementById('groupButtons');
             if (!showGroups || allTemplates.length === 0) {
-                document.getElementById('groupSelector').style.display = 'none';
+                container.style.display = 'none';
                 return;
             }
 
-            // 收集所有分组
             const groups = new Set(['all']);
             allTemplates.forEach(t => {
                 if (t.group) groups.add(t.group);
             });
 
             if (groups.size <= 1) {
-                document.getElementById('groupSelector').style.display = 'none';
+                container.style.display = 'none';
                 return;
             }
 
-            document.getElementById('groupSelector').style.display = 'block';
-
-            const container = document.getElementById('groupButtons');
+            container.style.display = 'flex';
             container.innerHTML = '';
 
-            const allBtn = createGroupButton('all', '全部');
-            container.appendChild(allBtn);
+            const createBtn = (id, text) => {
+                const btn = document.createElement('button');
+                btn.className = 'group-btn' + (id === selectedGroup ? ' active' : '');
+                btn.textContent = text;
+                btn.onclick = () => {
+                    selectedGroup = id;
+                    renderTemplates();
+                    document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                };
+                return btn;
+            };
 
-            groups.forEach(group => {
-                if (group !== 'all') {
-                    const btn = createGroupButton(group, group);
-                    container.appendChild(btn);
-                }
+            container.appendChild(createBtn('all', '全部'));
+            groups.forEach(g => {
+                if(g !== 'all') container.appendChild(createBtn(g, g));
             });
         }
 
-        function createGroupButton(group, label) {
-            const btn = document.createElement('button');
-            btn.className = 'group-btn' + (group === selectedGroup ? ' active' : '');
-            btn.textContent = label;
-            btn.onclick = () => {
-                selectedGroup = group;
-                render();
-            };
-            return btn;
+        function handleSearch() {
+            renderTemplates();
         }
 
         function renderTemplates() {
             const container = document.getElementById('templatesGrid');
             container.innerHTML = '';
 
-            // 过滤模板
-            const filtered = selectedGroup === 'all'
-                ? allTemplates
-                : allTemplates.filter(t => t.group === selectedGroup);
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+
+            const filtered = allTemplates.filter(t => {
+                const inGroup = selectedGroup === 'all' || t.group === selectedGroup;
+                const matchesSearch = !searchText ||
+                    t.name.toLowerCase().includes(searchText) ||
+                    (t.description && t.description.toLowerCase().includes(searchText));
+                return inGroup && matchesSearch;
+            });
 
             if (filtered.length === 0) {
-                showEmptyState(container);
+                showEmptyState(container, searchText);
                 return;
             }
 
             filtered.forEach(template => {
-                const card = createTemplateCard(template);
+                const card = document.createElement('div');
+                card.className = 'template-card';
+                card.onclick = () => handleTemplateSelect(template);
+                // Hover effect handled by CSS
+
+                // Type Badge
+                const typeMap = { block: 'Block', document: 'Doc', dailynote: 'Daily' };
+                const typeLabel = typeMap[template.newtype] || template.newtype;
+
+                card.innerHTML = `
+                    <div class="template-type-badge">${typeLabel}</div>
+                    <div class="template-header">
+                        <div class="template-icon">${template.icon || '📝'}</div>
+                        <div class="template-info">
+                            <div class="template-name">${escapeHtml(template.name)}</div>
+                            <div class="template-desc">${escapeHtml(template.desc || template.description || '无描述')}</div>
+                        </div>
+                    </div>
+                `;
+
                 container.appendChild(card);
             });
         }
 
-        function createTemplateCard(template) {
-            const card = document.createElement('div');
-            card.className = 'template-card';
-            card.onclick = () => handleTemplateSelect(template);
+        function showEmptyState(container, searchText) {
+            const msg = searchText
+                ? '未找到匹配的模板'
+                : (selectedGroup === 'all' ? '这里空空如也' : '该分组下无模板');
 
-            const icon = document.createElement('div');
-            icon.className = 'template-icon';
-            icon.textContent = template.icon || '📝';
-            card.appendChild(icon);
-
-            const name = document.createElement('div');
-            name.className = 'template-name';
-            name.textContent = template.name;
-            card.appendChild(name);
-
-            if (template.description) {
-                const desc = document.createElement('div');
-                desc.className = 'template-desc';
-                desc.textContent = template.description;
-                card.appendChild(desc);
-            }
-
-            if (template.group && showGroups) {
-                const group = document.createElement('div');
-                group.className = 'template-group';
-                group.textContent = template.group;
-                card.appendChild(group);
-            }
-
-            return card;
-        }
-
-        function showEmptyState(container) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">📋</div>
-                    <div class="empty-state-text">
-                        ${selectedGroup === 'all'
-                            ? '暂无模板<br>请在设置中添加模板'
-                            : `"${selectedGroup}" 分组中暂无模板`
-                        }
-                    </div>
-                    ${selectedGroup === 'all' ? '<button class="manage-btn" onclick="openManage()">管理模板</button>' : ''}
+                    <div class="empty-state-icon">📭</div>
+                    <div class="empty-state-text">${msg}</div>
+                    ${!searchText && selectedGroup === 'all' ? '<button class="manage-btn" onclick="openManage()">去创建模板</button>' : ''}
                 </div>
             `;
         }
@@ -304,6 +413,16 @@
             if (sdk && sdk.openManager) {
                 sdk.openManager();
             }
+        }
+
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
         }
     </script>
 </body>

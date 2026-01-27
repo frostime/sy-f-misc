@@ -214,108 +214,108 @@ export class TemplateStore {
      */
     private createDefaultTemplates(): void {
         // 示例 1：开发 ISSUE 记录
-        this.add({
-            name: '开发 ISSUE',
-            desc: '在开发ISSUE目录下创建新问题记录',
-            icon: '🐛',
-            group: '开发',
-            newtype: 'document',
-            insertTo: {
-                anchorGenerator: {
-                    type: 'hpath',
-                    notebook: '', // 用户需要配置笔记本 ID
-                    hpathTemplate: '/开发ISSUE/{{yearStr}}{{monthStr}}{{dayStr}}-{{title}}'
-                }
-            },
-            template: `# {{title}}
+//         this.add({
+//             name: '开发 ISSUE',
+//             desc: '在开发ISSUE目录下创建新问题记录',
+//             icon: '🐛',
+//             group: '开发',
+//             newtype: 'document',
+//             insertTo: {
+//                 anchorGenerator: {
+//                     type: 'hpath',
+//                     notebook: '', // 用户需要配置笔记本 ID
+//                     hpathTemplate: '/开发ISSUE/{{yearStr}}{{monthStr}}{{dayStr}}-{{title}}'
+//                 }
+//             },
+//             template: `# {{title}}
 
-**类型**: {{type}}
-**状态**: 准备中
-**创建时间**: {{datetime}}
+// **类型**: {{type}}
+// **状态**: 准备中
+// **创建时间**: {{datetime}}
 
----
+// ---
 
-## 问题描述
-
-
-
-## 解决方案
+// ## 问题描述
 
 
 
-## 相关资源
+// ## 解决方案
 
-`,
-            declaredInputVar: {
-                title: {
-                    type: 'text',
-                    label: '问题标题',
-                    description: '简短描述问题'
-                },
-                type: {
-                    type: 'enum',
-                    label: '类型',
-                    enum: ['新功能', '改进', 'BUG', '重构'],
-                    default: 'BUG'
-                }
-            },
-            openBlock: true
-        });
 
-        // 示例 2：日记快速条目
-        this.add({
-            name: '日记条目',
-            desc: '在今日日记末尾添加快速记录',
-            icon: '📝',
-            group: '日常',
-            newtype: 'dailynote',
-            insertTo: {
-                notebook: '', // 用户需要配置
-                insert: 'append'
-            },
-            template: `## {{time}} - {{title}}
 
-{{content}}
-`,
-            declaredInputVar: {
-                title: {
-                    type: 'text',
-                    label: '标题',
-                    description: '简短标题'
-                },
-                content: {
-                    type: 'text',
-                    label: '内容',
-                    description: '详细内容'
-                }
-            },
-            openBlock: true
-        });
+// ## 相关资源
 
-        // 示例 3：月度统计（带脚本）
-        this.add({
-            name: '月度统计',
-            desc: '在汇总文档中追加本月统计数据',
-            icon: '📊',
-            group: '日常',
-            newtype: 'block',
-            insertTo: {
-                anchorGenerator: {
-                    type: 'sql',
-                    searchCode: `SELECT * FROM blocks WHERE content = '月度汇总' AND type = 'h' LIMIT 1`
-                },
-                anchorUsage: {
-                    type: 'parent',
-                    insert: 'append'
-                }
-            },
-            template: `**{{yearStr}}-{{monthStr}}**: 本月编辑文档数量 **{{count}}** 个`,
-            preExecuteScript: `// 查询本月编辑文档数
-const query = \`SELECT COUNT(*) as count FROM blocks WHERE type='d' AND updated LIKE '\${ctx.yearStr}\${ctx.monthStr}%'\`;
-const result = await window.siyuan.sql(query);
-return { count: result[0].count };`,
-            openBlock: false
-        });
+// `,
+//             declaredInputVar: {
+//                 title: {
+//                     type: 'text',
+//                     label: '问题标题',
+//                     description: '简短描述问题'
+//                 },
+//                 type: {
+//                     type: 'enum',
+//                     label: '类型',
+//                     enum: ['新功能', '改进', 'BUG', '重构'],
+//                     default: 'BUG'
+//                 }
+//             },
+//             openBlock: true
+//         });
+
+//         // 示例 2：日记快速条目
+//         this.add({
+//             name: '日记条目',
+//             desc: '在今日日记末尾添加快速记录',
+//             icon: '📝',
+//             group: '日常',
+//             newtype: 'dailynote',
+//             insertTo: {
+//                 notebook: '', // 用户需要配置
+//                 insert: 'append'
+//             },
+//             template: `## {{time}} - {{title}}
+
+// {{content}}
+// `,
+//             declaredInputVar: {
+//                 title: {
+//                     type: 'text',
+//                     label: '标题',
+//                     description: '简短标题'
+//                 },
+//                 content: {
+//                     type: 'text',
+//                     label: '内容',
+//                     description: '详细内容'
+//                 }
+//             },
+//             openBlock: true
+//         });
+
+//         // 示例 3：月度统计（带脚本）
+//         this.add({
+//             name: '月度统计',
+//             desc: '在汇总文档中追加本月统计数据',
+//             icon: '📊',
+//             group: '日常',
+//             newtype: 'block',
+//             insertTo: {
+//                 anchorGenerator: {
+//                     type: 'sql',
+//                     searchCode: `SELECT * FROM blocks WHERE content = '月度汇总' AND type = 'h' LIMIT 1`
+//                 },
+//                 anchorUsage: {
+//                     type: 'parent',
+//                     insert: 'append'
+//                 }
+//             },
+//             template: `**{{yearStr}}-{{monthStr}}**: 本月编辑文档数量 **{{count}}** 个`,
+//             preExecuteScript: `// 查询本月编辑文档数
+// const query = \`SELECT COUNT(*) as count FROM blocks WHERE type='d' AND updated LIKE '\${ctx.yearStr}\${ctx.monthStr}%'\`;
+// const result = await window.siyuan.sql(query);
+// return { count: result[0].count };`,
+//             openBlock: false
+//         });
     }
 }
 
