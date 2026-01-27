@@ -643,12 +643,12 @@
             renderTable();
         };
 
-        window.deleteField = async (index) => {
-            const ok = await window.pluginSdk.confirm('确定要删除这条规则吗？');
-            if (ok === true) {
+        //#BUG 这里疑似无法正常删除
+        window.deleteField = (index) => {
+            window.pluginSdk.confirm('确认删除', '确定要删除这条规则吗？', () => {
                 privacyFields.splice(index, 1);
                 renderTable();
-            }
+            });
         };
 
         window.openEdit = (index) => {
