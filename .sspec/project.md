@@ -72,3 +72,5 @@ Examples: "snake_case for Python, camelCase for JS", "All API routes: /api/v1/*"
 Agent appends here during @handover when a discovery is project-wide (not change-specific).
 Format each entry as: `- YYYY-MM-DD: <learning>`
 Prune entries that become outdated or graduate to Conventions/spec-docs. -->
+
+- 2026-02-07: Created spec-doc `siyuan-content-tools` (`.sspec/spec-docs/siyuan-content-tools.md`) documenting the architecture of 5 content tools: getBlockInfo, getBlockContent, appendContent, createNewDoc, applyBlockDiff. Includes detailed implementation notes on slice mechanism, container block expansion, SEARCH/REPLACE format (post-2026-02-07 refactoring), and design rationales. Purpose: Reduce future agent maintenance overhead when modifying content tools.
