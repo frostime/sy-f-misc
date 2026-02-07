@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2026-01-05 21:38:59
+ * @LastEditTime : 2026-01-28 11:34:54
  * @Description  :
  */
 // External libraries
@@ -192,7 +192,7 @@ export const ChatSession: Component<{
     const openFloatEditor = () => {
         floatSiYuanTextEditor({
             initialText: input(),
-            fontSize: `${UIConfig().inputFontsize}px`,
+            fontSize: `${UIConfig().msgFontsize}px`,
             customButtons: {
                 '填充': (text: string) => {
                     input(text);

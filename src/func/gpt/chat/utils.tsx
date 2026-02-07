@@ -312,6 +312,7 @@ export const floatSiYuanTextEditor = (args: Omit<Parameters<typeof SiYuanTextEdi
     if (!style.height) style.height = '300px';
     style.maxWidth = '80%';
     style.maxHeight = '80%';
+    // style.display = 'flex';
 
     const id = window.Lute.NewNodeID();
     // 创建浮动容器

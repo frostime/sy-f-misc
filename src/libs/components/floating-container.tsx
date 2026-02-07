@@ -22,6 +22,11 @@ export const FloatingContainer: Component<{
     title?: string;
     id?: string;
     allowResize?: boolean;
+    onAfterMounted?: (options: {
+        container: HTMLDivElement;
+        containerHeader: HTMLDivElement;
+        containerBody: HTMLDivElement;
+    }) => void;
 }> = (props) => {
     // 设置默认值
     const allowResize = props.allowResize ?? false;
@@ -85,6 +90,13 @@ export const FloatingContainer: Component<{
             window.addEventListener('resize', handleResize);
             window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
+        }
+        if (props.onAfterMounted && containerRef) {
+            props.onAfterMounted({
+                container: containerRef,
+                containerHeader: containerRef.querySelector('.floating-container-header') as HTMLDivElement,
+                containerBody: containerRef.querySelector('.floating-container-body') as HTMLDivElement
+            });
         }
     });
 
@@ -231,6 +243,7 @@ export const FloatingContainer: Component<{
             </div>
             <div class="floating-container-body" style={{
                 'flex': '1 1 0%',
+                'display': 'flex',
                 'overflow': 'auto', // 只让 body 滚动
                 'min-height': 0  // 让flex布局下body能收缩，避免header被挤走
             }}>
@@ -243,7 +256,7 @@ export const FloatingContainer: Component<{
 /**
  * 创建一个全局浮动容器
  * 通过传入 element 或 component 参数来指定内容
- * 
+ *
  * @param args 参数
  * @param args.element DOM 元素
  * @param args.component Solid 组件
