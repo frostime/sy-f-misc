@@ -3,23 +3,28 @@
  * @Author       : frostime
  * @Date         : 2026-01-08 17:58:38
  * @FilePath     : /src/func/gpt/tools/siyuan/diff-edit/parser.ts
- * @LastEditTime : 2026-01-08 22:46:20
- * @Description  : Block Diff 解析器（严格模式）
+ * @LastEditTime : 2026-02-07 21:25:00
+ * @Description  : Block Diff 解析器（SEARCH/REPLACE 模式）
  */
 
 import type {
     BlockEdit,
     ParsedHunk,
-    DiffLine,
-    DiffLineType,
     HunkCommand,
     HunkValidation,
     ParseOptions,
-    ValidationError,
-    ValidationResult
+    ValidationError
 } from './types';
 
-// ============ ID 校验 ============
+import {
+    tokenizeBlockDiff,
+    validateTokenSequence,
+    formatFormatValidationErrors
+} from './validator';
+
+// ============================================================
+// ID 校验
+// ============================================================
 
 /**
  * 校验思源笔记块 ID 格式
@@ -38,7 +43,9 @@ function formatIdError(id: string, context: string): string {
         `示例：20260108164554-m5ar6vb`;
 }
 
-// ============ Hunk 分割 ============
+// ============================================================
+// Hunk 分割
+// ============================================================
 
 /**
  * 将 diff 文本按 hunk 分割
@@ -52,10 +59,20 @@ export function splitIntoHunks(diffText: string): string[] {
         .filter(p => p.startsWith('@@'));
 }
 
-// ============ Hunk 解析（严格模式） ============
+// ============================================================
+// SEARCH/REPLACE 块解析
+// ============================================================
 
 /**
- * 解析单个 hunk（严格模式：保持行顺序）
+ * SEARCH/REPLACE 块
+ */
+export interface SearchReplaceBlock {
+    search: string;   // SEARCH 块的完整内容
+    replace: string;  // REPLACE 块的完整内容
+}
+
+/**
+ * 解析单个 hunk（SEARCH/REPLACE 模式）
  */
 export function parseHunk(hunkText: string): ParsedHunk {
     const rawLines = hunkText.split('\n');
@@ -94,63 +111,16 @@ export function parseHunk(hunkText: string): ParsedHunk {
         modifier = rawModifier;
     }
 
-    // 解析内容行（严格格式要求）
-    const lines: DiffLine[] = [];
+    // 获取内容部分（去掉头部）
+    const contentLines = rawLines.slice(1);
+    const contentText = contentLines.join('\n');
 
-    for (let i = 1; i < rawLines.length; i++) {
-        const line = rawLines[i];
-        const lineNumber = i + 1; // 1-based
+    // 解析 SEARCH/REPLACE 块（如果存在）
+    let searchReplace: SearchReplaceBlock | undefined;
 
-        // ===== 严格格式解析 =====
-        // 格式要求：前缀 + 一个空格 + 内容
-        // - `- ` + content → minus 行
-        // - `+ ` + content → plus 行
-        // - ` ` + content → context 行
-        // 特殊情况：
-        // - `-` 单独 → minus 空行（表示删除空行）
-        // - `+` 单独 → plus 空行（表示添加空行）
-        // - 真正的空行 → context 空行
-
-        if (line.startsWith('- ')) {
-            // 减号行：`- ` 开头（减号+一个空格）
-            lines.push({ type: 'minus', content: line.slice(2), lineNumber });
-        } else if (line === '-') {
-            // 减号空行：表示删除一个空行
-            lines.push({ type: 'minus', content: '', lineNumber });
-        } else if (line.startsWith('-') && line.length > 1) {
-            // 减号后面有内容但没有空格 → 格式错误
-            throw new Error(
-                `第 ${lineNumber} 行格式错误: "${truncateForError(line)}"\n` +
-                `减号行必须是 "- " 开头（减号+空格+内容）\n` +
-                `如果内容以 "-" 开头（如列表），应写成: "- - 列表项"`
-            );
-        } else if (line.startsWith('+ ')) {
-            // 加号行：`+ ` 开头（加号+一个空格）
-            lines.push({ type: 'plus', content: line.slice(2), lineNumber });
-        } else if (line === '+') {
-            // 加号空行：表示添加一个空行
-            lines.push({ type: 'plus', content: '', lineNumber });
-        } else if (line.startsWith('+') && line.length > 1) {
-            // 加号后面有内容但没有空格 → 格式错误
-            throw new Error(
-                `第 ${lineNumber} 行格式错误: "${truncateForError(line)}"\n` +
-                `加号行必须是 "+ " 开头（加号+空格+内容）\n` +
-                `如果内容以 "+" 开头，应写成: "+ + 内容"`
-            );
-        } else if (line.startsWith(' ')) {
-            // 上下文行：一个空格开头
-            lines.push({ type: 'context', content: line.slice(1), lineNumber });
-        } else if (line === '') {
-            // 真正的空行：视为上下文空行
-            lines.push({ type: 'context', content: '', lineNumber });
-        } else {
-            // 无有效前缀 → 格式错误
-            throw new Error(
-                `第 ${lineNumber} 行格式错误: "${truncateForError(line)}"\n` +
-                `每行必须以 "- "、"+ " 或 " "（空格）开头\n` +
-                `上下文行请在行首添加一个空格`
-            );
-        }
+    if (!command && !modifier) {
+        // 普通编辑模式：需要 SEARCH/REPLACE 块
+        searchReplace = parseSearchReplaceContent(contentText);
     }
 
     return {
@@ -159,11 +129,43 @@ export function parseHunk(hunkText: string): ParsedHunk {
         command,
         blockId,
         typeLabel,
-        lines
+        searchReplace,
+        newContent: undefined  // 将在后续步骤填充（对于指令模式）
     };
 }
 
-// ============ Hunk 校验 ============
+/**
+ * 解析 SEARCH/REPLACE 块内容
+ */
+function parseSearchReplaceContent(content: string): SearchReplaceBlock {
+    // 查找 <<<<<<< SEARCH
+    const searchMatch = content.match(/<<<<<<<?(?:\s*SEARCH)?\s*\n([\s\S]*?)\n?={4,}/);
+    if (!searchMatch) {
+        throw new Error('未找到 SEARCH 块（格式: <<<<<<< SEARCH）');
+    }
+
+    const searchContent = searchMatch[1];
+
+    // 查找分隔符后的部分
+    const afterDelimiter = content.substring(searchMatch.index! + searchMatch[0].length);
+
+    // 查找 >>>>>>> REPLACE
+    const replaceMatch = afterDelimiter.match(/([\s\S]*?)\n?>>>>>>>?(?:\s*REPLACE)?/);
+    if (!replaceMatch) {
+        throw new Error('未找到 REPLACE 块（格式: >>>>>>> REPLACE）');
+    }
+
+    const replaceContent = replaceMatch[1];
+
+    return {
+        search: searchContent.trim(),
+        replace: replaceContent.trim()
+    };
+}
+
+// ============================================================
+// Hunk 校验
+// ============================================================
 
 /**
  * 校验单个 hunk 的内容
@@ -172,123 +174,67 @@ export function parseHunk(hunkText: string): ParsedHunk {
  * @returns 校验结果
  */
 export function validateHunk(hunk: ParsedHunk): HunkValidation {
-    const { command, modifier, lines } = hunk;
+    const { command, modifier, searchReplace } = hunk;
 
     // 1. DELETE 命令：不需要内容
     if (command === 'DELETE') {
         return { valid: true };
     }
 
-    // 2. REPLACE 命令：需要 plus 行（新内容）
+    // 2. REPLACE 命令：需要新内容（从 content 提取）
     if (command === 'REPLACE') {
-        const hasPlus = lines.some(l => l.type === 'plus');
-        if (!hasPlus) {
-            return {
-                valid: false,
-                error: `REPLACE 操作需要 + 行（新内容）`
-            };
-        }
+        // newContent 将在 hunkToEdit 中提取
         return { valid: true };
     }
 
-    // 3. 位置修饰符（BEFORE, AFTER, PREPEND, APPEND）：需要 plus 行
+    // 3. 位置修饰符（BEFORE, AFTER, PREPEND, APPEND）：需要新内容
     if (modifier) {
-        const hasPlus = lines.some(l => l.type === 'plus');
-        if (!hasPlus) {
-            return {
-                valid: false,
-                error: `${modifier} 操作需要 + 行（新增内容）`
-            };
-        }
         return { valid: true };
     }
 
-    // 4. 普通 hunk：检查是否有实际操作
-    const hasMinus = lines.some(l => l.type === 'minus');
-    const hasPlus = lines.some(l => l.type === 'plus');
+    // 4. 普通 hunk：需要 SEARCH/REPLACE 块
+    if (!searchReplace) {
+        return {
+            valid: false,
+            error: '普通编辑模式需要 SEARCH/REPLACE 块'
+        };
+    }
 
-    // 4.1 没有 minus 也没有 plus，只有 context → 跳过并警告
-    if (!hasMinus && !hasPlus) {
+    // 检查 SEARCH 块是否为空
+    if (!searchReplace.search) {
         return {
             valid: true,
             skip: true,
-            warning: `Hunk [${hunk.blockId}] 没有实际操作（无 - 或 + 行），已跳过`
+            warning: `Hunk [${hunk.blockId}] SEARCH 块为空，已跳过`
         };
     }
 
     return { valid: true };
 }
 
-// ============ 内容重建 ============
+// ============================================================
+// 编辑操作转换
+// ============================================================
 
 /**
- * 从 hunk 重建"原文应该是什么"
- * oldContent = context + minus（按顺序）
+ * 从 hunk 内容中提取新内容（用于指令模式）
  */
-export function computeOldContent(hunk: ParsedHunk): string | undefined {
-    const { command, modifier, lines } = hunk;
+function extractNewContent(hunk: ParsedHunk): string | undefined {
+    const contentLines = hunk.raw.split('\n').slice(1);  // 去掉头部
+    const content = contentLines.join('\n').trim();
 
-    // DELETE 命令或位置修饰符：不需要 oldContent
-    if (command === 'DELETE' || modifier) {
+    if (!content) {
         return undefined;
     }
 
-    const oldLines = lines
-        .filter(l => l.type === 'minus' || l.type === 'context')
-        .map(l => l.content);
-
-    if (oldLines.length === 0) {
-        return undefined;
-    }
-
-    return joinAndTrim(oldLines);
+    return content;
 }
-
-/**
- * 从 hunk 计算"新内容应该是什么"
- * newContent = context + plus（按顺序）
- */
-export function computeNewContent(hunk: ParsedHunk): string | undefined {
-    const { command, lines } = hunk;
-
-    // DELETE 命令：无 newContent
-    if (command === 'DELETE') {
-        return undefined;
-    }
-
-    const newLines = lines
-        .filter(l => l.type === 'plus' || l.type === 'context')
-        .map(l => l.content);
-
-    if (newLines.length === 0) {
-        return undefined;
-    }
-
-    return joinAndTrim(newLines);
-}
-
-/**
- * 合并行并处理尾部空行
- */
-function joinAndTrim(lines: string[]): string {
-    // 移除尾部空行
-    let endIdx = lines.length - 1;
-    while (endIdx >= 0 && lines[endIdx] === '') {
-        endIdx--;
-    }
-
-    if (endIdx < 0) return '';
-
-    return lines.slice(0, endIdx + 1).join('\n');
-}
-
-// ============ 编辑操作转换 ============
 
 /**
  * 将解析后的 hunk 转换为编辑操作
  */
 export function hunkToEdit(hunk: ParsedHunk): BlockEdit | null {
-    const { modifier, command, blockId, lines } = hunk;
+    const { modifier, command, blockId, searchReplace } = hunk;
 
     // 1. DELETE 命令
     if (command === 'DELETE') {
@@ -297,7 +243,7 @@ export function hunkToEdit(hunk: ParsedHunk): BlockEdit | null {
 
     // 2. REPLACE 命令（跳过校验，直接替换）
     if (command === 'REPLACE') {
-        const newContent = computeNewContent(hunk);
+        const newContent = extractNewContent(hunk);
         if (!newContent) {
             return null;
         }
@@ -307,7 +253,7 @@ export function hunkToEdit(hunk: ParsedHunk): BlockEdit | null {
 
     // 3. 位置修饰符
     if (modifier) {
-        const newContent = computeNewContent(hunk);
+        const newContent = extractNewContent(hunk);
         if (!newContent) {
             return null;
         }
@@ -328,38 +274,28 @@ export function hunkToEdit(hunk: ParsedHunk): BlockEdit | null {
         }
     }
 
-    // 4. 普通 hunk：根据内容推断类型
-    const hasMinus = lines.some(l => l.type === 'minus');
-    const hasPlus = lines.some(l => l.type === 'plus');
-
-    const oldContent = computeOldContent(hunk);
-    const newContent = computeNewContent(hunk);
-
-    if (hasMinus && hasPlus) {
-        // 有旧有新 = UPDATE
-        return { type: 'UPDATE', blockId, oldContent, newContent };
-    }
-
-    if (hasMinus && !hasPlus) {
-        // 只有删除 = DELETE（通过 - 行删除）
-        return { type: 'DELETE', blockId, oldContent };
-    }
-
-    if (!hasMinus && hasPlus) {
-        // 只有新增 = INSERT_AFTER
-        return { type: 'INSERT_AFTER', blockId, newContent };
+    // 4. 普通 hunk：SEARCH/REPLACE 模式
+    if (searchReplace) {
+        return {
+            type: 'UPDATE',
+            blockId,
+            oldContent: searchReplace.search,
+            newContent: searchReplace.replace
+        };
     }
 
     return null;
 }
 
-// ============ 内容匹配校验 ============
+// ============================================================
+// 内容匹配校验
+// ============================================================
 
 /**
  * 校验 oldContent 是否匹配实际块内容
  *
  * @param actual 实际块内容
- * @param expected diff 中声明的旧内容（context + minus）
+ * @param expected diff 中声明的旧内容（SEARCH 块）
  * @param strict 是否严格匹配（默认 true）
  */
 export function matchContent(
@@ -388,7 +324,9 @@ function normalizeContent(s: string): string {
         .trim();
 }
 
-// ============ 完整解析流程 ============
+// ============================================================
+// 完整解析流程
+// ============================================================
 
 /**
  * 解析 Block Diff 文本（仅解析，不校验内容匹配）
@@ -402,6 +340,16 @@ export function parseBlockDiff(diffText: string, options: ParseOptions = {}): {
     edits: BlockEdit[];
     warnings: string[];
 } {
+    // ========== 第一步：格式验证（Lexer 检测） ==========
+    const tokens = tokenizeBlockDiff(diffText);
+    const formatValidation = validateTokenSequence(tokens);
+
+    if (!formatValidation.valid) {
+        const errorMessage = formatFormatValidationErrors(formatValidation.errors);
+        throw new Error(errorMessage);
+    }
+
+    // ========== 第二步：分割 hunks ==========
     const hunkTexts = splitIntoHunks(diffText);
     const hunks: ParsedHunk[] = [];
     const edits: BlockEdit[] = [];
@@ -451,37 +399,19 @@ export function parseBlockDiff(diffText: string, options: ParseOptions = {}): {
     return { hunks, edits, warnings };
 }
 
-// ============ 辅助函数 ============
+// ============================================================
+// 辅助函数
+// ============================================================
 
 /**
  * 格式化编辑操作为可读字符串
  */
-// export function formatEdit(edit: BlockEdit): string {
-//     const { type, blockId, oldContent, newContent } = edit;
-
-//     switch (type) {
-//         case 'UPDATE':
-//             return `UPDATE ${blockId}: "${truncate(oldContent!, 30)}" → "${truncate(newContent!, 30)}"`;
-//         case 'DELETE':
-//             return `DELETE ${blockId}${oldContent ? `: "${truncate(oldContent, 50)}"` : ''}`;
-//         case 'INSERT_AFTER':
-//             return `INSERT_AFTER ${blockId}: "${truncate(newContent!, 50)}"`;
-//         case 'INSERT_BEFORE':
-//             return `INSERT_BEFORE ${blockId}: "${truncate(newContent!, 50)}"`;
-//         case 'PREPEND':
-//             return `PREPEND ${blockId}: "${truncate(newContent!, 50)}"`;
-//         case 'APPEND':
-//             return `APPEND ${blockId}: "${truncate(newContent!, 50)}"`;
-//         default:
-//             return `UNKNOWN ${blockId}`;
-//     }
-// }
 export function formatEdit(edit: BlockEdit): string {
     const { type, blockId, oldContent, newContent } = edit;
 
     switch (type) {
         case 'UPDATE':
-            // 处理 REPLACE 命令（有 oldContent）
+            // 处理 REPLACE 命令（无 oldContent）
             if (oldContent) {
                 return `UPDATE ${blockId}: "${truncate(oldContent, 30)}" → "${truncate(newContent!, 30)}"`;
             } else {
@@ -502,19 +432,10 @@ export function formatEdit(edit: BlockEdit): string {
     }
 }
 
-
 function truncate(str: string, maxLen: number): string {
     const oneLine = str.replace(/\n/g, '\\n');
     if (oneLine.length <= maxLen) return oneLine;
     return oneLine.slice(0, maxLen - 3) + '...';
-}
-
-/**
- * 截断用于错误消息的行内容
- */
-function truncateForError(line: string): string {
-    if (line.length <= 40) return line;
-    return line.slice(0, 37) + '...';
 }
 
 /**
@@ -527,13 +448,17 @@ export function formatValidationError(error: ValidationError): string {
     lines.push(`   ${error.message}`);
 
     if (error.expected !== undefined) {
-        lines.push(`   期望内容:`);
-        lines.push(`   "${truncate(error.expected, 80)}"`);
+        lines.push(`   SEARCH 块（你提供的）:`);
+        lines.push(`   ---`);
+        lines.push(`   ${truncate(error.expected, 200)}`);
+        lines.push(`   ---`);
     }
 
     if (error.actual !== undefined) {
-        lines.push(`   实际内容:`);
-        lines.push(`   "${truncate(error.actual, 80)}"`);
+        lines.push(`   实际块内容:`);
+        lines.push(`   ---`);
+        lines.push(`   ${truncate(error.actual, 200)}`);
+        lines.push(`   ---`);
     }
 
     return lines.join('\n');

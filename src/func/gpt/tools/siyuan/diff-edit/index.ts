@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2026-01-08 17:58:38
  * @FilePath     : /src/func/gpt/tools/siyuan/diff-edit/index.ts
- * @LastEditTime : 2026-01-22 16:15:25
- * @Description  : applyBlockDiff Tool（严格模式）
+ * @LastEditTime : 2026-02-07 22:33:16
+ * @Description  : applyBlockDiff Tool（SEARCH/REPLACE 模式）
  */
 
 import type { BlockEdit, ValidationResult } from './types';
@@ -25,7 +25,7 @@ import { request } from '@/api';
 
 let _request: (url: string, data: any) => Promise<any> = request;
 
-export const DIFF_SKILL_NAME = 'block-diff-edit';
+export const DIFF_SKILL_NAME = 'block-edit-search-replace';
 
 // ============ Tool 定义 ============
 
@@ -34,87 +34,44 @@ export const applyBlockDiffTool: Tool = {
         type: 'function',
         function: {
             name: 'applyBlockDiff',
-            description: `应用 Block Diff 编辑到思源笔记文档。
+            description: `应用 Block Edit 到思源笔记文档（SEARCH/REPLACE 模式）。
 
-**⚠️ 严格模式**
-- 所有编辑在执行前会进行强制内容匹配校验
-- 任何一个 hunk 校验失败，整个 diff 都会被拒绝
-- 必须先用 getBlockContent(showId=true) 获取准确的块内容
-
-**推荐经验**
-- 指令模式一般更稳定，非精细编辑，推荐使用 REPLACE 等指令操作
-- 精细编辑时，仔细编写 DIFF (参考${DIFF_SKILL_NAME})
-  - 如果编写多次 DIFF 精细编辑都失败，建议改用 REPLACE 替换块内容 (大容器块建议定位到需要更改的子块REPLACE)
-
-**Diff 格式**
+使用 Git 冲突标记风格：
 
 \`\`\`diff
 @@<blockId>@@
- 保留不变的上下文行（一个空格开头）
-- 要删除的行（减号+空格+内容）
-+ 要添加的行（加号+空格+内容）
+<<<<<<< SEARCH
+原始内容（必须完全匹配）
+=======
+新内容
+>>>>>>> REPLACE
 \`\`\`
-
-**CRITICAL 格式要求**：每行必须且只能有一个空格分隔前缀和内容
-- ✅ \`- content\`（减号+空格+内容）
-- ❌ \`-content\`（缺少空格）
 
 **操作类型**
 
-| diff 内容 | 操作 |
-|-----------|------|
-| 有 - 和 + | UPDATE（更新） |
-| 只有 - | DELETE（删除） |
-| 只有 + | INSERT_AFTER（插入） |
+| SEARCH | REPLACE | 操作 |
+|--------|---------|------|
+| 非空 | 非空 | UPDATE（更新） |
+| 非空 | 空 | DELETE（删除） |
 
-**指令模式**
+**指令模式**（跳过内容校验）
 
 | 语法 | 作用 |
 |------|------|
-| @@REPLACE:id@@ | 直接替换（需要 + 行，跳过校验） |
-| @@BEFORE:id@@ | 在块前插入 |
-| @@AFTER:id@@ | 在块后插入 |
-| @@PREPEND:id@@ | 在容器开头插入 |
-| @@APPEND:id@@ | 在容器末尾追加 |
+| @@REPLACE:id@@ + 新内容 | 直接替换整个块（跳过校验） |
 | @@DELETE:id@@ | 删除整个块（无需内容） |
+| @@BEFORE:id@@ + 新内容 | 在块前插入 |
+| @@AFTER:id@@ + 新内容 | 在块后插入 |
+| @@PREPEND:id@@ + 新内容 | 在容器开头插入 |
+| @@APPEND:id@@ + 新内容 | 在容器末尾追加 |
 
-**Diff修订模式**
-
-**示例**
-
-更新内容（需要校验）：
-\`\`\`diff
-@@20260108164554-m5ar6vb@@
-- Hello World
-+ 你好，世界
-\`\`\`
-
-替换内容（REPLACE 指令）
-\`\`\`diff
-@@REPLACE:20260108164554-m5ar6vb@@
-+ 你好，世界
-\`\`\`
-
-直接替换（跳过校验）：
-\`\`\`diff
-@@REPLACE:20260108164554-m5ar6vb@@
-+ 新的完整内容
-+ 第二行
-\`\`\`
-
-删除整个块：
-\`\`\`diff
-@@DELETE:20260108164554-m5ar6vb@@
-\`\`\`
-
-IMPORTANT: 必须先阅读 ${DIFF_SKILL_NAME} 规则才能使用此工具。
-IMPORTANT: 仅追加内容请使用 appendContent/createDoc，不要使用本工具。`,
+IMPORTANT: 必须先阅读 ${DIFF_SKILL_NAME} 规则才能使用此工具。`,
             parameters: {
                 type: 'object',
                 properties: {
                     diff: {
                         type: 'string',
-                        description: '符合 Block Diff 格式的编辑内容'
+                        description: '符合 SEARCH/REPLACE 格式的编辑内容'
                     },
                     dryRun: {
                         type: 'boolean',
@@ -122,7 +79,7 @@ IMPORTANT: 仅追加内容请使用 appendContent/createDoc，不要使用本工
                     },
                     strictMatch: {
                         type: 'boolean',
-                        description: '严格匹配模式（默认 true）。false 时忽略空白差异'
+                        description: '严格匹配模式（默认 true，SEARCH/REPLACE 总是严格匹配）'
                     }
                 },
                 required: ['diff']
@@ -157,10 +114,13 @@ IMPORTANT: 仅追加内容请使用 appendContent/createDoc，不要使用本工
                     `格式要求：\n` +
                     `1. 块 ID 格式：yyyyMMddHHmmss-xxxxxxx\n` +
                     `2. hunk 头部：@@blockId@@ 或 @@COMMAND:blockId@@\n` +
-                    `3. 每行格式（必须有一个空格）：\n` +
-                    `   - "- " + 内容（删除行）\n` +
-                    `   - "+ " + 内容（添加行）\n` +
-                    `   - " " + 内容（上下文行）` +
+                    `3. SEARCH/REPLACE 格式：\n` +
+                    `   @@blockId@@\n` +
+                    `   <<<<<<< SEARCH\n` +
+                    `   原始内容\n` +
+                    `   =======\n` +
+                    `   新内容\n` +
+                    `   >>>>>>> REPLACE\n\n` +
                     `建议仔细阅读 ${DIFF_SKILL_NAME} 规则了解详情。`
             };
         }
@@ -211,8 +171,9 @@ IMPORTANT: 仅追加内容请使用 appendContent/createDoc，不要使用本工
                     `共 ${validationResult.errors.length} 个错误:\n\n${errorMessages}\n\n` +
                     `请确保：\n` +
                     `1. 使用 getBlockContent(showId=true) 获取最新内容\n` +
-                    `2. diff 中的 context 行和 - 行与实际内容完全一致\n` +
-                    `3. 块 ID 正确且块存在\n` + `建议仔细阅读 ${DIFF_SKILL_NAME} 规则了解详情。`
+                    `2. SEARCH 块内容与实际块内容完全一致\n` +
+                    `3. 块 ID 正确且块存在\n\n` +
+                    `建议仔细阅读 ${DIFF_SKILL_NAME} 规则了解详情。`
             };
         }
 

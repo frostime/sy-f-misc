@@ -3,8 +3,8 @@
  * @Author       : frostime
  * @Date         : 2026-01-08 17:58:38
  * @FilePath     : /src/func/gpt/tools/siyuan/diff-edit/core.ts
- * @LastEditTime : 2026-01-08 22:00:00
- * @Description  : Block Diff 执行器（严格模式）
+ * @LastEditTime : 2026-02-07 21:35:00
+ * @Description  : Block Diff 执行器（SEARCH/REPLACE 模式）
  */
 
 import type {
@@ -14,7 +14,6 @@ import type {
     ValidationError,
     ValidationResult
 } from './types';
-import { computeOldContent, matchContent } from './parser';
 
 // ============ 思源 API 封装 ============
 
@@ -57,6 +56,41 @@ export interface SiyuanAPI {
     } | null>;
 }
 
+// ============ 内容匹配辅助函数 ============
+
+/**
+ * 简单的 Jaccard 相似度计算（用于错误提示）
+ */
+function calculateSimilarity(str1: string, str2: string): number {
+    const set1 = new Set(str1.split(''));
+    const set2 = new Set(str2.split(''));
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+    return union.size === 0 ? 0 : intersection.size / union.size;
+}
+
+/**
+ * 生成详细的内容不匹配错误消息
+ */
+function formatContentMismatchError(
+    blockId: string,
+    searchContent: string,
+    actualContent: string
+): string {
+    const similarity = calculateSimilarity(searchContent, actualContent);
+    const percentage = (similarity * 100).toFixed(1);
+
+    let message = `块 ${blockId} 内容不匹配（相似度: ${percentage}%）\n\n`;
+    message += `期望匹配的 SEARCH 内容:\n${searchContent}\n\n`;
+    message += `实际块内容:\n${actualContent}\n\n`;
+    message += `建议:\n`;
+    message += `1. 使用 getBlockContent 工具 (showId: true, showSubStructure: true) 获取块的准确内容\n`;
+    message += `2. 复制实际内容到 SEARCH 块中\n`;
+    message += `3. 如果块内容已改变,请使用最新版本`;
+
+    return message;
+}
+
 // ============ 强制校验 ============
 
 /**
@@ -65,7 +99,7 @@ export interface SiyuanAPI {
  * @param hunks 解析后的 hunk 列表
  * @param edits 对应的编辑操作列表
  * @param api 思源 API
- * @param strict 是否严格匹配
+ * @param strict 是否严格匹配（暂时保留，SEARCH/REPLACE 总是严格匹配）
  * @returns 校验结果
  */
 export async function validateAllHunks(
@@ -92,7 +126,6 @@ export async function validateAllHunks(
     for (const [blockId, { edit, hunk, index }] of editMap) {
         // 1. DELETE 命令（@@DELETE:id@@）不需要内容校验
         if (hunk.command === 'DELETE') {
-            // 只需要验证块存在
             const block = await api.getBlockByID(blockId);
             if (!block) {
                 errors.push({
@@ -109,7 +142,6 @@ export async function validateAllHunks(
 
         // 2. REPLACE 命令（@@REPLACE:id@@）跳过内容校验
         if (hunk.command === 'REPLACE') {
-            // 只需要验证块存在
             const block = await api.getBlockByID(blockId);
             if (!block) {
                 errors.push({
@@ -126,7 +158,6 @@ export async function validateAllHunks(
 
         // 3. 位置修饰符（BEFORE, AFTER, PREPEND, APPEND）
         if (hunk.modifier) {
-            // 需要验证目标块存在
             const block = await api.getBlockByID(blockId);
             if (!block) {
                 errors.push({
@@ -141,9 +172,8 @@ export async function validateAllHunks(
             continue;
         }
 
-        // 4. 普通 UPDATE/DELETE（需要内容校验）
-        if (edit.type === 'UPDATE' || edit.type === 'DELETE') {
-            // 获取实际块内容
+        // 4. 普通 SEARCH/REPLACE（需要内容校验）
+        if (hunk.searchReplace) {
             const block = await api.getBlockByID(blockId);
             if (!block) {
                 errors.push({
@@ -155,33 +185,28 @@ export async function validateAllHunks(
                 continue;
             }
 
-            // 计算期望的旧内容（context + minus）
-            const expectedOld = computeOldContent(hunk);
+            const actualContent = block.markdown;
+            const searchContent = hunk.searchReplace.search;
 
-            if (expectedOld) {
-                // 执行内容匹配校验
-                const actualContent = block.markdown;
-
-                if (!matchContent(actualContent, expectedOld, strict)) {
-                    errors.push({
-                        hunkIndex: index,
-                        blockId,
-                        errorType: 'CONTENT_MISMATCH',
-                        message: '块内容不匹配，拒绝执行编辑',
-                        expected: expectedOld,
-                        actual: actualContent
-                    });
-                    continue;
-                }
+            // SEARCH/REPLACE 模式下总是严格匹配
+            if (actualContent !== searchContent) {
+                errors.push({
+                    hunkIndex: index,
+                    blockId,
+                    errorType: 'CONTENT_MISMATCH',
+                    message: formatContentMismatchError(blockId, searchContent, actualContent),
+                    expected: searchContent,
+                    actual: actualContent
+                });
+                continue;
             }
 
             validEdits.push(edit);
             continue;
         }
 
-        // 5. INSERT_AFTER（只有 + 行）
-        if (edit.type === 'INSERT_AFTER') {
-            // 需要验证目标块存在
+        // 5. 其他情况（INSERT_AFTER 等只需要验证块存在）
+        if (edit.type === 'INSERT_AFTER' || edit.type === 'INSERT_BEFORE') {
             const block = await api.getBlockByID(blockId);
             if (!block) {
                 errors.push({

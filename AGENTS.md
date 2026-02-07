@@ -1,26 +1,3 @@
-<!-- Agent-Rule:START -->
-- File read rule.
-  - **Default behavior**: Read entire file in one call when possible.
-  - **When to chunk**: Only chunk if file exceeds 1500 lines or 30 KB, or roughly 10K tokens.
-  - **Chunk size**:
-    - Minimum: 300 lines per chunk
-    - Maximum: 1000 lines per chunk (adjust based on token budget)
-    - Prefer larger chunks to minimize tool calls
-  - **Rationale**: Balance between context window limits and tool invocation overhead.
-- Actively use the spec file to track development progress, preventing loss of context during long copilot sessions.
-<!-- Agent-Rule:End -->
-
-<!-- PROJECT-OVERVIEW:START -->
-See and read .sspec/project.md
-<!-- PROJECT-OVERVIEW:END -->
-
-<!-- DEV-LOGS:START -->
-# Dev-Logs
-If the Agent needs to write a markdown document as a log file,
-place it in `/dev-logs/<yymmdd>-<title>.md`.
-The User/Agent will read these logs and, after the project concludes, decide whether to delete them or move them to `/dev-logs/archive`.
-<!-- DEV-LOGS:END -->
-
 # Powershell Usage
 
 You are developed under Windows. Leverage PowerShell for utility.
@@ -29,6 +6,7 @@ You are developed under Windows. Leverage PowerShell for utility.
 - Find files: `Get-ChildItem -Path . -Recurse -Filter "*.ts" | Where-Object {$_.Length -gt 10KB}`
 - Count lines: `(Get-Content file.txt | Measure-Object -Line).Lines`
 - Recent changes: `Get-ChildItem -Recurse | Where-Object {$_.LastWriteTime -gt (Get-Date).AddHours(-24)}`
+- Check ts file: `pnpm run type-check 2>&1 | Select-String -Pattern "<path-pattern>" -Context 2,2`
 
 **Safety Rules**:
 - Never use `Remove-Item -Recurse` without `-WhatIf` first
