@@ -1,2 +1,4 @@
-changes/**
-requests/**
+requests/*
+changes/*
+asks/*
+skills/*

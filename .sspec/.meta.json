@@ -1,11 +1,26 @@
 {
-  "schema_version": "4.0",
-  "sspec_version": "0.11.1",
-  "created_at": "2026-01-27T21:20:54.867752",
-  "updated_at": "2026-01-27T21:20:54.867752",
-  "file_hashes": {},
+  "schema_version": "6.0",
+  "sspec_version": "0.17.0",
+  "created_at": "2026-02-07T19:34:06.563268",
+  "updated_at": "2026-02-07T19:35:44.573819",
+  "file_hashes": {
+    "skills/sspec": "6e263778388eab80",
+    "skills/sspec-ask": "8e72d09e17d54b87",
+    "skills/use-powershell": "0dfd12866da11377",
+    "skills/write-spec-doc": "3e2f8fcb1ebab832"
+  },
+  "managed_skills": [
+    "sspec",
+    "sspec-ask",
+    "use-powershell",
+    "write-spec-doc"
+  ],
   "skill_locations": [
     ".github\\skills",
     ".sspec\\skills"
-  ]
+  ],
+  "skill_install_strategies": {
+    ".github\\skills": "copy",
+    ".sspec\\skills": "copy"
+  }
 }

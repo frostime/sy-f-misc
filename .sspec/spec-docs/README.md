@@ -1,11 +1,11 @@
 # Project Specifications
 
-此目录存放 **项目级技术规范**——与单个 change 无关的持久性文档。
+此目录存放 **项目级技术规范** 的持久性文档。
 
-> 以下内容仅为示例，实际规范类型由项目需求决定。
 
-## 常见规范类型（示例）
+## 项目规范文档
 
+<!-- 以下内容仅为示例，实际规范类型由项目需求决定
 | 类型 | 示例 | 用途 |
 |------|------|------|
 | 架构设计 | `architecture.md` | 系统架构、模块划分 |
@@ -13,6 +13,11 @@
 | API 规格 | `api/` | 接口定义、数据格式 |
 | 技术决策 | `adr/` | Architecture Decision Records |
 | 数据模型 | `data-model.md` | Schema、实体关系 |
+-->
+
+## SPEC DOC 规范
+
+请参考 write-spec-doc SKILL.
 
 ## 文件规范
 
@@ -24,8 +29,6 @@ name: API 规格
 description: 定义所有 REST API 的请求/响应格式
 updated: 2026-01-27
 ---
-
-# API 规格
 
 （正文内容）
 ```
@@ -40,7 +43,7 @@ updated: 2026-01-27
 当规范内容较多时，使用目录组织：
 
 ```
-spec/
+spec-docs/
 └── api/
     ├── index.md        # 入口，包含 frontmatter
     ├── authentication.md
@@ -60,31 +63,13 @@ files:
   - orders.md
 ---
 
-# API 规格
-
 本目录包含完整的 API 文档。
-
-## 目录
 
 - [认证](authentication.md)
 - [用户](users.md)
 - [订单](orders.md)
-```
 
-## 与 change/spec.md 的区别
-
-| | change/spec.md | spec/ |
-|---|----------------|-------|
-| 范围 | 单次变更 | 整个项目 |
-| 生命周期 | 临时（归档后移除） | 持久（持续演进） |
-| 内容 | 问题、方案、任务 | 规范、标准、设计 |
-
-## CLI 命令
-
-```shell
-sspec spec list              # 列出所有规范
-sspec spec new <name>        # 创建新规范
-sspec spec new <name> --dir  # 创建目录型规范
+（正文内容）
 ```
 
 ## Agent 指南
