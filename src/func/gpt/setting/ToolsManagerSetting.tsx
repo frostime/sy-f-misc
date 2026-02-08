@@ -10,12 +10,7 @@
 import { Component, For, Show, createSignal, onMount } from 'solid-js';
 import { toolsManager } from '../model/store';
 import { toolExecutorFactory } from '../tools';
-import { solidDialog } from '@/libs/dialog';
 import { openIframeDialog } from '@/func/html-pages/core';
-import {
-    ToolPermissionConfigDialog,
-    BatchPermissionConfigDialog
-} from './ToolPermissionConfigDialog';
 import './ToolsManagerSetting.scss';
 
 /**
@@ -69,51 +64,24 @@ export const ToolsManagerSetting: Component = () => {
         return toolsManager().toolDefaults[toolName] ?? true;
     };
 
-    // 打开工具权限配置对话框
-    const openPermissionConfig = (tool: any, e: MouseEvent) => {
-        e.stopPropagation();
-        const { dialog } = solidDialog({
-            title: '工具权限配置',
-            loader: () => (
-                <ToolPermissionConfigDialog
-                    tool={tool}
-                    onClose={() => dialog.destroy()}
-                />
-            ),
-            width: '540px',
-            height: 'auto'
-        });
-    };
-
     // 检查工具是否有权限覆盖配置
     const hasPermissionOverride = (toolName: string) => {
         return !!toolsManager().toolPermissionOverrides[toolName];
     };
 
-    // 打开批量配置对话框
-    const openBatchConfig = (groupName: string, tools: any[], e: MouseEvent) => {
-        e.stopPropagation();
-        const { dialog } = solidDialog({
-            title: '批量配置工具权限',
-            loader: () => (
-                <BatchPermissionConfigDialog
-                    tools={tools}
-                    groupName={groupName}
-                    onClose={() => dialog.destroy()}
-                />
-            ),
-            width: '740px',
-            height: 'auto'
-        });
-    };
-
     // 打开高级权限管理器 (HSPA 页面)
-    const openAdvancedPermissionManager = () => {
+    const openAdvancedPermissionManager = (groupName?: string) => {
+        // 构建 URL，如果指定了 groupName 则添加 query 参数
+        let url = '/plugins/sy-f-misc/pages/tool-permission-manager.html';
+        if (groupName) {
+            url += `?group=${encodeURIComponent(groupName)}`;
+        }
+
         openIframeDialog({
-            title: '高级权限管理',
+            title: groupName ? `管理分组执行权限 - ${groupName}` : '管理工具执行权限',
             iframeConfig: {
                 type: 'url',
-                source: '/plugins/sy-f-misc/pages/tool-permission-manager.html',
+                source: url,
                 inject: {
                     presetSdk: true,
                     siyuanCss: true,
@@ -169,22 +137,22 @@ export const ToolsManagerSetting: Component = () => {
 
     return (
         <div class="tools-manager-setting">
-            <div class="b3-card" style={{ margin: '0 0 8px 0', padding: '8px 16px', display: 'block' }}>
-                请按需开启工具，每个开启的工具会增加 token 消耗。
-                部分工具存在风险/隐私问题，需用户审核后才能执行。
-                无编程经验者慎重使用脚本工具组(特别是 shell 工具)。
-            </div>
-
-            <div style={{ margin: '0 0 12px 0', display: 'flex', 'justify-content': 'flex-end' }}>
+            <div class="b3-card" style={{ margin: '0 0 8px 0', padding: '8px 16px', display: 'flex', 'justify-content': 'space-between', 'align-items': 'center' }}>
+                <div style={{ flex: 1 }}>
+                    请按需开启工具，每个开启的工具会增加 token 消耗。
+                    部分工具存在风险/隐私问题，需用户审核后才能执行。
+                    无编程经验者慎重使用脚本工具组(特别是 shell 工具)。
+                </div>
                 <button
                     class="b3-button b3-button--outline"
-                    onClick={openAdvancedPermissionManager}
+                    onClick={() => openAdvancedPermissionManager()}
                     title="打开高级权限管理器，批量管理所有工具的执行和审批策略"
+                    style={{ 'flex-shrink': 0, 'margin-left': '12px' }}
                 >
                     <svg style={{ width: '14px', height: '14px', 'margin-right': '4px' }}>
                         <use href="#iconSettings" />
                     </svg>
-                    高级权限管理
+                    管理工具执行权限
                 </button>
             </div>
 
@@ -210,13 +178,16 @@ export const ToolsManagerSetting: Component = () => {
                                             'font-size': '12px',
                                             opacity: 0.7
                                         }}
-                                        onClick={(e) => openBatchConfig(group.name, group.tools, e)}
-                                        title="批量配置工具权限"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openAdvancedPermissionManager(groupName);
+                                        }}
+                                        title="管理该分组的工具执行权限"
                                     >
                                         <svg style={{ width: '14px', height: '14px', 'margin-right': '4px' }}>
                                             <use href="#iconSettings" />
                                         </svg>
-                                        批量配置
+                                        管理分组执行权限
                                     </button>
                                     <div class="tools-manager-group-expand">
                                         <svg class={`icon-arrow ${collapsedGroups()[groupName] ? 'collapsed' : ''}`}><use href="#iconDown"></use></svg>
@@ -253,20 +224,6 @@ export const ToolsManagerSetting: Component = () => {
                                                 <span class="tools-manager-tool-description">
                                                     {tool.definition.function.description}
                                                 </span>
-                                                <button
-                                                    class="b3-button b3-button--text tools-manager-tool-config-btn"
-                                                    onClick={(e) => openPermissionConfig(tool, e)}
-                                                    title="配置权限"
-                                                    style={{
-                                                        'margin-left': 'auto',
-                                                        padding: '2px 6px',
-                                                        'font-size': '12px'
-                                                    }}
-                                                >
-                                                    <svg style={{ width: '14px', height: '14px' }}>
-                                                        <use href="#iconSettings" />
-                                                    </svg>
-                                                </button>
                                             </div>
                                         )}
                                     </For>

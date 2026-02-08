@@ -157,6 +157,52 @@
             padding: var(--spacing-md);
         }
 
+        /* Group Section */
+        .group-section {
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background-color: var(--bg-primary);
+            overflow: hidden;
+        }
+
+        .group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-md);
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .group-header:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .group-title {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-weight: 600;
+            font-size: var(--font-size-large);
+        }
+
+        .group-icon {
+            transition: transform 0.2s;
+            font-size: 14px;
+        }
+
+        .group-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .group-stats {
+            font-size: var(--font-size-small);
+            color: var(--text-secondary);
+        }
+
         .tool-table {
             width: 100%;
             border-collapse: collapse;
@@ -212,10 +258,6 @@
             background-color: var(--bg-hover);
         }
 
-        .tool-table tbody tr.modified {
-            background-color: var(--bg-selected);
-        }
-
         .tool-table td {
             padding: var(--spacing-md);
             font-size: var(--font-size-normal);
@@ -239,6 +281,16 @@
             /* font-family: monospace; */
             font-weight: 600;
             margin-bottom: var(--spacing-xs);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .modified-icon {
+            display: inline-block;
+            font-size: 12px;
+            opacity: 0.7;
+            cursor: help;
         }
 
         .tool-desc {
@@ -342,6 +394,7 @@
                 <div class="stat-item">
                     <span>已修改:</span>
                     <span class="stat-value" x-text="modifiedCount"></span>
+                    <span style="margin-left: 4px; font-size: 12px; opacity: 0.7;" title="已修改的工具会显示 ⚙️ 图标">⚙️</span>
                 </div>
             </div>
 
@@ -397,77 +450,98 @@
             </template>
 
             <template x-if="filteredTools.length > 0">
-                <table class="tool-table">
-                    <thead>
-                        <tr>
-                            <th class="checkbox-col">
-                                <input
-                                    type="checkbox"
-                                    :checked="selectedTools.length === filteredTools.length && filteredTools.length > 0"
-                                    @change="toggleSelectAll($event.target.checked)"
-                                />
-                            </th>
-                            <th class="tool-name-col">工具名称</th>
-                            <th class="group-col">分组</th>
-                            <th class="execution-col">执行策略</th>
-                            <th class="result-col">结果审批</th>
-                            <th class="actions-col">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="tool in filteredTools" :key="tool.name">
-                            <tr :class="{ 'modified': isModified(tool.name) }">
-                                <td class="checkbox-col">
-                                    <input
-                                        type="checkbox"
-                                        :checked="selectedTools.includes(tool.name)"
-                                        @change="toggleSelect(tool.name, $event.target.checked)"
-                                    />
-                                </td>
-                                <td>
-                                    <div class="tool-name" x-text="tool.name"></div>
-                                    <div class="tool-desc" x-text="tool.description" :title="tool.description"></div>
-                                </td>
-                                <td>
-                                    <span class="group-badge" x-text="tool.group || '-'"></span>
-                                </td>
-                                <td>
-                                    <select
-                                        class="permission-select"
-                                        :class="{ 'modified': isModified(tool.name) }"
-                                        :value="getEffectiveExecutionPolicy(tool)"
-                                        @change="updateExecutionPolicy(tool.name, $event.target.value)"
-                                    >
-                                        <option value="auto">自动执行</option>
-                                        <option value="ask-once">首次询问</option>
-                                        <option value="ask-always">总是询问</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select
-                                        class="permission-select"
-                                        :class="{ 'modified': isModified(tool.name) }"
-                                        :value="getEffectiveResultApprovalPolicy(tool)"
-                                        @change="updateResultApprovalPolicy(tool.name, $event.target.value)"
-                                    >
-                                        <option value="never">从不</option>
-                                        <option value="on-error">仅错误时</option>
-                                        <option value="always">总是</option>
-                                    </select>
-                                </td>
-                                <td class="actions-col">
-                                    <button
-                                        class="btn btn-small"
-                                        @click="resetTool(tool.name)"
-                                        :disabled="!isModified(tool.name)"
-                                    >
-                                        重置
-                                    </button>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
+                <div>
+                    <template x-for="groupName in visibleGroups" :key="groupName">
+                        <div class="group-section">
+                            <div class="group-header" @click="toggleGroup(groupName)">
+                                <div class="group-title">
+                                    <span class="group-icon" :class="{ 'collapsed': collapsedGroups[groupName] }">▼</span>
+                                    <span x-text="groupName"></span>
+                                </div>
+                                <div class="group-stats">
+                                    <span x-text="getGroupToolCount(groupName)"></span> 个工具
+                                </div>
+                            </div>
+
+                            <template x-if="!collapsedGroups[groupName]">
+                                <table class="tool-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="checkbox-col">
+                                                <input
+                                                    type="checkbox"
+                                                    :checked="isGroupSelectedAll(groupName)"
+                                                    @change="toggleGroupSelectAll(groupName, $event.target.checked)"
+                                                />
+                                            </th>
+                                            <th class="tool-name-col">工具名称</th>
+                                            <th class="execution-col">执行策略</th>
+                                            <th class="result-col">结果审批</th>
+                                            <th class="actions-col">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="tool in getGroupTools(groupName)" :key="tool.name">
+                                            <tr>
+                                                <td class="checkbox-col">
+                                                    <input
+                                                        type="checkbox"
+                                                        :checked="selectedTools.includes(tool.name)"
+                                                        @change="toggleSelect(tool.name, $event.target.checked)"
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <div class="tool-name">
+                                                        <span x-text="tool.name"></span>
+                                                        <span
+                                                            x-show="isModified(tool.name)"
+                                                            class="modified-icon"
+                                                            title="已修改权限配置"
+                                                        >⚙️</span>
+                                                    </div>
+                                                    <div class="tool-desc" x-text="tool.description" :title="tool.description"></div>
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        class="permission-select"
+                                                        :class="{ 'modified': isModified(tool.name) }"
+                                                        :value="getEffectiveExecutionPolicy(tool)"
+                                                        @change="updateExecutionPolicy(tool.name, $event.target.value)"
+                                                    >
+                                                        <option value="auto">自动执行</option>
+                                                        <option value="ask-once">首次询问</option>
+                                                        <option value="ask-always">总是询问</option>
+                                                    </select>
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        class="permission-select"
+                                                        :class="{ 'modified': isModified(tool.name) }"
+                                                        :value="getEffectiveResultApprovalPolicy(tool)"
+                                                        @change="updateResultApprovalPolicy(tool.name, $event.target.value)"
+                                                    >
+                                                        <option value="never">从不</option>
+                                                        <option value="on-error">仅错误时</option>
+                                                        <option value="always">总是</option>
+                                                    </select>
+                                                </td>
+                                                <td class="actions-col">
+                                                    <button
+                                                        class="btn btn-small"
+                                                        @click="resetTool(tool.name)"
+                                                        :disabled="!isModified(tool.name)"
+                                                    >
+                                                        重置
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </template>
+                        </div>
+                    </template>
+                </div>
             </template>
         </div>
 
@@ -516,6 +590,9 @@
                 // 选择
                 selectedTools: [],
 
+                // Group 折叠状态
+                collapsedGroups: {},
+
                 // 状态
                 saving: false,
 
@@ -530,8 +607,20 @@
                     // 设置主题
                     document.documentElement.setAttribute('data-theme-mode', window.pluginSdk.themeMode);
 
+                    // 从 URL 参数获取初始 Group 筛选
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const initialGroup = urlParams.get('group');
+                    if (initialGroup) {
+                        this.filterGroup = initialGroup;
+                    }
+
                     // 加载数据
                     await this.loadData();
+
+                    // 如果指定了初始 Group，展开该 Group
+                    if (initialGroup && this.groups.includes(initialGroup)) {
+                        this.collapsedGroups[initialGroup] = false;
+                    }
                 },
 
                 // 加载工具数据
@@ -541,6 +630,12 @@
                         this.tools = data.tools;
                         this.groups = data.groups;
                         this.overrides = data.overrides || {};
+
+                        // 初始化所有 Group 为折叠状态
+                        this.groups.forEach(group => {
+                            this.collapsedGroups[group] = true;
+                        });
+
                         this.applyFilters();
                     } catch (error) {
                         console.error('加载工具数据失败:', error);
@@ -635,7 +730,8 @@
                 async saveAll() {
                     this.saving = true;
                     try {
-                        await window.pluginSdk.saveOverrides(this.overrides);
+                        // 将 Proxy 对象转换为普通对象
+                        await window.pluginSdk.saveOverrides(Alpine.raw(this.overrides));
                         window.pluginSdk.showMessage('保存成功', 'info');
                     } catch (error) {
                         console.error('保存失败:', error);
@@ -689,6 +785,53 @@
                 // 已修改计数
                 get modifiedCount() {
                     return Object.keys(this.overrides).length;
+                },
+
+                // === Group 相关方法 ===
+
+                // 可见的 Group 列表（考虑筛选）
+                get visibleGroups() {
+                    if (!this.filterGroup) {
+                        return this.groups;
+                    }
+                    return this.groups.filter(g => g === this.filterGroup);
+                },
+
+                // 切换 Group 折叠状态
+                toggleGroup(groupName) {
+                    this.collapsedGroups[groupName] = !this.collapsedGroups[groupName];
+                },
+
+                // 获取 Group 内的工具列表
+                getGroupTools(groupName) {
+                    return this.filteredTools.filter(t => t.group === groupName);
+                },
+
+                // 获取 Group 内工具数量
+                getGroupToolCount(groupName) {
+                    return this.getGroupTools(groupName).length;
+                },
+
+                // 检查 Group 是否全选
+                isGroupSelectedAll(groupName) {
+                    const groupTools = this.getGroupTools(groupName);
+                    if (groupTools.length === 0) return false;
+                    return groupTools.every(t => this.selectedTools.includes(t.name));
+                },
+
+                // 切换 Group 全选
+                toggleGroupSelectAll(groupName, checked) {
+                    const groupTools = this.getGroupTools(groupName);
+                    if (checked) {
+                        groupTools.forEach(t => {
+                            if (!this.selectedTools.includes(t.name)) {
+                                this.selectedTools.push(t.name);
+                            }
+                        });
+                    } else {
+                        const groupToolNames = groupTools.map(t => t.name);
+                        this.selectedTools = this.selectedTools.filter(t => !groupToolNames.includes(t));
+                    }
                 }
             };
         }

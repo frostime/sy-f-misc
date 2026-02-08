@@ -263,6 +263,18 @@ function appData() {
                 window.addEventListener('pluginSdkReady', r, { once: true });
             });
             this.items = await window.pluginSdk.getItems();
+        },
+        async saveAll() {
+
+            try {
+                // KEY! Use Alpine.raw to pass raw data, instead of a Aplhine data Proxy
+                await window.pluginSdk.saveItems(Alpine.raw(this.items));
+                window.pluginSdk.showMessage('保存成功', 'info');
+            } catch (error) {
+                console.error('保存失败:', error);
+                window.pluginSdk.showMessage('保存失败: ' + error.message, 'error');
+            } finally {
+            }
         }
     };
 }

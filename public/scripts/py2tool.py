@@ -86,7 +86,7 @@ def _map_py_to_json_type(py_type: type) -> dict:
     }
 
 
-def generate_schema_from_function(func: typing.Callable) -> dict:
+def generate_schema_from_function(func: typing.Callable) -> dict | None:
     """
     从一个函数对象（在运行时）生成 OpenAI Tool Schema。
     """
@@ -171,17 +171,27 @@ def generate_schema_from_function(func: typing.Callable) -> dict:
         tool_schema['declaredReturnType'] = declared_data_type
 
     # 5. 提取权限配置属性（如果存在）
+    # 支持新格式（executionPolicy, resultApprovalPolicy）和旧格式（permissionLevel, requireExecutionApproval, requireResultApproval）
     permission_config = {}
 
-    # 检查函数是否设置了权限属性
-    if hasattr(func, 'permissionLevel'):
-        permission_config['permissionLevel'] = func.permissionLevel
+    # 新格式优先
+    if hasattr(func, 'executionPolicy'):
+        permission_config['executionPolicy'] = func.executionPolicy
 
-    if hasattr(func, 'requireExecutionApproval'):
-        permission_config['requireExecutionApproval'] = func.requireExecutionApproval
+    if hasattr(func, 'resultApprovalPolicy'):
+        permission_config['resultApprovalPolicy'] = func.resultApprovalPolicy
 
-    if hasattr(func, 'requireResultApproval'):
-        permission_config['requireResultApproval'] = func.requireResultApproval
+    # 兼容旧格式（如果没有新格式才使用）
+    if 'executionPolicy' not in permission_config:
+        if hasattr(func, 'permissionLevel'):
+            permission_config['permissionLevel'] = func.permissionLevel
+
+        if hasattr(func, 'requireExecutionApproval'):
+            permission_config['requireExecutionApproval'] = func.requireExecutionApproval
+
+    if 'resultApprovalPolicy' not in permission_config:
+        if hasattr(func, 'requireResultApproval'):
+            permission_config['requireResultApproval'] = func.requireResultApproval
 
     # 将权限配置添加到 tool_schema
     if permission_config:
@@ -207,6 +217,7 @@ def import_module_from_path(file_path: Path):
         module = importlib.util.module_from_spec(spec)
         # 将模块添加到 sys.modules，这样它在导入时可以找到自己
         sys.modules[module_name] = module
+        assert spec.loader is not None
         spec.loader.exec_module(module)
         return module
     except Exception as e:

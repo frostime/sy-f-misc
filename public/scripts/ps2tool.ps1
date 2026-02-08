@@ -236,18 +236,36 @@ function Parse-ScriptFile {
     }
 
     # 查找权限配置注释
+    # 支持新格式（executionPolicy, resultApprovalPolicy）和旧格式（permissionLevel, requireExecutionApproval, requireResultApproval）
     $permissionConfig = @{}
     if ($content -match '#\s*TOOL_CONFIG:\s*(\{.+?\})') {
         try {
             $config = $Matches[1] | ConvertFrom-Json
-            if ($config.permissionLevel) {
-                $permissionConfig.permissionLevel = $config.permissionLevel
+
+            # 新格式优先
+            if ($config.executionPolicy) {
+                $permissionConfig.executionPolicy = $config.executionPolicy
             }
-            if ($null -ne $config.requireExecutionApproval) {
-                $permissionConfig.requireExecutionApproval = $config.requireExecutionApproval
+
+            if ($config.resultApprovalPolicy) {
+                $permissionConfig.resultApprovalPolicy = $config.resultApprovalPolicy
             }
-            if ($null -ne $config.requireResultApproval) {
-                $permissionConfig.requireResultApproval = $config.requireResultApproval
+
+            # 兼容旧格式（如果没有新格式才使用）
+            if (-not $permissionConfig.ContainsKey('executionPolicy')) {
+                if ($config.permissionLevel) {
+                    $permissionConfig.permissionLevel = $config.permissionLevel
+                }
+
+                if ($null -ne $config.requireExecutionApproval) {
+                    $permissionConfig.requireExecutionApproval = $config.requireExecutionApproval
+                }
+            }
+
+            if (-not $permissionConfig.ContainsKey('resultApprovalPolicy')) {
+                if ($null -ne $config.requireResultApproval) {
+                    $permissionConfig.requireResultApproval = $config.requireResultApproval
+                }
             }
         }
         catch {
