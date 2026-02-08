@@ -2,7 +2,7 @@
 
 ## How CSS Variables Are Injected
 
-The plugin automatically prepends `<style id="siyuan-injected-styles">` to `<head>`, containing:
+The plugin automatically prepends a `<style id="siyuan-injected-styles">` to `<head>`, containing:
 
 ```css
 :root {

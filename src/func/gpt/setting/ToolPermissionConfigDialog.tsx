@@ -21,27 +21,45 @@ export type PermissionLevel = 'public' | 'moderate' | 'sensitive';
 // ==================== 共享工具函数 ====================
 
 /**
- * 从工具定义中提取权限级别字符串
+ * 从工具定义中提取权限级别字符串（兼容新旧格式）
  * @param tool 工具对象
  * @returns 权限级别字符串
  */
 export const getToolPermissionLevel = (tool: Tool): PermissionLevel => {
-    const toolDef = tool.permission;
-    if (toolDef.permissionLevel === 'moderate') return 'moderate';
-    if (toolDef.permissionLevel === 'sensitive') return 'sensitive';
+    const toolPerm = tool.permission;
+
+    // 新格式：executionPolicy -> permissionLevel 映射
+    if ('executionPolicy' in toolPerm && toolPerm.executionPolicy) {
+        switch (toolPerm.executionPolicy) {
+            case 'auto': return 'public';
+            case 'ask-once': return 'moderate';
+            case 'ask-always': return 'sensitive';
+        }
+    }
+
+    // 旧格式：permissionLevel
+    const oldPerm = toolPerm as any;
+    if (oldPerm.permissionLevel === 'moderate') return 'moderate';
+    if (oldPerm.permissionLevel === 'sensitive') return 'sensitive';
     return 'public';
 };
 
 /**
- * 获取工具的默认配置（来自工具定义 - 黄金标准）
+ * 获取工具的默认配置（来自工具定义 - 黄金标准，兼容新旧格式）
  * @param tool 工具对象
  */
 export const getToolDefaultConfig = (tool: Tool) => {
     const toolPerm = tool.permission;
+    const oldPerm = toolPerm as any;
+
+    // 从新格式或旧格式读取
+    const requireExecutionApproval = oldPerm.requireExecutionApproval ?? true;
+    const requireResultApproval = oldPerm.requireResultApproval ?? false;
+
     return {
         permissionLevel: getToolPermissionLevel(tool),
-        requireExecutionApproval: toolPerm.requireExecutionApproval ?? true,
-        requireResultApproval: toolPerm.requireResultApproval ?? false
+        requireExecutionApproval,
+        requireResultApproval
     };
 };
 

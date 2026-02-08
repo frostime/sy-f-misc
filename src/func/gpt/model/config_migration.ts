@@ -213,6 +213,87 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
             console.log('[GPT 配置迁移] 隐私配置已从全局移至会话级别');
         }
     }
+
+    // 工具权限配置迁移：从旧格式（permissionLevel + requireExecutionApproval）到新格式（executionPolicy + resultApprovalPolicy）
+    const migrateToolPermissionToV2 = () => {
+        const toolsManagerConfig = (data as any).toolsManager;
+        if (!toolsManagerConfig) return false;
+
+        const currentVersion = toolsManagerConfig.permissionSchemaVersion;
+
+        // 只迁移版本 1 或未定义版本的配置
+        if (currentVersion !== undefined && currentVersion >= 2) {
+            return false;
+        }
+
+        console.log('[工具权限迁移] 开始迁移工具权限配置到 V2...');
+
+        const overrides = toolsManagerConfig.toolPermissionOverrides || {};
+        let migratedCount = 0;
+
+        for (const [toolName, oldConfig] of Object.entries(overrides) as [string, any][]) {
+            // 跳过已经是新格式的配置（有 executionPolicy 字段）
+            if (oldConfig.executionPolicy !== undefined) {
+                continue;
+            }
+
+            let executionPolicy: 'auto' | 'ask-once' | 'ask-always' = 'auto';
+
+            // 迁移执行策略：优先检查 requireExecutionApproval
+            if (oldConfig.requireExecutionApproval === false) {
+                executionPolicy = 'auto';
+            } else {
+                // 根据 permissionLevel 决定
+                const level = oldConfig.permissionLevel || 'public';
+                switch (level) {
+                    case 'public':
+                        executionPolicy = 'auto';
+                        break;
+                    case 'moderate':
+                        executionPolicy = 'ask-once';
+                        break;
+                    case 'sensitive':
+                        executionPolicy = 'ask-always';
+                        break;
+                    default:
+                        executionPolicy = 'auto';
+                }
+            }
+
+            // 迁移结果审批策略
+            let resultApprovalPolicy: 'never' | 'on-error' | 'always' = 'never';
+            if (oldConfig.requireResultApproval === true) {
+                resultApprovalPolicy = 'always';
+            } else {
+                resultApprovalPolicy = 'never';
+            }
+
+            // 更新为新格式（保留旧字段以防回退）
+            overrides[toolName] = {
+                ...oldConfig,  // 保留旧字段
+                executionPolicy,
+                resultApprovalPolicy
+            };
+
+            migratedCount++;
+        }
+
+        // 更新版本号
+        toolsManagerConfig.permissionSchemaVersion = 2;
+
+        if (migratedCount > 0) {
+            console.log(`[工具权限迁移] 成功迁移 ${migratedCount} 个工具的权限配置`);
+            migrated = true;
+        } else {
+            console.log('[工具权限迁移] 无需迁移（无旧格式配置）');
+        }
+
+        return migratedCount > 0;
+    };
+
+    // 执行工具权限迁移（独立于 schema 版本，基于 permissionSchemaVersion）
+    migrateToolPermissionToV2();
+
     migrated = true;
     (data as any).schema = CURRENT_SCHEMA;
     return { data, migrated };

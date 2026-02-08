@@ -83,14 +83,22 @@ export const toolsManager = useStoreRef<{
     toolDefaults: Record<string, boolean>;
     // 工具权限覆盖配置
     toolPermissionOverrides: Record<string, {
+        // 新格式字段（优先使用）
+        executionPolicy?: 'auto' | 'ask-once' | 'ask-always';
+        resultApprovalPolicy?: 'never' | 'on-error' | 'always';
+
+        // 旧格式字段（向后兼容）
         permissionLevel?: 'public' | 'moderate' | 'sensitive';
         requireExecutionApproval?: boolean;
         requireResultApproval?: boolean;
     }>;
+    // 权限配置 schema 版本
+    permissionSchemaVersion?: number;
 }>({
     groupDefaults: {},
     toolDefaults: {},
-    toolPermissionOverrides: {}
+    toolPermissionOverrides: {},
+    permissionSchemaVersion: 1  // 1 = 旧格式，2 = 新格式
 });
 
 /**

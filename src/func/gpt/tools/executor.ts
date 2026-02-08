@@ -6,7 +6,9 @@ import {
     ToolExecuteResult,
     UserApprovalCallback,
     ResultApprovalCallback,
-    ToolGroup
+    ToolGroup,
+    ExecutionPolicy,
+    ResultApprovalPolicy
 } from './types';
 import { toolsManager } from '../model/store';
 import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
@@ -498,52 +500,124 @@ Assistant/Agent 务必遵循如下规范:
 
     /**
      * 获取工具的有效权限配置（合并用户覆盖和工具默认值）
+     * 优先使用新格式（executionPolicy + resultApprovalPolicy），向后兼容旧格式
      */
     private getEffectivePermissionConfig(toolName: string): {
-        permissionLevel: ToolPermissionLevel;
-        requireExecutionApproval: boolean;
-        requireResultApproval: boolean;
+        executionPolicy: ExecutionPolicy;
+        resultApprovalPolicy: ResultApprovalPolicy;
     } | null {
         const tool = this.registry[toolName];
         if (!tool) return null;
 
         const override = toolsManager().toolPermissionOverrides[toolName];
+        const permission = tool.permission;
 
-        // 转换字符串形式的权限级别到枚举
-        let effectivePermissionLevel = tool.permission.permissionLevel ?? ToolPermissionLevel.PUBLIC;
-        if (override?.permissionLevel) {
-            switch (override.permissionLevel) {
-                case 'public':
-                    effectivePermissionLevel = ToolPermissionLevel.PUBLIC;
-                    break;
-                case 'moderate':
-                    effectivePermissionLevel = ToolPermissionLevel.MODERATE;
-                    break;
-                case 'sensitive':
-                    effectivePermissionLevel = ToolPermissionLevel.SENSITIVE;
-                    break;
+        // 优先使用新格式（V2）
+        let executionPolicy: ExecutionPolicy;
+        let resultApprovalPolicy: ResultApprovalPolicy;
+
+        // 1. 尝试从 override 的新格式字段获取
+        if (override?.executionPolicy) {
+            executionPolicy = override.executionPolicy;
+        }
+        // 2. 尝试从 tool permission 的新格式字段获取
+        else if ('executionPolicy' in permission && permission.executionPolicy) {
+            executionPolicy = permission.executionPolicy;
+        }
+        // 3. 从 override 的旧格式字段转换
+        else if (override && ('permissionLevel' in override || 'requireExecutionApproval' in override)) {
+            if (override.requireExecutionApproval === false) {
+                executionPolicy = 'auto';
+            } else {
+                const level = override.permissionLevel || 'public';
+                switch (level) {
+                    case 'public':
+                        executionPolicy = 'auto';
+                        break;
+                    case 'moderate':
+                        executionPolicy = 'ask-once';
+                        break;
+                    case 'sensitive':
+                        executionPolicy = 'ask-always';
+                        break;
+                    default:
+                        executionPolicy = 'auto';
+                }
+            }
+        }
+        // 4. 从 tool permission 的旧格式字段转换
+        else {
+            const oldPerm = permission as any;  // Type assertion for backward compatibility
+            if (oldPerm.requireExecutionApproval === false) {
+                executionPolicy = 'auto';
+            } else {
+                const level = oldPerm.permissionLevel || 'public';
+                switch (level) {
+                    case 'public':
+                        executionPolicy = 'auto';
+                        break;
+                    case 'moderate':
+                        executionPolicy = 'ask-once';
+                        break;
+                    case 'sensitive':
+                        executionPolicy = 'ask-always';
+                        break;
+                    default:
+                        executionPolicy = 'auto';
+                }
             }
         }
 
+        // 结果审批策略
+        if (override?.resultApprovalPolicy) {
+            resultApprovalPolicy = override.resultApprovalPolicy;
+        } else if ('resultApprovalPolicy' in permission && permission.resultApprovalPolicy) {
+            resultApprovalPolicy = permission.resultApprovalPolicy;
+        } else {
+            // 从旧格式转换
+            const oldPerm = permission as any;
+            const requireResultApproval = override?.requireResultApproval ?? oldPerm.requireResultApproval ?? false;
+            resultApprovalPolicy = requireResultApproval ? 'always' : 'never';
+        }
+
         return {
-            permissionLevel: effectivePermissionLevel,
-            requireExecutionApproval: override?.requireExecutionApproval ?? tool.permission.requireExecutionApproval ?? true,
-            requireResultApproval: override?.requireResultApproval ?? tool.permission.requireResultApproval ?? false
+            executionPolicy,
+            resultApprovalPolicy
         };
     }
 
     /**
-     * 生成工具调用的唯一键
+     * 生成工具调用的唯一键（用于 approvalRecords）
+     * 使用 hash 缩短长参数，避免 key 过长
      * @param toolName 工具名称
      * @param args 参数
      * @returns 唯一键
      */
     private generateApprovalKey(toolName: string, args: Record<string, any>): string {
-        return `${toolName}:${JSON.stringify(args)}`;
+        const argsJson = JSON.stringify(args);
+
+        // 如果参数较短，直接使用
+        if (argsJson.length <= 100) {
+            return `${toolName}:${argsJson}`;
+        }
+
+        // 参数较长，使用简单 hash 缩短
+        // 使用 hash 确保相同参数生成相同 key，不同参数生成不同 key
+        const simpleHash = (str: string): string => {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32bit integer
+            }
+            return Math.abs(hash).toString(36);
+        };
+
+        return `${toolName}:${simpleHash(argsJson)}`;
     }
 
     /**
-     * 检查工具执行权限
+     * 检查工具执行权限（基于新的 executionPolicy）
      */
     private async checkExecutionApproval(
         toolName: string,
@@ -561,51 +635,78 @@ Assistant/Agent 务必遵循如下规范:
             };
         }
 
-        const { permissionLevel, requireExecutionApproval } = config;
+        const { executionPolicy } = config;
 
-        // 公开工具，无需审核
-        if (permissionLevel === ToolPermissionLevel.PUBLIC || requireExecutionApproval === false) {
-            return { approved: true };
+        // 使用清晰的 switch 语句替代双重否定逻辑
+        switch (executionPolicy) {
+            case 'auto':
+                // 自动批准，无需询问
+                return { approved: true };
+
+            case 'ask-once': {
+                // 首次询问，记住选择（基于工具+参数hash）
+                const approvalKey = this.generateApprovalKey(toolName, args);
+
+                // 检查是否已有记录
+                if (this.approvalRecords[approvalKey] !== undefined) {
+                    return this.approvalRecords[approvalKey];
+                }
+
+                // 需要用户审核
+                if (!this.executionApprovalCallback) {
+                    return {
+                        approved: false,
+                        rejectReason: 'No execution approval callback set'
+                    };
+                }
+
+                const tool = this.registry[toolName];
+                const result = await this.executionApprovalCallback(
+                    toolName,
+                    tool.definition.function.description || '',
+                    args
+                );
+
+                // 记住用户选择
+                this.approvalRecords[approvalKey] = result;
+
+                return {
+                    approved: result.approved,
+                    rejectReason: result.approved ? undefined : (result.rejectReason || 'Execution rejected by user')
+                };
+            }
+
+            case 'ask-always': {
+                // 每次都询问
+                if (!this.executionApprovalCallback) {
+                    return {
+                        approved: false,
+                        rejectReason: 'No execution approval callback set'
+                    };
+                }
+
+                const tool = this.registry[toolName];
+                const result = await this.executionApprovalCallback(
+                    toolName,
+                    tool.definition.function.description || '',
+                    args
+                );
+
+                return {
+                    approved: result.approved,
+                    rejectReason: result.approved ? undefined : (result.rejectReason || 'Execution rejected by user')
+                };
+            }
+
+            default:
+                // 默认自动批准
+                return { approved: true };
         }
-
-        const approvalKey = this.generateApprovalKey(toolName, args);
-
-        // 中等敏感度工具，检查记录
-        if (
-            permissionLevel === ToolPermissionLevel.MODERATE &&
-            this.approvalRecords[approvalKey] !== undefined
-        ) {
-            return this.approvalRecords[approvalKey];
-        }
-
-        // 需要用户审核
-        if (!this.executionApprovalCallback) {
-            return {
-                approved: false,
-                rejectReason: 'No execution approval callback set'
-            };
-        }
-
-        const tool = this.registry[toolName];
-        const result = await this.executionApprovalCallback(
-            toolName,
-            tool.definition.function.description || '',
-            args
-        );
-
-        // 记住用户选择
-        if (permissionLevel === ToolPermissionLevel.MODERATE) {
-            this.approvalRecords[approvalKey] = result;
-        }
-
-        return {
-            approved: result.approved,
-            rejectReason: result.approved ? undefined : (result.rejectReason || 'Execution rejected by user')
-        };
     }
 
     /**
-     * 检查工具结果权限
+     * 检查工具结果权限（基于新的 resultApprovalPolicy）
+     * 支持三种模式：'never' | 'on-error' | 'always'
      */
     private async checkResultApproval(
         toolName: string,
@@ -615,6 +716,40 @@ Assistant/Agent 务必遵循如下规范:
         approved: boolean;
         rejectReason?: string;
     }> {
+        const config = this.getEffectivePermissionConfig(toolName);
+
+        if (!config) {
+            return {
+                approved: false,
+                rejectReason: `Tool ${toolName} not found`
+            };
+        }
+
+        const { resultApprovalPolicy } = config;
+
+        switch (resultApprovalPolicy) {
+            case 'never':
+                // 不审批结果
+                return { approved: true };
+
+            case 'on-error':
+                // 仅在工具执行错误时审批
+                if (result.status === ToolExecuteStatus.SUCCESS) {
+                    return { approved: true };
+                }
+                // 执行出错，需要审批
+                break;
+
+            case 'always':
+                // 总是审批结果
+                break;
+
+            default:
+                // 默认不审批
+                return { approved: true };
+        }
+
+        // 需要审批
         if (!this.resultApprovalCallback) {
             return {
                 approved: false,
@@ -768,9 +903,8 @@ Assistant/Agent 务必遵循如下规范:
             };
         }
 
-        // 执行前审批检查
-        const shouldCheckExecution = !options?.skipExecutionApproval &&
-            config.requireExecutionApproval !== false;
+        // 执行前审批检查（基于新的 executionPolicy）
+        const shouldCheckExecution = !options?.skipExecutionApproval;
 
         if (shouldCheckExecution) {
             const approval = await this.checkExecutionApproval(toolName, args);
@@ -937,10 +1071,8 @@ Assistant/Agent 务必遵循如下规范:
         //     cacheFile
         // });
 
-        // 结果审批检查
-        const shouldCheckResult =
-            !options?.skipResultApproval &&
-            config.requireResultApproval === true;
+        // 结果审批检查（基于新的 resultApprovalPolicy）
+        const shouldCheckResult = !options?.skipResultApproval;
 
         if (shouldCheckResult) {
             const approval = await this.checkResultApproval(toolName, args, result);

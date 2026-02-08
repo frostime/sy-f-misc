@@ -11,6 +11,7 @@ import { Component, For, Show, createSignal, onMount } from 'solid-js';
 import { toolsManager } from '../model/store';
 import { toolExecutorFactory } from '../tools';
 import { solidDialog } from '@/libs/dialog';
+import { openIframeDialog } from '@/func/html-pages/core';
 import {
     ToolPermissionConfigDialog,
     BatchPermissionConfigDialog
@@ -106,6 +107,66 @@ export const ToolsManagerSetting: Component = () => {
         });
     };
 
+    // 打开高级权限管理器 (HSPA 页面)
+    const openAdvancedPermissionManager = () => {
+        openIframeDialog({
+            title: '高级权限管理',
+            iframeConfig: {
+                type: 'url',
+                source: '/plugins/sy-f-misc/pages/tool-permission-manager.html',
+                inject: {
+                    presetSdk: true,
+                    siyuanCss: true,
+                    customSdk: {
+                        // 获取所有工具数据
+                        getToolsData: () => {
+                            const allTools = [];
+                            const allGroups = new Set<string>();
+
+                            // 遍历所有工具组，收集工具信息
+                            for (const [groupName, group] of Object.entries(tempExecutor.groupRegistry)) {
+                                allGroups.add(groupName);
+                                for (const tool of group.tools) {
+                                    const permission = tool.permission;
+                                    allTools.push({
+                                        name: tool.definition.function.name,
+                                        description: tool.definition.function.description,
+                                        group: groupName,
+                                        executionPolicy: 'executionPolicy' in permission ? permission.executionPolicy : undefined,
+                                        resultApprovalPolicy: 'resultApprovalPolicy' in permission ? permission.resultApprovalPolicy : undefined,
+                                        // 兼容旧格式
+                                        permissionLevel: (permission as any).permissionLevel,
+                                        requireExecutionApproval: (permission as any).requireExecutionApproval,
+                                        requireResultApproval: (permission as any).requireResultApproval,
+                                    });
+                                }
+                            }
+
+                            return {
+                                tools: allTools,
+                                groups: Array.from(allGroups).sort(),
+                                overrides: structuredClone(toolsManager.unwrap().toolPermissionOverrides) || {}
+                            };
+                        },
+
+                        // 保存权限覆盖配置
+                        saveOverrides: (overrides: Record<string, any>) => {
+                            // 更新 toolPermissionOverrides
+                            toolsManager.update('toolPermissionOverrides', overrides);
+
+                            // 更新 schema 版本为 2 (使用新格式)
+                            if (!toolsManager().permissionSchemaVersion || toolsManager().permissionSchemaVersion < 2) {
+                                toolsManager.update('permissionSchemaVersion', 2);
+                            }
+                        }
+                    }
+                }
+            },
+            width: '95%',
+            height: '90%'
+        });
+    };
+
     return (
         <div class="tools-manager-setting">
             <div class="b3-card" style={{ margin: '0 0 8px 0', padding: '8px 16px', display: 'block' }}>
@@ -113,6 +174,20 @@ export const ToolsManagerSetting: Component = () => {
                 部分工具存在风险/隐私问题，需用户审核后才能执行。
                 无编程经验者慎重使用脚本工具组(特别是 shell 工具)。
             </div>
+
+            <div style={{ margin: '0 0 12px 0', display: 'flex', 'justify-content': 'flex-end' }}>
+                <button
+                    class="b3-button b3-button--outline"
+                    onClick={openAdvancedPermissionManager}
+                    title="打开高级权限管理器，批量管理所有工具的执行和审批策略"
+                >
+                    <svg style={{ width: '14px', height: '14px', 'margin-right': '4px' }}>
+                        <use href="#iconSettings" />
+                    </svg>
+                    高级权限管理
+                </button>
+            </div>
+
             <div class="tools-manager-groups">
                 <For each={Object.entries(tempExecutor.groupRegistry)}>
                     {([groupName, group]) => (
