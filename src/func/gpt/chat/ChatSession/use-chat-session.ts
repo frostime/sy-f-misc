@@ -438,7 +438,8 @@ export const useSession = (props: {
         autoGenerateTitle: autoGenerateTitleInternal,
         reRunMessage: reRunMessageInternal,
         sendMessage: sendMessageInternal,
-        abortMessage
+        abortMessage,
+        buildSystemPrompt
     } = communication({
         model: props.model,
         config: props.config,
@@ -825,6 +826,7 @@ export const useSession = (props: {
         reRunMessage,
         sendMessage,
         abortMessage,
+        buildSystemPrompt,
 
         // ========== Toggle 操作（保留兼容）==========
         toggleHidden,

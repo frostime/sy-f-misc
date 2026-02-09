@@ -290,7 +290,17 @@ const createChatHandler = (deps: ChatHandlerDeps) => {
 
     /** 构建系统提示词 */
     const buildSystemPrompt = (): string => {
-        const ptime = `It's: ${new Date().toString()}`;
+        /**
+         * @note 只显示到日期，不然每次变化会导致系统提示词变化，无法命中缓存
+         */
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day} (${timeZone})`;
+
+        const ptime = `It's: ${today}`;
         let prompt = systemPrompt().trim() || '';
 
         const privacyEnabled = config().enablePrivacyMask;
@@ -1170,6 +1180,7 @@ const useGptCommunication = (params: {
         sendMessage,
         reRunMessage,
         abortMessage,
+        buildSystemPrompt: chatHandler.buildSystemPrompt,
     };
 };
 
