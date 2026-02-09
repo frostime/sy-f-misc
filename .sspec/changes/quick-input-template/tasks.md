@@ -72,31 +72,36 @@ Tasks are organized by implementation phase. Each task should:
 ### Phase 3: Advanced Features
 
 #### 3.1 模板列表组件
-- [ ] 实现 TemplateList.tsx
-- [ ] 操作按钮 (编辑/删除/导出)
+- [x] 实现 TemplateList.tsx (改为 quick-input-dialog.html)
+- [x] 操作按钮 (编辑/删除/导出)
 
-**Verification**: 列表正常展示，操作正常
+**Verification**: ✅ HSPA 对话框正常显示，卡片式设计
 
 #### 3.2 模板编辑器
-- [ ] 实现简化版 TemplateEditor.tsx 或 HSPA 页面
-- [ ] 所有配置项编辑功能
+- [x] 实现 HSPA 页面 (template-editor.html)
+- [x] 所有配置项编辑功能 (含高级脚本配置)
+- [x] Notebook 选择器集成
 
-**Verification**: 可以创建和编辑模板
+**Verification**: ✅ 可以创建和编辑模板，支持高级选项
 
 #### 3.3 配置面板集成
-- [ ] declareSettingPanel 实现
-- [ ] 集成列表和编辑器
+- [x] 声明模块配置项
+- [x] 集成列表和编辑器入口
 
-**Verification**: 设置面板完整可用
+**Verification**: ✅ 设置面板完整可用
 
 ### Phase 4: Polish & Testing
 
 #### 4.1 示例模板
-- [ ] 创建 3 个示例模板
+- [x] 创建 3 个示例模板
 
-**Verification**: 新用户看到示例
+**Verification**: ✅ 新用户默认可见
 
-#### 4.2 测试和优化
+#### 4.2 缺陷修复 (Bug Fixes)
+- [ ] **[High Priority]** 修复 Daily Note 模式插入失败问题
+- [ ] 验证脚本执行功能
+
+#### 4.3 测试和优化
 - [ ] 测试所有场景
 - [ ] 错误处理优化
 
