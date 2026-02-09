@@ -178,7 +178,7 @@ export const listTool: Tool = {
                 properties: {
                     path: { type: 'string', description: '目录路径' },
                     pattern: { type: 'string', description: '文件名过滤（通配符）。如 "*.ts"' },
-                    depth: { type: 'number', minimum: 1, maximum: 8, description: '递归深度，默认2，最大8' },
+                    depth: { type: 'number', minimum: 1, maximum: 10, description: '递归深度，默认2' },
                     showSize: { type: 'boolean', description: '显示文件大小，默认 true' },
                     showHidden: { type: 'boolean', description: '显示隐藏文件，默认 false' },
                     onlyFiles: { type: 'boolean', description: '只列出文件' },
@@ -200,7 +200,7 @@ export const listTool: Tool = {
             const stat = nodeFs.statSync(dirPath);
             if (!stat.isDirectory()) return { status: ToolExecuteStatus.ERROR, error: `不是目录: ${dirPath}` };
 
-            const maxDepth = Math.min(args.depth || 2, 8);
+            const maxDepth = Math.min(args.depth || 2, 10);
             const showSize = args.showSize !== false;
             const showHidden = !!args.showHidden;
             const onlyFiles = !!args.onlyFiles;
@@ -209,11 +209,14 @@ export const listTool: Tool = {
                 ? args.skipDir.split(',').map((d: string) => d.trim()).filter((d: string) => d)
                 : EXCLUDED_DIRS;
 
-            interface TreeNode { name: string; type: 'file' | 'dir'; size?: number; sizeFormatted?: string; children?: TreeNode[]; }
+            interface TreeNode {
+                name: string; type: 'file' | 'dir'; size?: number; sizeFormatted?: string; children?: TreeNode[];
+                dirStats?: { total: number; files: number; dirs: number; };
+            }
             let itemCount = 0;
 
             const build = async (cur: string, depth: number, name: string): Promise<TreeNode | null> => {
-                if (depth > maxDepth || itemCount >= LIMITS.MAX_LIST_ITEMS) return null;
+                if (itemCount >= LIMITS.MAX_LIST_ITEMS) return null;
                 let s: ReturnType<typeof nodeFs.statSync>;
                 try { s = nodeFs.statSync(cur); } catch { return null; }
                 const isDir = s.isDirectory();
@@ -223,16 +226,39 @@ export const listTool: Tool = {
                 if (args.pattern && !isDir && !matchPattern(name, args.pattern, false)) return null;
                 itemCount++;
                 if (isDir) {
-                    if (skipDirs.includes(name)) return { name, type: 'dir' };
                     let items: string[];
-                    try { items = nodeFs.readdirSync(cur); } catch { return { name, type: 'dir' }; }
-                    const children: TreeNode[] = [];
+                    try { items = nodeFs.readdirSync(cur); } catch { return { name, type: 'dir', dirStats: { total: 0, files: 0, dirs: 0 } }; }
+
+                    // 计算目录实际内容（不考虑过滤条件）
+                    let actualFiles = 0, actualDirs = 0;
                     for (const it of items) {
-                        if (itemCount >= LIMITS.MAX_LIST_ITEMS) break;
-                        const child = await build(nodePath.join(cur, it), depth + 1, it);
-                        if (child) children.push(child);
+                        const childPath = nodePath.join(cur, it);
+                        try {
+                            const childStat = nodeFs.statSync(childPath);
+                            if (childStat.isDirectory()) actualDirs++;
+                            else actualFiles++;
+                        } catch {}
                     }
-                    return { name, type: 'dir', children };
+
+                    if (skipDirs.includes(name)) {
+                        return { name, type: 'dir', dirStats: { total: actualFiles + actualDirs, files: actualFiles, dirs: actualDirs } };
+                    }
+
+                    const children: TreeNode[] = [];
+                    // 只在未达到深度限制时递归处理子项
+                    if (depth < maxDepth) {
+                        let filteredFiles = 0, filteredDirs = 0;
+                        for (const it of items) {
+                            if (itemCount >= LIMITS.MAX_LIST_ITEMS) break;
+                            const child = await build(nodePath.join(cur, it), depth + 1, it);
+                            if (child) {
+                                children.push(child);
+                                if (child.type === 'dir') filteredDirs++;
+                                else filteredFiles++;
+                            }
+                        }
+                    }
+                    return { name, type: 'dir', children, dirStats: { total: actualFiles + actualDirs, files: actualFiles, dirs: actualDirs } };
                 }
                 return { name, type: 'file', size: showSize ? s.size : undefined, sizeFormatted: showSize ? formatFileSize(s.size) : undefined };
             };
@@ -253,7 +279,22 @@ export const listTool: Tool = {
             const conn = last ? '└── ' : '├── ';
             const next = prefix + (last ? '    ' : '│   ');
             let disp = node.name;
-            if (node.type === 'dir') disp += '/'; else if (node.sizeFormatted) disp += ` (${node.sizeFormatted})`;
+            if (node.type === 'dir') {
+                disp += '/';
+                if (node.dirStats) {
+                    const { total, files, dirs } = node.dirStats;
+                    if (total === 0) {
+                        disp += ' [空]';
+                    } else {
+                        const parts = [];
+                        if (files > 0) parts.push(`${files}F`);
+                        if (dirs > 0) parts.push(`${dirs}D`);
+                        disp += ` [${parts.join('+')}]`;
+                    }
+                }
+            } else if (node.sizeFormatted) {
+                disp += ` (${node.sizeFormatted})`;
+            }
             const lines = [prefix + conn + disp];
             if (node.children) node.children.forEach((c: any, i: number) => { lines.push(...formatTree(c, next, i === node.children.length - 1)); });
             return lines;
