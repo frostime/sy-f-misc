@@ -200,9 +200,11 @@ export class ToolExecutor {
 
         return `
 <tool-group-rule group="${groupName}">
+
 Group "${groupName}" contains following tools: ${enabledToolNames.join(', ')}.
 
 ${finalContent}
+
 </tool-group-rule>
 `;
     }
@@ -210,6 +212,7 @@ ${finalContent}
     toolRules() {
         if (!this.hasEnabledTools()) return '';
         let prompt = `<tool-rules>
+
 Assistant/Agent 务必遵循如下规范:
 
 在当前对话中，如果发现有必要，请使用提供的工具(tools)。
@@ -261,6 +264,7 @@ Assistant/Agent 务必遵循如下规范:
 **变量引用机制**
 - 使用类似 $VAR_REF 语法直接引用变量的值作为工具调用参数 —— 可大大节省 Token
 - 具体用法使用 ReadVar 查看 Rule::Agent::VarRef 中的高级文档
+
 </tool-rules>`;
 
         // 动态解析每个启用的工具组的 rulePrompt

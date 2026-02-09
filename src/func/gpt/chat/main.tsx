@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2026-01-28 11:34:54
+ * @LastEditTime : 2026-02-09 20:33:24
  * @Description  :
  */
 // External libraries
@@ -53,6 +53,7 @@ import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
 import { jsonAgent } from '../openai/tiny-agent';
 import { showChatWorldTree } from './ChatSession/world-tree';
 import { openVarsManager } from '../tools/vars';
+import Markdown from '@/libs/components/Elements/Markdown';
 
 
 export const ChatSession: Component<{
@@ -994,11 +995,11 @@ export const ChatSession: Component<{
             }, { '': 'No Prompt' });
         }
         solidDialog({
-            title: '系统提示',
+            title: '用户定义系统规则',
             loader: () => (
                 <Form.Wrap
-                    title="System Prompt"
-                    description="附带的系统级提示消息"
+                    title="User Rule"
+                    description="用户编辑的规则，会被编入 System Prompt 中"
                     direction="row"
                     action={
                         <Form.Input
@@ -1266,12 +1267,31 @@ export const ChatSession: Component<{
                         // System Prompt
                         menu.addItem({
                             icon: 'iconUsers',
-                            label: 'System Prompt',
+                            label: 'User Rule',
                             click: editSystemPrompt,
-                            checked: session.systemPrompt().length > 0
+                            checked: session.systemPrompt().length > 0,
                         });
 
                         menu.addSeparator();
+                        //#if [PRIVATE_ADD]
+                        menu.addItem({
+                            icon: 'iconUsers',
+                            label: 'System Prompt',
+                            click: () => {
+                                const text = session.buildSystemPrompt();
+                                solidDialog({
+                                    title: `预览完整 System Prompt —— 共 ${text.length} 字符`,
+                                    loader: () => (
+                                        <Markdown markdown={text} style={{
+                                            padding: '10px'
+                                        }}/>
+                                    ),
+                                    width: '720px',
+                                    maxHeight: '70%',
+                                });
+                            },
+                        });
+                        //#endif
                         // 设置
                         menu.addItem({
                             icon: 'iconSettings',
@@ -1340,8 +1360,8 @@ export const ChatSession: Component<{
                     <ToolbarLabel onclick={editCustomOptions} label='自定义对话参数' role='chat-options' >
                         <SvgSymbol size="15px">iconKeymap</SvgSymbol>
                     </ToolbarLabel>
-                    <ToolbarLabel onclick={editSystemPrompt} label='系统提示' role="system-prompt" >
-                        {session.systemPrompt().length > 0 ? `✅ ` : ''}System
+                    <ToolbarLabel onclick={editSystemPrompt} label='用户定义规则' role="system-prompt" >
+                        {session.systemPrompt().length > 0 ? `✅ ` : ''}Rule
                     </ToolbarLabel>
                     <ToolbarLabel
                         label={`模型 ${model().model} | ${model().type ?? 'chat'}`}
