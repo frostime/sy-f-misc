@@ -573,9 +573,14 @@
 
                 // 重置所有
                 resetAll() {
-                    if (!confirm('确定要重置所有工具的权限配置吗？')) return;
-                    this.overrides = {};
-                    this.applyFilters();
+                    window.pluginSdk.confirm(
+                        '重置确认',
+                        '确定要重置所有工具的权限配置吗？',
+                        () => {
+                            this.overrides = {};
+                            this.applyFilters();
+                        }
+                    );
                 },
 
                 // 保存所有修改

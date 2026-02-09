@@ -565,7 +565,7 @@
 
         function checkSDK() {
             if (!sdk) {
-                alert('SDK 尚未初始化，请稍候重试');
+                window.pluginSdk.showMessage('SDK 尚未初始化，请稍候重试', 'error');
                 return false;
             }
             return true;

@@ -156,6 +156,19 @@ showMessage(message: string, type?: 'info' | 'error', duration?: number): void
 // type defaults to 'info', duration defaults to 3000ms
 ```
 
+### `confirm(title, text, confirmCallback?, cancelCallback?)`
+
+Show a confirmation dialog.
+
+```typescript
+confirm(
+    title: string,
+    text: string,
+    confirmCallback?: () => void,
+    cancelCallback?: () => void
+): void
+```
+
 ### `showDialog(options)`
 
 Show a dialog with custom HTML content.

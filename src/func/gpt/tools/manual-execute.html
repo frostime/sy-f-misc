@@ -1037,7 +1037,7 @@
                     try {
                         args[name] = value ? JSON.parse(value) : undefined;
                     } catch (e) {
-                        alert(`参数 "${name}" 的 JSON 格式错误: ${e.message}`);
+                        window.pluginSdk.showMessage(`参数 "${name}" 的 JSON 格式错误: ${e.message}`, 'error');
                         return;
                     }
                 } else {
@@ -1075,7 +1075,7 @@
                     执行
                 `;
             } catch (error) {
-                alert('执行失败: ' + error.message);
+                window.pluginSdk.showMessage('执行失败: ' + error.message, 'error');
                 console.error(error);
             }
         }
@@ -1142,7 +1142,7 @@
                 const pre = document.querySelector('.result-content pre');
                 if (pre) {
                     navigator.clipboard.writeText(pre.textContent).then(() => {
-                        alert('已复制到剪贴板');
+                        window.pluginSdk.showMessage('已复制到剪贴板', 'info');
                     });
                 }
             });

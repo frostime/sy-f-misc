@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>删除历史记录</title>
     <style>
-        /* 
+        /*
          * 样式说明：
          * 1. 基础变量由 pluginSdk 注入，无 b3- 前缀
          * 2. 使用 theme-surface-lighter 作为边框色
@@ -333,13 +333,13 @@
             }
         };
 
-        document.getElementById('clear-btn').addEventListener('click', async () => {
-            if (confirm('确定要清空所有删除记录吗？')) {
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            window.pluginSdk.confirm('确认清空', '确定要清空所有删除记录吗？', async () => {
                 if (window.pluginSdk && window.pluginSdk.clearRecords) {
                     records = await window.pluginSdk.clearRecords();
                     renderRecords();
                 }
-            }
+            });
         });
 
         // Initialize

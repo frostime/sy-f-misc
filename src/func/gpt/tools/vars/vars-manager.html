@@ -869,23 +869,21 @@
         }
 
         async function handleDelete() {
-            if (!confirm(`确定要删除变量 "${selectedVariable.name}" 吗？`)) {
-                return;
-            }
-
-            try {
-                const result = await sdk.deleteVariable(selectedVariable.name);
-                if (result.ok) {
-                    window.pluginSdk.showMessage('删除成功', 'info');
-                    selectedVariable = null;
-                    await loadData();
-                } else {
-                    window.pluginSdk.showMessage('删除失败: ' + result.error, 'error');
+            window.pluginSdk.confirm('确认删除', `确定要删除变量 "${selectedVariable.name}" 吗？`, async () => {
+                try {
+                    const result = await sdk.deleteVariable(selectedVariable.name);
+                    if (result.ok) {
+                        window.pluginSdk.showMessage('删除成功', 'info');
+                        selectedVariable = null;
+                        await loadData();
+                    } else {
+                        window.pluginSdk.showMessage('删除失败: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Failed to delete:', error);
+                    window.pluginSdk.showMessage('删除失败: ' + error.message, 'error');
                 }
-            } catch (error) {
-                console.error('Failed to delete:', error);
-                window.pluginSdk.showMessage('删除失败: ' + error.message, 'error');
-            }
+            });
         }
 
         async function handleRefresh() {
@@ -897,23 +895,21 @@
             const type = currentFilter === 'ALL' ? 'ALL' : currentFilter;
             const typeText = type === 'ALL' ? '所有非保护变量' : `类型为 ${type} 的非保护变量`;
 
-            if (!confirm(`确定要清空${typeText}吗？`)) {
-                return;
-            }
-
-            try {
-                const result = await sdk.clearByType(type);
-                if (result.ok) {
-                    window.pluginSdk.showMessage(`已清空 ${result.removed} 个变量`, 'info');
-                    selectedVariable = null;
-                    await loadData();
-                } else {
-                    window.pluginSdk.showMessage('清空失败: ' + result.error, 'error');
+            window.pluginSdk.confirm('确认清空', `确定要清空${typeText}吗？`, async () => {
+                try {
+                    const result = await sdk.clearByType(type);
+                    if (result.ok) {
+                        window.pluginSdk.showMessage(`已清空 ${result.removed} 个变量`, 'info');
+                        selectedVariable = null;
+                        await loadData();
+                    } else {
+                        window.pluginSdk.showMessage('清空失败: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    console.error('Failed to clear:', error);
+                    window.pluginSdk.showMessage('清空失败: ' + error.message, 'error');
                 }
-            } catch (error) {
-                console.error('Failed to clear:', error);
-                window.pluginSdk.showMessage('清空失败: ' + error.message, 'error');
-            }
+            });
         }
 
         function handleCopyRef(name) {

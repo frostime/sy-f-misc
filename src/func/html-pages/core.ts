@@ -3,14 +3,14 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2026-01-03 22:20:11
+ * @LastEditTime : 2026-02-09 17:48:31
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID, matchIDFormat, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { request } from "@frostime/siyuan-plugin-kits/api";
 import { sql } from "@/api";
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
-import { showMessage } from "siyuan";
+import { confirm as syConfirm, showMessage } from "siyuan";
 
 // ============ 类型定义 ============
 
@@ -64,28 +64,31 @@ const getCSSVariable = (variableName: string): string => {
  * 构建预设 SDK
  */
 const buildPresetSdk = () => {
-    const styleVar = {
-        // 字体相关
-        'font-family': getCSSVariable('--b3-font-family'),
-        'font-size': getCSSVariable('--b3-font-size-editor'),
-        'font-family-code': getCSSVariable('--b3-font-family-code'),
-        'font-family-emoji': getCSSVariable('--b3-font-family-emoji'),
+    const cssVars = [
+        '--b3-font-family',
+        '--b3-font-size-editor',
+        '--b3-font-family-code',
+        '--b3-font-family-emoji',
+        '--b3-theme-primary',
+        '--b3-theme-primary-light',
+        '--b3-theme-primary-lightest',
+        '--b3-theme-on-primary',
+        '--b3-theme-background',
+        '--b3-theme-on-background',
+        '--b3-theme-surface',
+        '--b3-theme-surface-light',
+        '--b3-theme-surface-lighter',
+        '--b3-theme-on-surface',
+        '--b3-theme-on-surface-light'
+    ];
 
-        // 主题颜色
-        'theme-primary': getCSSVariable('--b3-theme-primary'),
-        'theme-primary-light': getCSSVariable('--b3-theme-primary-light'),
-        'theme-primary-lightest': getCSSVariable('--b3-theme-primary-lightest'),
-        'theme-on-primary': getCSSVariable('--b3-theme-on-primary'),
-
-        'theme-background': getCSSVariable('--b3-theme-background'),
-        'theme-on-background': getCSSVariable('--b3-theme-on-background'),
-
-        'theme-surface': getCSSVariable('--b3-theme-surface'),
-        'theme-surface-light': getCSSVariable('--b3-theme-surface-light'),
-        'theme-surface-lighter': getCSSVariable('--b3-theme-surface-lighter'),
-        'theme-on-surface': getCSSVariable('--b3-theme-on-surface'),
-        'theme-on-surface-light': getCSSVariable('--b3-theme-on-surface-light'),
-    };
+    const styleVar: Record<string, string> = {};
+    for (const cssVar of cssVars) {
+        const val = getCSSVariable(cssVar);
+        let key1 = cssVar.replace('--b3-', '');
+        styleVar[key1] = val;
+        styleVar[`b3-${key1}`] = val;
+    }
 
     const bodyFont = getComputedStyle(document.body).fontFamily;
     if (bodyFont) {
@@ -176,6 +179,9 @@ const buildPresetSdk = () => {
         argApp: () => thisPlugin().app.appId,
         lute: getLute(),
 
+        confirm: (title: string, text: string, confirmCallback?: () => void, cancelCallback?: () => void): void => {
+            syConfirm(title, text, confirmCallback, cancelCallback);
+        },
         showMessage: (message: string, type: 'info' | 'error' = 'info', duration = 3000) => {
             showMessage(message, duration, type);
         },

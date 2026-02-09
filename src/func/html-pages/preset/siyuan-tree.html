@@ -1085,33 +1085,38 @@
                 const path = appState.lastOpenFile;
                 const content = dom.editTextarea.value;
 
+                const doSave = async () => {
+                    try {
+                        dom.btnSaveEdit.disabled = true;
+                        dom.btnSaveEdit.textContent = '保存中...';
+
+                        await client.save(path, content);
+
+                        // 刷新显示
+                        await loadContent(path);
+                        closeModal();
+                        showToast('保存成功', 'success');
+                    } catch (e) {
+                        showToast('保存失败: ' + e.message, 'error');
+                    } finally {
+                        dom.btnSaveEdit.disabled = false;
+                        dom.btnSaveEdit.textContent = '覆盖';
+                    }
+                };
+
                 // JSON 检查
                 if (path.endsWith('.json')) {
                     try {
                         JSON.parse(content);
                     } catch (e) {
-                        if (!confirm('JSON 格式校验失败，是否强制保存？\n错误: ' + e.message)) {
-                            return;
-                        }
+                        window.pluginSdk.confirm('强制保存', 'JSON 格式校验失败，是否强制保存？\n错误: ' + e.message, () => {
+                            doSave();
+                        });
+                        return;
                     }
                 }
 
-                try {
-                    dom.btnSaveEdit.disabled = true;
-                    dom.btnSaveEdit.textContent = '保存中...';
-
-                    await client.save(path, content);
-
-                    // 刷新显示
-                    await loadContent(path);
-                    closeModal();
-                    showToast('保存成功', 'success');
-                } catch (e) {
-                    showToast('保存失败: ' + e.message, 'error');
-                } finally {
-                    dom.btnSaveEdit.disabled = false;
-                    dom.btnSaveEdit.textContent = '覆盖';
-                }
+                doSave();
             });
         }
 

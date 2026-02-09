@@ -440,10 +440,10 @@
             // 按钮操作
             document.getElementById('saveBtn').addEventListener('click', saveContent);
             document.getElementById('clearBtn').addEventListener('click', () => {
-                if (confirm('确认清空所有内容？')) {
+                window.pluginSdk.confirm('确认清空', '确认清空所有内容？', () => {
                     editor.setValue('');
                     editor.focus();
-                }
+                });
             });
 
             // 快捷键

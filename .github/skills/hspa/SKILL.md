@@ -192,6 +192,15 @@ Listen in HTML:
 window.addEventListener('init-data', (e) => console.log(e.detail.items));
 ```
 
+### Constraint
+
+**Do NOT use native browser dialogs**:
+- ❌ `window.alert()` — use `pluginSdk.showMessage()` instead
+- ❌ `window.confirm()` — use `pluginSdk.confirm()` instead
+- ❌ `window.prompt()` — use `pluginSdk.inputDialog()` instead
+
+Native browser dialogs block the UI thread and provide poor user experience within the iframe context. Always use the SDK's UI methods which integrate with SiYuan's theme and provide better UX.
+
 ---
 
 ## Styling
