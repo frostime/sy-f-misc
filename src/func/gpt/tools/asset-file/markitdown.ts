@@ -1,4 +1,4 @@
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { normalizeLimit } from '../utils';
 
 // 通过 window.require 引入 Node.js 模块
@@ -66,8 +66,8 @@ export const markitdownTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
+        executionPolicy: 'ask-always',
+        resultApprovalPolicy: 'always'
     },
 
     execute: async (args: { path: string; limit?: number; begin?: number }): Promise<ToolExecuteResult> => {

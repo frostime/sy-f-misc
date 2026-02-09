@@ -1,7 +1,6 @@
 import { createStoreRef, IStoreRef } from '@frostime/solid-signal-ref';
 import {
     Tool,
-    ToolPermissionLevel,
     ToolExecuteStatus,
     ToolExecuteResult,
     UserApprovalCallback,
@@ -526,9 +525,11 @@ Assistant/Agent 务必遵循如下规范:
         }
         // 3. 从 override 的旧格式字段转换
         else if (override && ('permissionLevel' in override || 'requireExecutionApproval' in override)) {
+            //@ts-ignore - 旧格式兼容
             if (override.requireExecutionApproval === false) {
                 executionPolicy = 'auto';
             } else {
+                //@ts-ignore - 旧格式兼容
                 const level = override.permissionLevel || 'public';
                 switch (level) {
                     case 'public':
@@ -576,6 +577,7 @@ Assistant/Agent 务必遵循如下规范:
         } else {
             // 从旧格式转换
             const oldPerm = permission as any;
+            //@ts-ignore - 旧格式兼容
             const requireResultApproval = override?.requireResultApproval ?? oldPerm.requireResultApproval ?? false;
             resultApprovalPolicy = requireResultApproval ? 'always' : 'never';
         }
@@ -627,10 +629,13 @@ Assistant/Agent 务必遵循如下规范:
         rejectReason?: string;
     }> {
         const config = this.getEffectivePermissionConfig(toolName);
+
+        //#if [IS_DEV]
         console.log(`[DEBUG] checkExecutionApproval - Tool: ${toolName}`);
         console.log(`[DEBUG] executionPolicy:`, config?.executionPolicy);
         console.log(`[DEBUG] override:`, toolsManager().toolPermissionOverrides[toolName]);
         console.log(`[DEBUG] tool.permission:`, this.registry[toolName]?.permission);
+        //#endif
 
         if (!config) {
             return {

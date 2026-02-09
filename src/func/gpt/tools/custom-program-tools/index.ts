@@ -1,4 +1,4 @@
-import { Tool, ToolGroup, ToolPermission } from "../types";
+import { Tool, ToolGroup, ToolPermission, ToolPermissionV2 } from "../types";
 import { ParsedToolModule } from './types';
 import { extractPermissionConfig, extractDeclaredReturnType } from './execute/common';
 import { executeCustomPythonTool } from './execute/python';
@@ -20,7 +20,7 @@ const createToolsFromModule = (module: ParsedToolModule): Tool[] => {
 
     for (const toolDef of module.moduleData.tools) {
         const defaultPerms = module.moduleData.defaultPermissions || {};
-        const permissionConfig: ToolPermission = {
+        const permissionConfig: ToolPermissionV2 = {
             ...extractPermissionConfig(toolDef),
             ...defaultPerms
         };

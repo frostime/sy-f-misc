@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 01:45:14
  * @FilePath     : /src/func/gpt/tools/types.ts
- * @LastEditTime : 2026-01-05 19:47:52
+ * @LastEditTime : 2026-02-09 16:45:37
  * @Description  : 工具类型定义
  */
 /**
@@ -193,7 +193,7 @@ export interface Tool {
      * - 新格式（推荐）：ToolPermissionV2 { executionPolicy, resultApprovalPolicy }
      * - 旧格式（兼容）：ToolPermission { permissionLevel, requireExecutionApproval, requireResultApproval }
      */
-    permission: ToolPermissionV2 | ToolPermission;
+    permission: ToolPermissionV2;
 
     SKIP_EXTERNAL_TRUNCATE?: boolean;
     DEFAULT_OUTPUT_LIMIT_CHAR?: number;

@@ -88,9 +88,9 @@ export const toolsManager = useStoreRef<{
         resultApprovalPolicy?: 'never' | 'on-error' | 'always';
 
         // 旧格式字段（向后兼容）
-        permissionLevel?: 'public' | 'moderate' | 'sensitive';
-        requireExecutionApproval?: boolean;
-        requireResultApproval?: boolean;
+        // permissionLevel?: 'public' | 'moderate' | 'sensitive';
+        // requireExecutionApproval?: boolean;
+        // requireResultApproval?: boolean;
     }>;
     // 权限配置 schema 版本
     permissionSchemaVersion?: number;

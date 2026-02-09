@@ -8,7 +8,7 @@
  */
 
 import { VFSManager } from '@/libs/vfs';
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 
 
 
@@ -42,8 +42,8 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
         },
 
         permission: {
-            permissionLevel: ToolPermissionLevel.SENSITIVE,
-            requireResultApproval: true
+            executionPolicy: 'ask-always',
+            resultApprovalPolicy: 'always'
         },
 
         execute: async (args: {
@@ -135,8 +135,8 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
         },
 
         permission: {
-            permissionLevel: ToolPermissionLevel.SENSITIVE,
-            requireResultApproval: true
+            executionPolicy: 'ask-always',
+            resultApprovalPolicy: 'always'
         },
 
         execute: async (args: {
@@ -217,8 +217,8 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
         },
 
         permission: {
-            permissionLevel: ToolPermissionLevel.SENSITIVE,
-            requireResultApproval: true
+            executionPolicy: 'ask-always',
+            resultApprovalPolicy: 'always'
         },
 
         execute: async (args: {
@@ -295,8 +295,8 @@ export function createEditorTools(vfs: VFSManager): Tool[] {
         },
 
         permission: {
-            permissionLevel: ToolPermissionLevel.SENSITIVE,
-            requireResultApproval: true
+            executionPolicy: 'ask-always',
+            resultApprovalPolicy: 'always'
         },
 
         execute: async (args: {

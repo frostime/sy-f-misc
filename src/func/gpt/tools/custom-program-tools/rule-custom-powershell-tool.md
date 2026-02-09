@@ -41,7 +41,9 @@ export interface ToolGroup {
 模块的详细说明
 #>
 
-# TOOL_CONFIG: { "permissionLevel": "moderate", "requireResultApproval": true }
+# TOOL_CONFIG: { "executionPolicy": "ask-once", "resultApprovalPolicy": "always" }
+# executionPolicy : auto | ask-once | ask-always
+# resultApprovalPolicy: never | on-error | always
 
 function Get-MyTool {
     <#

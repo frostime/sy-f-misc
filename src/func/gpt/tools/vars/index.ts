@@ -9,7 +9,7 @@
 
 import { openIframeDialog } from "@/func/html-pages/core";
 import { type ToolExecutor } from "../executor";
-import { Tool, ToolGroup, ToolPermissionLevel, ToolExecuteStatus } from "../types";
+import { Tool, ToolGroup, ToolExecuteStatus } from "../types";
 import { VariableSystem } from "./core";
 import { createVarsManagerSdk } from "./manager";
 
@@ -62,8 +62,7 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
             }
         },
         permission: {
-            permissionLevel: ToolPermissionLevel.PUBLIC,
-            requireExecutionApproval: false
+            executionPolicy: 'auto'
         },
         execute: async (args) => {
             const { filter, page = 1, pageSize = 25 } = args || {};
@@ -180,8 +179,7 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
             }
         },
         permission: {
-            permissionLevel: ToolPermissionLevel.PUBLIC,
-            requireExecutionApproval: false
+            executionPolicy: 'auto'
         },
         execute: async (args) => {
             const { name, start = 0, length } = args;
@@ -239,8 +237,7 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
             }
         },
         permission: {
-            permissionLevel: ToolPermissionLevel.PUBLIC,
-            requireExecutionApproval: false
+            executionPolicy: 'auto'
         },
         execute: async (args) => {
             const { name, value, desc, tags } = args;
@@ -291,8 +288,7 @@ const createToolGroup = (varSystem: VariableSystem): ToolGroup => {
             }
         },
         permission: {
-            permissionLevel: ToolPermissionLevel.PUBLIC,
-            requireExecutionApproval: false
+            executionPolicy: 'auto'
         },
         execute: async (args) => {
             const { names } = args;

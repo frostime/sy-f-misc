@@ -3,13 +3,12 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
- * @LastEditTime : 2026-01-06 17:07:04
+ * @LastEditTime : 2026-02-09 16:44:05
  * @Description  :
  */
 // import { importJavascriptFile } from '@frostime/siyuan-plugin-kits';
 import {
     Tool,
-    ToolPermissionLevel,
     ToolExecuteStatus,
     ToolExecuteResult
 } from './types';
@@ -49,11 +48,9 @@ const datetimeTool: Tool = {
             }
         },
         // OLD @deprecated
-        // permissionLevel: ToolPermissionLevel.PUBLIC
     },
 
     permission: {
-        // permissionLevel: ToolPermissionLevel.PUBLIC
         executionPolicy: 'auto'
     },
 
@@ -157,10 +154,9 @@ const textTool: Tool = {
                 required: ['input', 'operation']
             }
         },
-        // permissionLevel: ToolPermissionLevel.PUBLIC
     },
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
     execute: async (args: {
         input: string;
@@ -265,10 +261,9 @@ const jsonInterfaceTool: Tool = {
                 required: ['json']
             }
         },
-        // permissionLevel: ToolPermissionLevel.PUBLIC
     },
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     execute: async (args: {
