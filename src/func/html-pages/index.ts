@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-17
  * @FilePath     : /src/func/html-pages/index.ts
- * @LastEditTime : 2026-01-04 17:20:32
+ * @LastEditTime : 2026-01-09 17:39:32
  * @Description  : HTML Pages 功能模块 - 管理自定义 HTML 页面和 URL
  */
 import FMiscPlugin from "@/index";
@@ -643,7 +643,7 @@ export const declareModuleConfig = {
             key: 'openMode',
             title: '打开方式',
             description: '在点击菜单打开页面时，使用标签页 (Tab) 还是弹窗 (Dialog)',
-            type: 'select',
+            type: 'select' as const,
             options: {
                 tab: '标签页 (Tab)',
                 dialog: '弹窗 (Dialog)'
@@ -677,4 +677,4 @@ export const declareModuleConfig = {
 只提供必要的接口，将复杂的 UI 分离给 HTML 页面代码 —— AI 大模型最擅长写这个。
         `});
     }
-};
+} satisfies IFuncModule['declareModuleConfig'];
