@@ -1,230 +1,159 @@
-# AlpineJs Quick Overview
-Alpine is a rugged, minimal tool for composing behavior directly in your markup. Think of it like jQuery for the modern web. Plop in a script tag and get going. Alpine is a collection of 15 attributes, 6 properties, and 2 methods.
+# Alpine.js Quick Reference for HSPA
 
-## HSPA Integration Notes
+Alpine is a lightweight reactive framework for composing behavior directly in HTML. It's the **recommended** choice for HSPA pages.
 
-**SDK Initialization**: Alpine's `x-init` may fire before `pluginSdkReady`. Use this pattern:
+---
+
+## HSPA Integration Checklist
+
+Every Alpine.js HSPA page must have these five elements:
+
+### 1. Anti-FOUC CSS (in `<head>`)
 
 ```html
-<div x-data="myApp()" x-init="init()">...</div>
-<script>
-function myApp() {
-    return {
-        items: [],
-        async init() {
-            await new Promise(r => {
-                if (window.pluginSdk) return r();
-                window.addEventListener('pluginSdkReady', r, { once: true });
-            });
-            document.documentElement.setAttribute('data-theme-mode', window.pluginSdk.themeMode);
-            this.items = await window.pluginSdk.getItems();
-        }
-    };
+<style>[x-cloak] { display: none !important; }</style>
+```
+
+Without this, users see raw `{{ }}` templates before Alpine initializes.
+
+### 2. Root Element
+
+```html
+<div x-data="app()" x-init="init()" x-cloak>
+    <!-- all content -->
+</div>
+```
+
+### 3. Script Load Order
+
+```html
+<!-- Data factory function FIRST -->
+<script>function app() { return { ... }; }</script>
+
+<!-- Alpine.js LAST -->
+<script src="/plugins/sy-f-misc/scripts/alpine.min.js" defer></script>
+```
+
+Alpine scans the DOM for `x-data` on load. If the factory function isn't defined yet, it fails silently.
+
+### 4. SDK Init Pattern
+
+```javascript
+async init() {
+    if (this._initialized) return;      // Guard against re-injection
+    this._initialized = true;
+    await new Promise(r => {
+        if (window.pluginSdk) return r();
+        window.addEventListener('pluginSdkReady', r, { once: true });
+    });
+    document.documentElement.setAttribute('data-theme-mode', window.pluginSdk.themeMode);
+    await this.loadData();
 }
-</script>
 ```
 
-## 15 attributes
+### 5. Proxy Unwrapping
 
-### `x-data`
-Declare a new Alpine component and its data for a block of HTML
+Alpine wraps all reactive data in `Proxy`. SDK functions can't serialize Proxies. **Always unwrap:**
+
+```javascript
+await window.pluginSdk.saveItems(Alpine.raw(this.items));  // ✅
+await window.pluginSdk.saveItems(this.items);              // ❌ Proxy serialization error
+```
+
+---
+
+## Reactivity Patterns
+
+### Simple Computed → Getter
+
+Alpine auto-tracks getter dependencies:
+
+```javascript
+get count() { return this.items.length; },
+get isEmpty() { return this.items.length === 0; },
+```
+
+### Complex Filtering → Manual Trigger + Cache
+
+Alpine doesn't deep-track nested object mutations reliably. For multi-field filtering:
+
+```javascript
+filteredItems: [],
+applyFilters() {
+    let result = this.items;
+    if (this.query) result = result.filter(i => i.name.includes(this.query));
+    if (this.type) result = result.filter(i => i.type === this.type);
+    this.filteredItems = result;
+}
+```
 ```html
-<div x-data="{ open: false }">
-    ...
-</div>
+<input class="input" x-model="query" @input="applyFilters()">
 ```
 
-### `x-bind`
-Dynamically set HTML attributes on an element
+### Side Effects → `x-effect`
+
+Auto-runs when dependencies change. Good for scrolling, DOM sync, etc.
+
 ```html
-<div x-bind:class="! open ? 'hidden' : ''">
-  ...
-</div>
+<div x-effect="if (selectedId) $refs.container.querySelector(`[data-id='${selectedId}']`)?.scrollIntoView()"></div>
 ```
 
-### `x-on`
-Listen for browser events on an element
-```html
-<button x-on:click="open = ! open">
-  Toggle
-</button>
-```
+⚠️ Don't use for heavy DOM ops on every keystroke.
 
-### `x-text`
-Set the text content of an element
-```html
-<div>
-  Copyright ©
+---
 
-  <span x-text="new Date().getFullYear()"></span>
-</div>
-```
+## Key Directives
 
-### `x-html`
-Set the inner HTML of an element
-```html
-<div x-html="(await axios.get('/some/html/partial')).data">
-  ...
-</div>
-```
+| Directive | Purpose | Example |
+|---|---|---|
+| `x-data` | Declare component + data | `<div x-data="app()">` |
+| `x-bind` / `:` | Dynamic attributes | `:class="active ? 'on' : ''"` |
+| `x-on` / `@` | Event listeners | `@click="toggle()"` |
+| `x-text` | Set text content | `<span x-text="count"></span>` |
+| `x-html` | Set innerHTML (use sparingly) | `<div x-html="rendered"></div>` |
+| `x-model` | Two-way binding | `<input x-model="query">` |
+| `x-show` | Toggle visibility (display:none) | `<div x-show="open">` |
+| `x-if` | Conditional render (must be on `<template>`) | `<template x-if="show"><div>...</div></template>` |
+| `x-for` | Loop (must be on `<template>`) | `<template x-for="item in items" :key="item.id">` |
+| `x-ref` | Name an element for `$refs` | `<div x-ref="container">` |
+| `x-init` | Run code on init | `<div x-init="loadData()">` |
+| `x-effect` | Reactive side effects | `<div x-effect="console.log(count)">` |
+| `x-cloak` | Hide until Alpine ready | `<div x-cloak>` |
+| `x-transition` | Animate show/hide | `<div x-show="open" x-transition>` |
 
-### `x-model`
-Synchronize a piece of data with an input element
-```html
-<div x-data="{ search: '' }">
-  <input type="text" x-model="search">
+### Event Modifiers
 
-  Searching for: <span x-text="search"></span>
-</div>
-```
+`@click.prevent`, `@click.stop`, `@click.outside`, `@keydown.enter`, `@click.once`
 
-### `x-show`
-Toggle the visibility of an element
-```html
-<div x-show="open">
-  ...
-</div>
-```
+---
 
-### `x-transition`
-Transition an element in and out using CSS transitions
-```html
-<div x-show="open" x-transition>
-  ...
-</div>
-```
+## Key Properties
 
-### `x-for`
-Repeat a block of HTML based on a data set
-```html
-<template x-for="post in posts">
-  <h2 x-text="post.title"></h2>
-</template>
-```
+| Property | Purpose | Example |
+|---|---|---|
+| `$refs` | Access ref'd elements | `$refs.input.focus()` |
+| `$el` | Current DOM element | `$el.classList.toggle('on')` |
+| `$dispatch` | Emit custom event | `$dispatch('selected', { id })` |
+| `$watch` | Watch data changes | `$watch('query', v => filter())` |
+| `$nextTick` | Wait for DOM update | `$nextTick(() => $refs.list.scrollTop = 0)` |
 
-### `x-if`
-Conditionally add/remove a block of HTML from the page entirely
-```html
-<template x-if="open">
-  <div>...</div>
-</template>
-```
+---
 
-### `x-init`
-Run code when an element is initialized by Alpine
-```html
-<div x-init="date = new Date()"></div>
-```
+## Common HSPA Pitfalls
 
-### `x-effect`
-Execute a script each time one of its dependencies change
-```html
-<div x-effect="console.log('Count is '+count)"></div>
-```
+| Problem | Fix |
+|---|---|
+| FOUC — raw templates flash | Add `[x-cloak]` CSS + `x-cloak` attribute |
+| Init runs twice | `_initialized` guard flag |
+| SDK data serialization error | `Alpine.raw()` before passing to SDK |
+| Getter not updating for nested data | Use manual trigger + cache |
+| Alpine not finding data function | Define `<script>` before Alpine's `<script>` |
+| `x-for` / `x-if` not working | Must be on `<template>` elements |
+| `x-show` vs `x-if` confusion | `x-show` for frequent toggles; `x-if` for expensive/conditional content |
+| `@click.outside` fires immediately | Use `x-show` instead of `x-if` for overlays with `@click.outside` |
 
-### `x-ref`
-Reference elements directly by their specified keys using the $refs magic property
-```html
-<input type="text" x-ref="content">
+---
 
-<button x-on:click="navigator.clipboard.writeText($refs.content.value)">
-  Copy
-</button>
-```
+## Complete Template
 
-### `x-cloak`
-Hide a block of HTML until after Alpine is finished initializing its contents
-```html
-<div x-cloak>
-  ...
-</div>
-```
-
-### `x-ignore`
-Prevent a block of HTML from being initialized by Alpine
-```html
-<div x-ignore>
-  ...
-</div>
-```
-
-## 6 properties
-
-### `$store`
-Access a global store registered using Alpine.store(...)
-```html
-<h1 x-text="$store.site.title"></h1>
-```
-
-### `$el`
-Reference the current DOM element
-```html
-<div x-init="new Pikaday($el)"></div>
-```
-
-### `$refs`
-Reference an element by key (specified using x-ref)
-```html
-<div x-init="$refs.button.remove()">
-  <button x-ref="button">Remove Me</button>
-</div>
-```
-
-### `$dispatch`
-Dispatch a custom browser event from the current element
-```html
-<div x-on:notify="...">
-  <button x-on:click="$dispatch('notify')">...</button>
-</div>
-```
-
-### `$watch`
-Watch a piece of data and run the provided callback anytime it changes
-```html
-<div x-init="$watch('count', value => {
-  console.log('count is ' + value)
-})">...</div>
-```
-
-
-### `$nextTick`
-Wait until the next "tick" (browser paint) to run a bit of code
-
-
-## 2 Methods
-
-### `Alpine.data`
-Reuse a data object and reference it using x-data
-```html
-<div x-data="dropdown">
-  ...
-</div>
-
-...
-
-Alpine.data('dropdown', () => ({
-  open: false,
-
-  toggle() {
-    this.open = ! this.open
-  }
-}))
-```
-
-### `Alpine.store`
-Declare a piece of global, reactive, data that can be accessed from anywhere using $store
-```html
-<button @click="$store.notifications.notify('...')">
-  Notify
-</button>
-
-...
-
-Alpine.store('notifications', {
-  items: [],
-
-  notify(message) {
-    this.items.push(message)
-  }
-})
-```
+See `references/hspa-alpine-example.html` for a copy-paste starting point.

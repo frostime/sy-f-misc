@@ -1,1348 +1,685 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+<!--
+    SiYuan File Viewer — Alpine.js rewrite
+    Based on HSPA SKILL v2.2.0 + Alpine.js + hspa-mini.css
 
+    NOTE: The file tree uses x-html + event delegation because Alpine has
+    no native recursive template support. This is the pragmatic approach
+    for tree structures. Alpine manages all other state declaratively.
+-->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SiYuan File Viewer</title>
+    <link rel="stylesheet" href="/plugins/sy-f-misc/styles/hspa-mini.css">
     <style>
-        /* ==================== 主题变量定义 ==================== */
-        /* 注意：思源会自动注入 styleVar 中的 CSS 变量到 :root */
+        /* MUST: prevent FOUC before Alpine initializes */
+        [x-cloak] { display: none !important; }
 
-        :root {
-            /* 布局尺寸 */
-            --sidebar-width: 360px;
-
-            /* 字体大小语义化变量 - 基于注入的 --font-size */
-            --font-size-normal: calc(max(var(--font-size, 14px), 18px));
-            --font-size-small: calc(var(--font-size-normal) * 0.85);
-            --font-size-large: calc(var(--font-size-normal) * 1.15);
-
-            /* 颜色语义化变量 - 复用注入的主题颜色 */
-            --bg-sidebar: var(--theme-surface, #f5f5f7);
-            --bg-content: var(--theme-background, #ffffff);
-            --bg-toolbar: var(--theme-background, #ffffff);
-
-            --text-primary: var(--theme-on-background, #333333);
-            --text-secondary: var(--theme-on-surface-light, #666666);
-
-            --accent-color: var(--theme-primary, #d23f31);
-            --accent-bg: var(--theme-primary-lightest, #ffe8e6);
-
-            --hover-color: var(--theme-surface-light, #e8e8e8);
-            --border-color: var(--theme-surface-lighter, #e0e0e0);
-
-            /* 功能性颜色 */
-            --loading-text-color: var(--theme-on-surface-light, #999999);
-            --error-color: #ff4444;
-        }
-
-        /* 暗色主题适配 */
-        :root[data-theme-mode="dark"] {
-            --hover-color: #2a2a2a;
-            --border-color: #3d3d3d;
-            --accent-bg: #3d2522;
-            --loading-text-color: #6e6e6e;
-            --error-color: #f48771;
-        }
-
-        /* ==================== 基础样式 ==================== */
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
-            font-size: var(--font-size-normal);
-            height: 100vh;
+        /* ===== Sidebar + content layout ===== */
+        .app-layout {
             display: flex;
-            color: var(--text-primary);
+            flex: 1;
+            min-height: 0;
             overflow: hidden;
-            background-color: var(--bg-content);
         }
 
-        /* 侧边栏 */
-        #sidebar {
-            width: var(--sidebar-width);
-            background-color: var(--bg-sidebar);
-            border-right: 1px solid var(--border-color);
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width, 360px);
+            background: var(--c-surface, #f5f5f7);
+            border-right: 1px solid var(--c-border, #e0e0e0);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
         }
-
-        /* 拖拽条 */
-        #resize-handle {
-            width: 4px;
-            background-color: transparent;
-            cursor: col-resize;
-            flex-shrink: 0;
-            transition: background-color 0.2s;
-            margin-left: -2px;
-            /* Overlap border */
-            z-index: 10;
-        }
-
-        #resize-handle:hover,
-        #resize-handle.active {
-            background-color: var(--accent-color);
-        }
-
-        #toolbar {
-            padding: 10px;
-            border-bottom: 1px solid var(--border-color);
+        .sidebar-toolbar {
+            padding: var(--sp-2, 8px);
+            border-bottom: 1px solid var(--c-border, #e0e0e0);
             display: flex;
-            gap: 5px;
-            background: var(--bg-toolbar);
+            gap: var(--sp-1, 4px);
         }
-
-        #root-path-input {
-            flex: 1;
-            padding: 4px 8px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: var(--font-size-small);
-            background: var(--bg-content);
-            color: var(--text-primary);
-        }
-
-        #refresh-btn {
-            cursor: pointer;
-            padding: 4px 8px;
-            background: var(--bg-sidebar);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: var(--font-size-small);
-            color: var(--text-primary);
-            transition: background-color 0.2s;
-        }
-
-        #refresh-btn:hover {
-            background: var(--hover-color);
-        }
-
-        #tree-root {
+        .sidebar-tree {
             flex: 1;
             overflow-y: auto;
-            padding: 10px 0;
+            padding: var(--sp-2, 8px) 0;
         }
 
-        /* 树节点 */
-        .tree-node {
-            user-select: none;
+        /* Resize handle */
+        .resize-handle {
+            width: 4px;
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background 0.2s;
+            margin-left: -2px;
+            z-index: 10;
+        }
+        .resize-handle:hover,
+        .resize-handle.active {
+            background: var(--c-accent, #d23f31);
         }
 
+        /* Content area */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .content-header {
+            padding: var(--sp-3, 12px) var(--sp-6, 24px);
+            border-bottom: 1px solid var(--c-border, #e0e0e0);
+            font-weight: 600;
+            font-size: var(--fs-lg, 16px);
+            flex-shrink: 0;
+            padding-right: 60px; /* space for menu */
+        }
+        .content-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--sp-6, 24px);
+        }
+        .content-body pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: var(--font-family-code, "Consolas", "Monaco", monospace);
+            font-size: var(--fs, 14px);
+            color: var(--c-fg, #333);
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* ===== Tree node styles ===== */
+        .tree-node { user-select: none; }
         .node-header {
             display: flex;
             align-items: center;
             padding: 4px 8px;
             cursor: pointer;
-            font-size: var(--font-size-normal);
             transition: background 0.1s;
         }
-
-        .node-header:hover {
-            background-color: var(--hover-color);
-        }
-
-        .node-header.active {
-            background-color: var(--accent-bg);
-            color: var(--accent-color);
-        }
+        .node-header:hover { background: var(--c-surface-hover, #e8e8e8); }
+        .node-header.active { background: var(--c-accent-bg, #ffe8e6); color: var(--c-accent, #d23f31); }
 
         .toggle-icon {
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 20px; height: 20px;
+            display: flex; align-items: center; justify-content: center;
             margin-right: 4px;
-            color: var(--text-secondary);
-            font-size: var(--font-size-small);
+            color: var(--c-fg-muted, #666);
+            font-size: var(--fs-sm, 12px);
             transition: transform 0.2s;
         }
-
-        .expanded>.node-header>.toggle-icon {
-            transform: rotate(90deg);
-        }
-
-        .node-icon {
-            margin-right: 6px;
-            font-size: var(--font-size-normal);
-        }
-
+        .expanded > .node-header > .toggle-icon { transform: rotate(90deg); }
+        .node-icon { margin-right: 6px; }
         .node-name {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             flex: 1;
         }
+        .children-container { padding-left: 18px; display: none; }
+        .expanded > .children-container { display: block; }
 
-        .children-container {
-            padding-left: 18px;
-            display: none;
-        }
+        .loading-text { color: var(--c-fg-muted, #999); font-size: var(--fs-sm, 12px); padding-left: 24px; }
+        .error-text   { color: var(--c-error, #ff4444); font-size: var(--fs-sm, 12px); padding-left: 24px; }
 
-        .expanded>.children-container {
-            display: block;
-        }
-
-        /* 右侧内容 */
-        #content-view {
-            flex: 1;
-            background-color: var(--bg-content);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            position: relative;
-        }
-
-        #content-header {
-            padding: 15px 30px;
-            border-bottom: 1px solid var(--border-color);
-            font-weight: bold;
-            font-size: var(--font-size-large);
-            display: flex;
-            align-items: center;
-            flex-shrink: 0;
-            padding-right: 60px;
-            /* Space for menu */
-        }
-
-        #content-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 30px;
-        }
-
-        /* 悬浮菜单 */
-        #floating-menu {
+        /* ===== Floating menu ===== */
+        .float-menu {
             position: absolute;
-            top: 10px;
-            right: 20px;
-            z-index: 100;
+            top: 10px; right: 20px;
+            z-index: var(--z-dropdown, 50);
         }
-
-        .menu-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 4px;
-            border: 1px solid transparent;
-            background: transparent;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-secondary);
-            transition: all 0.2s;
-        }
-
-        .menu-btn:hover {
-            background-color: var(--hover-color);
-            color: var(--text-primary);
-        }
-
         .menu-dropdown {
             position: absolute;
-            top: 36px;
-            right: 0;
-            background: var(--bg-content);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            display: none;
+            top: 36px; right: 0;
+            background: var(--c-bg, #fff);
+            border: 1px solid var(--c-border, #e0e0e0);
+            border-radius: var(--radius, 6px);
+            box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.1));
             min-width: 140px;
+            display: flex;
             flex-direction: column;
             padding: 4px 0;
         }
-
-        .menu-dropdown.show {
-            display: flex;
-        }
-
         .menu-item {
             padding: 8px 16px;
             cursor: pointer;
             text-align: left;
-            background: none;
-            border: none;
-            color: var(--text-primary);
-            font-size: var(--font-size-small);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            background: none; border: none;
+            color: var(--c-fg, #333);
+            font-size: var(--fs-sm, 12px);
+            display: flex; align-items: center; gap: 8px;
         }
+        .menu-item:hover { background: var(--c-surface-hover, #e8e8e8); }
+        .menu-item:disabled { color: var(--c-fg-muted, #888); cursor: not-allowed; opacity: 0.6; }
 
-        .menu-item:hover {
-            background-color: var(--hover-color);
-        }
-
-        .menu-item:disabled {
-            color: var(--text-secondary);
-            cursor: not-allowed;
-            opacity: 0.6;
-        }
-
-        /* 编辑弹窗 */
+        /* ===== Edit modal ===== */
         .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            z-index: var(--z-modal, 200);
         }
-
-        .modal-overlay.show {
-            display: flex;
-        }
-
         .modal {
-            background: var(--bg-content);
-            padding: 20px;
-            border-radius: 8px;
-            width: 80%;
-            max-width: 800px;
-            height: 80%;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            background: var(--c-bg, #fff);
+            padding: var(--sp-5, 20px);
+            border-radius: var(--radius-lg, 10px);
+            width: 80%; max-width: 800px; height: 80%;
+            display: flex; flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
-
-        .modal-header {
-            font-size: var(--font-size-large);
-            font-weight: bold;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-body {
-            flex: 1;
-            margin-bottom: 15px;
-            overflow: hidden;
-        }
-
+        .modal-body { flex: 1; margin: var(--sp-4, 16px) 0; overflow: hidden; }
         .modal-body textarea {
-            width: 100%;
-            height: 100%;
-            resize: none;
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background: var(--bg-sidebar);
-            color: var(--text-primary);
+            width: 100%; height: 100%; resize: none;
+            padding: var(--sp-3, 12px);
+            border: 1px solid var(--c-border, #e0e0e0);
+            border-radius: var(--radius, 6px);
+            background: var(--c-surface, #f5f5f5);
+            color: var(--c-fg, #333);
             font-family: var(--font-family-code, "Consolas", "Monaco", monospace);
-            font-size: var(--font-size-normal);
+            font-size: var(--fs, 14px);
             outline: none;
         }
+        .modal-body textarea:focus { border-color: var(--c-accent, #d23f31); }
 
-        .modal-body textarea:focus {
-            border-color: var(--accent-color);
-        }
-
-        .modal-footer {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        .btn {
-            padding: 6px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            border: 1px solid var(--border-color);
-            background: var(--bg-content);
-            color: var(--text-primary);
-            font-size: var(--font-size-normal);
-        }
-
-        .btn:hover {
-            background-color: var(--hover-color);
-        }
-
-        .btn-primary {
-            background: var(--accent-color);
-            color: white;
-            border-color: var(--accent-color);
-        }
-
-        .btn-primary:hover {
-            opacity: 0.9;
-            background: var(--accent-color);
-        }
-
-        /* 简单的 Markdown/代码 预览样式 */
-        pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-family: var(--font-family-code, "Consolas", "Monaco", monospace);
-            font-size: var(--font-size-normal);
-            color: var(--text-primary);
-            margin: 0;
-            line-height: 1.6;
-        }
-
-        .empty-state {
-            color: var(--text-secondary);
-            text-align: center;
-            margin-top: 20%;
-        }
-
-        .loading-text {
-            color: var(--loading-text-color);
-            font-size: var(--font-size-small);
-            padding-left: 24px;
-        }
-
-        .error-text {
-            color: var(--error-color);
-            font-size: var(--font-size-small);
-            padding-left: 24px;
-        }
-
-        /* Toast 提示框 */
-        #toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
+        /* ===== Toast ===== */
+        .toast-container {
+            position: fixed; top: 20px; right: 20px;
             z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            display: flex; flex-direction: column; gap: 10px;
             pointer-events: none;
         }
-
         .toast {
-            background: var(--bg-content);
-            color: var(--text-primary);
+            background: var(--c-bg, #fff);
+            color: var(--c-fg, #333);
             padding: 12px 20px;
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            border-left: 4px solid var(--accent-color);
-            min-width: 200px;
-            max-width: 400px;
-            font-size: var(--font-size-normal);
-            animation: slideIn 0.3s ease-out;
+            border-radius: var(--radius, 6px);
+            box-shadow: var(--shadow-lg, 0 4px 12px rgba(0,0,0,0.15));
+            border-left: 4px solid var(--c-accent, #d23f31);
+            min-width: 200px; max-width: 400px;
+            animation: toast-in 0.3s ease-out;
             pointer-events: auto;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            display: flex; align-items: center; gap: 10px;
         }
+        .toast.success { border-left-color: var(--c-success, #34a853); }
+        .toast.error   { border-left-color: var(--c-error, #ff4444); }
+        .toast.warning { border-left-color: var(--c-warning, #fbbc04); }
+        .toast.info    { border-left-color: var(--c-accent, #d23f31); }
 
-        .toast.success {
-            border-left-color: var(--success-color, #34a853);
+        @keyframes toast-in {
+            from { transform: translateX(400px); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
         }
-
-        .toast.error {
-            border-left-color: var(--error-color);
-        }
-
-        .toast.warning {
-            border-left-color: #fbbc04;
-        }
-
-        .toast.info {
-            border-left-color: var(--accent-color);
-        }
-
-        .toast-icon {
-            font-size: 18px;
-            flex-shrink: 0;
-        }
-
-        .toast-message {
-            flex: 1;
-            word-wrap: break-word;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-
-            to {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-        }
-
         .toast.hiding {
-            animation: slideOut 0.3s ease-out forwards;
+            animation: toast-out 0.3s ease-out forwards;
+        }
+        @keyframes toast-out {
+            from { transform: translateX(0); opacity: 1; }
+            to   { transform: translateX(400px); opacity: 0; }
         }
     </style>
 </head>
+<body class="page">
+    <div x-data="fileViewer()" x-init="init()" x-cloak style="display:flex;flex-direction:column;height:100%;">
 
-<body>
+        <!-- ===== Layout: sidebar + content ===== -->
+        <div class="app-layout">
 
-    <div id="sidebar">
-        <div id="toolbar">
-            <input type="text" id="root-path-input" value="/data" placeholder="Root Path">
-            <button id="refresh-btn">Go</button>
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-toolbar">
+                    <input class="input flex-1" x-model="rootPath"
+                        @keydown.enter="refreshTree()" placeholder="Root Path">
+                    <button class="btn btn-sm" @click="refreshTree()">Go</button>
+                </div>
+                <div class="sidebar-tree" x-ref="tree"></div>
+            </div>
+
+            <!-- Resize handle -->
+            <div class="resize-handle" x-ref="resizeHandle"></div>
+
+            <!-- Content area -->
+            <div class="content-area">
+                <!-- Float menu -->
+                <div class="float-menu">
+                    <button class="btn btn-icon btn-sm" @click.stop="menuOpen = !menuOpen" title="菜单">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="19" cy="12" r="1"></circle>
+                            <circle cx="5" cy="12" r="1"></circle>
+                        </svg>
+                    </button>
+                    <div class="menu-dropdown" x-show="menuOpen" @click.outside="menuOpen = false"
+                        x-transition style="display:none;">
+                        <button class="menu-item" :disabled="!selectedFile" @click="handleDownload()">
+                            <span>📥</span> 下载文件
+                        </button>
+                        <button class="menu-item" :disabled="!selectedFile || isImage" @click="handleCopyText()">
+                            <span>📄</span> 复制文本
+                        </button>
+                        <button class="menu-item" :disabled="!selectedFile || !isImage" @click="handleCopyImage()">
+                            <span>🖼️</span> 复制图片
+                        </button>
+                        <div style="height:1px; background:var(--c-border,#e0e0e0); margin:4px 0;"></div>
+                        <button class="menu-item" :disabled="!isEditable" @click="handleEdit()">
+                            <span>✏️</span> 编辑文件
+                        </button>
+                    </div>
+                </div>
+
+                <div class="content-header" x-text="contentTitle"></div>
+                <div class="content-body">
+                    <template x-if="!selectedFile && !contentLoading">
+                        <div class="empty-state"><div>请从左侧选择文件以查看内容</div></div>
+                    </template>
+                    <template x-if="contentLoading">
+                        <div class="loading-text" style="margin-top:20px">正在读取文件...</div>
+                    </template>
+                    <div x-show="!contentLoading && selectedFile" x-html="contentHTML" style="display:none;"></div>
+                </div>
+            </div>
         </div>
-        <div id="tree-root"></div>
+
+        <!-- ===== Edit modal (x-show for timing safety) ===== -->
+        <div class="modal-overlay" x-show="editModalOpen" style="display:none;"
+            @keydown.escape.window="editModalOpen = false">
+            <div class="modal" @click.stop>
+                <div class="flex-between">
+                    <span class="text-bold text-lg" x-text="'编辑: ' + editFileName"></span>
+                    <button class="btn btn-icon" @click="editModalOpen = false" style="font-size:20px;">×</button>
+                </div>
+                <div class="modal-body">
+                    <textarea x-ref="editTextarea" spellcheck="false"></textarea>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button class="btn" @click="editModalOpen = false">取消</button>
+                    <button class="btn btn-primary" @click="handleSaveEdit()" x-text="saving ? '保存中...' : '覆盖'" :disabled="saving"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== Toast container ===== -->
+        <div class="toast-container" x-ref="toastContainer"></div>
     </div>
 
-    <div id="resize-handle"></div>
-
-    <div id="content-view">
-        <div id="floating-menu">
-            <button class="menu-btn" id="menu-toggle" title="菜单">
-                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="1"></circle>
-                    <circle cx="19" cy="12" r="1"></circle>
-                    <circle cx="5" cy="12" r="1"></circle>
-                </svg>
-            </button>
-            <div class="menu-dropdown" id="menu-dropdown">
-                <button class="menu-item" id="btn-download">
-                    <span>📥</span> 下载文件
-                </button>
-                <button class="menu-item" id="btn-copy-text">
-                    <span>📄</span> 复制文本
-                </button>
-                <button class="menu-item" id="btn-copy-image">
-                    <span>🖼️</span> 复制图片
-                </button>
-                <div style="height: 1px; background: var(--border-color); margin: 4px 0;"></div>
-                <button class="menu-item" id="btn-edit">
-                    <span>✏️</span> 编辑文件
-                </button>
-            </div>
-        </div>
-
-        <div id="content-header" id="doc-title">未选择文件</div>
-        <div id="content-body">
-            <div class="empty-state">等待 SDK 初始化...</div>
-        </div>
-    </div>
-
-    <!-- 编辑弹窗 -->
-    <div class="modal-overlay" id="edit-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <span id="modal-title">编辑文件</span>
-                <button class="btn" id="btn-close-modal"
-                    style="border:none; background:none; font-size:20px; padding:0;">×</button>
-            </div>
-            <div class="modal-body">
-                <textarea id="edit-textarea" spellcheck="false"></textarea>
-            </div>
-            <div class="modal-footer">
-                <button class="btn" id="btn-cancel-edit">取消</button>
-                <button class="btn btn-primary" id="btn-save-edit">覆盖</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast 容器 -->
-    <div id="toast-container"></div>
-
+    <!-- ===== Application logic ===== -->
     <script>
-        /* ==================== 工具函数 ==================== */
+    function fileViewer() {
+        return {
+            // ─── State ───────────────────────────
+            rootPath: '/data',
+            selectedFile: null,         // current file path
+            contentTitle: '未选择文件',
+            contentHTML: '',
+            contentLoading: false,
+            menuOpen: false,
+            _initialized: false,
 
-        /**
-         * 解析思源 .sy 文件路径，提取文档 ID 和笔记本信息
-         * @param {string} path - 文件路径，如 "/data/20220112192155-gzmnt6y/20220320150131-kdhgvaj.sy"
-         * @returns {{docId: string, notebook: {name: string, id: string, closed: boolean}}}
-         */
-        const parseSiyanFilePath = (path) => {
-            const docPath = path.substring(6, path.length - 3);
-            const docId = docPath.split('/').pop();
-            const notebookId = docPath.split('/').shift();
-            const notebooks = window.pluginSdk.lsNotebooks();
-            let notebook = notebooks.find(nb => nb.id === notebookId);
-            if (!notebook) {
-                notebook = { name: '未知笔记本', id: notebookId, closed: true };
-            }
-            return {
-                docId,
-                notebook
-            }
-        }
+            // Edit modal
+            editModalOpen: false,
+            editFileName: '',
+            saving: false,
 
-        /**
-         * 应用主题模式
-         * @param {string} mode - 'light' 或 'dark'
-         */
-        function applyTheme(mode) {
-            document.documentElement.setAttribute('data-theme-mode', mode);
-            console.log(`主题已切换至: ${mode}`);
-        }
+            // ─── Computed ────────────────────────
+            get isImage() {
+                return this.selectedFile && /\.(png|jpg|jpeg|gif|bmp|svg|webp)$/i.test(this.selectedFile);
+            },
+            get isEditable() {
+                return this.selectedFile && this._isEditableFile(this.selectedFile);
+            },
 
-        /**
-         * 显示 Toast 提示
-         * @param {string} message - 提示消息
-         * @param {string} type - 类型：'success', 'error', 'warning', 'info'
-         * @param {number} duration - 显示时长（毫秒），默认 3000
-         */
-        function showToast(message, type = 'info', duration = 3000) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
+            // ─── Init ────────────────────────────
+            async init() {
+                // Guard: SDK may be injected multiple times
+                if (this._initialized) return;
+                this._initialized = true;
 
-            const icons = {
-                success: '✓',
-                error: '✕',
-                warning: '⚠',
-                info: 'ℹ'
-            };
+                // Wait for SDK injection
+                await new Promise(r => {
+                    if (window.pluginSdk) return r();
+                    window.addEventListener('pluginSdkReady', r, { once: true });
+                });
 
-            toast.innerHTML = `
-                <span class="toast-icon">${icons[type] || icons.info}</span>
-                <span class="toast-message">${message}</span>
-            `;
+                // Enable dark mode CSS
+                document.documentElement.setAttribute(
+                    'data-theme-mode', window.pluginSdk.themeMode || 'light'
+                );
 
-            container.appendChild(toast);
+                // Load saved settings
+                const config = await this._loadSettings();
+                if (config.rootPath) this.rootPath = config.rootPath;
 
-            // 自动移除
-            setTimeout(() => {
-                toast.classList.add('hiding');
-                setTimeout(() => {
-                    container.removeChild(toast);
-                }, 300);
-            }, duration);
-        }
+                // Render initial tree
+                await this._renderLevel(this.rootPath, this.$refs.tree);
 
-        /* ==================== SiYuan 客户端封装 ==================== */
+                // Setup resize handle
+                this._initResize();
 
-        /**
-         * SiYuan API 客户端，封装常用的文件和数据操作
-         */
-        class SiYuanClient {
-            /**
-             * 列出指定路径下的文件和目录
-             * @param {string} path - 目录路径
-             * @returns {Promise<Array|null>} 文件/目录列表，失败返回 null
-             */
-            async list(path) {
-                try {
-                    const res = await window.pluginSdk.request('/api/file/readDir', { path });
-                    if (!res.ok) {
-                        throw new Error(`API 请求失败: ${res.msg || '未知错误'}`);
+                // Setup tree event delegation
+                this.$refs.tree.addEventListener('click', (e) => this._handleTreeClick(e));
+
+                // Restore last open file
+                if (config.lastOpenFile) {
+                    this.selectedFile = config.lastOpenFile;
+                    await this._loadContent(config.lastOpenFile);
+                }
+            },
+
+            // ─── Tree rendering (x-html not suitable for recursive lazy trees) ───
+            async _renderLevel(path, container) {
+                container.innerHTML = '<div class="loading-text">加载中...</div>';
+                const nodes = await this._listDir(path);
+                container.innerHTML = '';
+
+                if (!nodes) { container.innerHTML = '<div class="error-text">加载失败</div>'; return; }
+                if (nodes.length === 0) { container.innerHTML = '<div class="loading-text">空目录</div>'; return; }
+
+                nodes.forEach(node => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'tree-node';
+
+                    const header = document.createElement('div');
+                    header.className = 'node-header';
+                    header.dataset.path = node.path;
+                    header.dataset.leaf = node.leaf ? '1' : '0';
+
+                    const toggle = document.createElement('div');
+                    toggle.className = 'toggle-icon';
+                    if (!node.leaf) toggle.textContent = '▶';
+                    header.appendChild(toggle);
+
+                    const icon = document.createElement('span');
+                    icon.className = 'node-icon';
+                    icon.textContent = node.leaf ? '📄' : '📁';
+                    header.appendChild(icon);
+
+                    const name = document.createElement('span');
+                    name.className = 'node-name';
+                    name.textContent = node.name;
+                    header.appendChild(name);
+
+                    wrap.appendChild(header);
+
+                    if (!node.leaf) {
+                        const children = document.createElement('div');
+                        children.className = 'children-container';
+                        wrap.appendChild(children);
                     }
 
+                    container.appendChild(wrap);
+                });
+            },
+
+            async _handleTreeClick(e) {
+                const header = e.target.closest('.node-header');
+                if (!header) return;
+
+                const path = header.dataset.path;
+                const isLeaf = header.dataset.leaf === '1';
+                const wrap = header.parentElement;
+
+                if (isLeaf) {
+                    // Select file
+                    this.$refs.tree.querySelectorAll('.node-header.active').forEach(h => h.classList.remove('active'));
+                    header.classList.add('active');
+                    this.selectedFile = path;
+                    this._saveSettings({ rootPath: this.rootPath, lastOpenFile: path });
+                    await this._loadContent(path);
+                } else {
+                    // Toggle folder
+                    const children = wrap.querySelector('.children-container');
+                    if (!children) return;
+
+                    if (wrap.classList.contains('expanded')) {
+                        wrap.classList.remove('expanded');
+                    } else {
+                        wrap.classList.add('expanded');
+                        if (children.children.length === 0) {
+                            await this._renderLevel(path, children);
+                        }
+                    }
+                }
+            },
+
+            async refreshTree() {
+                const p = this.rootPath.trim();
+                if (!p) { this._toast('路径不能为空', 'warning'); return; }
+                this.rootPath = p;
+                this._saveSettings({ rootPath: p, lastOpenFile: this.selectedFile });
+                await this._renderLevel(p, this.$refs.tree);
+            },
+
+            // ─── Content loading ─────────────────
+            async _loadContent(path) {
+                this.contentLoading = true;
+                this.contentTitle = path.split('/').pop();
+                try {
+                    const result = await this._getFile(path);
+                    if (result.isHTML) {
+                        this.contentHTML = result.content;
+                    } else {
+                        this.contentHTML = '<pre>' + this._escapeHtml(result.content) + '</pre>';
+                    }
+                } catch (e) {
+                    this.contentHTML = '<div class="empty-state" style="color:var(--c-error)">加载失败: ' + this._escapeHtml(e.message) + '</div>';
+                } finally {
+                    this.contentLoading = false;
+                }
+            },
+
+            // ─── Menu actions ────────────────────
+            async handleDownload() {
+                if (!this.selectedFile) return;
+                try {
+                    const res = await window.pluginSdk.loadBlob(this.selectedFile);
+                    if (!res.ok) throw new Error('读取文件失败');
+                    const url = URL.createObjectURL(res.data);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = this.selectedFile.split('/').pop();
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    this._toast('文件已下载', 'success');
+                } catch (e) { this._toast('下载失败: ' + e.message, 'error'); }
+                this.menuOpen = false;
+            },
+
+            async handleCopyText() {
+                if (!this.selectedFile) return;
+                try {
+                    const res = await this._getFile(this.selectedFile);
+                    if (res.isHTML) { this._toast('当前文件不是纯文本', 'warning'); return; }
+                    await navigator.clipboard.writeText(res.content);
+                    this._toast('已复制到剪贴板', 'success');
+                } catch (e) { this._toast('复制失败: ' + e.message, 'error'); }
+                this.menuOpen = false;
+            },
+
+            async handleCopyImage() {
+                if (!this.selectedFile) return;
+                try {
+                    const blobRes = await window.pluginSdk.loadBlob(this.selectedFile);
+                    if (!blobRes.ok) throw new Error('加载图片失败');
+                    if (!blobRes.data.type.startsWith('image/')) { this._toast('当前文件不是图片', 'error'); return; }
+
+                    const img = new Image();
+                    const objectURL = URL.createObjectURL(blobRes.data);
+                    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = objectURL; });
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width; canvas.height = img.height;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    URL.revokeObjectURL(objectURL);
+
+                    const pngBlob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+                    this._toast('图片已复制到剪贴板', 'success');
+                } catch (e) { this._toast('复制图片失败: ' + e.message, 'error'); }
+                this.menuOpen = false;
+            },
+
+            async handleEdit() {
+                const path = this.selectedFile;
+                if (!path || !this._isEditableFile(path)) return;
+
+                try {
+                    const blobRes = await window.pluginSdk.loadBlob(path);
+                    if (!blobRes.ok) throw new Error('读取文件失败');
+                    const mime = blobRes.data.type || '';
+                    if (mime && !mime.startsWith('text/') && mime !== 'application/json' && mime !== 'application/javascript' && mime !== 'application/xml') {
+                        this._toast('此文件不是纯文本格式', 'error'); return;
+                    }
+
+                    const content = await blobRes.data.text();
+                    this.editFileName = path.split('/').pop();
+                    this.editModalOpen = true;
+                    this.menuOpen = false;
+                    // Set textarea value after modal is visible
+                    this.$nextTick(() => { this.$refs.editTextarea.value = content; });
+                } catch (e) { this._toast('打开编辑器失败: ' + e.message, 'error'); }
+            },
+
+            async handleSaveEdit() {
+                const path = this.selectedFile;
+                const content = this.$refs.editTextarea.value;
+
+                const doSave = async () => {
+                    try {
+                        this.saving = true;
+                        const blob = new Blob([content], { type: 'text/plain' });
+                        if (window.pluginSdk.saveBlob) {
+                            await window.pluginSdk.saveBlob(path, blob);
+                        } else {
+                            throw new Error('saveBlob 方法不可用');
+                        }
+                        await this._loadContent(path);
+                        this.editModalOpen = false;
+                        this._toast('保存成功', 'success');
+                    } catch (e) { this._toast('保存失败: ' + e.message, 'error'); }
+                    finally { this.saving = false; }
+                };
+
+                // JSON validation
+                if (path.endsWith('.json')) {
+                    try { JSON.parse(content); }
+                    catch (e) {
+                        window.pluginSdk.confirm('强制保存', 'JSON 格式校验失败，是否强制保存？\n错误: ' + e.message, () => doSave());
+                        return;
+                    }
+                }
+                doSave();
+            },
+
+            // ─── Resize handle ───────────────────
+            _initResize() {
+                let resizing = false;
+                const handle = this.$refs.resizeHandle;
+                handle.addEventListener('mousedown', (e) => { resizing = true; handle.classList.add('active'); document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+                document.addEventListener('mousemove', (e) => { if (!resizing) return; const w = Math.min(600, Math.max(200, e.clientX)); document.documentElement.style.setProperty('--sidebar-width', w + 'px'); });
+                document.addEventListener('mouseup', () => { if (resizing) { resizing = false; handle.classList.remove('active'); document.body.style.cursor = ''; } });
+            },
+
+            // ─── SiYuan API wrappers ─────────────
+            _parseSyPath(path) {
+                const docPath = path.substring(6, path.length - 3);
+                const docId = docPath.split('/').pop();
+                const notebookId = docPath.split('/').shift();
+                const notebooks = window.pluginSdk.lsNotebooks();
+                let nb = notebooks.find(n => n.id === notebookId);
+                if (!nb) nb = { name: '未知笔记本', id: notebookId, closed: true };
+                return { docId, notebook: nb };
+            },
+
+            async _listDir(path) {
+                try {
+                    const res = await window.pluginSdk.request('/api/file/readDir', { path });
+                    if (!res.ok) throw new Error(res.msg || '未知错误');
                     return res.data.map(item => ({
                         name: item.name,
-                        path: path === '/' ? `/${item.name}` : `${path}/${item.name}`,
+                        path: path === '/' ? '/' + item.name : path + '/' + item.name,
                         leaf: !item.isDir,
                         isDir: item.isDir
                     })).sort((a, b) => {
-                        // 文件夹优先，然后按名称排序
                         if (a.isDir && !b.isDir) return -1;
                         if (!a.isDir && b.isDir) return 1;
                         return a.name.localeCompare(b.name);
                     });
-                } catch (e) {
-                    console.error('列出文件失败:', e);
-                    return null;
-                }
-            }
-
-            /**
-             * 获取文件内容
-             * @param {string} path - 文件路径
-             * @returns {Promise<{name: string, content: string, isHTML?: boolean}>}
-             */
-            async get(path) {
-                try {
-                    // 特殊处理 .sy 文件：获取文档的 Markdown 内容
-                    if (path.endsWith('.sy')) {
-                        const conf = parseSiyanFilePath(path);
-
-                        // 只处理打开的笔记本
-                        if (conf.notebook.closed === false) {
-                            const block = await window.pluginSdk.getBlockByID(conf.docId);
-                            const markdown = await window.pluginSdk.getMarkdown(conf.docId);
-
-                            const contents = []
-                            if (block) {
-                                contents.push(`---`);
-                                contents.push(`notebook: ${conf.notebook.name}`);
-                                contents.push(`hpath: ${block.hpath}`);
-                                contents.push('---\n');
-                            }
-                            contents.push(markdown);
-                            return {
-                                name: conf.docId + '.sy',
-                                content: contents.join('\n')
-                            }
-                        }
-                    }
-
-                    let result = await window.pluginSdk.loadBlob(path);
-
-                    if (!result.ok) {
-                        throw new Error(`Failed to load Blob from ${path}`);
-                    }
-
-                    let blob = result.data;
-                    const fileName = path.split('/').pop();
-                    const mimeType = blob.type || '';
-
-                    // 判断文件类型：文本
-                    if (mimeType.startsWith('text/') ||
-                        mimeType === 'application/json' ||
-                        mimeType === 'application/javascript' ||
-                        mimeType === '' || // 无 MIME 类型，尝试作为文本
-                        /\.(md|txt|json|js|ts|jsx|tsx|css|html|xml|yaml|yml|toml|ini|conf|log|py|java|c|cpp|h|hpp|go|rs|sh|bat)$/i.test(fileName)) {
-                        const text = await blob.text();
-                        return {
-                            name: fileName,
-                            content: text
-                        };
-                    }
-
-                    // 判断文件类型：图片
-                    if (mimeType.startsWith('image/')) {
-                        const objectURL = URL.createObjectURL(blob);
-                        return {
-                            name: fileName,
-                            content: `<img src="${objectURL}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" alt="${fileName}" />`,
-                            isHTML: true
-                        };
-                    }
-
-                    const formatFileSize = (bytes) => {
-                        if (bytes < 1024) return `${bytes} B`;
-                        else if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-                        else if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-                        else return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-                    }
-
-                    // 其他二进制类型
-                    return {
-                        name: fileName,
-                        content: `[二进制文件: ${fileName}]\n类型: ${mimeType || '未知'}\n大小: ${blob.size} 字节 (${formatFileSize(blob.size)}) \n\n此文件类型暂不支持预览。`
-                    };
-                } catch (e) {
-                    console.error('读取文件失败:', e);
-                    return {
-                        name: "错误",
-                        content: `无法读取文件内容\n\n错误信息: ${e.message}\n\n请检查：\n- 文件路径是否正确\n- 文件是否存在\n- 是否有访问权限`
-                    };
-                }
-            }
-
-            /**
-             * 加载配置
-             * @returns {Promise<{rootPath: string, lastOpenFile: string|null}>}
-             */
-            async loadSettings() {
-                try {
-                    const config = await window.pluginSdk.loadConfig();
-                    return config || { rootPath: '/data', lastOpenFile: null };
-                } catch (e) {
-                    console.error('加载配置失败:', e);
-                    return { rootPath: '/data', lastOpenFile: null };
-                }
-            }
-
-            /**
-             * 保存配置
-             * @param {Object} settings - 配置对象
-             */
-            async saveSettings(settings) {
-                try {
-                    await window.pluginSdk.saveConfig(settings);
-                } catch (e) {
-                    console.error('保存配置失败:', e);
-                }
-            }
-
-            /**
-             * 保存文件内容
-             * @param {string} path - 文件路径
-             * @param {string|Blob} content - 文件内容
-             */
-            async save(path, content) {
-                try {
-                    let blob;
-                    if (typeof content === 'string') {
-                        blob = new Blob([content], { type: 'text/plain' });
-                    } else {
-                        blob = content;
-                    }
-
-                    // 使用 saveBlob 更新文件
-                    // 注意：这里假设 pluginSdk 提供了 saveBlob 方法，或者我们需要通过 request 上传
-                    // 根据用户指示 "使用 saveBlob 更新相应的文件"
-                    if (window.pluginSdk.saveBlob) {
-                        await window.pluginSdk.saveBlob(path, blob);
-                    } else {
-                        throw new Error('无法保存文件：saveBlob 方法不可用');
-                    }
-                    return true;
-                } catch (e) {
-                    console.error('保存文件失败:', e);
-                    throw e;
-                }
-            }
-        }
-
-        /* ==================== 应用状态和 DOM 引用 ==================== */
-
-        const client = new SiYuanClient();
-        const dom = {
-            sidebar: document.getElementById('tree-root'),
-            contentHeader: document.getElementById('content-header'),
-            contentBody: document.getElementById('content-body'),
-            rootInput: document.getElementById('root-path-input'),
-            refreshBtn: document.getElementById('refresh-btn'),
-            // Menu
-            menuToggle: document.getElementById('menu-toggle'),
-            menuDropdown: document.getElementById('menu-dropdown'),
-            btnDownload: document.getElementById('btn-download'),
-            btnCopyText: document.getElementById('btn-copy-text'),
-            btnCopyImage: document.getElementById('btn-copy-image'),
-            btnEdit: document.getElementById('btn-edit'),
-            // Modal
-            editModal: document.getElementById('edit-modal'),
-            modalTitle: document.getElementById('modal-title'),
-            editTextarea: document.getElementById('edit-textarea'),
-            btnCancelEdit: document.getElementById('btn-cancel-edit'),
-            btnSaveEdit: document.getElementById('btn-save-edit'),
-            btnCloseModal: document.getElementById('btn-close-modal'),
-            // Resize
-            resizeHandle: document.getElementById('resize-handle'),
-            app: document.body
-        };
-        let appState = { rootPath: '/data', lastOpenFile: null };
-
-        /* ==================== 主初始化函数 ==================== */
-
-        /**
-         * 应用初始化
-         * 在 pluginSdk 就绪后调用
-         */
-        async function init() {
-            try {
-                // 1. 应用主题
-                const themeMode = window.pluginSdk.themeMode || 'light';
-                applyTheme(themeMode);
-                console.log('初始主题模式:', themeMode);
-
-                // 2. 清除加载提示
-                dom.contentBody.innerHTML = '<div class="empty-state">请从左侧选择文件以查看内容</div>';
-
-                // 3. 加载配置
-                const config = await client.loadSettings();
-                if (config.rootPath) appState.rootPath = config.rootPath;
-                if (config.lastOpenFile) appState.lastOpenFile = config.lastOpenFile;
-
-                dom.rootInput.value = appState.rootPath;
-
-                // 4. 渲染文件树
-                await renderLevel(appState.rootPath, dom.sidebar);
-
-                // 5. 恢复上次打开的文件
-                if (appState.lastOpenFile) {
-                    await loadContent(appState.lastOpenFile);
-                }
-
-                // 6. 绑定事件
-                dom.refreshBtn.onclick = async () => {
-                    const newRoot = dom.rootInput.value.trim();
-                    if (!newRoot) {
-                        showToast('路径不能为空', 'warning');
-                        return;
-                    }
-                    appState.rootPath = newRoot;
-                    await client.saveSettings({ ...appState, rootPath: newRoot });
-                    dom.sidebar.innerHTML = '';
-                    await renderLevel(newRoot, dom.sidebar);
-                };
-
-                // 支持回车键刷新
-                dom.rootInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        dom.refreshBtn.click();
-                    }
-                });
-
-                // 初始化新功能
-                initResizeHandle();
-                initMenu();
-                initEditModal();
-
-                console.log('✓ 应用初始化完成');
-            } catch (e) {
-                console.error('初始化失败:', e);
-                dom.contentBody.innerHTML = `<div class="empty-state" style="color: var(--error-color);">初始化失败: ${e.message}</div>`;
-            }
-        }
-
-        /* ==================== 新功能实现 ==================== */
-
-        // 1. 侧边栏拖拽调整宽度
-        function initResizeHandle() {
-            let isResizing = false;
-
-            dom.resizeHandle.addEventListener('mousedown', (e) => {
-                isResizing = true;
-                dom.resizeHandle.classList.add('active');
-                document.body.style.cursor = 'col-resize';
-                e.preventDefault();
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (!isResizing) return;
-
-                // 限制最小宽度 200px，最大宽度 600px
-                let newWidth = e.clientX;
-                if (newWidth < 200) newWidth = 200;
-                if (newWidth > 600) newWidth = 600;
-
-                document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`);
-            });
-
-            document.addEventListener('mouseup', () => {
-                if (isResizing) {
-                    isResizing = false;
-                    dom.resizeHandle.classList.remove('active');
-                    document.body.style.cursor = '';
-                }
-            });
-        }
-
-        // 2. 悬浮菜单逻辑
-        function initMenu() {
-            // 切换菜单显示
-            dom.menuToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dom.menuDropdown.classList.toggle('show');
-                updateMenuState();
-            });
-
-            // 点击外部关闭菜单
-            document.addEventListener('click', () => {
-                dom.menuDropdown.classList.remove('show');
-            });
-
-            // 阻止菜单内部点击关闭
-            dom.menuDropdown.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-
-            // 绑定功能按钮
-            dom.btnDownload.addEventListener('click', handleDownload);
-            dom.btnCopyText.addEventListener('click', handleCopyText);
-            dom.btnCopyImage.addEventListener('click', handleCopyImage);
-            dom.btnEdit.addEventListener('click', handleEdit);
-        }
-
-        function updateMenuState() {
-            const path = appState.lastOpenFile;
-            if (!path) {
-                disableAllMenu();
-                return;
-            }
-
-            const isImage = /\.(png|jpg|jpeg|gif|bmp|svg|webp)$/i.test(path);
-            const isEditableText = isEditableFile(path);
-
-            // 只有明确的文本文件允许编辑
-            dom.btnEdit.disabled = !isEditableText;
-
-            // 图片只能复制图片，不能复制文本
-            dom.btnCopyText.disabled = isImage;
-            dom.btnCopyImage.disabled = !isImage;
-
-            // 下载总是可用
-            dom.btnDownload.disabled = false;
-        }
-
-        function disableAllMenu() {
-            dom.btnDownload.disabled = true;
-            dom.btnCopyText.disabled = true;
-            dom.btnCopyImage.disabled = true;
-            dom.btnEdit.disabled = true;
-        }
-
-        async function handleDownload() {
-            const path = appState.lastOpenFile;
-            if (!path) return;
-
-            try {
-                // 直接获取原始文件 Blob 进行下载，确保下载的是源文件（特别是 .sy 文件）
-                const res = await window.pluginSdk.loadBlob(path);
-                if (!res.ok) throw new Error('读取文件失败');
-
-                const blob = res.data;
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = path.split('/').pop();
-                a.click();
-                URL.revokeObjectURL(url);
-
-                showToast('文件已下载', 'success');
-                dom.menuDropdown.classList.remove('show');
-            } catch (e) {
-                showToast('下载失败: ' + e.message, 'error');
-            }
-        }
-
-        async function handleCopyText() {
-            const path = appState.lastOpenFile;
-            if (!path) return;
-
-            try {
-                const res = await client.get(path);
-                if (res.isHTML) {
-                    showToast('当前文件不是纯文本，无法复制文本', 'warning');
-                    return;
-                }
-                await navigator.clipboard.writeText(res.content);
-                showToast('已复制到剪贴板', 'success');
-                dom.menuDropdown.classList.remove('show');
-            } catch (e) {
-                showToast('复制失败: ' + e.message, 'error');
-            }
-        }
-
-        async function handleCopyImage() {
-            const path = appState.lastOpenFile;
-            if (!path) return;
-
-            try {
-                const blobRes = await window.pluginSdk.loadBlob(path);
-                if (!blobRes.ok) throw new Error('加载图片失败');
-
-                const blob = blobRes.data;
-                if (!blob.type.startsWith('image/')) {
-                    showToast('当前文件不是图片', 'error');
-                    return;
-                }
-
-                // 将图片转换为 PNG 格式（Clipboard API 通常只支持 PNG）
-                const img = new Image();
-                const objectURL = URL.createObjectURL(blob);
-
-                await new Promise((resolve, reject) => {
-                    img.onload = resolve;
-                    img.onerror = reject;
-                    img.src = objectURL;
-                });
-
-                // 使用 Canvas 转换为 PNG
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-
-                URL.revokeObjectURL(objectURL);
-
-                // 转换为 PNG Blob
-                const pngBlob = await new Promise(resolve => {
-                    canvas.toBlob(resolve, 'image/png');
-                });
-
-                await navigator.clipboard.write([
-                    new ClipboardItem({
-                        'image/png': pngBlob
-                    })
-                ]);
-
-                showToast('图片已复制到剪贴板', 'success');
-                // window.pluginSdk.showMessage('图片已复制到剪贴板', 'info');
-                dom.menuDropdown.classList.remove('show');
-            } catch (e) {
-                console.error('复制图片失败:', e);
-                showToast('复制图片失败: ' + e.message, 'error');
-                // window.pluginSdk.showMessage('复制图片失败: ' + e.message, 'error');
-            }
-        }
-
-        // 3. 编辑功能实现
-        function initEditModal() {
-            const closeModal = () => {
-                dom.editModal.classList.remove('show');
-            };
-
-            dom.btnCancelEdit.addEventListener('click', closeModal);
-            dom.btnCloseModal.addEventListener('click', closeModal);
-
-            dom.btnSaveEdit.addEventListener('click', async () => {
-                const path = appState.lastOpenFile;
-                const content = dom.editTextarea.value;
-
-                const doSave = async () => {
-                    try {
-                        dom.btnSaveEdit.disabled = true;
-                        dom.btnSaveEdit.textContent = '保存中...';
-
-                        await client.save(path, content);
-
-                        // 刷新显示
-                        await loadContent(path);
-                        closeModal();
-                        showToast('保存成功', 'success');
-                    } catch (e) {
-                        showToast('保存失败: ' + e.message, 'error');
-                    } finally {
-                        dom.btnSaveEdit.disabled = false;
-                        dom.btnSaveEdit.textContent = '覆盖';
-                    }
-                };
-
-                // JSON 检查
-                if (path.endsWith('.json')) {
-                    try {
-                        JSON.parse(content);
-                    } catch (e) {
-                        window.pluginSdk.confirm('强制保存', 'JSON 格式校验失败，是否强制保存？\n错误: ' + e.message, () => {
-                            doSave();
-                        });
-                        return;
-                    }
-                }
-
-                doSave();
-            });
-        }
-
-        /**
-         * 判断文件是否允许编辑（白名单方案）
-         * @param {string} path - 文件路径
-         * @returns {boolean}
-         */
-        function isEditableFile(path) {
-            // 绝对禁止编辑 .sy 文件
-            if (path.endsWith('.sy')) {
-                return false;
-            }
-
-            const fname = path.split('/').pop();
-            if (['indexignore', 'syncignore', 'refsearchignore', 'searchignore'].includes(fname)) {
-                return true;
-            }
-
-            // 白名单：明确允许编辑的文本文件后缀
-            const editableExtensions = /\.(txt|md|json|js|ts|jsx|tsx|css|scss|less|html|xml|svg|yaml|yml|toml|ini|conf|log|py|java|c|cpp|h|hpp|go|rs|sh|bat|ps1|rb|php|sql|r|swift|kt|scala|lua|vim|gitignore|env|properties)$/i;
-
-            return editableExtensions.test(path);
-        }
-
-        async function handleEdit() {
-            const path = appState.lastOpenFile;
-            if (!path) return;
-
-            // 白名单检查
-            if (!isEditableFile(path)) {
+                } catch (e) { console.error('列出文件失败:', e); return null; }
+            },
+
+            async _getFile(path) {
+                // Special handling for .sy files
                 if (path.endsWith('.sy')) {
-                    showToast('安全警告：绝对禁止编辑 .sy 文件！', 'error', 4000);
-                } else {
-                    showToast('此文件类型不支持编辑。仅支持编辑纯文本文件（如 .txt, .md, .json, .js, .py 等）', 'warning', 4000);
-                }
-                return;
-            }
-
-            try {
-                // 加载文件内容前，再次通过 blob type 确认是文本文件
-                const blobRes = await window.pluginSdk.loadBlob(path);
-                if (!blobRes.ok) throw new Error('读取文件失败');
-
-                const blob = blobRes.data;
-                const mimeType = blob.type || '';
-
-                // 如果 MIME 类型明确不是文本，拒绝编辑
-                if (mimeType && !mimeType.startsWith('text/') &&
-                    mimeType !== 'application/json' &&
-                    mimeType !== 'application/javascript' &&
-                    mimeType !== 'application/xml') {
-                    showToast('文件类型检查失败：此文件不是纯文本格式，无法编辑', 'error', 4000);
-                    return;
+                    const conf = this._parseSyPath(path);
+                    if (conf.notebook.closed === false) {
+                        const block = await window.pluginSdk.getBlockByID(conf.docId);
+                        const markdown = await window.pluginSdk.getMarkdown(conf.docId);
+                        const lines = [];
+                        if (block) { lines.push('---', 'notebook: ' + conf.notebook.name, 'hpath: ' + block.hpath, '---\n'); }
+                        lines.push(markdown);
+                        return { name: conf.docId + '.sy', content: lines.join('\n') };
+                    }
                 }
 
-                // 读取文本内容
-                const content = await blob.text();
+                const result = await window.pluginSdk.loadBlob(path);
+                if (!result.ok) throw new Error('Failed to load Blob from ' + path);
+                const blob = result.data;
                 const fileName = path.split('/').pop();
+                const mime = blob.type || '';
 
-                dom.modalTitle.textContent = `编辑: ${fileName}`;
-                dom.editTextarea.value = content;
-                dom.editModal.classList.add('show');
-                dom.menuDropdown.classList.remove('show');
-            } catch (e) {
-                showToast('打开编辑器失败: ' + e.message, 'error');
-            }
-        }
-
-        /* ==================== UI 渲染逻辑 ==================== */
-
-        /**
-         * 渲染指定路径的文件树层级
-         * @param {string} path - 目录路径
-         * @param {HTMLElement} container - 容器元素
-         */
-        async function renderLevel(path, container) {
-            container.innerHTML = '<div class="loading-text">加载中...</div>';
-            const nodes = await client.list(path);
-            container.innerHTML = '';
-
-            if (!nodes) {
-                container.innerHTML = '<div class="error-text">加载失败：无法读取目录</div>';
-                return;
-            }
-            if (nodes.length === 0) {
-                container.innerHTML = '<div class="loading-text">空目录</div>';
-                return;
-            }
-
-            nodes.forEach(node => {
-                container.appendChild(createNodeElement(node));
-            });
-        }
-
-        /**
-         * 创建树节点元素
-         * @param {Object} node - 节点数据
-         * @returns {HTMLElement}
-         */
-        function createNodeElement(node) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'tree-node';
-
-            const header = document.createElement('div');
-            header.className = 'node-header';
-
-            const toggleIcon = document.createElement('div');
-            toggleIcon.className = 'toggle-icon';
-            if (!node.leaf) {
-                toggleIcon.textContent = '▶';
-                toggleIcon.onclick = (e) => {
-                    e.stopPropagation();
-                    toggleFolder(wrapper, node.path);
-                };
-            }
-            header.appendChild(toggleIcon);
-
-            const typeIcon = document.createElement('span');
-            typeIcon.className = 'node-icon';
-            typeIcon.textContent = node.leaf ? '📄' : '📁';
-            header.appendChild(typeIcon);
-
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'node-name';
-            nameSpan.textContent = node.name;
-            header.appendChild(nameSpan);
-
-            header.onclick = () => {
-                if (!node.leaf) {
-                    toggleFolder(wrapper, node.path);
-                } else {
-                    handleFileClick(node.path, header);
+                // Text files
+                if (mime.startsWith('text/') || mime === 'application/json' || mime === 'application/javascript' || mime === '' ||
+                    /\.(md|txt|json|js|ts|jsx|tsx|css|html|xml|yaml|yml|toml|ini|conf|log|py|java|c|cpp|h|hpp|go|rs|sh|bat)$/i.test(fileName)) {
+                    return { name: fileName, content: await blob.text() };
                 }
-            };
 
-            wrapper.appendChild(header);
-
-            if (!node.leaf) {
-                const childrenBox = document.createElement('div');
-                childrenBox.className = 'children-container';
-                wrapper.appendChild(childrenBox);
-            }
-
-            return wrapper;
-        }
-
-        /**
-         * 切换文件夹展开/折叠状态
-         * @param {HTMLElement} wrapper - 节点包装元素
-         * @param {string} path - 文件夹路径
-         */
-        async function toggleFolder(wrapper, path) {
-            const childrenContainer = wrapper.querySelector('.children-container');
-            if (!childrenContainer) return;
-
-            if (wrapper.classList.contains('expanded')) {
-                wrapper.classList.remove('expanded');
-            } else {
-                wrapper.classList.add('expanded');
-                if (childrenContainer.children.length === 0) {
-                    await renderLevel(path, childrenContainer);
+                // Images
+                if (mime.startsWith('image/')) {
+                    const url = URL.createObjectURL(blob);
+                    return { name: fileName, content: '<img src="' + url + '" style="max-width:100%;height:auto;display:block;margin:0 auto;" alt="' + fileName + '">', isHTML: true };
                 }
+
+                // Binary
+                const fmtSize = (b) => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(2) + ' KB' : (b / 1048576).toFixed(2) + ' MB';
+                return { name: fileName, content: '[二进制文件: ' + fileName + ']\n类型: ' + (mime || '未知') + '\n大小: ' + blob.size + ' 字节 (' + fmtSize(blob.size) + ')\n\n此文件类型暂不支持预览。' };
+            },
+
+            _isEditableFile(path) {
+                if (path.endsWith('.sy')) return false;
+                const fname = path.split('/').pop();
+                if (['indexignore', 'syncignore', 'refsearchignore', 'searchignore'].includes(fname)) return true;
+                return /\.(txt|md|json|js|ts|jsx|tsx|css|scss|less|html|xml|svg|yaml|yml|toml|ini|conf|log|py|java|c|cpp|h|hpp|go|rs|sh|bat|ps1|rb|php|sql|r|swift|kt|scala|lua|vim|gitignore|env|properties)$/i.test(path);
+            },
+
+            async _loadSettings() {
+                try { return await window.pluginSdk.loadConfig() || { rootPath: '/data', lastOpenFile: null }; }
+                catch (e) { return { rootPath: '/data', lastOpenFile: null }; }
+            },
+            _saveSettings(s) {
+                try { window.pluginSdk.saveConfig(s); } catch (e) { /* ignore */ }
+            },
+
+            // ─── Utilities ───────────────────────
+            _escapeHtml(text) {
+                if (!text) return '';
+                return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            },
+
+            _toast(message, type = 'info', duration = 3000) {
+                const container = this.$refs.toastContainer;
+                const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+                const el = document.createElement('div');
+                el.className = 'toast ' + type;
+                el.innerHTML = '<span>' + (icons[type] || 'ℹ') + '</span><span>' + this._escapeHtml(message) + '</span>';
+                container.appendChild(el);
+                setTimeout(() => { el.classList.add('hiding'); setTimeout(() => container.removeChild(el), 300); }, duration);
             }
-        }
-
-        /**
-         * 处理文件点击事件
-         * @param {string} path - 文件路径
-         * @param {HTMLElement} headerEl - 节点头部元素
-         */
-        async function handleFileClick(path, headerEl) {
-            // 更新激活状态
-            document.querySelectorAll('.node-header').forEach(h => h.classList.remove('active'));
-            headerEl.classList.add('active');
-
-            // 保存最后打开的文件
-            appState.lastOpenFile = path;
-            client.saveSettings({ ...appState, lastOpenFile: path });
-
-            // 加载内容
-            await loadContent(path);
-        }
-
-        /**
-         * 加载并显示文件内容
-         * @param {string} path - 文件路径
-         */
-        async function loadContent(path) {
-            try {
-                dom.contentBody.innerHTML = '<div class="loading-text" style="margin-top:20px">正在读取文件...</div>';
-                dom.contentHeader.textContent = path.split('/').pop();
-
-                const result = await client.get(path);
-
-                if (result.isHTML) {
-                    // HTML 内容（如图片）直接显示
-                    dom.contentBody.innerHTML = result.content;
-                } else {
-                    // 文本内容需要 HTML 转义
-                    const safeContent = result.content
-                        .replace(/&/g, "&amp;")
-                        .replace(/</g, "&lt;")
-                        .replace(/>/g, "&gt;");
-                    dom.contentBody.innerHTML = `<pre>${safeContent}</pre>`;
-                }
-            } catch (e) {
-                console.error('加载内容失败:', e);
-                dom.contentBody.innerHTML = `<div class="empty-state" style="color: var(--error-color);">加载失败: ${e.message}</div>`;
-            }
-        }
-
-        /* ==================== 入口点 ==================== */
-
-        /**
-         * SDK 就绪事件监听
-         * 思源会在注入 pluginSdk 后触发此事件
-         */
-        window.addEventListener('pluginSdkReady', () => {
-            console.log('✓ pluginSdk 已就绪');
-            console.log('- 主题模式:', window.pluginSdk.themeMode);
-            console.log('- 样式变量:', window.pluginSdk.styleVar);
-            init();
-        });
-
+        };
+    }
     </script>
+    <!-- Alpine.js: MUST be last script; defer ensures data functions are defined first -->
+    <script src="/plugins/sy-f-misc/scripts/alpine.min.js" defer></script>
 </body>
-
 </html>

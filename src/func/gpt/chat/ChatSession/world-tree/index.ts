@@ -15,7 +15,7 @@ import { getMessageProp, getPayload } from "@/func/gpt/chat-utils";
 /*
 interface TreeViewSdk {
     getTreeData: () => Promise<TreeData>;
-
+    getFullContent: (nodeId: string) => Promise<string>;
     switchWorldLine: (leafId: string) => void;
 }
 
@@ -31,7 +31,7 @@ interface TreeNode {
     role: 'user' | 'assistant' | '';
     parent: string | null;
     children: string[];
-    preview?: string;      // 内容预览（建议 50 字以内）
+    preview?: string;      // 内容预览（200 字以内，供详情面板展示）
     versionCount?: number; // 版本数量
     timestamp?: number;
     author?: string;       // 模型名称
@@ -50,7 +50,7 @@ const transformNodes = (nodes: Record<string, IChatSessionMsgItemV2>): Record<st
             role: item.role as 'user' | 'assistant' | '',
             parent: item.parent,
             children: [...item.children],
-            preview: text.slice(0, 100),
+            preview: text.slice(0, 200),
             versionCount: item.versions ? Object.keys(item.versions).length : 0,
             timestamp: getPayload(item, 'timestamp'),
             author: getPayload(item, 'author') ?? 'Unknown'
@@ -97,6 +97,12 @@ export const showChatWorldTree = (options: {
                             worldLine: treeModel.getWorldLine(),
                             nodes: transformNodes(treeModel.getNodes())
                         };
+                    },
+                    getFullContent: async (nodeId: string) => {
+                        const nodes = treeModel.getNodes();
+                        const item = nodes[nodeId];
+                        if (!item || item.type !== 'message') return '';
+                        return extractContentText(getMessageProp(item, 'content'));
                     },
                     switchWorldLine: (leafId: string) => {
                         treeModel.switchWorldLine(leafId);

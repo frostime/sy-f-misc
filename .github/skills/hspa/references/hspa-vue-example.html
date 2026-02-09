@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+    HSPA + Vue 3 Template
+    Copy this file as a starting point for complex HSPA pages.
+    Best for: deep component hierarchies, complex state management.
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Title</title>
+    <link rel="stylesheet" href="/plugins/sy-f-misc/styles/hspa-mini.css">
+    <style>
+        /* Prevent Vue template flash */
+        [v-cloak] { display: none !important; }
+        /* Page-specific styles */
+    </style>
+</head>
+<body class="page">
+    <div id="app" v-cloak>
+        <!-- Header -->
+        <div class="page-header">
+            <span class="text-bold">Title</span>
+            <span class="text-sm text-muted">{{ items.length }} items</span>
+        </div>
+
+        <!-- Body -->
+        <div class="page-body">
+            <div v-if="loading" class="empty-state"><div>加载中...</div></div>
+            <div v-else-if="items.length === 0" class="empty-state"><div>暂无数据</div></div>
+            <div v-else class="flex-col gap-3">
+                <div v-for="item in items" :key="item.id"
+                    class="card card-hover" @click="selectItem(item)">
+                    <span>{{ item.name }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="page-footer">
+            <button class="btn btn-primary" @click="save">保存</button>
+        </div>
+    </div>
+
+    <!-- Vue 3 MUST be loaded before the app script -->
+    <script src="/plugins/sy-f-misc/scripts/vue.global.min.js"></script>
+    <script>
+    window.addEventListener('pluginSdkReady', async () => {
+        const sdk = window.pluginSdk;
+        document.documentElement.setAttribute('data-theme-mode', sdk.themeMode);
+
+        const { createApp, ref } = Vue;
+
+        createApp({
+            setup() {
+                const items = ref([]);
+                const loading = ref(true);
+
+                // Load data
+                sdk.getItems()
+                    .then(data => { items.value = data; })
+                    .catch(err => { sdk.showMessage('加载失败: ' + err.message, 'error'); })
+                    .finally(() => { loading.value = false; });
+
+                function selectItem(item) {
+                    console.log('Selected:', item);
+                }
+
+                async function save() {
+                    try {
+                        // Vue 3 uses Proxy for reactivity too — toRaw strips it
+                        await sdk.saveItems(Vue.toRaw(items.value));
+                        sdk.showMessage('已保存', 'info');
+                    } catch (err) {
+                        sdk.showMessage('保存失败: ' + err.message, 'error');
+                    }
+                }
+
+                return { items, loading, selectItem, save };
+            }
+        }).mount('#app');
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+    HSPA + Alpine.js Template
+    Copy this file as a starting point for medium-complexity HSPA pages.
+    See quick-alpinejs.md for the complete Alpine.js guide.
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Title</title>
+    <link rel="stylesheet" href="/plugins/sy-f-misc/styles/hspa-mini.css">
+    <style>
+        /* MUST: prevent FOUC before Alpine initializes */
+        [x-cloak] { display: none !important; }
+        /* Page-specific styles only — use hspa-mini utility classes wherever possible */
+    </style>
+</head>
+<body class="page">
+    <div x-data="app()" x-init="init()" x-cloak>
+
+        <!-- Header -->
+        <div class="page-header">
+            <span class="text-bold">Title</span>
+            <span class="text-sm text-muted" x-text="items.length + ' items'"></span>
+        </div>
+
+        <!-- Body -->
+        <div class="page-body">
+            <template x-if="loading">
+                <div class="empty-state"><div>加载中...</div></div>
+            </template>
+            <template x-if="!loading && isEmpty">
+                <div class="empty-state"><div>暂无数据</div></div>
+            </template>
+            <template x-if="!loading && !isEmpty">
+                <div class="flex-col gap-3">
+                    <template x-for="item in items" :key="item.id">
+                        <div class="card card-hover" @click="selectItem(item)">
+                            <span x-text="item.name"></span>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+
+        <!-- Footer -->
+        <div class="page-footer">
+            <button class="btn btn-primary" @click="save()">保存</button>
+        </div>
+    </div>
+
+    <script>
+    function app() {
+        return {
+            // ─── State ───────────────────────────
+            items: [],
+            loading: true,
+            _initialized: false,
+
+            // ─── Computed (getter for simple derivations) ───
+            get isEmpty() { return this.items.length === 0; },
+
+            // ─── Init ────────────────────────────
+            async init() {
+                // Guard: SDK may be injected multiple times
+                if (this._initialized) return;
+                this._initialized = true;
+
+                // Wait for SDK injection
+                await new Promise(r => {
+                    if (window.pluginSdk) return r();
+                    window.addEventListener('pluginSdkReady', r, { once: true });
+                });
+
+                // Enable dark mode CSS
+                document.documentElement.setAttribute(
+                    'data-theme-mode', window.pluginSdk.themeMode
+                );
+
+                await this.loadData();
+            },
+
+            // ─── Methods ─────────────────────────
+            async loadData() {
+                try {
+                    this.items = await window.pluginSdk.getItems();
+                } catch (e) {
+                    window.pluginSdk.showMessage('加载失败: ' + e.message, 'error');
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            selectItem(item) {
+                console.log('Selected:', item);
+            },
+
+            async save() {
+                // KEY: Strip Alpine's Proxy wrapper before sending to SDK
+                await window.pluginSdk.saveItems(Alpine.raw(this.items));
+                window.pluginSdk.showMessage('已保存', 'info');
+            }
+        };
+    }
+    </script>
+    <!-- Alpine.js: MUST be last script; defer ensures data functions are defined first -->
+    <script src="/plugins/sy-f-misc/scripts/alpine.min.js" defer></script>
+</body>
+</html>

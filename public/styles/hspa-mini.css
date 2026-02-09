@@ -1,4 +1,4 @@
-/*! hspa-mini.css v1.1.0 | Lightweight CSS framework for HSPA pages */
+/*! hspa-mini.css v1.2.0 | Lightweight CSS framework for HSPA pages */
 /*  Built on HSPA's injected --theme-* and --font-* CSS variables.  */
 /*  Load via: <link rel="stylesheet" href="/plugins/sy-f-misc/styles/hspa-mini.css"> */
 
@@ -54,6 +54,14 @@
     --c-info-bg: rgba(66, 133, 244, 0.12);
     --c-error-hover: rgba(217, 48, 37, 0.08);
     --c-success-hover: rgba(52, 168, 83, 0.08);
+    --c-warning-hover: rgba(249, 171, 0, 0.08);
+    --c-info-hover: rgba(66, 133, 244, 0.08);
+
+    /* Z-index scale */
+    --z-header: 10;
+    --z-dropdown: 50;
+    --z-overlay: 100;
+    --z-modal: 200;
 
     /* Shadows */
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
@@ -75,6 +83,8 @@
     --c-info-bg: rgba(138, 180, 248, 0.15);
     --c-error-hover: rgba(242, 139, 130, 0.1);
     --c-success-hover: rgba(76, 175, 80, 0.1);
+    --c-warning-hover: rgba(253, 214, 99, 0.1);
+    --c-info-hover: rgba(138, 180, 248, 0.1);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.25);
     --shadow: 0 2px 8px rgba(0,0,0,0.35);
     --shadow-lg: 0 4px 16px rgba(0,0,0,0.4);
@@ -705,3 +715,19 @@ code:not(.code-block) {
     clip: rect(0,0,0,0);
     border: 0;
 }
+
+/* Position */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed    { position: fixed; }
+.sticky   { position: sticky; top: 0; }
+
+/* Inset */
+.inset-0  { top: 0; right: 0; bottom: 0; left: 0; }
+.top-0    { top: 0; }
+.right-0  { right: 0; }
+.bottom-0 { bottom: 0; }
+.left-0   { left: 0; }
+
+/* Transition */
+.transition { transition: all var(--transition); }

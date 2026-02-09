@@ -2,7 +2,7 @@
 name: hspa
 description: Develop plugin UI by writing single HTML pages loaded in iframes within sy-f-misc. Use this skill when the user asks to build UI using HSPA, "HTML Page", or needs an iframe-based interface for a plugin feature. Also trigger when the user mentions openIframeTab, openIframeDialog, or pluginSdk.
 metadata:
-    version: 2.1.0
+    version: 2.2.0
     author: frostime
 ---
 
@@ -234,82 +234,110 @@ When `hspa-mini.css` is loaded, you get pre-defined semantic variables (`--c-bg`
 
 ## JS Framework Integration
 
-| Complexity | Stack | Script |
-|---|---|---|
-| Low (recommended) | Vanilla JS | — |
-| Medium | Alpine.js | `/plugins/sy-f-misc/scripts/alpine.min.js` |
-| High | Vue 3 | `/plugins/sy-f-misc/scripts/vue.global.min.js` |
+| Complexity | Stack | Script | Example |
+|---|---|---|---|
+| Low | Vanilla JS | — | `references/hspa-vanilla-example.html` |
+| Medium (recommended) | Alpine.js | `/plugins/sy-f-misc/scripts/alpine.min.js` | `references/hspa-alpine-example.html` |
+| High | Vue 3 | `/plugins/sy-f-misc/scripts/vue.global.min.js` | `references/hspa-vue-example.html` |
 
 **NEVER use CDN** — always use the local scripts above.
 
 ### Vanilla JS
 
+Best for simple pages with minimal interactivity. Directly manipulate the DOM after SDK initialization.
+
 ```javascript
 window.addEventListener('pluginSdkReady', async () => {
     const sdk = window.pluginSdk;
-    const data = await sdk.getItems();  // customSdk method, accessed directly
-    document.getElementById('app').innerHTML = `<h1>${data.length} items</h1>`;
+    document.documentElement.setAttribute('data-theme-mode', sdk.themeMode);
+
+    const data = await sdk.getItems();
+    const list = document.getElementById('list');
+    list.innerHTML = data.map(item =>
+        `<div class="card">${escapeHtml(item.name)}</div>`
+    ).join('');
 });
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 ```
 
-### Alpine.js
+See **`references/hspa-vanilla-example.html`** for a complete working page.
+
+### Alpine.js (Recommended)
+
+Alpine.js provides declarative reactivity in HTML — ideal for HSPA's single-file pattern. It's the **recommended** choice for medium-complexity pages.
+
+**HSPA-specific essentials:**
 
 ```html
-<script src="/plugins/sy-f-misc/scripts/alpine.min.js" defer></script>
-<!-- ... -->
-<div x-data="appData()" x-init="init()">
+<style>[x-cloak] { display: none !important; }</style>  <!-- Prevent FOUC -->
+
+<div x-data="app()" x-init="init()" x-cloak>
     <template x-for="item in items" :key="item.id">
         <div x-text="item.name"></div>
     </template>
 </div>
+
 <script>
-function appData() {
+function app() {
     return {
         items: [],
+        _initialized: false,   // Guard against duplicate init
+
         async init() {
+            if (this._initialized) return;
+            this._initialized = true;
+
             await new Promise(r => {
                 if (window.pluginSdk) return r();
                 window.addEventListener('pluginSdkReady', r, { once: true });
             });
+            document.documentElement.setAttribute('data-theme-mode', window.pluginSdk.themeMode);
             this.items = await window.pluginSdk.getItems();
         },
-        async saveAll() {
 
-            try {
-                // KEY! Use Alpine.raw to pass raw data, instead of a Aplhine data Proxy
-                await window.pluginSdk.saveItems(Alpine.raw(this.items));
-                window.pluginSdk.showMessage('保存成功', 'info');
-            } catch (error) {
-                console.error('保存失败:', error);
-                window.pluginSdk.showMessage('保存失败: ' + error.message, 'error');
-            } finally {
-            }
+        async saveAll() {
+            // KEY: Use Alpine.raw() to strip Proxy before passing data to SDK
+            await window.pluginSdk.saveItems(Alpine.raw(this.items));
+            window.pluginSdk.showMessage('保存成功', 'info');
         }
     };
 }
 </script>
+<!-- Alpine.js MUST be the last script -->
+<script src="/plugins/sy-f-misc/scripts/alpine.min.js" defer></script>
 ```
 
-**Core Alpine.js Document**
-- Homepage Page: https://alpinejs.dev/start-here
-- State: https://alpinejs.dev/essentials/state
-- Template: https://alpinejs.dev/essentials/templating
-- Events: https://alpinejs.dev/essentials/events
-- Lifecycle: https://alpinejs.dev/essentials/lifecycle
+**Key rules:**
+| Rule | Why |
+|---|---|
+| `[x-cloak] { display: none !important; }` in `<head>` | Prevents flash of `{{ }}` templates |
+| `_initialized` guard in `init()` | SDK may be injected multiple times |
+| `Alpine.raw(data)` when sending to SDK | Strips Proxy wrapper for serialization |
+| Alpine `<script>` placed last | Data function must be defined before Alpine parses DOM |
+| `x-for` / `x-if` must be on `<template>` | Alpine requirement |
 
-See [references/quick-alpinejs.md](./references/quick-alpinejs.md)
+See **`references/quick-alpinejs.md`** for the complete Alpine.js guide with reactivity patterns, all directives, and common pitfalls.
+
+See **`references/hspa-alpine-example.html`** for a complete working page.
 
 ### Vue 3
 
+Best for highly complex pages with deep component hierarchies.
+
 ```html
 <script src="/plugins/sy-f-misc/scripts/vue.global.min.js"></script>
-<!-- ... -->
 <div id="app">
     <div v-for="item in items" :key="item.id">{{ item.name }}</div>
 </div>
 <script>
 window.addEventListener('pluginSdkReady', async () => {
     const { createApp, ref } = Vue;
+    document.documentElement.setAttribute('data-theme-mode', window.pluginSdk.themeMode);
     createApp({
         setup() {
             const items = ref([]);
@@ -320,6 +348,8 @@ window.addEventListener('pluginSdkReady', async () => {
 });
 </script>
 ```
+
+See **`references/hspa-vue-example.html`** for a complete working page.
 
 ---
 
@@ -337,10 +367,13 @@ For external JS/CSS dependencies: avoid if possible, inform the user when needed
 
 | File | When to read |
 |---|---|
-| `references/preset-sdk-api.md` (This Skill Dir) | Need full API signatures and type definitions |
-| `references/styling-guide.md` (This Skill Dir) | Building the CSS architecture or theming (default) |
-| `references/hspa-mini-classes.md` (This Skill Dir) | Using `hspa-mini.css` — full class reference |
-| `references/siyuan-context.md` (This Skill Dir) | Working with SiYuan file system, blocks, or kernel APIs |
-| `references/quick-alpinejs.md` (This Skill Dir) | Write HSPA with Alpine.js |
-| `/src/func/html-pages/html-page.md` (Workspace Path) | User-facing HSPA SDK (not for internal pages) |
-| `/src/func/html-pages/core.ts` (Workspace Path) | Implementation details |
+| `references/preset-sdk-api.md` | Need full API signatures and type definitions |
+| `references/styling-guide.md` | Building the CSS architecture or theming (default) |
+| `references/hspa-mini-classes.md` | Using `hspa-mini.css` — full class reference |
+| `references/siyuan-context.md` | Working with SiYuan file system, blocks, or kernel APIs |
+| `references/quick-alpinejs.md` | Alpine.js patterns, directives, and HSPA-specific pitfalls |
+| `references/hspa-vanilla-example.html` | Complete vanilla JS page template |
+| `references/hspa-alpine-example.html` | Complete Alpine.js page template |
+| `references/hspa-vue-example.html` | Complete Vue 3 page template |
+| `/src/func/html-pages/html-page.md` | User-facing HSPA SDK (not for internal pages) |
+| `/src/func/html-pages/core.ts` | Implementation details |

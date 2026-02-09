@@ -39,7 +39,7 @@ When loaded, `hspa-mini.css` defines these semantic variables on `:root`, mapped
 | `--c-warning` | `#f9ab00` | `#fdd663` |
 | `--c-info` | `#4285f4` | `#8ab4f8` |
 
-Each functional color also has a pre-computed `*-bg` (12% opacity) and `*-hover` (8% opacity) variant, e.g. `--c-error-bg`, `--c-error-hover`. These avoid `color-mix()` for better Electron/older browser compatibility.
+Each functional color also has pre-computed `*-bg` (12% opacity) and `*-hover` (8% opacity) variants for all four colors: `--c-success-bg/hover`, `--c-error-bg/hover`, `--c-warning-bg/hover`, `--c-info-bg/hover`. These avoid `color-mix()` for better Electron/older browser compatibility.
 
 **Font Sizes:** `--fs` (base), `--fs-xs` (×0.78), `--fs-sm` (×0.88), `--fs-lg` (×1.2), `--fs-xl` (×1.5)
 
@@ -50,6 +50,8 @@ Each functional color also has a pre-computed `*-bg` (12% opacity) and `*-hover`
 **Radius:** `--radius-sm` (3px), `--radius` (6px), `--radius-lg` (10px), `--radius-full` (pill)
 
 **Shadows:** `--shadow-sm`, `--shadow`, `--shadow-lg` (auto-adjust for dark mode)
+
+**Z-Index Scale:** `--z-header` (10), `--z-dropdown` (50), `--z-overlay` (100), `--z-modal` (200)
 
 ---
 
@@ -379,6 +381,9 @@ Form controls use **class selectors** (`.input`, `.select`, `.textarea`), not el
 | `.shadow-sm/shadow/shadow-lg` | Shadows |
 | `.cursor-pointer` / `.select-none` / `.opacity-50` | Misc |
 | `.sr-only` | Screen reader only |
+| `.relative` / `.absolute` / `.fixed` / `.sticky` | Position |
+| `.inset-0` / `.top-0` / `.right-0` / `.bottom-0` / `.left-0` | Inset helpers |
+| `.transition` | All properties, `var(--transition)` |
 
 ---
 
