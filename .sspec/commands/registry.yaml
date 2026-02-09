@@ -2,5 +2,5 @@ commands:
   tmp-file:
     description: 自动创建一个临时的 Markdown 文档
     type: script
-    invoke: powershell -File {script}
+    invoke: pwsh -File {script}
     script_file: tmp-file.ps1

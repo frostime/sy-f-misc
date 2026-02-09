@@ -28,15 +28,9 @@ param (
     [string]$Content = ""
 )
 
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# [Console]::OutputEncoding = [System.Text.Encoding]::GBK
 
-# 获取脚本所在目录和项目根目录
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$projectDir = $scriptDir
-
-# 确保 tmp/markdown 目录存在
-$tmpDir = Join-Path $projectDir "tmp"
-$markdownDir = Join-Path $tmpDir "markdown"
+$markdownDir = "tmp/markdown/"
 if (-not (Test-Path $markdownDir)) {
     New-Item -ItemType Directory -Path $markdownDir -Force | Out-Null
     Write-Host "创建目录: $markdownDir" -ForegroundColor Green
