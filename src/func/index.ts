@@ -42,6 +42,7 @@ import * as dft from './docfile-tools';
 
 import * as priv from './private-func';
 import * as htmlPages from './html-pages';
+import * as qit from './quick-input-template/index';
 
 let _ModulesToEnable: IFuncModule[] = [
     // #if [PRIVATE_ADD]
@@ -51,6 +52,7 @@ let _ModulesToEnable: IFuncModule[] = [
     css,
     srdb,
     htmlPages,
+    qit,
     mw,
     gp,
     md,
