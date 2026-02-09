@@ -547,19 +547,21 @@
 
                 // 更新执行策略
                 updateExecutionPolicy(toolName, policy) {
-                    if (!this.overrides[toolName]) {
-                        this.overrides[toolName] = {};
-                    }
-                    this.overrides[toolName].executionPolicy = policy;
+                    // 确保只保存新字段格式，删除所有旧字段
+                    this.overrides[toolName] = {
+                        executionPolicy: policy,
+                        resultApprovalPolicy: this.getEffectiveResultApprovalPolicy({ name: toolName })
+                    };
                     this.applyFilters();
                 },
 
                 // 更新结果审批策略
                 updateResultApprovalPolicy(toolName, policy) {
-                    if (!this.overrides[toolName]) {
-                        this.overrides[toolName] = {};
-                    }
-                    this.overrides[toolName].resultApprovalPolicy = policy;
+                    // 确保只保存新字段格式，删除所有旧字段
+                    this.overrides[toolName] = {
+                        executionPolicy: this.getEffectiveExecutionPolicy({ name: toolName }),
+                        resultApprovalPolicy: policy
+                    };
                     this.applyFilters();
                 },
 

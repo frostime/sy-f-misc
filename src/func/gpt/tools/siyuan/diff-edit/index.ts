@@ -18,7 +18,7 @@ import {
     executeEdits,
     createSiyuanAPI
 } from './core';
-import { Tool, ToolExecuteStatus, ToolPermissionLevel } from '@gpt/tools/types';
+import { Tool, ToolExecuteStatus } from '@gpt/tools/types';
 import { request } from '@/api';
 
 // ============ 思源 API request 函数 ============
@@ -88,7 +88,7 @@ IMPORTANT: 必须先阅读 ${DIFF_SKILL_NAME} 规则才能使用此工具。`,
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        executionPolicy: 'ask-always'
     },
 
     execute: async (args: {

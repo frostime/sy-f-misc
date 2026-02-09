@@ -172,28 +172,35 @@ def generate_schema_from_function(func: typing.Callable) -> dict | None:
 
     # 5. 提取权限配置属性（如果存在）
     # 支持新格式（executionPolicy, resultApprovalPolicy）和旧格式（permissionLevel, requireExecutionApproval, requireResultApproval）
+    # 旧格式会被转换为新格式输出
     permission_config = {}
 
     # 新格式优先
     if hasattr(func, 'executionPolicy'):
         permission_config['executionPolicy'] = func.executionPolicy
+    elif hasattr(func, 'permissionLevel'):
+        # 旧格式转换：permissionLevel -> executionPolicy
+        level = func.permissionLevel
+        if level == 'public':
+            permission_config['executionPolicy'] = 'auto'
+        elif level == 'moderate':
+            permission_config['executionPolicy'] = 'ask-once'
+        elif level == 'sensitive':
+            permission_config['executionPolicy'] = 'ask-always'
+        else:
+            permission_config['executionPolicy'] = 'ask-always'  # 默认最安全
+    elif hasattr(func, 'requireExecutionApproval'):
+        # 旧格式转换：requireExecutionApproval -> executionPolicy
+        permission_config['executionPolicy'] = 'auto' if not func.requireExecutionApproval else 'ask-once'
 
+    # resultApprovalPolicy 处理
     if hasattr(func, 'resultApprovalPolicy'):
         permission_config['resultApprovalPolicy'] = func.resultApprovalPolicy
+    elif hasattr(func, 'requireResultApproval'):
+        # 旧格式转换：requireResultApproval -> resultApprovalPolicy
+        permission_config['resultApprovalPolicy'] = 'always' if func.requireResultApproval else 'never'
 
-    # 兼容旧格式（如果没有新格式才使用）
-    if 'executionPolicy' not in permission_config:
-        if hasattr(func, 'permissionLevel'):
-            permission_config['permissionLevel'] = func.permissionLevel
-
-        if hasattr(func, 'requireExecutionApproval'):
-            permission_config['requireExecutionApproval'] = func.requireExecutionApproval
-
-    if 'resultApprovalPolicy' not in permission_config:
-        if hasattr(func, 'requireResultApproval'):
-            permission_config['requireResultApproval'] = func.requireResultApproval
-
-    # 将权限配置添加到 tool_schema
+    # 将权限配置添加到 tool_schema（只包含新格式字段）
     if permission_config:
         tool_schema.update(permission_config)
 

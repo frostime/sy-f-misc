@@ -1,5 +1,5 @@
 import { getFrontend } from "siyuan";
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { forwardProxy } from "@/api";
 import { BingSearchResult, BingSearchItem, WebToolError, WebToolErrorCode } from "./types";
 
@@ -263,7 +263,7 @@ export const bingSearchTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE
+        executionPolicy: 'ask-once'
     },
 
     execute: async (args: { query: string; site?: string; filetype?: string; dateFilter?: 'day' | 'week' | 'month'; pageIdx?: number }): Promise<ToolExecuteResult> => {

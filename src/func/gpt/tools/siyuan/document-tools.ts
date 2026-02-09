@@ -8,7 +8,7 @@
 
 import { getBlockByID, listDailynote } from "@frostime/siyuan-plugin-kits";
 import { lsNotebooks } from "@frostime/siyuan-plugin-kits/api";
-import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
+import { Tool, ToolExecuteStatus, ToolExecuteResult } from '../types';
 import { documentMapper, DocumentSummary, formatDocList } from './utils';
 import { siyuanVfs } from '@/libs/vfs/vfs-siyuan-adapter';
 import { getNotebookConf } from '@frostime/siyuan-plugin-kits/api';
@@ -52,7 +52,7 @@ export const listNotebooksTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     declaredReturnType: {
@@ -129,7 +129,7 @@ export const listActiveDocsTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     declaredReturnType: {
@@ -233,7 +233,7 @@ export const getDailyNoteDocsTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     declaredReturnType: {
@@ -482,7 +482,7 @@ export const navigateDocTreeTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     execute: async (args: {

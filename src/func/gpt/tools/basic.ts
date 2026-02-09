@@ -53,7 +53,8 @@ const datetimeTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        // permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     execute: async (args: { format?: string; timezone?: string }): Promise<ToolExecuteResult> => {

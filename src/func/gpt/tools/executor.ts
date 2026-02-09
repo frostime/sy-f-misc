@@ -627,6 +627,10 @@ Assistant/Agent 务必遵循如下规范:
         rejectReason?: string;
     }> {
         const config = this.getEffectivePermissionConfig(toolName);
+        console.log(`[DEBUG] checkExecutionApproval - Tool: ${toolName}`);
+        console.log(`[DEBUG] executionPolicy:`, config?.executionPolicy);
+        console.log(`[DEBUG] override:`, toolsManager().toolPermissionOverrides[toolName]);
+        console.log(`[DEBUG] tool.permission:`, this.registry[toolName]?.permission);
 
         if (!config) {
             return {

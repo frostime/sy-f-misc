@@ -237,6 +237,7 @@ function Parse-ScriptFile {
 
     # 查找权限配置注释
     # 支持新格式（executionPolicy, resultApprovalPolicy）和旧格式（permissionLevel, requireExecutionApproval, requireResultApproval）
+    # 旧格式会被转换为新格式输出
     $permissionConfig = @{}
     if ($content -match '#\s*TOOL_CONFIG:\s*(\{.+?\})') {
         try {
@@ -246,26 +247,28 @@ function Parse-ScriptFile {
             if ($config.executionPolicy) {
                 $permissionConfig.executionPolicy = $config.executionPolicy
             }
+            elseif ($config.permissionLevel) {
+                # 旧格式转换：permissionLevel -> executionPolicy
+                $level = $config.permissionLevel
+                switch ($level) {
+                    'public' { $permissionConfig.executionPolicy = 'auto' }
+                    'moderate' { $permissionConfig.executionPolicy = 'ask-once' }
+                    'sensitive' { $permissionConfig.executionPolicy = 'ask-always' }
+                    default { $permissionConfig.executionPolicy = 'ask-always' }  # 默认最安全
+                }
+            }
+            elseif ($null -ne $config.requireExecutionApproval) {
+                # 旧格式转换：requireExecutionApproval -> executionPolicy
+                $permissionConfig.executionPolicy = if (-not $config.requireExecutionApproval) { 'auto' } else { 'ask-once' }
+            }
 
+            # resultApprovalPolicy 处理
             if ($config.resultApprovalPolicy) {
                 $permissionConfig.resultApprovalPolicy = $config.resultApprovalPolicy
             }
-
-            # 兼容旧格式（如果没有新格式才使用）
-            if (-not $permissionConfig.ContainsKey('executionPolicy')) {
-                if ($config.permissionLevel) {
-                    $permissionConfig.permissionLevel = $config.permissionLevel
-                }
-
-                if ($null -ne $config.requireExecutionApproval) {
-                    $permissionConfig.requireExecutionApproval = $config.requireExecutionApproval
-                }
-            }
-
-            if (-not $permissionConfig.ContainsKey('resultApprovalPolicy')) {
-                if ($null -ne $config.requireResultApproval) {
-                    $permissionConfig.requireResultApproval = $config.requireResultApproval
-                }
+            elseif ($null -ne $config.requireResultApproval) {
+                # 旧格式转换：requireResultApproval -> resultApprovalPolicy
+                $permissionConfig.resultApprovalPolicy = if ($config.requireResultApproval) { 'always' } else { 'never' }
             }
         }
         catch {

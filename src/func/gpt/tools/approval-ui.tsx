@@ -236,8 +236,9 @@ export const ToolExecutionApprovalUI: Component<{
     const isReviewing = createSignalRef(false);
 
     /**
-     * 获取工具的有效执行策略（兼容新旧格式）
-     * 优先使用新格式 executionPolicy，向后兼容旧格式 permissionLevel
+     * 获取工具的有效执行策略
+     * 配置优先级：用户覆盖 > 工具定义默认值
+     * 注：用户覆盖已在配置迁移中统一为新格式；工具定义兼容新旧格式
      */
     const getEffectiveExecutionPolicy = (): ExecutionPolicy => {
         const toolName = props.toolDefinition?.function?.name;
@@ -252,7 +253,7 @@ export const ToolExecutionApprovalUI: Component<{
                 return toolDef.executionPolicy as ExecutionPolicy;
             }
 
-            // 兼容 V1 格式
+            // 兼容 V1 格式（内置工具定义尚未迁移）
             const oldPerm = toolDef as any;
             if (oldPerm.requireExecutionApproval === false) return 'auto';
 
@@ -267,30 +268,17 @@ export const ToolExecutionApprovalUI: Component<{
 
         const override = structuredClone(toolsManager.unwrap().toolPermissionOverrides[toolName]) ?? {};
 
-        // 1. 优先从 override 的新格式获取
+        // 1. 用户覆盖配置（已在配置迁移中统一为新格式）
         if (override?.executionPolicy) {
             return override.executionPolicy as ExecutionPolicy;
         }
 
-        // 2. 从 toolDefinition 的新格式获取
+        // 2. 工具定义的新格式
         if ('executionPolicy' in toolDef && toolDef.executionPolicy) {
             return toolDef.executionPolicy as ExecutionPolicy;
         }
 
-        // 3. 从 override 的旧格式转换
-        if (override && ('permissionLevel' in override || 'requireExecutionApproval' in override)) {
-            if (override.requireExecutionApproval === false) return 'auto';
-
-            const level = override.permissionLevel || 'public';
-            switch (level) {
-                case 'public': return 'auto';
-                case 'moderate': return 'ask-once';
-                case 'sensitive': return 'ask-always';
-                default: return 'auto';
-            }
-        }
-
-        // 4. 从 toolDefinition 的旧格式转换
+        // 3. 工具定义的旧格式兼容（内置工具定义尚未迁移）
         const oldPerm = toolDef as any;
         if (oldPerm.requireExecutionApproval === false) return 'auto';
 

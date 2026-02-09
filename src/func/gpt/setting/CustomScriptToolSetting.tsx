@@ -197,15 +197,6 @@ export const CustomScriptToolSetting: Component = () => {
                                                     {tool.function.description}
                                                 </div>
                                             </Show>
-                                            <Show when={(tool as any).permissionLevel}>
-                                                <div class={styles.toolPermission}>
-                                                    <span
-                                                        class={`${styles.badge} ${styles[(tool as any).permissionLevel]}`}
-                                                    >
-                                                        {(tool as any).permissionLevel}
-                                                    </span>
-                                                </div>
-                                            </Show>
                                         </div>
                                     </div>
                                 </div>

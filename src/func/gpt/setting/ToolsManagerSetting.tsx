@@ -9,7 +9,7 @@
 
 import { Component, For, Show, createSignal, onMount } from 'solid-js';
 import { toolsManager } from '../model/store';
-import { toolExecutorFactory } from '../tools';
+import { ExecutionPolicy, ResultApprovalPolicy, toolExecutorFactory } from '../tools';
 import { openIframeDialog } from '@/func/html-pages/core';
 import './ToolsManagerSetting.scss';
 
@@ -101,11 +101,7 @@ export const ToolsManagerSetting: Component = () => {
                                         description: tool.definition.function.description,
                                         group: groupName,
                                         executionPolicy: 'executionPolicy' in permission ? permission.executionPolicy : undefined,
-                                        resultApprovalPolicy: 'resultApprovalPolicy' in permission ? permission.resultApprovalPolicy : undefined,
-                                        // 兼容旧格式
-                                        permissionLevel: (permission as any).permissionLevel,
-                                        requireExecutionApproval: (permission as any).requireExecutionApproval,
-                                        requireResultApproval: (permission as any).requireResultApproval,
+                                        resultApprovalPolicy: 'resultApprovalPolicy' in permission ? permission.resultApprovalPolicy : undefined
                                     });
                                 }
                             }
@@ -119,13 +115,18 @@ export const ToolsManagerSetting: Component = () => {
 
                         // 保存权限覆盖配置
                         saveOverrides: (overrides: Record<string, any>) => {
-                            // 更新 toolPermissionOverrides
-                            toolsManager.update('toolPermissionOverrides', overrides);
+                            // 清理：确保只保存新字段格式
+                            const cleaned: Record<string, { executionPolicy: ExecutionPolicy; resultApprovalPolicy: ResultApprovalPolicy }> = {};
 
-                            // 更新 schema 版本为 2 (使用新格式)
-                            if (!toolsManager().permissionSchemaVersion || toolsManager().permissionSchemaVersion < 2) {
-                                toolsManager.update('permissionSchemaVersion', 2);
+                            for (const [toolName, config] of Object.entries(overrides)) {
+                                cleaned[toolName] = {
+                                    executionPolicy: config.executionPolicy || 'auto',
+                                    resultApprovalPolicy: config.resultApprovalPolicy || 'never'
+                                };
                             }
+
+                            // 更新 toolPermissionOverrides
+                            toolsManager.update('toolPermissionOverrides', cleaned);
                         }
                     }
                 }

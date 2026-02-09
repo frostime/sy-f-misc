@@ -6,7 +6,7 @@
  * @Description  : 思源内容操作相关工具
  */
 
-import { Tool, ToolExecuteStatus, ToolExecuteResult, ToolPermissionLevel } from '../types';
+import { Tool, ToolExecuteStatus, ToolExecuteResult } from '../types';
 import { BlockTypeShort, getBlockByID, getMarkdown, NodeType2BlockType, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { appendBlock, request, createDocWithMd } from "@frostime/siyuan-plugin-kits/api";
 import { isIDFormat, isContainerBlock, getChildBlocks, getToc, HeaderNode } from './utils';
@@ -217,7 +217,7 @@ export const getBlockInfoTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     declaredReturnType: {
@@ -489,7 +489,7 @@ export const getBlockContentTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     execute: async (args: { blockId: string, slice?: string, showId?: boolean, showSubStructure?: boolean }): Promise<ToolExecuteResult> => {
@@ -637,7 +637,7 @@ export const appendContentTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        executionPolicy: 'ask-always'
     },
 
     declaredReturnType: {
@@ -777,7 +777,7 @@ export const createNewDocTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        executionPolicy: 'ask-always'
     },
 
     declaredReturnType: {

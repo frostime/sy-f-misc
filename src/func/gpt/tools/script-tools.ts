@@ -1,5 +1,5 @@
 // src/func/gpt/tools/script-tools.ts
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel, ToolGroup } from "./types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolGroup } from "./types";
 import { DEFAULT_LIMIT_CHAR } from './utils';
 import {
     execScript,
@@ -61,8 +61,8 @@ const shellTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
+        executionPolicy: 'auto',
+        resultApprovalPolicy: 'always'
     },
 
     execute: async (args: { command: string; directory?: string; injectVar?: Record<string, string | number | boolean>; limit?: number }): Promise<ToolExecuteResult> => {
@@ -146,8 +146,8 @@ const pythonTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
+        executionPolicy: 'auto',
+        resultApprovalPolicy: 'always'
     },
 
     execute: async (args: { code: string; directory?: string; injectVar?: Record<string, string | number | boolean>; keepFile?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
@@ -229,8 +229,8 @@ const javascriptTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
+        executionPolicy: 'auto',
+        resultApprovalPolicy: 'always'
     },
 
     execute: async (args: { code: string; injectVar?: Record<string, string | number | boolean> }): Promise<ToolExecuteResult> => {
@@ -323,8 +323,8 @@ const pandocTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
+        executionPolicy: 'auto',
+        resultApprovalPolicy: 'always'
     },
 
     execute: async (params: { file: string; customCommand?: string }): Promise<ToolExecuteResult> => {
