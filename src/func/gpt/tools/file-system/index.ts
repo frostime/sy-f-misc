@@ -2,85 +2,75 @@
  * @Author       : frostime
  * Copyright (c) 2025 by frostime. All Rights Reserved.
  * @Date         : 2025-11-26 21:47:45
- * @Description  : File System Tools Entry (Updated)
+ * @Description  : 统一文件系统工具组（查看 + 搜索 + 编辑 + 文件操作）
  * @FilePath     : /src/func/gpt/tools/file-system/index.ts
  */
-import { createShutilTools } from "./shutil";
-import { createViewerTools } from "./viewer";
-import { createEditorTools, editorToolsRulePrompt } from "./editor";
-import { VFSManager } from '@/libs/vfs';
+import { isNodeAvailable } from './viewer-utils';
+import { viewTool, listTool, inspectTool } from './viewer';
+import { searchReplaceTool, writeFileTool } from './editor';
+import { shellTools } from './shell';
+import { fileSystemSkillRules } from './skill-rules';
+import { getPlatform, getScriptName } from '@/libs/system-utils';
+import type { ToolGroup } from '../types';
+
+const nodePath: typeof import('path') = window?.require?.('path');
+const os: typeof import('os') = window?.require?.('os');
 
 /**
- * 文件系统工具组 (Viewer + Basic Ops)
+ * 创建统一的文件系统工具组
  */
-export const createFileSystemToolGroup = (vfs: VFSManager) => {
-    const viewerTools = createViewerTools(vfs);
-    const shutilTools = createShutilTools(vfs);
+export const createFileSystemToolGroup = (): ToolGroup => {
+    const available = isNodeAvailable();
 
-    const fileSystemTools = {
-        name: '文件系统工具组',
-        tools: vfs.isAvailable() ? [
-            ...viewerTools.tools, // View, Search, List, Inspect
-            ...shutilTools,       // Mkdir, MoveFile, CopyFile
-        ] : [],
-        // 组合 viewerTools 的提示词和其他工具的提示词
-        rulePrompt: vfs.isAvailable() ? `
-${viewerTools.rulePrompt}
+    const tools = available ? [
+        // 查看
+        viewTool, listTool, inspectTool,
+        // Shell 搜索 + 文件操作
+        ...shellTools,
+        // 编辑
+        searchReplaceTool, writeFileTool,
+    ] : [];
 
-## 其他文件操作
-**基础操作**: Mkdir (创建目录) | MoveFile (移动/重命名) | CopyFile (复制)
-`.trim() : ''
-    };
+    let rulePrompt = '';
+    if (available && tools.length > 0) {
+        rulePrompt = `
+## 文件系统工具组
 
-    // 动态补充环境信息
-    if (vfs.isAvailable() && fileSystemTools.tools.length > 0) {
-        const os = window?.require?.('os');
-        const fs = window?.require?.('fs');
+### 文件系统工具选择指南
 
-        if (os) {
-            const platform = os.platform();
-            const homedir = os.homedir();
-            // @ts-ignore
-            // const cwd = process.cwd();
+| 需要做什么 | 用哪个工具 |
+|-----------|-----------|
+| 查看文件内容 | **fs-View** (支持 full/head/tail/range) |
+| 查看目录结构 | **fs-List** (树形展示) |
+| 检查文件元信息 | **fs-Inspect** (类型/大小/行数) |
+| 按文件名找文件 | **fs-Glob** (底层 find/Get-ChildItem) |
+| 在文件内容中搜索 | **fs-Grep** (底层 grep/Select-String) |
+| 修改 1-N 处代码 | **fs-SearchReplace** (内容匹配替换) |
+| 新建文件 / 大改 | **fs-WriteFile** (>50% 变更时) |
+| mkdir/cp/mv/rm 等 | **fs-FileOps** (受限 Shell 白名单) |
 
-            let drivesStr = '';
-            if (platform === 'win32' && fs) {
-                const drives = [];
-                for (let i = 65; i <= 90; i++) {
-                    const drive = String.fromCharCode(i) + ':\\';
-                    try {
-                        if (fs.existsSync(drive)) drives.push(drive);
-                    } catch (e) { }
-                }
-                if (drives.length > 0) {
-                    drivesStr = `, 可用驱动器: ${drives.join(', ')}`;
-                }
-            }
-
-            fileSystemTools.rulePrompt += `
-
-## 环境信息
-- OS: ${platform}
-- Home: ${homedir}
+### 最佳实践
+- 所有 Path 统一使用 Linux / 分隔符
+    「×」H:\\File.txt 「√」H:/File.txt
+- 未知目录使用 fs-List 分析结构
+- 搜索文件名用 Glob，搜索内容用 Grep
+- 批量文件操作使用 fs-FileOps
+- 代码修改用 SearchReplace，新建/大改用 WriteFile
+- 避免对大文件使用 View full 模式，优先用 head/tail/range
 `.trim();
+
+        // 环境信息
+        if (os) {
+            const platform = getPlatform();
+            const homedir = os.homedir?.() || '';
+            rulePrompt += `\n\n### 环境信息\n- OS: ${platform}\n- Shell: ${getScriptName()}\n- Home: ${homedir}`;
         }
     }
-    return fileSystemTools;
-}
 
-/**
- * 文件编辑工具组 (Editor)
- */
-export const createFileEditorToolGroup = (vfs: VFSManager) => {
-    const editorTools = createEditorTools(vfs);
-
-    const fileEditorTools = {
-        name: '文件编辑工具组',
-        tools: vfs.isAvailable() ? [
-            ...editorTools // ApplyDiff, ReplaceLine, WriteFile
-        ] : [],
-        rulePrompt: editorToolsRulePrompt
-    }
-
-    return fileEditorTools;
-}
+    return {
+        name: '文件系统工具组',
+        tools,
+        declareSkillRules: fileSystemSkillRules,
+        rulePrompt
+    };
+};

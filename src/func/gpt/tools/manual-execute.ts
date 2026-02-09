@@ -10,7 +10,7 @@ import { openIframeTab, openIframeDialog } from "@/func/html-pages/core";
 import { ToolExecutor } from './executor';
 import { basicTool } from './basic';
 import { toolGroupWeb } from './web';
-import { createFileEditorToolGroup, createFileSystemToolGroup } from './file-system';
+import { createFileSystemToolGroup } from './file-system';
 import { scriptTools } from './script-tools';
 import { siyuanTool } from './siyuan';
 import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
@@ -28,13 +28,7 @@ const createTestExecutor = () => {
     executor.registerToolGroup(basicTool);
     executor.registerToolGroup(toolGroupWeb);
 
-    // VFS
-    const vfs = createVFS({
-        local: true,
-        memory: true,
-    });
-    executor.registerToolGroup(createFileSystemToolGroup(vfs));
-    executor.registerToolGroup(createFileEditorToolGroup(vfs));
+    executor.registerToolGroup(createFileSystemToolGroup());
 
     IS_IN_APP && executor.registerToolGroup(scriptTools);
     executor.registerToolGroup(siyuanTool);

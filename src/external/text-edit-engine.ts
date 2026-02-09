@@ -1,10 +1,9 @@
 /**
  * ============================================
- * Edit Engine - 智能代码编辑引擎
+ * Edit Engine - 代码编辑引擎
  * ============================================
  *
- * 1. SEARCH/REPLACE 编辑算法
- * 2. Unified Diff 编辑算法
+ * SEARCH/REPLACE 编辑算法
  * ============================================
  */
 
@@ -20,7 +19,7 @@ export const CONFIG = {
     LONG_TEXT_THRESHOLD: 750,
 
     /** 模糊匹配相似度阈值 */
-    FUZZY_MATCH_THRESHOLD: 0.98,  // 建议高一些
+    FUZZY_MATCH_THRESHOLD: 0.98,
 
     /** 可接受匹配相似度阈值 */
     ACCEPTABLE_MATCH_THRESHOLD: 0.95,
@@ -76,12 +75,6 @@ interface MatchResult {
     confidence: number;
 }
 
-interface DiffHunk {
-    header?: string;
-    oldContent: string[];
-    newContent: string[];
-}
-
 interface RangeSpec {
     startLine?: number;
     endLine?: number;
@@ -114,7 +107,6 @@ function similarity(a: string, b: string): number {
     const lenDiff = Math.abs(a.length - b.length);
     const maxLen = Math.max(a.length, b.length);
 
-    // 长度差异超过20%，直接返回低相似度
     if (lenDiff / maxLen > CONFIG.MAX_LENGTH_DIFF_RATIO) {
         return 0.5;
     }
@@ -128,7 +120,7 @@ function similarity(a: string, b: string): number {
         return union > 0 ? intersection / union : 0;
     }
 
-    // Levenshtein 编辑距离（移除早期退出逻辑）
+    // Levenshtein 编辑距离
     const matrix: number[][] = [];
     for (let i = 0; i <= a.length; i++) {
         matrix[i] = [i];
@@ -137,7 +129,7 @@ function similarity(a: string, b: string): number {
         matrix[0][j] = j;
     }
 
-     for (let i = 1; i <= a.length; i++) {
+    for (let i = 1; i <= a.length; i++) {
         let minInRow = Infinity;
         for (let j = 1; j <= b.length; j++) {
             const cost = a[i - 1] === b[j - 1] ? 0 : 1;
@@ -149,10 +141,9 @@ function similarity(a: string, b: string): number {
             minInRow = Math.min(minInRow, matrix[i][j]);
         }
 
-        // 早期退出：返回保守值
+        // 早期退出：差异太大
         if (minInRow > maxLen * 0.15) {
-            // 字符串差异太大，直接返回低相似度
-            return 0;  // 保守策略：肯定不相似
+            return 0;
         }
     }
 
@@ -181,39 +172,30 @@ function findBlockInLines(
 
     let hasExactOrNormalized = false;
 
-    // 第一遍：查找精确和归一化匹配
+    // 第一遍：精确和归一化匹配
     for (let i = startLine; i <= endLine - searchLen; i++) {
         const windowLines = fileLines.slice(i, i + searchLen);
         const windowText = windowLines.join('\n');
 
-        // 精确匹配
         if (windowText === searchText) {
             results.push({
-                found: true,
-                startIdx: i,
-                endIdx: i + searchLen,
-                matchType: 'exact',
-                confidence: 1.0
+                found: true, startIdx: i, endIdx: i + searchLen,
+                matchType: 'exact', confidence: 1.0
             });
             hasExactOrNormalized = true;
             continue;
         }
 
-        // 归一化匹配
         const windowNormalized = normalizeForMatch(windowText);
         if (windowNormalized === searchNormalized) {
             results.push({
-                found: true,
-                startIdx: i,
-                endIdx: i + searchLen,
-                matchType: 'normalized',
-                confidence: 0.95
+                found: true, startIdx: i, endIdx: i + searchLen,
+                matchType: 'normalized', confidence: 0.95
             });
             hasExactOrNormalized = true;
         }
     }
 
-    // 如果找到精确或归一化匹配，直接返回
     if (hasExactOrNormalized) {
         results.sort((a, b) => b.confidence - a.confidence);
         return results;
@@ -227,14 +209,10 @@ function findBlockInLines(
             const windowNormalized = normalizeForMatch(windowText);
 
             const sim = similarity(windowNormalized, searchNormalized);
-            // 使用统一的阈值
             if (sim >= fuzzyThreshold) {
                 results.push({
-                    found: true,
-                    startIdx: i,
-                    endIdx: i + searchLen,
-                    matchType: 'fuzzy',
-                    confidence: sim
+                    found: true, startIdx: i, endIdx: i + searchLen,
+                    matchType: 'fuzzy', confidence: sim
                 });
             }
         }
@@ -244,15 +222,14 @@ function findBlockInLines(
 
     // 去重
     const seen = new Set<number>();
-    const dedupedResults: MatchResult[] = [];
+    const deduped: MatchResult[] = [];
     for (const r of results) {
         if (!seen.has(r.startIdx)) {
             seen.add(r.startIdx);
-            dedupedResults.push(r);
+            deduped.push(r);
         }
     }
-
-    return dedupedResults;
+    return deduped;
 }
 
 function findUniqueMatch(
@@ -262,19 +239,12 @@ function findUniqueMatch(
     enableFuzzy?: boolean,
     fuzzyThreshold?: number
 ): { match: MatchResult | null; error?: string } {
-    const matches = findBlockInLines(
-        fileLines,
-        searchLines,
-        range,
-        enableFuzzy,
-        fuzzyThreshold
-    );
+    const matches = findBlockInLines(fileLines, searchLines, range, enableFuzzy, fuzzyThreshold);
 
     if (matches.length === 0) {
         return { match: null, error: '未找到匹配的代码块' };
     }
 
-    // 使用统一的阈值
     const acceptableMatches = matches.filter(
         m => m.confidence >= CONFIG.ACCEPTABLE_MATCH_THRESHOLD
     );
@@ -282,7 +252,6 @@ function findUniqueMatch(
     if (acceptableMatches.length === 0) {
         const bestMatch = matches[0];
         const matchedLines = fileLines.slice(bestMatch.startIdx, bestMatch.endIdx);
-
         return {
             match: null,
             error: `未找到精确匹配，但在第 ${bestMatch.startIdx + 1} 行发现相似代码（相似度 ${(bestMatch.confidence * 100).toFixed(1)}%）：\n\n${matchedLines.join('\n')}\n\n请先用 ReadFile 查看文件，然后使用实际的代码内容重新提交。`
@@ -302,17 +271,20 @@ function findUniqueMatch(
     return { match: acceptableMatches[0] };
 }
 
+// ============================================================
+// 公共 API
+// ============================================================
 
+/**
+ * 应用 SEARCH/REPLACE 编辑
+ */
 export function applySearchReplace(
     fileContent: string,
     blocks: SearchReplaceBlock[],
     options?: EditOptions
 ): EditResult {
     if (!blocks || blocks.length === 0) {
-        return {
-            success: false,
-            error: '没有提供 SEARCH/REPLACE 块'
-        };
+        return { success: false, error: '没有提供 SEARCH/REPLACE 块' };
     }
 
     try {
@@ -322,19 +294,17 @@ export function applySearchReplace(
             match: MatchResult;
         }> = [];
 
-        // === 第一步：匹配所有块 ===
         const enableFuzzy = options?.enableFuzzyMatch ?? false;
         const fuzzyThreshold = options?.fuzzyMatchThreshold ?? CONFIG.FUZZY_MATCH_THRESHOLD;
 
+        // === 第一步：匹配所有块 ===
         for (let i = 0; i < blocks.length; i++) {
             const block = blocks[i];
             const searchLines = block.search.split('\n');
             const result = findUniqueMatch(
-                lines,
-                searchLines,
+                lines, searchLines,
                 options?.withinRange,
-                enableFuzzy,
-                fuzzyThreshold
+                enableFuzzy, fuzzyThreshold
             );
 
             if (result.error) {
@@ -377,8 +347,7 @@ export function applySearchReplace(
 
             changes.push({
                 startLine: op.match.startIdx + 1,
-                removed,
-                added,
+                removed, added,
                 matchType: op.match.matchType
             });
         }
@@ -395,157 +364,12 @@ export function applySearchReplace(
         };
 
     } catch (error: any) {
-        return {
-            success: false,
-            error: `编辑失败: ${error.message}`
-        };
-    }
-}
-
-/**
- * 应用 Unified Diff 编辑
- *
- * @param fileContent - 文件内容（字符串）
- * @param diff - Unified diff 格式文本
- * @param options - 编辑选项
- * @returns 编辑结果
- *
- * @example
- * const diff = `
- * @@ -10,3 +10,3 @@
- *  function foo() {
- * -  return 1;
- * +  return 2;
- *  }
- * `;
- *
- * const result = applyDiff(fileContent, diff);
- * if (result.success) {
- *   console.log("Diff 应用成功");
- *   fs.writeFileSync("file.txt", result.content);
- * }
- */
-export function applyDiff(
-    fileContent: string,
-    diff: string,
-    options?: EditOptions
-): EditResult {
-    try {
-        let lines = fileContent.split('\n');
-        const hunks = parseUnifiedDiffRelaxed(diff);
-
-        if (hunks.length === 0) {
-            return {
-                success: false,
-                error: '未找到有效的 diff hunk（需要 @@ 标记）'
-            };
-        }
-
-        const operations: Array<{
-            hunk: DiffHunk;
-            match: MatchResult;
-        }> = [];
-
-        const enableFuzzy = options?.enableFuzzyMatch ?? false;
-        const fuzzyThreshold = options?.fuzzyMatchThreshold ?? CONFIG.FUZZY_MATCH_THRESHOLD;
-
-        for (let i = 0; i < hunks.length; i++) {
-            const hunk = hunks[i];
-
-            if (hunk.oldContent.length === 0) {
-                return {
-                    success: false,
-                    error: `Hunk #${i + 1} 没有旧内容，无法定位`
-                };
-            }
-
-            const result = findUniqueMatch(
-                lines,
-                hunk.oldContent,
-                options?.withinRange,
-                enableFuzzy,
-                fuzzyThreshold
-            );
-
-            if (result.error) {
-                return {
-                    success: false,
-                    error: `Hunk #${i + 1} 匹配失败：${result.error}\n\n旧内容前 3 行：\n${hunk.oldContent.slice(0, 3).join('\n')}`
-                };
-            }
-
-            operations.push({ hunk, match: result.match! });
-        }
-
-        // === 第二步：检测冲突 ===
-        operations.sort((a, b) => b.match.startIdx - a.match.startIdx);
-        for (let i = 1; i < operations.length; i++) {
-            const prev = operations[i - 1];
-            const curr = operations[i];
-            if (curr.match.endIdx > prev.match.startIdx) {
-                return {
-                    success: false,
-                    error: 'Hunk 操作范围重叠'
-                };
-            }
-        }
-
-        // === 第三步：应用编辑 ===
-        const changes: ChangeInfo[] = [];
-        let totalRemoved = 0;
-        let totalAdded = 0;
-
-        for (const op of operations) {
-            const removed = op.match.endIdx - op.match.startIdx;
-            const added = op.hunk.newContent.length;
-
-            lines.splice(op.match.startIdx, removed, ...op.hunk.newContent);
-
-            totalRemoved += removed;
-            totalAdded += added;
-
-            changes.push({
-                startLine: op.match.startIdx + 1,
-                removed,
-                added,
-                matchType: op.match.matchType
-            });
-        }
-
-        return {
-            success: true,
-            content: lines.join('\n'),
-            stats: {
-                blocksApplied: hunks.length,
-                linesRemoved: totalRemoved,
-                linesAdded: totalAdded,
-                changes
-            }
-        };
-
-    } catch (error: any) {
-        return {
-            success: false,
-            error: `Diff 应用失败: ${error.message}`
-        };
+        return { success: false, error: `编辑失败: ${error.message}` };
     }
 }
 
 /**
  * 解析 SEARCH/REPLACE 块文本
- *
- * @param text - 包含 SEARCH/REPLACE 块的文本
- * @returns 解析出的块数组
- *
- * @example
- * const text = `
- * <<<<<<< SEARCH
- * old code
- * =======
- * new code
- * >>>>>>> REPLACE
- * `;
- * const blocks = parseSearchReplaceBlocks(text);
  */
 export function parseSearchReplaceBlocks(text: string): SearchReplaceBlock[] {
     const blocks: SearchReplaceBlock[] = [];
@@ -562,60 +386,8 @@ export function parseSearchReplaceBlocks(text: string): SearchReplaceBlock[] {
     return blocks;
 }
 
-function parseUnifiedDiffRelaxed(diffText: string): DiffHunk[] {
-    const lines = diffText.split('\n');
-    const hunks: DiffHunk[] = [];
-    let current: DiffHunk | null = null;
-
-    const startNewHunk = () => {
-        if (current) {
-            hunks.push(current);
-        }
-        current = { header: '', oldContent: [], newContent: [] };
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (line.startsWith('@@')) {
-            startNewHunk();
-            current!.header = line;
-            continue;
-        }
-
-        if (!current) {
-            continue;
-        }
-
-        if (line.startsWith('+')) {
-            current.newContent.push(line.slice(1));
-        } else if (line.startsWith('-')) {
-            current.oldContent.push(line.slice(1));
-        } else {
-            current.oldContent.push(line.startsWith(' ') ? line.slice(1) : line);
-            current.newContent.push(line.startsWith(' ') ? line.slice(1) : line);
-        }
-    }
-
-    if (current && (current.oldContent.length > 0 || current.newContent.length > 0)) {
-        hunks.push(current);
-    }
-
-    for (const hunk of hunks) {
-        while (hunk.oldContent.length > 0 && hunk.oldContent[hunk.oldContent.length - 1] === '') {
-            hunk.oldContent.pop();
-        }
-        while (hunk.newContent.length > 0 && hunk.newContent[hunk.newContent.length - 1] === '') {
-            hunk.newContent.pop();
-        }
-    }
-
-    return hunks;
-}
-
 export default {
     applySearchReplace,
-    applyDiff,
     parseSearchReplaceBlocks,
     CONFIG
 };
