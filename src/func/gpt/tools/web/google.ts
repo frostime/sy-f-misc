@@ -8,7 +8,7 @@
  *                 2. Direct scraping (fallback, may be blocked in mainland China)
  */
 import { getFrontend } from "siyuan";
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { forwardProxy } from "@/api";
 import { GoogleSearchResult, GoogleSearchItem, WebToolError, WebToolErrorCode } from "./types";
 import { globalMiscConfigs } from "../../setting";
@@ -377,7 +377,7 @@ export const googleSearchTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE
+        executionPolicy: 'ask-once'
     },
 
     execute: async (args: {

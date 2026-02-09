@@ -5,7 +5,7 @@
  * @FilePath     : /src/func/gpt/tools/web/fetch-webpage.ts
  * @Description  : 基础网页获取工具 - 获取网页并转换为 Markdown
  */
-import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { normalizeLimit, truncateContent } from '../utils';
 import { WebToolError, WebToolErrorCode, WebPageContentResult } from './types';
 import { fetchWebContentAsMarkdown, isValidUrl } from './webpage';
@@ -75,8 +75,8 @@ export const fetchWebPageTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE,
-        requireResultApproval: true
+        executionPolicy: 'ask-once',
+        resultApprovalPolicy: 'always'
     },
 
     execute: async (args: {

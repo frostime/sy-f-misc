@@ -6,7 +6,7 @@
  * @Description  : Tavily search API integration
  */
 import { globalMiscConfigs } from '../../model/store';
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from '../types';
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from '../types';
 import { formatWithXMLTags, normalizeLimit, truncateContent } from '../utils';
 import { WebToolError, WebToolErrorCode, TavilySearchResult as ITavilySearchResult } from './types';
 
@@ -306,7 +306,7 @@ export const tavilySearchTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE
+        executionPolicy: 'ask-once'
     },
 
     execute: async (args: {

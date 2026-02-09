@@ -6,7 +6,7 @@
  * @Description  : ToolCallScript 技能文档查询工具
  */
 
-import { Tool, ToolExecuteStatus, ToolPermissionLevel, ToolExecuteResult } from "../types";
+import { Tool, ToolExecuteStatus, ToolExecuteResult } from "../types";
 
 /**
  * 技能文档主题定义
@@ -224,7 +224,7 @@ export const toolCallScriptDocTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     execute: async (args: { topics: string[] }): Promise<ToolExecuteResult> => {

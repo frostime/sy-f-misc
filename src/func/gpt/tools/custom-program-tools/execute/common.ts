@@ -6,7 +6,7 @@
  * @FilePath     : /src/func/gpt/tools/custom-program-tools/execute/common.ts
  * @LastEditTime : 2026-01-05 14:55:37
  */
-import { ToolPermission, ToolPermissionLevel } from '../../types';
+import { ToolPermissionV2 } from '../../types';
 import { globalMiscConfigs } from '../../../model/store';
 
 const process = window?.require?.('process') || (window as any).process;
@@ -27,29 +27,11 @@ export const getEnvVars = () => {
     return env;
 };
 
-export const extractPermissionConfig = (toolDef: IToolDefinition): ToolPermission => {
-    const config: any = {};
-
-    if ((toolDef as any).permissionLevel) {
-        const level = (toolDef as any).permissionLevel;
-        if (level === 'public') config.permissionLevel = ToolPermissionLevel.PUBLIC;
-        else if (level === 'moderate') config.permissionLevel = ToolPermissionLevel.MODERATE;
-        else if (level === 'sensitive') config.permissionLevel = ToolPermissionLevel.SENSITIVE;
-    } else {
-        config.permissionLevel = ToolPermissionLevel.SENSITIVE;
-    }
-
-    if ((toolDef as any).requireExecutionApproval !== undefined) {
-        config.requireExecutionApproval = (toolDef as any).requireExecutionApproval;
-    } else {
-        config.requireExecutionApproval = true;
-    }
-
-    if ((toolDef as any).requireResultApproval !== undefined) {
-        config.requireResultApproval = (toolDef as any).requireResultApproval;
-    } else {
-        config.requireResultApproval = true;
-    }
+export const extractPermissionConfig = (toolDef: IToolDefinition): ToolPermissionV2 => {
+    const config: ToolPermissionV2 = {
+        executionPolicy: (toolDef as any).executionPolicy || 'ask-once',
+        resultApprovalPolicy: (toolDef as any).resultApprovalPolicy || 'never'
+    };
 
     return config;
 };

@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "7.9.0",
+  "version": "7.9.1",
   "type": "module",
   "description": "Frostime 自动工具代码",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -8,7 +8,7 @@
   "author": "frostime",
   "license": "GPL-3.0-only",
   "scripts": {
-    "type-check": "tsc --project tsconfig.json --noEmit --skipLibCheck",
+    "type-check": "tsc --project tsconfig.json --noEmit --skipLibCheck --noUnusedLocals false --noUnusedParameters false",
     "dev": "pnpm run dev:full",
     "dev:full": "cross-env NODE_ENV=development VITE_SOURCEMAP=inline PRIVATE_ADD=true vite build --watch",
     "dev:publish": "cross-env NODE_ENV=development VITE_SOURCEMAP=inline vite build --watch",

@@ -62,10 +62,10 @@ def my_tool(param1: str, param2: int = 10) -> dict:
     """
     return {"key1": "value", "key2": param2}
 
-# 权限配置（可选）
-my_tool.permissionLevel = "moderate"  # public | moderate | sensitive
-my_tool.requireExecutionApproval = True
-my_tool.requireResultApproval = False
+# 权限配置（可选）- 新版本格式
+my_tool.executionPolicy = "ask-once"  # auto | ask-once | ask-always
+my_tool.resultApprovalPolicy = "never"  # never | on-error | always
+
 
 # 格式化函数（可选）
 # 用于将结构化数据转换为人类可读的文本

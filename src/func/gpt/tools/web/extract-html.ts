@@ -11,7 +11,7 @@
  * - 移除重复解析：不再需要重新解析 HTML 字符串
  * - 代码更清晰：遵循 SOLID 原则，职责单一
  */
-import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { normalizeLimit } from '../utils';
 import { WebToolError, WebToolErrorCode } from './types';
 import { fetchWebPageAsHTML, isValidUrl, type HTMLPageContent } from './webpage';
@@ -259,8 +259,8 @@ export const inspectDOMStructureTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE,
-        requireResultApproval: true
+        executionPolicy: 'ask-once',
+        resultApprovalPolicy: 'always'
     },
 
     execute: async (args: {
@@ -467,8 +467,8 @@ export const extractHTMLTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE,
-        requireResultApproval: true
+        executionPolicy: 'ask-once',
+        resultApprovalPolicy: 'always'
     },
 
     execute: async (args: {

@@ -6,7 +6,7 @@
  * @Description  : 工具审核 UI 组件和适配器
  */
 import { Component, JSX, Match, Show, Switch } from "solid-js";
-import { ToolExecuteResult, ApprovalUIAdapter, ToolPermission, ToolPermissionLevel } from "./types";
+import { ToolExecuteResult, ApprovalUIAdapter, ExecutionPolicy, ToolPermission } from "./types";
 import { ButtonInput } from "@/libs/components/Elements";
 import { solidDialog } from "@/libs/dialog";
 import { createSignalRef } from "@frostime/solid-signal-ref";
@@ -235,20 +235,60 @@ export const ToolExecutionApprovalUI: Component<{
     const safetyReviewResult = createSignalRef<string | null>(null);
     const isReviewing = createSignalRef(false);
 
-    // 获取有效的权限级别（考虑用户覆盖配置）
-    const getEffectivePermissionLevel = (): ToolPermissionLevel | undefined => {
+    /**
+     * 获取工具的有效执行策略
+     * 配置优先级：用户覆盖 > 工具定义默认值
+     * 注：用户覆盖已在配置迁移中统一为新格式；工具定义兼容新旧格式
+     */
+    const getEffectiveExecutionPolicy = (): ExecutionPolicy => {
         const toolName = props.toolDefinition?.function?.name;
-        if (!toolName) return props.toolDefinition?.permissionLevel;
+        const toolDef = props.toolDefinition;
 
-        const override = toolsManager().toolPermissionOverrides[toolName];
-        if (override?.permissionLevel) {
-            switch (override.permissionLevel) {
-                case 'public': return ToolPermissionLevel.PUBLIC;
-                case 'moderate': return ToolPermissionLevel.MODERATE;
-                case 'sensitive': return ToolPermissionLevel.SENSITIVE;
+        if (!toolDef) return 'auto';
+
+        // 如果没有工具名，直接从 toolDefinition 推断
+        if (!toolName) {
+            // 优先使用 V2 格式
+            if ('executionPolicy' in toolDef && toolDef.executionPolicy) {
+                return toolDef.executionPolicy as ExecutionPolicy;
+            }
+
+            // 兼容 V1 格式（内置工具定义尚未迁移）
+            const oldPerm = toolDef as any;
+            if (oldPerm.requireExecutionApproval === false) return 'auto';
+
+            const level = oldPerm.permissionLevel || 'public';
+            switch (level) {
+                case 'public': return 'auto';
+                case 'moderate': return 'ask-once';
+                case 'sensitive': return 'ask-always';
+                default: return 'auto';
             }
         }
-        return props.toolDefinition?.permissionLevel;
+
+        const override = structuredClone(toolsManager.unwrap().toolPermissionOverrides[toolName]) ?? {};
+
+        // 1. 用户覆盖配置（已在配置迁移中统一为新格式）
+        if (override?.executionPolicy) {
+            return override.executionPolicy as ExecutionPolicy;
+        }
+
+        // 2. 工具定义的新格式
+        if ('executionPolicy' in toolDef && toolDef.executionPolicy) {
+            return toolDef.executionPolicy as ExecutionPolicy;
+        }
+
+        // 3. 工具定义的旧格式兼容（内置工具定义尚未迁移）
+        const oldPerm = toolDef as any;
+        if (oldPerm.requireExecutionApproval === false) return 'auto';
+
+        const level = oldPerm.permissionLevel || 'public';
+        switch (level) {
+            case 'public': return 'auto';
+            case 'moderate': return 'ask-once';
+            case 'sensitive': return 'ask-always';
+            default: return 'auto';
+        }
     };
 
     const handleSafetyReview = async () => {
@@ -265,13 +305,17 @@ export const ToolExecutionApprovalUI: Component<{
         }
     };
 
-    // ✅ 修复：放宽显示条件，MODERATE 及以上都显示
+    /**
+     * 安全审查按钮
+     * 在需要审批的工具上显示（ask-once、ask-always），帮助用户评估风险
+     */
     const SafetyReviewButton = () => {
         const shouldShowButton = () => {
             if (!props.toolDefinition) return false;
-            const level = getEffectivePermissionLevel();
-            return level === ToolPermissionLevel.SENSITIVE ||
-                level === ToolPermissionLevel.MODERATE;
+            const policy = getEffectiveExecutionPolicy();
+            // 自动执行的工具不需要安全审查按钮（已经是安全的）
+            // ask-once 和 ask-always 的工具需要用户决策，提供 AI 安全审查辅助
+            return policy === 'ask-once' || policy === 'ask-always';
         };
 
         return (
@@ -326,10 +370,11 @@ export const ToolExecutionApprovalUI: Component<{
                     </h4>
                     <div class="b3-typography" style={{
                         "white-space": "pre-wrap",
-                        "font-size": "13px",
-                        "line-height": "1.6"
                     }}>
-                        <Markdown markdown={safetyReviewResult() ?? ""} />
+                        <Markdown markdown={safetyReviewResult() ?? ""} style={{
+                            "font-size": "13px",
+                        "line-height": "1.6"
+                        }}/>
                     </div>
                 </div>
             </Show>

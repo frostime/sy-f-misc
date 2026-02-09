@@ -1,5 +1,5 @@
 import { VFSManager, IVFS } from '@/libs/vfs';
-import { Tool, ToolGroup, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolGroup, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { createViewerUtils } from './viewer-utils';
 
 export function createViewerTools(vfs: VFSManager): ToolGroup {
@@ -59,8 +59,8 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
             },
         },
         permission: {
-            permissionLevel: ToolPermissionLevel.MODERATE,
-            requireResultApproval: true
+            executionPolicy: 'ask-once',
+            resultApprovalPolicy: 'always'
         },
         execute: async (args): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) return { status: ToolExecuteStatus.ERROR, error: '文件系统不可用' };
@@ -229,8 +229,8 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
             },
         },
         permission: {
-            permissionLevel: ToolPermissionLevel.MODERATE,
-            requireResultApproval: true
+            executionPolicy: 'ask-once',
+            resultApprovalPolicy: 'always'
         },
         execute: async (args): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) return { status: ToolExecuteStatus.ERROR, error: '文件系统不可用' };
@@ -391,8 +391,8 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
             },
         },
         permission: {
-            permissionLevel: ToolPermissionLevel.MODERATE,
-            requireResultApproval: true
+            executionPolicy: 'ask-once',
+            resultApprovalPolicy: 'always'
         },
         execute: async (args): Promise<ToolExecuteResult> => {
             if (!vfs.isAvailable()) return { status: ToolExecuteStatus.ERROR, error: '文件系统不可用' };
@@ -491,7 +491,7 @@ export function createViewerTools(vfs: VFSManager): ToolGroup {
         },
 
         permission: {
-            permissionLevel: ToolPermissionLevel.PUBLIC
+            executionPolicy: 'auto'
         },
 
         execute: async (args): Promise<ToolExecuteResult> => {

@@ -5,7 +5,7 @@
  * @FilePath     : /src/func/gpt/tools/web/search-in-webpage.ts
  * @Description  : 网页内关键词搜索工具 - 在网页中搜索关键词并返回匹配内容
  */
-import { Tool, ToolPermissionLevel, ToolExecuteResult, ToolExecuteStatus } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { normalizeLimit, truncateContent } from '../utils';
 import { WebToolError, WebToolErrorCode, WebPageContentResult } from './types';
 import { fetchWebContentAsMarkdown, isValidUrl } from './webpage';
@@ -185,8 +185,8 @@ export const searchInWebPageTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE,
-        requireResultApproval: true
+        executionPolicy: 'ask-once',
+        resultApprovalPolicy: 'never'
     },
 
     execute: async (args: {

@@ -2,8 +2,8 @@
 name: hspa
 description: Develop plugin UI by writing single HTML pages loaded in iframes within sy-f-misc. Use this skill when the user asks to build UI using HSPA, "HTML Page", or needs an iframe-based interface for a plugin feature. Also trigger when the user mentions openIframeTab, openIframeDialog, or pluginSdk.
 metadata:
-    version: 2.0.0
-    author: frsotime
+    version: 2.1.0
+    author: frostime
 ---
 
 ## What is HSPA
@@ -196,6 +196,8 @@ window.addEventListener('init-data', (e) => console.log(e.detail.items));
 
 ## Styling
 
+### Default
+
 **Read `references/styling-guide.md` for complete CSS variable list and architecture.**
 
 Key points:
@@ -203,6 +205,21 @@ Key points:
 - Always set `data-theme-mode` attribute during init for dark mode CSS selectors
 - Use semantic CSS variables derived from injected theme colors
 - If defining custom colors, provide both light and dark variants
+
+### Optional: `hspa-mini.css`
+
+A lightweight CSS framework built on HSPA's injected theme variables. Provides layout utilities, page structure, cards, buttons, forms, badges, tables, and more — eliminating the need to write boilerplate CSS for every page.
+
+```html
+<link rel="stylesheet" href="/plugins/sy-f-misc/styles/hspa-mini.css">
+```
+
+- **File**: `public/styles/hspa-mini.css`
+- **Runtime**: `/plugins/sy-f-misc/styles/hspa-mini.css`
+
+When `hspa-mini.css` is loaded, you get pre-defined semantic variables (`--c-bg`, `--c-fg`, `--c-accent`, `--fs-sm`, `--sp-4`, etc.) and utility classes.
+
+**Read `references/hspa-mini-classes.md` for the full class reference and examples.**
 
 ---
 
@@ -246,11 +263,32 @@ function appData() {
                 window.addEventListener('pluginSdkReady', r, { once: true });
             });
             this.items = await window.pluginSdk.getItems();
+        },
+        async saveAll() {
+
+            try {
+                // KEY! Use Alpine.raw to pass raw data, instead of a Aplhine data Proxy
+                await window.pluginSdk.saveItems(Alpine.raw(this.items));
+                window.pluginSdk.showMessage('保存成功', 'info');
+            } catch (error) {
+                console.error('保存失败:', error);
+                window.pluginSdk.showMessage('保存失败: ' + error.message, 'error');
+            } finally {
+            }
         }
     };
 }
 </script>
 ```
+
+**Core Alpine.js Document**
+- Homepage Page: https://alpinejs.dev/start-here
+- State: https://alpinejs.dev/essentials/state
+- Template: https://alpinejs.dev/essentials/templating
+- Events: https://alpinejs.dev/essentials/events
+- Lifecycle: https://alpinejs.dev/essentials/lifecycle
+
+See [references/quick-alpinejs.md](./references/quick-alpinejs.md)
 
 ### Vue 3
 
@@ -291,7 +329,9 @@ For external JS/CSS dependencies: avoid if possible, inform the user when needed
 | File | When to read |
 |---|---|
 | `references/preset-sdk-api.md` (This Skill Dir) | Need full API signatures and type definitions |
-| `references/styling-guide.md` (This Skill Dir)  | Building the CSS architecture or theming |
-| `references/siyuan-context.md` (This Skill Dir)  | Working with SiYuan file system, blocks, or kernel APIs |
-| `/src/func/html-pages/html-page.md` (Workspace Path)  | User-facing HSPA SDK (not for internal pages) |
-| `/src/func/html-pages/core.ts` (Workspace Path)  | Implementation details |
+| `references/styling-guide.md` (This Skill Dir) | Building the CSS architecture or theming (default) |
+| `references/hspa-mini-classes.md` (This Skill Dir) | Using `hspa-mini.css` — full class reference |
+| `references/siyuan-context.md` (This Skill Dir) | Working with SiYuan file system, blocks, or kernel APIs |
+| `references/quick-alpinejs.md` (This Skill Dir) | Write HSPA with Alpine.js |
+| `/src/func/html-pages/html-page.md` (Workspace Path) | User-facing HSPA SDK (not for internal pages) |
+| `/src/func/html-pages/core.ts` (Workspace Path) | Implementation details |

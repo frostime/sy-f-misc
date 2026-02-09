@@ -86,7 +86,7 @@ def _map_py_to_json_type(py_type: type) -> dict:
     }
 
 
-def generate_schema_from_function(func: typing.Callable) -> dict:
+def generate_schema_from_function(func: typing.Callable) -> dict | None:
     """
     从一个函数对象（在运行时）生成 OpenAI Tool Schema。
     """
@@ -171,19 +171,36 @@ def generate_schema_from_function(func: typing.Callable) -> dict:
         tool_schema['declaredReturnType'] = declared_data_type
 
     # 5. 提取权限配置属性（如果存在）
+    # 支持新格式（executionPolicy, resultApprovalPolicy）和旧格式（permissionLevel, requireExecutionApproval, requireResultApproval）
+    # 旧格式会被转换为新格式输出
     permission_config = {}
 
-    # 检查函数是否设置了权限属性
-    if hasattr(func, 'permissionLevel'):
-        permission_config['permissionLevel'] = func.permissionLevel
+    # 新格式优先
+    if hasattr(func, 'executionPolicy'):
+        permission_config['executionPolicy'] = func.executionPolicy
+    elif hasattr(func, 'permissionLevel'):
+        # 旧格式转换：permissionLevel -> executionPolicy
+        level = func.permissionLevel
+        if level == 'public':
+            permission_config['executionPolicy'] = 'auto'
+        elif level == 'moderate':
+            permission_config['executionPolicy'] = 'ask-once'
+        elif level == 'sensitive':
+            permission_config['executionPolicy'] = 'ask-always'
+        else:
+            permission_config['executionPolicy'] = 'ask-always'  # 默认最安全
+    elif hasattr(func, 'requireExecutionApproval'):
+        # 旧格式转换：requireExecutionApproval -> executionPolicy
+        permission_config['executionPolicy'] = 'auto' if not func.requireExecutionApproval else 'ask-once'
 
-    if hasattr(func, 'requireExecutionApproval'):
-        permission_config['requireExecutionApproval'] = func.requireExecutionApproval
+    # resultApprovalPolicy 处理
+    if hasattr(func, 'resultApprovalPolicy'):
+        permission_config['resultApprovalPolicy'] = func.resultApprovalPolicy
+    elif hasattr(func, 'requireResultApproval'):
+        # 旧格式转换：requireResultApproval -> resultApprovalPolicy
+        permission_config['resultApprovalPolicy'] = 'always' if func.requireResultApproval else 'never'
 
-    if hasattr(func, 'requireResultApproval'):
-        permission_config['requireResultApproval'] = func.requireResultApproval
-
-    # 将权限配置添加到 tool_schema
+    # 将权限配置添加到 tool_schema（只包含新格式字段）
     if permission_config:
         tool_schema.update(permission_config)
 
@@ -207,6 +224,7 @@ def import_module_from_path(file_path: Path):
         module = importlib.util.module_from_spec(spec)
         # 将模块添加到 sys.modules，这样它在导入时可以找到自己
         sys.modules[module_name] = module
+        assert spec.loader is not None
         spec.loader.exec_module(module)
         return module
     except Exception as e:

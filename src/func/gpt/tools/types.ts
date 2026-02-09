@@ -3,11 +3,12 @@
  * @Author       : frostime
  * @Date         : 2025-05-11 01:45:14
  * @FilePath     : /src/func/gpt/tools/types.ts
- * @LastEditTime : 2026-01-05 19:47:52
+ * @LastEditTime : 2026-02-09 16:45:37
  * @Description  : 工具类型定义
  */
 /**
  * 工具权限级别
+ * @deprecated 使用 ExecutionPolicy 替代
  */
 export enum ToolPermissionLevel {
     // 无需用户审核，可直接执行
@@ -19,6 +20,22 @@ export enum ToolPermissionLevel {
     // 每次执行都需要用户审核
     SENSITIVE = 'sensitive'
 }
+
+/**
+ * 执行策略 - 控制工具执行前的审批行为
+ */
+export type ExecutionPolicy =
+    | 'auto'        // 自动批准，无需询问
+    | 'ask-once'    // 首次询问，记住选择（基于工具+参数hash）
+    | 'ask-always'; // 每次都询问
+
+/**
+ * 结果审批策略 - 控制工具执行结果是否需要审批后才发送给 LLM
+ */
+export type ResultApprovalPolicy =
+    | 'never'     // 不审批结果（默认）
+    | 'on-error'  // 仅在工具执行错误时审批
+    | 'always';   // 总是审批结果
 
 /**
  * 工具执行状态
@@ -99,6 +116,31 @@ export type ResultApprovalCallback = (
     rejectReason?: string;
 }>;
 
+/**
+ * 工具权限配置 V2 - 新版本统一权限模型
+ */
+export type ToolPermissionV2 = {
+    /**
+     * 执行策略 - 控制工具执行前的审批行为
+     * - 'auto': 自动批准，无需询问
+     * - 'ask-once': 首次询问，记住选择（基于工具+参数hash）
+     * - 'ask-always': 每次都询问
+     */
+    executionPolicy?: ExecutionPolicy;
+
+    /**
+     * 结果审批策略 - 控制工具执行结果是否需要审批后才发送给 LLM
+     * - 'never': 不审批结果（默认）
+     * - 'on-error': 仅在工具执行错误时审批
+     * - 'always': 总是审批结果
+     */
+    resultApprovalPolicy?: ResultApprovalPolicy;
+};
+
+/**
+ * 工具权限配置 - 旧版本（保留向后兼容）
+ * @deprecated 使用 ToolPermissionV2 替代
+ */
 export type ToolPermission = {
     // 工具权限级别
     permissionLevel?: ToolPermissionLevel;
@@ -145,7 +187,13 @@ export interface Tool {
     // definition: ToolDefinitionWithPermission
     definition: IToolDefinition;
 
-    permission: ToolPermission;
+    /**
+     * 工具权限配置
+     * 支持新旧两种格式：
+     * - 新格式（推荐）：ToolPermissionV2 { executionPolicy, resultApprovalPolicy }
+     * - 旧格式（兼容）：ToolPermission { permissionLevel, requireExecutionApproval, requireResultApproval }
+     */
+    permission: ToolPermissionV2;
 
     SKIP_EXTERNAL_TRUNCATE?: boolean;
     DEFAULT_OUTPUT_LIMIT_CHAR?: number;

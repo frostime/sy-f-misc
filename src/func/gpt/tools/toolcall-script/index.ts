@@ -10,7 +10,7 @@
  * 最终返回脚本中的 console 输出，方便 LLM 查看执行结果。
  */
 import { ToolExecutor } from "../executor";
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { complete } from "../../openai/complete";
 import * as store from "@/func/gpt/model/store";
 import { toolCallScriptDocTool } from "./skill-doc";
@@ -287,9 +287,8 @@ Available APIs in script:
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireExecutionApproval: true,
-        requireResultApproval: true
+        executionPolicy: 'ask-always',
+        resultApprovalPolicy: 'always'
     },
 
     declaredReturnType: {
@@ -379,7 +378,7 @@ export const registerToolCallScriptGroup = (executor: ToolExecutor) => {
             },
         },
         permission: {
-            permissionLevel: ToolPermissionLevel.PUBLIC
+            executionPolicy: 'auto'
         },
 
         declaredReturnType: {

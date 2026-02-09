@@ -264,11 +264,11 @@ const injectSiyuanStyles = (iframe: HTMLIFrameElement, style: Record<string, str
                 ${cssVariables}
             }
             body {
-                font-family: var(--b3-font-family, sans-serif);
-                font-size: var(--b3-font-size, 16px);
+                font-family: var(--font-family, sans-serif);
+                font-size: var(--font-size, 16px);
             }
             pre, code {
-                font-family: var(--b3-font-family-code, monospace);
+                font-family: var(--font-family-code, monospace);
             }
         `;
 
@@ -545,15 +545,23 @@ export const createIframePage = (
     }
 
     let cleanupForwardEvents: (() => void) | null = null;
+    let sdkInjected = false;
 
     // 加载完成处理
     iframe.addEventListener('load', () => {
+        // Guard: iframe load 可能触发多次（Electron 中 DOM 移动、about:blank 等）
+        if (sdkInjected) {
+            console.debug('Iframe load fired again, skipping re-injection');
+            return;
+        }
+
         console.log('Iframe 加载完成');
 
         // 注入 SDK（如果配置了）
         if (config.inject) {
             injectSdk(iframe, config);
         }
+        sdkInjected = true;
 
         if (config.onLoadEvents) {
             console.log('准备发送 onLoadEvents:', config.onLoadEvents);

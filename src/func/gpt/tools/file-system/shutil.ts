@@ -1,5 +1,5 @@
 import { VFSManager, IVFS } from '@/libs/vfs';
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 
 export function createShutilTools(vfs: VFSManager): Tool[] {
     /**
@@ -23,7 +23,7 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
         },
 
         permission: {
-            permissionLevel: ToolPermissionLevel.MODERATE
+            executionPolicy: 'ask-once'
         },
 
         execute: async (args: { path: string; recursive?: boolean }): Promise<ToolExecuteResult> => {
@@ -69,7 +69,7 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
         },
 
         permission: {
-            permissionLevel: ToolPermissionLevel.SENSITIVE
+            executionPolicy: 'ask-always'
         },
 
         execute: async (args: { from: string; to: string }): Promise<ToolExecuteResult> => {
@@ -137,7 +137,7 @@ export function createShutilTools(vfs: VFSManager): Tool[] {
         },
 
         permission: {
-            permissionLevel: ToolPermissionLevel.SENSITIVE
+            executionPolicy: 'ask-always'
         },
 
         execute: async (args: { from: string; to: string; recursive?: boolean }): Promise<ToolExecuteResult> => {

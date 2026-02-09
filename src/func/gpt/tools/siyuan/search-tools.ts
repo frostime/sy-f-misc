@@ -1,7 +1,7 @@
 import { sql } from "@/api";
 import { request } from "@frostime/siyuan-plugin-kits/api";
 import { getNotebook } from "@frostime/siyuan-plugin-kits";
-import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolPermissionLevel } from "../types";
+import { Tool, ToolExecuteResult, ToolExecuteStatus } from "../types";
 import { documentMapper, DocumentSummary, formatDocList } from "./utils";
 
 export const searchDocumentTool: Tool = {
@@ -36,7 +36,7 @@ export const searchDocumentTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.PUBLIC
+        executionPolicy: 'auto'
     },
 
     declaredReturnType: {
@@ -106,7 +106,7 @@ export const sqlUsageHelperTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE
+        executionPolicy: 'ask-once'
     },
 
     execute: async (): Promise<ToolExecuteResult> => {
@@ -139,8 +139,8 @@ export const querySQLTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE,
-        requireResultApproval: true
+        executionPolicy: 'ask-always',
+        resultApprovalPolicy: 'always'
     },
 
     declaredReturnType: {
@@ -207,8 +207,8 @@ export const searchKeywordTool: Tool = {
     },
 
     permission: {
-        permissionLevel: ToolPermissionLevel.MODERATE,
-        requireResultApproval: true
+        executionPolicy: 'ask-once',
+        resultApprovalPolicy: 'always'
     },
 
     declaredReturnType: {

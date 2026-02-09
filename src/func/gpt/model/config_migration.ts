@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 11:29:03
  * @FilePath     : /src/func/gpt/model/config_migration.ts
- * @LastEditTime : 2025-12-31 18:35:57
+ * @LastEditTime : 2026-02-09 15:50:16
  * @Description  : Schema version comparison and legacy data migration (internal)
  */
 
@@ -12,7 +12,7 @@ import { createModelConfig } from "./preset";
 import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_CHAT_ENDPOINT } from "./url_utils";
 import { asStorage } from "./config";
 
-export const CURRENT_SCHEMA = '2.1';
+export const CURRENT_SCHEMA = '3.0';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -213,6 +213,88 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
             console.log('[GPT 配置迁移] 隐私配置已从全局移至会话级别');
         }
     }
+
+    // 3.0 版本: 向后兼容 schema <= 2.1; 变更: 彻底清理工具权限配置，移除所有旧格式字段
+    if (compareSchemaVersion(dataSchema, '3.0') < 0) {
+        const toolsManagerConfig = (data as any).toolsManager;
+
+        if (toolsManagerConfig && toolsManagerConfig.toolPermissionOverrides) {
+            console.log('[工具权限迁移 V3] 开始彻底清理工具权限配置...');
+
+            const overrides = toolsManagerConfig.toolPermissionOverrides;
+            let migratedCount = 0;
+            let cleanedCount = 0;
+
+            for (const [toolName, config] of Object.entries(overrides) as [string, any][]) {
+                // 确定 executionPolicy
+                let executionPolicy: 'auto' | 'ask-once' | 'ask-always' = 'auto';
+
+                if (config.executionPolicy !== undefined) {
+                    // 如果已有新字段，直接使用
+                    executionPolicy = config.executionPolicy;
+                } else if (config.requireExecutionApproval === false) {
+                    // 旧字段：requireExecutionApproval = false → auto
+                    executionPolicy = 'auto';
+                } else {
+                    // 根据 permissionLevel 转换
+                    const level = config.permissionLevel || 'public';
+                    switch (level) {
+                        case 'public':
+                            executionPolicy = 'auto';
+                            break;
+                        case 'moderate':
+                            executionPolicy = 'ask-once';
+                            break;
+                        case 'sensitive':
+                            executionPolicy = 'ask-always';
+                            break;
+                        default:
+                            executionPolicy = 'auto';
+                    }
+                }
+
+                // 确定 resultApprovalPolicy
+                let resultApprovalPolicy: 'never' | 'on-error' | 'always' = 'never';
+
+                if (config.resultApprovalPolicy !== undefined) {
+                    // 如果已有新字段，直接使用
+                    resultApprovalPolicy = config.resultApprovalPolicy;
+                } else if (config.requireResultApproval === true) {
+                    // 旧字段：requireResultApproval = true → always
+                    resultApprovalPolicy = 'always';
+                } else {
+                    resultApprovalPolicy = 'never';
+                }
+
+                // 彻底替换为纯净的新格式（删除所有旧字段）
+                const hadOldFields = config.permissionLevel !== undefined ||
+                                    config.requireExecutionApproval !== undefined ||
+                                    config.requireResultApproval !== undefined;
+
+                overrides[toolName] = {
+                    executionPolicy,
+                    resultApprovalPolicy
+                };
+
+                if (hadOldFields) {
+                    cleanedCount++;
+                }
+                migratedCount++;
+            }
+
+            toolsManagerConfig.toolPermissionOverrides = overrides;
+
+            // 删除旧的 permissionSchemaVersion 字段（不再使用）
+            if (toolsManagerConfig.permissionSchemaVersion !== undefined) {
+                delete toolsManagerConfig.permissionSchemaVersion;
+                console.log('[工具权限迁移 V3] 已删除 permissionSchemaVersion 字段');
+            }
+
+            console.log(`[工具权限迁移 V3] 完成: 共处理 ${migratedCount} 个工具，清理旧字段 ${cleanedCount} 个`);
+            migrated = true;
+        }
+    }
+
     migrated = true;
     (data as any).schema = CURRENT_SCHEMA;
     return { data, migrated };

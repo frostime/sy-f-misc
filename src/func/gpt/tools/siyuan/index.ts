@@ -25,7 +25,7 @@ import { applyBlockDiffTool } from './diff-edit';
 import { searchDocumentTool, querySQLTool, searchKeywordTool } from './search-tools';
 import { siyuanSkillRules } from './skill-doc';
 import { request } from '@frostime/siyuan-plugin-kits/api';
-import { Tool, ToolPermissionLevel } from '../types';
+import { Tool } from '../types';
 
 export const siyuanKernalAPI: Tool = {
     definition: {
@@ -50,7 +50,7 @@ export const siyuanKernalAPI: Tool = {
         }
     },
     permission: {
-        permissionLevel: ToolPermissionLevel.SENSITIVE
+        executionPolicy: 'ask-always'
     },
 
     execute: async (args: { endpoint: string; payload?: any }): Promise<any> => {
