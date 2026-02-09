@@ -7,8 +7,9 @@
  */
 import { isNodeAvailable } from './viewer-utils';
 import { viewTool, listTool, inspectTool } from './viewer';
-import { searchReplaceTool, writeFileTool, editorRulePrompt } from './editor';
+import { searchReplaceTool, writeFileTool } from './editor';
 import { shellTools } from './shell';
+import { fileSystemSkillRules } from './skill-rules';
 import { getPlatform, getScriptName } from '@/libs/system-utils';
 import type { ToolGroup } from '../types';
 
@@ -35,24 +36,25 @@ export const createFileSystemToolGroup = (): ToolGroup => {
         rulePrompt = `
 ## 文件系统工具组
 
-### 查看工具
-- **fs-View** - 智能文件查看（full/head/tail/range 模式，自动处理大文件）
-- **fs-List** - 目录树展示（深度/过滤控制）
-- **fs-Inspect** - 文件元信息（大小、行数、类型）
+### 文件系统工具选择指南
 
-### 搜索工具
-- **fs-Glob** - 按文件名搜索（底层 ${getScriptName() === 'PowerShell' ? 'Get-ChildItem' : 'find'}，高性能）
-- **fs-Grep** - 按内容搜索（底层 ${getScriptName() === 'PowerShell' ? 'Select-String' : 'grep -rn'}，支持正则）
-
-### 文件操作
-- **fs-FileOps** - 受限 ${getScriptName()} Shell（仅允许文件操作命令：mkdir, cp, mv, rm 等）
-
-${editorRulePrompt}
+| 需要做什么 | 用哪个工具 |
+|-----------|-----------|
+| 查看文件内容 | **fs-View** (支持 full/head/tail/range) |
+| 查看目录结构 | **fs-List** (树形展示) |
+| 检查文件元信息 | **fs-Inspect** (类型/大小/行数) |
+| 按文件名找文件 | **fs-Glob** (底层 find/Get-ChildItem) |
+| 在文件内容中搜索 | **fs-Grep** (底层 grep/Select-String) |
+| 修改 1-N 处代码 | **fs-SearchReplace** (内容匹配替换) |
+| 新建文件 / 大改 | **fs-WriteFile** (>50% 变更时) |
+| mkdir/cp/mv/rm 等 | **fs-FileOps** (受限 Shell 白名单) |
 
 ### 最佳实践
-- 不确定文件类型/大小时，先用 Inspect 检查
+- 所有 Path 统一使用 Linux / 分隔符
+    「×」H:\\File.txt 「√」H:/File.txt
+- 未知目录使用 fs-List 分析结构
 - 搜索文件名用 Glob，搜索内容用 Grep
-- 批量文件操作（创建目录、复制、移动、删除等）使用 fs-FileOps
+- 批量文件操作使用 fs-FileOps
 - 代码修改用 SearchReplace，新建/大改用 WriteFile
 - 避免对大文件使用 View full 模式，优先用 head/tail/range
 `.trim();
@@ -65,5 +67,10 @@ ${editorRulePrompt}
         }
     }
 
-    return { name: '文件系统工具组', tools, rulePrompt };
+    return {
+        name: '文件系统工具组',
+        tools,
+        declareSkillRules: fileSystemSkillRules,
+        rulePrompt
+    };
 };
