@@ -204,7 +204,13 @@ async function resolveInsertToAnchor<T extends InputPlace>(
                 } else {
                     // 创建新文档
                     const docId = await createDocWithMd(notebook, hpath, '');
+                    if (!docId) {
+                        throw new Error(`无法创建文档: ${hpath}`);
+                    }
                     const block = await getBlockByID(docId);
+                    if (!block) {
+                        throw new Error(`创建文档后无法获取块信息: ${docId}`);
+                    }
                     docBlock = block as any as Block;
                 }
             } else if (config.anchorGenerator.type === 'search') {
@@ -235,25 +241,34 @@ async function resolveInsertToAnchor<T extends InputPlace>(
         case 'dailynote': {
             const config = insertTo as INewInputTemplate<'dailynote'>['insertTo'];
 
-            // 创建或获取今日日记
-            const docId = await createDailynote(
-                config.notebook,
-                new Date(),
-                '',
-                thisPlugin().app.appId
-            );
+            try {
+                // 创建或获取今日日记
+                const docId = await createDailynote(
+                    config.notebook,
+                    new Date(),
+                    '',
+                    thisPlugin().app.appId
+                );
 
-            const block = await getBlockByID(docId);
-            if (!block) {
-                throw new Error('无法创建日记文档');
+                if (!docId) {
+                    throw new Error('创建日记失败：未返回文档 ID');
+                }
+
+                const block = await getBlockByID(docId);
+                if (!block) {
+                    throw new Error(`无法获取日记文档块信息: ${docId}`);
+                }
+
+                return {
+                    anchor: {
+                        notebook: config.notebook
+                    } as any as InsertToAnchor[T],
+                    root: block as any as Block
+                };
+            } catch (error) {
+                console.error('[QuickInputTemplate] Dailynote creation error:', error);
+                throw new Error(`日记创建失败: ${error.message || error}`);
             }
-
-            return {
-                anchor: {
-                    notebook: config.notebook
-                } as any as InsertToAnchor[T],
-                root: block as any as Block
-            };
         }
 
         default:

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速输入</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--theme-background);
+            color: var(--theme-on-background);
+            padding: 16px;
+            font-size: var(--font-size);
+        }
+
+        .header {
+            margin-bottom: 16px;
+        }
+
+        .group-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .group-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: var(--theme-surface);
+            color: var(--theme-on-surface);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: var(--font-size-small);
+        }
+
+        .group-btn:hover {
+            background: var(--theme-surface-hover);
+        }
+
+        .group-btn.active {
+            background: var(--theme-primary);
+            color: var(--theme-on-primary);
+            border-color: var(--theme-primary);
+        }
+
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .template-card {
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--theme-surface);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .template-card:hover {
+            background: var(--theme-surface-hover);
+            border-color: var(--theme-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .template-icon {
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .template-name {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .template-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .template-group {
+            display: inline-block;
+            padding: 2px 6px;
+            background: var(--theme-surface-light);
+            border-radius: 3px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+        }
+
+        .manage-btn {
+            margin-top: 16px;
+            padding: 8px 16px;
+            background: var(--theme-primary);
+            color: var(--theme-on-primary);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .manage-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* 滚动条样式 */
+        .templates-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .templates-grid::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header" id="groupSelector" style="display: none;">
+        <div class="group-selector" id="groupButtons"></div>
+    </div>
+
+    <div class="templates-grid" id="templatesGrid"></div>
+
+    <script>
+        let sdk = null;
+        let allTemplates = [];
+        let showGroups = true;
+        let selectedGroup = 'all';
+        let onSelectCallback = null;
+
+        window.addEventListener('pluginSdkReady', async () => {
+            sdk = window.pluginSdk;
+
+            // 从 customSdk 获取数据
+            if (sdk.getTemplates) {
+                allTemplates = sdk.getTemplates();
+            }
+            if (sdk.getShowGroups !== undefined) {
+                showGroups = sdk.getShowGroups();
+            }
+            if (sdk.onSelect) {
+                onSelectCallback = sdk.onSelect;
+            }
+
+            render();
+        });
+
+        function render() {
+            renderGroupSelector();
+            renderTemplates();
+        }
+
+        function renderGroupSelector() {
+            if (!showGroups || allTemplates.length === 0) {
+                document.getElementById('groupSelector').style.display = 'none';
+                return;
+            }
+
+            // 收集所有分组
+            const groups = new Set(['all']);
+            allTemplates.forEach(t => {
+                if (t.group) groups.add(t.group);
+            });
+
+            if (groups.size <= 1) {
+                document.getElementById('groupSelector').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('groupSelector').style.display = 'block';
+
+            const container = document.getElementById('groupButtons');
+            container.innerHTML = '';
+
+            const allBtn = createGroupButton('all', '全部');
+            container.appendChild(allBtn);
+
+            groups.forEach(group => {
+                if (group !== 'all') {
+                    const btn = createGroupButton(group, group);
+                    container.appendChild(btn);
+                }
+            });
+        }
+
+        function createGroupButton(group, label) {
+            const btn = document.createElement('button');
+            btn.className = 'group-btn' + (group === selectedGroup ? ' active' : '');
+            btn.textContent = label;
+            btn.onclick = () => {
+                selectedGroup = group;
+                render();
+            };
+            return btn;
+        }
+
+        function renderTemplates() {
+            const container = document.getElementById('templatesGrid');
+            container.innerHTML = '';
+
+            // 过滤模板
+            const filtered = selectedGroup === 'all'
+                ? allTemplates
+                : allTemplates.filter(t => t.group === selectedGroup);
+
+            if (filtered.length === 0) {
+                showEmptyState(container);
+                return;
+            }
+
+            filtered.forEach(template => {
+                const card = createTemplateCard(template);
+                container.appendChild(card);
+            });
+        }
+
+        function createTemplateCard(template) {
+            const card = document.createElement('div');
+            card.className = 'template-card';
+            card.onclick = () => handleTemplateSelect(template);
+
+            const icon = document.createElement('div');
+            icon.className = 'template-icon';
+            icon.textContent = template.icon || '📝';
+            card.appendChild(icon);
+
+            const name = document.createElement('div');
+            name.className = 'template-name';
+            name.textContent = template.name;
+            card.appendChild(name);
+
+            if (template.description) {
+                const desc = document.createElement('div');
+                desc.className = 'template-desc';
+                desc.textContent = template.description;
+                card.appendChild(desc);
+            }
+
+            if (template.group && showGroups) {
+                const group = document.createElement('div');
+                group.className = 'template-group';
+                group.textContent = template.group;
+                card.appendChild(group);
+            }
+
+            return card;
+        }
+
+        function showEmptyState(container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <div class="empty-state-text">
+                        ${selectedGroup === 'all'
+                            ? '暂无模板<br>请在设置中添加模板'
+                            : `"${selectedGroup}" 分组中暂无模板`
+                        }
+                    </div>
+                    ${selectedGroup === 'all' ? '<button class="manage-btn" onclick="openManage()">管理模板</button>' : ''}
+                </div>
+            `;
+        }
+
+        function handleTemplateSelect(template) {
+            if (onSelectCallback) {
+                onSelectCallback(template);
+            }
+        }
+
+        function openManage() {
+            if (sdk && sdk.openManager) {
+                sdk.openManager();
+            }
+        }
+    </script>
+</body>
+</html>

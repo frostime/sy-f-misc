@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模板管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--theme-background);
+            color: var(--theme-on-background);
+            font-size: var(--font-size);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: var(--theme-surface);
+        }
+
+        .toolbar button {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: var(--theme-background);
+            color: var(--theme-on-background);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .toolbar button:hover {
+            background: var(--theme-surface-hover);
+        }
+
+        .toolbar button.primary {
+            background: var(--theme-primary);
+            color: var(--theme-on-primary);
+            border-color: var(--theme-primary);
+        }
+
+        .content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .list-panel {
+            width: 300px;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            background: var(--theme-surface);
+        }
+
+        .list-search {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .list-search input {
+            width: 100%;
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--theme-background);
+            color: var(--theme-on-background);
+            font-size: 13px;
+        }
+
+        .list-items {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .list-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .list-item:hover {
+            background: var(--theme-surface-hover);
+        }
+
+        .list-item.active {
+            background: var(--theme-primary-light);
+            border-left: 3px solid var(--theme-primary);
+        }
+
+        .list-item-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .list-item-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .editor-panel {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .editor-empty {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-secondary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-input,
+        .form-textarea,
+        .form-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--theme-surface);
+            color: var(--theme-on-surface);
+            font-family: var(--font-family);
+            font-size: 13px;
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .form-help {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: var(--theme-surface);
+            color: var(--theme-on-surface);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .btn:hover {
+            background: var(--theme-surface-hover);
+        }
+
+        .btn-primary {
+            background: var(--theme-primary);
+            color: var(--theme-on-primary);
+            border-color: var(--theme-primary);
+        }
+
+        .btn-danger {
+            background: var(--theme-error);
+            color: var(--theme-on-error);
+            border-color: var(--theme-error);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button class="primary" onclick="createTemplate()">➕ 新建模板</button>
+        <button onclick="importTemplates()">📥 导入</button>
+        <button onclick="exportTemplates()">📤 导出</button>
+        <div style="flex: 1"></div>
+        <button onclick="saveAll()">💾 保存所有</button>
+    </div>
+
+    <div class="content">
+        <div class="list-panel">
+            <div class="list-search">
+                <input type="text" placeholder="搜索模板..." id="searchInput" oninput="filterTemplates()">
+            </div>
+            <div class="list-items" id="templateList"></div>
+        </div>
+
+        <div class="editor-panel" id="editorPanel">
+            <div class="editor-empty">
+                <div style="font-size: 48px; opacity: 0.3;">📝</div>
+                <div style="margin-top: 16px;">请选择或创建一个模板</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sdk = null;
+        let templates = [];
+        let currentTemplate = null;
+        let onSaveCallback = null;
+
+        window.addEventListener('pluginSdkReady', async () => {
+            sdk = window.pluginSdk;
+
+            if (sdk.getTemplates) {
+                templates = sdk.getTemplates();
+            }
+            if (sdk.onSave) {
+                onSaveCallback = sdk.onSave;
+            }
+
+            renderList();
+        });
+
+        function renderList() {
+            const container = document.getElementById('templateList');
+            container.innerHTML = '';
+
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = searchText
+                ? templates.filter(t =>
+                    t.name.toLowerCase().includes(searchText) ||
+                    (t.description && t.description.toLowerCase().includes(searchText))
+                  )
+                : templates;
+
+            filtered.forEach(template => {
+                const item = document.createElement('div');
+                item.className = 'list-item' + (currentTemplate?.id === template.id ? ' active' : '');
+                item.onclick = () => selectTemplate(template);
+
+                item.innerHTML = `
+                    <div class="list-item-title">
+                        <span>${template.icon || '📝'}</span>
+                        <span>${template.name}</span>
+                    </div>
+                    <div class="list-item-desc">${template.description || '无描述'}</div>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        function filterTemplates() {
+            renderList();
+        }
+
+        function selectTemplate(template) {
+            currentTemplate = template;
+            renderList();
+            renderEditor();
+        }
+
+        function renderEditor() {
+            if (!currentTemplate) {
+                document.getElementById('editorPanel').innerHTML = `
+                    <div class="editor-empty">
+                        <div style="font-size: 48px; opacity: 0.3;">📝</div>
+                        <div style="margin-top: 16px;">请选择或创建一个模板</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const t = currentTemplate;
+
+            document.getElementById('editorPanel').innerHTML = `
+                <h2 style="margin-bottom: 24px;">编辑模板</h2>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">模板名称 *</label>
+                        <input type="text" class="form-input" id="name" value="${t.name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">图标</label>
+                        <input type="text" class="form-input" id="icon" value="${t.icon || ''}" placeholder="📝">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">描述</label>
+                    <input type="text" class="form-input" id="description" value="${t.description || ''}" placeholder="简短描述此模板的用途">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">分组</label>
+                        <input type="text" class="form-input" id="group" value="${t.group || ''}" placeholder="工作、生活等">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">插入类型 *</label>
+                        <select class="form-select" id="newtype" onchange="updateInsertFields()">
+                            <option value="block" ${t.newtype === 'block' ? 'selected' : ''}>块插入</option>
+                            <option value="document" ${t.newtype === 'document' ? 'selected' : ''}>文档</option>
+                            <option value="dailynote" ${t.newtype === 'dailynote' ? 'selected' : ''}>日记</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">内容模板 *</label>
+                    <textarea class="form-textarea" id="contentTemplate" style="min-height: 150px;" placeholder="支持 {{变量名}} 语法">${t.contentTemplate || ''}</textarea>
+                    <div class="form-help">支持变量：{{year}}, {{month}}, {{day}}, {{date}}, {{time}}, {{datetime}} 等</div>
+                </div>
+
+                <div id="insertConfig"></div>
+
+                <div class="form-group">
+                    <label class="form-label">变量定义 (JSON)</label>
+                    <textarea class="form-textarea" id="variables" placeholder='[{"name": "title", "label": "标题", "type": "text", "defaultValue": ""}]'>${JSON.stringify(t.variables || [], null, 2)}</textarea>
+                    <div class="form-help">定义用户输入的变量</div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="saveCurrent()">💾 保存</button>
+                    <button class="btn" onclick="duplicateTemplate()">📋 复制</button>
+                    <button class="btn btn-danger" onclick="deleteTemplate()">🗑️ 删除</button>
+                </div>
+            `;
+
+            updateInsertFields();
+        }
+
+        function updateInsertFields() {
+            const newtype = document.getElementById('newtype')?.value;
+            const container = document.getElementById('insertConfig');
+            if (!container) return;
+
+            const t = currentTemplate;
+
+            if (newtype === 'block') {
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">锚点定位方式</label>
+                        <select class="form-select" id="anchorType">
+                            <option value="sql" ${t.insertTo?.anchorGenerator?.type === 'sql' ? 'selected' : ''}>SQL 查询</option>
+                            <option value="js" ${t.insertTo?.anchorGenerator?.type === 'js' ? 'selected' : ''}>JavaScript</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">锚点代码</label>
+                        <textarea class="form-textarea" id="anchorCode" placeholder="SELECT * FROM blocks WHERE ...">${t.insertTo?.anchorGenerator?.searchCode || ''}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">插入位置</label>
+                        <select class="form-select" id="usage">
+                            <option value="insert" ${t.insertTo?.usage === 'insert' ? 'selected' : ''}>插入到块前</option>
+                            <option value="append" ${t.insertTo?.usage === 'append' ? 'selected' : ''}>追加到块后</option>
+                            <option value="append-child" ${t.insertTo?.usage === 'append-child' ? 'selected' : ''}>插入为子块</option>
+                        </select>
+                    </div>
+                `;
+            } else if (newtype === 'document') {
+                const anchorType = t.insertTo?.anchorGenerator?.type || 'hpath';
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">文档定位方式</label>
+                        <select class="form-select" id="docAnchorType" onchange="updateDocFields()">
+                            <option value="hpath" ${anchorType === 'hpath' ? 'selected' : ''}>文档路径</option>
+                            <option value="search" ${anchorType === 'search' ? 'selected' : ''}>搜索</option>
+                        </select>
+                    </div>
+                    <div id="docFields"></div>
+                `;
+                updateDocFields();
+            } else if (newtype === 'dailynote') {
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">笔记本 ID *</label>
+                        <input type="text" class="form-input" id="notebookId" value="${t.insertTo?.notebook || ''}" placeholder="笔记本ID">
+                        <div class="form-help">日记文档所在的笔记本</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">插入位置</label>
+                        <select class="form-select" id="dailyUsage">
+                            <option value="prepend" ${t.insertTo?.usage === 'prepend' ? 'selected' : ''}>开头</option>
+                            <option value="append" ${t.insertTo?.usage === 'append' ? 'selected' : ''}>末尾</option>
+                        </select>
+                    </div>
+                `;
+            }
+        }
+
+        function updateDocFields() {
+            const docAnchorType = document.getElementById('docAnchorType')?.value;
+            const container = document.getElementById('docFields');
+            if (!container) return;
+
+            const t = currentTemplate;
+
+            if (docAnchorType === 'hpath') {
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">笔记本 ID</label>
+                        <input type="text" class="form-input" id="docNotebook" value="${t.insertTo?.anchorGenerator?.notebook || ''}" placeholder="笔记本ID">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">文档路径模板</label>
+                        <input type="text" class="form-input" id="hpathTemplate" value="${t.insertTo?.anchorGenerator?.hpathTemplate || ''}" placeholder="/日记/{{year}}/{{monthStr}}">
+                        <div class="form-help">支持变量模板语法</div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">搜索类型</label>
+                        <select class="form-select" id="searchType">
+                            <option value="sql">SQL</option>
+                            <option value="js">JavaScript</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">搜索代码</label>
+                        <textarea class="form-textarea" id="searchCode">${t.insertTo?.anchorGenerator?.searchCode || ''}</textarea>
+                    </div>
+                `;
+            }
+        }
+
+        function createTemplate() {
+            const newTemplate = {
+                id: Date.now().toString(),
+                name: '新模板',
+                icon: '📝',
+                newtype: 'block',
+                contentTemplate: '',
+                insertTo: {
+                    anchorGenerator: { type: 'sql', searchCode: '' },
+                    usage: 'insert'
+                }
+            };
+            templates.push(newTemplate);
+            currentTemplate = newTemplate;
+            renderList();
+            renderEditor();
+        }
+
+        function saveCurrent() {
+            if (!currentTemplate) return;
+
+            // 收集表单数据
+            currentTemplate.name = document.getElementById('name').value;
+            currentTemplate.icon = document.getElementById('icon').value;
+            currentTemplate.description = document.getElementById('description').value;
+            currentTemplate.group = document.getElementById('group').value;
+            currentTemplate.newtype = document.getElementById('newtype').value;
+            currentTemplate.contentTemplate = document.getElementById('contentTemplate').value;
+
+            try {
+                const varsText = document.getElementById('variables').value.trim();
+                currentTemplate.variables = varsText ? JSON.parse(varsText) : [];
+            } catch (e) {
+                sdk?.showMessage('变量定义 JSON 格式错误', 'error');
+                return;
+            }
+
+            // 收集 insertTo 配置
+            const newtype = currentTemplate.newtype;
+            if (newtype === 'block') {
+                currentTemplate.insertTo = {
+                    anchorGenerator: {
+                        type: document.getElementById('anchorType').value,
+                        searchCode: document.getElementById('anchorCode').value
+                    },
+                    usage: document.getElementById('usage').value
+                };
+            } else if (newtype === 'document') {
+                const docAnchorType = document.getElementById('docAnchorType').value;
+                if (docAnchorType === 'hpath') {
+                    currentTemplate.insertTo = {
+                        anchorGenerator: {
+                            type: 'hpath',
+                            notebook: document.getElementById('docNotebook').value,
+                            hpathTemplate: document.getElementById('hpathTemplate').value
+                        }
+                    };
+                } else {
+                    currentTemplate.insertTo = {
+                        anchorGenerator: {
+                            type: 'search',
+                            searchType: document.getElementById('searchType').value,
+                            searchCode: document.getElementById('searchCode').value
+                        }
+                    };
+                }
+            } else if (newtype === 'dailynote') {
+                currentTemplate.insertTo = {
+                    notebook: document.getElementById('notebookId').value,
+                    usage: document.getElementById('dailyUsage').value
+                };
+            }
+
+            renderList();
+            sdk?.showMessage('保存成功', 'info');
+        }
+
+        function saveAll() {
+            if (currentTemplate) {
+                saveCurrent();
+            }
+            if (onSaveCallback) {
+                onSaveCallback(templates);
+            }
+            sdk?.showMessage('已保存所有模板', 'info');
+        }
+
+        function duplicateTemplate() {
+            if (!currentTemplate) return;
+
+            const copy = JSON.parse(JSON.stringify(currentTemplate));
+            copy.id = Date.now().toString();
+            copy.name = currentTemplate.name + ' (副本)';
+            templates.push(copy);
+            currentTemplate = copy;
+            renderList();
+            renderEditor();
+        }
+
+        function deleteTemplate() {
+            if (!currentTemplate) return;
+
+            if (confirm(`确定删除模板 "${currentTemplate.name}" 吗？`)) {
+                templates = templates.filter(t => t.id !== currentTemplate.id);
+                currentTemplate = null;
+                renderList();
+                renderEditor();
+                sdk?.showMessage('已删除', 'info');
+            }
+        }
+
+        function importTemplates() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const imported = JSON.parse(event.target.result);
+                        if (Array.isArray(imported)) {
+                            templates.push(...imported);
+                            renderList();
+                            sdk?.showMessage(`导入 ${imported.length} 个模板`, 'info');
+                        }
+                    } catch (err) {
+                        sdk?.showMessage('导入失败：' + err.message, 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function exportTemplates() {
+            const dataStr = JSON.stringify(templates, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `quick-input-templates-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
