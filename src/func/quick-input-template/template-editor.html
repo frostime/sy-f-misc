@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -46,7 +47,7 @@
 
         .toolbar button:hover {
             background: var(--theme-surface-hover);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
 
         .toolbar button.primary {
@@ -167,7 +168,17 @@
             outline: none;
         }
 
-        .form-input:focus, .form-textarea:focus, .form-select:focus {
+        #advancedConfig {
+            &.form-input,
+            .form-textarea,
+            .form-select {
+                background: var(--theme-background);
+            }
+        }
+
+        .form-input:focus,
+        .form-textarea:focus,
+        .form-select:focus {
             border-color: var(--theme-primary);
             box-shadow: 0 0 0 2px var(--theme-primary-light);
         }
@@ -242,7 +253,8 @@
             font-size: 13px;
         }
 
-        .var-table th, .var-table td {
+        .var-table th,
+        .var-table td {
             padding: 8px 12px;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
@@ -267,7 +279,7 @@
             border: none;
             border-radius: 8px;
             background: var(--theme-surface);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             position: fixed;
             top: 50%;
             left: 50%;
@@ -277,7 +289,7 @@
         }
 
         dialog::backdrop {
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
         }
 
         .dialog-header {
@@ -311,6 +323,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="toolbar">
         <button class="primary" onclick="createTemplate()">➕ 新建模板</button>
@@ -363,14 +376,14 @@
             </div>
 
             <!-- Type Specific Fields -->
-             <div id="typeParams"></div>
+            <div id="typeParams"></div>
 
             <div class="form-group">
                 <label class="form-label">默认值</label>
                 <input type="text" class="form-input" id="vDefault" placeholder="">
             </div>
 
-             <div class="form-group">
+            <div class="form-group">
                 <label class="form-label">描述</label>
                 <input type="text" class="form-input" id="vDesc" placeholder="变量用途提示">
             </div>
@@ -385,6 +398,7 @@
         // State
         let sdk = null;
         let templates = [];
+        let notebooks = [];
         let currentTemplate = null;
         let onSaveCallback = null;
 
@@ -403,6 +417,9 @@
             }
             if (sdk.onSave) {
                 onSaveCallback = sdk.onSave;
+            }
+            if (sdk.notebooks) {
+                notebooks = sdk.notebooks();
             }
 
             // Sync with Theme
@@ -423,12 +440,12 @@
                 ? templates.filter(t =>
                     t.name.toLowerCase().includes(searchText) ||
                     (t.group && t.group.toLowerCase().includes(searchText))
-                  )
+                )
                 : templates;
 
             if (filtered.length === 0) {
-                 container.innerHTML = `<div style="padding:20px; text-align:center; color:gray;">无结果</div>`;
-                 return;
+                container.innerHTML = `<div style="padding:20px; text-align:center; color:gray;">无结果</div>`;
+                return;
             }
 
             filtered.forEach(template => {
@@ -441,7 +458,7 @@
                         <span>${template.icon || '📝'}</span>
                         <span>${template.name}</span>
                     </div>
-                    <div class="list-item-desc">${template.group ? '['+template.group+'] ' : ''}${template.desc || template.description || '无描述'}</div>
+                    <div class="list-item-desc">${template.group ? '[' + template.group + '] ' : ''}${template.desc || template.description || '无描述'}</div>
                 `;
 
                 container.appendChild(item);
@@ -524,6 +541,34 @@
                 <!-- Insert To Config (Dynamic) -->
                 ${renderInsertConfig(t)}
 
+                <!-- Advanced Config -->
+                <div style="border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; margin-bottom: 20px; background: var(--theme-surface);">
+                    <div style="padding: 10px 12px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;" onclick="toggleAdvanced(this)">
+                        <span>🛠️ 高级配置 (脚本 & 选项)</span>
+                        <span id="advArrow" style="font-size: 12px; transition: transform 0.2s;">▶</span>
+                    </div>
+                    <div id="advancedConfig" style="display: none; padding: 16px; border-top: 1px solid var(--border-color);">
+                        <div class="form-group">
+                            <label class="form-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="openBlock" ${t.openBlock !== false ? 'checked' : ''} onchange="updateModel('openBlock', this.checked)">
+                                插入后打开所在块 (Open Block)
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">前置脚本 (Pre-Execute Script)</label>
+                            <textarea class="form-textarea" style="min-height: 80px; font-family: monospace; font-size: 12px;"
+                                placeholder="return { additionalVar: 'value' };" oninput="updateModel('preExecuteScript', this.value)">${escapeHtml(t.preExecuteScript || '')}</textarea>
+                            <div class="form-help">在渲染模板前执行，返回的对象将合并到模板变量中。可使用 <code>ctx</code> 变量。</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">后置脚本 (Post-Execute Script)</label>
+                            <textarea class="form-textarea" style="min-height: 80px; font-family: monospace; font-size: 12px;"
+                                placeholder="window.siyuan.setBlockAttrs(blockId, { ... });" oninput="updateModel('postExecuteScript', this.value)">${escapeHtml(t.postExecuteScript || '')}</textarea>
+                            <div class="form-help">在插入内容后执行。可用变量: <code>ctx</code>, <code>content</code>, <code>blockId</code>。</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Variable Editor -->
                 <div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
@@ -557,6 +602,25 @@
             `;
 
             renderVarTable();
+        }
+
+        function renderNotebookSelect(currentId, onChangePath, required = false) {
+            let html = `
+                <div class="form-group">
+                    <label class="form-label">笔记本 ${required ? '<span style="color: var(--theme-error); margin-left: 4px;">* (必填)</span>' : '(可选)'}</label>
+                    <select class="form-select" onchange="updateInsertTo('${onChangePath}', this.value)">
+                        <option value="" ${!currentId ? 'selected' : ''}>${required ? '请选择笔记本' : '当前打开笔记本'}</option>
+            `;
+
+            notebooks.forEach(nb => {
+                html += `<option value="${nb.id}" ${nb.id === currentId ? 'selected' : ''}>${escapeHtml(nb.name)}${nb.closed ? ' (已关闭)' : ''}</option>`;
+            });
+
+            html += `
+                    </select>
+                </div>
+            `;
+            return html;
         }
 
         function renderInsertConfig(t) {
@@ -621,13 +685,10 @@
                         <input type="text" class="form-input" value="${escapeHtml(get('anchorGenerator.hpathTemplate', ''))}"
                             placeholder="/Note/{{year}}/{{month}}" onchange="updateInsertTo('anchorGenerator.hpathTemplate', this.value)">
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">笔记本 ID (可选)</label>
-                        <input type="text" class="form-input" value="${escapeHtml(get('anchorGenerator.notebook', ''))}"
-                            placeholder="留空则使用当前打开笔记本" onchange="updateInsertTo('anchorGenerator.notebook', this.value)">
-                    </div>`
+                    ${renderNotebookSelect(get('anchorGenerator.notebook', ''), 'anchorGenerator.notebook')}
+                    `;
                 } else {
-                     html += `
+                    html += `
                     <div class="form-group">
                         <label class="form-label">搜索代码 (JS/SQL)</label>
                         <textarea class="form-textarea" onchange="updateInsertTo('anchorGenerator.searchCode', this.value)">${escapeHtml(get('anchorGenerator.searchCode', ''))}</textarea>
@@ -636,12 +697,8 @@
             } else if (t.newtype === 'dailynote') {
                 const usage = get('usage', 'append');
                 html += `
+                    ${renderNotebookSelect(get('notebook', ''), 'notebook', true)}
                     <div class="form-group">
-                        <label class="form-label">笔记本 ID</label>
-                        <input type="text" class="form-input" value="${escapeHtml(get('notebook', ''))}"
-                             placeholder="留空则使用当前笔记本" onchange="updateInsertTo('notebook', this.value)">
-                    </div>
-                     <div class="form-group">
                         <label class="form-label">插入位置</label>
                         <select class="form-select" onchange="updateInsertTo('usage', this.value)">
                             <option value="append" ${usage === 'append' ? 'selected' : ''}>文档末尾</option>
@@ -669,21 +726,21 @@
         }
 
         function updateInsertTo(path, value) {
-             if (!currentTemplate) return;
-             if (!currentTemplate.insertTo) currentTemplate.insertTo = {};
+            if (!currentTemplate) return;
+            if (!currentTemplate.insertTo) currentTemplate.insertTo = {};
 
-             const parts = path.split('.');
-             let target = currentTemplate.insertTo;
-             for (let i = 0; i < parts.length - 1; i++) {
-                 if (!target[parts[i]]) target[parts[i]] = {};
-                 target = target[parts[i]];
-             }
-             target[parts[parts.length - 1]] = value;
+            const parts = path.split('.');
+            let target = currentTemplate.insertTo;
+            for (let i = 0; i < parts.length - 1; i++) {
+                if (!target[parts[i]]) target[parts[i]] = {};
+                target = target[parts[i]];
+            }
+            target[parts[parts.length - 1]] = value;
 
-             // If type changed, re-render to show appropriate fields
-             if (path === 'anchorGenerator.type') {
-                 renderEditor();
-             }
+            // If type changed, re-render to show appropriate fields
+            if (path === 'anchorGenerator.type') {
+                renderEditor();
+            }
         }
 
         // --- Variable Logic ---
@@ -706,19 +763,19 @@
         }
 
         function saveVarsFromArray(arr) {
-           if (!currentTemplate) return;
+            if (!currentTemplate) return;
 
-           // Convert array back to declaredInputVar object
-           const decl = {};
-           arr.forEach(v => {
-               const { name, ...rest } = v;
-               decl[name] = rest;
-           });
+            // Convert array back to declaredInputVar object
+            const decl = {};
+            arr.forEach(v => {
+                const { name, ...rest } = v;
+                decl[name] = rest;
+            });
 
-           currentTemplate.declaredInputVar = decl;
+            currentTemplate.declaredInputVar = decl;
 
-           // Clear legacy if exists
-           delete currentTemplate.variables;
+            // Clear legacy if exists
+            delete currentTemplate.variables;
         }
 
         function renderVarTable() {
@@ -856,7 +913,7 @@
                 // Update
                 const idx = vars.findIndex(v => v.name === editingVarKey);
                 if (idx >= 0) {
-                     vars[idx] = { ...vars[idx], ...newVar };
+                    vars[idx] = { ...vars[idx], ...newVar };
                 }
             } else {
                 // Create
@@ -967,7 +1024,7 @@
         // --- Import/Export ---
 
         function importTemplates() {
-             const input = document.createElement('input');
+            const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.json';
             input.onchange = async (e) => {
@@ -981,9 +1038,9 @@
                         if (Array.isArray(imported)) {
                             // Validate/Migrate imported
                             imported.forEach(t => {
-                                if(!t.id) t.id = Date.now() + Math.random().toString().slice(2);
+                                if (!t.id) t.id = Date.now() + Math.random().toString().slice(2);
                                 // Ensure template property key
-                                if(t.contentTemplate && !t.template) t.template = t.contentTemplate;
+                                if (t.contentTemplate && !t.template) t.template = t.contentTemplate;
                             });
 
                             templates.push(...imported);
@@ -1015,12 +1072,27 @@
         function escapeHtml(unsafe) {
             if (unsafe === undefined || unsafe === null) return '';
             return String(unsafe)
-                 .replace(/&/g, "&amp;")
-                 .replace(/</g, "&lt;")
-                 .replace(/>/g, "&gt;")
-                 .replace(/"/g, "&quot;")
-                 .replace(/'/g, "&#039;");
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function toggleAdvanced(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('#advArrow');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.style.transform = 'rotate(90deg)';
+                arrow.textContent = '▼'; // Sync icon state just in case
+            } else {
+                content.style.display = 'none';
+                arrow.style.transform = 'rotate(0deg)';
+                arrow.textContent = '▶';
+            }
         }
     </script>
 </body>
+
 </html>
