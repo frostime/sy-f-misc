@@ -109,7 +109,7 @@ export default defineConfig({
                     isDev ? [
                         livereload({
                             watch: outputDir,
-                            delay: 1000  // 防抖
+                            delay: 2000  // 防抖
                         }),
                         {
                             name: 'watch-external',

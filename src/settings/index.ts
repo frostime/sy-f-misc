@@ -212,7 +212,10 @@ export const initSetting = async (plugin: FMiscPlugin) => {
                 changed: onChanged,
                 customPanels: CustomPanels,
                 customModuleConfigs: CustomModuleConfigs
-            })
+            }),
+            // callback: () => {
+            //     saveModuleConfigDebounced();
+            // }
         });
         // const container = dialog.element.querySelector('.b3-dialog__container') as HTMLElement;
     }

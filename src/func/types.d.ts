@@ -4,7 +4,7 @@
  * @Date         : 2025-01-02 21:39:30
  * @FilePath     : /src/func/types.d.ts
  * @LastEditTime : 2025-12-20 19:29:38
- * @Description  : 
+ * @Description  :
  */
 interface IConfigItem<T> extends Omit<ISettingItem, 'value'> {
     get: () => T;

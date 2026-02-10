@@ -1,5 +1,6 @@
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { createMemo, For, JSX } from "solid-js";
+import { SolidContainerWrapper } from "../solid-component-wrapper";
 
 interface IProps extends Partial<ISettingItemCore> {
     key?: string;
@@ -161,6 +162,11 @@ export default function FormInput(props: IProps) {
                         }}
                     />
                 </div>
+            );
+        } else if (props.type === "custom") {
+            if (!props.custom) return;
+            return (
+                <SolidContainerWrapper element={props.custom} />
             );
         }
     }

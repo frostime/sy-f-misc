@@ -4,7 +4,7 @@
  * @Date         : 2024-04-19 18:30:12
  * @FilePath     : /src/types/setting.d.ts
  * @LastEditTime : 2025-12-19 01:05:36
- * @Description  : 
+ * @Description  :
  */
 type TSettingItemType = "checkbox" | "select" | "textinput" | "textarea" | "number" | "slider" | "button" | "hint" | "custom";
 
@@ -13,6 +13,11 @@ interface ISettingItemCore {
     key: string;
     value: any;
     placeholder?: string;
+    /**
+     * Custom renderer for `type: "custom"`.
+     * Can return HTMLElement, JSX.Element, or ExternalElementWithDispose (see FlexibleElement).
+     */
+    custom?: () => any;
     slider?: {
         min: number;
         max: number;

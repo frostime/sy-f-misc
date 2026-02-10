@@ -1,6 +1,6 @@
 /**
  * 方便把外部生成的 HTMLElement 或 JSX.Element 包装成 Solid 组件使用
- * 
+ *
  * 适合轻量级微型组件, 避免写 tsx
  */
 import { html2ele } from "@frostime/siyuan-plugin-kits";
@@ -78,10 +78,10 @@ export const ele2solid = (options: {
 
 /**
  * 将 HTML 字符串转换为 Solid 组件
- * @param options 
+ * @param options
  * @param options.html HTML 字符串
  * @param options.setup 可选的设置函数，接收生成的 HTMLElement 作为参数，可返回一个清理函数
- * @returns 
+ * @returns
  */
 export const html2solid = (options: {
     html: string,
@@ -117,8 +117,8 @@ export const solid2html = (component: () => JSX.Element): string => {
 /**
  * 本质就是直接调用 renderToString, 更加轻量, 不触发 onMount 等生命周期
  * 不过对复杂组件处理可能会出现问题
- * @param component 
- * @returns 
+ * @param component
+ * @returns
  */
 export const solid2string = (component: () => JSX.Element): string => {
     return renderToString(component);
