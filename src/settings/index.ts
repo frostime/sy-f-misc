@@ -4,7 +4,7 @@
  * @Date         : 2024-04-04 17:43:26
  * @FilePath     : /src/settings/index.ts
  * @LastEditTime : 2025-12-20 19:32:05
- * @Description  : 
+ * @Description  :
  */
 import type FMiscPlugin from '@/index';
 import { toggleEnable, ModulesAlwaysEnable, ModulesToEnable } from '@/func';
@@ -166,9 +166,10 @@ export const initSetting = async (plugin: FMiscPlugin) => {
                 if (config.dump) {
                     return [config.key, config.dump()];
                 } else {
+                    const configItems = config.items || [];
                     return [
                         config.key,
-                        Object.fromEntries(config.items.map(item => [item.key, item.get()]))
+                        Object.fromEntries(configItems.map(item => [item.key, item.get()]))
                     ]
                 }
             }));
