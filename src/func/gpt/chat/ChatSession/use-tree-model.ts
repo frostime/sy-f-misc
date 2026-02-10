@@ -53,6 +53,9 @@ export interface ITreeModel {
     /** 获取节点在 worldLine 中的索引 */
     indexOf: (id: ItemID) => number;
 
+    /** 从消息序列恢复树结构（通常用于提取会话等场景） */
+    fromSequence: (messages: IChatSessionMsgItemV2[]) => void;
+
     getNode: (get: { index: number } | { id: ItemID }) => IChatSessionMsgItemV2 | undefined;
     getRawNode: (get: { index: number } | { id: ItemID }, clone?: boolean) => IChatSessionMsgItemV2 | undefined;
 
@@ -663,6 +666,42 @@ export const useTreeModel = (): ITreeModel => {
         });
     };
 
+    const fromSequence = (messages: IChatSessionMsgItemV2[]) => {
+        if (messages.length === 0) {
+            clear();
+            return;
+        }
+
+        batch(() => {
+            clear();
+            let prevId: ItemID | null = null;
+            const nodesData: Record<ItemID, IChatSessionMsgItemV2> = {};
+            const wl: ItemID[] = [];
+
+            messages.forEach((msg, idx) => {
+                const node: IChatSessionMsgItemV2 = {
+                    ...msg,
+                    parent: prevId,
+                    children: []
+                };
+                nodesData[node.id] = node;
+                wl.push(node.id);
+
+                if (prevId && nodesData[prevId]) {
+                    nodesData[prevId].children = [node.id];
+                }
+
+                if (idx === 0) {
+                    rootId.value = node.id;
+                }
+                prevId = node.id;
+            });
+
+            nodes.update(nodesData);
+            worldLine.update(wl);
+        });
+    };
+
     const clear = () => {
         batch(() => {
             nodes.update({});
@@ -714,6 +753,7 @@ export const useTreeModel = (): ITreeModel => {
         // 序列化
         toHistory,
         fromHistory,
+        fromSequence,
         clear,
     };
 };

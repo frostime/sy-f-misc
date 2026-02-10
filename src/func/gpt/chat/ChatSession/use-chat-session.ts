@@ -585,6 +585,10 @@ export const useSession = (props: {
         deleteHistory.clearRecords();
     }
 
+    const applySequence = (messages: IChatSessionMsgItemV2[]) => {
+        treeModel.fromSequence(messages);
+    }
+
     const hooks = {
         sessionId,
         systemPrompt,
@@ -836,9 +840,12 @@ export const useSession = (props: {
         checkAttachedContext,
 
         // ========== 会话历史 ==========
-        sessionHistory,
-        applyHistory,
         newSession,
+        applyHistory,
+        applySequence,
+
+        // 导出/保存
+        sessionHistory,
 
         // ========== 元数据更新（特殊用途）==========
         updateMessageMetadata: (at: MessageLocator, metadata: Partial<IChatSessionMsgItemV2>) => {

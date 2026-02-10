@@ -157,12 +157,12 @@ const SessionItemsManager: Component<{
             // 创建新会话
             const newSession = {
                 title: props.session.title() + ' - 提取的会话',
-                items: selectedMessages,
                 sysPrompt: props.session.systemPrompt()
             };
 
             props.session.newSession();
             props.session.applyHistory(newSession);
+            props.session.applySequence(selectedMessages);
             props.onClose();
         });
     };
