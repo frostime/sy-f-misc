@@ -219,6 +219,14 @@ Key points:
 
 A lightweight CSS framework built on HSPA's injected theme variables. Provides layout utilities, page structure, cards, buttons, forms, badges, tables, and more — eliminating the need to write boilerplate CSS for every page.
 
+⚠️ **Scope warning (important)**
+
+`hspa-mini.css` is intentionally **small**. It is **NOT Tailwind** and does **not** provide arbitrary atomic classes.
+
+- Only classes defined in `public/styles/hspa-mini.css` (and documented in `references/hspa-mini-classes.md`) are available.
+- Avoid “Tailwind-looking” classes like `bg-white`, `mx-1`, `text-6xl`, `min-h-24`, `hover:bg-*`, `left-1/2`, etc — they will silently do nothing.
+- If you need styling beyond what `hspa-mini.css` provides, use **page-local styling**: either CSS in the HTML `<style>` block, or inline `style="..."` (often acceptable and compact in Alpine-based HSPA). You can also explicitly extend `hspa-mini.css` in the repo.
+
 ```html
 <link rel="stylesheet" href="/plugins/sy-f-misc/styles/hspa-mini.css">
 ```
@@ -324,6 +332,8 @@ function app() {
 See **`references/quick-alpinejs.md`** for the complete Alpine.js guide with reactivity patterns, all directives, and common pitfalls.
 
 See **`references/hspa-alpine-example.html`** for a complete working page.
+
+See `src/func/html-pages/preset/siyuan-tree.html` as productive example.
 
 ### Vue 3
 

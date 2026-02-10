@@ -5,863 +5,362 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Dashboard</title>
+    <link rel="stylesheet" href="/plugins/sy-f-misc/styles/hspa-mini.css">
     <style>
-        /* ==================== 主题变量定义 ==================== */
+        /* Custom styles extending hspa-mini */
         :root {
-            --sidebar-width: 300px;
-            --detail-width: 450px;
-
-            /* 字体大小定义 */
-            --font-size-small: calc(var(--font-size, 14px) * 0.85);
-            --font-size-normal: var(--font-size, 14px);
-            --font-size-large: calc(var(--font-size, 14px) * 1.2);
-            --font-size-xlarge: calc(var(--font-size, 14px) * 1.5);
-            --font-size-huge: calc(var(--font-size, 14px) * 2);
-
-            /* 颜色映射 - 复用注入的配色方案 */
-            --bg-content: var(--theme-background, #ffffff);
-            --bg-panel: var(--theme-surface, #f5f5f7);
-            --text-primary: var(--theme-on-background, #333333);
-            --text-secondary: var(--theme-on-surface-light, #666666);
-            --border-color: var(--theme-surface-lighter, #e0e0e0);
-            --hover-color: var(--theme-surface-light, #f0f0f0);
-            --accent-color: var(--theme-primary, #d23f31);
-            --accent-bg: var(--theme-primary-lightest, #ffe8e6);
-            --error-color: var(--theme-primary, #d23f31);
-            --text-on-accent: var(--theme-on-primary, #ffffff);
-
-            --bg-mask: rgba(0, 0, 0, 0.6);
-            --bg-mask-dark: rgba(0, 0, 0, 0.95);
-            --bg-toast: var(--theme-surface-lighter, rgba(0, 0, 0, 0.8));
-            --shadow-color: rgba(0, 0, 0, 0.1);
-
-            --bg-preview-text: var(--theme-background, #ffffff);
-            --text-preview-text: var(--theme-on-background, #333333);
+            --detail-width: 400px;
         }
 
-        /* 基础样式 */
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
-            font-size: var(--font-size-normal);
-            height: 100vh;
-            display: flex;
-            color: var(--text-primary);
-            background-color: var(--bg-content);
-            overflow: hidden;
+        .toolbar-actions {
+            flex-wrap: nowrap;
+            overflow-x: auto;
         }
 
-        /* 布局 */
-        #main-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+        .toolbar-divider {
+            width: 1px;
+            height: 24px;
+            background-color: var(--c-border);
+            margin: 0 var(--sp-1);
+            flex: none;
         }
 
-        #toolbar {
-            padding: 10px 20px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: var(--bg-content);
-            flex-shrink: 0;
+        @media (max-width: 600px) {
+            .toolbar-divider { display: none; }
         }
 
-        #file-list-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background-color: var(--bg-panel);
+        .emoji-icon {
+            font-size: 2.25em;
+            line-height: 1;
         }
 
-        #detail-panel {
-            width: var(--detail-width);
-            background: var(--bg-content);
-            border-left: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
+        .select-all {
+            user-select: all;
+        }
+
+        .hover-surface:hover {
+            background-color: var(--c-surface-hover);
+        }
+
+        .fs-close-btn {
             position: absolute;
-            right: 0;
+            top: var(--sp-4);
+            right: var(--sp-4);
+            padding: var(--sp-2);
+            cursor: pointer;
+            border-radius: var(--radius);
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            transition: background-color var(--transition);
+        }
+
+        .fs-close-btn:hover {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .zoom-controls {
+            position: absolute;
+            left: 50%;
+            bottom: var(--sp-8);
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #fff;
+        }
+
+        .btn-on-dark {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+            background-color: transparent;
+        }
+
+        .btn-on-dark:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Detail Panel Drawer */
+        #detail-panel {
+            position: absolute;
             top: 0;
+            right: 0;
             bottom: 0;
-            z-index: 10;
-            box-shadow: -2px 0 5px var(--shadow-color);
+            width: var(--detail-width);
+            background-color: var(--c-bg);
+            border-left: 1px solid var(--c-border);
+            transform: translateX(100%);
+            transition: transform var(--transition);
+            z-index: var(--z-overlay);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
         }
 
         #detail-panel.open {
             transform: translateX(0);
         }
 
-        /* 工具栏组件 */
-        .btn {
-            padding: 6px 12px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-content);
-            color: var(--text-primary);
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: var(--font-size-small);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: all 0.2s;
-        }
-
-        .btn:hover {
-            background: var(--hover-color);
-        }
-
-        .btn.primary {
-            background: var(--accent-color);
-            color: var(--text-on-accent);
-            border-color: var(--accent-color);
-        }
-
-        .btn.primary:hover {
-            opacity: 0.9;
-        }
-
-        .search-box {
-            display: inline-flex;
-            flex: 1;
-            max-width: 500px;
-            position: relative;
-            gap: 5px;
-        }
-
-        .search-input {
+        /* File Thumbnails */
+        .file-card-thumb {
             width: 100%;
-            padding: 6px 10px;
-            padding-right: 30px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background: var(--bg-content);
-            color: var(--text-primary);
-            box-sizing: border-box;
-        }
-
-        /* 文件列表 - 网格模式 */
-        .file-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 15px;
-        }
-
-        .file-item {
-            background: var(--bg-content);
-            border: 1px solid transparent;
-            border-radius: 6px;
-            padding: 10px;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transition: all 0.2s;
-        }
-
-        .file-item:hover {
-            background: var(--hover-color);
-        }
-
-        .file-item.active {
-            background: var(--accent-bg);
-            border-color: var(--accent-color);
-        }
-
-        .file-thumb {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            background: var(--bg-panel);
+            height: 140px;
+            object-fit: contain;
+            border-radius: var(--radius);
+            background-color: var(--c-surface);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: var(--font-size-xlarge);
-            color: var(--text-secondary);
+            font-size: 2em;
+            color: var(--c-fg-muted);
+            overflow: hidden;
         }
 
-        .file-thumb img {
+        .file-card-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: var(--radius);
+        }
+
+        .file-list-thumb {
+            width: 32px;
+            height: 32px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            background-color: var(--c-surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: var(--c-fg-muted);
+            flex-shrink: 0;
+        }
+
+        .file-list-thumb img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
         }
 
-        .file-name {
-            font-size: var(--font-size-small);
-            text-align: center;
-            word-break: break-all;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            line-height: 1.4;
+        /* Selected state */
+        .selected-item {
+            background-color: var(--c-accent-bg) !important;
+            border-color: var(--c-accent) !important;
         }
 
-        /* 文件列表 - 列表模式 */
-        .file-list {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .file-list .file-item {
-            flex-direction: row;
-            padding: 8px 12px;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .file-list .file-thumb {
-            width: 32px;
-            height: 32px;
-            margin-bottom: 0;
-            font-size: var(--font-size-large);
-        }
-
-        .file-list .file-name {
-            text-align: left;
-            flex: 1;
-            -webkit-line-clamp: 1;
-        }
-
-        .file-meta {
-            font-size: var(--font-size-small);
-            color: var(--text-secondary);
-            margin-left: 10px;
-        }
-
-        /* 详情面板 */
-        .panel-header {
-            padding: 15px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .panel-title {
-            font-weight: bold;
-            font-size: var(--font-size-large);
-        }
-
-        .close-btn {
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-        }
-
-        .close-btn:hover {
-            background: var(--hover-color);
-        }
-
-        .panel-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
+        /* Preview Box in Detail Panel */
         .preview-box {
             width: 100%;
             height: 200px;
-            background: var(--bg-panel);
-            border-radius: 6px;
+            background-color: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: var(--radius);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 20px;
             overflow: hidden;
-            border: 1px solid var(--border-color);
+            margin-bottom: var(--sp-4);
         }
 
-        .preview-box img {
+        .preview-box img, .preview-box video {
             max-width: 100%;
             max-height: 100%;
+            object-fit: contain;
         }
 
-        .info-row {
-            margin-bottom: 12px;
-            font-size: var(--font-size-small);
-        }
-
-        .info-label {
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-            display: block;
-        }
-
-        .info-value {
-            word-break: break-all;
-            user-select: text;
-        }
-
-        .action-group {
-            margin-top: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .ref-list {
-            margin-top: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .ref-item {
-            padding: 8px;
-            border-bottom: 1px solid var(--border-color);
-            font-size: var(--font-size-small);
-            cursor: pointer;
-        }
-
-        .ref-item:last-child {
-            border-bottom: none;
-        }
-
-        .ref-item:hover {
-            background: var(--hover-color);
-        }
-
-        .ref-path {
-            color: var(--text-secondary);
-            margin-top: 2px;
-            font-size: calc(var(--font-size-small) * 0.9);
-        }
-
-        /* Loading & Empty */
-        .state-msg {
-            text-align: center;
-            padding: 40px;
-            color: var(--text-secondary);
-        }
-
-        /* 隐藏的文件输入框 */
-        #file-input {
-            display: none;
-        }
-
-        /* 全屏预览 */
+        /* Fullscreen Preview */
         #fullscreen-preview {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: var(--bg-mask-dark);
-            z-index: 1000;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: var(--z-modal);
             display: none;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            flex-direction: column;
         }
 
         #fullscreen-preview.active {
             display: flex;
         }
 
-        #fullscreen-preview .close-fullscreen {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            color: white;
-            font-size: var(--font-size-huge);
-            cursor: pointer;
-            z-index: 1001;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 4px;
-        }
-
-        #fullscreen-preview .preview-content {
-            max-width: 90%;
-            max-height: 90%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #fullscreen-preview img,
-        #fullscreen-preview video {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-
-        #fullscreen-preview .text-preview {
-            background: var(--bg-preview-text);
-            color: var(--text-preview-text);
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 90%;
-            max-height: 90%;
-            overflow: auto;
-            white-space: pre-wrap;
-            font-family: var(--font-family-code, monospace);
-            font-size: var(--font-size-normal);
-        }
-
-        /* 工具栏扩展 */
-        .toolbar-group {
-            display: flex;
-            gap: 5px;
-            align-items: center;
-        }
-
-        .toolbar-separator {
-            width: 1px;
-            height: 24px;
-            background: var(--border-color);
-            margin: 0 5px;
-        }
-
-        select.toolbar-select {
-            padding: 6px 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background: var(--bg-content);
-            color: var(--text-primary);
-            font-size: var(--font-size-small);
-            cursor: pointer;
-        }
-
-        /* 分页控制 */
-        .pagination {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 20px;
-            font-size: var(--font-size-small);
-            flex-wrap: wrap;
-        }
-
-        .pagination .page-info {
-            color: var(--text-secondary);
-        }
-
-        .pagination .page-numbers {
-            display: flex;
-            gap: 5px;
-        }
-
-        .pagination .page-num {
-            min-width: 32px;
-            height: 32px;
-            padding: 0 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background: var(--bg-content);
-            color: var(--text-primary);
-            font-size: var(--font-size-small);
-        }
-
-        .pagination .page-num:hover {
-            background: var(--hover-color);
-        }
-
-        .pagination .page-num.active {
-            background: var(--accent-color);
-            color: var(--text-on-accent);
-            border-color: var(--accent-color);
-        }
-
-        .pagination .page-num.ellipsis {
-            border: none;
-            cursor: default;
-            pointer-events: none;
-        }
-
-        .page-jump-input {
-            width: 60px;
-            padding: 4px 8px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background: var(--bg-content);
-            color: var(--text-primary);
-            font-size: var(--font-size-small);
-            text-align: center;
-        }
-
-        /* 替换文件对话框 */
-        #replace-dialog {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: var(--bg-mask);
-            z-index: 999;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #replace-dialog.active {
-            display: flex;
-        }
-
-        .replace-dialog-content {
-            background: var(--bg-content);
-            border-radius: 8px;
-            padding: 30px;
-            max-width: 500px;
-            width: 90%;
-            box-shadow: 0 4px 20px var(--shadow-color);
-        }
-
-        .replace-dialog-title {
-            font-size: var(--font-size-large);
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: var(--text-primary);
-        }
-
-        .replace-upload-area {
-            border: 2px dashed var(--border-color);
-            border-radius: 8px;
-            padding: 40px 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: var(--bg-panel);
-        }
-
-        .replace-upload-area:hover,
-        .replace-upload-area.drag-over {
-            border-color: var(--accent-color);
-            background: var(--accent-bg);
-        }
-
-        .replace-upload-area .upload-icon {
-            font-size: calc(var(--font-size-huge) * 1.5);
-            margin-bottom: 10px;
-        }
-
-        .replace-upload-area .upload-text {
-            color: var(--text-secondary);
-            font-size: var(--font-size-normal);
-            margin-bottom: 5px;
-        }
-
-        .replace-upload-area .upload-hint {
-            color: var(--text-secondary);
-            font-size: var(--font-size-small);
-        }
-
-        .replace-preview {
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .replace-preview.active {
-            display: block;
-        }
-
-        .replace-preview img {
-            max-width: 100%;
-            max-height: 200px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-
-        .replace-preview-info {
-            font-size: var(--font-size-small);
-            color: var(--text-secondary);
-        }
-
-        .replace-dialog-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-        }
-
-        .dialog-btn {
-            padding: 8px 16px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-content);
-            color: var(--text-primary);
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: var(--font-size-normal);
-        }
-
-        .dialog-btn:hover {
-            background: var(--hover-color);
-        }
-
-        .dialog-btn.primary {
-            background: var(--accent-color);
-            color: var(--text-on-accent);
-            border-color: var(--accent-color);
-        }
-
-        .dialog-btn.primary:hover {
-            opacity: 0.9;
-        }
-
-        .dialog-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* 图片查看器 */
-        #fullscreen-preview .preview-content img {
-            cursor: grab;
-            transition: none;
-        }
-
-        #fullscreen-preview .preview-content img.dragging {
+        #fullscreen-content img.dragging {
             cursor: grabbing;
         }
 
-        #fullscreen-preview .zoom-controls {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 25px;
-            z-index: 1001;
+        #fullscreen-content img {
+            cursor: grab;
+            max-width: 90vw;
+            max-height: 90vh;
         }
 
-        #fullscreen-preview .zoom-btn {
-            color: white;
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: var(--font-size-normal);
-            transition: all 0.2s;
+        .text-preview {
+            background: var(--c-bg);
+            color: var(--c-fg);
+            padding: 20px;
+            border-radius: var(--radius);
+            max-width: 80vw;
+            max-height: 80vh;
+            overflow: auto;
+            white-space: pre-wrap;
         }
 
-        #fullscreen-preview .zoom-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.5);
+        /* Drag & Drop Upload Area */
+        .upload-area {
+            border: 2px dashed var(--c-border);
+            border-radius: var(--radius-lg);
+            background-color: var(--c-surface);
+            transition: all var(--transition);
+        }
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: var(--c-accent);
+            background-color: var(--c-accent-bg);
         }
 
-        #fullscreen-preview .zoom-info {
-            color: white;
-            padding: 8px 16px;
-            font-size: var(--font-size-normal);
-            min-width: 80px;
-            text-align: center;
-        }
-
-        /* 正则搜索 */
-        .search-options {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: var(--font-size-small);
-            color: var(--text-secondary);
-        }
-
-        .search-options label {
-            min-width: 50px;
-            display: inline-flex;
-        }
-
-        .search-options input[type="checkbox"] {
-            cursor: pointer;
-        }
-
-        /* Toast Notifications */
-        #toast-container {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none;
-        }
-
-        .toast {
-            background: var(--bg-toast);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: var(--font-size-normal);
-            box-shadow: 0 4px 12px var(--shadow-color);
-            animation: toast-in-out 3s ease forwards;
-            pointer-events: auto;
-            white-space: nowrap;
-        }
-
-        .toast.error {
-            background: var(--accent-color);
-            color: var(--text-on-accent);
-        }
-
-        @keyframes toast-in-out {
-            0% {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            10% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-
-            90% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-
-            100% {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
+        /* Responsive */
+        @media (max-width: 600px) {
+            :root { --detail-width: 100%; }
+            .toolbar-group { flex-wrap: wrap; }
         }
     </style>
 </head>
 
-<body>
-
-    <div id="main-container">
-        <div id="toolbar">
-            <div class="search-box">
-                <input type="text" class="search-input" id="search-input" placeholder="搜索文件...">
-                <div class="search-options">
-                    <label style="min-width: 50px;">
-                        <input type="checkbox" id="regex-search"> 正则
-                    </label>
-                </div>
+<body class="page">
+    <div class="page-header flex items-center gap-2 overflow-hidden">
+        <!-- Toolbar Row 1: Search -->
+        <div class="flex items-center gap-2 flex-none" style="width: 300px;">
+            <div class="search-box flex-1 relative">
+                <input type="text" class="input" id="search-input" placeholder="搜索文件...">
             </div>
+            <label class="check-row flex-none p-1">
+                <input type="checkbox" id="regex-search">
+                <span class="text-sm">正则</span>
+            </label>
+        </div>
 
-            <div class="toolbar-separator"></div>
+        <!-- Toolbar Row 2: Actions -->
+        <div class="toolbar-actions flex items-center gap-2 flex-1 justify-end">
+            <select class="select text-sm" style="width:auto" id="page-size">
+                <option value="50">50/页</option>
+                <option value="100" selected>100/页</option>
+                <option value="200">200/页</option>
+                <option value="500">500/页</option>
+            </select>
 
-            <div class="toolbar-group">
-                <select class="toolbar-select" id="page-size">
-                    <option value="50">50/页</option>
-                    <option value="100" selected>100/页</option>
-                    <option value="200">200/页</option>
-                    <option value="500">500/页</option>
-                </select>
+            <select class="select text-sm" style="width:auto" id="type-filter">
+                <option value="all">所有类型</option>
+                <option value="image">图片</option>
+                <option value="video">视频</option>
+                <option value="audio">音频</option>
+                <option value="document">文档</option>
+                <option value="archive">压缩包</option>
+                <option value="other">其他</option>
+            </select>
 
-                <select class="toolbar-select" id="type-filter">
-                    <option value="all">所有类型</option>
-                    <option value="image">图片</option>
-                    <option value="video">视频</option>
-                    <option value="audio">音频</option>
-                    <option value="document">文档</option>
-                    <option value="archive">压缩包</option>
-                    <option value="other">其他</option>
-                </select>
+            <select class="select text-sm" style="width:auto" id="sort-by">
+                <option value="updated-desc">修改时间↓</option>
+                <option value="updated-asc">修改时间↑</option>
+                <option value="name-asc">名称A-Z</option>
+                <option value="name-desc">名称Z-A</option>
+            </select>
 
-                <select class="toolbar-select" id="sort-by">
-                    <option value="updated-desc">修改时间↓</option>
-                    <option value="updated-asc">修改时间↑</option>
-                    <option value="name-asc">名称A-Z</option>
-                    <option value="name-desc">名称Z-A</option>
-                    <!-- <option value="size-desc">大小↓</option>
-                    <option value="size-asc">大小↑</option> -->
-                </select>
-            </div>
+            <div class="toolbar-divider" aria-hidden="true"></div>
 
-            <div style="flex: 1"></div>
+            <button class="btn btn-icon" id="view-toggle-btn" title="切换视图">
+                <!-- SVG Icon for Grid/List -->
+                <svg class="icon icon-stroke icon-md" id="view-icon-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                <svg class="icon icon-stroke icon-md hidden" id="view-icon-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </button>
+            <button class="btn btn-icon" id="refresh-btn" title="刷新">
+                <svg class="icon icon-stroke icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </button>
+        </div>
+    </div>
 
-            <div class="toolbar-group">
-                <button class="btn" id="view-toggle-btn" title="切换视图">
-                    <span id="view-icon">▤</span>
-                </button>
-                <button class="btn" id="refresh-btn" title="刷新">
-                    ↻
-                </button>
+    <div class="page-body relative overflow-hidden">
+        <!-- Main Content -->
+        <div id="file-list-container" class="h-full scroll-y p-4">
+            <div id="file-list" class="grid grid-auto-fill gap-4">
+                <!-- Content handled by JS -->
             </div>
         </div>
-        <div id="file-list-container">
-            <div id="file-list" class="file-grid">
-                <!-- 文件列表将在这里渲染 -->
+
+        <!-- Detail Panel Drawer -->
+        <div id="detail-panel">
+            <div class="p-3 border-b flex-between" style="background:var(--c-bg)">
+                <span class="text-lg text-bold">文件详情</span>
+                <button class="btn btn-icon btn-sm" id="close-panel">
+                    <svg class="icon icon-stroke icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
             </div>
-            <div class="pagination">
-                <button class="btn" id="prev-page">上一页</button>
-                <div class="page-numbers" id="page-numbers"></div>
-                <button class="btn" id="next-page">下一页</button>
-                <div class="toolbar-separator"></div>
-                <span class="page-info" id="page-info">第 1 页</span>
-                <input type="number" class="page-jump-input" id="page-jump" placeholder="跳转" min="1">
-                <button class="btn" id="jump-btn">跳转</button>
+            <div class="flex-1 scroll-y p-4" id="detail-content">
+                <!-- Detail Content -->
             </div>
         </div>
     </div>
 
-    <div id="detail-panel">
-        <div class="panel-header">
-            <span class="panel-title">文件详情</span>
-            <span class="close-btn" id="close-panel">✕</span>
+    <div class="page-footer flex items-center justify-between gap-2 text-nowrap">
+        <div class="flex items-center gap-2 flex-1">
+            <span class="text-xs text-muted" id="page-info"></span>
         </div>
-        <div class="panel-content">
-            <div id="detail-content">
-                <!-- 详情内容 -->
-            </div>
+
+        <div class="flex items-center justify-center gap-2 flex-none">
+            <button class="btn btn-sm" id="prev-page">上一页</button>
+            <div class="flex gap-1" id="page-numbers"></div>
+            <button class="btn btn-sm" id="next-page">下一页</button>
+        </div>
+
+        <div class="flex items-center justify-end gap-1 flex-1">
+            <input type="number" class="input py-1 px-2 text-center text-sm" style="width: 50px;" id="page-jump" min="1">
+            <button class="btn btn-sm" id="jump-btn">跳转</button>
         </div>
     </div>
 
+    <!-- Hidden Input -->
     <input type="file" id="file-input" style="display: none;">
 
-    <div id="replace-dialog">
-        <div class="replace-dialog-content">
-            <div class="replace-dialog-title">替换文件: <span id="replace-filename"></span></div>
+    <!-- Replace Dialog -->
+    <div id="replace-dialog" class="fixed inset-0 flex-center hidden" style="background-color: rgba(0,0,0,0.5); z-index: var(--z-modal);">
+        <div class="rounded-lg shadow-lg max-w-md w-full p-6 flex flex-col gap-4" style="background-color: var(--c-bg);">
+            <div class="text-lg text-bold">替换文件: <span id="replace-filename" class="text-accent"></span></div>
 
-            <div class="replace-upload-area" id="replace-upload-area">
-                <div class="upload-icon">📁</div>
-                <div class="upload-text">点击或拖放文件到这里</div>
-                <div class="upload-hint">支持图片粘贴 (Ctrl+V)</div>
+            <div class="upload-area p-8 text-center cursor-pointer flex flex-col items-center gap-2" id="replace-upload-area">
+                <div class="emoji-icon">📁</div>
+                <div class="text-base">点击或拖放文件到这里</div>
+                <div class="text-xs text-muted">支持图片粘贴 (Ctrl+V)</div>
             </div>
 
-            <div class="replace-preview" id="replace-preview">
-                <img id="replace-preview-img" src="" alt="预览">
-                <div class="replace-preview-info" id="replace-preview-info"></div>
+            <div class="hidden" id="replace-preview">
+                <div class="flex justify-center mb-2">
+                    <img id="replace-preview-img" src="" class="rounded border" style="max-height: 128px;">
+                </div>
+                <div class="text-xs text-center text-muted" id="replace-preview-info"></div>
             </div>
 
-            <div class="replace-dialog-actions">
-                <button class="dialog-btn" onclick="app.closeReplaceDialog()">取消</button>
-                <button class="dialog-btn primary" id="confirm-replace-btn" disabled
-                    onclick="app.confirmReplace()">确认替换</button>
+            <div class="flex justify-end gap-2 mt-2">
+                <button class="btn" onclick="app.closeReplaceDialog()">取消</button>
+                <button class="btn btn-primary" id="confirm-replace-btn" disabled onclick="app.confirmReplace()">确认替换</button>
             </div>
         </div>
     </div>
 
+    <!-- Fullscreen Preview -->
     <div id="fullscreen-preview">
-        <div class="close-fullscreen" onclick="app.closeFullscreen()">✕</div>
-        <div class="preview-content" id="fullscreen-content">
-            <!-- 全屏预览内容 -->
+        <div class="fs-close-btn" onclick="app.closeFullscreen()">
+            <svg class="icon icon-stroke icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </div>
-        <div class="zoom-controls" id="zoom-controls" style="display: none;">
-            <button class="zoom-btn" onclick="app.imageViewer.zoomOut()">-</button>
-            <div class="zoom-info" id="zoom-info">100%</div>
-            <button class="zoom-btn" onclick="app.imageViewer.zoomIn()">+</button>
-            <button class="zoom-btn" onclick="app.imageViewer.resetZoom()">重置</button>
+
+        <div id="fullscreen-content" class="flex-center w-full h-full p-4"></div>
+
+        <div id="zoom-controls" class="zoom-controls flex items-center gap-2 px-4 py-2 rounded-full hidden">
+            <button class="btn btn-icon btn-sm btn-on-dark" onclick="app.imageViewer.zoomOut()">-</button>
+            <span class="text-sm text-center" id="zoom-info" style="min-width: 50px;">100%</span>
+            <button class="btn btn-icon btn-sm btn-on-dark" onclick="app.imageViewer.zoomIn()">+</button>
+            <button class="btn btn-sm btn-on-dark" style="margin-left: var(--sp-2);" onclick="app.imageViewer.resetZoom()">重置</button>
         </div>
     </div>
-
-    <div id="toast-container"></div>
 
     <script>
-        /* ==================== 核心逻辑 ==================== */
+        /* ==================== Logic ==================== */
 
         class ImageViewer {
             constructor(imgElement) {
@@ -875,21 +374,17 @@
                 this.minScale = 0.1;
                 this.maxScale = 10;
                 this.scaleStep = 0.2;
-
                 this.bindEvents();
                 this.updateTransform();
             }
 
             bindEvents() {
-                // 滚轮缩放
                 this.wheelHandler = (e) => {
                     e.preventDefault();
-                    const delta = e.deltaY > 0 ? -this.scaleStep : this.scaleStep;
-                    this.zoom(delta);
+                    this.zoom(e.deltaY > 0 ? -this.scaleStep : this.scaleStep);
                 };
                 this.img.addEventListener('wheel', this.wheelHandler, { passive: false });
 
-                // 鼠标拖动
                 this.mouseDownHandler = (e) => {
                     e.preventDefault();
                     this.isDragging = true;
@@ -913,110 +408,48 @@
                     this.img.classList.remove('dragging');
                 };
                 document.addEventListener('mouseup', this.mouseUpHandler);
-
-                // 触摸支持
-                this.touchStartHandler = (e) => {
-                    if (e.touches.length === 1) {
-                        e.preventDefault();
-                        this.isDragging = true;
-                        this.startX = e.touches[0].clientX - this.translateX;
-                        this.startY = e.touches[0].clientY - this.translateY;
-                    }
-                };
-                this.img.addEventListener('touchstart', this.touchStartHandler, { passive: false });
-
-                this.touchMoveHandler = (e) => {
-                    if (!this.isDragging || e.touches.length !== 1) return;
-                    e.preventDefault();
-                    this.translateX = e.touches[0].clientX - this.startX;
-                    this.translateY = e.touches[0].clientY - this.startY;
-                    this.updateTransform();
-                };
-                this.img.addEventListener('touchmove', this.touchMoveHandler, { passive: false });
-
-                this.touchEndHandler = () => {
-                    this.isDragging = false;
-                };
-                this.img.addEventListener('touchend', this.touchEndHandler);
             }
 
             zoom(delta) {
-                const newScale = Math.max(this.minScale, Math.min(this.maxScale, this.scale + delta));
-                this.scale = newScale;
+                this.scale = Math.max(this.minScale, Math.min(this.maxScale, this.scale + delta));
                 this.updateTransform();
                 this.updateZoomInfo();
             }
-
-            zoomIn() {
-                this.zoom(this.scaleStep);
-            }
-
-            zoomOut() {
-                this.zoom(-this.scaleStep);
-            }
-
+            zoomIn() { this.zoom(this.scaleStep); }
+            zoomOut() { this.zoom(-this.scaleStep); }
             resetZoom() {
-                this.scale = 1;
-                this.translateX = 0;
-                this.translateY = 0;
+                this.scale = 1; this.translateX = 0; this.translateY = 0;
                 this.updateTransform();
                 this.updateZoomInfo();
             }
-
             updateTransform() {
                 this.img.style.transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
             }
-
             updateZoomInfo() {
-                const zoomInfo = document.getElementById('zoom-info');
-                if (zoomInfo) {
-                    zoomInfo.textContent = `${Math.round(this.scale * 100)}%`;
-                }
+                const el = document.getElementById('zoom-info');
+                if (el) el.textContent = `${Math.round(this.scale * 100)}%`;
             }
-
             destroy() {
                 this.img.removeEventListener('wheel', this.wheelHandler);
                 this.img.removeEventListener('mousedown', this.mouseDownHandler);
                 document.removeEventListener('mousemove', this.mouseMoveHandler);
                 document.removeEventListener('mouseup', this.mouseUpHandler);
-                this.img.removeEventListener('touchstart', this.touchStartHandler);
-                this.img.removeEventListener('touchmove', this.touchMoveHandler);
-                this.img.removeEventListener('touchend', this.touchEndHandler);
             }
         }
 
         class AssetManager {
             constructor() {
-                /**
-                 * @type Array<{ "isDir": boolean, "isSymlink": boolean, "name": string, "updated": number }>
-                 */
                 this.assets = [];
-                /**
-                 * @type typeof this.assets
-                 */
                 this.filteredAssets = [];
-                /**
-                 * @type 'grid' | 'list'
-                 */
-                this.currentView = 'grid'; // 'grid' | 'list'
+                this.currentView = 'grid';
                 this.selectedFile = null;
                 this.filterText = '';
                 this.typeFilter = 'all';
                 this.sortBy = 'updated-desc';
                 this.regexSearch = false;
-
-                // 分页
                 this.currentPage = 1;
-                this.pageSize = 50;
+                this.pageSize = 100;
 
-                // 替换文件
-                this.replaceFile = null;
-                this.replaceTargetFilename = '';
-
-                // 图片查看器
-                this.imageViewer = null;
-
-                // DOM Elements
                 this.dom = {
                     listContainer: document.getElementById('file-list'),
                     detailPanel: document.getElementById('detail-panel'),
@@ -1044,8 +477,7 @@
                     replacePreviewImg: document.getElementById('replace-preview-img'),
                     replacePreviewInfo: document.getElementById('replace-preview-info'),
                     replaceFilename: document.getElementById('replace-filename'),
-                    confirmReplaceBtn: document.getElementById('confirm-replace-btn'),
-                    toastContainer: document.getElementById('toast-container')
+                    confirmReplaceBtn: document.getElementById('confirm-replace-btn')
                 };
 
                 this.bindEvents();
@@ -1053,146 +485,79 @@
 
             bindEvents() {
                 this.dom.searchInput.addEventListener('input', (e) => {
-                    this.filterText = e.target.value;
-                    this.currentPage = 1;
-                    this.applyFiltersAndSort();
+                    this.filterText = e.target.value; this.currentPage = 1; this.applyFiltersAndSort();
                 });
-
                 this.dom.regexSearch.addEventListener('change', (e) => {
-                    this.regexSearch = e.target.checked;
-                    this.currentPage = 1;
-                    this.applyFiltersAndSort();
+                    this.regexSearch = e.target.checked; this.currentPage = 1; this.applyFiltersAndSort();
                 });
-
                 this.dom.pageSize.addEventListener('change', (e) => {
-                    this.pageSize = parseInt(e.target.value);
-                    this.currentPage = 1;
-                    this.renderList();
+                    this.pageSize = parseInt(e.target.value); this.currentPage = 1; this.renderList();
                 });
-
                 this.dom.typeFilter.addEventListener('change', (e) => {
-                    this.typeFilter = e.target.value;
-                    this.currentPage = 1;
-                    this.applyFiltersAndSort();
+                    this.typeFilter = e.target.value; this.currentPage = 1; this.applyFiltersAndSort();
                 });
-
                 this.dom.sortBy.addEventListener('change', (e) => {
-                    this.sortBy = e.target.value;
-                    this.applyFiltersAndSort();
+                    this.sortBy = e.target.value; this.applyFiltersAndSort();
                 });
-
                 this.dom.viewToggleBtn.addEventListener('click', () => {
                     this.currentView = this.currentView === 'grid' ? 'list' : 'grid';
-                    this.dom.listContainer.className = this.currentView === 'grid' ? 'file-grid' : 'file-list';
-                    document.getElementById('view-icon').textContent = this.currentView === 'grid' ? '▤' : '▦';
+                    // Update DOM classes based on HSPA Mini
+                    const gridIcon = document.getElementById('view-icon-grid');
+                    const listIcon = document.getElementById('view-icon-list');
+
+                    if (this.currentView === 'grid') {
+                        this.dom.listContainer.className = 'grid grid-auto-fill gap-4';
+                        gridIcon.classList.remove('hidden');
+                        listIcon.classList.add('hidden');
+                    } else {
+                        this.dom.listContainer.className = 'list list-divided';
+                        gridIcon.classList.add('hidden');
+                        listIcon.classList.remove('hidden');
+                    }
                     this.renderList();
                 });
-
                 this.dom.refreshBtn.addEventListener('click', () => this.loadAssets());
                 this.dom.closePanelBtn.addEventListener('click', () => this.closePanel());
 
-                this.dom.prevPageBtn.addEventListener('click', () => {
-                    if (this.currentPage > 1) {
-                        this.currentPage--;
-                        this.renderList();
-                    }
-                });
-
-                this.dom.nextPageBtn.addEventListener('click', () => {
-                    const totalPages = Math.ceil(this.filteredAssets.length / this.pageSize);
-                    if (this.currentPage < totalPages) {
-                        this.currentPage++;
-                        this.renderList();
-                    }
-                });
-
+                // Pagination
+                this.dom.prevPageBtn.addEventListener('click', () => { if (this.currentPage > 1) { this.currentPage--; this.renderList(); } });
+                this.dom.nextPageBtn.addEventListener('click', () => { if (this.currentPage < Math.ceil(this.filteredAssets.length / this.pageSize)) { this.currentPage++; this.renderList(); } });
                 this.dom.jumpBtn.addEventListener('click', () => {
                     const page = parseInt(this.dom.pageJump.value);
-                    const totalPages = Math.ceil(this.filteredAssets.length / this.pageSize);
-                    if (page >= 1 && page <= totalPages) {
-                        this.currentPage = page;
-                        this.renderList();
-                    }
+                    if (page >= 1 && page <= Math.ceil(this.filteredAssets.length / this.pageSize)) { this.currentPage = page; this.renderList(); }
                 });
 
-                this.dom.pageJump.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        this.dom.jumpBtn.click();
-                    }
-                });
-
-                // 替换对话框事件
-                this.dom.replaceUploadArea.addEventListener('click', () => {
-                    this.dom.fileInput.click();
-                });
-
-                this.dom.fileInput.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        this.handleReplaceFileSelect(file);
-                    }
-                });
-
-                this.dom.replaceUploadArea.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    this.dom.replaceUploadArea.classList.add('drag-over');
-                });
-
-                this.dom.replaceUploadArea.addEventListener('dragleave', () => {
-                    this.dom.replaceUploadArea.classList.remove('drag-over');
-                });
-
+                // Replace Dialog
+                this.dom.replaceUploadArea.addEventListener('click', () => this.dom.fileInput.click());
+                this.dom.fileInput.addEventListener('change', (e) => { if(e.target.files[0]) this.handleReplaceFileSelect(e.target.files[0]); });
+                this.dom.replaceUploadArea.addEventListener('dragover', (e) => { e.preventDefault(); this.dom.replaceUploadArea.classList.add('drag-over'); });
+                this.dom.replaceUploadArea.addEventListener('dragleave', () => { this.dom.replaceUploadArea.classList.remove('drag-over'); });
                 this.dom.replaceUploadArea.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    this.dom.replaceUploadArea.classList.remove('drag-over');
-                    const file = e.dataTransfer.files[0];
-                    if (file) {
-                        this.handleReplaceFileSelect(file);
-                    }
+                    e.preventDefault(); this.dom.replaceUploadArea.classList.remove('drag-over');
+                    if(e.dataTransfer.files[0]) this.handleReplaceFileSelect(e.dataTransfer.files[0]);
                 });
-
-                // 粘贴图片
                 document.addEventListener('paste', (e) => {
-                    if (!this.dom.replaceDialog.classList.contains('active')) return;
-                    const items = e.clipboardData.items;
-                    for (let item of items) {
-                        if (item.type.indexOf('image') !== -1) {
-                            const file = item.getAsFile();
-                            this.handleReplaceFileSelect(file);
-                            break;
+                    if (!this.dom.replaceDialog.classList.contains('hidden')) {
+                        for (let item of e.clipboardData.items) {
+                            if (item.type.indexOf('image') !== -1) {
+                                this.handleReplaceFileSelect(item.getAsFile()); break;
+                            }
                         }
                     }
                 });
-
-                // ESC 键关闭
                 document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape') {
-                        this.closeFullscreen();
-                        this.closeReplaceDialog();
-                    }
+                    if (e.key === 'Escape') { this.closeFullscreen(); this.closeReplaceDialog(); }
                 });
             }
 
             async init() {
-                // 应用主题
-                const themeMode = window.pluginSdk.themeMode || 'light';
-                document.documentElement.setAttribute('data-theme-mode', themeMode);
-
+                const sdk = window.pluginSdk;
+                if (!sdk) return;
+                document.documentElement.setAttribute('data-theme-mode', sdk.themeMode || 'light');
                 await this.loadAssets();
             }
 
-            /**
-             * 获取文件大小
-             * 注意: readDir API 不返回文件大小，此方法为占位符
-             * TODO: 未来可通过其他方式实现（如单独的 stat API 或 loadBlob 获取大小）
-             * @param {string} filename - 文件名
-             * @returns {Promise<number|null>} 文件大小（字节），如果无法获取则返回 null
-             */
             async getFileSize(filename) {
-                // 占位实现：未来可通过以下方式之一实现
-                // 1. 调用专门的 stat API（如果存在）
-                // 2. 通过 loadBlob 获取 Blob 对象，读取 size 属性（但会加载整个文件，不适合大文件）
-                // 3. 通过其他插件 API
                 if (window.pluginSdk.getFileSize) {
                     const ans = await window.pluginSdk.getFileSize(`/data/assets/${filename}`);
                     return ans.size;
@@ -1201,191 +566,132 @@
             }
 
             async loadAssets() {
-                this.dom.listContainer.innerHTML = '<div class="state-msg">加载中...</div>';
+                this.dom.listContainer.innerHTML = '<div class="empty-state"><div>加载中...</div></div>';
                 try {
                     const res = await window.pluginSdk.request('/api/file/readDir', { path: '/data/assets' });
                     if (!res.ok) throw new Error(res.msg);
-
-                    // 过滤掉非文件（虽然 assets 下通常都是文件）
-                    this.assets = res.data.filter(item => !item.isDir).map(item => {
-                        // debugger
-                        return item;
-                    })
-
+                    this.assets = res.data.filter(item => !item.isDir);
                     this.applyFiltersAndSort();
                 } catch (e) {
-                    this.dom.listContainer.innerHTML = `<div class="state-msg" style="color:var(--error-color)">加载失败: ${e.message}</div>`;
+                    this.dom.listContainer.innerHTML = `<div class="empty-state text-error"><div>加载失败: ${e.message}</div></div>`;
+                    window.pluginSdk.showMessage(e.message, 'error');
                 }
             }
 
             applyFiltersAndSort() {
-                // 先过滤
+                // Filter
                 this.filteredAssets = this.assets.filter(file => {
-                    // 搜索过滤
                     if (this.filterText) {
-                        if (this.regexSearch) {
-                            try {
-                                const regex = new RegExp(this.filterText, 'i');
-                                if (!regex.test(file.name)) {
-                                    return false;
-                                }
-                            } catch (e) {
-                                // 正则表达式无效，fallback 到普通搜索
-                                if (!file.name.toLowerCase().includes(this.filterText.toLowerCase())) {
-                                    return false;
-                                }
-                            }
-                        } else {
-                            if (!file.name.toLowerCase().includes(this.filterText.toLowerCase())) {
-                                return false;
-                            }
+                        try {
+                            if (this.regexSearch && !new RegExp(this.filterText, 'i').test(file.name)) return false;
+                            else if (!this.regexSearch && !file.name.toLowerCase().includes(this.filterText.toLowerCase())) return false;
+                        } catch {
+                            if (!file.name.toLowerCase().includes(this.filterText.toLowerCase())) return false;
                         }
                     }
-
-                    // 类型过滤
-                    if (this.typeFilter !== 'all') {
-                        const fileType = this.getFileType(file.name);
-                        if (fileType !== this.typeFilter) {
-                            return false;
-                        }
-                    }
-
+                    if (this.typeFilter !== 'all' && this.getFileType(file.name) !== this.typeFilter) return false;
                     return true;
                 });
 
-                // 再排序
-                // 注意: readDir API 不返回文件大小，按大小排序可能不准确
-                // TODO: 未来如果实现了 getFileSize，可以先批量获取大小后再排序
+                // Sort
                 this.filteredAssets.sort((a, b) => {
                     switch (this.sortBy) {
-                        case 'updated-desc':
-                            return (b.updated || 0) - (a.updated || 0);
-                        case 'updated-asc':
-                            return (a.updated || 0) - (b.updated || 0);
-                        case 'name-asc':
-                            return a.name.localeCompare(b.name);
-                        case 'name-desc':
-                            return b.name.localeCompare(a.name);
-                        // case 'size-desc':
-                        //     // 当前无法获取准确文件大小，排序结果可能不正确
-                        //     return (b.size || 0) - (a.size || 0);
-                        // case 'size-asc':
-                        //     // 当前无法获取准确文件大小，排序结果可能不正确
-                        //     return (a.size || 0) - (b.size || 0);
-                        default:
-                            return 0;
+                        case 'updated-desc': return (b.updated || 0) - (a.updated || 0);
+                        case 'updated-asc': return (a.updated || 0) - (b.updated || 0);
+                        case 'name-asc': return a.name.localeCompare(b.name);
+                        case 'name-desc': return b.name.localeCompare(a.name);
+                        default: return 0;
                     }
                 });
-
                 this.renderList();
             }
 
             getFileType(filename) {
                 const ext = filename.split('.').pop().toLowerCase();
-                const types = {
-                    image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
-                    video: ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'],
-                    audio: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'],
-                    document: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md'],
-                    archive: ['zip', 'rar', '7z', 'tar', 'gz']
-                };
-
-                for (const [type, exts] of Object.entries(types)) {
-                    if (exts.includes(ext)) return type;
-                }
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) return 'image';
+                if (['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext)) return 'video';
+                if (['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'].includes(ext)) return 'audio';
+                if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md'].includes(ext)) return 'document';
+                if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'archive';
                 return 'other';
             }
 
             renderList() {
                 const totalPages = Math.ceil(this.filteredAssets.length / this.pageSize) || 1;
-
-                // 更新分页信息
-                this.dom.pageInfo.textContent = `共 ${this.filteredAssets.length} 个文件`;
+                this.dom.pageInfo.textContent = `共 ${this.filteredAssets.length} 项`;
                 this.dom.prevPageBtn.disabled = this.currentPage === 1;
                 this.dom.nextPageBtn.disabled = this.currentPage >= totalPages;
-                this.dom.pageJump.max = totalPages;
-
-                // 渲染页码
                 this.renderPageNumbers(totalPages);
 
                 if (this.filteredAssets.length === 0) {
-                    this.dom.listContainer.innerHTML = '<div class="state-msg">没有找到文件</div>';
+                    this.dom.listContainer.innerHTML = '<div class="empty-state"><div>没有找到文件</div></div>';
                     return;
                 }
 
-                // 计算当前页的数据
-                const startIdx = (this.currentPage - 1) * this.pageSize;
-                const endIdx = Math.min(startIdx + this.pageSize, this.filteredAssets.length);
-                const pageData = this.filteredAssets.slice(startIdx, endIdx);
+                const start = (this.currentPage - 1) * this.pageSize;
+                const pageData = this.filteredAssets.slice(start, start + this.pageSize);
 
                 this.dom.listContainer.innerHTML = '';
-                const fragment = document.createDocumentFragment();
 
                 pageData.forEach(file => {
+                    const isSelected = this.selectedFile?.name === file.name;
                     const el = document.createElement('div');
-                    el.className = `file-item ${this.selectedFile?.name === file.name ? 'active' : ''}`;
                     el.onclick = () => this.selectFile(file, el);
 
                     const isImage = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(file.name);
-                    const thumbContent = isImage
-                        ? `<img src="/assets/${file.name}?t=${file.updated || ''}" loading="lazy" alt="${file.name}">`
-                        : this.getFileIcon(file.name);
+                    // Use ?t= param to prevent caching
+                    const imgUrl = `/assets/${file.name}?t=${file.updated || ''}`;
 
-                    let metaHtml = '';
-                    if (this.currentView === 'list') {
-                        const date = file.updated !== undefined ? this.formatDate(file.updated) : '-';
-                        metaHtml = `<div class="file-meta">${date}</div>`;
+                    if (this.currentView === 'grid') {
+                        el.className = `card card-hover cursor-pointer p-2 flex flex-col items-center gap-2 ${isSelected ? 'selected-item' : ''}`;
+                        el.innerHTML = `
+                            <div class="file-card-thumb">
+                                ${isImage ? `<img src="${imgUrl}" loading="lazy">` : this.getFileIcon(file.name)}
+                            </div>
+                            <div class="text-xs text-center text-truncate w-full" title="${file.name}">${file.name}</div>
+                        `;
+                    } else {
+                        el.className = `list-item ${isSelected ? 'selected-item' : ''}`;
+                        el.innerHTML = `
+                            <div class="file-list-thumb">
+                                ${isImage ? `<img src="${imgUrl}" loading="lazy">` : this.getFileIcon(file.name)}
+                            </div>
+                            <div class="flex-1 text-sm text-truncate" title="${file.name}">${file.name}</div>
+                            <div class="text-xs text-muted">${file.updated ? this.formatDate(file.updated) : '-'}</div>
+                        `;
                     }
-
-                    el.innerHTML = `
-                        <div class="file-thumb">${thumbContent}</div>
-                        <div class="file-name" title="${file.name}">${file.name}</div>
-                        ${metaHtml}
-                    `;
-                    fragment.appendChild(el);
+                    this.dom.listContainer.appendChild(el);
                 });
-
-                this.dom.listContainer.appendChild(fragment);
             }
 
             renderPageNumbers(totalPages) {
                 this.dom.pageNumbers.innerHTML = '';
-
                 if (totalPages <= 1) return;
 
-                const maxVisible = 7;
-                let pages = [];
+                const createBtn = (p, text) => {
+                    const btn = document.createElement('button');
+                    btn.className = `btn btn-sm ${p === this.currentPage ? 'btn-primary' : ''}`;
+                    btn.textContent = text || p;
+                    if (p === '...') { btn.disabled = true; btn.classList.add('btn-ghost'); }
+                    else btn.onclick = () => { this.currentPage = p; this.renderList(); };
+                    return btn;
+                };
 
-                if (totalPages <= maxVisible) {
-                    pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+                // Simple pagination logic
+                if (totalPages <= 6) {
+                    for(let i=1; i<=totalPages; i++) this.dom.pageNumbers.appendChild(createBtn(i));
                 } else {
-                    if (this.currentPage <= 4) {
-                        pages = [1, 2, 3, 4, 5, '...', totalPages];
-                    } else if (this.currentPage >= totalPages - 3) {
-                        pages = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-                    } else {
-                        pages = [1, '...', this.currentPage - 1, this.currentPage, this.currentPage + 1, '...', totalPages];
-                    }
-                }
+                    this.dom.pageNumbers.appendChild(createBtn(1));
+                    if (this.currentPage > 3) this.dom.pageNumbers.appendChild(createBtn('...'));
 
-                pages.forEach(page => {
-                    const btn = document.createElement('div');
-                    btn.className = 'page-num';
-                    if (page === '...') {
-                        btn.className += ' ellipsis';
-                        btn.textContent = '...';
-                    } else {
-                        btn.textContent = page;
-                        if (page === this.currentPage) {
-                            btn.classList.add('active');
-                        }
-                        btn.onclick = () => {
-                            this.currentPage = page;
-                            this.renderList();
-                        };
-                    }
-                    this.dom.pageNumbers.appendChild(btn);
-                });
+                    const start = Math.max(2, this.currentPage - 1);
+                    const end = Math.min(totalPages - 1, this.currentPage + 1);
+
+                    for(let i=start; i<=end; i++) this.dom.pageNumbers.appendChild(createBtn(i));
+
+                    if (this.currentPage < totalPages - 2) this.dom.pageNumbers.appendChild(createBtn('...'));
+                    this.dom.pageNumbers.appendChild(createBtn(totalPages));
+                }
             }
 
             getFileIcon(filename) {
@@ -1401,413 +707,231 @@
             }
 
             selectFile(file, el) {
-                // Update UI selection
-                document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
-                el.classList.add('active');
-
+                if (this.currentView === 'grid') {
+                    document.querySelectorAll('.card').forEach(i => i.classList.remove('selected-item'));
+                } else {
+                    document.querySelectorAll('.list-item').forEach(i => i.classList.remove('selected-item'));
+                }
+                el.classList.add('selected-item');
                 this.selectedFile = file;
                 this.renderDetail(file);
-                this.openPanel();
+                this.dom.detailPanel.classList.add('open');
             }
 
             async renderDetail(file) {
-                const fileType = this.getFileType(file.name);
-                const isImage = fileType === 'image';
-                const isVideo = fileType === 'video';
-                const isText = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'csv'].includes(file.name.split('.').pop().toLowerCase());
-                const url = `/assets/${file.name}?t=${file.updated || ''}`; // Web URL
+                const type = this.getFileType(file.name);
+                const url = `/assets/${file.name}?t=${file.updated || ''}`;
 
-                let previewHtml = '';
-                if (isImage) {
-                    previewHtml = `
-                        <div class="preview-box" style="cursor: zoom-in;" onclick="app.openFullscreen('${file.name}', 'image')">
-                            <img src="${url}">
-                        </div>`;
-                } else if (isVideo) {
-                    previewHtml = `
-                        <div class="preview-box" style="cursor: pointer;" onclick="app.openFullscreen('${file.name}', 'video')">
-                            <video src="${url}" controls style="max-width:100%;max-height:100%;">
-                                您的浏览器不支持视频播放
-                            </video>
-                        </div>`;
-                } else if (isText) {
-                    previewHtml = `
-                        <div class="preview-box" style="cursor: pointer; align-items: flex-start; justify-content: flex-start; padding: 10px;" onclick="app.openFullscreen('${file.name}', 'text')">
-                            <div style="font-size: var(--font-size-small); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; width: 100%;">
-                                点击查看全文
-                            </div>
-                        </div>`;
-                } else {
-                    previewHtml = `<div class="preview-box" style="font-size: calc(var(--font-size-huge) * 1.5)">${this.getFileIcon(file.name)}</div>`;
-                }
+                let preview = ``;
+                if (type === 'image') preview = `<img src="${url}">`;
+                else if (type === 'video') preview = `<video src="${url}" controls></video>`;
+                else preview = `<div style="font-size: 3em; line-height: 1;">${this.getFileIcon(file.name)}</div>`;
 
-                // 先显示占位符，然后异步获取文件大小
-                let fileSizeText = '计算中...';
-                const fileDate = file.updated !== undefined ? this.formatDate(file.updated) : '未知';
+                // Wrap in click container for fullscreen
+                preview = `<div class="preview-box cursor-pointer" onclick="app.openFullscreen('${file.name}', '${type}')">${preview}</div>`;
 
                 this.dom.detailContent.innerHTML = `
-                    ${previewHtml}
-                    <div class="info-row">
-                        <span class="info-label">文件名</span>
-                        <div class="info-value">${this.escapeHtml(file.name)}</div>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">类型</span>
-                        <div class="info-value">${this.getFileTypeLabel(fileType)}</div>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">大小</span>
-                        <div class="info-value" id="file-size-display">${fileSizeText}</div>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">修改时间</span>
-                        <div class="info-value">${fileDate}</div>
-                    </div>
+                    ${preview}
+                    <div class="flex flex-col gap-2">
+                        <div class="form-group">
+                            <span class="text-xs text-muted">文件名</span>
+                            <div class="text-sm text-break select-all p-1 rounded border" style="background-color: var(--c-surface);">${this.escapeHtml(file.name)}</div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="form-group flex-1">
+                                <span class="text-xs text-muted">类型</span>
+                                <div class="text-sm">${type}</div>
+                            </div>
+                            <div class="form-group flex-1">
+                                <span class="text-xs text-muted">大小</span>
+                                <div class="text-sm" id="file-size-val">计算中...</div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <span class="text-xs text-muted">修改时间</span>
+                            <div class="text-sm">${this.formatDate(file.updated)}</div>
+                        </div>
 
-                    <div class="action-group">
-                        <button class="btn" onclick="app.checkReferences('${this.escapeAttribute(file.name)}')">
-                            🔍 查找引用
-                        </button>
-                        <button class="btn" onclick="app.copyLink('${this.escapeAttribute(file.name)}')">
-                            📋 复制链接
-                        </button>
-                        <button class="btn" onclick="app.copyFileContent('${this.escapeAttribute(file.name)}')">
-                            📄 复制内容
-                        </button>
-                        <button class="btn" onclick="app.downloadFile('${this.escapeAttribute(file.name)}')">
-                            ⬇️ 下载文件
-                        </button>
-                        <button class="btn" onclick="app.triggerReplace('${this.escapeAttribute(file.name)}')">
-                            🔄 替换文件
-                        </button>
-                    </div>
+                        <div class="divider"></div>
 
-                    <div id="ref-results"></div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="btn btn-sm" onclick="app.checkReferences('${this.escapeAttribute(file.name)}')">🔍 查找引用</button>
+                            <button class="btn btn-sm" onclick="app.copyLink('${this.escapeAttribute(file.name)}')">📋 复制链接</button>
+                            <button class="btn btn-sm" onclick="app.copyFileContent('${this.escapeAttribute(file.name)}')">📄 复制内容</button>
+                            <button class="btn btn-sm" onclick="app.downloadFile('${this.escapeAttribute(file.name)}')">⬇️ 下载文件</button>
+                            <button class="btn btn-sm" style="grid-column: span 2 / span 2;" onclick="app.triggerReplace('${this.escapeAttribute(file.name)}')">🔄 替换文件</button>
+                        </div>
+
+                        <div id="ref-results" class="mt-4 flex flex-col gap-1 text-sm"></div>
+                    </div>
                 `;
 
-                // 异步获取文件大小
                 this.getFileSize(file.name).then(size => {
-                    const sizeDisplay = document.getElementById('file-size-display');
-                    if (sizeDisplay) {
-                        sizeDisplay.textContent = size !== null ? this.formatSize(size) : '未知';
-                    }
+                    const el = document.getElementById('file-size-val');
+                    if (el) el.textContent = size !== null ? this.formatSize(size) : '未知';
                 });
             }
 
-            getFileTypeLabel(type) {
-                const labels = {
-                    image: '图片',
-                    video: '视频',
-                    audio: '音频',
-                    document: '文档',
-                    archive: '压缩包',
-                    other: '其他'
-                };
-                return labels[type] || '未知';
+            async checkReferences(filename) {
+                const div = document.getElementById('ref-results');
+                div.innerHTML = '<div class="text-muted">正在搜索引用...</div>';
+                try {
+                    const safe = filename.replace(/'/g, "''");
+                    const sql = `SELECT * FROM blocks WHERE (markdown LIKE '%/assets/${safe}%' OR markdown LIKE '%assets/${safe}%') LIMIT 50`;
+                    const blocks = await window.pluginSdk.querySQL(sql);
+
+                    if (!blocks.length) {
+                        div.innerHTML = '<div class="text-muted">未找到引用</div>';
+                        return;
+                    }
+
+                    div.innerHTML = blocks.map(b => `
+                        <div class="card p-2 cursor-pointer hover-surface" onclick="window.pluginSdk.openBlock('${b.id}')">
+                            <div class="text-truncate">${this.escapeHtml(b.content || '无内容')}</div>
+                            <div class="text-xs text-muted text-truncate">${b.hpath}</div>
+                        </div>
+                    `).join('');
+                } catch (e) {
+                    div.innerHTML = `<div class="text-error">查询错: ${e.message}</div>`;
+                }
             }
 
-            async openFullscreen(filename, type) {
-                const url = `/assets/${filename}?t=${this.selectedFile?.updated || ''}`;
-                this.dom.fullscreenContent.innerHTML = '';
+            copyLink(name) {
+                navigator.clipboard.writeText(`![${name}](/assets/${name})`).then(() => window.pluginSdk.showMessage('链接已复制'));
+            }
+
+            async copyFileContent(name) {
+                try {
+                    if (this.getFileType(name) === 'image') {
+                        const res = await fetch(`/assets/${name}?t=${this.selectedFile?.updated}`);
+                        const blob = await res.blob();
+                        await navigator.clipboard.write([new ClipboardItem({[blob.type]: blob})]);
+                    } else {
+                        const res = await window.pluginSdk.loadBlob(`/data/assets/${name}`);
+                        if(!res.ok) throw new Error('Load failed');
+                        await navigator.clipboard.writeText(await res.data.text());
+                    }
+                    window.pluginSdk.showMessage('已复制');
+                } catch(e) { window.pluginSdk.showMessage('复制失败: '+e.message, 'error'); }
+            }
+
+            downloadFile(name) {
+                const a = document.createElement('a');
+                a.href = `/assets/${name}?t=${this.selectedFile?.updated}`;
+                a.download = name;
+                a.click();
+            }
+
+            triggerReplace(name) {
+                this.replaceTargetFilename = name;
+                this.dom.replaceFilename.textContent = name;
+                this.dom.replacePreview.classList.add('hidden');
+                this.dom.confirmReplaceBtn.disabled = true;
+                this.dom.replaceDialog.classList.remove('hidden');
+                this.dom.replaceDialog.classList.add('flex'); // hspa-flex-center override
+            }
+
+            closeReplaceDialog() {
+                this.dom.replaceDialog.classList.add('hidden');
+                this.dom.replaceDialog.classList.remove('flex');
+                this.replaceFile = null;
+            }
+
+            handleReplaceFileSelect(file) {
+                const ext1 = this.replaceTargetFilename.split('.').pop().toLowerCase();
+                const ext2 = file.name.split('.').pop().toLowerCase();
+                if (ext1 !== ext2) { window.pluginSdk.showMessage(`类型不匹配: 需 .${ext1}`, 'error'); return; }
+
+                this.replaceFile = file;
+                if (this.getFileType(file.name) === 'image') {
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        this.dom.replacePreviewImg.src = e.target.result;
+                        this.dom.replacePreview.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    this.dom.replacePreview.classList.add('hidden');
+                }
+
+                this.dom.replacePreviewInfo.textContent = `${file.name} (${this.formatSize(file.size)})`;
+                this.dom.confirmReplaceBtn.disabled = false;
+            }
+
+            async confirmReplace() {
+                if(!this.replaceFile) return;
+                try {
+                    this.dom.confirmReplaceBtn.disabled = true;
+                    this.dom.confirmReplaceBtn.textContent = '替换中...';
+                    await window.pluginSdk.saveBlob(`/data/assets/${this.replaceTargetFilename}`, this.replaceFile);
+                    window.pluginSdk.showMessage('替换成功');
+                    this.closeReplaceDialog();
+                    this.loadAssets();
+                    // Refresh detail if same
+                    if(this.selectedFile?.name === this.replaceTargetFilename) {
+                        // Trick to refresh detail view
+                        const fakeFile = {...this.selectedFile, updated: Date.now()};
+                        this.renderDetail(fakeFile);
+                    }
+                } catch(e) { window.pluginSdk.showMessage('替换失败', 'error'); }
+                finally { this.dom.confirmReplaceBtn.textContent = '确认替换'; }
+            }
+
+            async openFullscreen(name, type) {
+                const content = this.dom.fullscreenContent;
+                content.innerHTML = '';
+                const url = `/assets/${name}?t=${Date.now()}`;
 
                 if (type === 'image') {
-                    this.dom.fullscreenContent.innerHTML = `<img src="${url}" alt="${filename}" id="fullscreen-image">`;
-                    // 显示缩放控制
-                    document.getElementById('zoom-controls').style.display = 'flex';
-                    // 初始化图片查看器
-                    setTimeout(() => {
-                        const img = document.getElementById('fullscreen-image');
-                        if (img) {
-                            this.imageViewer = new ImageViewer(img);
-                        }
-                    }, 100);
+                    content.innerHTML = `<img src="${url}" id="fullscreen-img">`;
+                    document.getElementById('zoom-controls').classList.remove('hidden');
+                    setTimeout(() => this.imageViewer = new ImageViewer(document.getElementById('fullscreen-img')), 50);
                 } else if (type === 'video') {
-                    this.dom.fullscreenContent.innerHTML = `<video src="${url}" controls autoplay style="max-width:90vw;max-height:90vh;">您的浏览器不支持视频播放</video>`;
-                    document.getElementById('zoom-controls').style.display = 'none';
-                } else if (type === 'text') {
+                    content.innerHTML = `<video src="${url}" controls autoplay style="max-width:90vw; max-height:90vh"></video>`;
+                } else if (['document','other'].includes(type) || type === 'text' || name.match(/\.(txt|md|json|js|css|html|xml)$/i)) {
+                    // Try text load
                     try {
-                        const res = await window.pluginSdk.loadBlob(`/data/assets/${filename}`);
-                        if (res.ok) {
-                            const text = await res.data.text();
-                            this.dom.fullscreenContent.innerHTML = `<div class="text-preview">${this.escapeHtml(text)}</div>`;
-                        } else {
-                            this.dom.fullscreenContent.innerHTML = `<div class="text-preview">无法加载文件内容</div>`;
-                        }
-                    } catch (e) {
-                        this.dom.fullscreenContent.innerHTML = `<div class="text-preview">加载失败: ${e.message}</div>`;
-                    }
-                    document.getElementById('zoom-controls').style.display = 'none';
+                        const res = await window.pluginSdk.loadBlob(`/data/assets/${name}`);
+                        content.innerHTML = `<div class="text-preview">${this.escapeHtml(await res.data.text())}</div>`;
+                    } catch { content.innerHTML = '<div style="color:#fff;">无法预览</div>'; }
+                } else {
+                    content.innerHTML = '<div style="color:#fff;">不支持预览</div>';
                 }
 
                 this.dom.fullscreenPreview.classList.add('active');
             }
 
             closeFullscreen() {
-                if (this.imageViewer) {
-                    this.imageViewer.destroy();
-                    this.imageViewer = null;
-                }
-                document.getElementById('zoom-controls').style.display = 'none';
+                if(this.imageViewer) { this.imageViewer.destroy(); this.imageViewer = null; }
+                document.getElementById('zoom-controls').classList.add('hidden');
                 this.dom.fullscreenPreview.classList.remove('active');
-                this.dom.fullscreenContent.innerHTML = '';
-            }
-
-            async checkReferences(filename) {
-                const container = document.getElementById('ref-results');
-                container.innerHTML = '<div class="state-msg" style="padding:10px">正在搜索引用...</div>';
-
-                try {
-                    // 简单的 SQL 查询，查找包含文件名的块
-                    // 转义文件名中的单引号
-                    const safeFilename = filename.replace(/'/g, "''");
-                    // 同时搜索 assets/ 和 /assets/ 两种形式
-                    const sql = `SELECT * FROM blocks WHERE (markdown LIKE '%/assets/${safeFilename}%' OR markdown LIKE '%assets/${safeFilename}%') LIMIT 50`;
-                    const blocks = await window.pluginSdk.querySQL(sql);
-
-                    if (blocks.length === 0) {
-                        container.innerHTML = '<div class="state-msg" style="padding:10px">未找到引用, 也可能是所引用的笔记本关闭, 不在思源数据索引中</div>';
-                        return;
-                    }
-
-                    let html = '<div class="ref-list">';
-                    for (const block of blocks) {
-                        // 获取文档标题（如果块本身不是文档）
-                        let docTitle = "未知文档";
-                        if (block.type === 'd') {
-                            docTitle = block.content;
-                        } else {
-                            // 尝试查询父文档信息，或者直接显示 hpath
-                            docTitle = block.hpath;
-                        }
-
-                        html += `
-                            <div class="ref-item" onclick="window.pluginSdk.openBlock('${block.id}')">
-                                <div>${this.escapeHtml(block.content || '无内容')}</div>
-                                <div class="ref-path">${this.escapeHtml(block.hpath || '/')}</div>
-                            </div>
-                        `;
-                    }
-                    html += '</div>';
-                    container.innerHTML = html;
-
-                } catch (e) {
-                    container.innerHTML = `<div class="state-msg" style="color:var(--error-color)">查询出错: ${e.message}</div>`;
-                }
-            }
-
-            copyLink(filename) {
-                const link = `![${filename}](/assets/${filename})`;
-                navigator.clipboard.writeText(link).then(() => {
-                    this.showToast('链接已复制到剪贴板');
-                }).catch(() => {
-                    this.showToast('复制失败', 'error');
-                });
-            }
-
-            async copyFileContent(filename) {
-                try {
-                    const fileType = this.getFileType(filename);
-
-                    if (fileType === 'image') {
-                        // 复制图片数据
-                        const response = await fetch(`/assets/${filename}?t=${this.selectedFile?.updated || ''}`);
-                        const blob = await response.blob();
-                        await navigator.clipboard.write([
-                            new ClipboardItem({
-                                [blob.type]: blob
-                            })
-                        ]);
-                        this.showToast('图片已复制到剪贴板');
-                    } else {
-                        // 复制文本内容
-                        const res = await window.pluginSdk.loadBlob(`/data/assets/${filename}`);
-                        if (res.ok) {
-                            const text = await res.data.text();
-                            await navigator.clipboard.writeText(text);
-                            this.showToast('文本内容已复制到剪贴板');
-                        } else {
-                            throw new Error('无法加载文件内容');
-                        }
-                    }
-                } catch (err) {
-                    console.error('复制失败:', err);
-                    this.showToast(`复制失败: ${err.message}`, 'error');
-                }
-            }
-
-            downloadFile(filename) {
-                const link = document.createElement('a');
-                link.href = `/assets/${filename}?t=${this.selectedFile?.updated || ''}`;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-
-            triggerReplace(filename) {
-                this.replaceTargetFilename = filename;
-                this.replaceFile = null;
-                this.dom.replaceFilename.textContent = filename;
-                this.dom.replacePreview.classList.remove('active');
-                this.dom.confirmReplaceBtn.disabled = true;
-                this.dom.fileInput.value = '';
-                this.dom.replaceDialog.classList.add('active');
-            }
-
-            closeReplaceDialog() {
-                this.dom.replaceDialog.classList.remove('active');
-                this.replaceFile = null;
-                this.replaceTargetFilename = '';
-            }
-
-            handleReplaceFileSelect(file) {
-                if (!file || !this.replaceTargetFilename) return;
-
-                // 类型检查
-                const originalExt = this.replaceTargetFilename.split('.').pop().toLowerCase();
-                const newExt = file.name.split('.').pop().toLowerCase();
-
-                if (originalExt !== newExt) {
-                    this.showToast(`文件类型不匹配！需要 .${originalExt}`, 'error');
-                    return;
-                }
-
-                this.replaceFile = file;
-
-                // 显示预览
-                const fileType = this.getFileType(file.name);
-                if (fileType === 'image') {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        this.dom.replacePreviewImg.src = e.target.result;
-                        this.dom.replacePreview.classList.add('active');
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    this.dom.replacePreview.classList.remove('active');
-                }
-
-                this.dom.replacePreviewInfo.textContent = `文件名: ${file.name} | 大小: ${this.formatSize(file.size)}`;
-                this.dom.confirmReplaceBtn.disabled = false;
-            }
-
-            async confirmReplace() {
-                if (!this.replaceFile || !this.replaceTargetFilename) return;
-
-                try {
-                    this.dom.confirmReplaceBtn.disabled = true;
-                    this.dom.confirmReplaceBtn.textContent = '替换中...';
-
-                    const res = await window.pluginSdk.saveBlob(`/data/assets/${this.replaceTargetFilename}`, this.replaceFile);
-                    if (res.ok) {
-                        this.showToast('替换成功！');
-                        this.closeReplaceDialog();
-                        // 刷新列表和预览
-                        await this.loadAssets();
-                        if (this.selectedFile?.name === this.replaceTargetFilename) {
-                            // 如果当前选中的就是被替换的文件，刷新预览
-                            const file = this.filteredAssets.find(f => f.name === this.replaceTargetFilename);
-                            if (file) {
-                                this.renderDetail(file);
-                            }
-                        }
-                    } else {
-                        throw new Error(res.error || '未知错误');
-                    }
-                } catch (err) {
-                    this.showToast(`替换失败: ${err.message}`, 'error');
-                } finally {
-                    this.dom.confirmReplaceBtn.disabled = false;
-                    this.dom.confirmReplaceBtn.textContent = '确认替换';
-                }
-            }
-
-
-
-            openPanel() {
-                this.dom.detailPanel.classList.add('open');
             }
 
             closePanel() {
                 this.dom.detailPanel.classList.remove('open');
                 this.selectedFile = null;
-                document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+                if(this.currentView === 'grid') document.querySelectorAll('.card').forEach(i => i.classList.remove('selected-item'));
+                else document.querySelectorAll('.list-item').forEach(i => i.classList.remove('selected-item'));
             }
 
-            showToast(message, type = 'info') {
-                const toast = document.createElement('div');
-                toast.className = `toast ${type}`;
-                toast.textContent = message;
-                this.dom.toastContainer.appendChild(toast);
-
-                // 动画结束后移除
-                setTimeout(() => {
-                    toast.remove();
-                }, 3000);
+            formatSize(b) {
+                if (b===0) return '0 B';
+                const i = Math.floor(Math.log(b) / Math.log(1024));
+                return parseFloat((b / Math.pow(1024, i)).toFixed(2)) + ' ' + ['B', 'KB', 'MB', 'GB'][i];
             }
-
-            // Utils
-            formatSize(bytes) {
-                if (bytes === 0) return '0 B';
-                const k = 1024;
-                const sizes = ['B', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            formatDate(ts) {
+                if (!ts) return '-';
+                return new Date(ts.toString().length === 10 ? ts*1000 : ts).toLocaleString('zh-CN');
             }
-
-            formatDate(timestamp) {
-                if (!timestamp) return '-';
-                try {
-                    // 判断是否为 Unix 时间戳（秒）还是毫秒
-                    const ts = timestamp.toString().length === 10 ? timestamp * 1000 : timestamp;
-                    const date = new Date(ts);
-                    // 检查日期是否有效
-                    if (isNaN(date.getTime())) return '-';
-                    return date.toLocaleString('zh-CN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                    });
-                } catch (e) {
-                    return '-';
-                }
-            }
-
-            escapeHtml(unsafe) {
-                return unsafe
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            }
-
-            escapeAttribute(str) {
-                return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
-            }
+            escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+            escapeAttribute(s) { return s.replace(/'/g, "\\'").replace(/"/g, '\\"'); }
         }
 
         const app = new AssetManager();
-
-        window.addEventListener('pluginSdkReady', () => {
-            app.init();
+        window.addEventListener('pluginSdkReady', () => app.init());
+        window.addEventListener('search-given-asset-file', (e) => {
+            // TODO: Handle external search trigger
         });
-
-        window.addEventListener('search-given-asset-file', (event) => {
-            console.log('收到 search-given-asset-file 事件:', event.detail);
-            const { filename } = event.detail || {};
-            if (filename) {
-                app.dom.searchInput.value = filename;
-                app.filterText = filename;
-                app.currentPage = 1;
-                app.applyFiltersAndSort();
-            }
-        });
-
     </script>
 </body>
-
 </html>

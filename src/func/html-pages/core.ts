@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-18
  * @FilePath     : /src/func/html-pages/core.ts
- * @LastEditTime : 2026-02-09 17:48:31
+ * @LastEditTime : 2026-02-10 10:56:10
  * @Description  : 通用 iframe 页面加载器和 SDK 注入器
  */
 import { createDailynote, getLute, getMarkdown, getParentDoc, openBlock, searchBacklinks, searchChildDocs, thisPlugin, listDailynote, openCustomTab, simpleDialog, getBlockByID, matchIDFormat, inputDialog } from "@frostime/siyuan-plugin-kits";
@@ -41,6 +41,8 @@ export interface IIframePageConfig {
         siyuanCss?: boolean;
         /** 自定义 SDK，可覆盖预设 SDK 的方法 */
         customSdk?: Record<string, any>;
+        // CSS 变量
+        customCss?: Record<string, string>;
     };
 
     // 如果有，代表启动时自动往里面发送的消息
@@ -66,6 +68,7 @@ const getCSSVariable = (variableName: string): string => {
 const buildPresetSdk = () => {
     const cssVars = [
         '--b3-font-family',
+        // '--b3-font-size',
         '--b3-font-size-editor',
         '--b3-font-family-code',
         '--b3-font-family-emoji',
@@ -82,12 +85,14 @@ const buildPresetSdk = () => {
         '--b3-theme-on-surface-light'
     ];
 
-    const styleVar: Record<string, string> = {};
+    const styleVar: Record<string, string> = {
+        '--font-size': '16px'
+    };
     for (const cssVar of cssVars) {
         const val = getCSSVariable(cssVar);
-        let key1 = cssVar.replace('--b3-', '');
+        let key1 = cssVar.replace('--b3-', '--');
         styleVar[key1] = val;
-        styleVar[`b3-${key1}`] = val;
+        styleVar[cssVar] = val;
     }
 
     const bodyFont = getComputedStyle(document.body).fontFamily;
@@ -256,12 +261,10 @@ const injectSiyuanStyles = (iframe: HTMLIFrameElement, style: Record<string, str
         const cssVariables = Object.entries(style)
             .filter(([_key, value]) => value && String(value).trim() !== '')
             .map(([key, value]) => {
-                // 移除可能存在的 -- 前缀，统一处理
-                const cleanKey = key.startsWith('--') ? key.slice(2) : key;
                 // CSS 变量值不需要转义引号，直接使用原始值
                 // 只需要移除可能的换行符和控制字符以保证 CSS 语法正确
                 const cleanValue = String(value).replace(/[\r\n\t]/g, ' ');
-                return `--${cleanKey}: ${cleanValue};`;
+                return `${key}: ${cleanValue};`;
             })
             .join('\n    ');
 
@@ -502,12 +505,17 @@ const injectSdk = (iframe: HTMLIFrameElement, config: IIframePageConfig) => {
             ...(inject.customSdk || {})
         };
 
+        finalSdk.styleVar = {
+            ...finalSdk.styleVar,
+            ...(inject.customCss || {})
+        }
+
         // @ts-ignore
         iframe.contentWindow.pluginSdk = finalSdk;
 
         // 注入思源样式
-        if (inject.siyuanCss !== false && presetSdk.styleVar) {
-            injectSiyuanStyles(iframe, presetSdk.styleVar);
+        if (inject.siyuanCss !== false && finalSdk.styleVar) {
+            injectSiyuanStyles(iframe, finalSdk.styleVar);
         }
 
         // 触发就绪事件

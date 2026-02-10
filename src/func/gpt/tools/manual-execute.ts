@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-12-21
  * @FilePath     : /src/func/gpt/tools/manual-execute.ts
- * @LastEditTime : 2026-01-07 18:30:20
+ * @LastEditTime : 2026-02-10 02:58:47
  * @Description  : 手动工具调用测试面板
  */
 import { openIframeTab, openIframeDialog } from "@/func/html-pages/core";
@@ -64,6 +64,9 @@ export const openManualExecutePanel = () => {
             source: '/plugins/sy-f-misc/pages/manual-execute.html',
             inject: {
                 presetSdk: true,
+                customCss: {
+                    '--font-size': '16px',
+                },
                 customSdk: {
                     /**
                      * 列出所有工具组及其工具

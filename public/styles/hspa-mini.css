@@ -8,7 +8,7 @@
 
 :root {
     /* Font sizes */
-    --fs: var(--font-size, 14px);
+    --fs: var(--font-size, 15px);
     --fs-xs: calc(var(--fs) * 0.78);
     --fs-sm: calc(var(--fs) * 0.88);
     --fs-lg: calc(var(--fs) * 1.2);
@@ -667,6 +667,11 @@ code:not(.code-block) {
     vertical-align: middle;
 }
 
+.icon-stroke {
+    fill: none;
+    stroke: currentColor;
+}
+
 .icon-sm { width: 14px; height: 14px; }
 .icon-md { width: 18px; height: 18px; }
 .icon-lg { width: 24px; height: 24px; }
@@ -731,3 +736,8 @@ code:not(.code-block) {
 
 /* Transition */
 .transition { transition: all var(--transition); }
+
+/* Background helpers (semantic, theme-safe) */
+.bg-bg { background-color: var(--c-bg); }
+.bg-surface { background-color: var(--c-surface); }
+.bg-accent-bg { background-color: var(--c-accent-bg); }

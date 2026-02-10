@@ -5,16 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Variables Manager</title>
     <style>
+        [x-cloak] { display: none !important; }
+
         /* ===== CSS 变量定义 ===== */
         :root {
-            /* 字体大小 */
-            /* --font-size-normal: var(--font-size, 14px); */
             --font-size-normal: 15px;
             --font-size-large: calc(var(--font-size-normal) * 1.15);
             --font-size-medium: calc(var(--font-size-normal) * 0.93);
             --font-size-small: calc(var(--font-size-normal) * 0.86);
 
-            /* 颜色 */
             --bg-primary: var(--theme-background, #ffffff);
             --bg-secondary: var(--theme-surface, #f5f5f5);
             --bg-hover: var(--theme-surface-light, #f0f0f0);
@@ -26,33 +25,17 @@
             --border-color: var(--theme-surface-lighter, #e0e0e0);
             --accent-color: var(--theme-primary, #d23f31);
 
-            /* 间距 */
             --spacing-xs: 4px;
             --spacing-sm: 8px;
             --spacing-md: 16px;
             --spacing-lg: 24px;
 
-            /* 圆角 */
             --radius-sm: 4px;
             --radius-md: 8px;
         }
 
-        /* [data-theme-mode="dark"] {
-            --bg-primary: #1e1e1e;
-            --bg-secondary: #2d2d2d;
-            --bg-hover: #3d3d3d;
-            --bg-selected: #4d3030;
-            --text-primary: #e0e0e0;
-            --text-secondary: #a0a0a0;
-            --border-color: #404040;
-        } */
-
         /* ===== 全局样式 ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: var(--font-family, sans-serif);
@@ -93,18 +76,10 @@
             gap: var(--spacing-xs);
         }
 
-        .stat-label {
-            font-weight: 500;
-        }
+        .stat-label { font-weight: 500; }
+        .stat-value { color: var(--accent-color); font-weight: 600; }
 
-        .stat-value {
-            color: var(--accent-color);
-            font-weight: 600;
-        }
-
-        .toolbar-spacer {
-            flex: 1;
-        }
+        .toolbar-spacer { flex: 1; }
 
         .search-box {
             display: flex;
@@ -142,9 +117,7 @@
             transition: background-color 0.2s;
         }
 
-        .btn:hover {
-            background-color: var(--bg-hover);
-        }
+        .btn:hover { background-color: var(--bg-hover); }
 
         .btn-danger {
             background-color: #ea4335;
@@ -152,9 +125,7 @@
             border-color: #ea4335;
         }
 
-        .btn-danger:hover {
-            background-color: #c5221f;
-        }
+        .btn-danger:hover { background-color: #c5221f; }
 
         /* ===== 主体区域 ===== */
         .main-content {
@@ -169,10 +140,7 @@
             border-right: 1px solid var(--border-color);
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+        table { width: 100%; border-collapse: collapse; }
 
         thead {
             position: sticky;
@@ -200,13 +168,8 @@
             transition: background-color 0.2s;
         }
 
-        tbody tr:hover {
-            background-color: var(--bg-hover);
-        }
-
-        tbody tr.selected {
-            background-color: var(--bg-selected);
-        }
+        tbody tr:hover { background-color: var(--bg-hover); }
+        tbody tr.selected { background-color: var(--bg-selected); }
 
         .type-badge {
             display: inline-block;
@@ -270,9 +233,7 @@
             opacity: 0.7;
         }
 
-        .tag-remove:hover {
-            opacity: 1;
-        }
+        .tag-remove:hover { opacity: 1; }
 
         .tag-input {
             flex: 1;
@@ -291,10 +252,6 @@
             flex-direction: column;
             background-color: var(--bg-secondary);
             overflow: hidden;
-        }
-
-        .detail-panel.hidden {
-            display: none;
         }
 
         .detail-header {
@@ -324,9 +281,7 @@
             line-height: 1;
         }
 
-        .close-btn:hover {
-            color: var(--text-primary);
-        }
+        .close-btn:hover { color: var(--text-primary); }
 
         .detail-content {
             flex: 1;
@@ -334,13 +289,8 @@
             padding: var(--spacing-md);
         }
 
-        .detail-section {
-            margin-bottom: var(--spacing-lg);
-        }
-
-        .detail-section:last-child {
-            margin-bottom: 0;
-        }
+        .detail-section { margin-bottom: var(--spacing-lg); }
+        .detail-section:last-child { margin-bottom: 0; }
 
         .detail-label {
             font-size: var(--font-size-small);
@@ -367,9 +317,7 @@
             line-height: 1.5;
         }
 
-        .content-textarea {
-            min-height: 400px;
-        }
+        .content-textarea { min-height: 400px; }
 
         .checkbox-wrapper {
             display: flex;
@@ -417,7 +365,6 @@
             gap: var(--spacing-xs);
         }
 
-        /* ===== 空状态 ===== */
         .empty-state {
             display: flex;
             flex-direction: column;
@@ -432,7 +379,6 @@
             margin-bottom: var(--spacing-md);
         }
 
-        /* ===== 加载状态 ===== */
         .loading {
             display: flex;
             align-items: center;
@@ -444,577 +390,505 @@
     </style>
 </head>
 <body>
-    <div id="app">
-        <div class="loading">Loading...</div>
-    </div>
+    <div id="app" x-data="varsManager()" x-init="init()" x-cloak>
 
-    <script>
-        // ===== 全局状态 =====
-        let sdk = null;
-        let variables = [];
-        let filteredVariables = [];
-        let selectedVariable = null;
-        let stats = null;
-        let currentFilter = 'ALL';
-        let searchQuery = '';
-        let varTypes = []; // 从 SDK 获取的变量类型枚举
-        let isAddingVariable = false; // 是否正在添加新变量
-        let newVariableData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] }; // 新变量数据
+        <!-- Loading -->
+        <template x-if="!_initialized">
+            <div class="loading">Loading...</div>
+        </template>
 
-        // ===== 工具函数 =====
-        function formatSize(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-        }
-
-        function formatDate(isoString) {
-            const date = new Date(isoString);
-            return date.toLocaleString('zh-CN', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function countLines(text) {
-            return text.split('\n').length;
-        }
-
-        // ===== 数据加载 =====
-        async function loadData() {
-            try {
-                variables = await sdk.listVariables();
-                stats = await sdk.getStats();
-
-                // 获取变量类型枚举
-                if (!varTypes || varTypes.length === 0) {
-                    varTypes = sdk.getVarTypes();
-                }
-
-                applyFilters();
-            } catch (error) {
-                console.error('Failed to load data:', error);
-                window.pluginSdk.showMessage('加载数据失败: ' + error.message, 'error');
-            }
-        }
-
-        function applyFilters() {
-            let filtered = variables;
-
-            // 类型过滤
-            if (currentFilter !== 'ALL') {
-                filtered = filtered.filter(v => v.type === currentFilter);
-            }
-
-            // 搜索过滤
-            if (searchQuery) {
-                const query = searchQuery.toLowerCase();
-                filtered = filtered.filter(v =>
-                    v.name.toLowerCase().includes(query) ||
-                    v.desc?.toLowerCase().includes(query)
-                );
-            }
-
-            filteredVariables = filtered;
-            render();
-        }
-
-        // ===== UI 渲染 =====
-        function render() {
-            const app = document.getElementById('app');
-
-            if (!stats) {
-                app.innerHTML = '<div class="loading">Loading...</div>';
-                return;
-            }
-
-            app.innerHTML = `
+        <!-- Main UI -->
+        <template x-if="_initialized">
+            <div style="display:flex;flex-direction:column;height:100%;">
+                <!-- 工具栏 -->
                 <div class="toolbar">
                     <div class="stats">
                         <div class="stat-item">
                             <span class="stat-label">总计:</span>
-                            <span class="stat-value">${stats.total}</span>
+                            <span class="stat-value" x-text="stats.total"></span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">RULE:</span>
-                            <span class="stat-value">${stats.byType.RULE || 0}</span>
+                            <span class="stat-value" x-text="stats.byType.RULE || 0"></span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">Cache:</span>
-                            <span class="stat-value">${stats.byType.ToolCallCache || 0}</span>
+                            <span class="stat-value" x-text="stats.byType.ToolCallCache || 0"></span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">LLM:</span>
-                            <span class="stat-value">${stats.byType.LLMAdd || 0}</span>
+                            <span class="stat-value" x-text="stats.byType.LLMAdd || 0"></span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-label">保护:</span>
-                            <span class="stat-value">${stats.keepCount}</span>
+                            <span class="stat-value" x-text="stats.keepCount"></span>
                         </div>
                     </div>
                     <div class="toolbar-spacer"></div>
                     <div class="search-box">
-                        <input type="text" class="search-input" placeholder="搜索变量..." id="searchInput" value="${escapeHtml(searchQuery)}">
-                        <select class="filter-select" id="filterSelect">
-                            <option value="ALL" ${currentFilter === 'ALL' ? 'selected' : ''}>全部类型</option>
-                            ${varTypes.map(type => `<option value="${type}" ${currentFilter === type ? 'selected' : ''}>${type}</option>`).join('')}
+                        <input type="text" class="search-input" placeholder="搜索变量..."
+                            x-model="searchQuery" @input="applyFilters()">
+                        <select class="filter-select" x-model="currentFilter" @change="applyFilters()">
+                            <option value="ALL">全部类型</option>
+                            <template x-for="type in varTypes" :key="type">
+                                <option :value="type" x-text="type"></option>
+                            </template>
                         </select>
-                        <button class="btn" onclick="handleAddVariable()">➥ 添加</button>
-                        <button class="btn" onclick="handleRefresh()">🔄 刷新</button>
-                        <button class="btn btn-danger" onclick="handleClearAll()">🗑️ 清空</button>
+                        <button class="btn" @click="handleAddVariable()">➥ 添加</button>
+                        <button class="btn" @click="handleRefresh()">🔄 刷新</button>
+                        <button class="btn btn-danger" @click="handleClearAll()">🗑️ 清空</button>
                     </div>
                 </div>
+
+                <!-- 主体 -->
                 <div class="main-content">
+                    <!-- 表格 -->
                     <div class="table-container">
-                        ${renderTable()}
+                        <!-- 空状态 -->
+                        <div x-show="filteredVariables.length === 0" class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <div>没有找到变量</div>
+                        </div>
+
+                        <table x-show="filteredVariables.length > 0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 35%">变量名</th>
+                                    <th style="width: 20%">类型</th>
+                                    <th style="width: 15%">引用</th>
+                                    <th style="width: 20%">创建时间</th>
+                                    <th style="width: 10%">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="v in filteredVariables" :key="v.name">
+                                    <tr :class="{ 'selected': selectedVariable?.name === v.name }"
+                                        @click="handleSelectVariable(v.name)">
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                <div x-text="v.name"></div>
+                                                <span x-show="v.keep" class="keep-badge">🔒</span>
+                                                <template x-for="tag in (v.tags || [])" :key="tag">
+                                                    <span class="tag-badge" x-text="tag"></span>
+                                                </template>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="type-badge"
+                                                :class="'type-' + v.type.toLowerCase().replace('toolcallcache', 'toolcache').replace('messagecache', 'msgcache')"
+                                                x-text="v.type"></span>
+                                        </td>
+                                        <td x-text="v.referenceCount"></td>
+                                        <td x-text="formatDate(v.created)"></td>
+                                        <td>
+                                            <button class="btn" @click.stop="handleCopyRef(v.name)"
+                                                style="font-size: 12px; padding: 4px 8px;">📋</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="detail-panel ${(selectedVariable || isAddingVariable) ? '' : 'hidden'}" id="detailPanel">
-                        ${isAddingVariable ? renderAddVariableForm() : (selectedVariable ? renderDetail() : '')}
-                    </div>
-                </div>
-            `;
 
-            // 绑定事件
-            document.getElementById('searchInput').addEventListener('input', (e) => {
-                searchQuery = e.target.value;
-                applyFilters();
-            });
-
-            document.getElementById('filterSelect').addEventListener('change', (e) => {
-                currentFilter = e.target.value;
-                applyFilters();
-            });
-
-            // 绑定 tag input 事件
-            if (selectedVariable) {
-                setTimeout(() => bindTagInputEvents(), 0);
-            } else if (isAddingVariable) {
-                setTimeout(() => bindNewTagInputEvents(), 0);
-            }
-        }
-
-        function renderTable() {
-            if (filteredVariables.length === 0) {
-                return `
-                    <div class="empty-state">
-                        <div class="empty-icon">📭</div>
-                        <div>没有找到变量</div>
-                    </div>
-                `;
-            }
-
-            return `
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 35%">变量名</th>
-                            <th style="width: 20%">类型</th>
-                            <th style="width: 15%">引用</th>
-                            <th style="width: 20%">创建时间</th>
-                            <th style="width: 10%">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${filteredVariables.map(v => `
-                            <tr class="${selectedVariable?.name === v.name ? 'selected' : ''}" onclick="handleSelectVariable('${escapeHtml(v.name)}')">
-                                <td>
-                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                        <div>${escapeHtml(v.name)}</div>
-                                        ${v.keep ? '<span class="keep-badge">🔒</span>' : ''}
-                                        ${v.tags && v.tags.length > 0 ? v.tags.map(tag => `<span class="tag-badge">${escapeHtml(tag)}</span>`).join('') : ''}
+                    <!-- 详情面板：编辑现有变量 -->
+                    <div class="detail-panel" x-show="selectedVariable && !isAddingVariable">
+                        <template x-if="selectedVariable && !isAddingVariable">
+                            <div style="display:flex;flex-direction:column;height:100%;">
+                                <div class="detail-header">
+                                    <div class="detail-title" x-text="selectedVariable.name"></div>
+                                    <button class="close-btn" @click="handleCloseDetail()">✕</button>
+                                </div>
+                                <div class="detail-content">
+                                    <div class="detail-section">
+                                        <div class="detail-label">类型</div>
+                                        <select class="detail-input" x-model="editForm.type">
+                                            <template x-for="type in varTypes" :key="type">
+                                                <option :value="type" x-text="type"></option>
+                                            </template>
+                                        </select>
                                     </div>
-                                </td>
-                                <td>
-                                    <span class="type-badge type-${v.type.toLowerCase().replace('toolcallcache', 'toolcache').replace('messagecache', 'msgcache')}">${v.type}</span>
-                                </td>
-                                <td>${v.referenceCount}</td>
-                                <td>${formatDate(v.created)}</td>
-                                <td>
-                                    <button class="btn" onclick="event.stopPropagation(); handleCopyRef('${escapeHtml(v.name)}')" style="font-size: 12px; padding: 4px 8px;">📋</button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
-
-        function renderDetail() {
-            if (!selectedVariable) return '';
-
-            const charCount = selectedVariable.value.length;
-            const lineCount = countLines(selectedVariable.value);
-
-            return `
-                <div class="detail-header">
-                    <div class="detail-title">${escapeHtml(selectedVariable.name)}</div>
-                    <button class="close-btn" onclick="handleCloseDetail()">✕</button>
-                </div>
-                <div class="detail-content">
-                    <div class="detail-section">
-                        <div class="detail-label">类型</div>
-                        <select class="detail-input" id="typeSelect">
-                            ${varTypes.map(type => `<option value="${type}" ${selectedVariable.type === type ? 'selected' : ''}>${type}</option>`).join('')}
-                        </select>
-                    </div>
-
-                    <div class="detail-section">
-                        <div class="detail-label">描述</div>
-                        <input type="text" class="detail-input" id="descInput" value="${escapeHtml(selectedVariable.desc || '')}" placeholder="添加描述...">
-                    </div>
-
-                    <div class="detail-section">
-                        <div class="detail-label">标签 (Tags)</div>
-                        <div class="tags-input-wrapper" id="tagsInputWrapper">
-                            ${(selectedVariable.tags || []).map((tag, idx) => `<div class="tag-item"><span>${escapeHtml(tag)}</span><span class="tag-remove" onclick="handleRemoveTag(${idx})">✕</span></div>`).join('')}
-                            <input type="text" class="tag-input" id="tagInput" placeholder="输入标签后按回车...">
-                        </div>
-                    </div>
-
-                    <div class="detail-section">
-                        <div class="checkbox-wrapper">
-                            <input type="checkbox" id="keepCheckbox" ${selectedVariable.keep ? 'checked' : ''}>
-                            <label for="keepCheckbox">🔒 保护此变量（防止被自动清理）</label>
-                        </div>
-                    </div>
-
-                    <div class="detail-section">
-                        <div class="detail-label">完整内容</div>
-                        <div class="content-info">
-                            <div class="content-stats">
-                                <div class="content-stat">
-                                    <span>📏</span>
-                                    <span>${charCount.toLocaleString()} 字符</span>
+                                    <div class="detail-section">
+                                        <div class="detail-label">描述</div>
+                                        <input type="text" class="detail-input" x-model="editForm.desc"
+                                            placeholder="添加描述...">
+                                    </div>
+                                    <div class="detail-section">
+                                        <div class="detail-label">标签 (Tags)</div>
+                                        <div class="tags-input-wrapper">
+                                            <template x-for="(tag, idx) in editForm.tags" :key="idx">
+                                                <div class="tag-item">
+                                                    <span x-text="tag"></span>
+                                                    <span class="tag-remove" @click="editForm.tags.splice(idx, 1)">✕</span>
+                                                </div>
+                                            </template>
+                                            <input type="text" class="tag-input" placeholder="输入标签后按回车..."
+                                                x-ref="tagInput"
+                                                @keydown.enter.prevent="addTag(editForm.tags, $refs.tagInput)">
+                                        </div>
+                                    </div>
+                                    <div class="detail-section">
+                                        <div class="checkbox-wrapper">
+                                            <input type="checkbox" id="keepCheckbox" x-model="editForm.keep">
+                                            <label for="keepCheckbox">🔒 保护此变量（防止被自动清理）</label>
+                                        </div>
+                                    </div>
+                                    <div class="detail-section">
+                                        <div class="detail-label">完整内容</div>
+                                        <div class="content-info">
+                                            <div class="content-stats">
+                                                <div class="content-stat">
+                                                    <span>📏</span>
+                                                    <span x-text="editForm.value.length.toLocaleString() + ' 字符'"></span>
+                                                </div>
+                                                <div class="content-stat">
+                                                    <span>📄</span>
+                                                    <span x-text="editForm.value.split('\\n').length.toLocaleString() + ' 行'"></span>
+                                                </div>
+                                                <div class="content-stat">
+                                                    <span>🔗</span>
+                                                    <span x-text="selectedVariable.referenceCount + ' 次引用'"></span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <button class="btn" @click="handleCopyContent()"
+                                                    style="font-size: 11px; padding: 2px 8px;">📋 复制内容</button>
+                                            </div>
+                                        </div>
+                                        <textarea class="detail-textarea content-textarea"
+                                            x-model="editForm.value"></textarea>
+                                    </div>
                                 </div>
-                                <div class="content-stat">
-                                    <span>📄</span>
-                                    <span>${lineCount.toLocaleString()} 行</span>
-                                </div>
-                                <div class="content-stat">
-                                    <span>🔗</span>
-                                    <span>${selectedVariable.referenceCount} 次引用</span>
+                                <div class="detail-actions">
+                                    <button class="btn btn-danger" @click="handleDelete()">🗑️ 删除</button>
+                                    <button class="btn" @click="handleCloseDetail()">取消</button>
+                                    <button class="btn" @click="handleSave()">💾 保存</button>
                                 </div>
                             </div>
-                            <div>
-                                <button class="btn" onclick="handleCopyContent()" style="font-size: 11px; padding: 2px 8px;">📋 复制内容</button>
+                        </template>
+                    </div>
+
+                    <!-- 详情面板：添加新变量 -->
+                    <div class="detail-panel" x-show="isAddingVariable">
+                        <template x-if="isAddingVariable">
+                            <div style="display:flex;flex-direction:column;height:100%;">
+                                <div class="detail-header">
+                                    <div class="detail-title">添加新变量</div>
+                                    <button class="close-btn" @click="handleCancelAdd()">✕</button>
+                                </div>
+                                <div class="detail-content">
+                                    <div class="detail-section">
+                                        <div class="detail-label">变量名 *</div>
+                                        <input type="text" class="detail-input" x-model="newVarData.name"
+                                            placeholder="输入变量名...">
+                                    </div>
+                                    <div class="detail-section">
+                                        <div class="detail-label">类型 *</div>
+                                        <select class="detail-input" x-model="newVarData.type">
+                                            <template x-for="type in varTypes" :key="type">
+                                                <option :value="type" x-text="type"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div class="detail-section">
+                                        <div class="detail-label">描述</div>
+                                        <input type="text" class="detail-input" x-model="newVarData.desc"
+                                            placeholder="添加描述...">
+                                    </div>
+                                    <div class="detail-section">
+                                        <div class="detail-label">标签 (Tags)</div>
+                                        <div class="tags-input-wrapper">
+                                            <template x-for="(tag, idx) in newVarData.tags" :key="idx">
+                                                <div class="tag-item">
+                                                    <span x-text="tag"></span>
+                                                    <span class="tag-remove" @click="newVarData.tags.splice(idx, 1)">✕</span>
+                                                </div>
+                                            </template>
+                                            <input type="text" class="tag-input" placeholder="输入标签后按回车..."
+                                                x-ref="newTagInput"
+                                                @keydown.enter.prevent="addTag(newVarData.tags, $refs.newTagInput)">
+                                        </div>
+                                    </div>
+                                    <div class="detail-section">
+                                        <div class="detail-label">内容 *</div>
+                                        <textarea class="detail-textarea content-textarea"
+                                            x-model="newVarData.value" placeholder="输入变量内容..."></textarea>
+                                    </div>
+                                </div>
+                                <div class="detail-actions">
+                                    <button class="btn" @click="handleCancelAdd()">取消</button>
+                                    <button class="btn" @click="handleConfirmAdd()">✓ 添加</button>
+                                </div>
                             </div>
-                        </div>
-                        <textarea class="detail-textarea content-textarea" id="valueTextarea">${escapeHtml(selectedVariable.value)}</textarea>
+                        </template>
                     </div>
                 </div>
-                <div class="detail-actions">
-                    <button class="btn btn-danger" onclick="handleDelete()">🗑️ 删除</button>
-                    <button class="btn" onclick="handleCloseDetail()">取消</button>
-                    <button class="btn" onclick="handleSave()">💾 保存</button>
-                </div>
-            `;
-        }
+            </div>
+        </template>
+    </div>
 
-        function renderAddVariableForm() {
-            return `
-                <div class="detail-header">
-                    <div class="detail-title">添加新变量</div>
-                    <button class="close-btn" onclick="handleCancelAdd()">✕</button>
-                </div>
-                <div class="detail-content">
-                    <div class="detail-section">
-                        <div class="detail-label">变量名 *</div>
-                        <input type="text" class="detail-input" id="newVarName" placeholder="输入变量名..." value="${escapeHtml(newVariableData.name)}">
-                    </div>
+    <script src="/plugins/sy-f-misc/scripts/alpine.min.js" defer></script>
+    <script>
+        function varsManager() {
+            return {
+                _initialized: false,
 
-                    <div class="detail-section">
-                        <div class="detail-label">类型 *</div>
-                        <select class="detail-input" id="newVarType">
-                            ${varTypes.map(type => `<option value="${type}" ${newVariableData.type === type ? 'selected' : ''}>${type}</option>`).join('')}
-                        </select>
-                    </div>
+                // Data
+                variables: [],
+                filteredVariables: [],
+                selectedVariable: null,
+                stats: null,
+                varTypes: [],
 
-                    <div class="detail-section">
-                        <div class="detail-label">描述</div>
-                        <input type="text" class="detail-input" id="newVarDesc" placeholder="添加描述..." value="${escapeHtml(newVariableData.desc)}">
-                    </div>
+                // Filters
+                currentFilter: 'ALL',
+                searchQuery: '',
 
-                    <div class="detail-section">
-                        <div class="detail-label">标签 (Tags)</div>
-                        <div class="tags-input-wrapper" id="newTagsInputWrapper">
-                            ${(newVariableData.tags || []).map((tag, idx) => `<div class="tag-item"><span>${escapeHtml(tag)}</span><span class="tag-remove" onclick="handleRemoveNewTag(${idx})">✕</span></div>`).join('')}
-                            <input type="text" class="tag-input" id="newTagInput" placeholder="输入标签后按回车...">
-                        </div>
-                    </div>
+                // Edit form (populated when selecting a variable)
+                editForm: { type: '', desc: '', value: '', keep: false, tags: [] },
 
-                    <div class="detail-section">
-                        <div class="detail-label">内容 *</div>
-                        <textarea class="detail-textarea content-textarea" id="newVarValue" placeholder="输入变量内容...">${escapeHtml(newVariableData.value)}</textarea>
-                    </div>
-                </div>
-                <div class="detail-actions">
-                    <button class="btn" onclick="handleCancelAdd()">取消</button>
-                    <button class="btn" onclick="handleConfirmAdd()">✓ 添加</button>
-                </div>
-            `;
-        }
+                // Add new variable
+                isAddingVariable: false,
+                newVarData: { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] },
 
-        // ===== 事件处理 =====
-        async function handleSelectVariable(name) {
-            try {
-                const result = await sdk.getVariable(name);
-                if (result.ok) {
-                    selectedVariable = result.data;
-                    render();
-                } else {
-                    window.pluginSdk.showMessage('加载变量失败: ' + result.error, 'error');
-                }
-            } catch (error) {
-                console.error('Failed to select variable:', error);
-                window.pluginSdk.showMessage('加载变量失败: ' + error.message, 'error');
-            }
-        }
+                // ===== Init =====
+                async init() {
+                    await new Promise(r => {
+                        if (window.pluginSdk) return r();
+                        window.addEventListener('pluginSdkReady', r, { once: true });
+                    });
 
-        function handleCloseDetail() {
-            selectedVariable = null;
-            isAddingVariable = false;
-            render();
-        }
+                    document.documentElement.setAttribute('data-theme-mode',
+                        window.pluginSdk.themeMode || 'light');
 
-        function handleAddVariable() {
-            isAddingVariable = true;
-            selectedVariable = null;
-            newVariableData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
-            render();
-        }
+                    await this.loadData();
+                    this._initialized = true;
+                },
 
-        function handleCancelAdd() {
-            isAddingVariable = false;
-            newVariableData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
-            render();
-        }
+                // ===== Data =====
+                async loadData() {
+                    try {
+                        this.variables = await window.pluginSdk.listVariables();
+                        this.stats = await window.pluginSdk.getStats();
 
-        async function handleConfirmAdd() {
-            try {
-                const name = document.getElementById('newVarName').value.trim();
-                const type = document.getElementById('newVarType').value;
-                const desc = document.getElementById('newVarDesc').value.trim();
-                const value = document.getElementById('newVarValue').value;
-
-                if (!name) {
-                    window.pluginSdk.showMessage('请输入变量名', 'error');
-                    return;
-                }
-
-                if (!value) {
-                    window.pluginSdk.showMessage('请输入变量内容', 'error');
-                    return;
-                }
-
-                const result = await sdk.addVariable(name, value, type, desc || undefined, newVariableData.tags);
-                if (result.ok) {
-                    window.pluginSdk.showMessage('添加成功', 'info');
-                    isAddingVariable = false;
-                    newVariableData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
-                    await loadData();
-                } else {
-                    window.pluginSdk.showMessage('添加失败: ' + result.error, 'error');
-                }
-            } catch (error) {
-                console.error('Failed to add variable:', error);
-                window.pluginSdk.showMessage('添加失败: ' + error.message, 'error');
-            }
-        }
-
-        async function handleSave() {
-            try {
-                const type = document.getElementById('typeSelect').value;
-                const desc = document.getElementById('descInput').value;
-                const value = document.getElementById('valueTextarea').value;
-                const keep = document.getElementById('keepCheckbox').checked;
-
-                // 收集 tags
-                const currentTags = selectedVariable.tags || [];
-
-                const updates = {};
-                if (type !== selectedVariable.type) updates.type = type;
-                if (desc !== selectedVariable.desc) updates.desc = desc;
-                if (value !== selectedVariable.value) updates.value = value;
-                if (keep !== selectedVariable.keep) updates.keep = keep;
-                if (JSON.stringify(currentTags) !== JSON.stringify(selectedVariable.tags)) {
-                    updates.tags = currentTags;
-                }
-
-                if (Object.keys(updates).length === 0) {
-                    window.pluginSdk.showMessage('没有修改', 'info');
-                    return;
-                }
-
-                const result = await sdk.updateVariable(selectedVariable.name, updates);
-                if (result.ok) {
-                    window.pluginSdk.showMessage('保存成功', 'info');
-                    await loadData();
-                    await handleSelectVariable(selectedVariable.name);
-                } else {
-                    window.pluginSdk.showMessage('保存失败: ' + result.error, 'error');
-                }
-            } catch (error) {
-                console.error('Failed to save:', error);
-                window.pluginSdk.showMessage('保存失败: ' + error.message, 'error');
-            }
-        }
-
-        async function handleDelete() {
-            window.pluginSdk.confirm('确认删除', `确定要删除变量 "${selectedVariable.name}" 吗？`, async () => {
-                try {
-                    const result = await sdk.deleteVariable(selectedVariable.name);
-                    if (result.ok) {
-                        window.pluginSdk.showMessage('删除成功', 'info');
-                        selectedVariable = null;
-                        await loadData();
-                    } else {
-                        window.pluginSdk.showMessage('删除失败: ' + result.error, 'error');
-                    }
-                } catch (error) {
-                    console.error('Failed to delete:', error);
-                    window.pluginSdk.showMessage('删除失败: ' + error.message, 'error');
-                }
-            });
-        }
-
-        async function handleRefresh() {
-            await loadData();
-            window.pluginSdk.showMessage('刷新成功', 'info');
-        }
-
-        async function handleClearAll() {
-            const type = currentFilter === 'ALL' ? 'ALL' : currentFilter;
-            const typeText = type === 'ALL' ? '所有非保护变量' : `类型为 ${type} 的非保护变量`;
-
-            window.pluginSdk.confirm('确认清空', `确定要清空${typeText}吗？`, async () => {
-                try {
-                    const result = await sdk.clearByType(type);
-                    if (result.ok) {
-                        window.pluginSdk.showMessage(`已清空 ${result.removed} 个变量`, 'info');
-                        selectedVariable = null;
-                        await loadData();
-                    } else {
-                        window.pluginSdk.showMessage('清空失败: ' + result.error, 'error');
-                    }
-                } catch (error) {
-                    console.error('Failed to clear:', error);
-                    window.pluginSdk.showMessage('清空失败: ' + error.message, 'error');
-                }
-            });
-        }
-
-        function handleCopyRef(name) {
-            const ref = `$VAR_REF{{${name}}}`;
-            navigator.clipboard.writeText(ref).then(() => {
-                window.pluginSdk.showMessage('已复制引用: ' + ref, 'info', 2000);
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-                window.pluginSdk.showMessage('复制失败', 'error');
-            });
-        }
-
-        function handleCopyContent() {
-            const content = document.getElementById('valueTextarea').value;
-            navigator.clipboard.writeText(content).then(() => {
-                window.pluginSdk.showMessage('已复制内容', 'info', 2000);
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-                window.pluginSdk.showMessage('复制失败', 'error');
-            });
-        }
-
-        // ===== Tag 处理函数 =====
-        function handleRemoveTag(index) {
-            if (selectedVariable && selectedVariable.tags) {
-                selectedVariable.tags = selectedVariable.tags.filter((_, i) => i !== index);
-                render();
-                // 重新绑定 tag input 事件
-                setTimeout(() => bindTagInputEvents(), 0);
-            }
-        }
-
-        function handleRemoveNewTag(index) {
-            if (newVariableData.tags) {
-                newVariableData.tags = newVariableData.tags.filter((_, i) => i !== index);
-                render();
-                // 重新绑定 tag input 事件
-                setTimeout(() => bindNewTagInputEvents(), 0);
-            }
-        }
-
-        function bindTagInputEvents() {
-            const tagInput = document.getElementById('tagInput');
-            if (tagInput) {
-                tagInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && tagInput.value.trim()) {
-                        e.preventDefault();
-                        const tag = tagInput.value.trim();
-                        if (!selectedVariable.tags) {
-                            selectedVariable.tags = [];
+                        if (!this.varTypes || this.varTypes.length === 0) {
+                            this.varTypes = window.pluginSdk.getVarTypes();
                         }
-                        if (!selectedVariable.tags.includes(tag)) {
-                            selectedVariable.tags.push(tag);
-                            render();
-                            setTimeout(() => bindTagInputEvents(), 0);
-                        }
+
+                        this.applyFilters();
+                    } catch (error) {
+                        console.error('Failed to load data:', error);
+                        window.pluginSdk.showMessage('加载数据失败: ' + error.message, 'error');
                     }
-                });
-            }
-        }
+                },
 
-        function bindNewTagInputEvents() {
-            const newTagInput = document.getElementById('newTagInput');
-            if (newTagInput) {
-                newTagInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && newTagInput.value.trim()) {
-                        e.preventDefault();
-                        const tag = newTagInput.value.trim();
-                        if (!newVariableData.tags) {
-                            newVariableData.tags = [];
-                        }
-                        if (!newVariableData.tags.includes(tag)) {
-                            newVariableData.tags.push(tag);
-                            render();
-                            setTimeout(() => bindNewTagInputEvents(), 0);
-                        }
+                applyFilters() {
+                    let filtered = this.variables;
+
+                    if (this.currentFilter !== 'ALL') {
+                        filtered = filtered.filter(v => v.type === this.currentFilter);
                     }
-                });
-            }
+
+                    if (this.searchQuery) {
+                        const query = this.searchQuery.toLowerCase();
+                        filtered = filtered.filter(v =>
+                            v.name.toLowerCase().includes(query) ||
+                            v.desc?.toLowerCase().includes(query)
+                        );
+                    }
+
+                    this.filteredVariables = filtered;
+                },
+
+                // ===== Tag helper =====
+                addTag(tagsArray, inputEl) {
+                    const tag = inputEl.value.trim();
+                    if (tag && !tagsArray.includes(tag)) {
+                        tagsArray.push(tag);
+                    }
+                    inputEl.value = '';
+                },
+
+                // ===== Event handlers =====
+                async handleSelectVariable(name) {
+                    try {
+                        const result = await window.pluginSdk.getVariable(name);
+                        if (result.ok) {
+                            this.selectedVariable = result.data;
+                            this.isAddingVariable = false;
+                            // Populate edit form
+                            this.editForm = {
+                                type: result.data.type,
+                                desc: result.data.desc || '',
+                                value: result.data.value,
+                                keep: result.data.keep || false,
+                                tags: [...(result.data.tags || [])],
+                            };
+                        } else {
+                            window.pluginSdk.showMessage('加载变量失败: ' + result.error, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Failed to select variable:', error);
+                        window.pluginSdk.showMessage('加载变量失败: ' + error.message, 'error');
+                    }
+                },
+
+                handleCloseDetail() {
+                    this.selectedVariable = null;
+                    this.isAddingVariable = false;
+                },
+
+                handleAddVariable() {
+                    this.isAddingVariable = true;
+                    this.selectedVariable = null;
+                    this.newVarData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
+                },
+
+                handleCancelAdd() {
+                    this.isAddingVariable = false;
+                    this.newVarData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
+                },
+
+                async handleConfirmAdd() {
+                    try {
+                        const { name, type, desc, value, tags } = this.newVarData;
+
+                        if (!name.trim()) {
+                            window.pluginSdk.showMessage('请输入变量名', 'error');
+                            return;
+                        }
+                        if (!value) {
+                            window.pluginSdk.showMessage('请输入变量内容', 'error');
+                            return;
+                        }
+
+                        const result = await window.pluginSdk.addVariable(
+                            name.trim(), value, type, desc.trim() || undefined,
+                            Alpine.raw(tags)
+                        );
+                        if (result.ok) {
+                            window.pluginSdk.showMessage('添加成功', 'info');
+                            this.isAddingVariable = false;
+                            this.newVarData = { name: '', type: 'USER_ADD', value: '', desc: '', tags: [] };
+                            await this.loadData();
+                        } else {
+                            window.pluginSdk.showMessage('添加失败: ' + result.error, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Failed to add variable:', error);
+                        window.pluginSdk.showMessage('添加失败: ' + error.message, 'error');
+                    }
+                },
+
+                async handleSave() {
+                    try {
+                        const updates = {};
+                        const sv = this.selectedVariable;
+                        const ef = this.editForm;
+
+                        if (ef.type !== sv.type) updates.type = ef.type;
+                        if (ef.desc !== (sv.desc || '')) updates.desc = ef.desc;
+                        if (ef.value !== sv.value) updates.value = ef.value;
+                        if (ef.keep !== (sv.keep || false)) updates.keep = ef.keep;
+                        if (JSON.stringify(Alpine.raw(ef.tags)) !== JSON.stringify(sv.tags || [])) {
+                            updates.tags = Alpine.raw(ef.tags);
+                        }
+
+                        if (Object.keys(updates).length === 0) {
+                            window.pluginSdk.showMessage('没有修改', 'info');
+                            return;
+                        }
+
+                        const result = await window.pluginSdk.updateVariable(sv.name, updates);
+                        if (result.ok) {
+                            window.pluginSdk.showMessage('保存成功', 'info');
+                            await this.loadData();
+                            await this.handleSelectVariable(sv.name);
+                        } else {
+                            window.pluginSdk.showMessage('保存失败: ' + result.error, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Failed to save:', error);
+                        window.pluginSdk.showMessage('保存失败: ' + error.message, 'error');
+                    }
+                },
+
+                async handleDelete() {
+                    window.pluginSdk.confirm('确认删除',
+                        `确定要删除变量 "${this.selectedVariable.name}" 吗？`,
+                        async () => {
+                            try {
+                                const result = await window.pluginSdk.deleteVariable(this.selectedVariable.name);
+                                if (result.ok) {
+                                    window.pluginSdk.showMessage('删除成功', 'info');
+                                    this.selectedVariable = null;
+                                    await this.loadData();
+                                } else {
+                                    window.pluginSdk.showMessage('删除失败: ' + result.error, 'error');
+                                }
+                            } catch (error) {
+                                console.error('Failed to delete:', error);
+                                window.pluginSdk.showMessage('删除失败: ' + error.message, 'error');
+                            }
+                        }
+                    );
+                },
+
+                async handleRefresh() {
+                    await this.loadData();
+                    window.pluginSdk.showMessage('刷新成功', 'info');
+                },
+
+                async handleClearAll() {
+                    const type = this.currentFilter === 'ALL' ? 'ALL' : this.currentFilter;
+                    const typeText = type === 'ALL' ? '所有非保护变量' : `类型为 ${type} 的非保护变量`;
+
+                    window.pluginSdk.confirm('确认清空', `确定要清空${typeText}吗？`, async () => {
+                        try {
+                            const result = await window.pluginSdk.clearByType(type);
+                            if (result.ok) {
+                                window.pluginSdk.showMessage(`已清空 ${result.removed} 个变量`, 'info');
+                                this.selectedVariable = null;
+                                await this.loadData();
+                            } else {
+                                window.pluginSdk.showMessage('清空失败: ' + result.error, 'error');
+                            }
+                        } catch (error) {
+                            console.error('Failed to clear:', error);
+                            window.pluginSdk.showMessage('清空失败: ' + error.message, 'error');
+                        }
+                    });
+                },
+
+                handleCopyRef(name) {
+                    const ref = `$VAR_REF{{${name}}}`;
+                    navigator.clipboard.writeText(ref).then(() => {
+                        window.pluginSdk.showMessage('已复制引用: ' + ref, 'info', 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy:', err);
+                        window.pluginSdk.showMessage('复制失败', 'error');
+                    });
+                },
+
+                handleCopyContent() {
+                    navigator.clipboard.writeText(this.editForm.value).then(() => {
+                        window.pluginSdk.showMessage('已复制内容', 'info', 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy:', err);
+                        window.pluginSdk.showMessage('复制失败', 'error');
+                    });
+                },
+
+                // ===== Utils =====
+                formatDate(isoString) {
+                    const date = new Date(isoString);
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                },
+            };
         }
-
-        // ===== 初始化 =====
-        window.addEventListener('pluginSdkReady', async () => {
-            console.log('SDK is ready');
-
-            // 设置主题模式
-            const themeMode = window.pluginSdk.themeMode || 'light';
-            document.documentElement.setAttribute('data-theme-mode', themeMode);
-
-            // 获取自定义 SDK
-            sdk = window.pluginSdk;
-
-            if (!sdk) {
-                document.getElementById('app').innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">❌</div>
-                        <div>SDK 未正确注入</div>
-                    </div>
-                `;
-                return;
-            }
-
-            // 加载数据
-            await loadData();
-        });
     </script>
 </body>
 </html>
+

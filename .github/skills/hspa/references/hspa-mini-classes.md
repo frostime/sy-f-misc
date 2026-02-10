@@ -7,6 +7,15 @@ Lightweight CSS framework for HSPA pages. Load via:
 ```
 
 
+⚠️ **Scope warning (important)**
+
+`hspa-mini.css` is a **minimal** utility set, not a Tailwind clone.
+
+- Only the classes listed in this document (and implemented in `public/styles/hspa-mini.css`) exist.
+- Do **not** use Tailwind-like atomic classes such as `bg-white`, `mx-1`, `text-6xl`, `min-h-24`, `hover:bg-*`, `left-1/2`, etc.
+- If you need additional styling, use **page-local styling** in the HTML file: CSS in a `<style>` block or inline `style="..."` (inline is acceptable when it keeps the page compact/readable).
+
+
 You can visit this css file at `public/styles/hspa-mini.css`.
 
 ---
@@ -363,6 +372,7 @@ Form controls use **class selectors** (`.input`, `.select`, `.textarea`), not el
 | `.code-block` | Monospace, surface bg, border, scrollable (max 300px) |
 | `.divider` | Horizontal rule with theme border |
 | `.icon` | `display: inline-block`, 1em square SVG. **Required** — bare `<svg>` elements have no framework styles |
+| `.icon-stroke` | Use for outline-only icons (removes fill, sets stroke) |
 | `.icon-sm` (14px) / `.icon-md` (18px) / `.icon-lg` (24px) | Size variants |
 
 ---
@@ -371,6 +381,7 @@ Form controls use **class selectors** (`.input`, `.select`, `.textarea`), not el
 
 | Class | Effect |
 |---|---|
+| `.bg-bg` / `.bg-surface` / `.bg-accent-bg` | Semantic background colors (theme-safe) |
 | `.w-full` / `.h-full` / `.h-screen` | Size |
 | `.max-w-sm/md/lg/xl` | Max-width (480/680/960/1200px) |
 | `.hidden` / `.block` / `.inline` | Display |

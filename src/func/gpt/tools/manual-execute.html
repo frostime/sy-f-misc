@@ -5,144 +5,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>手动工具调用</title>
+    <link rel="stylesheet" href="../styles/hspa-mini.css">
     <style>
-        /* ==================== CSS 变量和基础样式 ==================== */
+        /* ==================== 视图特有样式 (无法被 hspa-mini 覆盖的部分) ==================== */
         :root {
-            /* 字体大小语义化变量 - 基于注入的 --font-size */
-            --font-size-normal: var(--font-size, 14px);
-            --font-size-large: calc(var(--font-size-normal) * 1.3);
-            --font-size-medium: calc(var(--font-size-normal) * 0.93);
-            --font-size-small: calc(var(--font-size-normal) * 0.86);
-            --font-size-tiny: calc(var(--font-size-normal) * 0.79);
-
-            /* 颜色语义化变量 - 复用注入的主题颜色 */
-            --bg-primary: var(--theme-background, #ffffff);
-            --bg-secondary: var(--theme-surface, #f5f5f7);
-            --bg-tertiary: var(--theme-surface-light, #fafafa);
-
-            --text-primary: var(--theme-on-background, #333333);
-            --text-secondary: var(--theme-on-surface, #666666);
-            --text-tertiary: var(--theme-on-surface-light, #999999);
-
-            --accent-color: var(--theme-primary, #d23f31);
-            --accent-bg: var(--theme-primary-lightest, #ffe8e6);
-
-            --border-color: var(--theme-surface-lighter, #e0e0e0);
-            --hover-bg: var(--theme-surface-light, #f0f0f0);
-            --active-bg: var(--theme-surface-lighter, #e8e8ea);
-
-            /* 功能性颜色（保留自定义，但适配主题） */
-            --success-color: #34a853;
-            --error-color: #ea4335;
-            --warning-color: #fbbc04;
-            --shadow: rgba(0, 0, 0, 0.1);
-
-            /* 工具组专用颜色 */
+            /* 工具组专用颜色 - 保持原有的特定语义驱动样式 */
             --group-header-bg: var(--theme-surface, #f0f0f2);
             --group-header-hover: var(--theme-surface-light, #e8e8ea);
             --group-border: var(--theme-surface-lighter, #d8d8dc);
-            --tool-item-hover: rgba(0, 0, 0, 0.04);
             --tool-item-active-bg: var(--theme-primary-lightest, #fff0ee);
             --tool-item-active-border: var(--theme-primary, #d23f31);
         }
 
-        /* 暗色主题适配 */
         [data-theme-mode="dark"] {
-            --border-color: #3e3e42;
-            --hover-bg: #2a2a2a;
-            --active-bg: #37373d;
-            --accent-bg: #3d2522;
-            --success-color: #4caf50;
-            --error-color: #f44336;
-            --warning-color: #ff9800;
-            --shadow: rgba(0, 0, 0, 0.3);
-
             --group-header-bg: #2d2d30;
             --group-header-hover: #383838;
             --group-border: #404045;
-            --tool-item-hover: rgba(255, 255, 255, 0.05);
             --tool-item-active-bg: #3d2522;
         }
 
-        /* 全局盒模型重置 */
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
-            font-size: var(--font-size-normal);
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-        }
-
-        /* 字体大小应用 */
-        .panel-title {
-            font-size: var(--font-size-large);
-        }
-
-        .panel-subtitle,
-        .form-field label,
-        .form-field input,
-        .form-field textarea,
-        .form-field select,
-        .btn,
-        .group-header,
-        .tool-name {
-            font-size: var(--font-size-medium);
-        }
-
-        .tool-desc,
-        .form-field .description,
-        .result-tab,
-        .result-content pre {
-            font-size: var(--font-size-small);
-        }
-
-        .status-badge,
-        .toggle-multiline-btn {
-            font-size: var(--font-size-tiny);
-        }
-
-        /* ==================== 布局结构 ==================== */
-        #app {
-            display: flex;
-            width: 100%;
-            height: 100vh;
-        }
-
-        /* 侧边栏 - 工具列表 */
+        /* 侧边栏样式 */
         #sidebar {
-            width: 280px;
-            background-color: var(--bg-secondary);
+            flex-shrink: 0;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            flex-shrink: 0;
+            background-color: var(--c-surface);
         }
 
-        /* 水平拖动分割条 */
-        #horizontal-resize-handle {
+        .sidebar-toolbar {
+            border-bottom: 1px solid var(--c-border);
+            flex-shrink: 0;
+            background-color: var(--c-bg);
+        }
+
+        /* 分割条封装 */
+        .resizer-h {
             width: 4px;
-            background-color: var(--border-color);
+            background-color: var(--c-border);
             cursor: ew-resize;
             position: relative;
             flex-shrink: 0;
             transition: background-color 0.2s;
         }
 
-        #horizontal-resize-handle:hover {
-            background-color: var(--accent-color);
+        .resizer-h:hover {
+            background-color: var(--c-accent);
         }
 
-        #horizontal-resize-handle::before {
+        .resizer-h::before {
             content: '';
             position: absolute;
             left: -4px;
@@ -151,96 +62,20 @@
             width: 12px;
         }
 
-        /* 侧边栏顶部工具栏 */
-        .sidebar-toolbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 12px;
-            background-color: var(--bg-primary);
-            border-bottom: 1px solid var(--border-color);
-            flex-shrink: 0;
-        }
-
-        .sidebar-title {
-            font-size: var(--font-size-medium);
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .sidebar-actions {
-            display: flex;
-            gap: 4px;
-        }
-
-        .sidebar-btn {
-            padding: 4px 8px;
-            font-size: var(--font-size-tiny);
-            font-weight: 500;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background-color: var(--bg-secondary);
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .sidebar-btn:hover {
-            background-color: var(--hover-bg);
-            color: var(--text-primary);
-            border-color: var(--text-tertiary);
-        }
-
-        .sidebar-btn:active {
-            background-color: var(--active-bg);
-        }
-
-        .sidebar-btn svg {
-            width: 12px;
-            height: 12px;
-        }
-
-        /* 工具组容器 */
-        #tool-groups-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px;
-        }
-
-        /* 主内容区 */
-        #main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* 参数输入面板 */
-        #input-panel {
-            background-color: var(--bg-primary);
-            padding: 20px;
-            overflow-y: auto;
-            flex-shrink: 0;
-        }
-
-        /* 可拖动分割条 */
-        #resize-handle {
+        .resizer-v {
             height: 4px;
-            background-color: var(--border-color);
+            background-color: var(--c-border);
             cursor: ns-resize;
             position: relative;
             flex-shrink: 0;
             transition: background-color 0.2s;
         }
 
-        #resize-handle:hover {
-            background-color: var(--accent-color);
+        .resizer-v:hover {
+            background-color: var(--c-accent);
         }
 
-        #resize-handle::before {
+        .resizer-v::before {
             content: '';
             position: absolute;
             top: -4px;
@@ -249,36 +84,23 @@
             height: 12px;
         }
 
-        /* 结果展示面板 */
-        #result-panel {
-            flex: 1;
-            background-color: var(--bg-primary);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            min-height: 100px;
-        }
-
-        /* ==================== 工具组样式（重新设计） ==================== */
+        /* 工具列表项交互 */
         .tool-group {
-            margin-bottom: 8px;
-            border-radius: 8px;
+            margin-bottom: var(--sp-2);
+            border-radius: var(--radius);
             overflow: hidden;
             border: 1px solid var(--group-border);
-            background-color: var(--bg-primary);
+            background-color: var(--c-bg);
         }
 
         .group-header {
-            padding: 10px 14px;
+            padding: var(--sp-2) var(--sp-3);
             font-weight: 600;
-            color: var(--text-primary);
             background-color: var(--group-header-bg);
             cursor: pointer;
-            user-select: none;
             display: flex;
             align-items: center;
-            gap: 8px;
-            transition: background-color 0.15s ease;
+            gap: var(--sp-2);
         }
 
         .group-header:hover {
@@ -286,60 +108,27 @@
         }
 
         .group-header-icon {
-            width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             transition: transform 0.2s ease;
-            color: var(--text-secondary);
-        }
-
-        .group-header-icon svg {
-            width: 14px;
-            height: 14px;
         }
 
         .group-header.collapsed .group-header-icon {
             transform: rotate(-90deg);
         }
 
-        .group-header-text {
-            flex: 1;
-        }
-
-        .group-header-count {
-            font-size: var(--font-size-tiny);
-            font-weight: 500;
-            color: var(--text-tertiary);
-            background-color: var(--bg-secondary);
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-
-        .tool-list {
-            display: block;
-            border-top: 1px solid var(--group-border);
-        }
-
-        .tool-list.collapsed {
-            display: none;
-        }
-
         .tool-item {
-            padding: 10px 14px;
+            padding: var(--sp-2) var(--sp-3);
             cursor: pointer;
             border-left: 3px solid transparent;
             transition: all 0.15s ease;
-            background-color: var(--bg-primary);
-        }
-
-        .tool-item:not(:last-child) {
             border-bottom: 1px solid var(--group-border);
         }
 
+        .tool-item:last-child {
+            border-bottom: none;
+        }
+
         .tool-item:hover {
-            background-color: var(--tool-item-hover);
+            background-color: var(--c-surface-hover);
         }
 
         .tool-item.active {
@@ -347,9 +136,12 @@
             border-left-color: var(--tool-item-active-border);
         }
 
+        .tool-item.active .tool-name::before {
+            opacity: 1;
+        }
+
         .tool-name {
             font-weight: 500;
-            color: var(--text-primary);
             margin-bottom: 4px;
             display: flex;
             align-items: center;
@@ -361,391 +153,213 @@
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background-color: var(--accent-color);
+            background-color: var(--c-accent);
             opacity: 0.6;
         }
 
-        .tool-item.active .tool-name::before {
-            opacity: 1;
-        }
-
-        .tool-desc {
-            color: var(--text-secondary);
-            line-height: 1.4;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            padding-left: 12px;
-        }
-
-        /* ==================== 参数表单样式 ==================== */
-        .panel-header {
+        /* 让结果代码块填满剩余空间 */
+        .result-content-wrapper {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 16px;
+            flex-direction: column;
+            height: 100%;
+            gap: var(--sp-2);
+            overflow: hidden; /* 防止溢出导致出现双滚动条 */
         }
 
-        .panel-header-info {
+        /* 覆盖 hspa-mini.css 的 max-height，确保代码块填满 */
+        .result-content-wrapper .code-block {
             flex: 1;
-        }
-
-        .panel-title {
-            font-weight: 600;
-            margin: 0 0 8px 0;
-            color: var(--text-primary);
-        }
-
-        .panel-subtitle {
-            color: var(--text-secondary);
+            max-height: none;
             margin: 0;
-            line-height: 1.5;
+            overflow: auto; /* 这里代码块自己负责滚动 */
         }
 
-        .form-actions {
+        /* 修复 hspa-mini.css 默认 fill 导致描边图标变色块的问题 */
+        .icon {
+            fill: none !important;
+            stroke: currentColor;
+        }
+
+        /* 确保 page-body 在此处作为容器能让子元素填满 */
+        #result-panel .page-body {
             display: flex;
-            gap: 12px;
-            flex-shrink: 0;
-            margin-left: 16px;
-        }
-
-        .form-field {
-            margin-bottom: 20px;
-        }
-
-        .form-field label {
-            display: block;
-            font-weight: 500;
-            color: var(--text-primary);
-            margin-bottom: 6px;
-        }
-
-        .form-field label .required {
-            color: var(--error-color);
-        }
-
-        .form-field-input-wrapper {
-            display: flex;
-            gap: 8px;
-            align-items: flex-start;
-        }
-
-        .form-field-input-wrapper input,
-        .form-field-input-wrapper textarea {
-            flex: 1;
-        }
-
-        .form-field input[type="text"],
-        .form-field input[type="number"],
-        .form-field textarea,
-        .form-field select {
-            width: 100%;
-            padding: 8px 12px;
-            font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            box-sizing: border-box;
-            transition: border-color 0.2s;
-        }
-
-        .form-field input[type="text"]:focus,
-        .form-field input[type="number"]:focus,
-        .form-field textarea:focus,
-        .form-field select:focus {
-            outline: none;
-            border-color: var(--accent-color);
-        }
-
-        .form-field textarea {
-            min-height: 80px;
-            resize: vertical;
-            font-family: var(--font-family-code, "Consolas", "Monaco", "Courier New", monospace);
-        }
-
-        .form-field input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
-
-        .form-field .description {
-            display: block;
-            color: var(--text-tertiary);
-            margin-top: 4px;
-            line-height: 1.4;
-        }
-
-        .toggle-multiline-btn {
-            padding: 6px 8px;
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: var(--font-size-tiny);
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-
-        .toggle-multiline-btn:hover {
-            background-color: var(--hover-bg);
-            color: var(--text-primary);
-        }
-
-        .toggle-multiline-btn.active {
-            background-color: var(--accent-bg);
-            color: var(--accent-color);
-            border-color: var(--accent-color);
-        }
-
-        .btn {
-            padding: 8px 16px;
-            font-weight: 500;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            white-space: nowrap;
-        }
-
-        .btn-primary {
-            background-color: var(--accent-color);
-            color: #ffffff;
-        }
-
-        .btn-primary:hover {
-            opacity: 0.9;
-        }
-
-        .btn-primary:active {
-            opacity: 0.8;
-        }
-
-        .btn-secondary {
-            background-color: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-        }
-
-        .btn-secondary:hover {
-            background-color: var(--hover-bg);
-        }
-
-        .empty-state {
-            padding: 60px 20px;
-            text-align: center;
-            color: var(--text-tertiary);
-        }
-
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
-            margin-bottom: 16px;
-            opacity: 0.3;
-        }
-
-        /* ==================== 结果展示样式 ==================== */
-        .result-header {
-            padding: 12px 20px;
-            background-color: var(--bg-secondary);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .result-tabs {
-            display: flex;
-            gap: 4px;
-        }
-
-        .result-tab {
-            padding: 6px 12px;
-            font-weight: 500;
-            background: none;
-            border: none;
-            border-radius: 4px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .result-tab:hover {
-            background-color: var(--hover-bg);
-        }
-
-        .result-tab.active {
-            background-color: var(--active-bg);
-            color: var(--accent-color);
-        }
-
-        .result-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .icon-btn {
-            padding: 6px;
-            background: none;
-            border: none;
-            border-radius: 4px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .icon-btn:hover {
-            background-color: var(--hover-bg);
-            color: var(--text-primary);
-        }
-
-        .result-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        .result-content pre {
-            margin: 0;
-            padding: 16px;
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-family: var(--font-family-code, var(--fallback-font-code));
-            line-height: 1.6;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            color: var(--theme-on-background);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .status-success {
-            background-color: var(--success-color);
-            color: #ffffff;
-        }
-
-        .status-error {
-            background-color: var(--error-color);
-            color: #ffffff;
-        }
-
-        .status-info {
-            background-color: var(--bg-tertiary);
-            color: var(--text-secondary);
-        }
-
-        /* ==================== 滚动条样式 ==================== */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-tertiary);
-        }
-
-        /* ==================== 响应式适配 ==================== */
-        @media (max-width: 768px) {
-            #sidebar {
-                width: 240px;
-            }
-
-            #input-panel {
-                padding: 16px;
-            }
-
-            .result-content {
-                padding: 16px;
-            }
+            flex-direction: column;
+            overflow: hidden; /* 内部滚动由 code-block 负责 */
         }
     </style>
+    <script defer src="../scripts/alpine.min.js"></script>
 </head>
 
-<body>
-    <div id="app">
+<body class="page" x-data="manualExecute" @mousemove.window="doResize($event)" @mouseup.window="stopResize()">
+    <div id="app" class="flex h-screen w-full overflow-hidden">
         <!-- 侧边栏：工具组/工具列表 -->
-        <aside id="sidebar">
-            <!-- 顶部工具栏 -->
-            <div class="sidebar-toolbar">
-                <span class="sidebar-title">工具列表</span>
-                <div class="sidebar-actions">
-                    <button class="sidebar-btn" id="btn-expand-all" title="全部展开">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <aside id="sidebar" :style="{ width: sidebarWidth + 'px' }">
+            <div class="sidebar-toolbar flex-between p-3">
+                <span class="text-bold">工具列表</span>
+                <div class="flex gap-1">
+                    <button class="btn btn-sm" @click="expandAll()" title="全部展开">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <polyline points="6 9 12 15 18 9" />
                         </svg>
-                        展开
                     </button>
-                    <button class="sidebar-btn" id="btn-collapse-all" title="全部折叠">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button class="btn btn-sm" @click="collapseAll()" title="全部折叠">
+                        <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <polyline points="18 15 12 9 6 15" />
                         </svg>
-                        折叠
                     </button>
                 </div>
             </div>
-            <!-- 工具组容器 -->
-            <div id="tool-groups-container">
-                <!-- 动态生成工具组 -->
+            <div id="tool-groups-container" class="flex-1 scroll-y p-2">
+                <template x-for="group in toolGroups" :key="group.name">
+                    <div class="tool-group">
+                        <div class="group-header" :class="{ collapsed: collapsedGroups.has(group.name) }"
+                            @click="toggleGroup(group.name)">
+                            <span class="group-header-icon flex-center">
+                                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </span>
+                            <span class="flex-1 text-sm" x-text="group.name"></span>
+                            <span class="badge" x-text="group.tools.length"></span>
+                        </div>
+                        <div x-show="!collapsedGroups.has(group.name)" x-collapse>
+                            <template x-for="tool in group.tools" :key="tool.name">
+                                <div class="tool-item" :class="{ active: currentTool?.function.name === tool.name }"
+                                    @click="selectTool(tool.name)">
+                                    <div class="tool-name text-sm" x-text="tool.name"></div>
+                                    <div class="text-xs text-muted text-truncate" style="padding-left: var(--sp-3);"
+                                        x-text="tool.description || '无描述'"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
             </div>
         </aside>
 
         <!-- 水平拖动分割条 -->
-        <div id="horizontal-resize-handle"></div>
+        <div class="resizer-h" @mousedown="startResize('horizontal', $event)" @dblclick="handleDblClick('sidebar')">
+        </div>
 
         <!-- 主内容区 -->
-        <main id="main">
+        <main class="flex-1 flex flex-col overflow-hidden">
             <!-- 参数输入面板 -->
-            <section id="input-panel">
-                <div class="empty-state">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <div>请从左侧选择一个工具</div>
-                </div>
+            <section id="input-panel" class="scroll-y p-4 bg-bg"
+                :style="{ height: inputPanelHeight === 'auto' ? 'auto' : inputPanelHeight + 'px' }">
+                <template x-if="!currentTool">
+                    <div class="empty-state">
+                        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <div class="text-muted">请从左侧选择一个工具</div>
+                    </div>
+                </template>
+                <template x-if="currentTool">
+                    <div>
+                        <div class="flex-between mb-4 items-start">
+                            <div class="flex-1">
+                                <h2 class="text-lg text-bold" style="margin-bottom: var(--sp-1);" x-text="currentTool.function.name"></h2>
+                                <p class="text-sm text-muted" x-text="currentTool.function.description || '无描述'"></p>
+                            </div>
+                            <div class="flex gap-2" style="margin-left: var(--sp-4);">
+                                <button type="button" class="btn btn-primary" @click="execute()" :disabled="loading">
+                                    <svg x-show="!loading" class="icon" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2">
+                                        <polygon points="5 3 19 12 5 21 5 3" />
+                                    </svg>
+                                    <span x-text="loading ? '执行中...' : '执行'"></span>
+                                </button>
+                                <button type="button" class="btn" @click="resetForm()">重置</button>
+                            </div>
+                        </div>
+                        <form id="param-form" class="flex flex-col gap-4" @submit.prevent="execute()">
+                            <template x-for="(schema, name) in (currentTool.function.parameters.properties || {})"
+                                :key="name">
+                                <div class="form-group border-b" style="padding-bottom: var(--sp-3);">
+                                    <label class="form-label flex items-center gap-1">
+                                        <span x-text="name"></span>
+                                        <template x-if="currentTool.function.parameters.required?.includes(name)">
+                                            <span class="text-error">*</span>
+                                        </template>
+                                    </label>
+
+                                    <template x-if="schema.type === 'string' && schema.enum">
+                                        <select class="select" x-model="formArgs[name]">
+                                            <option value="">请选择...</option>
+                                            <template x-for="val in schema.enum" :key="val">
+                                                <option :value="val" x-text="val"></option>
+                                            </template>
+                                        </select>
+                                    </template>
+
+                                    <template x-if="schema.type === 'string' && !schema.enum">
+                                        <div class="flex gap-2 items-start">
+                                            <template x-if="!multilineFields.has(name)">
+                                                <input class="input flex-1" type="text" x-model="formArgs[name]"
+                                                    :placeholder="schema.description || ''" />
+                                            </template>
+                                            <template x-if="multilineFields.has(name)">
+                                                <textarea class="textarea flex-1" x-model="formArgs[name]"
+                                                    :placeholder="schema.description || ''"></textarea>
+                                            </template>
+                                            <button type="button" class="btn btn-icon"
+                                                :class="{ 'btn-primary': multilineFields.has(name) }"
+                                                @click="toggleMultiline(name)" title="切换多行输入">
+                                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                    <line x1="3" y1="9" x2="21" y2="9" />
+                                                    <line x1="3" y1="15" x2="21" y2="15" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </template>
+
+                                    <template x-if="schema.type === 'number' || schema.type === 'integer'">
+                                        <input class="input" type="number" x-model="formArgs[name]"
+                                            :step="schema.type === 'integer' ? '1' : 'any'" />
+                                    </template>
+
+                                    <template x-if="schema.type === 'boolean'">
+                                        <label class="check-row">
+                                            <input type="checkbox" x-model="formArgs[name]" />
+                                            <span class="text-sm" x-text="schema.description || name"></span>
+                                        </label>
+                                    </template>
+
+                                    <template x-if="schema.type === 'array' || schema.type === 'object'">
+                                        <textarea class="textarea text-mono" x-model="formArgs[name]"
+                                            :placeholder="schema.type === 'array' ? 'JSON array, e.g. [...]' : 'JSON object, e.g. {\'key\': \'value\'}'"></textarea>
+                                    </template>
+
+                                    <span x-show="schema.description && schema.type !== 'boolean'" class="form-hint"
+                                        x-text="schema.description"></span>
+                                </div>
+                            </template>
+                        </form>
+                    </div>
+                </template>
             </section>
 
             <!-- 可拖动分割条 -->
-            <div id="resize-handle"></div>
+            <div class="resizer-v" @mousedown="startResize('vertical', $event)" @dblclick="handleDblClick('input')">
+            </div>
 
             <!-- 结果展示面板 -->
-            <section id="result-panel">
-                <div class="result-header">
-                    <div class="result-tabs">
-                        <button class="result-tab active" data-view="raw">Raw Data</button>
-                        <button class="result-tab" data-view="formatted">Formatted</button>
-                        <button class="result-tab" data-view="final">Final (LLM)</button>
+            <section id="result-panel" class="flex-1 flex flex-col overflow-hidden" style="min-height: 96px;">
+                <div class="result-header flex-between px-4 py-2 bg-surface border-b">
+                    <div class="flex gap-1">
+                        <template x-for="v in ['raw', 'formatted', 'final']" :key="v">
+                            <button class="btn btn-sm" :class="{ 'btn-primary': currentView === v }"
+                                @click="currentView = v" x-text="v.toUpperCase()"></button>
+                        </template>
                     </div>
-                    <div class="result-actions">
-                        <button class="icon-btn" id="copy-btn" title="复制">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    <div class="flex gap-2">
+                        <button class="btn btn-icon btn-sm" @click="copyResult()" title="复制结果">
+                            <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                                 <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
@@ -753,13 +367,36 @@
                         </button>
                     </div>
                 </div>
-                <div class="result-content">
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 16v-4M12 8h.01" />
-                        </svg>
-                        <div>执行工具后结果将显示在这里</div>
+                <!-- 这里的 h-full 配合外部的 flex-1 确保填满 -->
+                <div class="page-body p-4 h-full">
+                    <template x-if="!currentResult">
+                        <div class="empty-state">
+                            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 16v-4M12 8h.01" />
+                            </svg>
+                            <div class="text-muted">执行工具后结果将显示在这里</div>
+                        </div>
+                    </template>
+                    <!-- 使用 result-content-wrapper 类来实现内部的 flex 布局 -->
+                    <div x-show="currentResult" class="result-content-wrapper">
+                        <div class="flex flex-wrap gap-2" style="margin-bottom: var(--sp-3);">
+                            <template x-if="currentResult?.status === 'success'">
+                                <span class="badge badge-success">SUCCESS</span>
+                            </template>
+                            <template x-if="currentResult?.status === 'error'">
+                                <span class="badge badge-error">ERROR</span>
+                            </template>
+                            <template
+                                x-if="currentResult?.status && !['success','error'].includes(currentResult.status)">
+                                <span class="badge badge-info" x-text="currentResult.status.toUpperCase()"></span>
+                            </template>
+                            <span x-show="currentResult?.isTruncated" class="badge badge-warning">TRUNCATED</span>
+                            <span x-show="currentResult?.cacheFile" class="badge badge-info">CACHED</span>
+                            <span class="badge" x-text="'Chars: ' + getDisplayResult().length"></span>
+                        </div>
+                        <div class="code-block text-sm" x-text="getDisplayResult()"></div>
                     </div>
                 </div>
             </section>
@@ -767,514 +404,189 @@
     </div>
 
     <script>
-        // ==================== 全局状态 ====================
-        let toolGroups = [];
-        let currentTool = null;
-        let currentResult = null;
-        let currentView = 'raw';
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('manualExecute', () => ({
+                toolGroups: [],
+                currentTool: null,
+                currentResult: null,
+                currentView: 'raw',
+                loading: false,
+                sidebarWidth: 280,
+                inputPanelHeight: 320,
+                collapsedGroups: new Set(),
+                formArgs: {},
+                multilineFields: new Set(),
+                resizing: null,
+                startX: 0,
+                startY: 0,
+                startSize: 0,
+                savedSidebarWidth: null,
+                savedInputHeight: null,
 
-        // ==================== 初始化 ====================
-        window.addEventListener('pluginSdkReady', async () => {
-            // 设置主题模式
-            const themeMode = window.pluginSdk.themeMode || 'light';
-            document.documentElement.setAttribute('data-theme-mode', themeMode);
-
-            // 加载工具列表
-            toolGroups = await window.pluginSdk.listToolGroups();
-            renderToolGroups(toolGroups);
-
-            // 绑定事件
-            bindEvents();
-            initResizeHandle();
-            initHorizontalResizeHandle();
-            bindFoldButtons();
-        });
-
-        // ==================== 渲染工具组 ====================
-        function renderToolGroups(groups) {
-            const container = document.getElementById('tool-groups-container');
-            container.innerHTML = groups.map(group => `
-                <div class="tool-group">
-                    <div class="group-header" data-group="${group.name}">
-                        <span class="group-header-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="6 9 12 15 18 9"/>
-                            </svg>
-                        </span>
-                        <span class="group-header-text">${group.name}</span>
-                        <span class="group-header-count">${group.tools.length}</span>
-                    </div>
-                    <div class="tool-list" data-group="${group.name}">
-                        ${group.tools.map(tool => `
-                            <div class="tool-item" data-tool="${tool.name}">
-                                <div class="tool-name">${tool.name}</div>
-                                <div class="tool-desc">${tool.description || '无描述'}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `).join('');
-
-            // 绑定工具项点击事件
-            document.querySelectorAll('.tool-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    const toolName = item.dataset.tool;
-                    selectTool(toolName);
-
-                    // 更新激活状态
-                    document.querySelectorAll('.tool-item').forEach(i => i.classList.remove('active'));
-                    item.classList.add('active');
-                });
-            });
-
-            // 绑定工具组折叠事件
-            document.querySelectorAll('.group-header').forEach(header => {
-                header.addEventListener('click', () => {
-                    const groupName = header.dataset.group;
-                    const toolList = document.querySelector(`.tool-list[data-group="${groupName}"]`);
-                    header.classList.toggle('collapsed');
-                    toolList.classList.toggle('collapsed');
-                });
-            });
-        }
-
-        // ==================== 折叠/展开所有 ====================
-        function bindFoldButtons() {
-            document.getElementById('btn-expand-all').addEventListener('click', () => {
-                document.querySelectorAll('.group-header').forEach(header => {
-                    header.classList.remove('collapsed');
-                });
-                document.querySelectorAll('.tool-list').forEach(list => {
-                    list.classList.remove('collapsed');
-                });
-            });
-
-            document.getElementById('btn-collapse-all').addEventListener('click', () => {
-                document.querySelectorAll('.group-header').forEach(header => {
-                    header.classList.add('collapsed');
-                });
-                document.querySelectorAll('.tool-list').forEach(list => {
-                    list.classList.add('collapsed');
-                });
-            });
-        }
-
-        // ==================== 选择工具 ====================
-        async function selectTool(toolName) {
-            const toolDef = await window.pluginSdk.getToolDefinition(toolName);
-            if (!toolDef) {
-                console.error('Tool not found:', toolName);
-                return;
-            }
-
-            currentTool = toolDef;
-            renderInputPanel(toolDef);
-        }
-
-        // ==================== 渲染参数输入面板 ====================
-        function renderInputPanel(toolDef) {
-            const panel = document.getElementById('input-panel');
-            const funcDef = toolDef.function;
-            const params = funcDef.parameters || { properties: {}, required: [] };
-            const properties = params.properties || {};
-            const required = params.required || [];
-
-            panel.innerHTML = `
-                <div class="panel-header">
-                    <div class="panel-header-info">
-                        <h2 class="panel-title">${funcDef.name}</h2>
-                        <p class="panel-subtitle">${funcDef.description || '无描述'}</p>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-primary" id="execute-btn">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="5 3 19 12 5 21 5 3"/>
-                            </svg>
-                            执行
-                        </button>
-                        <button type="button" class="btn btn-secondary" id="reset-btn">
-                            重置
-                        </button>
-                    </div>
-                </div>
-                <form id="param-form">
-                    ${Object.entries(properties).map(([name, schema]) =>
-                generateFormField(name, schema, required.includes(name))
-            ).join('')}
-                </form>
-            `;
-
-            // 绑定执行按钮
-            document.getElementById('execute-btn').addEventListener('click', executeTool);
-            document.getElementById('reset-btn').addEventListener('click', () => {
-                document.getElementById('param-form').reset();
-            });
-
-            // 绑定多行文本切换按钮
-            bindMultilineToggles();
-        }
-
-        // ==================== 生成表单字段 ====================
-        function generateFormField(name, schema, isRequired) {
-            const label = `${name}${isRequired ? ' <span class="required">*</span>' : ''}`;
-            const description = schema.description ? `<span class="description">${schema.description}</span>` : '';
-
-            let input = '';
-            const type = schema.type;
-
-            switch (type) {
-                case 'string':
-                    if (schema.enum) {
-                        input = `
-                            <select name="${name}" ${isRequired ? 'required' : ''}>
-                                <option value="">请选择...</option>
-                                ${schema.enum.map(val => `<option value="${val}">${val}</option>`).join('')}
-                            </select>
-                        `;
-                    } else {
-                        // 支持切换单行/多行
-                        input = `
-                            <div class="form-field-input-wrapper">
-                                <input type="text" name="${name}" ${isRequired ? 'required' : ''} placeholder="${schema.description || ''}" data-field="${name}">
-                                <button type="button" class="toggle-multiline-btn" data-target="${name}" title="切换多行输入">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                        <line x1="3" y1="9" x2="21" y2="9"/>
-                                        <line x1="3" y1="15" x2="21" y2="15"/>
-                                    </svg>
-                                </button>
-                            </div>
-                        `;
-                    }
-                    break;
-                case 'number':
-                case 'integer':
-                    input = `<input type="number" name="${name}" ${isRequired ? 'required' : ''} ${type === 'integer' ? 'step="1"' : ''}>`;
-                    break;
-                case 'boolean':
-                    input = `
-                        <label style="display: inline-flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" name="${name}">
-                            <span style="font-weight: normal;">${schema.description || name}</span>
-                        </label>
-                    `;
-                    return `<div class="form-field">${input}</div>`;
-                case 'array':
-                    input = `<textarea name="${name}" ${isRequired ? 'required' : ''} placeholder="JSON array, e.g. [...]"></textarea>`;
-                    break;
-                case 'object':
-                    input = `<textarea name="${name}" ${isRequired ? 'required' : ''} placeholder='JSON object, e.g. {"key": "value"}'></textarea>`;
-                    break;
-                default:
-                    input = `<input type="text" name="${name}" ${isRequired ? 'required' : ''}>`;
-            }
-
-            return `
-                <div class="form-field">
-                    <label>${label}</label>
-                    ${input}
-                    ${description}
-                </div>
-            `;
-        }
-
-        // ==================== 绑定多行文本切换 ====================
-        function bindMultilineToggles() {
-            document.querySelectorAll('.toggle-multiline-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const targetName = btn.dataset.target;
-                    const wrapper = btn.closest('.form-field-input-wrapper');
-                    const currentInput = wrapper.querySelector(`[data-field="${targetName}"]`);
-                    const isTextarea = currentInput.tagName === 'TEXTAREA';
-
-                    if (isTextarea) {
-                        // 切换回 input
-                        const newInput = document.createElement('input');
-                        newInput.type = 'text';
-                        newInput.name = currentInput.name;
-                        newInput.value = currentInput.value;
-                        newInput.required = currentInput.required;
-                        newInput.placeholder = currentInput.placeholder;
-                        newInput.dataset.field = targetName;
-                        currentInput.replaceWith(newInput);
-                        btn.classList.remove('active');
-                    } else {
-                        // 切换到 textarea
-                        const newTextarea = document.createElement('textarea');
-                        newTextarea.name = currentInput.name;
-                        newTextarea.value = currentInput.value;
-                        newTextarea.required = currentInput.required;
-                        newTextarea.placeholder = currentInput.placeholder;
-                        newTextarea.dataset.field = targetName;
-                        newTextarea.style.minHeight = '80px';
-                        currentInput.replaceWith(newTextarea);
-                        btn.classList.add('active');
-                    }
-                });
-            });
-        }
-
-        // ==================== 执行工具 ====================
-        async function executeTool() {
-            const form = document.getElementById('param-form');
-            const formData = new FormData(form);
-            const args = {};
-
-            // 处理表单数据
-            const toolDef = currentTool;
-            const properties = toolDef.function.parameters?.properties || {};
-
-            for (const [name, value] of formData.entries()) {
-                const schema = properties[name];
-                if (!schema) continue;
-
-                // 根据类型处理值
-                if (schema.type === 'boolean') {
-                    args[name] = true; // checkbox 被选中
-                } else if (schema.type === 'number' || schema.type === 'integer') {
-                    args[name] = value === '' ? undefined : Number(value);
-                } else if (schema.type === 'array' || schema.type === 'object') {
-                    try {
-                        args[name] = value ? JSON.parse(value) : undefined;
-                    } catch (e) {
-                        window.pluginSdk.showMessage(`参数 "${name}" 的 JSON 格式错误: ${e.message}`, 'error');
-                        return;
-                    }
-                } else {
-                    args[name] = value || undefined;
-                }
-            }
-
-            // 处理未选中的 checkbox（需要手动添加 false）
-            for (const [name, schema] of Object.entries(properties)) {
-                if (schema.type === 'boolean' && !(name in args)) {
-                    args[name] = false;
-                }
-            }
-
-            // 移除 undefined 值
-            Object.keys(args).forEach(key => {
-                if (args[key] === undefined) delete args[key];
-            });
-
-            // 执行工具
-            try {
-                const btn = document.getElementById('execute-btn');
-                btn.disabled = true;
-                btn.textContent = '执行中...';
-
-                const result = await window.pluginSdk.executeTool(toolDef.function.name, args);
-                currentResult = result;
-                displayResult(result);
-
-                btn.disabled = false;
-                btn.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="5 3 19 12 5 21 5 3"/>
-                    </svg>
-                    执行
-                `;
-            } catch (error) {
-                window.pluginSdk.showMessage('执行失败: ' + error.message, 'error');
-                console.error(error);
-            }
-        }
-
-        // ==================== 显示结果 ====================
-        function displayResult(result) {
-            const content = document.querySelector('.result-content');
-
-            let displayText = '';
-            let status = result.status || 'unknown';
-            let statusBadge = '';
-
-            if (status === 'success') {
-                statusBadge = '<span class="status-badge status-success">SUCCESS</span>';
-            } else if (status === 'error') {
-                statusBadge = '<span class="status-badge status-error">ERROR</span>';
-            } else {
-                statusBadge = '<span class="status-badge status-info">' + status.toUpperCase() + '</span>';
-            }
-
-            switch (currentView) {
-                case 'raw':
-                    displayText = JSON.stringify(result.data, null, 2);
-                    break;
-                case 'formatted':
-                    displayText = result.formattedText || JSON.stringify(result.data, null, 2);
-                    break;
-                case 'final':
-                    displayText = result.finalText || result.formattedText || JSON.stringify(result.data, null, 2);
-                    break;
-            }
-
-            if (!displayText) {
-                displayText = `(无内容)\n\n原始返回如下: ${JSON.stringify(result)}`;
-            }
-
-            content.innerHTML = `
-                <div style="margin-bottom: 12px;">
-                    ${statusBadge}
-                    ${result.isTruncated ? '<span class="status-badge status-info">TRUNCATED</span>' : ''}
-                    ${result.cacheFile ? '<span class="status-badge status-info">CACHED</span>' : ''}
-                    <span class="status-badge status-info">字符数${displayText.length}</span>
-                </div>
-                <pre>${escapeHtml(displayText)}</pre>
-            `;
-        }
-
-        // ==================== 绑定事件 ====================
-        function bindEvents() {
-            // 切换结果视图
-            document.querySelectorAll('.result-tab').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    currentView = tab.dataset.view;
-                    document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    if (currentResult) {
-                        displayResult(currentResult);
-                    }
-                });
-            });
-
-            // 复制按钮
-            document.getElementById('copy-btn').addEventListener('click', () => {
-                const pre = document.querySelector('.result-content pre');
-                if (pre) {
-                    navigator.clipboard.writeText(pre.textContent).then(() => {
-                        window.pluginSdk.showMessage('已复制到剪贴板', 'info');
+                async init() {
+                    window.addEventListener('pluginSdkReady', async () => {
+                        const sdk = window.pluginSdk;
+                        document.documentElement.setAttribute('data-theme-mode', sdk.themeMode || 'light');
+                        this.toolGroups = await sdk.listToolGroups();
                     });
-                }
-            });
-        }
+                },
 
-        // ==================== 工具函数 ====================
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+                async selectTool(toolName) {
+                    this.loading = true;
+                    try {
+                        const toolDef = await window.pluginSdk.getToolDefinition(toolName);
+                        this.currentTool = toolDef;
+                        this.formArgs = {};
+                        this.multilineFields.clear();
+                        this.currentResult = null;
 
-        // ==================== 初始化拖动分割条 ====================
-        function initResizeHandle() {
-            const handle = document.getElementById('resize-handle');
-            const inputPanel = document.getElementById('input-panel');
-            const resultPanel = document.getElementById('result-panel');
-            const main = document.getElementById('main');
+                        const props = toolDef.function.parameters?.properties || {};
+                        for (const [name, schema] of Object.entries(props)) {
+                            if (schema.type === 'boolean') {
+                                this.formArgs[name] = false;
+                            } else {
+                                this.formArgs[name] = '';
+                            }
+                        }
+                    } finally {
+                        this.loading = false;
+                    }
+                },
 
-            let isResizing = false;
-            let startY = 0;
-            let startHeight = 0;
+                toggleGroup(groupName) {
+                    if (this.collapsedGroups.has(groupName)) {
+                        this.collapsedGroups.delete(groupName);
+                    } else {
+                        this.collapsedGroups.add(groupName);
+                    }
+                },
 
-            handle.addEventListener('mousedown', (e) => {
-                isResizing = true;
-                startY = e.clientY;
-                // 使用 getBoundingClientRect 获取精确高度，配合 box-sizing: border-box 确保拖动跟手
-                startHeight = inputPanel.getBoundingClientRect().height;
-                document.body.style.cursor = 'ns-resize';
-                document.body.style.userSelect = 'none';
-                e.preventDefault();
-            });
+                expandAll() { this.collapsedGroups.clear(); },
+                collapseAll() { this.toolGroups.forEach(g => this.collapsedGroups.add(g.name)); },
 
-            document.addEventListener('mousemove', (e) => {
-                if (!isResizing) return;
+                toggleMultiline(name) {
+                    if (this.multilineFields.has(name)) {
+                        this.multilineFields.delete(name);
+                    } else {
+                        this.multilineFields.add(name);
+                    }
+                },
 
-                const deltaY = e.clientY - startY;
-                const newHeight = startHeight + deltaY;
-                const mainHeight = main.offsetHeight;
-                const minHeight = 100;
-                const maxHeight = mainHeight - 150; // 至少留 150px 给结果面板
+                async execute() {
+                    if (!this.currentTool || this.loading) return;
+                    this.loading = true;
+                    try {
+                        const args = this.processArgs();
+                        const result = await window.pluginSdk.executeTool(this.currentTool.function.name, args);
+                        this.currentResult = result;
+                    } catch (e) {
+                        window.pluginSdk.showMessage('执行失败: ' + e.message, 'error');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
 
-                if (newHeight >= minHeight && newHeight <= maxHeight) {
-                    inputPanel.style.height = newHeight + 'px';
-                }
-            });
+                processArgs() {
+                    const args = {};
+                    const props = this.currentTool.function.parameters?.properties || {};
+                    for (const [name, value] of Object.entries(this.formArgs)) {
+                        const schema = props[name];
+                        if (value === '' || value === null || value === undefined) {
+                            if (schema.type === 'boolean') args[name] = false;
+                            continue;
+                        }
 
-            document.addEventListener('mouseup', () => {
-                if (isResizing) {
-                    isResizing = false;
+                        if (schema.type === 'number' || schema.type === 'integer') {
+                            args[name] = Number(value);
+                        } else if (schema.type === 'array' || schema.type === 'object') {
+                            try {
+                                args[name] = typeof value === 'string' ? JSON.parse(value) : value;
+                            } catch (e) {
+                                throw new Error(`参数 "${name}" 不是有效的 JSON: ${e.message}`);
+                            }
+                        } else {
+                            args[name] = value;
+                        }
+                    }
+                    return args;
+                },
+
+                resetForm() {
+                    if (this.currentTool) this.selectTool(this.currentTool.function.name);
+                },
+
+                getDisplayResult() {
+                    if (!this.currentResult) return '';
+                    const res = this.currentResult;
+                    let text = '';
+                    switch (this.currentView) {
+                        case 'raw': text = JSON.stringify(res.data, null, 2); break;
+                        case 'formatted': text = res.formattedText || JSON.stringify(res.data, null, 2); break;
+                        case 'final': text = res.finalText || res.formattedText || JSON.stringify(res.data, null, 2); break;
+                    }
+                    return text || (res ? `(无内容)\n\n原始返回如下: ${JSON.stringify(res)}` : '');
+                },
+
+                copyResult() {
+                    const text = this.getDisplayResult();
+                    if (text) {
+                        navigator.clipboard.writeText(text).then(() => {
+                            window.pluginSdk.showMessage('已复制', 'info');
+                        });
+                    }
+                },
+
+                startResize(type, e) {
+                    this.resizing = type;
+                    if (type === 'horizontal') {
+                        this.startX = e.clientX;
+                        this.startSize = this.sidebarWidth;
+                    } else {
+                        this.startY = e.clientY;
+                        this.startSize = this.inputPanelHeight;
+                    }
+                    document.body.style.cursor = type === 'horizontal' ? 'ew-resize' : 'ns-resize';
+                    document.body.style.userSelect = 'none';
+                    e.preventDefault();
+                },
+
+                doResize(e) {
+                    if (!this.resizing) return;
+                    if (this.resizing === 'horizontal') {
+                        const delta = e.clientX - this.startX;
+                        this.sidebarWidth = Math.max(200, Math.min(600, this.startSize + delta));
+                    } else {
+                        const delta = e.clientY - this.startY;
+                        const mainHeight = document.body.offsetHeight;
+                        this.inputPanelHeight = Math.max(100, Math.min(mainHeight - 150, this.startSize + delta));
+                    }
+                },
+
+                stopResize() {
+                    this.resizing = null;
                     document.body.style.cursor = '';
                     document.body.style.userSelect = '';
-                }
-            });
+                },
 
-            // 双击分割条折叠/展开
-            let lastClickTime = 0;
-            handle.addEventListener('click', (e) => {
-                const now = Date.now();
-                if (now - lastClickTime < 300) {
-                    // 双击
-                    if (inputPanel.style.height && inputPanel.style.height !== 'auto') {
-                        // 已设置高度，折叠到最小
-                        inputPanel._savedHeight = inputPanel.style.height;
-                        inputPanel.style.height = '60px';
+                handleDblClick(type) {
+                    if (type === 'sidebar') {
+                        if (this.sidebarWidth !== 280) {
+                            this.savedSidebarWidth = this.sidebarWidth;
+                            this.sidebarWidth = 280;
+                        } else {
+                            this.sidebarWidth = this.savedSidebarWidth || 60;
+                        }
                     } else {
-                        // 恢复
-                        inputPanel.style.height = inputPanel._savedHeight || '50%';
+                        if (this.inputPanelHeight !== 320) {
+                            this.savedInputHeight = this.inputPanelHeight;
+                            this.inputPanelHeight = 320;
+                        } else {
+                            this.inputPanelHeight = this.savedInputHeight || 100;
+                        }
                     }
                 }
-                lastClickTime = now;
-            });
-        }
-
-        // ==================== 初始化水平拖动分割条 ====================
-        function initHorizontalResizeHandle() {
-            const handle = document.getElementById('horizontal-resize-handle');
-            const sidebar = document.getElementById('sidebar');
-            const app = document.getElementById('app');
-
-            let isResizing = false;
-            let startX = 0;
-            let startWidth = 0;
-
-            handle.addEventListener('mousedown', (e) => {
-                isResizing = true;
-                startX = e.clientX;
-                startWidth = sidebar.getBoundingClientRect().width;
-                document.body.style.cursor = 'ew-resize';
-                document.body.style.userSelect = 'none';
-                e.preventDefault();
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (!isResizing) return;
-
-                const deltaX = e.clientX - startX;
-                const newWidth = startWidth + deltaX;
-                const minWidth = 200; // 最小宽度
-                const maxWidth = 600; // 最大宽度
-
-                if (newWidth >= minWidth && newWidth <= maxWidth) {
-                    sidebar.style.width = newWidth + 'px';
-                }
-            });
-
-            document.addEventListener('mouseup', () => {
-                if (isResizing) {
-                    isResizing = false;
-                    document.body.style.cursor = '';
-                    document.body.style.userSelect = '';
-                }
-            });
-
-            // 双击分割条折叠/展开侧边栏
-            let lastClickTime = 0;
-            handle.addEventListener('click', (e) => {
-                const now = Date.now();
-                if (now - lastClickTime < 300) {
-                    // 双击
-                    if (sidebar.style.width && sidebar.style.width !== '280px') {
-                        // 已修改宽度，折叠到最小
-                        sidebar._savedWidth = sidebar.style.width;
-                        sidebar.style.width = '60px';
-                    } else {
-                        // 恢复
-                        sidebar.style.width = sidebar._savedWidth || '280px';
-                    }
-                }
-                lastClickTime = now;
-            });
-        }
+            }));
+        });
     </script>
 </body>
 
