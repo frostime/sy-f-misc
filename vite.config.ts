@@ -107,7 +107,10 @@ export default defineConfig({
             plugins: [
                 ...(
                     isDev ? [
-                        livereload(outputDir),
+                        livereload({
+                            watch: outputDir,
+                            delay: 1000  // 防抖
+                        }),
                         {
                             name: 'watch-external',
                             async buildStart() {
