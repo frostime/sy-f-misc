@@ -125,7 +125,7 @@ const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
             plugin: this,
         },
         init() {
-            initDockPanel(dock, this.element, plugin)
+            initDockPanel(dock, (this.element as HTMLElement), plugin)
         }
     })
 }
@@ -135,14 +135,49 @@ const addToDock = (plugin: FMiscPlugin, dock: IDockyBlock) => {
 export let name = "Docky";
 export let enabled = false;
 let configs = {
+    schema: 2,
     DockyEnableZoom: true,
     DockyZoomFactor: 0.75,
     DockySelectIcon: '',
+    /**
+     * @deprecated
+     */
     DockyProtyle: '',
+    /**
+     * Replace of `DockyProtyle`
+     */
+    DockyProtyleList: [] as IDockyBlock[],
 }
+
+const _migrate = (config: typeof configs) => {
+    if (!config.schema || config.schema < 2) {
+        console.debug('Migrating Docky config to schema v2');
+        config.schema = 2;
+        if (!config.DockyProtyleList && config.DockyProtyle) {
+            let protyles: string = config.DockyProtyle;
+            let lines = protyles.split('\n');
+            let list: IDockyBlock[] = [];
+            lines.forEach(line => {
+                if (line.trim() === '') return;
+                let block = parseProtyle(line);
+                if (block) {
+                    list.push(block);
+                } else {
+                    console.warn(`Not a valid protyle rule: ${line}`)
+                }
+            });
+            config.DockyProtyleList = list;
+        }
+    }
+    return config;
+}
+
+
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'Docky',
-    load: (data: { DockyEnableZoom: boolean, DockyZoomFactor: number, DockySelectIcon: string, DockyProtyle: string }) => {
+    load: (data: { DockyEnableZoom: boolean, DockyZoomFactor: number, DockySelectIcon: string, DockyProtyle: string, DockyProtyleList?: IDockyBlock[] } ) => {
+        // @ts-ignore
+        data = _migrate(data);
         configs = deepMerge(configs, data);
     },
     items: [
@@ -215,19 +250,23 @@ export const declareToggleEnabled = {
     defaultEnabled: true
 };
 
+
 export const load = (plugin: FMiscPlugin) => {
     if (enabled) return;
     // let protyles: string = plugin.getConfig('Docky', 'DockyProtyle');
-    let protyles: string = configs.DockyProtyle;
-    let lines = protyles.split('\n');
-    lines.forEach(line => {
-        if (line.trim() === '') return;
-        let block = parseProtyle(line);
-        if (block) {
-            addToDock(plugin, block);
-        } else {
-            console.warn(`Not a valid protyle rule: ${line}`)
-        }
+    // let protyles: string = configs.DockyProtyle;
+    // let lines = protyles.split('\n');
+    // lines.forEach(line => {
+    //     if (line.trim() === '') return;
+    //     let block = parseProtyle(line);
+    //     if (block) {
+    //         addToDock(plugin, block);
+    //     } else {
+    //         console.warn(`Not a valid protyle rule: ${line}`)
+    //     }
+    // });
+    configs.DockyProtyleList.forEach(block => {
+        addToDock(plugin, block);
     });
 
     // let enable = plugin.getConfig('Docky', 'DockyEnableZoom');
