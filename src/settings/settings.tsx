@@ -113,6 +113,7 @@ const App: Component<IArgs> = (props) => {
                                         key={item.key}
                                         value={item.get()}
                                         placeholder={item?.placeholder}
+                                        custom={item?.custom}
                                         options={item?.options}
                                         slider={item?.slider}
                                         button={item?.button}

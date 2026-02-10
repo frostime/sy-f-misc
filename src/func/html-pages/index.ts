@@ -632,7 +632,7 @@ export const declareToggleEnabled = {
     defaultEnabled: false
 };
 
-export const declareModuleConfig = {
+export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: name,
     title: '自定义单页面 HTML 应用',
     load: (data: { openMode?: 'tab' | 'dialog' }) => {

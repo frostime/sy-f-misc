@@ -36,6 +36,7 @@ const SettingPanel: Component<SettingPanelProps> = (props) => {
                             key={item.key}
                             value={item.value}
                             placeholder={item?.placeholder}
+                            custom={item?.custom}
                             options={item?.options}
                             slider={item?.slider}
                             button={item?.button}

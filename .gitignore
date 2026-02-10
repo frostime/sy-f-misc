@@ -1,5 +1,6 @@
 .idea
-.vscode
+.vscode/settings.json
+.vscode/tasks.json
 !.vscode/func.code-snippets
 .DS_Store
 pnpm-lock.yaml
