@@ -1,3 +1,7 @@
 skills/sspec*/**
 skills/write-spec-doc/**
 skills/use-powershell/**
+
+# >>> sspec-managed skills >>>
+skills
+# <<< sspec-managed skills <<<
