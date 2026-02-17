@@ -141,21 +141,23 @@ export const initMermaid = async () => {
     window.mermaid.initialize(config);
 };
 
-export const renderCodeblock = (ele: HTMLElement) => {
+export const renderCodeblock = (ele: HTMLElement, addActionBar: boolean = true) => {
     const language = ele.className.replace('language-', '').trim();
 
     let codeContent = ele.textContent;
     window.hljs.highlightElement(ele);
 
-    // 创建代码块操作栏
-    let actionBar = useCodeToolbar(language || 'text', codeContent);
-    const pre = ele.parentElement;
+    if (addActionBar) {
+        // 创建代码块操作栏
+        let actionBar = useCodeToolbar(language || 'text', codeContent);
+        const pre = ele.parentElement;
 
-    // 给 pre 添加相对定位，作为操作栏的定位容器
-    pre.style.position = 'relative';
+        // 给 pre 添加相对定位，作为操作栏的定位容器
+        pre.style.position = 'relative';
 
-    // 将操作栏插入到 pre 的开头
-    pre.insertBefore(actionBar, pre.firstChild);
+        // 将操作栏插入到 pre 的开头
+        pre.insertBefore(actionBar, pre.firstChild);
+    }
 
     // 特殊语言的换行处理
     if (['markdown', 'md', 'text', 'plaintext', 'tex', 'latex', '', 'undefined'].includes(language)) {
@@ -190,23 +192,30 @@ export const renderMathBlock = (element: HTMLElement) => {
     }
 };
 
-export const runMarkdownPostRender = async (contentRef: HTMLElement) => {
+export const runMarkdownPostRender = async (contentRef: HTMLElement, options?: {
+    renderCodeblock?: boolean;
+    renderMath?: boolean;
+    renderMermaid?: boolean;
+    addCodeActionBar?: boolean;
+}) => {
     if (!contentRef) return;
 
+    const { renderCodeblock: shouldRenderCodeblock = true, renderMath: shouldRenderMath = true, renderMermaid: shouldRenderMermaid = true, addCodeActionBar = true } = options || {};
+
     const codeBlocks = contentRef.querySelectorAll('pre>code');
-    if (codeBlocks.length > 0) {
+    if (codeBlocks.length > 0 && shouldRenderCodeblock) {
         if (!window.hljs) {
             await initHljs();
         }
         if (window.hljs) {
             codeBlocks.forEach((ele: HTMLElement) => {
-                renderCodeblock(ele);
+                renderCodeblock(ele, addCodeActionBar);
             });
         }
     }
 
     const mathElements: HTMLElement[] = Array.from(contentRef.querySelectorAll('.language-math'));
-    if (mathElements.length > 0) {
+    if (mathElements.length > 0 && shouldRenderMath) {
         if (!window.katex) {
             await initKatex();
         }
@@ -216,7 +225,7 @@ export const runMarkdownPostRender = async (contentRef: HTMLElement) => {
     }
 
     const mermaidElements: HTMLElement[] = Array.from(contentRef.querySelectorAll('.language-mermaid'));
-    if (mermaidElements.length > 0) {
+    if (mermaidElements.length > 0 && shouldRenderMermaid) {
         if (!window.mermaid) {
             await initMermaid();
         }

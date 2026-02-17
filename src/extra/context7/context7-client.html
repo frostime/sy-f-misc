@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Context7 Client</title>
+	<link rel="stylesheet" href="/plugins/sy-f-misc/styles/hspa-mini.css">
+	<script defer src="/plugins/sy-f-misc/scripts/alpine.min.js"></script>
+	<style>
+		[x-cloak] { display: none !important; }
+
+		/* =========================================
+		   1. 变量定义 (带 Fallback)
+		   ========================================= */
+		:root {
+			--panel-border: var(--c-border, var(--theme-surface-lighter, #e0e0e0));
+			--panel-bg: var(--c-bg, var(--theme-background, #ffffff));
+			--panel-subtle: var(--c-surface, var(--theme-surface, #f5f5f5));
+			--panel-muted: var(--c-muted, var(--theme-on-surface-light, #767676));
+			--focus-ring: rgba(var(--theme-primary-rgb, 66, 133, 244), 0.3);
+			--primary: var(--c-accent, var(--theme-primary, #4285f4));
+			--primary-soft: var(--c-accent-soft, var(--theme-primary-lightest, #e8f0fe));
+		}
+
+		/* =========================================
+		   2. 工具类 (确保不依赖外部库)
+		   ========================================= */
+		.flex-between { display: flex; justify-content: space-between; align-items: center; }
+		.flex-col { display: flex; flex-direction: column; }
+		.flex { display: flex; }
+		.gap-2 { gap: 8px; }
+
+		.text-bold { font-weight: 600; }
+		.text-sm { font-size: 13px; }
+		.text-xs { font-size: 12px; }
+		.text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.meta { color: var(--panel-muted); font-size: 12px; }
+
+		/* 自定义滚动条 */
+		::-webkit-scrollbar { width: 6px; height: 6px; }
+		::-webkit-scrollbar-track { background: transparent; }
+		::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 4px; }
+		::-webkit-scrollbar-thumb:hover { background: var(--panel-muted); }
+
+		/* =========================================
+		   3. 核心布局
+		   ========================================= */
+		#app {
+			height: 100vh;
+			display: grid;
+			grid-template-columns: minmax(320px, 400px) 1fr;
+			gap: var(--sp-3, 12px);
+			padding: var(--sp-3, 12px);
+			background: var(--panel-subtle);
+			overflow: hidden;
+			box-sizing: border-box;
+		}
+
+		.panel {
+			background: var(--panel-bg);
+			border: 1px solid var(--panel-border);
+			border-radius: var(--radius, 8px);
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+			min-height: 0; /* 关键：允许 Flex 子项滚动 */
+			box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+		}
+
+		.panel-header {
+			border-bottom: 1px solid var(--panel-border);
+			background: var(--panel-subtle);
+			padding: 10px 14px;
+			flex-shrink: 0;
+			min-height: 42px;
+			box-sizing: border-box;
+		}
+
+		/* =========================================
+		   4. 左侧组件样式
+		   ========================================= */
+		.left-panel-body {
+			padding: 14px;
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			flex: 1;
+			overflow: hidden;
+		}
+
+		.form-group {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+			flex-shrink: 0;
+		}
+
+		.label {
+			font-size: 12px;
+			color: var(--panel-muted);
+			font-weight: 600;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		/* 输入框增强 */
+		.input, .textarea, .select {
+			transition: all 0.2s ease;
+			border: 1px solid var(--panel-border);
+			border-radius: 6px;
+			padding: 8px 10px;
+			font-family: inherit;
+			font-size: 13px;
+			background: var(--panel-bg);
+			color: inherit;
+			width: 100%;
+			box-sizing: border-box;
+		}
+
+		.input:focus, .textarea:focus, .select:focus {
+			outline: none;
+			border-color: var(--primary);
+			box-shadow: 0 0 0 3px var(--focus-ring);
+		}
+
+		/* 按钮增强 */
+		.btn {
+			transition: all 0.15s ease;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			border-radius: 6px;
+			cursor: pointer;
+			height: 32px; /* 统一高度 */
+			white-space: nowrap;
+		}
+		.btn-sm { height: 24px; padding: 0 8px; font-size: 12px; }
+		.btn:active:not(:disabled) { transform: translateY(1px); }
+		.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+		/* 列表区域 - 核心优化：自适应剩余高度 */
+		.library-list-wrapper {
+			flex: 1;
+			min-height: 100px;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+		}
+
+		.library-list {
+			flex: 1;
+			border: 1px solid var(--panel-border);
+			border-radius: 6px;
+			overflow-y: auto;
+			background: var(--panel-bg);
+		}
+
+		.library-item {
+			padding: 10px 12px;
+			border-bottom: 1px dashed var(--panel-border);
+			cursor: pointer;
+			transition: background 0.15s ease;
+		}
+
+		.library-item:last-child { border-bottom: none; }
+		.library-item:hover { background: var(--panel-subtle); }
+		.library-item.active {
+			background: var(--primary-soft);
+			border-left: 3px solid var(--primary);
+			padding-left: 9px;
+		}
+
+		/* Spinner 动画 */
+		.spinner {
+			width: 12px;
+			height: 12px;
+			border: 2px solid currentColor;
+			border-bottom-color: transparent;
+			border-radius: 50%;
+			display: inline-block;
+			animation: spin 0.8s linear infinite;
+		}
+		@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+		/* 配置抽屉 */
+		.config-drawer {
+			border: 1px solid var(--panel-border);
+			border-radius: 6px;
+			background: var(--panel-subtle);
+			padding: 12px;
+			margin-top: 8px;
+			flex-shrink: 0;
+		}
+
+		/* =========================================
+		   5. 右侧结果区域
+		   ========================================= */
+		.result-tabs {
+			display: flex;
+			gap: 8px;
+			border-bottom: 1px solid var(--panel-border);
+			padding: 8px 14px;
+			background: var(--panel-subtle);
+			flex-shrink: 0;
+			overflow-x: auto;
+		}
+
+		.tab-btn {
+			border: 1px solid transparent;
+			border-radius: 6px;
+			background: transparent;
+			color: var(--panel-muted);
+			padding: 4px 12px;
+			cursor: pointer;
+			transition: all 0.2s;
+			font-size: 13px;
+			white-space: nowrap;
+		}
+
+		.tab-btn:hover { background: var(--panel-bg); border-color: var(--panel-border); }
+		.tab-btn.active {
+			background: var(--panel-bg);
+			border-color: var(--panel-border);
+			color: var(--primary);
+			font-weight: 600;
+			box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+		}
+
+		.result-view {
+			padding: 16px;
+			overflow: auto;
+			flex: 1;
+			scroll-behavior: smooth;
+		}
+
+		.result-view pre {
+			white-space: pre-wrap;
+			word-break: break-word;
+			margin: 0;
+			font-family: var(--font-family-code, monospace);
+			font-size: 13px;
+			line-height: 1.6;
+		}
+
+		.empty-state {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			height: 100%;
+			color: var(--panel-muted);
+			opacity: 0.7;
+			gap: 12px;
+		}
+
+		/* Markdown 内容样式微调 */
+		.result-markdown :is(h1, h2, h3) { margin-top: 1em; margin-bottom: .5em; line-height: 1.4; }
+		.result-markdown code { background: var(--panel-subtle); padding: 2px 4px; border-radius: 4px; font-size: 0.9em; }
+		.result-markdown pre { background: var(--panel-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; }
+	</style>
+</head>
+
+<body x-data="createContext7Client()" x-init="init()" x-cloak>
+	<div id="app">
+		<section class="panel">
+			<div class="panel-header flex-between">
+				<div>
+					<div class="text-bold">Context7 客户端</div>
+					<div class="meta text-xs">本地库搜索与上下文提取</div>
+				</div>
+				<button class="btn btn-sm" @click="showConfig = !showConfig" x-text="showConfig ? '收起' : '设置'"></button>
+			</div>
+
+			<div class="left-panel-body">
+				<div class="form-group">
+					<label class="label">Library Name</label>
+					<input class="input" type="text" x-model="libraryName" placeholder="例如 react / next.js" @keydown.enter="searchLibraries">
+				</div>
+
+				<div class="form-group">
+					<label class="label">
+						Query
+						<span class="meta text-xs" style="font-weight: normal; opacity: 0.8;">(Ctrl+Enter 执行)</span>
+					</label>
+					<textarea class="textarea" rows="4" x-model="query"
+						placeholder="例如：How to implement authentication?"
+						@keydown.ctrl.enter="searchAndFetch"
+						@keydown.meta.enter="searchAndFetch"></textarea>
+				</div>
+
+				<div class="form-group">
+					<label class="label">Library ID</label>
+					<input class="input" type="text" x-model="libraryId" list="history-library-ids" placeholder="自动填充或手动输入 ID">
+					<datalist id="history-library-ids">
+						<template x-for="item in histories" :key="item.libraryId">
+							<option :value="item.libraryId" x-text="`${item.libraryId} (x${item.usage})`"></option>
+						</template>
+					</datalist>
+					<div class="meta text-xs" x-show="histories.length > 0" style="margin-top: 4px;">
+						历史库（按频率）: <span x-text="histories.slice(0, 3).map(h => `${h.libraryId} x${h.usage}`).join(' · ')"></span>
+					</div>
+				</div>
+
+				<div class="flex gap-2" style="margin-top: 4px;">
+					<button class="btn btn-primary" style="flex:1" @click="searchLibraries" :disabled="loading">
+						<span x-show="loadingState === 'search'" class="spinner"></span>
+						<span x-show="loadingState !== 'search'">搜索库</span>
+					</button>
+					<button class="btn" style="flex:1" @click="fetchContext" :disabled="loading">
+						<span x-show="loadingState === 'fetch'" class="spinner"></span>
+						<span x-show="loadingState !== 'fetch'">获取</span>
+					</button>
+					<button class="btn" style="width: 40px;" @click="searchAndFetch" :disabled="loading" title="一键搜索并获取">
+						<span x-show="loadingState === 'all'" class="spinner"></span>
+						<span x-show="loadingState !== 'all'">⚡</span>
+					</button>
+				</div>
+
+				<div class="library-list-wrapper" x-show="libraries.length > 0">
+					<div class="label" style="margin-bottom: 6px; margin-top: 8px;">
+						候选库 <span class="meta text-xs" x-text="`(${libraries.length}) 双击获取`"></span>
+					</div>
+					<div class="library-list">
+						<template x-for="item in libraries" :key="item.id">
+							<div class="library-item"
+								:class="{ active: libraryId === item.id }"
+								@click="selectLibrary(item)"
+								@dblclick="selectLibrary(item); fetchContext()"
+								title="双击获取此库上下文">
+								<div class="flex-between">
+									<div class="text-sm text-bold text-truncate" x-text="item.name || item.id"></div>
+									<div class="meta text-xs" x-show="item.trustScore" x-text="`Score: ${item.trustScore}`"></div>
+								</div>
+								<div class="meta text-truncate" style="margin-top: 2px;" x-text="item.description || '无描述'"></div>
+								<div class="meta text-xs" style="margin-top: 4px; opacity: 0.6;" x-text="item.id"></div>
+							</div>
+						</template>
+					</div>
+				</div>
+
+				<div class="config-drawer" x-show="showConfig" x-transition>
+					<div class="text-bold text-sm" style="margin-bottom: 8px;">API 配置</div>
+					<div class="flex-col gap-2">
+						<input class="input" type="password" x-model="apiKey" placeholder="API Key">
+						<input class="input" type="text" x-model="baseUrl" placeholder="Base URL">
+						<div class="flex gap-2">
+							<select class="select" style="flex: 1;" x-model="responseType">
+								<option value="json">JSON</option>
+								<option value="txt">TXT</option>
+							</select>
+							<input class="input" type="number" style="width: 80px;" x-model.number="timeoutMs" placeholder="超时">
+						</div>
+						<div class="flex gap-2">
+							<button class="btn btn-primary btn-sm" style="flex:1;" @click="saveConfig">保存</button>
+							<button class="btn btn-sm" style="flex:1;" @click="loadConfig">重载</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="panel">
+			<div class="panel-header flex-between">
+				<div class="flex-col">
+					<div class="text-bold">提取结果</div>
+					<div class="meta text-xs" :style="loading ? 'color: var(--primary);' : ''" x-text="statusText || '就绪'"></div>
+				</div>
+				<div class="meta text-xs flex" style="gap: 6px; align-items: center;" x-show="loadingState === 'fetch' || loadingState === 'all'">
+					<span class="spinner" style="width: 10px; height: 10px; border-width: 1.5px;"></span>
+					<span>处理中...</span>
+				</div>
+			</div>
+
+			<div class="result-tabs">
+				<button class="tab-btn" :class="{active: activeTab==='preview'}" @click="activeTab='preview'">Markdown 预览</button>
+				<button class="tab-btn" :class="{active: activeTab==='markdown'}" @click="activeTab='markdown'">源代码</button>
+				<button class="tab-btn" :class="{active: activeTab==='raw'}" @click="activeTab='raw'">Raw JSON</button>
+			</div>
+
+			<div class="result-view" x-show="activeTab==='preview'" id="result-view-container">
+				<template x-if="!resultHtml && !loading">
+					<div class="empty-state">
+						<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+						<span>等待查询指令</span>
+					</div>
+				</template>
+				<div class="result-markdown" x-html="resultHtml" x-show="resultHtml"></div>
+			</div>
+
+			<div class="result-view" x-show="activeTab==='markdown'">
+				<pre x-text="resultMarkdown || '暂无数据'"></pre>
+			</div>
+
+			<div class="result-view" x-show="activeTab==='raw'">
+				<pre x-text="resultRaw || '暂无数据'"></pre>
+			</div>
+		</section>
+	</div>
+
+	<script>
+		function createContext7Client() {
+			return {
+				loading: false,
+				loadingState: 'none', // 'none' | 'search' | 'fetch' | 'all'
+				showConfig: false,
+				statusText: '',
+				activeTab: 'preview',
+
+				libraryName: '',
+				libraryId: '',
+				query: '',
+
+				apiKey: '',
+				baseUrl: 'https://context7.com/api/v2',
+				responseType: 'json',
+				timeoutMs: 20000,
+				histories: [],
+
+				libraries: [],
+
+				resultMarkdown: '',
+				resultHtml: '',
+				resultRaw: '',
+
+				async init() {
+					await this.waitForSdk();
+					const sdk = window.pluginSdk;
+					document.documentElement.setAttribute('data-theme-mode', sdk.themeMode || 'light');
+					await this.loadConfig();
+					this.statusText = '配置已加载';
+				},
+
+				async waitForSdk() {
+					if (window.pluginSdk) return;
+					await new Promise(resolve => {
+						window.addEventListener('pluginSdkReady', () => resolve(), { once: true });
+					});
+				},
+
+				getRuntimeConfig() {
+					return {
+						apiKey: String(this.apiKey || '').trim(),
+						baseUrl: String(this.baseUrl || '').trim(),
+						timeoutMs: Number(this.timeoutMs) || 20000,
+					};
+				},
+
+				async loadConfig() {
+					const config = await window.pluginSdk.loadClientConfig();
+					this.apiKey = config.apiKey || '';
+					this.baseUrl = config.baseUrl || 'https://context7.com/api/v2';
+					this.responseType = config.defaultType || 'json';
+					this.timeoutMs = Number(config.timeoutMs) || 20000;
+					this.histories = Array.isArray(config.histories) ? config.histories : [];
+					if (!this.libraryId && this.histories.length > 0) {
+						this.libraryId = this.histories[0].libraryId;
+					}
+				},
+
+				async saveConfig() {
+					const payload = {
+						apiKey: this.apiKey,
+						baseUrl: this.baseUrl,
+						defaultType: this.responseType,
+						timeoutMs: this.timeoutMs,
+					};
+					const config = await window.pluginSdk.saveClientConfig(payload);
+					this.histories = Array.isArray(config?.histories) ? config.histories : this.histories;
+					this.showConfig = false;
+					this.toast('配置已保存');
+				},
+
+				selectLibrary(item) {
+					this.libraryId = item.id || '';
+					if (!this.libraryName) {
+						this.libraryName = item.name || '';
+					}
+				},
+
+				validateSearch() {
+					if (!String(this.libraryName || '').trim()) throw new Error('请输入库名');
+					if (!String(this.query || '').trim()) throw new Error('请输入查询内容');
+				},
+
+				validateContext() {
+					if (!String(this.libraryId || '').trim()) throw new Error('请选择 Library ID');
+					if (!String(this.query || '').trim()) throw new Error('请输入查询内容');
+				},
+
+				setLoading(state) {
+					this.loading = state !== 'none';
+					this.loadingState = state;
+				},
+
+				async searchLibraries() {
+					try {
+						this.validateSearch();
+						this.setLoading('search');
+						this.statusText = '正在搜索库...';
+						const libraries = await window.pluginSdk.searchLibraries({
+							libraryName: this.libraryName,
+							query: this.query,
+							config: this.getRuntimeConfig(),
+						});
+						this.libraries = [...libraries].sort((a, b) => {
+							const scoreA = Number(a?.trustScore) || 0;
+							const scoreB = Number(b?.trustScore) || 0;
+							if (scoreA !== scoreB) return scoreB - scoreA;
+							return (Number(b?.benchmarkScore) || 0) - (Number(a?.benchmarkScore) || 0);
+						});
+						this.statusText = `找到 ${this.libraries.length} 个相关库`;
+						if (this.libraries.length > 0) {
+							this.libraryId = this.libraries[0].id;
+						}
+					} catch (error) {
+						this.handleError(error);
+					} finally {
+						if (this.loadingState === 'search') this.setLoading('none');
+					}
+				},
+
+				async fetchContext() {
+					try {
+						this.validateContext();
+						this.setLoading('fetch');
+						this.statusText = '正在提取上下文...';
+						const result = await window.pluginSdk.getContext({
+							libraryId: this.libraryId,
+							query: this.query,
+							type: this.responseType,
+							config: this.getRuntimeConfig(),
+						});
+
+						const markdown = String(result?.text || '');
+						this.resultMarkdown = markdown;
+						this.resultHtml = this.renderMarkdown(markdown);
+						this.resultRaw = this.stringifyRaw(result?.raw || result);
+						if (this.libraryId && window.pluginSdk?.recordLibraryHistory) {
+							this.histories = await window.pluginSdk.recordLibraryHistory(this.libraryId);
+						}
+						this.activeTab = 'preview';
+						this.statusText = '提取完成';
+
+						this.$nextTick(() => {
+							const container = document.getElementById('result-view-container');
+							if (container) container.scrollTop = 0;
+						});
+
+					} catch (error) {
+						this.handleError(error);
+					} finally {
+						if (this.loadingState === 'fetch') this.setLoading('none');
+					}
+				},
+
+				async searchAndFetch() {
+					this.setLoading('all');
+					try {
+						await this.searchLibraries();
+						if (!this.libraryId) {
+							this.statusText = '未找到库，停止提取';
+							return;
+						}
+						await this.fetchContext();
+					} finally {
+						this.setLoading('none');
+					}
+				},
+
+				renderMarkdown(markdown) {
+					if (!markdown) return '';
+					try {
+						if (window.pluginSdk?.renderMarkdown) {
+							return window.pluginSdk.renderMarkdown(markdown);
+						}
+						if (window.pluginSdk?.lute?.Md2HTML) {
+							return window.pluginSdk.lute.Md2HTML(markdown);
+						}
+					} catch (error) {
+						console.warn('渲染失败:', error);
+					}
+					const escaped = markdown.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+					return `<pre>${escaped}</pre>`;
+				},
+
+				stringifyRaw(raw) {
+					if (typeof raw === 'string') return raw;
+					try {
+						return JSON.stringify(raw, null, 2);
+					} catch {
+						return String(raw || '');
+					}
+				},
+
+				toast(message) {
+					if (window.pluginSdk?.showMessage) {
+						window.pluginSdk.showMessage(message, 'info', 2000);
+					} else {
+						console.warn(message);
+					}
+				},
+
+				handleError(error) {
+					const message = error?.message || String(error);
+					this.statusText = `错误: ${message}`;
+					this.toast(message);
+					console.error('[Context7]', error);
+				}
+			}
+		}
+	</script>
+</body>
+
+</html>
