@@ -16,7 +16,7 @@ You are developed under Windows. Leverage PowerShell for utility.
 <!-- SSPEC:START -->
 # .sspec Agent Protocol
 
-SSPEC_SCHEMA::7.0
+SSPEC_SCHEMA::7.1
 
 ## 0. Protocol Overview
 
@@ -86,7 +86,7 @@ Track in request file (`## Plan` / `## Done`) or just do it. No change needed.
 4. **Design**:
    - Simple: Draft spec.md mentally
    - Complex (>1 week / >15 files / >20 tasks): **`@ask`** about splitting → `sspec change new <n> --root`
-   - Finalize: Distill into spec.md A/B/C
+   - Finalize: Distill into spec.md A/B/C (B=Design: interfaces/data/logic; C=Plan: phases/files; avoid duplication)
 5. **Confirm**: **`@ask`** to present plan. Wait for approval.
 6. **Execute**: Update tasks.md after each task.
 
@@ -127,20 +127,9 @@ Same as `@change <current_active_change>`.
 
 Update handover.md as agent memory. Two modes:
 
-**End-of-session** (mandatory before ending):
-1. Update "Accomplished" — what got done
-2. Update "Next Steps" — 1-3 specific file-level actions
-3. Update "References & Memory" — key files, decisions, gotchas
-4. Append project-wide learnings to `project.md` Notes
-5. Verify tasks.md progress percentage
+**End-of-session** (mandatory): Update Accomplished, Next Steps, References & Memory; append to project.md Notes; verify tasks.md progress.
 
-**Mid-session** (proactive, trigger on any of):
-- Session getting long (>50 exchanges or complex multi-file work)
-- Important decision just made with non-trivial reasoning
-- Key file discovered that future work depends on
-- Design tradeoff resolved after discussion
-
-Mid-session update: append to "References & Memory" only. Quick, targeted, no ceremony.
+**Mid-session** (proactive): Trigger on long session (>50 exchanges), important decisions, key discoveries. Update References & Memory only.
 
 **Principle**: If you'd struggle to reconstruct info after context compression, write it to handover NOW.
 
@@ -158,14 +147,11 @@ User disagrees. **STOP immediately**. Follow rejection protocol.
 
 ### 2.3 Template Markers
 
-Markers within blank change template files:
-
-- **@RULE Marker**: `<!-- @RULE: ... -->` — inline reminders of standards defined in SKILLs. Read and follow when filling. DO NOT delete.
-- **@REPLACE Marker**: `<!-- @REPLACE -->` — use as the anchor of Edit/Replace Tools for first editing.
+- **@RULE**: `<!-- @RULE: ... -->` — inline standards reminders. Read and follow. DO NOT delete.
+- **@REPLACE**: `<!-- @REPLACE -->` — anchor for first edit.
 - **Task markers**: `[ ]` todo, `[x]` done
-- DO NOT DELETE @RULE Markers.
 
-**Authority**: SKILL documents are the authoritative source for standards. `@RULE` markers serve as quick reminders that echo SKILL content. When in doubt, consult the SKILL.
+**Authority**: SKILLs are source of truth. @RULE markers are quick reminders.
 
 ---
 
