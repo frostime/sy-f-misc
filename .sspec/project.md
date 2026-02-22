@@ -74,3 +74,4 @@ Format each entry as: `- YYYY-MM-DD: <learning>`
 Prune entries that become outdated or graduate to Conventions/spec-docs. -->
 
 - 2026-02-07: Created spec-doc `siyuan-content-tools` (`.sspec/spec-docs/siyuan-content-tools.md`) documenting the architecture of 5 content tools: getBlockInfo, getBlockContent, appendContent, createNewDoc, applyBlockDiff. Includes detailed implementation notes on slice mechanism, container block expansion, SEARCH/REPLACE format (post-2026-02-07 refactoring), and design rationales. Purpose: Reduce future agent maintenance overhead when modifying content tools.
+- 2026-02-22: Created spec-doc `external-bundle` (`.sspec/spec-docs/external-bundle.md`) and skill `external-bundle` (`.sspec/skills/external-bundle/SKILL.md`) documenting the external module independent bundling system. Covers: vite-plugin-external-modules architecture, module registration, dynamic import pattern, pitfalls (no static imports, no circular deps with main bundle).
