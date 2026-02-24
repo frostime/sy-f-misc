@@ -1,7 +1,5 @@
 # >>> sspec-managed skills >>>
-sspec-ask
-sspec-change
-sspec-memory
+sspec-*
 use-powershell
 write-patch
 write-spec-doc
