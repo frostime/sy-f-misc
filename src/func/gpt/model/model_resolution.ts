@@ -7,7 +7,7 @@
  * @Description  : Model lookup and endpoint resolution logic
  */
 
-import { OPENAI_ENDPONITS, trimTrailingSlash, ensureLeadingSlash } from "./url_utils";
+import { trimTrailingSlash, ensureLeadingSlash, resolveProviderEndpointPath, normalizeProviderProtocol } from "./url_utils";
 import { defaultModelId, llmProviders } from "./config";
 
 /**
@@ -68,13 +68,18 @@ export const listAvialableModels = (): Record<string, string> => {
     };
     llmProviders().forEach((provider) => {
         if (provider.disabled) return;
+        const providerProtocol = normalizeProviderProtocol(provider);
         provider.models?.forEach((modelConfig) => {
             if (modelConfig.disabled === true) return;
 
             // 将 type 统一处理为数组
-            const types = Array.isArray(modelConfig.type)
+            let types = Array.isArray(modelConfig.type)
                 ? modelConfig.type
                 : [modelConfig.type];
+
+            if (providerProtocol !== 'openai') {
+                types = types.filter(type => type === 'chat');
+            }
 
             // 遍历每个 type，生成对应的 modelId
             types.forEach(type => {
@@ -96,7 +101,7 @@ export const listAvialableModels = (): Record<string, string> => {
 
 
 export const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceType = 'chat') => {
-    const endpoint = provider.endpoints?.[type] || OPENAI_ENDPONITS[type];
+    const endpoint = resolveProviderEndpointPath(provider, type);
     const normalizedBase = trimTrailingSlash(provider.baseUrl || '');
     const normalizedPath = ensureLeadingSlash(endpoint);
     if (!normalizedBase) return normalizedPath;
@@ -138,6 +143,7 @@ export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw')
 
     // 确定实际使用的 type
     let actualType: LLMServiceType;
+    const providerProtocol = normalizeProviderProtocol(provider);
     const supportedTypes = Array.isArray(modelConfig.type)
         ? modelConfig.type
         : [modelConfig.type];
@@ -157,10 +163,18 @@ export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw')
         actualType = supportedTypes[0];
     }
 
+    if (providerProtocol !== 'openai' && actualType !== 'chat') {
+        if (error === 'throw') {
+            throw new Error(`Provider protocol '${providerProtocol}' 暂时只支持 chat/complete`);
+        }
+        return null;
+    }
+
     return {
         bareId: targetId,
         model: modelConfig.model,
         type: actualType,
+        protocol: providerProtocol,
         url: resolveEndpointUrl(provider, actualType),
         apiKey: provider.apiKey,
         config: modelConfig,

@@ -204,7 +204,7 @@ Run `sspec <command> --help` for full options.
 |---------|-----|
 | `sspec change new <name>` | Create a change |
 | `sspec change new <name> --root` | Create a root change |
-| `sspec change new --from <req>` | Create change from request |
+| `sspec change new --from <path>` | Create change from request file |
 | `sspec change list` / `find <name>` | Locate active changes |
 | `sspec change archive <path>` | Archive completed change |
 | `sspec ask create <topic>` + `sspec ask prompt <path>` | Create and ask |
