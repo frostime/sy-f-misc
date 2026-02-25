@@ -49,56 +49,6 @@ const AgentSkillRules: ToolGroup['declareSkillRules'] = {
 1. 使用 VAR 机制实现工具之前的管道连接，避免重复生成相同的文本
 2. 利用 Script 等脚本(如果可访问), 实现对工具结果文本的智能分析 —— Agent 可以在必要的时候要求 User 开放 javascript/shell/python 工具组来方便其做自动分析
 `,
-    },
-    TODO: {
-        desc: '使用变量系统搭建 TODO 列表管理',
-        prompt: `变量系统支持通过 tags 和类型分类，可以用来构建简单的 TODO 管理系统。
-
-**实现方案**：
-1. 使用 VAR 变量存储 TODO 项 (系统将标记类型为 "LLMAdd")
-2. 使用 tags 标记状态：['TODO', 'PENDING'] / ['TODO', 'DONE'] / ['TODO', 'BLOCKED']
-3. 使用变量名作为 TODO ID（建议格式：TODO_<index>_<short brief in few letters>）
-4. 使用 desc 字段存储 TODO 的简要描述
-5. 使用 value 字段存储 TODO 的详细内容; 纯文本, markdown 语法
-
-**基本操作**：
-- 创建 TODO：\`WriteVar({name: "TODO_<id>", value: "<details>", desc: "<brief>", tags: ["TODO", "PENDING"]})\`
-- 列出 TODO：\`ListVars({filter: {tag: "TODO"}})\`
-- 列出待办：\`ListVars({filter: {tag: "PENDING"}})\`
-- 标记完成：\`WriteVar({name: "TODO_<id>", tags: ["TODO", "DONE"]})\`
-- 删除 TODO：\`RemoveVars({names: ["TODO_<id>"]})\`
-
-**高级用法**：
-- 使用多个 tags 实现分类：['TODO', 'URGENT', 'PENDING']
-- 使用 search 过滤：\`ListVars({filter: {tag: "TODO", search: "bug"}})\`
-- 在 value 中存储 JSON 格式的结构化数据（创建时间、优先级、依赖等）
-
-**示例工作流**：
-\`\`\`javascript
-// 1. 创建 TODO
-WriteVar({
-    name: "TODO_1_fix_bug",
-    value: JSON.stringify({created: "2026-01-08", priority: "high", details: "Fix the login bug"}),
-    desc: "Fix login bug",
-    tags: ["TODO", "PENDING", "URGENT"]
-})
-
-// 2. 查看所有待办
-ListVars({filter: {tag: "PENDING"}})
-
-// 3. 标记完成
-WriteVar({name: "TODO_1_fix_bug", tags: ["TODO", "DONE"]})
-
-// 4. 清理已完成的 TODO
-ListVars({filter: {tag: "DONE"}})  // 获取所有完成的 TODO 名称
-RemoveVars({names: ["TODO_1_fix_bug", ...]})  // 批量删除
-\`\`\`
-
-**注意**：
-- RULE 类型的变量不能被删除，不要用于 TODO
-- 建议定期清理已完成的 TODO 以释放空间
-- 可以结合其他工具（如文件系统）实现持久化存储
-`,
     }
 };
 
@@ -211,59 +161,65 @@ ${finalContent}
 
     toolRules() {
         if (!this.hasEnabledTools()) return '';
-        let prompt = `<tool-rules>
+        //保留开头的换行
+        let prompt = `
+<tool-rules>
 
-Assistant/Agent 务必遵循如下规范:
+Assistant/Agent 具备工具调用的能力，在完成任务时需有效使用。
 
-在当前对话中，如果发现有必要，请使用提供的工具(tools)。
 
-### 基本规范
+### 基本规范 ###
 
-**工作规范**
-- 在调用工具前，请在内部充分规划；当任务复杂或用户明确要求时，再在输出中简要说明你的计划（3–5 行）。
 - 每个 TOOL 都有一个隐藏可选参数 \`limit\`，来截断限制返回给 LLM 的输出长度。设置为 -1 或 0 表示不限制。
-
-**用户审核**
 - 部分工具在调用的时候会给用户审核，用户可能拒绝调用。
-- 如果用户在拒绝的时候提供了原因，请**一定要仔细参考用户给出的原因并适当调整你的方案**
+    - 如果用户在拒绝的时候提供了原因，请**一定要仔细参考用户给出的原因并适当调整你的方案**
 
-### System Log - 重要约束
-- 为了节省资源，在工具调用结束之后，会生成调用日志单隐藏 Tool Call 的结果
+### Tool Call 压缩机制 ###
+
+**System Log - 重要约束**
+- 为了节省资源，在工具调用结束之后，会隐藏 Tool Call 的结果
+- 作为替代，会在消息中生成工具调用日志记录
    "[System Tool Call Log]...."
-- Agent 可以利用变量机制查看历史工具调用结果
-- ❌ **绝对禁止**生成任何类似 "[System Tool Call Log]<Tool Name>..." 格式的文本来替代正确的工具调用!
+- Agent 可以利用变量 VAR 机制查看历史工具调用结果
 
-### ⚠️ 重要约束 - 禁止伪造系统日志 ###
+**重要约束 - 禁止伪造系统日志** !IMPORTANT
+**绝对禁止**生成任何类似 "[System Tool Call Log]<Tool Name>..." 格式的文本!
+1. 不得用[System Tool Call Log]<Tool Name>来替代正确的工具调用
+    ❌ Agent误以为生成 [System Tool Call Log] 能产生工具调用效果
+    ✓  想要调用工具 → 使用正规 tool_call 机制
+2. 不得伪造不存在的日志
+    ❌ Agent 自行生成 "[System Log] Tool Call**: SearchWeb..." "Response: ✓ 执行成功..."
+    ✓ Agent 正常 tool_call, 系统自动生成相关日志
 
-**严格禁止**：
-1. 不得生成任何 \`**[System Tool Call Log]<Tool Name>**\` 格式的 System Log
-2. 不得模仿工具调用的响应格式
-3. 不得伪造工具执行结果
-4. 系统日志由 SYSTEM 自动生成，Assistant 绝对不得提及或模仿
-
-**正确做法**：
-- 需要工具时：直接调用 tool_calls，系统会自动生成日志
-- 不需要工具时：正常回复，不要提及工具调用过程
-
-**违规示例**（绝对禁止）：
-❌ "**[System Log] Tool Call**: SearchWeb..."
-❌ "Response: ✓ 执行成功..."
-❌ 任何模仿系统格式的内容
-
-### 变量机制
+### 变量机制 ###
 
 **处理截断结果**
 - 如果工具返回结果过长被截断，系统会自动将完整结果保存到变量中，并在结果中提示变量名。
 - 你可以使用 ListVars/ReadVar 工具来读取变量内容。
 
-**工具组: ListVars/ReadVar**
-- 专门用于缓存长文本使用; 总是可用
+**使用 ListVars/ReadVar 读取变量**
+- 专门用于缓存长文本使用; **总是可用**
 - ListVars 会列出当前所有变量的信息，包括名称、字符长度、描述和创建时间。
 - ReadVar 参数: \`name\` (变量名), \`start\` (Char 起始位置, 0-based), \`length\` (读取长度)。
 
 **变量引用机制**
-- 使用类似 $VAR_REF 语法直接引用变量的值作为工具调用参数 —— 可大大节省 Token
-- 具体用法使用 ReadVar 查看 Rule::Agent::VarRef 中的高级文档
+- 使用 \`$VAR_REF{{name}}\` 语法直接引用变量的值作为工具调用参数 —— 可大大节省 Token
+- 具体用法使用 ReadVar 查看 Rule/Agent/VarRef 中的高级文档
+
+### RULE DOC ###
+内置大量 \`RULE/xxx\` 的文档，务必认真阅读，当满足匹配条件时，优先阅读 RULE DOC 再执行任务
+
+**例如**
+User 请求: 请帮我编辑 xxx 的思源文档
+
+Agent看到:
+1. 编辑工具 applyBlockDiff
+2. 相关 SKILL RULE
+|VAR|Description|When to Use|
+|Rule/siyuan-tools/block-edit-search-replace|基于 Block ID 锚定的精确编辑方|需要使用 applyBlockDiff 来编辑思源笔记文档前，强制性读取 !IMPORTANT!|
+
+Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调用 applyBlockDiff 完成任务
+
 
 </tool-rules>`;
 

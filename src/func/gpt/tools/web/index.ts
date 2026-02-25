@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-31 14:51:57
  * @FilePath     : /src/func/gpt/tools/web/index.ts
- * @LastEditTime : 2026-01-05 21:18:27
+ * @LastEditTime : 2026-02-25 19:28:54
  * @Description  : Web 工具组 - 网页搜索和内容获取
  */
 import { ToolGroup } from "../types";
@@ -116,7 +116,6 @@ export const toolGroupWeb = (): ToolGroup => {
         name: '网页检索工具组',
         tools: tools,
         rulePrompt: `
-## 网页检索工具组 ##
 - 时效性问题先使用搜索工具，灵活使用 Google/Bing/Tavily/Bocha
 - 长网页先 SearchInWebPage 定位，再用 FetchWebPage/ExtractHTML 精取；需要 DOM 结构时用 InspectDOMStructure
 - 基于网页回答时需说明使用了网络，并附参考 URL 列表

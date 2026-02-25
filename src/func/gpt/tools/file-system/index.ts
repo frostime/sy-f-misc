@@ -13,7 +13,7 @@ import { fileSystemSkillRules } from './skill-rules';
 import { getPlatform, getScriptName } from '@/libs/system-utils';
 import type { ToolGroup } from '../types';
 
-const nodePath: typeof import('path') = window?.require?.('path');
+// const nodePath: typeof import('path') = window?.require?.('path');
 const os: typeof import('os') = window?.require?.('os');
 
 /**
@@ -34,36 +34,23 @@ export const createFileSystemToolGroup = (): ToolGroup => {
     let rulePrompt = '';
     if (available && tools.length > 0) {
         rulePrompt = `
-## 文件系统工具组
 
-### 文件系统工具选择指南
-
-| 需要做什么 | 用哪个工具 |
-|-----------|-----------|
-| 查看文件内容 | **fs-View** (支持 full/head/tail/range) |
-| 查看目录结构 | **fs-List** (树形展示) |
-| 检查文件元信息 | **fs-Inspect** (类型/大小/行数) |
-| 按文件名找文件 | **fs-Glob** (底层 find/Get-ChildItem) |
-| 在文件内容中搜索 | **fs-Grep** (底层 grep/Select-String) |
-| 修改 1-N 处代码 | **fs-SearchReplace** (内容匹配替换) |
-| 新建文件 / 大改 | **fs-WriteFile** (>50% 变更时) |
-| mkdir/cp/mv/rm 等 | **fs-FileOps** (受限 Shell 白名单) |
-
-### 最佳实践
+**最佳实践**
 - 所有 Path 统一使用 Linux / 分隔符
     「×」H:\\File.txt 「√」H:/File.txt
 - 未知目录使用 fs-List 分析结构
-- 搜索文件名用 Glob，搜索内容用 Grep
+- 搜索文件名用 fs-Glob，搜索内容用 fs-Grep
 - 批量文件操作使用 fs-FileOps
-- 代码修改用 SearchReplace，新建/大改用 WriteFile
+- 文本文件(代码)修改用 SearchReplace，新建/大改用 WriteFile
 - 避免对大文件使用 View full 模式，优先用 head/tail/range
+- fs-WriteFile 明确指定 "写入模式"
 `.trim();
 
         // 环境信息
         if (os) {
             const platform = getPlatform();
             const homedir = os.homedir?.() || '';
-            rulePrompt += `\n\n### 环境信息\n- OS: ${platform}\n- Shell: ${getScriptName()}\n- Home: ${homedir}`;
+            rulePrompt += `\n\n**环境信息**\n- OS: ${platform}\n- Shell: ${getScriptName()}\n- Home: ${homedir}`;
         }
     }
 

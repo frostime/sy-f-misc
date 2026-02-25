@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2025-05-30 15:10:56
  * @FilePath     : /src/func/gpt/tools/basic.ts
- * @LastEditTime : 2026-02-09 16:44:05
+ * @LastEditTime : 2026-02-25 19:27:51
  * @Description  :
  */
 // import { importJavascriptFile } from '@frostime/siyuan-plugin-kits';
@@ -322,10 +322,6 @@ export const basicTool = {
     name: 'basic-tools',
     tools: [datetimeTool, textTool, jsonInterfaceTool],
     rulePrompt: `
-## 基础工具组 ##
-
-- **datetime**: 涉及时效性信息（"最近"、"近期"、"XX月前"等）时，必须先调用确认当前时间
-- **text**: 文本查找、替换、长度计算，支持正则表达式
-- **json2interface**: 将 JSON 对象转换为 TypeScript 接口定义，自动处理嵌套对象、数组和可选字段
+涉及时效性信息（"最近"、"近期"、"XX月前"等）时，必须先调用 datetime 工具确保对时间的理解准确。
 `.trim()
 }

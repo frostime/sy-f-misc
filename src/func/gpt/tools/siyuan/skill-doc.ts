@@ -382,7 +382,7 @@ LIMIT 32
 
     [DIFF_SKILL_NAME]: {
         desc: '基于 Block ID 锚定的精确编辑方案',
-        when: '需要使用 applyBlockDiff 之前，强制性读取 !IMPORTANT!',
+        when: '需要使用 applyBlockDiff 来编辑思源笔记文档前，强制性读取 !IMPORTANT!',
         prompt: BLOCK_DIFF_EDIT_SKILL
     },
 };

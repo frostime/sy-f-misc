@@ -111,7 +111,7 @@ export const writeFileTool: Tool = {
                         description: '写入模式：create（默认，文件存在报错）、overwrite（覆盖）、append（追加）'
                     }
                 },
-                required: ['path', 'content']
+                required: ['path', 'content', 'mode']
             }
         }
     },

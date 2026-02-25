@@ -380,7 +380,7 @@ export const scriptTools: ToolGroup = {
     tools: [shellTool, pythonTool, javascriptTool, pandocTool],
     declareSkillRules: {
         'var-ref-inject': {
-            when: '需要利用 VAR_REF 机制将变量传递给脚本工具',
+            when: '复用大批量的工具调用结果，例如先获取网页，然后利用脚本自动化分析内容',
             desc: 'VAR_REF + injectVar 案例',
             prompt: `
 结合 VAR_REF 机制，可将大量数据通过变量引用传递给脚本
@@ -421,15 +421,12 @@ export const scriptTools: ToolGroup = {
         }
     },
     rulePrompt: `
-## 脚本执行工具组 ##
+适用场景：系统交互、数学计算、统计分析、批量处理等
 
-适用场景：系统交互、数学计算、统计分析、批量处理等 LLM 不擅长的精确计算任务
-
-**工具选择**:
+**脚本**:
 - Shell: ${getScriptName()} 命令/脚本（传入完整代码）
 - Python: 需系统已安装，返回 stdout
-- JavaScript: 沙盒环境，返回 console 输出以及最后一个被 eval 的变量; 沙盒基于 iframe，内部封装为 async 函数来执行代码; 禁止打印、返回无法被序列化的对象
-- Pandoc: 文档格式转换（docx→Markdown 等），使用思源自带 Pandoc
+- JavaScript: 思源内沙盒环境，返回 console 输出以及最后一个被 eval 的变量; 沙盒基于 iframe，内部封装为 async 函数来执行代码; 禁止打印、返回无法被序列化的对象; 可以使用 fetch 访问思源内核 API
 
 **变量注入（injectVar 参数）**:
 所有脚本工具均支持 \`injectVar\` 参数，用于将变量传递给脚本环境; 请注意 inejctVar 必须可JSON序列化, 尽量只使用基本类型.
@@ -440,7 +437,7 @@ export const scriptTools: ToolGroup = {
 - **Python**: 变量会在代码开头自动声明，可直接使用
 - **JavaScript**: 通过代码前置声明注入
 
-可与 VAR_REF 机制结合，直接引用变量以节省 Token，详情见相关 Rule 文档。
+可与 VAR_REF 机制结合，直接引用变量以节省 Token，详情见相关 \`var-ref-inject\` 文档。
 
 `.trim()
 };
