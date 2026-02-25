@@ -1,0 +1,8 @@
+!.sspec
+!.sspec/skills/**
+!.sspec/asks/**
+!.sspec/requests/**
+!.sspec/changes/**
+!.sspec/tmp/**
+!.claude/skills/**
+!.github
