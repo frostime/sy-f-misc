@@ -430,7 +430,8 @@ export async function executeToolChain(
                         content: JSON.stringify({
                             error: `Failed to parse arguments as JSON: ${toolCall.function.arguments}`
                         }),
-                        tool_call_id: toolCall.id
+                        tool_call_id: toolCall.id,
+                        name: toolCall.function.name,
                     };
 
                     state.toolChainMessages.push(toolResultMessage);
@@ -495,7 +496,8 @@ export async function executeToolChain(
                             status: 'rejected',
                             message: toolResult.rejectReason || 'Tool execution or result rejected'
                         }),
-                        tool_call_id: toolCall.id
+                        tool_call_id: toolCall.id,
+                        name: toolCall.function.name,
                     };
 
                     state.toolChainMessages.push(rejectionMessage);
@@ -515,7 +517,8 @@ export async function executeToolChain(
                 const toolResultMessage: IMessage = {
                     role: 'tool',
                     content: toolResultContent,
-                    tool_call_id: toolCall.id
+                    tool_call_id: toolCall.id,
+                    name: toolCall.function.name,
                 };
 
                 state.toolChainMessages.push(toolResultMessage);
@@ -611,7 +614,8 @@ export async function executeToolChain(
                             message: 'Tool chain execution stopped due to max rounds limit',
                             reason: 'max_rounds_reached'
                         }),
-                        tool_call_id: toolCall.id
+                        tool_call_id: toolCall.id,
+                        name: toolCall.function.name,
                     };
 
                     state.toolChainMessages.push(placeholderMessage);

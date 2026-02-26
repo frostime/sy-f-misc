@@ -16,7 +16,14 @@ interface IGeminiPartFunctionResponse {
     };
 }
 
-type IGeminiPart = IGeminiPartText | IGeminiPartFunctionCall | IGeminiPartFunctionResponse;
+interface IGeminiPartInlineData {
+    inlineData: {
+        mimeType: string;
+        data: string;  // base64-encoded bytes
+    };
+}
+
+type IGeminiPart = IGeminiPartText | IGeminiPartFunctionCall | IGeminiPartFunctionResponse | IGeminiPartInlineData;
 
 interface IGeminiContent {
     role: 'user' | 'model';

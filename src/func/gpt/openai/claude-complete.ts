@@ -153,11 +153,16 @@ const buildClaudePayload = (
 const parseClaudeMessage = (message: IClaudeResponse): ICompletionResult => {
     const contentBlocks = message?.content || [];
     const textParts: string[] = [];
+    const thinkingParts: string[] = [];
     const tool_calls: IToolCall[] = [];
 
     contentBlocks.forEach((block: any, index: number) => {
         if (block.type === 'text') {
             textParts.push(block.text || '');
+            return;
+        }
+        if (block.type === 'thinking') {
+            thinkingParts.push(block.thinking || '');
             return;
         }
         if (block.type === 'tool_use') {
@@ -183,6 +188,7 @@ const parseClaudeMessage = (message: IClaudeResponse): ICompletionResult => {
         content: textParts.join(''),
         usage,
         tool_calls,
+        reasoning_content: thinkingParts.length > 0 ? thinkingParts.join('') : undefined,
         providerMeta: {
             stop_reason: message?.stop_reason,
         }
@@ -202,11 +208,13 @@ const parseClaudeStream = async (response: Response, options: CompleteOptions): 
     let buffer = '';
 
     let content = '';
+    let thinking = '';
     let inputTokens = 0;
     let outputTokens = 0;
     let stopReason = '';
     const toolCallsById = new Map<string, IToolCall>();
     const toolIndexToId = new Map<number, string>();
+    const thinkingIndexes = new Set<number>();  // indexes of 'thinking' content blocks
 
     const parseEventBlock = (eventBlock: string) => {
         // Claude stream uses SSE-like framing: each event contains one JSON payload in `data:` lines.
@@ -239,6 +247,9 @@ const parseClaudeStream = async (response: Response, options: CompleteOptions): 
         if (payload.type === 'content_block_start') {
             const idx = payload.index;
             const block = payload.content_block;
+            if (block?.type === 'thinking') {
+                thinkingIndexes.add(idx);
+            }
             if (block?.type === 'tool_use') {
                 const id = block.id || `claude_call_${idx}`;
                 toolIndexToId.set(idx, id);
@@ -248,7 +259,8 @@ const parseClaudeStream = async (response: Response, options: CompleteOptions): 
                     type: 'function',
                     function: {
                         name: block.name || 'tool',
-                        arguments: JSON.stringify(block.input || {}),
+                        // Fix C: initialize to '' (not JSON.stringify({})), so delta appends work correctly
+                        arguments: Object.keys(block.input || {}).length > 0 ? JSON.stringify(block.input) : '',
                     }
                 });
             }
@@ -262,18 +274,17 @@ const parseClaudeStream = async (response: Response, options: CompleteOptions): 
                 options.streamMsg?.(content);
                 return;
             }
+            if (delta.type === 'thinking_delta') {
+                thinking += delta.thinking || '';
+                return;
+            }
             if (delta.type === 'input_json_delta') {
                 const id = toolIndexToId.get(payload.index);
                 if (!id) return;
                 const toolCall = toolCallsById.get(id);
                 if (!toolCall) return;
-                const existing = toolCall.function.arguments || '';
-                const next = (delta.partial_json || '');
-                if (!existing || existing === '{}' || existing === 'null') {
-                    toolCall.function.arguments = next;
-                } else {
-                    toolCall.function.arguments = `${existing}${next}`;
-                }
+                // Fix C: unconditional append — no special-casing of '{}' or 'null'
+                toolCall.function.arguments += (delta.partial_json || '');
             }
         }
     };
@@ -312,6 +323,7 @@ const parseClaudeStream = async (response: Response, options: CompleteOptions): 
         content,
         usage,
         tool_calls: Array.from(toolCallsById.values()),
+        reasoning_content: thinking || undefined,
         providerMeta: {
             stop_reason: stopReason,
         }

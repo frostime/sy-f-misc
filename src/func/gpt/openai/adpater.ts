@@ -36,7 +36,7 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
             "content": input
         }];
     } else {
-        const ALLOWED_FIELDS = ['role', 'content', 'tool_call_id', 'tool_calls'];
+        const ALLOWED_FIELDS = ['role', 'content', 'tool_call_id', 'tool_calls', 'name'];
         // 去掉可能的不需要的字段
         messages = input.map(item => {
             const result = {};

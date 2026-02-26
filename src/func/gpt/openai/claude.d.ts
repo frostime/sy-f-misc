@@ -17,7 +17,12 @@ interface IClaudeContentToolResult {
     is_error?: boolean;
 }
 
-type ClaudeContentBlock = IClaudeContentText | IClaudeContentToolUse | IClaudeContentToolResult;
+interface IClaudeContentThinking {
+    type: 'thinking';
+    thinking: string;
+}
+
+type ClaudeContentBlock = IClaudeContentText | IClaudeContentToolUse | IClaudeContentToolResult | IClaudeContentThinking;
 
 interface IClaudeMessage {
     role: 'user' | 'assistant';

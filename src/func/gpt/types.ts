@@ -112,6 +112,7 @@ interface IToolMessage {
     role: 'tool';
     content: string;
     tool_call_id: string;
+    name?: string;  // function name; used by Gemini's functionResponse.name to avoid reconstructing via map
 }
 
 interface IMessageLoose {

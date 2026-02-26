@@ -25,15 +25,37 @@ const pushGeminiContent = (contents: IGeminiContent[], role: IGeminiContent['rol
 const toGeminiContents = (messages: IMessage[]): IGeminiContent[] => {
     const contents: IGeminiContent[] = [];
 
-    // Tool result messages only include `tool_call_id` (see `src/func/gpt/tools/toolchain.ts`).
-    // Gemini requires `functionResponse.name`, so we reconstruct name from prior assistant `tool_calls`.
+    // Gemini requires `functionResponse.name`. Tool messages carry `name` (set by toolchain.ts).
+    // The map below is kept as a backward-compat fallback for any tool messages without `name`.
     const toolCallIdToName = new Map<string, string>();
 
     for (const msg of messages) {
         if (msg.role === 'user') {
+            const parts: IGeminiPart[] = [];
             const text = messageContentToText(msg.content);
             if (text.trim()) {
-                pushGeminiContent(contents, 'user', [{ text }]);
+                parts.push({ text });
+            }
+            // Multimodal: convert image_url (data URL only) to Gemini inlineData
+            if (Array.isArray(msg.content)) {
+                msg.content.forEach((part) => {
+                    if (part?.type !== 'image_url') return;
+                    const url = part.image_url?.url || '';
+                    const matched = url.match(/^data:(.*?);base64,(.*)$/);
+                    if (!matched) {
+                        console.warn('[Gemini] Remote image URLs are not supported for inline data, skipping. Convert to base64 data URL first.');
+                        return;
+                    }
+                    parts.push({
+                        inlineData: {
+                            mimeType: matched[1] || 'image/png',
+                            data: matched[2] || '',
+                        }
+                    } as IGeminiPartInlineData);
+                });
+            }
+            if (parts.length > 0) {
+                pushGeminiContent(contents, 'user', parts);
             }
             continue;
         }
@@ -62,7 +84,10 @@ const toGeminiContents = (messages: IMessage[]): IGeminiContent[] => {
         }
 
         if (msg.role === 'tool') {
-            const name = toolCallIdToName.get(msg.tool_call_id || '') || 'tool';
+            // Use msg.name (set by toolchain.ts) as the primary source; fall back to map reconstruction.
+            const name = (msg as IMessage & { name?: string }).name
+                || toolCallIdToName.get(msg.tool_call_id || '')
+                || 'tool';
             const raw = typeof msg.content === 'string' ? msg.content : messageContentToText(msg.content);
             const parsed = parseJsonSafe<Record<string, any>>(raw, { content: raw });
             pushGeminiContent(contents, 'user', [{
@@ -124,7 +149,6 @@ const buildGeminiPayload = (
 
     if (systemPrompt.trim()) {
         payload.systemInstruction = {
-            role: 'system',
             parts: [{ text: systemPrompt }]
         };
     }
@@ -173,7 +197,7 @@ const parseGeminiResponse = (data: IGeminiResponse): ICompletionResult => {
         const fcall = (part as IGeminiPartFunctionCall).functionCall;
         if (fcall?.name) {
             tool_calls.push({
-                id: `gemini_call_${idx}_${Date.now()}`,
+                id: `gemini_call_${idx}`,
                 type: 'function',
                 function: {
                     name: fcall.name,
@@ -220,7 +244,9 @@ const parseGeminiStream = async (response: Response, options: CompleteOptions): 
     let totalTokens = 0;
     let providerMeta: Record<string, any> = {};
 
-    const toolCalls = new Map<string, IToolCall>();
+    let toolCallCounter = 0;
+    const toolCallKeyToId = new Map<string, string>();  // partIndex → stable id
+    const toolCalls = new Map<string, IToolCall>();     // stable id → IToolCall
 
     const parseEventBlock = (eventBlock: string) => {
         // Gemini streaming is served as SSE (`data: {json}` blocks separated by blank lines).
@@ -248,19 +274,21 @@ const parseGeminiStream = async (response: Response, options: CompleteOptions): 
             }
             const functionCall = (part as IGeminiPartFunctionCall).functionCall;
             if (functionCall?.name) {
-                const id = `gemini_call_${partIndex}_${functionCall.name}`;
-                const prev = toolCalls.get(id);
-                const mergedArgs = {
-                    ...(parseJsonSafe<Record<string, any>>(prev?.function.arguments || '{}', {})),
-                    ...(functionCall.args || {})
-                };
+                // Assign a stable, monotonic ID on first encounter; reuse for subsequent streaming events.
+                const internalKey = String(partIndex);
+                let id = toolCallKeyToId.get(internalKey);
+                if (!id) {
+                    id = `gemini_call_${toolCallCounter++}`;
+                    toolCallKeyToId.set(internalKey, id);
+                }
+                // Gemini streaming sends complete args snapshots; replace (not merge) on each event.
                 toolCalls.set(id, {
                     id,
                     index: partIndex,
                     type: 'function',
                     function: {
                         name: functionCall.name,
-                        arguments: JSON.stringify(mergedArgs),
+                        arguments: JSON.stringify(functionCall.args || {}),
                     }
                 });
             }
