@@ -16,7 +16,7 @@ import { ButtonInput } from "@/libs/components/Elements";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { TextAreaWithActionButton } from "@/libs/components/Elements/TextArea";
 import * as agent from "../openai/tiny-agent";
-import { OPENAI_ENDPONITS } from "../model/url_utils";
+import { OPENAI_ENDPONITS, getDefaultEndpointByProtocol, normalizeProviderProtocol } from "../model/url_utils";
 
 
 
@@ -447,13 +447,50 @@ const ProviderBasicConfig: Component = () => {
     const { providerIndex, updateProvider } = useProviderEditContext();
     const provider = () => llmProviders()[providerIndex()];
     const hideApiKey = createSignalRef(true);
+    const providerProtocol = createMemo<LLMProviderProtocol>(() => normalizeProviderProtocol(provider()));
 
     const endpointUrlExample = createMemo(() => {
         const url = resolveEndpointUrl(provider(), 'chat');
         return url;
     });
 
-    const updateEndpoint = (type: string, path: string) => {
+    const updateProtocol = (protocol: LLMProviderProtocol) => {
+        const oldProtocol = providerProtocol();
+        const endpoints = { ...provider().endpoints };
+
+        // 仅在 chat endpoint 未自定义时，自动切换到新协议默认值
+        const currentChat = endpoints.chat;
+        const oldDefault = getDefaultEndpointByProtocol(oldProtocol, 'chat');
+        const nextDefault = getDefaultEndpointByProtocol(protocol, 'chat');
+        if (!currentChat || currentChat === oldDefault) {
+            endpoints.chat = nextDefault;
+        }
+
+        updateProvider('protocol', protocol);
+        updateProvider('protocal', protocol);
+        updateProvider('endpoints', endpoints);
+    };
+
+    const endpointItems = createMemo(() => {
+        if (providerProtocol() !== 'openai') {
+            return [
+                {
+                    key: 'chat' as LLMServiceType,
+                    label: 'Chat',
+                    default: getDefaultEndpointByProtocol(providerProtocol(), 'chat')
+                }
+            ];
+        }
+        return [
+            { key: 'chat' as LLMServiceType, label: 'Chat', default: OPENAI_ENDPONITS['chat'] },
+            { key: 'image-gen' as LLMServiceType, label: 'Image', default: OPENAI_ENDPONITS['image-gen'] },
+            { key: 'image-edit' as LLMServiceType, label: 'Image Edit', default: OPENAI_ENDPONITS['image-edit'] },
+            { key: 'audio-stt' as LLMServiceType, label: 'Speech-to-Text', default: OPENAI_ENDPONITS['audio-stt'] },
+            { key: 'audio-tts' as LLMServiceType, label: 'Text-to-Speech', default: OPENAI_ENDPONITS['audio-tts'] }
+        ];
+    });
+
+    const updateEndpoint = (type: LLMServiceType, path: string) => {
         const endpoints = { ...provider().endpoints };
         if (path.trim()) {
             endpoints[type] = path;
@@ -483,6 +520,21 @@ const ProviderBasicConfig: Component = () => {
                     value={provider().name}
                     changed={(v) => updateProvider('name', v)}
                     style={{ width: '400px' }}
+                />
+            </Form.Wrap>
+
+            <Form.Wrap title="Protocol" description="API 协议类型；claude/gemini 当前仅支持 complete(chat)">
+                <Form.Input
+                    type="select"
+                    value={providerProtocol()}
+                    options={{
+                        'openai': 'OpenAI Compatible',
+                        'claude': 'Claude Native',
+                        'gemini': 'Gemini Native',
+                    }}
+                    changed={(v) => updateProtocol(v as LLMProviderProtocol)}
+                    fn_size={false}
+                    style={{ width: '320px' }}
                 />
             </Form.Wrap>
 
@@ -526,15 +578,13 @@ const ProviderBasicConfig: Component = () => {
             {/* Endpoints 配置 */}
             <Heading>Endpoints</Heading>
 
+            <Show when={providerProtocol() !== 'openai'}>
+                <div style={{ 'margin': '0 0 12px 12px', 'color': 'var(--b3-theme-on-surface-light)', 'font-size': '12px' }}>
+                    当前协议仅开放 chat endpoint；其余接口暂不支持。
+                </div>
+            </Show>
 
-            <For each={[
-                { key: 'chat', label: 'Chat', default: OPENAI_ENDPONITS['chat'] },
-                // { key: 'embeddings', label: 'Embeddings', default: '/embeddings' },
-                { key: 'image-gen', label: 'Image', default: OPENAI_ENDPONITS['image-gen'] },
-                { key: 'image-edit', label: 'Image Edit', default: OPENAI_ENDPONITS['image-edit'] },
-                { key: 'audio-stt', label: 'Speech-to-Text', default: OPENAI_ENDPONITS['audio-stt'] },
-                { key: 'audio-tts', label: 'Text-to-Speech', default: OPENAI_ENDPONITS['audio-tts'] }
-            ]}>
+            <For each={endpointItems()}>
                 {(item) => (
                     <Form.Wrap
                         title={`${item.label} Endpoint`}
@@ -906,6 +956,8 @@ const ProviderSettingV2 = () => {
                 const newProvider: ILLMProviderV2 = {
                     name: name.trim(),
                     baseUrl: '',
+                    protocol: 'openai',
+                    protocal: 'openai',
                     endpoints: {
                         chat: '/chat/completions'
                     },

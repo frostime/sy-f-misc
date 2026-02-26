@@ -8,6 +8,8 @@
  */
 
 export const DEFAULT_CHAT_ENDPOINT = '/chat/completions';
+export const DEFAULT_CLAUDE_CHAT_ENDPOINT = '/messages';
+export const DEFAULT_GEMINI_CHAT_ENDPOINT = '/models/{model}:generateContent';
 
 export const OPENAI_ENDPONITS: Record<LLMServiceType, string> = {
     chat: '/chat/completions',
@@ -20,6 +22,45 @@ export const OPENAI_ENDPONITS: Record<LLMServiceType, string> = {
     'moderation': '/moderations',
 
 }
+
+export const normalizeProviderProtocol = (
+    provider?: Pick<ILLMProviderV2, 'protocol' | 'protocal'> | null
+): LLMProviderProtocol => {
+    const raw = (provider?.protocol || provider?.protocal || 'openai').toLowerCase();
+    if (raw === 'claude' || raw === 'gemini' || raw === 'openai') {
+        return raw;
+    }
+    // 向后兼容：曾短暂使用 anthropic 表示 Claude
+    if (raw === 'anthropic') {
+        return 'claude';
+    }
+    return 'openai';
+};
+
+export const getDefaultEndpointByProtocol = (
+    protocol: LLMProviderProtocol,
+    type: LLMServiceType = 'chat'
+): string => {
+    if (type !== 'chat') {
+        return OPENAI_ENDPONITS[type];
+    }
+    if (protocol === 'claude') {
+        return DEFAULT_CLAUDE_CHAT_ENDPOINT;
+    }
+    if (protocol === 'gemini') {
+        return DEFAULT_GEMINI_CHAT_ENDPOINT;
+    }
+    return DEFAULT_CHAT_ENDPOINT;
+};
+
+export const resolveProviderEndpointPath = (
+    provider: ILLMProviderV2,
+    type: LLMServiceType = 'chat'
+): string => {
+    const configured = provider.endpoints?.[type];
+    if (configured) return configured;
+    return getDefaultEndpointByProtocol(normalizeProviderProtocol(provider), type);
+};
 
 
 /**

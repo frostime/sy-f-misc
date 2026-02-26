@@ -112,6 +112,7 @@ interface IToolMessage {
     role: 'tool';
     content: string;
     tool_call_id: string;
+    name?: string;  // function name; used by Gemini's functionResponse.name to avoid reconstructing via map
 }
 
 interface IMessageLoose {
@@ -340,6 +341,7 @@ interface ICompletionResult {
         throughput?: number; // tokens/s
     };
     tool_calls?: IToolCall[];
+    providerMeta?: Record<string, any>;
 }
 
 
@@ -373,11 +375,15 @@ type LLMServiceType =
 
 type LLMModality = 'text' | 'image' | 'file' | 'audio' | 'video';
 
+type LLMProviderProtocol = 'openai' | 'claude' | 'gemini';
+
 //替代 IGPTProvider
 interface ILLMProviderV2 {
     name: string;  //provider 的名称, 例如 OpenAI, V3 等等
     baseUrl: string;  //API URL, 例如 https://api.openai.com/v1
     apiKey: string;
+    protocol?: LLMProviderProtocol;  // 协议类型，默认 openai
+    protocal?: LLMProviderProtocol;  // 兼容旧拼写
     customHeaders?: Record<string, string>;  // 自定义请求头
 
     disabled: boolean;  //是否禁用该provider
@@ -449,6 +455,7 @@ interface IRuntimeLLM {
     apiKey: string;
     bareId: ModelBareId;  // model@Provider 或 model@Provider:type
     type: LLMServiceType;  // 运行时使用的具体服务类型
+    protocol?: LLMProviderProtocol;
     config?: ILLMConfigV2;
     provider?: Omit<ILLMProviderV2, 'models'>;
 }

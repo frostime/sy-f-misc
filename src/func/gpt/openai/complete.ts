@@ -1,6 +1,9 @@
 import { defaultModelId, useModel } from "../model/store";
 import { appendLog } from "../MessageLogger";
 import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage, adaptToolCalls } from './adpater';
+import { getProviderProtocol } from './protocol-utils';
+import { claudeComplete } from './claude-complete';
+import { geminiComplete } from './gemini-complete';
 
 interface StreamChunkData {
     content: string;
@@ -253,6 +256,7 @@ export const complete = async (input: string | IMessage[], options?: {
     option?: IChatCompleteOption
     abortController?: AbortController
 }): Promise<ICompletionResult> => {
+    options = options || {};
 
     let response: Response;
 
@@ -265,6 +269,14 @@ export const complete = async (input: string | IMessage[], options?: {
             }
         }
         options.model = model;
+    }
+
+    const protocol = getProviderProtocol(options.model);
+    if (protocol === 'claude') {
+        return claudeComplete(input, options);
+    }
+    if (protocol === 'gemini') {
+        return geminiComplete(input, options);
     }
 
     try {

@@ -12,7 +12,7 @@ import { createModelConfig } from "./preset";
 import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_CHAT_ENDPOINT } from "./url_utils";
 import { asStorage } from "./config";
 
-export const CURRENT_SCHEMA = '3.0';
+export const CURRENT_SCHEMA = '3.1';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -128,6 +128,7 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
                 return {
                     name: legacy.name || `LegacyProvider-${index + 1}`,
                     baseUrl: trimTrailingSlash(baseUrl || legacy.url || '') || '',
+                    protocol: 'openai',
                     endpoints: {
                         chat: ensureLeadingSlash(endpoint ?? DEFAULT_CHAT_ENDPOINT) || DEFAULT_CHAT_ENDPOINT
                     },
@@ -291,6 +292,21 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
             }
 
             console.log(`[工具权限迁移 V3] 完成: 共处理 ${migratedCount} 个工具，清理旧字段 ${cleanedCount} 个`);
+            migrated = true;
+        }
+    }
+
+    // 3.1 版本: 向后兼容 schema <= 3.0; 变更: Provider 协议字段（protocol/protocal）
+    if (compareSchemaVersion(dataSchema, '3.1') < 0) {
+        const providers = (data as any).llmProviders as ILLMProviderV2[];
+        if (Array.isArray(providers)) {
+            providers.forEach((provider) => {
+                const raw = (provider.protocol || provider.protocal || 'openai').toLowerCase();
+                const normalized = raw === 'anthropic' ? 'claude' : raw;
+                const protocol = ['openai', 'claude', 'gemini'].includes(normalized) ? normalized : 'openai';
+                provider.protocol = protocol as LLMProviderProtocol;
+                provider.protocal = protocol as LLMProviderProtocol;
+            });
             migrated = true;
         }
     }
