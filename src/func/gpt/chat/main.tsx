@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2026-02-09 20:33:24
+ * @LastEditTime : 2026-02-26 20:44:12
  * @Description  :
  */
 // External libraries
@@ -133,8 +133,10 @@ export const ChatSession: Component<{
     // const showDeleteHistoryPanel = useSignalRef(false);
 
     createEffect(() => {
-        const customOptions = model().config?.options?.customOverride;
+        let customOptions = model().config?.options?.customOverride;
         if (customOptions) {
+            // 避免从 Store 中获取一个 Proxy, 会导致后续 structuredClone 失败
+            customOptions = JSON.parse(JSON.stringify(customOptions));
             session.modelCustomOptions(customOptions);
         }
     })
