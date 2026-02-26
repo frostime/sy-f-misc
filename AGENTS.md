@@ -221,7 +221,7 @@ If a SKILL says "read [file](...)" -> **MUST** read it.
 
 | Marker | Meaning | Action |
 |--------|---------|--------|
-| `<!-- @RULE: ... -->` | Standards reminder | Read and follow. DO NOT delete |
+| `<!-- @RULE: ... -->` | Standards reminder | Read and follow. |
 | `<!-- @REPLACE -->` | Anchor for first edit | Replace with content |
 | `[ ]` / `[x]` | Task todo / done | Update as work progresses |
 <!-- SSPEC:END -->
