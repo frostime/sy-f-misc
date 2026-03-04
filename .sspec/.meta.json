@@ -1,8 +1,9 @@
 {
-  "schema_version": "7.0",
-  "sspec_version": "1.2.0",
+  "meta_schema": "2.0",
+  "sspec_schema": "9.2",
+  "sspec_version": "1.2.2",
   "created_at": "2026-02-15T16:35:47.258670",
-  "updated_at": "2026-02-26T18:48:23.956727",
+  "updated_at": "2026-03-04T17:27:36.699927",
   "file_hashes": {
     "skills/sspec-ask": "99529f9c053d5cdc",
     "skills/use-powershell": "c14a032ce16697b8",
@@ -32,7 +33,7 @@
   "skill_locations": [
     ".claude/skills",
     ".github/skills",
-    ".sspec\\skills"
+    ".sspec/skills"
   ],
   "skill_install_strategies": {
     ".sspec/skills": "copy",
