@@ -1,27 +1,7 @@
-# Powershell Usage
-
-You are developed under Windows. Leverage PowerShell for utility.
-
-**PowerShell Examples**
-- Find files: `Get-ChildItem -Path . -Recurse -Filter "*.ts" | Where-Object {$_.Length -gt 10KB}`
-- Count lines: `(Get-Content file.txt | Measure-Object -Line).Lines`
-- Recent changes: `Get-ChildItem -Recurse | Where-Object {$_.LastWriteTime -gt (Get-Date).AddHours(-24)}`
-- Check ts file: `pnpm run type-check 2>&1 | Select-String -Pattern "<path-pattern>" -Context 2,2`
-
-**Safety Rules**:
-- Never use `Remove-Item -Recurse` without `-WhatIf` first
-- Always quote paths with spaces: `"C:\Program Files\..."`
-- Prefer `Test-Path` before file operations
-
-**Prefer Use Question Tool**
-- 为了效率和经济，请遇到问题时不要中断，而是使用 vscode Question 或 sspec ask 咨询 User 的意见，尽量能在一个 High Efficient Session 中完成目标。
-- 请在完成所有任务/自认为已经完成后，必须发起一个 `vscode Question` 工具向 User 询问是否满足需求
-
-
 <!-- SSPEC:START -->
 # .sspec Agent Protocol
 
-SSPEC_SCHEMA::3.0
+SSPEC_SCHEMA::4.0
 
 ## 0. Overview
 
@@ -35,8 +15,7 @@ SSPEC is a doc-driven workflow. Planning, tracking, and handover live in `.sspec
 ├── spec-docs/     # Formal specs (architecture, APIs)
 ├── changes/<n>/   # spec.md | tasks.md | handover.md [+ reference/]
 ├── requests/      # User intent records
-├── tmp/           # Informal drafts
-└── asks/          # Q&A decision records
+└── tmp/           # Informal drafts
 ```
 
 ---
@@ -45,27 +24,25 @@ SSPEC is a doc-driven workflow. Planning, tracking, and handover live in `.sspec
 
 `read(project.md)` → classify → dispatch:
 
-SSPEC activation signals (enter Change Workflow §2 if any is true):
-- User provides/references a request file (for example `.sspec/requests/...`)
-- User explicitly asks to start SSPEC/change workflow
-- User uses SSPEC directives (for example `@resume`, `@change`, `@handover`)
+SPEC activation signals (enter Change Workflow §2): request file attached, user explicitly asks for SSPEC workflow, or SSPEC directives used (`@resume`, `@change`, etc.).
 
 | Input | Action |
 |-------|--------|
 | Directive (`@resume`, `@handover`, etc.) | Execute → §5 Shortcuts |
 | Request (attached or described) | Assess scale → Change Workflow §2 |
 | Resume existing change | `read(handover→tasks→spec)` → continue |
-| Micro task (≤3 files, ≤30min, obvious) | Do directly, no change needed |
+| Micro task (≤3 files, ≤30min, obvious) | Do directly — no change, no spec.md, no tasks.md, no @align gates. Optionally update handover.md if session has one. |
 
-Resume tip: in `handover.md`, start from the newest entry in `Session Log`.
+Resume tip: Run `sspec howto resume-change`
 
 **Background rules**:
 - Important discovery → write to `handover.md` immediately
-- Project-wide discovery → also append to `project.md` Notes
 - Long session (>30 exchanges) → checkpoint `handover.md`
 - Uncertain → `@align` (30s alignment < hours of rework)
 - User rejects tool call → STOP → `@align` reason
-- Current date/time uncertain → use sspec tool now instead of guessing
+- Current date/time uncertain → use sspec tool now instead of guessing → `sspec howto get-current-time`
+
+→ **HOWTOs**: narrow operational guides for specific operations. `sspec howto list` to browse; batch-read: `sspec howto n1 n2`.
 
 ---
 
@@ -82,10 +59,10 @@ Each phase has a dedicated SKILL. Read it before starting.
 [Research]  (understand + clarify; @align mid-research for ambiguities)
    |
    v
-[Design]    -- @align gate (MANDATORY) + [Handover] --> "Align understanding + solution"
+[Design]    -- @align gate (MANDATORY) + [Handover] --> "User confirms design"
    |
    v
-[Plan]      -- @align gate (LIGHTWEIGHT) --> "Confirm task breakdown"
+[Plan]      -- @align report --> "Output summary, continue to implement"
    |
    v
 [Implement] -- @align gate (MANDATORY) --> "Done for this round, please review"
@@ -96,17 +73,9 @@ Each phase has a dedicated SKILL. Read it before starting.
    +-- satisfied --> [Handover]
 ```
 
-Flow rules:
-- Follow phase order from `Request` to `Handover`.
-- Any `@align` gate is a hard checkpoint: align with user first (`question` if available, else `sspec ask`).
-- `@align` is a closed loop: if not approved, return to the required phase, update, and align again.
-- `Implement` and `Review` are coupled: deliver -> align -> feedback -> implement -> align again, until satisfied.
+**Flow rules**: Follow phase order. `gate` = hard stop, must pass before proceeding. `report` = output summary, keep going. Failed gate → return to phase, update, realign. `Implement` and `Review` loop until user satisfied.
 
-**Handover** is lifecycle-critical. Trigger it:
-- At session end (MANDATORY)
-- Mid-session when context is long (>30 exchanges)
-- When switching between major phases
-- Before context-losing events (compression, interruption)
+**Handover** is lifecycle-critical — mandatory at session end, also at long sessions (>30 exchanges), major phase switches, and before context-losing events.
 
 ### Phase Contracts
 
@@ -115,9 +84,9 @@ Read the SKILL for the current phase. Unless the SKILL says otherwise, each phas
 | Phase | SKILL | Main output | Gate |
 |-------|-------|-------------|------|
 | **Research** | `sspec-research` | `reference/`, `handover.md` notes | optional `question` |
-| **Design** | `sspec-design` | `spec.md` | **@align** mandatory |
-| **Plan** | `sspec-plan` | `tasks.md` | lightweight confirm |
-| **Implement** | `sspec-implement` | code, `tasks.md` progress | **@align** mandatory |
+| **Design** | `sspec-design` | `spec.md` | **gate** (mandatory) |
+| **Plan** | `sspec-plan` | `tasks.md` | **report** (continue) |
+| **Implement** | `sspec-implement` | code, `tasks.md` progress | **gate** (mandatory) |
 | **Review** | `sspec-review` | feedback tasks / acceptance loop | rejected -> Implement |
 | **Handover** | `sspec-handover` | `handover.md`, `project.md` | session end required |
 ### Scale Assessment (in Design phase)
@@ -130,39 +99,29 @@ Read the SKILL for the current phase. Unless the SKILL says otherwise, each phas
 
 ### Status Guardrails
 
-- `PLANNING -> DOING` only after design + plan approval
-- `DOING -> REVIEW` when implementation/tasks are done
-- `REVIEW -> DONE` only after user acceptance
-- `DOING -> BLOCKED` when required info is missing
-- `DOING -> PLANNING` when scope changes
-- `REVIEW -> DOING` when feedback requires another implementation round
-
-**Forbidden**:
-- `PLANNING -> DONE`
-- `DOING -> DONE`
-- Never skip `REVIEW`
+`Status` key in `spec.md` should follow a state machine rule, see
+→ `sspec howto update-change-status`
 
 ---
 ## 3. Alignment (@align)
 
-`@align` means the Agent proactively aligns with the User, through:
-- Built-in tools such as `AskUserQuestion` (e.g. `vscode/askQuestion`, `opencode/question`)
-- The `sspec ask` CLI tool
+`@align` has two levels:
 
-**Choose by question type**:
-- Simple, bounded confirmation -> `question` tool
-- Open-ended, tradeoff-heavy, or worth recording -> `sspec ask`
-- Design / Implement phase gates -> `sspec ask` (mandatory)
-- Plan confirmation or mid-research clarification -> `question` tool
-- If no `question`-like tool is available -> use `sspec ask`
+| Level | Agent behavior | When to use |
+|-------|---------------|-------------|
+| `report` | Output summary, **keep going** | Plan done, progress updates, minor confirmations |
+| `gate` | Output question/summary, **stop and wait for user response** | Design done, Implement done, irreversible actions, scope changes, direction disputes, blockers, ambiguity only user can resolve |
 
-For large context, write analysis to `.sspec/tmp/` and link it from the question body. Move confirmed valuable materials to `change/reference/` later.
+**How to gate**:
+- If a `question`-like tool is available (e.g. `vscode/askQuestion`, `opencode/question`) → first present the summary / context / references in normal output, then use the tool only for the concise ask itself
+- Otherwise, if `sspec tool ask` exists → use it as the fallback ask channel; detailed usage: `sspec tool ask --prompt`
+- Otherwise → state the question clearly in output, end turn, wait for user reply
 
-**Directive: `@force-end-align`**: If a task explicitly requests it and you believe the work is done, do one last user-facing alignment instead of silently ending the turn. Prefer `question`; use `sspec ask` only if the final check needs durable record or sign-off.
+**Record decisions** in their natural home — `spec.md` for design, `handover.md` Durable Memory for direction changes, Session Log for user feedback. No separate system needed.
 
-At phase gates: Design + Implement are mandatory, Plan is lightweight, Review loops until satisfied.
+For large context, write analysis to `.sspec/tmp/` and link it from normal output or the final concise ask. Move confirmed valuable materials to `change/reference/` later.
 
-📚 Full workflow, patterns, and content rules: `sspec-align` SKILL
+📚 Full workflow and patterns: `sspec-align` SKILL
 
 ---
 
@@ -170,17 +129,8 @@ At phase gates: Design + Implement are mandatory, Plan is lightweight, Review lo
 
 Spec-docs store architecture knowledge that should outlive a single change.
 
-Create/update spec-docs when:
-- A change produces architectural knowledge (interfaces, data models, patterns)
-- When the agent discovers knowledge too complex for `project.md` Notes
-- When user explicitly requests documentation
-
-Scenarios:
-
-| Scenario | Trigger | Action |
-|----------|---------|--------|
-| Post-change update | Change is DONE, with architecture impact | Agent proactively `@align`: "Should I update/create spec-doc for X?" |
-| User-initiated | User requests spec-doc creation | If small → do directly; if large → may need its own change |
+Create/update spec-docs when a change produces architectural knowledge or the user explicitly requests it.
+When change is DONE with architecture impact → proactively `@align` user: "Should I create/update a spec-doc for X?"
 
 📚 Full guidelines: `write-spec-doc` SKILL
 
@@ -195,7 +145,8 @@ Scenarios:
 | `@change <n>` | Load `handover→tasks→spec`, continue; OR create if not exists `<n>` |
 | `@resume` | Same as `@change` for active change |
 | `@handover` | Execute `sspec-handover` |
-| `@sync` | Update tasks.md/handover.md to match reality |
+| `@sync` | Update spec.md/tasks.md/handover.md to match reality; never split or replace a change without `@align` |
+| `@subagent-audits` | Run independent subagent reviews for the current diff; see `sspec howto make-subagent-audit` |
 | `@argue` | **STOP** -> assess scope (§2 Review) |
 
 ### CLI Quick Reference
@@ -205,22 +156,44 @@ Run `sspec <command> --help` for full options. Keep this list minimal:
 | Command | Use |
 |---------|-----|
 | `sspec change new <name> [--from <REQUEST>]` | Create a change |
-| `sspec change status <name>` | Inspect current change state |
-| `sspec ask create <topic>` + `sspec ask prompt <path>` | Create and ask |
+| `sspec change find/status <name>` | Inspect current change state |
 | `sspec doc new "<name>"` | Create spec-doc |
-| `sspec tool mdtoc <file>` | Pre-scan Markdown |
-| `sspec tool now [--date|--utc|--json]` | Show current time when timestamps matter |
+| `sspec howto [options]` | See "HOWTO System" |
+| `sspec tool <tool-name> [options]` | Use CLI tool complement |
+
+**sspec tool**
+
+`sspec` cli offers some CLI tool complements if agent system lacks relative capabilities. Check `sspec tool --help`. Invoke with `sspec tool <tool-name> [options]`. Examples:
+
+- `patch/write`: Edit / Write text file. (Only use it when lacking built-in capabilities.)
+- `now`: Get current time. (Always invoke when handover, needs check time)
+- `fileinfo`: Inspect size / encoding /newline style etc.
+- `mdtoc`: Print outline of md files structure.
+- `view-tree`: View directory tree.
+- `ask`: `question` user.
+
+Read detailed usage: `sspec tool <tool-name> --prompt`
+
+### HOWTO System
+
+Targeted operational micro-guides — shorter than SKILLs, more specific than AGENTS.md. HOWTOs cover low-frequency rules and edge cases so they stay out of the core docs until needed.
+- Discover all: `sspec howto list`
+- Read: `sspec howto <name>` (batch supported: `sspec howto read <n1> <n2>` to parallel-read multiple HOWTOs)
+- Project-local HOWTOs: `sspec howto new <name>` → `.sspec/howto/`
 
 ### SKILL System
 
 Read the SKILL for the current phase (`sspec-research`, `sspec-design`, `sspec-plan`, `sspec-implement`, `sspec-review`, `sspec-handover`, `sspec-align`, `sspec-mdtoc`, `write-spec-doc`).
 If a SKILL says "read [file](...)" -> **MUST** read it.
 
+Some rules in SKILL are distributed to HOWTOs. If you see `sspec howto xxx` in SKILL content, read it with `sspec howto <name>` or batch-read with `sspec howto read <n1> <n2>...`.
+
 ### Template Markers
 
 - `<!-- @RULE: ... -->`: standards reminder — read and follow
 - `<!-- @REPLACE -->`: anchor for first edit — replace with content
-- `[ ]` / `[x]`: task todo / done — keep progress updated`r`n<!-- SSPEC:END -->
+- `[ ]` / `[x]`: task todo / done — keep progress updated
+- <!-- SSPEC:END -->
 
 
 
