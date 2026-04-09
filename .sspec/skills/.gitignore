@@ -1,11 +1,10 @@
 # >>> sspec-managed skills >>>
 sspec-align
+sspec-clarify
 sspec-design
-sspec-handover
 sspec-implement
 sspec-mdtoc
 sspec-plan
-sspec-research
 sspec-review
 use-powershell
 write-patch
