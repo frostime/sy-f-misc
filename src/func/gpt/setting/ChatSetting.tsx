@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-10-10 20:33:25
  * @FilePath     : /src/func/gpt/setting/ChatSetting.tsx
- * @LastEditTime : 2026-01-03 00:09:57
+ * @LastEditTime : 2026-05-03 00:35:56
  * @Description  :
  */
 
@@ -253,7 +253,7 @@ const ChatSessionSetting = (props: {
                         "low": "low",
                         "medium": "medium",
                         "high": "high",
-                        "xhigh": "xhing"
+                        "xhigh": "xhigh"
                     }}
                 />
             </Form.Wrap>
