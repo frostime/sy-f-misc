@@ -1,3 +1,15 @@
 requests/*
 changes/*
 asks/*
+
+# >>> sspec-managed skills >>>
+skills/sspec-align
+skills/sspec-clarify
+skills/sspec-design
+skills/sspec-implement
+skills/sspec-mdtoc
+skills/sspec-plan
+skills/sspec-review
+skills/write-patch
+skills/write-spec-doc
+# <<< sspec-managed skills <<<
