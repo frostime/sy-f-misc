@@ -73,6 +73,8 @@ Format: `- [name](spec-docs/<file>) — one-line summary` -->
 
 - [siyuan-content-tools](spec-docs/siyuan-content-tools.md) — Architecture of 5 content tools (getBlockInfo, getBlockContent, appendContent, createNewDoc, applyBlockDiff) with slice mechanism, container block expansion, SEARCH/REPLACE format
 - [external-bundle](spec-docs/external-bundle.md) — External module independent bundling system: vite-plugin-external-modules architecture, module registration, dynamic import pattern
+- [gpt-module-architecture-overview](spec-docs/gpt-module-architecture-overview.md) — Bird's-eye view of `src/func/gpt/`: initialization sequence, configuration system, provider/model lifecycle, chat session lifecycle (V2 tree model), API communication flow, and cross-cutting concerns (privacy, context providers, tools, persistence)
+- [gpt-chat-module-cross-file-architecture](spec-docs/gpt-chat-module-cross-file-architecture.md) — Cross-file call chains (parameter merge, context building, model resolution, protocol dispatch), naming pitfalls, schema migration pattern, model preset matching rules, V2 tree model design rationale, and agent traps for `src/func/gpt/`
 
 ## External References
 
