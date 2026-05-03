@@ -330,6 +330,8 @@ export const adaptResponseMessage = (message: Record<string, string>): {
         result.reasoning_content = message['reasoning_content'];
     } else if (message['reasoning']) {
         result.reasoning_content = message['reasoning'];
+    } else if (message['reasoning_details']) {
+        result.reasoning_content = message['reasoning_details'];
     }
 
     // 处理 tool_calls

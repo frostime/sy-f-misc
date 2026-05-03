@@ -1,7 +1,7 @@
 ---
 name: chat-options
 created: 2026-05-03 00:36:23
-status: DOING
+status: DONE
 attach-change: .sspec/changes/26-05-03T01-54_chat-options/spec.md
 tldr: ''
 ---
