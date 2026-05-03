@@ -231,8 +231,11 @@ export const adaptChatOptions = (target: {
             disabledKeys.push('stream');
         }
 
-        // Reasoning effort support
-        if (config.capabilities.reasoningEffort !== true && chatOption.reasoning_effort) {
+        // Reasoning effort support (legacy fallback only)
+        // 新系统优先走 options.compat.thinking.enabled；
+        // 只有没有 compat.thinking 配置时，才回退检查旧 capabilities.reasoningEffort。
+        const compatThinkingEnabled = config?.options?.compat?.thinking?.enabled === true;
+        if (!compatThinkingEnabled && config.capabilities.reasoningEffort !== true && chatOption.reasoning_effort) {
             delete chatOption.reasoning_effort;
             disabledKeys.push('reasoning_effort');
         }

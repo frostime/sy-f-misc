@@ -7,7 +7,7 @@ import { useSimpleContext } from './ChatSession/use-chat-session';
 
 export const useSessionSetting = () => {
     let context = useSimpleContext();
-    let { config, session } = context;
+    let { config, session, model } = context;
 
     const availableSystemPrompts = (): Record<string, string> => {
         const systemPrompts = promptTemplates().filter(item => item.type === 'system');
@@ -50,7 +50,7 @@ export const useSessionSetting = () => {
                     }}
                 />
             </Form.Wrap>
-            <ChatSetting config={config} />
+            <ChatSetting config={config} model={model} />
         </div>
     )
 

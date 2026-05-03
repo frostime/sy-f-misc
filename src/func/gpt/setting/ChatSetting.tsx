@@ -9,6 +9,7 @@
 
 
 import Form from "@/libs/components/Form";
+import { createMemo } from "solid-js";
 
 import { IStoreRef } from "@frostime/solid-signal-ref";
 import { UIConfig, defaultModelId, listAvialableModels, useModel } from "../model/store";
@@ -22,6 +23,7 @@ import { confirmDialog } from "@frostime/siyuan-plugin-kits";
 
 const ChatSessionSetting = (props: {
     config: IStoreRef<IChatSessionConfig>,
+    model?: () => IRuntimeLLM | null,
 }) => {
 
     const { config } = props;
@@ -33,6 +35,17 @@ const ChatSessionSetting = (props: {
             [key]: value,
         });
     };
+
+    const currentModel = createMemo(() => props.model?.() ?? useModel(defaultModelId(), 'null'));
+    const reasoningOptions = createMemo<Record<string, string>>(() => {
+        const all: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+        const supported = currentModel()?.config?.options?.compat?.thinking?.supportedEfforts;
+        const levels = supported?.length ? all.filter(level => supported.includes(level)) : all;
+
+        const options: Record<string, string> = { "": "不设置" };
+        levels.forEach(level => options[level] = level);
+        return options;
+    });
 
     return (
         <>
@@ -175,15 +188,16 @@ const ChatSessionSetting = (props: {
                             if (!v) return;
                             config.update('chatOption', 'reasoning_effort', v as ReasoningEffort);
                         }}
-                        options={{
-                            "": "不设置",
-                            "none": "none",
-                            "minimal": "minimal",
-                            "low": "low",
-                            "medium": "medium",
-                            "high": "high",
-                            "xhigh": "xhigh"
-                        }}
+                        options={reasoningOptions()}
+                        // options={{
+                        //     "": "不设置",
+                        //     "none": "none",
+                        //     "minimal": "minimal",
+                        //     "low": "low",
+                        //     "medium": "medium",
+                        //     "high": "high",
+                        //     "xhigh": "xhigh"
+                        // }}
                     />
                 </div>
             </Form.Wrap>
