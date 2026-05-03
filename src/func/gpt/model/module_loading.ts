@@ -8,7 +8,7 @@
  */
 
 import { createJavascriptFile, importJavascriptFile } from "@frostime/siyuan-plugin-kits";
-import { userCustomizedPreprocessor } from "../openai/adpater";
+import { userCustomizedPreprocessor } from "../openai/adapter";
 
 export const preprocessModuleJsName = 'gpt.preprocess.js';
 export const contextProviderModuleJsName = 'gpt.context-provider.custom.js';

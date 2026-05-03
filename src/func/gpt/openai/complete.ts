@@ -1,6 +1,6 @@
 import { defaultModelId, useModel } from "../model/store";
 import { appendLog } from "../MessageLogger";
-import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage, adaptToolCalls } from './adpater';
+import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage, adaptToolCalls } from './adapter';
 import { getProviderProtocol } from './protocol-utils';
 import { claudeComplete } from './claude-complete';
 import { geminiComplete } from './gemini-complete';

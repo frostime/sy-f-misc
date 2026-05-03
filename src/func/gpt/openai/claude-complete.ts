@@ -1,5 +1,5 @@
 import { appendLog } from '../MessageLogger';
-import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adpater';
+import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adapter';
 import { buildProtocolHeaders, CompleteOptions, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult, toOpenAIUsage } from './protocol-utils';
 
 const pushClaudeMessage = (messages: IClaudeMessage[], role: IClaudeMessage['role'], blocks: ClaudeContentBlock[]) => {

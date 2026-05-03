@@ -1,5 +1,5 @@
 import { showMessage } from 'siyuan';
-import { adpatInputMessage } from './adpater';
+import { adpatInputMessage } from './adapter';
 
 export interface CompleteOptions {
     model?: IRuntimeLLM;

@@ -1,5 +1,5 @@
 import { appendLog } from '../MessageLogger';
-import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adpater';
+import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adapter';
 import {
     applyGeminiModelPlaceholder,
     buildProtocolHeaders,
