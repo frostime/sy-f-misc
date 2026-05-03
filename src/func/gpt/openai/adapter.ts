@@ -39,7 +39,7 @@ const clampEffort = (
 
 /**
  * 应用模型兼容配置 + toggle 开关，返回处理后的 option 副本。
- * 
+ *
  * 处理顺序：
  *   1. toggle=false 的 key 删除
  *   2. compat.unsupported 删除
@@ -49,6 +49,7 @@ export const applyOptionCompat = (
     chatOption: IChatCompleteOption,
     toggles: Partial<Record<keyof IChatCompleteOption, boolean>> | undefined,
     compat: ILLMOptionCompat | undefined,
+    protocol: LLMProviderProtocol = 'openai',
 ): IChatCompleteOption => {
     const option = structuredClone(chatOption) as IChatCompleteOption & Record<string, any>;
 
@@ -66,7 +67,7 @@ export const applyOptionCompat = (
         }
     }
 
-    // 3. Thinking 参数注入（仅 OpenAI 兼容路径）
+    // 3. Thinking 参数注入（仅 OpenAI-compatible 路径）
     const thinking = compat?.thinking;
     if (thinking?.enabled) {
         const rawEffort = option.reasoning_effort as ReasoningEffort | undefined;
@@ -75,6 +76,11 @@ export const applyOptionCompat = (
         // supportedEfforts 校验：none 不参与 clamp（由后续 effort !== 'none' 判断处理）
         if (effort && effort !== 'none' && thinking.supportedEfforts?.length) {
             effort = clampEffort(effort, thinking.supportedEfforts);
+        }
+
+        // Claude / Gemini 由各自 payload builder 自己处理 thinking 语义，避免协议字段泄漏
+        if (protocol !== 'openai') {
+            return option;
         }
 
         const style = thinking.thinkingStyle ?? 'openai';
@@ -185,7 +191,8 @@ export const adaptChatOptions = (target: {
     chatOption = structuredClone(chatOption);
 
     // Step 1: Apply compat (toggle 删除 + unsupported + thinking 注入)
-    chatOption = applyOptionCompat(chatOption, toggles, config?.options?.compat);
+    const protocol = (runtimeLLM?.provider?.protocol || runtimeLLM?.provider?.protocal || runtimeLLM?.protocol || 'openai') as LLMProviderProtocol;
+    chatOption = applyOptionCompat(chatOption, toggles, config?.options?.compat, protocol);
 
     // Step 2: Remove null/undefined values
     for (const key in chatOption) {
@@ -349,10 +356,10 @@ export const adaptChunkMessage = (messageInChoices: Record<string, any>): {
 /**
  * 统一处理和合并 tool calls 的适配器
  * 用于在流式响应中累积合并多个 chunk 中的 tool_calls
- * 
+ *
  * @param allChunks 所有收集到的 tool_calls chunks
  * @returns 合并后的 tool_calls 数组
- * 
+ *
  * 标准 OpenAI 格式; 需要合并 arguments 字段
 ```json
 [

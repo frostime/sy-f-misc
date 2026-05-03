@@ -1225,6 +1225,9 @@ export const ChatSession: Component<{
                         ), attachedHistoryContainer);
 
                         const temperatureDisabled = () => config().chatOptionToggles?.temperature === false;
+                        const temperatureDisplay = () => temperatureDisabled()
+                            ? 'API 默认'
+                            : (config().chatOption.temperature?.toFixed(2) ?? 'API 默认');
 
                         const temperatureContainer = document.createElement('div');
                         const disposeTemp = render(() => (
@@ -1237,12 +1240,9 @@ export const ChatSession: Component<{
                                     min={0}
                                     max={2}
                                     step={0.05}
+                                    disabled={temperatureDisabled()}
                                 />
-                                <span>
-                                    {temperatureDisabled()
-                                        ? 'API 默认'
-                                        : (config().chatOption.temperature?.toFixed(2) ?? 'API 默认')}
-                                </span>
+                                <span>{temperatureDisplay()}</span>
                             </div>
                         ), temperatureContainer);
 
@@ -1280,7 +1280,7 @@ export const ChatSession: Component<{
                         // 温度选项
                         menu.addItem({
                             icon: 'iconLight',
-                            label: '温度: ' + (config().chatOption.temperature?.toFixed(2) ?? 'API 默认'),
+                            label: '温度: ' + temperatureDisplay(),
                             submenu: [
                                 {
                                     element: temperatureContainer
