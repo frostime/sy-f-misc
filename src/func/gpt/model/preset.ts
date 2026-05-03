@@ -125,11 +125,13 @@ const MODEL_PRESETS: IModelPreset[] = [
             },
             limits: { maxContext: 200_000 },
             options: {
-                unsupported: ['frequency_penalty', 'presence_penalty'],
                 compat: {
                     unsupported: ['frequency_penalty', 'presence_penalty'],
-                    thinking: { enabled: true },
-                    // thinkingStyle 不需要——Claude 协议在 buildClaudePayload 中处理 thinking
+                    thinking: {
+                        enabled: true,
+                        claudeMode: 'adaptive',
+                        supportedEfforts: ['low', 'medium', 'high', 'xhigh'],
+                    },
                 },
             },
         },

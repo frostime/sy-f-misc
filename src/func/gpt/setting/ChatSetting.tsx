@@ -26,6 +26,14 @@ const ChatSessionSetting = (props: {
 
     const { config } = props;
 
+    const updateToggle = (key: ConfigurableChatOption, value: boolean) => {
+        const current = config().chatOptionToggles || {};
+        config.update('chatOptionToggles', {
+            ...current,
+            [key]: value,
+        });
+    };
+
     return (
         <>
             <Heading>GPT 对话参数</Heading>
@@ -158,7 +166,7 @@ const ChatSessionSetting = (props: {
                         type="checkbox"
                         value={config().chatOptionToggles?.reasoning_effort !== false}
                         changed={(v) => {
-                            config.update('chatOptionToggles', 'reasoning_effort', v);
+                            updateToggle('reasoning_effort', v);
                         }}
                     />
                     <SelectInput
@@ -189,7 +197,7 @@ const ChatSessionSetting = (props: {
                         type="checkbox"
                         value={config().chatOptionToggles?.temperature !== false}
                         changed={(v) => {
-                            config.update('chatOptionToggles', 'temperature', v);
+                            updateToggle('temperature', v);
                         }}
                     />
                     <Form.Input
@@ -211,7 +219,7 @@ const ChatSessionSetting = (props: {
                         type="checkbox"
                         value={config().chatOptionToggles?.max_tokens !== false}
                         changed={(v) => {
-                            config.update('chatOptionToggles', 'max_tokens', v);
+                            updateToggle('max_tokens', v);
                         }}
                     />
                     <Form.Input
@@ -234,7 +242,7 @@ const ChatSessionSetting = (props: {
                         type="checkbox"
                         value={config().chatOptionToggles?.top_p !== false}
                         changed={(v) => {
-                            config.update('chatOptionToggles', 'top_p', v);
+                            updateToggle('top_p', v);
                         }}
                     />
                     <Form.Input
@@ -257,7 +265,7 @@ const ChatSessionSetting = (props: {
                         type="checkbox"
                         value={config().chatOptionToggles?.presence_penalty !== false}
                         changed={(v) => {
-                            config.update('chatOptionToggles', 'presence_penalty', v);
+                            updateToggle('presence_penalty', v);
                         }}
                     />
                     <Form.Input
@@ -280,7 +288,7 @@ const ChatSessionSetting = (props: {
                         type="checkbox"
                         value={config().chatOptionToggles?.frequency_penalty !== false}
                         changed={(v) => {
-                            config.update('chatOptionToggles', 'frequency_penalty', v);
+                            updateToggle('frequency_penalty', v);
                         }}
                     />
                     <Form.Input

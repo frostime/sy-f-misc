@@ -386,6 +386,8 @@ interface ILLMOptionCompat {
         /** 归一化 effort → token 预算（Claude/Gemini 协议用）
          *  缺省时使用内置回退: minimal=1024, low=2048, medium=8192, high=16384, xhigh=32768 */
         budgetMap?: Partial<Record<ReasoningEffort, number>>;
+        /** Claude 协议内部的 thinking 模式，不复用 OpenAI-compatible 的 thinkingStyle */
+        claudeMode?: 'adaptive' | 'manual-budget';
     };
 }
 
@@ -467,6 +469,7 @@ interface ILLMConfigV2 {
         streaming?: boolean; //是否支持流式输出 默认 true
         reasoning?: boolean; // 是否支持推理字段 (reasoning_content),
         jsonMode?: boolean;  // 是否支持 json_object
+        /** @deprecated use options.compat.thinking.enabled */
         reasoningEffort?: boolean; // 是否支持 reasoning_effort: 'none' | 'low' | 'medium' | 'high'
         // structuredOutputs?: boolean;  // json_schema
     }
@@ -481,7 +484,7 @@ interface ILLMConfigV2 {
     options: {
         //强制覆盖对话中的选项; 比如指定 think effort 等
         customOverride?: Partial<IChatCompleteOption & Record<string, any>>;
-        //不支持的选项列表
+        /** @deprecated use options.compat.unsupported */
         unsupported?: (keyof IChatCompleteOption | string)[];
         /** 结构化兼容性配置，替代散落的 capabilities/unsupported/deleteIfEqual 逻辑 */
         compat?: ILLMOptionCompat;

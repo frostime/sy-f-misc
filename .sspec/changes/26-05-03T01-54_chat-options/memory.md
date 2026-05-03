@@ -7,7 +7,7 @@ created: 2026-05-03T01:54:11
 
 ## State
 
-Implementation complete. 8 个 phase 已完成，TypeScript 检查通过，`pnpm run build` 通过。当前等待用户在思源中做手工验收。
+Implementation complete. 基础 chat-options 实现 + revision 001（Provider panel cleanup / Claude adaptive thinking）已完成，TypeScript 检查通过，`pnpm run build` 通过。当前等待用户在思源中做手工验收。
 
 ## Key Files
 
@@ -96,3 +96,5 @@ Implementation complete. 8 个 phase 已完成，TypeScript 检查通过，`pnpm
 - [2026-05-03T04:16] Verify: `pnpm run build` 通过
 - [2026-05-03T04:35] Maintenance: `tasks.md` 因 emoji 编码损坏，已重写为 ASCII 状态标记版本
 - [2026-05-03T04:40] Reference: 记录 `reference/chat-thread-export_R1-Deisgn.xml`（设计会话导出）与 `reference/chat-thread-export_R2-Implement.xml`（实现会话导出）供后续 agent 追溯因果
+- [2026-05-03T05:10] Revision 001: 完成 Provider panel cleanup——移除旧 reasoningEffort UI 入口、unsupported 收口到 compat、customOverride 置底、按 protocol 条件渲染 compat 子项、Claude 增加 `claudeMode`（默认 adaptive）并接入 adaptive thinking runtime
+- [2026-05-03T05:12] Verify: revision 001 的 `npx tsc --noEmit` 与 `pnpm run build` 通过

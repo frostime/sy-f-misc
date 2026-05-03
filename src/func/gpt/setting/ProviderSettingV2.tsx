@@ -12,7 +12,7 @@ import { BasicDraggableList } from "@/libs/components/drag-list";
 import { createModelConfig } from "../model/preset";
 import Heading from "./Heading";
 // import { Button } from "@frostime/siyuan-plugin-kits/element";
-import { ButtonInput, SelectInput } from "@/libs/components/Elements";
+import { ButtonInput } from "@/libs/components/Elements";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { TextAreaWithActionButton } from "@/libs/components/Elements/TextArea";
 import * as agent from "../openai/tiny-agent";
@@ -50,6 +50,7 @@ const ModelConfigPanel: Component<{
     const { updateModel, providerIndex } = useProviderEditContext();
 
     const provider = () => llmProviders()[providerIndex()];
+    const providerProtocol = createMemo<LLMProviderProtocol>(() => normalizeProviderProtocol(provider()));
 
     const model = () => props.model;
     const index = () => props.modelIndex;
@@ -314,7 +315,6 @@ const ModelConfigPanel: Component<{
                     <For each={[
                         { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
                         { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
-                        { key: 'reasoningEffort', label: 'reasoning_effort', desc: '部分模型允许设置 reasoning_effort 参数' },
                         // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
                         // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
                     ] as const}>
@@ -401,69 +401,10 @@ const ModelConfigPanel: Component<{
             <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
                 {/* <h4 style={{ 'margin-top': '0' }}>高级选项</h4> */}
 
-                <Form.Wrap
-                    title="不支持的参数"
-                    description="不支持的 ChatOption 参数，用逗号或换行分隔（如: frequency_penalty, presence_penalty）"
-                    direction="row"
-                >
-                    <Form.Input
-                        type="textarea"
-                        value={(model().options?.unsupported || []).join('\n')}
-                        changed={updateUnsupportedOptions}
-                        style={{ width: '100%', height: '80px' }}
-                    />
-                </Form.Wrap>
-
-                {/* <Form.Wrap
-                    title="自定义参数覆盖"
-                    description={`强制覆盖的参数，JSON 格式（如: {\" reasoning_effort\": \"medium\"}）`}
-                    direction="row"
-                >
-                    <Form.Input
-                        type="textarea"
-                        value={JSON.stringify(model().options?.customOverride || {}, null, 2)}
-                        changed={updateCustomOverride}
-                        style={{ width: '100%', height: '100px', 'font-family': 'monospace' }}
-                    />
-                </Form.Wrap> */}
-
-                <Form.Wrap
-                    title="自定义参数覆盖"
-                    description={`强制覆盖的参数，JSON 格式（如: {\" reasoning_effort\": \"medium\"}）; 便利起见, 可以点击按钮 'JSON' 辅助生成 JSON`}
-                    direction="row"
-                >
-                    <TextAreaWithActionButton
-                        // value={JSON.stringify(model().options?.customOverride, null, 2)}
-                        value={(function () {
-                            const value = model().options?.customOverride;
-                            if (!value || Object.keys(value).length === 0) {
-                                return ''
-                            }
-                            return JSON.stringify(value, null, 2);
-                        })()}
-                        onChanged={updateCustomOverride}
-                        // style={{ width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)' }}
-                        actionText="JSON"
-                        action={
-                            async function (text: string) {
-                                if (!text.trim()) return;
-                                const formalized = await agent.jsonAgent({
-                                    text: text,
-                                    schema: '遵循 OpenAI Completion Option 格式',
-                                });
-                                if (formalized.ok) {
-                                    updateCustomOverride(formalized.content);
-                                }
-                            }
-                        }
-                    />
-                </Form.Wrap>
-
                 {/* ── 参数兼容 ── */}
                 <Form.Wrap
                     title="启用 Reasoning"
                     description="该模型是否支持 reasoning / thinking 参数"
-                    direction="row"
                 >
                     <Form.Input
                         type="checkbox"
@@ -472,21 +413,41 @@ const ModelConfigPanel: Component<{
                     />
                 </Form.Wrap>
 
-                <Form.Wrap
-                    title="Thinking 风格"
-                    description="OpenAI 兼容路径下 thinking 参数的发送方式（Claude/Gemini 协议忽略此项）"
-                    direction="row"
-                >
-                    <SelectInput
-                        value={(model().options as any)?.compat?.thinking?.thinkingStyle ?? 'openai'}
-                        changed={(v: string) => updateCompatThinking({ thinkingStyle: v as any })}
-                        options={{ openai: 'openai（默认）', deepseek: 'deepseek', qwen: 'qwen' }}
-                    />
-                </Form.Wrap>
+                <Show when={providerProtocol() === 'openai'}>
+                    <Form.Wrap
+                        title="Thinking 风格"
+                        description="OpenAI 兼容路径下 thinking 参数的发送方式"
+                    >
+                        <Form.Input
+                            type="select"
+                            value={(model().options as any)?.compat?.thinking?.thinkingStyle ?? 'openai'}
+                            changed={(v) => updateCompatThinking({ thinkingStyle: v as any })}
+                            options={{ openai: 'openai（默认）', deepseek: 'deepseek', qwen: 'qwen' }}
+                        />
+                    </Form.Wrap>
+                </Show>
+
+                <Show when={providerProtocol() === 'claude'}>
+                    <Form.Wrap
+                        title="Claude Thinking 模式"
+                        description="Claude 协议内部的 thinking 模式选择；不复用 OpenAI 的 Thinking 风格概念"
+                    >
+                        <Form.Input
+                            type="select"
+                            value={(model().options as any)?.compat?.thinking?.claudeMode ?? 'adaptive'}
+                            changed={(v) => updateCompatThinking({ claudeMode: v as any })}
+                            options={{ adaptive: 'adaptive（推荐）', 'manual-budget': 'manual-budget（旧式）' }}
+                        />
+                    </Form.Wrap>
+                </Show>
 
                 <Form.Wrap
                     title="支持的 Effort 级别"
-                    description="限制该模型可用的 effort 级别；留空表示全部支持"
+                    description={providerProtocol() === 'claude'
+                        ? '限制该模型可用的 effort 级别；xhigh 在 Claude 中会映射到 max'
+                        : providerProtocol() === 'gemini'
+                            ? '限制该模型可用的 effort 级别；Gemini 最终走 thinkingBudget 数值预算'
+                            : '限制该模型可用的 effort 级别；留空表示全部支持'}
                     direction="row"
                 >
                     <div style={{ display: 'flex', 'flex-wrap': 'wrap', gap: '6px' }}>
@@ -513,21 +474,36 @@ const ModelConfigPanel: Component<{
                     </div>
                 </Form.Wrap>
 
+                <Show when={providerProtocol() === 'openai'}>
+                    <Form.Wrap
+                        title="Effort 值映射（JSON）"
+                        description="归一化 effort → API 原生值，如 {&quot;xhigh&quot;: &quot;max&quot;}（DeepSeek V4）；留空表示直接使用级别名"
+                        direction="row"
+                    >
+                        <Form.Input
+                            type="textarea"
+                            value={JSON.stringify((model().options as any)?.compat?.thinking?.effortMap ?? {}, null, 2)}
+                            changed={(v) => {
+                                try {
+                                    const parsed = v.trim() ? JSON.parse(v) : undefined;
+                                    updateCompatThinking({ effortMap: Object.keys(parsed || {}).length ? parsed : undefined });
+                                } catch { showMessage('effortMap 格式错误，请使用 JSON'); }
+                            }}
+                            style={{ width: '100%', height: '70px', 'font-family': 'var(--b3-font-family-code)' }}
+                        />
+                    </Form.Wrap>
+                </Show>
+
                 <Form.Wrap
-                    title="Effort 值映射（JSON）"
-                    description="归一化 effort → API 原生值，如 {&quot;xhigh&quot;: &quot;max&quot;}（DeepSeek V4）；留空表示直接使用级别名"
+                    title="不支持的参数"
+                    description="不支持的 ChatOption 参数，用逗号或换行分隔（如: frequency_penalty, presence_penalty）"
                     direction="row"
                 >
                     <Form.Input
                         type="textarea"
-                        value={JSON.stringify((model().options as any)?.compat?.thinking?.effortMap ?? {}, null, 2)}
-                        changed={(v) => {
-                            try {
-                                const parsed = v.trim() ? JSON.parse(v) : undefined;
-                                updateCompatThinking({ effortMap: Object.keys(parsed || {}).length ? parsed : undefined });
-                            } catch { showMessage('effortMap 格式错误，请使用 JSON'); }
-                        }}
-                        style={{ width: '100%', height: '70px', 'font-family': 'var(--b3-font-family-code)' }}
+                        value={(((model().options as any)?.compat?.unsupported as string[] | undefined) ?? model().options?.unsupported ?? []).join('\n')}
+                        changed={updateUnsupportedOptions}
+                        style={{ width: '100%', height: '80px' }}
                     />
                 </Form.Wrap>
 
@@ -558,6 +534,36 @@ const ModelConfigPanel: Component<{
                             );
                         })}
                     </div>
+                </Form.Wrap>
+
+                <Form.Wrap
+                    title="自定义参数覆盖"
+                    description={`强制覆盖的参数，JSON 格式（如: {\"reasoning_effort\": \"medium\"}）; 便利起见, 可以点击按钮 'JSON' 辅助生成 JSON`}
+                    direction="row"
+                >
+                    <TextAreaWithActionButton
+                        value={(function () {
+                            const value = model().options?.customOverride;
+                            if (!value || Object.keys(value).length === 0) {
+                                return '';
+                            }
+                            return JSON.stringify(value, null, 2);
+                        })()}
+                        onChanged={updateCustomOverride}
+                        actionText="JSON"
+                        action={
+                            async function (text: string) {
+                                if (!text.trim()) return;
+                                const formalized = await agent.jsonAgent({
+                                    text: text,
+                                    schema: '遵循 OpenAI Completion Option 格式',
+                                });
+                                if (formalized.ok) {
+                                    updateCustomOverride(formalized.content);
+                                }
+                            }
+                        }
+                    />
                 </Form.Wrap>
             </div>
         </div >

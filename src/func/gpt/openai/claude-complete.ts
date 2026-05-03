@@ -152,14 +152,32 @@ const buildClaudePayload = (
     const compat = model?.config?.options?.compat;
     if (compat?.thinking?.enabled) {
         const effort = option.reasoning_effort as ReasoningEffort | undefined;
+        const claudeMode = compat.thinking.claudeMode ?? 'adaptive';
+
         if (effort && effort !== 'none') {
-            const budget = compat.thinking.budgetMap?.[effort] ?? DEFAULT_THINKING_BUDGETS[effort] ?? 8192;
-            payload.thinking = { type: 'enabled', budget_tokens: budget };
-            // Claude: thinking 开启时 temperature 必须为 1
+            // Claude adaptive effort 口径：low / medium / high / max
+            // 约定：xhigh -> max；minimal 无专属值时回落为 low
+            const claudeEffort = effort === 'xhigh'
+                ? 'max'
+                : effort === 'minimal'
+                    ? 'low'
+                    : effort;
+
+            if (claudeMode === 'manual-budget') {
+                const budget = compat.thinking.budgetMap?.[effort] ?? DEFAULT_THINKING_BUDGETS[effort] ?? 8192;
+                payload.thinking = { type: 'enabled', budget_tokens: budget };
+            } else {
+                payload.effort = claudeEffort;
+                payload.thinking = { type: 'adaptive' };
+            }
+
+            // Claude thinking 开启时 temperature/top_p 不再发送
             delete payload.temperature;
             delete payload.top_p;
         } else {
-            payload.thinking = { type: 'disabled' };
+            // 未启用 reasoning 时，省略 thinking/effort 字段，避免对不支持 disabled 的模型产生歧义
+            delete payload.thinking;
+            delete payload.effort;
         }
     }
 
