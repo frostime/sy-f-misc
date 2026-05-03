@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2026-02-26 20:44:12
+ * @LastEditTime : 2026-05-03 18:59:16
  * @Description  :
  */
 // External libraries
@@ -1224,6 +1224,8 @@ export const ChatSession: Component<{
                             </div>
                         ), attachedHistoryContainer);
 
+                        const temperatureDisabled = () => config().chatOptionToggles?.temperature === false;
+
                         const temperatureContainer = document.createElement('div');
                         const disposeTemp = render(() => (
                             <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
@@ -1236,7 +1238,11 @@ export const ChatSession: Component<{
                                     max={2}
                                     step={0.05}
                                 />
-                                <span>{config().chatOption.temperature?.toFixed(2) ?? 'API 默认'}</span>
+                                <span>
+                                    {temperatureDisabled()
+                                        ? 'API 默认'
+                                        : (config().chatOption.temperature?.toFixed(2) ?? 'API 默认')}
+                                </span>
                             </div>
                         ), temperatureContainer);
 
@@ -1282,6 +1288,32 @@ export const ChatSession: Component<{
                             ]
                         });
 
+                        // 推理设置
+                        const current = config().chatOption.reasoning_effort;
+                        const supported = model()?.config?.options?.compat?.thinking?.supportedEfforts;
+                        const all: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+                        const levels = supported?.length ? all.filter(l => supported.includes(l)) : all;
+                        const items = [
+                            { label: '不设置', value: '' },
+                            ...levels.map(l => ({ label: l, value: l })),
+                        ];
+                        menu.addItem({
+                            icon: 'iconSparkles',
+                            label: '推理: ' + (current || '不设置'),
+                            submenu: items.map(item => ({
+                                label: (item.value ? item.label : '不设置'),
+                                click: () => {
+                                    if (item.value) {
+                                        config.update('chatOptionToggles', 'reasoning_effort', true);
+                                        config.update('chatOption', 'reasoning_effort', item.value as ReasoningEffort);
+                                    } else {
+                                        config.update('chatOptionToggles', 'reasoning_effort', false);
+                                    }
+                                    menu.close();
+                                },
+                            })),
+                        });
+
                         // System Prompt
                         menu.addItem({
                             icon: 'iconUsers',
@@ -1302,7 +1334,7 @@ export const ChatSession: Component<{
                                     loader: () => (
                                         <Markdown markdown={text} style={{
                                             padding: '10px'
-                                        }}/>
+                                        }} />
                                     ),
                                     width: '720px',
                                     maxHeight: '70%',

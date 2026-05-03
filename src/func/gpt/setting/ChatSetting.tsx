@@ -42,7 +42,7 @@ const ChatSessionSetting = (props: {
         const supported = currentModel()?.config?.options?.compat?.thinking?.supportedEfforts;
         const levels = supported?.length ? all.filter(level => supported.includes(level)) : all;
 
-        const options: Record<string, string> = { "": "不设置" };
+        const options: Record<string, string> = {};
         levels.forEach(level => options[level] = level);
         return options;
     });
@@ -185,19 +185,9 @@ const ChatSessionSetting = (props: {
                     <SelectInput
                         value={config().chatOption.reasoning_effort ?? ''}
                         changed={(v: string) => {
-                            if (!v) return;
                             config.update('chatOption', 'reasoning_effort', v as ReasoningEffort);
                         }}
                         options={reasoningOptions()}
-                        // options={{
-                        //     "": "不设置",
-                        //     "none": "none",
-                        //     "minimal": "minimal",
-                        //     "low": "low",
-                        //     "medium": "medium",
-                        //     "high": "high",
-                        //     "xhigh": "xhigh"
-                        // }}
                     />
                 </div>
             </Form.Wrap>

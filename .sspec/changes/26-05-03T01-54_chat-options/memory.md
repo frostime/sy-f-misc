@@ -98,3 +98,6 @@ Implementation complete. 基础 chat-options 实现 + revision 001（Provider pa
 - [2026-05-03T04:40] Reference: 记录 `reference/chat-thread-export_R1-Deisgn.xml`（设计会话导出）与 `reference/chat-thread-export_R2-Implement.xml`（实现会话导出）供后续 agent 追溯因果
 - [2026-05-03T05:10] Revision 001: 完成 Provider panel cleanup——移除旧 reasoningEffort UI 入口、unsupported 收口到 compat、customOverride 置底、按 protocol 条件渲染 compat 子项、Claude 增加 `claudeMode`（默认 adaptive）并接入 adaptive thinking runtime
 - [2026-05-03T05:12] Verify: revision 001 的 `npx tsc --noEmit` 与 `pnpm run build` 通过
+- [2026-05-03T05:20] Revision 002: 完成 session reasoning / quick menu cleanup——去掉设置页「不设置」、补齐 3.2 migration（含脏数据清理）、快速菜单温度跟随 toggle、快速菜单新增 reasoning_effort
+- [2026-05-03T05:22] Verify: revision 002 的 `npx tsc --noEmit` 与 `pnpm run build` 通过
+- [2026-05-03T05:22] Critical: 发现 Phase 5 实现遗漏——3.2 schema migration 逻辑完全缺失（仅 bump 了常量），已在 revision 002 中补全

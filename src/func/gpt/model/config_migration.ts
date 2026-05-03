@@ -311,6 +311,45 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
         }
     }
 
+    // 3.2 版本: 向后兼容 schema <= 3.1; 变更:
+    //   a. chatOptionToggles: 旧 chatOption 有实值的 key 全部 toggle=true（旧行为不变）
+    //   b. capabilities.reasoningEffort → options.compat.thinking.enabled
+    //   c. 脏数据清理: toggle=true 但 effort 为空的 → 修正为 toggle=false
+    if (compareSchemaVersion(dataSchema, '3.2') < 0) {
+        const config = (data as any).config;
+        if (config?.chatOption && !config.chatOptionToggles) {
+            const toggles: Record<string, boolean> = {};
+            for (const key of Object.keys(config.chatOption)) {
+                if (config.chatOption[key] !== undefined && config.chatOption[key] !== null) {
+                    toggles[key] = true;
+                }
+            }
+            // 脏数据清理: toggle=true 但 reasoning_effort 为空 → 修正为 false
+            if (toggles.reasoning_effort === true && !config.chatOption.reasoning_effort) {
+                toggles.reasoning_effort = false;
+            }
+            config.chatOptionToggles = toggles;
+        }
+
+        const llmProviders = (data as any).llmProviders as ILLMProviderV2[];
+        if (Array.isArray(llmProviders)) {
+            llmProviders.forEach((provider) => {
+                (provider.models || []).forEach((model) => {
+                    if ((model as any).capabilities?.reasoningEffort) {
+                        model.options = model.options || {};
+                        const compat = (model.options as any).compat || {};
+                        compat.thinking = compat.thinking || {};
+                        compat.thinking.enabled = true;
+                        (model.options as any).compat = compat;
+                        // 保留 capabilities.reasoningEffort，不删除
+                    }
+                });
+            });
+        }
+
+        migrated = true;
+    }
+
     migrated = true;
     (data as any).schema = CURRENT_SCHEMA;
     return { data, migrated };
