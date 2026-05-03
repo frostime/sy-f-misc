@@ -10,6 +10,7 @@ export default function SliderInput(props: {
     max?: number;
     step?: number;
     tooltip?: boolean;
+    disabled?: boolean;
 }) {
     let value = () => props.value ?? 0;
 
@@ -31,8 +32,10 @@ export default function SliderInput(props: {
                 step={props.step ?? 1}
                 type="range"
                 value={value()}
+                disabled={props.disabled}
                 onInput={(e) => {
                     e.stopImmediatePropagation();
+                    if (props.disabled) return;
                     props.changed?.(Number(e.currentTarget.value));
                 }}
                 onClick={(e) => {

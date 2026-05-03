@@ -1,6 +1,8 @@
-requests/*
-changes/*
-asks/*
+requests/archive
+changes/archive
+asks/
+# Temporary workspace drafts
+tmp/**
 
 # >>> sspec-managed skills >>>
 skills/sspec-align

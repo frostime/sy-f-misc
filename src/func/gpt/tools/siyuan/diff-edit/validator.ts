@@ -5,6 +5,11 @@
  * @FilePath     : /src/func/gpt/tools/siyuan/diff-edit/validator.ts
  * @LastEditTime : 2026-02-07 21:20:00
  * @Description  : Block Diff 格式验证模块（Lexer 检测）
+ *
+ * Design Decision: Lexer 检测而非转义方案
+ * 块内容可能包含 "<<<<<<< SEARCH" 等标记关键词。
+ * 转义方案问题：无法区分"转义符"和"原文就有的反斜杠"。
+ * Lexer 方案：Token 化后检测序列模式 (BST*DT*R)+，准确拒绝格式错误 + 有意义的错误提示。
  */
 
 // ============================================================

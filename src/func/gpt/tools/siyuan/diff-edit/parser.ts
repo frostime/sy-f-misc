@@ -5,6 +5,11 @@
  * @FilePath     : /src/func/gpt/tools/siyuan/diff-edit/parser.ts
  * @LastEditTime : 2026-02-07 21:25:00
  * @Description  : Block Diff 解析器（SEARCH/REPLACE 模式）
+ *
+ * Historical Context: 旧格式为 Unified Diff（2026-02-07 重构）
+ * 旧格式问题：空格数量敏感、模型难以生成、空行处理复杂
+ * 新格式优势：Git conflict markers（训练数据常见）、Lexer 验证防止块内容干扰
+ * Change: .sspec/changes/26-02-07T20-38_siyuan-edit-approach/
  */
 
 import type {

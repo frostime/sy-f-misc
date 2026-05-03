@@ -1,5 +1,8 @@
 # Project Context
 
+<!-- This file is the stable identity layer for agents working on this project.
+Read it first every session. Update Conventions + Notes via @memory. -->
+
 **Name**: sy-f-misc
 **Description**: A SiYuan Note plugin project.
 **Repo**: https://github.com/frostime/sy-f-misc
@@ -7,42 +10,43 @@
 A comprehensive personal toolbox plugin for SiYuan Note, providing a collection of powerful utilities and integrations.
 
 ## Tech Stack
-- **Language**: typescript
+- **Language**: TypeScript
 - **Key Dependencies**:
   - SiYuan Plugin API
-  - solidjs
+  - SolidJS
   - @frostime/solid-signal-ref
   - @frostime/siyuan-plugin-kits
-- **Build Tool**:
-  - vite
-  - pnpm
-- **Test Framework**: No, siyuan plugin can not easily been tested, we should use `pnpm run dev` and debug/test it within SiYuan app.
+- **Build Tool**: Vite + pnpm
+- **Test Framework**: None — siyuan plugin cannot be easily tested; use `pnpm run dev` and debug/test within SiYuan app.
 
 ### Build
 
-See `vite.config.ts`. plugin will be compiled to single index.js, and distributed to `dev/` or `dist/`.
+See `vite.config.ts`. Plugin compiled to single `index.js`, distributed to `dev/` or `dist/`.
 
-- Code from `src/` will be compiled by Vite into a single bundled `<dist>/index.js` file
-- CSS file will be bundled to `<dist>/index.css`
-- `plugin.json` will be copied to dist dir, as the manifest file of plugin.
-- Static files
-  - `/README*.md,preview.png,icon.png` file are copied to `<dist>/`
-  - All `src/**/*.html` files are copied to `<dist>/pages/`
-  - All `src/**/*.md` files are copied to `<dist>/docs/`
-- All from `/public/` will be copied to `<dist>/`
+- `src/` → Vite → `<dist>/index.js`
+- CSS → `<dist>/index.css`
+- `plugin.json` → copied to dist (manifest)
+- Static files:
+  - `/README*.md`, `preview.png`, `icon.png` → `<dist>/`
+  - `src/**/*.html` → `<dist>/pages/`
+  - `src/**/*.md` → `<dist>/docs/`
+- `/public/` → `<dist>/`
 
 ## Key Paths
-<!-- @RULE: Most important directories/files for quick navigation.
-Keep ≤10 entries. Agent uses this to orient in the codebase. -->
+<!-- MUST keep ≤10 entries. Most important directories/files for quick navigation.
+Agent uses this to orient in the codebase. -->
 
-- Each functional module lives in its own folder under `src/func/`
-- Module structure defined by `src/func/types.d.ts`
-- Shared components in `src/libs/components/`
-- Shared utilities in `src/libs/`
+| Path | Purpose |
+|------|---------|
+| `src/func/` | Functional modules (each in own folder) |
+| `src/func/types.d.ts` | Module structure definition |
+| `src/libs/` | Shared utilities |
+| `src/libs/components/` | Shared components |
+| `vite.config.ts` | Build configuration |
 
 ## Conventions
-<!-- @RULE: Coding rules that apply across ALL work in this project.
-One-liners only. If a convention needs multi-paragraph explanation → write a spec-doc.
+<!-- MUST be one-liners. Coding rules that apply across ALL work in this project.
+If a convention needs multi-paragraph explanation → write a spec-doc.
 Examples: "snake_case for Python, camelCase for JS", "All API routes: /api/v1/*",
 "Never commit .env files", "Prefer composition over inheritance" -->
 
@@ -51,12 +55,26 @@ Examples: "snake_case for Python, camelCase for JS", "All API routes: /api/v1/*"
 - Use `@frostime/solid-signal-ref` for cleaner signal management
 - Proper component composition and props handling
 - Avoid breaking reactivity chains
--
+
 ### Import Conventions
 - Use path aliases: `@/` for `src/`, `@gpt/` for `src/func/gpt/`
 - **Avoid `await import()`** for internal modules (single bundle compilation)
 - Only use dynamic imports for external JavaScript files
 - Module resolution: bundler mode
+
+## Spec-Docs Index
+<!-- Quick reference to spec-docs in `.sspec/spec-docs/`.
+Spec-docs capture knowledge that code alone cannot adequately convey:
+  A) In code, but scattered or hard to reconstruct (cross-module architecture, UX requirements, design norms, trade-offs)
+  B) Outside code entirely (platform rules, API quirks, business constraints, deployment assumptions)
+NOT a restating of code behavior — if readable from code+comments, it doesn't belong here.
+MUST keep entries in sync with actual spec-doc files.
+Format: `- [name](spec-docs/<file>) — one-line summary` -->
+
+- [func-module-architecture](spec-docs/func-module-architecture.md) — src/func/ 多模块架构：IFuncModule 接口、注册与加载、设置面板、两套持久化系统、Plugin 集成
+- [external-bundle](spec-docs/external-bundle.md) — External module independent bundling system: vite-plugin-external-modules architecture, module registration, dynamic import pattern
+- [gpt-module-architecture-overview](spec-docs/gpt-module-architecture-overview.md) — Bird's-eye view of `src/func/gpt/`: initialization sequence, configuration system, provider/model lifecycle, chat session lifecycle (V2 tree model), API communication flow, and cross-cutting concerns (privacy, context providers, tools, persistence)
+- [gpt-chat-module-cross-file-architecture](spec-docs/gpt-chat-module-cross-file-architecture.md) — Cross-file call chains (parameter merge, context building, model resolution, protocol dispatch), naming pitfalls, schema migration pattern, model preset matching rules, V2 tree model design rationale, and agent traps for `src/func/gpt/`
 
 ## External References
 
@@ -68,10 +86,11 @@ Examples: "snake_case for Python, camelCase for JS", "All API routes: /api/v1/*"
 - **[@frostime/siyuan-plugin-kits](https://www.npmjs.com/package/@frostime/siyuan-plugin-kits)**: SiYuan plugin utilities
 
 ## Notes
-<!-- @RULE: Project-level memory. Append-only log of learnings, gotchas, preferences.
-Agent appends here during @handover when a discovery is project-wide (not change-specific).
+<!-- Project-level memory. Append-only log of learnings, gotchas, preferences.
+Agent appends here during @memory when a discovery is project-wide (not change-specific).
 Format each entry as: `- YYYY-MM-DD: <learning>`
 Prune entries that become outdated or graduate to Conventions/spec-docs. -->
 
-- 2026-02-07: Created spec-doc `siyuan-content-tools` (`.sspec/spec-docs/siyuan-content-tools.md`) documenting the architecture of 5 content tools: getBlockInfo, getBlockContent, appendContent, createNewDoc, applyBlockDiff. Includes detailed implementation notes on slice mechanism, container block expansion, SEARCH/REPLACE format (post-2026-02-07 refactoring), and design rationales. Purpose: Reduce future agent maintenance overhead when modifying content tools.
-- 2026-02-22: Created spec-doc `external-bundle` (`.sspec/spec-docs/external-bundle.md`) and skill `external-bundle` (`.sspec/skills/external-bundle/SKILL.md`) documenting the external module independent bundling system. Covers: vite-plugin-external-modules architecture, module registration, dynamic import pattern, pitfalls (no static imports, no circular deps with main bundle).
+- 2026-02-07: Created spec-doc `siyuan-content-tools` → 2026-05-04 deprecated: 90% content duplicated code, design decisions moved to code comments.
+- 2026-05-04: Created spec-doc `func-module-architecture` documenting src/func/ multi-module architecture. Covers IFuncModule interface, registration/loading flow, two persistence systems (legacy configs.json + custom-module.config.json), settings UI integration, Plugin lifecycle.
+- 2026-02-22: Created spec-doc `external-bundle` and skill `external-bundle` documenting the external module independent bundling system. Covers vite-plugin-external-modules architecture, module registration, dynamic import pattern, pitfalls.

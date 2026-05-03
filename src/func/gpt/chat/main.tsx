@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-21 17:13:44
  * @FilePath     : /src/func/gpt/chat/main.tsx
- * @LastEditTime : 2026-02-26 20:44:12
+ * @LastEditTime : 2026-05-03 18:59:16
  * @Description  :
  */
 // External libraries
@@ -11,7 +11,7 @@ import {
     Accessor, Component, JSX,
     createMemo, createEffect, createRenderEffect,
     For, Match, Show, Switch,
-    on, onMount, onCleanup
+    on, onMount, onCleanup, untrack
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
@@ -138,6 +138,22 @@ export const ChatSession: Component<{
             // 避免从 Store 中获取一个 Proxy, 会导致后续 structuredClone 失败
             customOptions = JSON.parse(JSON.stringify(customOptions));
             session.modelCustomOptions(customOptions);
+        }
+
+        // 从 compat.enabledByDefault 初始化 chatOptionToggles 默认值
+        // 仅对新 session（尚无 toggles）或切换模型时应用
+        const enabledByDefault = (model().config?.options as any)?.compat?.enabledByDefault as ConfigurableChatOption[] | undefined;
+        if (enabledByDefault?.length) {
+            const currentToggles = untrack(() => config().chatOptionToggles) ?? {};
+            const patch: Partial<Record<string, boolean>> = {};
+            for (const key of enabledByDefault) {
+                if (currentToggles[key] === undefined) {
+                    patch[key] = true;
+                }
+            }
+            if (Object.keys(patch).length) {
+                config.update('chatOptionToggles', { ...currentToggles, ...patch });
+            }
         }
     })
 
@@ -1208,19 +1224,25 @@ export const ChatSession: Component<{
                             </div>
                         ), attachedHistoryContainer);
 
+                        const temperatureDisabled = () => config().chatOptionToggles?.temperature === false;
+                        const temperatureDisplay = () => temperatureDisabled()
+                            ? 'API 默认'
+                            : (config().chatOption.temperature?.toFixed(2) ?? 'API 默认');
+
                         const temperatureContainer = document.createElement('div');
                         const disposeTemp = render(() => (
                             <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
                                 <SliderInput
-                                    value={config().chatOption.temperature}
+                                    value={config().chatOption.temperature ?? 1}
                                     changed={(v) => {
                                         config.update('chatOption', 'temperature', v);
                                     }}
                                     min={0}
                                     max={2}
                                     step={0.05}
+                                    disabled={temperatureDisabled()}
                                 />
-                                <span>{config().chatOption.temperature.toFixed(2)}</span>
+                                <span>{temperatureDisplay()}</span>
                             </div>
                         ), temperatureContainer);
 
@@ -1258,12 +1280,38 @@ export const ChatSession: Component<{
                         // 温度选项
                         menu.addItem({
                             icon: 'iconLight',
-                            label: '温度: ' + config().chatOption.temperature.toFixed(2),
+                            label: '温度: ' + temperatureDisplay(),
                             submenu: [
                                 {
                                     element: temperatureContainer
                                 }
                             ]
+                        });
+
+                        // 推理设置
+                        const current = config().chatOption.reasoning_effort;
+                        const supported = model()?.config?.options?.compat?.thinking?.supportedEfforts;
+                        const all: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+                        const levels = supported?.length ? all.filter(l => supported.includes(l)) : all;
+                        const items = [
+                            { label: '不设置', value: '' },
+                            ...levels.map(l => ({ label: l, value: l })),
+                        ];
+                        menu.addItem({
+                            icon: 'iconSparkles',
+                            label: '推理: ' + (current || '不设置'),
+                            submenu: items.map(item => ({
+                                label: (item.value ? item.label : '不设置'),
+                                click: () => {
+                                    if (item.value) {
+                                        config.update('chatOptionToggles', 'reasoning_effort', true);
+                                        config.update('chatOption', 'reasoning_effort', item.value as ReasoningEffort);
+                                    } else {
+                                        config.update('chatOptionToggles', 'reasoning_effort', false);
+                                    }
+                                    menu.close();
+                                },
+                            })),
                         });
 
                         // System Prompt
@@ -1286,7 +1334,7 @@ export const ChatSession: Component<{
                                     loader: () => (
                                         <Markdown markdown={text} style={{
                                             padding: '10px'
-                                        }}/>
+                                        }} />
                                     ),
                                     width: '720px',
                                     maxHeight: '70%',

@@ -1,5 +1,5 @@
 import { showMessage } from 'siyuan';
-import { adpatInputMessage } from './adpater';
+import { adpatInputMessage } from './adapter';
 
 export interface CompleteOptions {
     model?: IRuntimeLLM;
@@ -8,6 +8,8 @@ export interface CompleteOptions {
     streamMsg?: (msg: string, toolCalls?: IToolCallResponse[]) => void;
     streamInterval?: number;
     option?: IChatCompleteOption;
+    /** chatOptionToggles：toggle=false 的字段在 adapter 中被删除（不发送该参数） */
+    toggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
     abortController?: AbortController;
 }
 

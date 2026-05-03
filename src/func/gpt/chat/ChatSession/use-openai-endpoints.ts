@@ -349,6 +349,7 @@ This process is transparent to the user. However, if the assistant/LLM is asked 
             streamMsg: params.onStream,
             abortController: params.controller,
             option: chatOption,
+            toggles: config().chatOptionToggles,
         });
 
         // Recover 最终结果

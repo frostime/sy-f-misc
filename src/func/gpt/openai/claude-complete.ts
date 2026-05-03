@@ -1,5 +1,5 @@
 import { appendLog } from '../MessageLogger';
-import { adaptChatOptions } from './adpater';
+import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adapter';
 import { buildProtocolHeaders, CompleteOptions, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult, toOpenAIUsage } from './protocol-utils';
 
 const pushClaudeMessage = (messages: IClaudeMessage[], role: IClaudeMessage['role'], blocks: ClaudeContentBlock[]) => {
@@ -120,6 +120,9 @@ const buildClaudePayload = (
     option: IChatCompleteOption,
 ): Record<string, any> => {
     const tools = toClaudeTools(option.tools);
+    /**
+     *  Claude API 要求 max_tokens 必须存在，所以这里有个硬编码的 4096 兜底
+     */
     const payload: Record<string, any> = {
         model: model.model,
         messages,
@@ -140,12 +143,46 @@ const buildClaudePayload = (
     const knownKeys = new Set([
         'tools', 'tool_choice', 'temperature', 'top_p', 'stop', 'stream',
         'stream_options', 'max_completion_tokens', 'max_tokens',
+        'reasoning_effort',  // Claude 协议不识别，阻止透传
     ]);
     Object.entries(option || {}).forEach(([key, value]) => {
         if (knownKeys.has(key)) return;
         if (value === undefined || value === null || value === '') return;
         payload[key] = value;
     });
+
+    // Claude thinking 参数注入
+    const compat = model?.config?.options?.compat;
+    if (compat?.thinking?.enabled) {
+        const effort = option.reasoning_effort as ReasoningEffort | undefined;
+        const claudeMode = compat.thinking.claudeMode ?? 'adaptive';
+
+        if (effort && effort !== 'none') {
+            // Claude adaptive effort 口径：low / medium / high / max
+            // 约定：xhigh -> max；minimal 无专属值时回落为 low
+            const claudeEffort = effort === 'xhigh'
+                ? 'max'
+                : effort === 'minimal'
+                    ? 'low'
+                    : effort;
+
+            if (claudeMode === 'manual-budget') {
+                const budget = compat.thinking.budgetMap?.[effort] ?? DEFAULT_THINKING_BUDGETS[effort] ?? 8192;
+                payload.thinking = { type: 'enabled', budget_tokens: budget };
+            } else {
+                payload.effort = claudeEffort;
+                payload.thinking = { type: 'adaptive' };
+            }
+
+            // Claude thinking 开启时 temperature/top_p 不再发送
+            delete payload.temperature;
+            delete payload.top_p;
+        } else {
+            // 未启用 reasoning 时，省略 thinking/effort 字段，避免对不支持 disabled 的模型产生歧义
+            delete payload.thinking;
+            delete payload.effort;
+        }
+    }
 
     return payload;
 };
@@ -355,6 +392,7 @@ export const claudeComplete = async (
         const chatOption = adaptChatOptions({
             chatOption: options.option || {},
             runtimeLLM,
+            toggles: options.toggles,
         });
         if (options.stream !== undefined) {
             chatOption.stream = options.stream;

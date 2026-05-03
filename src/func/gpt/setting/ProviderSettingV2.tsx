@@ -50,6 +50,7 @@ const ModelConfigPanel: Component<{
     const { updateModel, providerIndex } = useProviderEditContext();
 
     const provider = () => llmProviders()[providerIndex()];
+    const providerProtocol = createMemo<LLMProviderProtocol>(() => normalizeProviderProtocol(provider()));
 
     const model = () => props.model;
     const index = () => props.modelIndex;
@@ -94,11 +95,102 @@ const ModelConfigPanel: Component<{
 
     const updateUnsupportedOptions = (value: string) => {
         const options = value.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+        const compat = (model().options as any)?.compat || {};
         updateModel(index(), 'options', {
             ...model().options,
-            unsupported: options
+            compat: { ...compat, unsupported: options.length ? options : undefined },
+            unsupported: undefined,  // 清理 legacy 字段
         });
     };
+
+    /** 更新 options.compat 的某个字段，保持其余字段不变 */
+    const updateCompat = (patch: Partial<ILLMOptionCompat>) => {
+        const current = (model().options as any)?.compat || {};
+        updateModel(index(), 'options', {
+            ...model().options,
+            compat: { ...current, ...patch }
+        });
+    };
+
+    /** 更新 options.compat.thinking 的某个字段 */
+    const updateCompatThinking = (patch: Partial<NonNullable<ILLMOptionCompat['thinking']>>) => {
+        const current = (model().options as any)?.compat || {};
+        const currentThinking = current.thinking || {};
+        updateModel(index(), 'options', {
+            ...model().options,
+            compat: { ...current, thinking: { ...currentThinking, ...patch } }
+        });
+    };
+
+    const CONFIGURABLE_OPTIONS: ConfigurableChatOption[] = [
+        'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'reasoning_effort'
+    ];
+    const EFFORT_LEVELS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+    const DEFAULT_BUDGET_HINTS: Partial<Record<ReasoningEffort, number>> = {
+        minimal: 1024,
+        low: 2048,
+        medium: 8192,
+        high: 16384,
+        xhigh: 32768,
+    };
+    const CLAUDE_ADAPTIVE_LABELS: Record<ReasoningEffort, string> = {
+        none: 'disabled',
+        minimal: 'low',
+        low: 'low',
+        medium: 'medium',
+        high: 'high',
+        xhigh: 'max',
+    };
+
+    const getThinkingConfig = () => ((model().options as any)?.compat?.thinking ?? {}) as NonNullable<ILLMOptionCompat['thinking']>;
+    const getSupportedEfforts = () => getThinkingConfig().supportedEfforts ?? [];
+    const getEffortMap = () => getThinkingConfig().effortMap ?? {};
+    const getBudgetMap = () => getThinkingConfig().budgetMap ?? {};
+
+    const updateSupportedEffort = (level: ReasoningEffort, checked: boolean) => {
+        const current = getSupportedEfforts();
+        const next = checked
+            ? Array.from(new Set([...current, level]))
+            : current.filter(item => item !== level);
+        updateCompatThinking({ supportedEfforts: next.length ? next : undefined });
+    };
+
+    const updateEffortMapValue = (level: ReasoningEffort, value: string) => {
+        const nextValue = value.trim();
+        const nextMap = { ...getEffortMap() };
+        if (!nextValue || nextValue === level || level === 'none') {
+            delete nextMap[level];
+        } else {
+            nextMap[level] = nextValue;
+        }
+        updateCompatThinking({ effortMap: Object.keys(nextMap).length ? nextMap : undefined });
+    };
+
+    const updateBudgetMapValue = (level: ReasoningEffort, value: string) => {
+        const nextValue = value.trim();
+        const nextMap = { ...getBudgetMap() };
+        if (!nextValue || level === 'none') {
+            delete nextMap[level];
+        } else {
+            const parsed = Number.parseInt(nextValue, 10);
+            if (Number.isNaN(parsed) || parsed < 0) {
+                showMessage('Budget 必须是大于等于 0 的整数');
+                return;
+            }
+            nextMap[level] = parsed;
+        }
+        updateCompatThinking({ budgetMap: Object.keys(nextMap).length ? nextMap : undefined });
+    };
+
+    const effortEditorMode = createMemo<'string-map' | 'budget-map' | 'claude-adaptive'>(() => {
+        if (providerProtocol() === 'claude') {
+            return getThinkingConfig().claudeMode === 'manual-budget' ? 'budget-map' : 'claude-adaptive';
+        }
+        if (providerProtocol() === 'gemini') {
+            return 'budget-map';
+        }
+        return 'string-map';
+    });
 
     const updateCustomOverride = (value: string) => {
         try {
@@ -290,7 +382,6 @@ const ModelConfigPanel: Component<{
                     <For each={[
                         { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
                         { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
-                        { key: 'reasoningEffort', label: 'reasoning_effort', desc: '部分模型允许设置 reasoning_effort 参数' },
                         // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
                         // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
                     ] as const}>
@@ -377,6 +468,118 @@ const ModelConfigPanel: Component<{
             <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
                 {/* <h4 style={{ 'margin-top': '0' }}>高级选项</h4> */}
 
+                {/* ── 参数兼容 ── */}
+                <Form.Wrap
+                    title="启用 Reasoning"
+                    description="该模型是否支持 reasoning / thinking 参数"
+                >
+                    <Form.Input
+                        type="checkbox"
+                        value={(model().options as any)?.compat?.thinking?.enabled ?? false}
+                        changed={(v) => updateCompatThinking({ enabled: v })}
+                    />
+                </Form.Wrap>
+
+                <Show when={providerProtocol() === 'openai'}>
+                    <Form.Wrap
+                        title="Thinking 风格"
+                        description="OpenAI 兼容路径下 thinking 参数的发送方式"
+                    >
+                        <Form.Input
+                            type="select"
+                            value={(model().options as any)?.compat?.thinking?.thinkingStyle ?? 'openai'}
+                            changed={(v) => updateCompatThinking({ thinkingStyle: v as any })}
+                            options={{ openai: 'openai（默认）', deepseek: 'deepseek', qwen: 'qwen' }}
+                        />
+                    </Form.Wrap>
+                </Show>
+
+                <Show when={providerProtocol() === 'claude'}>
+                    <Form.Wrap
+                        title="Claude Thinking 模式"
+                        description="Claude 协议内部的 thinking 模式选择；不复用 OpenAI 的 Thinking 风格概念"
+                    >
+                        <Form.Input
+                            type="select"
+                            value={(model().options as any)?.compat?.thinking?.claudeMode ?? 'adaptive'}
+                            changed={(v) => updateCompatThinking({ claudeMode: v as any })}
+                            options={{ adaptive: 'adaptive（推荐）', 'manual-budget': 'manual-budget（旧式）' }}
+                        />
+                    </Form.Wrap>
+                </Show>
+
+                <Form.Wrap
+                    title="Effort 兼容配置"
+                    description={effortEditorMode() === 'string-map'
+                        ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 API 原生值映射。留空表示直接使用级别名；如果全部取消勾选，将写回空值并表示全部支持。'
+                        : effortEditorMode() === 'claude-adaptive'
+                            ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；Claude adaptive 模式下右侧显示固定映射提示。如果全部取消勾选，将写回空值并表示全部支持。'
+                            : '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 thinking budget。留空表示使用内置默认预算；如果全部取消勾选，将写回空值并表示全部支持。'}
+                    direction="row"
+                >
+                    <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
+                        <For each={EFFORT_LEVELS}>
+                            {(level) => (
+                                <div style={{
+                                    display: 'grid',
+                                    'grid-template-columns': '140px minmax(0, 1fr)',
+                                    gap: '12px',
+                                    'align-items': 'center'
+                                }}>
+                                    <label style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
+                                        <input
+                                            type="checkbox"
+                                            class="b3-checkbox"
+                                            checked={getSupportedEfforts().includes(level)}
+                                            onChange={(e) => updateSupportedEffort(level, e.currentTarget.checked)}
+                                        />
+                                        <span>{level}</span>
+                                    </label>
+
+                                    <Show when={effortEditorMode() === 'string-map'}>
+                                        <Show
+                                            when={level !== 'none'}
+                                            fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>关闭 thinking，不需要额外映射</span>}
+                                        >
+                                            <input
+                                                class="b3-text-field fn__flex-center"
+                                                value={getEffortMap()[level] ?? ''}
+                                                placeholder={level}
+                                                onChange={(e) => updateEffortMapValue(level, e.currentTarget.value)}
+                                            />
+                                        </Show>
+                                    </Show>
+
+                                    <Show when={effortEditorMode() === 'claude-adaptive'}>
+                                        <span style={{ color: 'var(--b3-theme-on-surface-light)' }}>
+                                            {level === 'none'
+                                                ? '关闭 thinking'
+                                                : `adaptive effort = ${CLAUDE_ADAPTIVE_LABELS[level]}`}
+                                        </span>
+                                    </Show>
+
+                                    <Show when={effortEditorMode() === 'budget-map'}>
+                                        <Show
+                                            when={level !== 'none'}
+                                            fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>{providerProtocol() === 'gemini' ? 'thinkingBudget = 0（关闭 thinking）' : '关闭 thinking，不使用 budget'}</span>}
+                                        >
+                                            <input
+                                                class="b3-text-field fn__flex-center"
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                value={getBudgetMap()[level] ?? ''}
+                                                placeholder={String(DEFAULT_BUDGET_HINTS[level] ?? '')}
+                                                onChange={(e) => updateBudgetMapValue(level, e.currentTarget.value)}
+                                            />
+                                        </Show>
+                                    </Show>
+                                </div>
+                            )}
+                        </For>
+                    </div>
+                </Form.Wrap>
+
                 <Form.Wrap
                     title="不支持的参数"
                     description="不支持的 ChatOption 参数，用逗号或换行分隔（如: frequency_penalty, presence_penalty）"
@@ -384,41 +587,55 @@ const ModelConfigPanel: Component<{
                 >
                     <Form.Input
                         type="textarea"
-                        value={(model().options?.unsupported || []).join('\n')}
+                        value={(((model().options as any)?.compat?.unsupported as string[] | undefined) ?? model().options?.unsupported ?? []).join('\n')}
                         changed={updateUnsupportedOptions}
                         style={{ width: '100%', height: '80px' }}
                     />
                 </Form.Wrap>
 
-                {/* <Form.Wrap
-                    title="自定义参数覆盖"
-                    description={`强制覆盖的参数，JSON 格式（如: {\" reasoning_effort\": \"medium\"}）`}
+                <Form.Wrap
+                    title="默认启用的参数"
+                    description="新建 session 时默认 toggle=true 的参数"
                     direction="row"
                 >
-                    <Form.Input
-                        type="textarea"
-                        value={JSON.stringify(model().options?.customOverride || {}, null, 2)}
-                        changed={updateCustomOverride}
-                        style={{ width: '100%', height: '100px', 'font-family': 'monospace' }}
-                    />
-                </Form.Wrap> */}
+                    <div style={{ display: 'flex', 'flex-wrap': 'wrap', gap: '6px' }}>
+                        {CONFIGURABLE_OPTIONS.map(key => {
+                            const defaults: ConfigurableChatOption[] = (model().options as any)?.compat?.enabledByDefault ?? [];
+                            return (
+                                <label style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                                    <input
+                                        type="checkbox"
+                                        class="b3-checkbox"
+                                        checked={defaults.includes(key)}
+                                        onChange={(e) => {
+                                            const cur: ConfigurableChatOption[] = (model().options as any)?.compat?.enabledByDefault ?? [];
+                                            const next = e.currentTarget.checked
+                                                ? [...cur, key]
+                                                : cur.filter(x => x !== key);
+                                            updateCompat({ enabledByDefault: next.length ? next : undefined });
+                                        }}
+                                    />
+                                    {key}
+                                </label>
+                            );
+                        })}
+                    </div>
+                </Form.Wrap>
 
                 <Form.Wrap
                     title="自定义参数覆盖"
-                    description={`强制覆盖的参数，JSON 格式（如: {\" reasoning_effort\": \"medium\"}）; 便利起见, 可以点击按钮 'JSON' 辅助生成 JSON`}
+                    description={`强制覆盖的参数，JSON 格式（如: {\"reasoning_effort\": \"medium\"}）; 便利起见, 可以点击按钮 'JSON' 辅助生成 JSON`}
                     direction="row"
                 >
                     <TextAreaWithActionButton
-                        // value={JSON.stringify(model().options?.customOverride, null, 2)}
                         value={(function () {
                             const value = model().options?.customOverride;
                             if (!value || Object.keys(value).length === 0) {
-                                return ''
+                                return '';
                             }
                             return JSON.stringify(value, null, 2);
                         })()}
                         onChanged={updateCustomOverride}
-                        // style={{ width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)' }}
                         actionText="JSON"
                         action={
                             async function (text: string) {

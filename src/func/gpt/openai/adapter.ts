@@ -2,6 +2,114 @@ import { showMessage } from "siyuan";
 import { checkSupportsModality } from "../setting";
 import { type complete } from "./complete";
 
+// ============================================================================
+// Thinking budget 内置回退表（Claude/Gemini 协议用）
+// ============================================================================
+
+export const DEFAULT_THINKING_BUDGETS: Record<string, number> = {
+    minimal: 1024,
+    low: 2048,
+    medium: 8192,
+    high: 16384,
+    xhigh: 32768,
+};
+
+// ============================================================================
+// applyOptionCompat
+// ============================================================================
+
+const ALL_EFFORTS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+
+/** clamp effort 到 supportedEfforts 中最近的可用值（优先高一级，其次低一级）
+ *  注意：'none' 表示关闭 thinking，不参与 clamp，调用方应在调用前过滤 */
+const clampEffort = (
+    effort: ReasoningEffort,
+    supported: ReasoningEffort[],
+): ReasoningEffort => {
+    if (supported.includes(effort)) return effort;
+    const idx = ALL_EFFORTS.indexOf(effort);
+    for (let i = idx + 1; i < ALL_EFFORTS.length; i++) {
+        if (supported.includes(ALL_EFFORTS[i])) return ALL_EFFORTS[i];
+    }
+    for (let i = idx - 1; i >= 0; i--) {
+        if (supported.includes(ALL_EFFORTS[i])) return ALL_EFFORTS[i];
+    }
+    return supported[0];
+};
+
+/**
+ * 应用模型兼容配置 + toggle 开关，返回处理后的 option 副本。
+ *
+ * 处理顺序：
+ *   1. toggle=false 的 key 删除
+ *   2. compat.unsupported 删除
+ *   3. thinking 参数按 thinkingStyle 注入（仅 OpenAI 兼容路径）
+ */
+export const applyOptionCompat = (
+    chatOption: IChatCompleteOption,
+    toggles: Partial<Record<keyof IChatCompleteOption, boolean>> | undefined,
+    compat: ILLMOptionCompat | undefined,
+    protocol: LLMProviderProtocol = 'openai',
+): IChatCompleteOption => {
+    const option = structuredClone(chatOption) as IChatCompleteOption & Record<string, any>;
+
+    // 1. Toggle 删除（key 不存在视为 true，兼容旧数据）
+    for (const key of Object.keys(option)) {
+        if ((toggles as any)?.[key] === false) {
+            delete option[key];
+        }
+    }
+
+    // 2. Unsupported 删除
+    if (compat?.unsupported) {
+        for (const key of compat.unsupported) {
+            delete option[key];
+        }
+    }
+
+    // 3. Thinking 参数注入（仅 OpenAI-compatible 路径）
+    const thinking = compat?.thinking;
+    if (thinking?.enabled) {
+        const rawEffort = option.reasoning_effort as ReasoningEffort | undefined;
+        let effort = rawEffort;
+
+        // supportedEfforts 校验：none 不参与 clamp（由后续 effort !== 'none' 判断处理）
+        if (effort && effort !== 'none' && thinking.supportedEfforts?.length) {
+            effort = clampEffort(effort, thinking.supportedEfforts);
+        }
+
+        // Claude / Gemini 由各自 payload builder 自己处理 thinking 语义，避免协议字段泄漏
+        if (protocol !== 'openai') {
+            return option;
+        }
+
+        const style = thinking.thinkingStyle ?? 'openai';
+        const effortMap = thinking.effortMap;
+
+        if (style === 'deepseek') {
+            // DeepSeek: 额外发 thinking.type + 保留 reasoning_effort
+            option.thinking = { type: effort && effort !== 'none' ? 'enabled' : 'disabled' };
+            if (effort && effort !== 'none') {
+                option.reasoning_effort = (effortMap?.[effort] ?? effort) as ReasoningEffort;
+            } else {
+                delete option.reasoning_effort;
+            }
+        } else if (style === 'qwen') {
+            // Qwen3: 用 enable_thinking 替代 reasoning_effort
+            delete option.reasoning_effort;
+            option.enable_thinking = !!(effort && effort !== 'none');
+        } else {
+            // openai（默认）: 只发 reasoning_effort
+            if (effort && effort !== 'none') {
+                option.reasoning_effort = (effortMap?.[effort] ?? effort) as ReasoningEffort;
+            } else {
+                delete option.reasoning_effort;
+            }
+        }
+    }
+
+    return option;
+};
 
 /**
  * 用户自定义的预处理器, 可以在发送 complete 请求之前，对消息进行处理
@@ -74,26 +182,17 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
 export const adaptChatOptions = (target: {
     chatOption: IChatCompleteOption;
     runtimeLLM: IRuntimeLLM;
+    toggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
 }) => {
-    let { runtimeLLM, chatOption } = target;
+    let { runtimeLLM, chatOption, toggles } = target;
 
-    // Extract model and url for backward compatibility
-    // const model = runtimeLLM.model;
-    // const apiUrl = runtimeLLM.url;
     const config = runtimeLLM.config;
-
-    const deleteIfEqual = (target: Record<string, any>, key: string, value = 0) => {
-        if (target[key] === value) {
-            delete target[key];
-        }
-    }
 
     chatOption = structuredClone(chatOption);
 
-    // Step 1: Apply customOverride (highest priority)
-    // if (config?.options?.customOverride) {
-    //     Object.assign(chatOption, config.options.customOverride);
-    // }
+    // Step 1: Apply compat (toggle 删除 + unsupported + thinking 注入)
+    const protocol = (runtimeLLM?.provider?.protocol || runtimeLLM?.provider?.protocal || runtimeLLM?.protocol || 'openai') as LLMProviderProtocol;
+    chatOption = applyOptionCompat(chatOption, toggles, config?.options?.compat, protocol);
 
     // Step 2: Remove null/undefined values
     for (const key in chatOption) {
@@ -102,10 +201,15 @@ export const adaptChatOptions = (target: {
         }
     }
 
-    // Step 3: Filter unsupported options
-    if (config?.options?.unsupported) {
-        for (const key of config.options.unsupported) {
-            delete chatOption[key];
+    // Step 3: Filter legacy unsupported options
+    // compat.unsupported 已在 applyOptionCompat 中处理；此处合并旧 options.unsupported（去重）
+    const legacyUnsupported = config?.options?.unsupported;
+    if (legacyUnsupported?.length) {
+        const compatUnsupported = new Set<string>(config?.options?.compat?.unsupported ?? []);
+        for (const key of legacyUnsupported) {
+            if (!compatUnsupported.has(key)) {
+                delete chatOption[key];
+            }
         }
     }
 
@@ -140,8 +244,11 @@ export const adaptChatOptions = (target: {
             disabledKeys.push('stream');
         }
 
-        // Reasoning effort support
-        if (config.capabilities.reasoningEffort !== true && chatOption.reasoning_effort) {
+        // Reasoning effort support (legacy fallback only)
+        // 新系统优先走 options.compat.thinking.enabled；
+        // 只有没有 compat.thinking 配置时，才回退检查旧 capabilities.reasoningEffort。
+        const compatThinkingEnabled = config?.options?.compat?.thinking?.enabled === true;
+        if (!compatThinkingEnabled && config.capabilities.reasoningEffort !== true && chatOption.reasoning_effort) {
             delete chatOption.reasoning_effort;
             disabledKeys.push('reasoning_effort');
         }
@@ -150,11 +257,8 @@ export const adaptChatOptions = (target: {
         }
     }
 
-    // Step 6: Existing cleanup logic (delete default values)
-    deleteIfEqual(chatOption, 'frequency_penalty', 0);
-    deleteIfEqual(chatOption, 'presence_penalty', 0);
-    deleteIfEqual(chatOption, 'max_tokens', 0);
-    deleteIfEqual(chatOption, 'top_p', 1);
+    // Step 6: Remove old hardcoded default-value guards (replaced by toggle mechanism)
+    // deleteIfEqual logic removed — toggles now handle explicit opt-in/opt-out
 
     return chatOption;
 }
@@ -230,6 +334,8 @@ export const adaptResponseMessage = (message: Record<string, string>): {
         result.reasoning_content = message['reasoning_content'];
     } else if (message['reasoning']) {
         result.reasoning_content = message['reasoning'];
+    } else if (message['reasoning_details']) {
+        result.reasoning_content = message['reasoning_details'];
     }
 
     // 处理 tool_calls
@@ -256,10 +362,10 @@ export const adaptChunkMessage = (messageInChoices: Record<string, any>): {
 /**
  * 统一处理和合并 tool calls 的适配器
  * 用于在流式响应中累积合并多个 chunk 中的 tool_calls
- * 
+ *
  * @param allChunks 所有收集到的 tool_calls chunks
  * @returns 合并后的 tool_calls 数组
- * 
+ *
  * 标准 OpenAI 格式; 需要合并 arguments 字段
 ```json
 [

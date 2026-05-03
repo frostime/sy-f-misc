@@ -28,12 +28,9 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     enablePrivacyMask: false, // 是否启用隐私屏蔽
     privacyFields: [] as IPrivacyField[], // 隐私字段配置
     chatOption: {
-        temperature: 0.7,
         stream: true,
-        max_tokens: 4096,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0,
+        // 采样参数默认不预设，让 API 自行决定
+        // 用户在 ChatSetting 中显式开启 toggle 后才会发送
     }
 });
 

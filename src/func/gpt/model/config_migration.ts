@@ -12,7 +12,7 @@ import { createModelConfig } from "./preset";
 import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_CHAT_ENDPOINT } from "./url_utils";
 import { asStorage } from "./config";
 
-export const CURRENT_SCHEMA = '3.1';
+export const CURRENT_SCHEMA = '3.2';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -311,7 +311,56 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
         }
     }
 
-    migrated = true;
-    (data as any).schema = CURRENT_SCHEMA;
+    // 3.2 版本: 向后兼容 schema <= 3.1; 变更:
+    //   a. chatOptionToggles: 旧 chatOption 有实值的 key 全部 toggle=true（旧行为不变）
+    //   b. capabilities.reasoningEffort → options.compat.thinking.enabled
+    //   c. options.unsupported → options.compat.unsupported（不删除旧字段）
+    if (compareSchemaVersion(dataSchema, '3.2') < 0) {
+        const config = (data as any).config;
+        if (config?.chatOption && !config.chatOptionToggles) {
+            const toggles: Record<string, boolean> = {};
+            for (const key of Object.keys(config.chatOption)) {
+                if (config.chatOption[key] !== undefined && config.chatOption[key] !== null) {
+                    toggles[key] = true;
+                }
+            }
+            config.chatOptionToggles = toggles;
+        }
+
+        const llmProviders = (data as any).llmProviders as ILLMProviderV2[];
+        if (Array.isArray(llmProviders)) {
+            llmProviders.forEach((provider) => {
+                (provider.models || []).forEach((model) => {
+                    const modelOptions = (model as any).options;
+                    if (!modelOptions) return;
+
+                    // capabilities.reasoningEffort → options.compat.thinking.enabled
+                    if ((model as any).capabilities?.reasoningEffort) {
+                        modelOptions.compat = modelOptions.compat || {};
+                        modelOptions.compat.thinking = modelOptions.compat.thinking || {};
+                        modelOptions.compat.thinking.enabled = true;
+                        // 保留 capabilities.reasoningEffort，不删除
+                    }
+
+                    // options.unsupported → options.compat.unsupported
+                    if (Array.isArray(modelOptions.unsupported) && modelOptions.unsupported.length
+                        && !(modelOptions.compat?.unsupported?.length)) {
+                        modelOptions.compat = modelOptions.compat || {};
+                        modelOptions.compat.unsupported = [...modelOptions.unsupported];
+                        // 保留旧字段，不删除
+                    }
+                });
+            });
+        }
+
+        migrated = true;
+    }
+
+    // ========== Add new migration here when schema increase ==========
+
+    // Guard: 仅当 schema 版本确实低于 CURRENT_SCHEMA 时才写入（防止意外降级）
+    if (compareSchemaVersion(dataSchema, CURRENT_SCHEMA) < 0) {
+        (data as any).schema = CURRENT_SCHEMA;
+    }
     return { data, migrated };
 }

@@ -438,6 +438,12 @@ function parseSlice(blockList: any[], sliceSyntax: string): any[] {
 
 /**
  * 获取块完整Markdown内容工具
+ *
+ * Design Decision: showId / showSubStructure 分离
+ * - showId: 添加 @@id@@ 前缀，用于编辑定位
+ * - showSubStructure: 展开容器块子结构
+ * - 两者独立控制：阅读场景默认关闭减少噪音；编辑时显式开启
+ * - showSubStructure=true 时隐式开启 showId（细粒度编辑需要 ID）
  */
 export const getBlockContentTool: Tool = {
     definition: {
@@ -496,7 +502,10 @@ export const getBlockContentTool: Tool = {
         const id = args.blockId;
         const slice = args.slice;
 
-        // 智能参数调整：如果使用了 slice，强制开启结构展开和 ID 显示
+        // Design Decision: slice 强制开启 showId
+        // - slice 通常用于逐页编辑长文档
+        // - 游标模式 (id:+N) 依赖 ID 锚点
+        // - 自动开启减少参数复杂度
         const showSubStructure = slice ? true : (args.showSubStructure ?? false);
         const showId = slice ? true : (args.showId ?? (showSubStructure ? true : false));
 
@@ -523,7 +532,9 @@ export const getBlockContentTool: Tool = {
                     type: b.type ?? ''
                 }));
 
-                // 标题块特殊处理: 将标题自身插入顶部
+                // Design Decision: 标题块插入自身到子块列表顶部
+                // 思源设计：标题块不是容器块（出于性能考虑），但逻辑上包含下属内容
+                // 编辑标题块时需要看到标题自身的 ID，所以 unshift 到顶部
                 if (isHeading) {
                     blocks.unshift({
                         id: block.id,
