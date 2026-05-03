@@ -193,8 +193,9 @@ export const adaptChatOptions = (target: {
         }
     }
 
-    // Step 3: Filter unsupported options (legacy path, compat.unsupported already handled above)
-    if (config?.options?.unsupported) {
+    // Step 3: Filter legacy unsupported options (compat.unsupported already handled in applyOptionCompat)
+    // 保留兼容: 旧数据可能只有 options.unsupported 而无 compat.unsupported
+    if (config?.options?.unsupported && !config?.options?.compat?.unsupported) {
         for (const key of config.options.unsupported) {
             delete chatOption[key];
         }

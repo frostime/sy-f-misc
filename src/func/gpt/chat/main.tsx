@@ -11,7 +11,7 @@ import {
     Accessor, Component, JSX,
     createMemo, createEffect, createRenderEffect,
     For, Match, Show, Switch,
-    on, onMount, onCleanup
+    on, onMount, onCleanup, untrack
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
@@ -144,7 +144,7 @@ export const ChatSession: Component<{
         // 仅对新 session（尚无 toggles）或切换模型时应用
         const enabledByDefault = (model().config?.options as any)?.compat?.enabledByDefault as ConfigurableChatOption[] | undefined;
         if (enabledByDefault?.length) {
-            const currentToggles = config().chatOptionToggles ?? {};
+            const currentToggles = untrack(() => config().chatOptionToggles) ?? {};
             const patch: Partial<Record<string, boolean>> = {};
             for (const key of enabledByDefault) {
                 if (currentToggles[key] === undefined) {

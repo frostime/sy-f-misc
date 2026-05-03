@@ -7,7 +7,7 @@ created: 2026-05-03T01:54:11
 
 ## State
 
-Implementation complete. 基础 chat-options 实现 + revision 001（Provider panel cleanup / Claude adaptive thinking）已完成，TypeScript 检查通过，`pnpm run build` 通过。当前等待用户在思源中做手工验收。
+DONE. 基础实现 + revision 001/002 已完成，`npx tsc --noEmit` 与 `pnpm run build` 通过。已提交。
 
 ## Key Files
 

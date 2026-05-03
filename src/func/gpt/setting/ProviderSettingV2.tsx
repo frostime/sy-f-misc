@@ -95,9 +95,11 @@ const ModelConfigPanel: Component<{
 
     const updateUnsupportedOptions = (value: string) => {
         const options = value.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+        const compat = (model().options as any)?.compat || {};
         updateModel(index(), 'options', {
             ...model().options,
-            unsupported: options
+            compat: { ...compat, unsupported: options.length ? options : undefined },
+            unsupported: undefined,  // 清理 legacy 字段
         });
     };
 

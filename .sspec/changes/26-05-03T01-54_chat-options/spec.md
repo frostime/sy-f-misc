@@ -1,6 +1,6 @@
 ---
 name: chat-options
-status: PLANNING
+status: DONE
 change-type: single
 created: 2026-05-03 01:54:11
 reference:
@@ -132,3 +132,8 @@ interface ILLMOptionCompat {
 ### Design Reference
 
 → 参见 [design.md](./design.md)
+
+### Revisions
+
+- [001-provider-panel-cleanup](./revisions/001-provider-panel-cleanup.md) — Provider panel cleanup + Claude adaptive thinking
+- [002-session-reasoning-menu-cleanup](./revisions/002-session-reasoning-menu-cleanup.md) — Session reasoning / quick menu cleanup + 3.2 migration补全
