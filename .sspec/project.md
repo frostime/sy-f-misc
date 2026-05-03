@@ -71,7 +71,7 @@ NOT a restating of code behavior — if readable from code+comments, it doesn't 
 MUST keep entries in sync with actual spec-doc files.
 Format: `- [name](spec-docs/<file>) — one-line summary` -->
 
-- [siyuan-content-tools](spec-docs/siyuan-content-tools.md) — Architecture of 5 content tools (getBlockInfo, getBlockContent, appendContent, createNewDoc, applyBlockDiff) with slice mechanism, container block expansion, SEARCH/REPLACE format
+- [func-module-architecture](spec-docs/func-module-architecture.md) — src/func/ 多模块架构：IFuncModule 接口、注册与加载、设置面板、两套持久化系统、Plugin 集成
 - [external-bundle](spec-docs/external-bundle.md) — External module independent bundling system: vite-plugin-external-modules architecture, module registration, dynamic import pattern
 - [gpt-module-architecture-overview](spec-docs/gpt-module-architecture-overview.md) — Bird's-eye view of `src/func/gpt/`: initialization sequence, configuration system, provider/model lifecycle, chat session lifecycle (V2 tree model), API communication flow, and cross-cutting concerns (privacy, context providers, tools, persistence)
 - [gpt-chat-module-cross-file-architecture](spec-docs/gpt-chat-module-cross-file-architecture.md) — Cross-file call chains (parameter merge, context building, model resolution, protocol dispatch), naming pitfalls, schema migration pattern, model preset matching rules, V2 tree model design rationale, and agent traps for `src/func/gpt/`
@@ -91,5 +91,6 @@ Agent appends here during @memory when a discovery is project-wide (not change-s
 Format each entry as: `- YYYY-MM-DD: <learning>`
 Prune entries that become outdated or graduate to Conventions/spec-docs. -->
 
-- 2026-02-07: Created spec-doc `siyuan-content-tools` documenting the architecture of 5 content tools. Purpose: Reduce future agent maintenance overhead when modifying content tools.
+- 2026-02-07: Created spec-doc `siyuan-content-tools` → 2026-05-04 deprecated: 90% content duplicated code, design decisions moved to code comments.
+- 2026-05-04: Created spec-doc `func-module-architecture` documenting src/func/ multi-module architecture. Covers IFuncModule interface, registration/loading flow, two persistence systems (legacy configs.json + custom-module.config.json), settings UI integration, Plugin lifecycle.
 - 2026-02-22: Created spec-doc `external-bundle` and skill `external-bundle` documenting the external module independent bundling system. Covers vite-plugin-external-modules architecture, module registration, dynamic import pattern, pitfalls.

@@ -7,6 +7,13 @@
  * @Description  : applyBlockDiff Tool（SEARCH/REPLACE 模式）
  */
 
+// Cross-file Architecture: 3-layer pipeline
+// 1. validator.ts — format validation (token sequence check)
+// 2. parser.ts   — parse SEARCH/REPLACE blocks, convert to BlockEdit[]
+// 3. core.ts     — content validation (SEARCH must match actual block) + execute
+//
+// Flow: diff text → validator → parser → core.validateAllHunks → core.executeEdits
+
 import type { BlockEdit, ValidationResult } from './types';
 import {
     parseBlockDiff,
@@ -34,6 +41,10 @@ export const applyBlockDiffTool: Tool = {
         type: 'function',
         function: {
             name: 'applyBlockDiff',
+            // Design Decision: REPLACE 指令 vs SEARCH/REPLACE
+            // - SEARCH/REPLACE: 小改动，需要内容验证（外科手术）
+            // - @@REPLACE:id@@: 整体重写，跳过校验（器官移植）
+            // 场景区分，不是"多种做法同一结果"
             description: `应用 Block Edit 到思源笔记文档（SEARCH/REPLACE 模式）。
 
 使用 Git 冲突标记风格：
