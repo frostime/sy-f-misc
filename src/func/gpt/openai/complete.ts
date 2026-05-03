@@ -254,6 +254,8 @@ export const complete = async (input: string | IMessage[], options?: {
     streamMsg?: (msg: string, toolCalls?: IToolCallResponse[]) => void,
     streamInterval?: number,
     option?: IChatCompleteOption
+    /** chatOptionToggles：toggle=false 的字段在 adapter 中被删除 */
+    toggles?: Partial<Record<keyof IChatCompleteOption, boolean>>
     abortController?: AbortController
 }): Promise<ICompletionResult> => {
     options = options || {};
@@ -293,7 +295,8 @@ export const complete = async (input: string | IMessage[], options?: {
         let chatOption = options?.option ?? {};
         chatOption = adaptChatOptions({
             chatOption,
-            runtimeLLM: options.model
+            runtimeLLM: options.model,
+            toggles: options.toggles,
         });
 
         if (options?.stream !== undefined) {

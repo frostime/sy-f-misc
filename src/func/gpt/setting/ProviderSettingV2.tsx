@@ -12,7 +12,7 @@ import { BasicDraggableList } from "@/libs/components/drag-list";
 import { createModelConfig } from "../model/preset";
 import Heading from "./Heading";
 // import { Button } from "@frostime/siyuan-plugin-kits/element";
-import { ButtonInput } from "@/libs/components/Elements";
+import { ButtonInput, SelectInput } from "@/libs/components/Elements";
 import { LeftRight } from "@/libs/components/Elements/Flex";
 import { TextAreaWithActionButton } from "@/libs/components/Elements/TextArea";
 import * as agent from "../openai/tiny-agent";
@@ -99,6 +99,30 @@ const ModelConfigPanel: Component<{
             unsupported: options
         });
     };
+
+    /** 更新 options.compat 的某个字段，保持其余字段不变 */
+    const updateCompat = (patch: Partial<ILLMOptionCompat>) => {
+        const current = (model().options as any)?.compat || {};
+        updateModel(index(), 'options', {
+            ...model().options,
+            compat: { ...current, ...patch }
+        });
+    };
+
+    /** 更新 options.compat.thinking 的某个字段 */
+    const updateCompatThinking = (patch: Partial<NonNullable<ILLMOptionCompat['thinking']>>) => {
+        const current = (model().options as any)?.compat || {};
+        const currentThinking = current.thinking || {};
+        updateModel(index(), 'options', {
+            ...model().options,
+            compat: { ...current, thinking: { ...currentThinking, ...patch } }
+        });
+    };
+
+    const CONFIGURABLE_OPTIONS: ConfigurableChatOption[] = [
+        'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'reasoning_effort'
+    ];
+    const EFFORT_LEVELS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
 
     const updateCustomOverride = (value: string) => {
         try {
@@ -433,6 +457,107 @@ const ModelConfigPanel: Component<{
                             }
                         }
                     />
+                </Form.Wrap>
+
+                {/* ── 参数兼容 ── */}
+                <Form.Wrap
+                    title="启用 Reasoning"
+                    description="该模型是否支持 reasoning / thinking 参数"
+                    direction="row"
+                >
+                    <Form.Input
+                        type="checkbox"
+                        value={(model().options as any)?.compat?.thinking?.enabled ?? false}
+                        changed={(v) => updateCompatThinking({ enabled: v })}
+                    />
+                </Form.Wrap>
+
+                <Form.Wrap
+                    title="Thinking 风格"
+                    description="OpenAI 兼容路径下 thinking 参数的发送方式（Claude/Gemini 协议忽略此项）"
+                    direction="row"
+                >
+                    <SelectInput
+                        value={(model().options as any)?.compat?.thinking?.thinkingStyle ?? 'openai'}
+                        changed={(v: string) => updateCompatThinking({ thinkingStyle: v as any })}
+                        options={{ openai: 'openai（默认）', deepseek: 'deepseek', qwen: 'qwen' }}
+                    />
+                </Form.Wrap>
+
+                <Form.Wrap
+                    title="支持的 Effort 级别"
+                    description="限制该模型可用的 effort 级别；留空表示全部支持"
+                    direction="row"
+                >
+                    <div style={{ display: 'flex', 'flex-wrap': 'wrap', gap: '6px' }}>
+                        {EFFORT_LEVELS.map(level => {
+                            const supported: ReasoningEffort[] = (model().options as any)?.compat?.thinking?.supportedEfforts ?? [];
+                            return (
+                                <label style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                                    <input
+                                        type="checkbox"
+                                        class="b3-checkbox"
+                                        checked={supported.includes(level)}
+                                        onChange={(e) => {
+                                            const cur: ReasoningEffort[] = (model().options as any)?.compat?.thinking?.supportedEfforts ?? [];
+                                            const next = e.currentTarget.checked
+                                                ? [...cur, level]
+                                                : cur.filter(x => x !== level);
+                                            updateCompatThinking({ supportedEfforts: next.length ? next : undefined });
+                                        }}
+                                    />
+                                    {level}
+                                </label>
+                            );
+                        })}
+                    </div>
+                </Form.Wrap>
+
+                <Form.Wrap
+                    title="Effort 值映射（JSON）"
+                    description="归一化 effort → API 原生值，如 {&quot;xhigh&quot;: &quot;max&quot;}（DeepSeek V4）；留空表示直接使用级别名"
+                    direction="row"
+                >
+                    <Form.Input
+                        type="textarea"
+                        value={JSON.stringify((model().options as any)?.compat?.thinking?.effortMap ?? {}, null, 2)}
+                        changed={(v) => {
+                            try {
+                                const parsed = v.trim() ? JSON.parse(v) : undefined;
+                                updateCompatThinking({ effortMap: Object.keys(parsed || {}).length ? parsed : undefined });
+                            } catch { showMessage('effortMap 格式错误，请使用 JSON'); }
+                        }}
+                        style={{ width: '100%', height: '70px', 'font-family': 'var(--b3-font-family-code)' }}
+                    />
+                </Form.Wrap>
+
+                <Form.Wrap
+                    title="默认启用的参数"
+                    description="新建 session 时默认 toggle=true 的参数"
+                    direction="row"
+                >
+                    <div style={{ display: 'flex', 'flex-wrap': 'wrap', gap: '6px' }}>
+                        {CONFIGURABLE_OPTIONS.map(key => {
+                            const defaults: ConfigurableChatOption[] = (model().options as any)?.compat?.enabledByDefault ?? [];
+                            return (
+                                <label style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                                    <input
+                                        type="checkbox"
+                                        class="b3-checkbox"
+                                        checked={defaults.includes(key)}
+                                        onChange={(e) => {
+                                            const cur: ConfigurableChatOption[] = (model().options as any)?.compat?.enabledByDefault ?? [];
+                                            const next = e.currentTarget.checked
+                                                ? [...cur, key]
+                                                : cur.filter(x => x !== key);
+                                            updateCompat({ enabledByDefault: next.length ? next : undefined });
+                                        }}
+                                    />
+                                    {key}
+                                </label>
+                            );
+                        })}
+                    </div>
                 </Form.Wrap>
             </div>
         </div >

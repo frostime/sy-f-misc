@@ -139,6 +139,22 @@ export const ChatSession: Component<{
             customOptions = JSON.parse(JSON.stringify(customOptions));
             session.modelCustomOptions(customOptions);
         }
+
+        // 从 compat.enabledByDefault 初始化 chatOptionToggles 默认值
+        // 仅对新 session（尚无 toggles）或切换模型时应用
+        const enabledByDefault = (model().config?.options as any)?.compat?.enabledByDefault as ConfigurableChatOption[] | undefined;
+        if (enabledByDefault?.length) {
+            const currentToggles = config().chatOptionToggles ?? {};
+            const patch: Partial<Record<string, boolean>> = {};
+            for (const key of enabledByDefault) {
+                if (currentToggles[key] === undefined) {
+                    patch[key] = true;
+                }
+            }
+            if (Object.keys(patch).length) {
+                config.update('chatOptionToggles', { ...currentToggles, ...patch });
+            }
+        }
     })
 
     const modelDisplayLable = createMemo(() => {
@@ -1212,7 +1228,7 @@ export const ChatSession: Component<{
                         const disposeTemp = render(() => (
                             <div style={{ display: 'inline-flex', 'align-items': 'center', 'gap': '2px' }}>
                                 <SliderInput
-                                    value={config().chatOption.temperature}
+                                    value={config().chatOption.temperature ?? 1}
                                     changed={(v) => {
                                         config.update('chatOption', 'temperature', v);
                                     }}
@@ -1220,7 +1236,7 @@ export const ChatSession: Component<{
                                     max={2}
                                     step={0.05}
                                 />
-                                <span>{config().chatOption.temperature.toFixed(2)}</span>
+                                <span>{config().chatOption.temperature?.toFixed(2) ?? 'API 默认'}</span>
                             </div>
                         ), temperatureContainer);
 

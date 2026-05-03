@@ -1,5 +1,5 @@
 import { appendLog } from '../MessageLogger';
-import { adaptChatOptions } from './adpater';
+import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adpater';
 import { buildProtocolHeaders, CompleteOptions, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult, toOpenAIUsage } from './protocol-utils';
 
 const pushClaudeMessage = (messages: IClaudeMessage[], role: IClaudeMessage['role'], blocks: ClaudeContentBlock[]) => {
@@ -140,12 +140,28 @@ const buildClaudePayload = (
     const knownKeys = new Set([
         'tools', 'tool_choice', 'temperature', 'top_p', 'stop', 'stream',
         'stream_options', 'max_completion_tokens', 'max_tokens',
+        'reasoning_effort',  // Claude 协议不识别，阻止透传
     ]);
     Object.entries(option || {}).forEach(([key, value]) => {
         if (knownKeys.has(key)) return;
         if (value === undefined || value === null || value === '') return;
         payload[key] = value;
     });
+
+    // Claude thinking 参数注入
+    const compat = model?.config?.options?.compat;
+    if (compat?.thinking?.enabled) {
+        const effort = option.reasoning_effort as ReasoningEffort | undefined;
+        if (effort && effort !== 'none') {
+            const budget = compat.thinking.budgetMap?.[effort] ?? DEFAULT_THINKING_BUDGETS[effort] ?? 8192;
+            payload.thinking = { type: 'enabled', budget_tokens: budget };
+            // Claude: thinking 开启时 temperature 必须为 1
+            delete payload.temperature;
+            delete payload.top_p;
+        } else {
+            payload.thinking = { type: 'disabled' };
+        }
+    }
 
     return payload;
 };

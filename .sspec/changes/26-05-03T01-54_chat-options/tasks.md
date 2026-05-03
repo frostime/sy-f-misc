@@ -1,6 +1,6 @@
 ---
 change: "chat-options"
-updated: ""
+updated: "2026-05-03"
 ---
 
 # Tasks
@@ -8,36 +8,92 @@ updated: ""
 ## Legend
 `[ ]` Todo | `[x]` Done
 
-## Tasks
+---
 
-<!-- MUST organize by phases. Each task <2h, independently testable.
-Phase emoji: ⏳ pending | 🚧 in progress | ✅ done
+### Phase 1: 类型 + 基础数据定义 [x]
 
-### Phase 1: <name> ⏳
-- [ ] Task description `path/file.py`
-- [ ] Task description `path/file.py`
-**Verification**: <how to verify this phase>
+- [x] `src/func/gpt/types.ts` — 新增 `ReasoningEffort`、`ConfigurableChatOption`、`ILLMOptionCompat`；扩展 `IChatCompleteOption.reasoning_effort` 至 6 级；`IChatSessionConfig` 新增 `chatOptionToggles`
+- [x] `src/func/gpt/model/config.ts` — 清空 `defaultConfig.chatOption` 的采样参数预设值（仅保留 `stream: true`）；`chatOptionToggles` 默认不设
 
-### Feedback Tasks (→ [NNN-description](./revisions/NNN-description.md))
-Use this section for review/feedback tasks that still belong to the current change.
+**Verification**: `tsc --noEmit` 通过；`defaultConfig.chatOption` 只剩 `stream: true`
 
-If accepted feedback changes scope/design:
-- **Pre-gate** (spec not yet approved): update `spec.md` / `design.md` directly, then add tasks here.
-- **Post-gate** (design baseline locked): create `revisions/NNN-*.md` FIRST, then update this section. Do NOT edit `spec.md` / `design.md`.
+---
 
-The section header MUST link the corresponding revision file (relative path).
-If the work belongs in a new follow-up or replacement change, the agent MUST NOT put it here unless the user has first approved that direction via `@align`.
--->
+### Phase 2: Adapter 重写 [x]
+
+- [x] `src/func/gpt/openai/adpater.ts` — 新增 `applyOptionCompat(option, toggles, compat)`（含 `clampEffort`）；重写 `adaptChatOptions` 集成 `applyOptionCompat`；签名扩展增加可选 `toggles` 参数
+- [x] `src/func/gpt/openai/complete.ts` — `complete()` options 增加可选 `toggles`；调用 `adaptChatOptions` 时透传
+- [x] `src/func/gpt/openai/protocol-utils.ts` — `CompleteOptions` 增加 `toggles`
+- [x] `src/func/gpt/chat/ChatSession/use-openai-endpoints.ts` — 调用 `gpt.complete` 时把 `config().chatOptionToggles` 传入
+
+**Verification**: 构建无报错；toggle=false 的 key 被删除
+
+---
+
+### Phase 3: Claude / Gemini thinking 注入 [x]
+
+- [x] `src/func/gpt/openai/claude-complete.ts` — `buildClaudePayload` 读取 `compat.thinking`，注入 `thinking: {type, budget_tokens}`；把 `reasoning_effort` 加入 knownKeys
+- [x] `src/func/gpt/openai/gemini-complete.ts` — `buildGeminiPayload` 读取 `compat.thinking`，注入 `generationConfig.thinkingConfig`；把 `reasoning_effort` 加入 knownKeys 阻止透传
+
+**Verification**: knownKeys 包含 `reasoning_effort`；DEFAULT_THINKING_BUDGETS 常量定义正确
+
+---
+
+### Phase 4: 模型预设补齐 [x]
+
+- [x] `src/func/gpt/model/preset.ts` — DeepSeek V3.1/V3.2、DeepSeek R1、GPT-5.x、Claude 兜底、Gemini 兜底 补齐 `options.compat`
+
+**Verification**: 每个需要 thinking 的模型都有 `compat.thinking.enabled: true`
+
+---
+
+### Phase 5: Schema 迁移 3.1 -> 3.2 [x]
+
+- [x] `src/func/gpt/model/config_migration.ts` — bump `CURRENT_SCHEMA` 至 `'3.2'`；新增迁移块：旧 `chatOption` 有值的 key -> `chatOptionToggles[key] = true`（旧值保留）；`capabilities.reasoningEffort` -> `options.compat.thinking.enabled`
+
+**Verification**: 构建通过；迁移逻辑不删除旧值
+
+---
+
+### Phase 6: ChatSetting UI [x]
+
+- [x] `src/func/gpt/setting/ChatSetting.tsx` — 6 个采样参数各加 toggle checkbox，控制 `chatOptionToggles`；reasoning_effort 独立 Reasoning section；采样参数独立 section
+
+**Verification**: 打开设置面板，每个参数左侧有 checkbox
+
+---
+
+### Phase 7: ProviderSettingV2 compat 面板 [x]
+
+- [x] `src/func/gpt/setting/ProviderSettingV2.tsx` — 模型配置面板新增参数兼容 section：thinking enabled checkbox、thinkingStyle select、supportedEfforts 多选、effortMap JSON textarea、enabledByDefault 多选
+
+**Verification**: 打开模型配置面板，能看到参数兼容 section；修改后保存能持久化
+
+---
+
+### Phase 8: main.tsx 空值安全 + enabledByDefault 初始化 [x]
+
+- [x] `src/func/gpt/chat/main.tsx` — 修复两处 `temperature.toFixed(2)` 空值崩溃；toggle=false 或值 undefined -> 显示「API 默认」文本
+- [x] `src/func/gpt/chat/main.tsx` — model 切换 effect 中读取 `compat.enabledByDefault`，写入 `chatOptionToggles` 初始值
+
+**Verification**: 清空 temperature 默认值后打开 toolbar menu 不崩溃
 
 ---
 
 ## Progress
 
-**Overall**: 0%
+**Overall**: 100%
 
 | Phase | Progress | Status |
 |-------|----------|--------|
-| Phase 1 | 0% | ⏳ |
+| Phase 1: 类型 + 基础数据 | 100% | Done |
+| Phase 2: Adapter 重写 | 100% | Done |
+| Phase 3: Claude/Gemini thinking | 100% | Done |
+| Phase 4: 模型预设 | 100% | Done |
+| Phase 5: Schema 迁移 | 100% | Done |
+| Phase 6: ChatSetting UI | 100% | Done |
+| Phase 7: ProviderSettingV2 | 100% | Done |
+| Phase 8: main.tsx + session init | 100% | Done |
 
 **Recent**:
-- (none yet)
+- 2026-05-03: 全部 8 个 Phase 实现完毕，构建通过

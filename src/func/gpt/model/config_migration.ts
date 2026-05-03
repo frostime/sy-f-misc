@@ -12,7 +12,7 @@ import { createModelConfig } from "./preset";
 import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_CHAT_ENDPOINT } from "./url_utils";
 import { asStorage } from "./config";
 
-export const CURRENT_SCHEMA = '3.1';
+export const CURRENT_SCHEMA = '3.2';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {

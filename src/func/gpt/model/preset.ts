@@ -52,6 +52,9 @@ const MODEL_PRESETS: IModelPreset[] = [
                 jsonMode: true,
                 reasoningEffort: true,
             },
+            options: {
+                compat: { thinking: { enabled: true } },
+            },
         },
     },
 
@@ -66,6 +69,9 @@ const MODEL_PRESETS: IModelPreset[] = [
                 streaming: true,
                 reasoning: true,
                 jsonMode: true,
+            },
+            options: {
+                compat: { thinking: { enabled: true } },
             },
         },
     },
@@ -120,6 +126,11 @@ const MODEL_PRESETS: IModelPreset[] = [
             limits: { maxContext: 200_000 },
             options: {
                 unsupported: ['frequency_penalty', 'presence_penalty'],
+                compat: {
+                    unsupported: ['frequency_penalty', 'presence_penalty'],
+                    thinking: { enabled: true },
+                    // thinkingStyle 不需要——Claude 协议在 buildClaudePayload 中处理 thinking
+                },
             },
         },
     },
@@ -128,7 +139,7 @@ const MODEL_PRESETS: IModelPreset[] = [
     // Google Gemini
     // =========================
 
-    // Gemini 3 Pro (最新)
+    // Gemini 通用
     {
         keywords: [/^gemini[-_]/i],
         config: {
@@ -139,6 +150,12 @@ const MODEL_PRESETS: IModelPreset[] = [
                 streaming: true,
                 reasoning: true,
                 jsonMode: true,
+            },
+            options: {
+                compat: {
+                    thinking: { enabled: true },
+                    // thinkingStyle 不需要——Gemini 协议在 buildGeminiPayload 中处理 thinking
+                },
             },
         },
     },
@@ -160,6 +177,12 @@ const MODEL_PRESETS: IModelPreset[] = [
                 reasoning: true,
                 jsonMode: true,
             },
+            options: {
+                compat: {
+                    unsupported: ['frequency_penalty', 'presence_penalty'],
+                    thinking: { enabled: true, thinkingStyle: 'deepseek' },
+                },
+            },
         },
     },
 
@@ -175,6 +198,12 @@ const MODEL_PRESETS: IModelPreset[] = [
                 reasoning: true,
                 jsonMode: true,
             },
+            options: {
+                compat: {
+                    unsupported: ['frequency_penalty', 'presence_penalty'],
+                    thinking: { enabled: true, thinkingStyle: 'deepseek' },
+                },
+            },
         },
     },
 
@@ -189,6 +218,13 @@ const MODEL_PRESETS: IModelPreset[] = [
                 streaming: true,
                 reasoning: true,
                 jsonMode: false,
+            },
+            options: {
+                compat: {
+                    // R1 不支持采样参数
+                    unsupported: ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'],
+                    thinking: { enabled: true, thinkingStyle: 'deepseek' },
+                },
             },
         },
     },

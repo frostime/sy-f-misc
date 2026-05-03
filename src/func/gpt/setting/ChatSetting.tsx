@@ -148,114 +148,151 @@ const ChatSessionSetting = (props: {
                     }}
                 />
             </Form.Wrap>
+            <Heading>🧠 Reasoning</Heading>
+            <Form.Wrap
+                title="Reasoning Effort"
+                description="模型的 reasoning 级别；toggle 开启后才会发送该参数。可在 Provider 配置 → 参数兼容中限制可用级别。"
+            >
+                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                    <Form.Input
+                        type="checkbox"
+                        value={config().chatOptionToggles?.reasoning_effort !== false}
+                        changed={(v) => {
+                            config.update('chatOptionToggles', 'reasoning_effort', v);
+                        }}
+                    />
+                    <SelectInput
+                        value={config().chatOption.reasoning_effort ?? ''}
+                        changed={(v: string) => {
+                            if (!v) return;
+                            config.update('chatOption', 'reasoning_effort', v as ReasoningEffort);
+                        }}
+                        options={{
+                            "": "不设置",
+                            "none": "none",
+                            "minimal": "minimal",
+                            "low": "low",
+                            "medium": "medium",
+                            "high": "high",
+                            "xhigh": "xhigh"
+                        }}
+                    />
+                </div>
+            </Form.Wrap>
+            <Heading>📐 采样参数</Heading>
             <Form.Wrap
                 title="Temperature"
-                description="模型温度参数, 用于控制生成文本的多样性"
+                description="模型温度参数，控制生成文本的多样性。勾选后才会发送该参数。"
             >
-                <Form.Input
-                    type="slider"
-                    value={config().chatOption.temperature ?? 1}
-                    changed={(v) => {
-                        config.update('chatOption', 'temperature', parseFloat(v));
-                    }}
-                    slider={{
-                        min: 0,
-                        max: 2,
-                        step: 0.05
-                    }}
-                />
+                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                    <Form.Input
+                        type="checkbox"
+                        value={config().chatOptionToggles?.temperature !== false}
+                        changed={(v) => {
+                            config.update('chatOptionToggles', 'temperature', v);
+                        }}
+                    />
+                    <Form.Input
+                        type="slider"
+                        value={config().chatOption.temperature ?? 1}
+                        changed={(v) => {
+                            config.update('chatOption', 'temperature', parseFloat(v));
+                        }}
+                        slider={{ min: 0, max: 2, step: 0.05 }}
+                    />
+                </div>
             </Form.Wrap>
             <Form.Wrap
                 title="最大 Token 数"
-                description="控制生成文本的最大 Token 数量"
+                description="控制生成文本的最大 Token 数量。勾选后才会发送该参数。"
             >
-                <Form.Input
-                    type="number"
-                    value={config().chatOption.max_tokens}
-                    changed={(v) => {
-                        if (!v) return;
-                        config.update('chatOption', 'max_tokens', parseInt(v));
-                    }}
-                    number={{
-                        min: 1,
-                        step: 1
-                    }}
-                />
+                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                    <Form.Input
+                        type="checkbox"
+                        value={config().chatOptionToggles?.max_tokens !== false}
+                        changed={(v) => {
+                            config.update('chatOptionToggles', 'max_tokens', v);
+                        }}
+                    />
+                    <Form.Input
+                        type="number"
+                        value={config().chatOption.max_tokens}
+                        changed={(v) => {
+                            if (!v) return;
+                            config.update('chatOption', 'max_tokens', parseInt(v));
+                        }}
+                        number={{ min: 1, step: 1 }}
+                    />
+                </div>
             </Form.Wrap>
             <Form.Wrap
                 title="Top P"
-                description="控制生成文本的多样性。值越低，生成的文本越保守和确定性；值越高（最大为1），生成的文本越多样和随机。建议不要和温度参数一同变更。"
+                description="控制生成文本多样性。勾选后才会发送该参数，建议不要和温度参数同时使用。"
             >
-                <Form.Input
-                    type="number"
-                    value={config().chatOption.top_p}
-                    changed={(v) => {
-                        if (!v) return;
-                        config.update('chatOption', 'top_p', parseFloat(v));
-                    }}
-                    number={{
-                        min: 0,
-                        max: 1,
-                        step: 0.05
-                    }}
-                />
+                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                    <Form.Input
+                        type="checkbox"
+                        value={config().chatOptionToggles?.top_p !== false}
+                        changed={(v) => {
+                            config.update('chatOptionToggles', 'top_p', v);
+                        }}
+                    />
+                    <Form.Input
+                        type="number"
+                        value={config().chatOption.top_p}
+                        changed={(v) => {
+                            if (!v) return;
+                            config.update('chatOption', 'top_p', parseFloat(v));
+                        }}
+                        number={{ min: 0, max: 1, step: 0.05 }}
+                    />
+                </div>
             </Form.Wrap>
             <Form.Wrap
                 title="存在惩罚 (Presence Penalty)"
-                description="控制生成文本中是否使用已出现过的词的惩罚力度。值越高（最大为2），模型越倾向于避免使用已出现过的词，从而鼓励生成更多新词。"
+                description="避免重复已出现词的惩罚力度。勾选后才会发送该参数。"
             >
-                <Form.Input
-                    type="number"
-                    value={config().chatOption.presence_penalty}
-                    changed={(v) => {
-                        if (!v) return;
-                        config.update('chatOption', 'presence_penalty', parseFloat(v));
-                    }}
-                    number={{
-                        min: -2,
-                        max: 2,
-                        step: 0.05
-                    }}
-                />
+                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                    <Form.Input
+                        type="checkbox"
+                        value={config().chatOptionToggles?.presence_penalty !== false}
+                        changed={(v) => {
+                            config.update('chatOptionToggles', 'presence_penalty', v);
+                        }}
+                    />
+                    <Form.Input
+                        type="number"
+                        value={config().chatOption.presence_penalty}
+                        changed={(v) => {
+                            if (!v) return;
+                            config.update('chatOption', 'presence_penalty', parseFloat(v));
+                        }}
+                        number={{ min: -2, max: 2, step: 0.05 }}
+                    />
+                </div>
             </Form.Wrap>
             <Form.Wrap
                 title="频率惩罚 (Frequency Penalty)"
-                description="控制生成文本中频繁出现的词的惩罚力度。值越高（最大为2），模型越倾向于减少重复词的出现频率，从而增加模型谈论新主题的可能性。"
+                description="减少重复词出现频率的惩罚力度。勾选后才会发送该参数。"
             >
-                <Form.Input
-                    type="number"
-                    value={config().chatOption.frequency_penalty}
-                    changed={(v) => {
-                        if (!v) return;
-                        config.update('chatOption', 'frequency_penalty', parseFloat(v));
-                    }}
-                    number={{
-                        min: -2,
-                        max: 2,
-                        step: 0.05
-                    }}
-                />
-            </Form.Wrap>
-            <Form.Wrap
-                title="Reasoning Effort"
-                description="OpenAI 系的推理模型允许指定推理强度"
-            >
-                <SelectInput
-                    value={config().chatOption.reasoning_effort}
-                    changed={(v: IChatCompleteOption['reasoning_effort'] | null) => {
-                        if (!v) return;
-                        config.update('chatOption', 'reasoning_effort', v);
-                    }}
-                    options={{
-                        "": "不设置",
-                        "none": "none",
-                        "minimal": "minimal",
-                        "low": "low",
-                        "medium": "medium",
-                        "high": "high",
-                        "xhigh": "xhigh"
-                    }}
-                />
+                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                    <Form.Input
+                        type="checkbox"
+                        value={config().chatOptionToggles?.frequency_penalty !== false}
+                        changed={(v) => {
+                            config.update('chatOptionToggles', 'frequency_penalty', v);
+                        }}
+                    />
+                    <Form.Input
+                        type="number"
+                        value={config().chatOption.frequency_penalty}
+                        changed={(v) => {
+                            if (!v) return;
+                            config.update('chatOption', 'frequency_penalty', parseFloat(v));
+                        }}
+                        number={{ min: -2, max: 2, step: 0.05 }}
+                    />
+                </div>
             </Form.Wrap>
             <Heading>隐私配置</Heading>
             <Form.Wrap

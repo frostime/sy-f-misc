@@ -7,15 +7,20 @@ created: 2026-05-03T01:54:11
 
 ## State
 
-Design revised (post code-review subagent audit). spec.md + design.md 已修复 6 个审查发现。等待用户最终确认 (@align gate)。
+Implementation complete. 8 个 phase 已完成，TypeScript 检查通过，`pnpm run build` 通过。当前等待用户在思源中做手工验收。
 
 ## Key Files
 
-- `src/func/gpt/openai/adpater.ts` — `adaptChatOptions` 是本次重写核心，`deleteIfEqual` 硬编码逻辑在此
-- `src/func/gpt/setting/ChatSetting.tsx` — UI 改动最大的文件，6 个 toggle + reasoning section
-- `src/func/gpt/setting/ProviderSettingV2.tsx` — 模型 compat panel 新增
-- `src/func/gpt/model/preset.ts` — MODEL_PRESETS 需全部补齐 compat
-- `src/func/gpt/model/config_migration.ts` — 迁移逻辑，需严格遵循 历史版本兼容() 增量模式
+- `src/func/gpt/openai/adpater.ts` — `applyOptionCompat` + `adaptChatOptions` 重写核心；处理 toggle 删除、unsupported、thinkingStyle 注入、supportedEfforts clamp
+- `src/func/gpt/setting/ChatSetting.tsx` — UI 改动最大的文件，6 个 toggle + Reasoning / 采样参数 section
+- `src/func/gpt/setting/ProviderSettingV2.tsx` — 模型 compat panel 新增：thinking enabled / thinkingStyle / supportedEfforts / effortMap / enabledByDefault
+- `src/func/gpt/model/preset.ts` — MODEL_PRESETS 补齐 compat（GPT-5.x / DeepSeek / Claude / Gemini）
+- `src/func/gpt/model/config_migration.ts` — schema 3.1 → 3.2 迁移：旧值保留 + toggle 全开 + capabilities.reasoningEffort 映射
+- `src/func/gpt/chat/main.tsx` — toolbar 温度显示空值安全；读取 compat.enabledByDefault 初始化 toggle 默认值
+- `src/func/gpt/openai/claude-complete.ts` — Claude thinking block 注入 + budget 映射 + 阻止 reasoning_effort 透传
+- `src/func/gpt/openai/gemini-complete.ts` — Gemini thinkingConfig 注入 + 阻止 reasoning_effort 透传
+- `reference/chat-thread-export_R1-Deisgn.xml` — 上一轮设计讨论导出记录（R1）
+- `reference/chat-thread-export_R2-Implement.xml` — 本轮实现讨论导出记录（R2）
 
 ## Knowledge
 
@@ -30,6 +35,8 @@ Design revised (post code-review subagent audit). spec.md + design.md 已修复 
 - [2026-05-03T01:54] [Insight] **Qwen3 使用 `enable_thinking: true` 或 `chat_template_kwargs: {enable_thinking: true}`**：Pi 同时支持两种（`qwen` vs `qwen-chat-template`），Qwen3 cloud API 用前者，本地模型可能用后者。
 - [2026-05-03T02:30] [Insight] **Code-reviewer subagent 审计发现**：原 design 有 7 个缺陷——迁移删除旧值（与 "保持兼容" 矛盾）、枚举口径不一致、`enabledByDefault` 被误用作 runtime 过滤器、`main.tsx` 空值崩溃风险、Scope Summary 文件归属错误、Claude/Gemini thinking payload 未定义、`supportedEfforts`/`budgetMap` 定义但未消费。全部已修复。
 - [2026-05-03T03:00] [Insight] **第二轮审计（pure-agent + gpt-5.4）发现 7 个问题**：`IChatCompleteOption.reasoning_effort` 类型未扩展至 6 级、`xhigh` budget 无默认值、memory.md 与 spec 枚举冲突、memory.md 迁移策略冲突、`enabledByDefault` 所有权模糊、`main.tsx` toggle-off UX 未定义、命名 `optionCompat` vs `options.compat` 不一致。全部已修复。
+- [2026-05-03T04:20] [Insight] **`reasoning_effort` 在 Claude/Gemini builder 中必须阻止透传**：两者 payload builder 都有“未知 key 直接透传”逻辑；如果不把 `reasoning_effort` 加入 knownKeys，会在 thinking 已转译为 Claude `thinking` / Gemini `thinkingConfig` 后仍把原字段顶层发出去。
+- [2026-05-03T04:20] [Insight] **`toggles` 最小侵入接入方式 = 透传给 `complete()` 再进 adapter**：相比在 20+ 消费点改 `IChatCompleteOption` leaf type，给 `complete()` / `adaptChatOptions()` 增加可选 `toggles` 参数可以保持核心数据流稳定。
 
 ### Decisions
 
@@ -44,6 +51,8 @@ Design revised (post code-review subagent audit). spec.md + design.md 已修复 
 - [2026-05-03T01:54] [Decision] **迁移策略：旧 toggle 全开，旧值保留**：`chatOptionToggles[key] = true` 对已有值的所有 key；不删除旧用户的 temperature 等值。老用户行为完全不变。`defaultConfig.chatOption` 清空仅对新安装用户生效。
 - [2026-05-03T03:00] [Decision] **命名约定**：概念层面称 `optionCompat`（文档、讨论），落地字段为 `ILLMConfigV2.options.compat`。`ConfigurableChatOption` 收窄 `enabledByDefault` 的值域到 6 个 UI 可控参数。
 - [2026-05-03T01:54] [Decision] **`capabilities.reasoningEffort` 不删除，只追加写入 `optionCompat.thinking.enabled`**：保持向后兼容，迁移代码同时写两处。
+- [2026-05-03T04:20] [Decision] **`enabledByDefault` 的初始化落点放在 `main.tsx` 的 model-change effect**：这里本来已处理 `customOverride` 注入；同处增加 `compat.enabledByDefault` → `chatOptionToggles` 的默认填充，改动最小。
+- [2026-05-03T04:20] [Decision] **memory / tasks / spec 文档避免 emoji 依赖**：用户环境下 `.md` 文件可能因编码或 shell 替换导致 emoji 损坏；后续状态文件优先使用 ASCII 标记（如 `[x]`, `Done`, `->`）。
 
 ### Constraints
 
@@ -61,6 +70,8 @@ Design revised (post code-review subagent audit). spec.md + design.md 已修复 
 - [2026-05-03T01:54] [Gotcha] **`enabledByDefault` 和 `chatOptionToggles` 的交互**（已修复）：原设计把 `enabledByDefault` 当 runtime 过滤器（不在列表就删），会误删 `tools`/`stream` 等。修复后 `enabledByDefault` 仅用于 session 初始化时填充 toggle 默认值，不参与 adapter 过滤。
 - [2026-05-03T02:30] [Gotcha] **`main.tsx` 空值崩溃**：`config().chatOption.temperature.toFixed(2)` 在清空默认值后必然崩。修复：加空值检查 + toolbar 显示适配 toggle 语义。
 - [2026-05-03T02:30] [Gotcha] **`CURRENT_SCHEMA` 位置**：在 `config_migration.ts` 而非 `config.ts`。Scope Summary 已修正。
+- [2026-05-03T04:20] [Gotcha] **`complete()` 自己声明了内联 options 类型**：不仅有 `protocol-utils.ts` 的 `CompleteOptions`，`openai/complete.ts` 也自己定义了 options 结构；给 `toggles` 加字段时两处都要改。
+- [2026-05-03T04:35] [Gotcha] **PowerShell / shell 替换可能破坏 UTF-8 emoji**：对 `tasks.md` 的批量替换曾导致 `⏳` / `✅` 变成乱码；已改为纯 ASCII 状态标记并重写文件。
 
 ### Rejected
 
@@ -79,3 +90,9 @@ Design revised (post code-review subagent audit). spec.md + design.md 已修复 
 - [2026-05-03T02:00] Design: memory.md 补充完整——所有 research 发现、decisions、gotchas、rejected 记录完毕
 - [2026-05-03T02:30] Review: code-reviewer subagent 审计发现 7 个问题 → 全部验证通过并修复
 - [2026-05-03T03:00] Review: pure-agent + gpt-5.4 二轮审计发现 7 个问题（2 🛑 + 4 ⚠️ + 1 💡）→ 全部验证通过并修复
+- [2026-05-03T04:05] Plan: tasks.md 拆分为 8 个 phase，覆盖 types/config、adapter、protocol builder、preset、migration、ChatSetting、ProviderSettingV2、main.tsx
+- [2026-05-03T04:05] Implement: 完成全部 8 个 phase 代码改动
+- [2026-05-03T04:15] Verify: `npx tsc --noEmit` 通过
+- [2026-05-03T04:16] Verify: `pnpm run build` 通过
+- [2026-05-03T04:35] Maintenance: `tasks.md` 因 emoji 编码损坏，已重写为 ASCII 状态标记版本
+- [2026-05-03T04:40] Reference: 记录 `reference/chat-thread-export_R1-Deisgn.xml`（设计会话导出）与 `reference/chat-thread-export_R2-Implement.xml`（实现会话导出）供后续 agent 追溯因果

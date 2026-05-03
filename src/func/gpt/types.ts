@@ -255,7 +255,7 @@ interface IChatCompleteOption {
         };
     };
 
-    reasoning_effort?: 'none' | 'low' | 'medium' | 'high';
+    reasoning_effort?: ReasoningEffort;
 
     // Audio
     audio?: {
@@ -344,6 +344,50 @@ interface ICompletionResult {
     providerMeta?: Record<string, any>;
 }
 
+
+// ========================================
+// Chat Option 参数控制
+// ========================================
+
+/**
+ * 归一化 reasoning 级别，严格匹配 OpenAI Chat Completions 官方值
+ * https://developers.openai.com/api/reference/resources/chat/subresources/completions
+ */
+type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+
+/** ChatSetting UI 中用户可手动 toggle 的 6 个采样参数 */
+type ConfigurableChatOption =
+    | 'temperature' | 'max_tokens' | 'top_p'
+    | 'frequency_penalty' | 'presence_penalty' | 'reasoning_effort';
+
+/**
+ * 模型级别的兼容性配置，挂载在 ILLMConfigV2.options.compat
+ */
+interface ILLMOptionCompat {
+    /** 模型不支持的参数，发送前删除 */
+    unsupported?: (keyof IChatCompleteOption)[];
+    /** 该模型默认启用哪些可配置参数。
+     *  仅用于初始化 session 的 chatOptionToggles；adapter 层不做过滤 */
+    enabledByDefault?: ConfigurableChatOption[];
+    /** thinking / reasoning 相关配置 */
+    thinking?: {
+        /** 模型是否支持 reasoning */
+        enabled: boolean;
+        /** OpenAI 兼容路径下 thinking 参数的发送风格（Claude/Gemini 协议各自处理，无需此字段）
+         *  - 'openai'（默认）: { reasoning_effort: "high" }
+         *  - 'deepseek': { thinking: { type: "enabled" }, reasoning_effort: "high" }
+         *  - 'qwen': { enable_thinking: true }
+         */
+        thinkingStyle?: 'openai' | 'deepseek' | 'qwen';
+        /** 模型支持的 effort 级别子集；不在列表的 effort 会被 clamp 到最近可用值 */
+        supportedEfforts?: ReasoningEffort[];
+        /** 归一化 effort → API 原生字符串值（如 DeepSeek V4: { xhigh: 'max' }）*/
+        effortMap?: Partial<Record<ReasoningEffort, string>>;
+        /** 归一化 effort → token 预算（Claude/Gemini 协议用）
+         *  缺省时使用内置回退: minimal=1024, low=2048, medium=8192, high=16384, xhigh=32768 */
+        budgetMap?: Partial<Record<ReasoningEffort, number>>;
+    };
+}
 
 // ========================================
 // LLM V1 版本配置; To be deprecated; 替代为 ILLMProviderV2
@@ -439,6 +483,8 @@ interface ILLMConfigV2 {
         customOverride?: Partial<IChatCompleteOption & Record<string, any>>;
         //不支持的选项列表
         unsupported?: (keyof IChatCompleteOption | string)[];
+        /** 结构化兼容性配置，替代散落的 capabilities/unsupported/deleteIfEqual 逻辑 */
+        compat?: ILLMOptionCompat;
     };
 
     price?: {
@@ -495,6 +541,8 @@ interface IChatSessionConfig {
     renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
     toolCallMaxRounds: number; // 工具调用最大轮次
     chatOption: IChatCompleteOption;
+    /** 参数显式开关。key 不存在 ≈ toggle=true（兼容旧数据，默认发送）*/
+    chatOptionToggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
 
     // 隐私配置
     enablePrivacyMask?: boolean;

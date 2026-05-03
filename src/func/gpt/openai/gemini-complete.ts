@@ -1,5 +1,5 @@
 import { appendLog } from '../MessageLogger';
-import { adaptChatOptions } from './adpater';
+import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adpater';
 import {
     applyGeminiModelPlaceholder,
     buildProtocolHeaders,
@@ -142,6 +142,7 @@ const buildGeminiPayload = (
     contents: IGeminiContent[],
     systemPrompt: string,
     option: IChatCompleteOption,
+    runtimeLLM?: IRuntimeLLM,
 ): Record<string, any> => {
     const payload: Record<string, any> = {
         contents,
@@ -172,13 +173,27 @@ const buildGeminiPayload = (
     // 保留用户自定义扩展字段
     const knownKeys = new Set([
         'tools', 'tool_choice', 'temperature', 'top_p', 'stop',
-        'stream', 'stream_options', 'max_completion_tokens', 'max_tokens'
+        'stream', 'stream_options', 'max_completion_tokens', 'max_tokens',
+        'reasoning_effort',  // Gemini 协议不识别，阻止透传
     ]);
     Object.entries(option || {}).forEach(([key, value]) => {
         if (knownKeys.has(key)) return;
         if (value === undefined || value === null || value === '') return;
         payload[key] = value;
     });
+
+    // Gemini thinking 参数注入
+    const compat = runtimeLLM?.config?.options?.compat;
+    if (compat?.thinking?.enabled) {
+        const effort = option.reasoning_effort as ReasoningEffort | undefined;
+        if (effort && effort !== 'none') {
+            const budget = compat.thinking.budgetMap?.[effort] ?? DEFAULT_THINKING_BUDGETS[effort] ?? 8192;
+            payload.generationConfig = {
+                ...payload.generationConfig,
+                thinkingConfig: { thinkingBudget: budget },
+            };
+        }
+    }
 
     return payload;
 };
@@ -382,7 +397,7 @@ export const geminiComplete = async (
         }
 
         const contents = toGeminiContents(messages);
-        const payload = buildGeminiPayload(contents, systemPrompt, chatOption);
+        const payload = buildGeminiPayload(contents, systemPrompt, chatOption, runtimeLLM);
         let url = applyGeminiModelPlaceholder(runtimeLLM.url, runtimeLLM.model);
         url = ensureGeminiEndpointByStream(url, Boolean(chatOption.stream));
 
