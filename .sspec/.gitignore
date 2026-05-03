@@ -1,6 +1,6 @@
 requests/archive
 changes/archive
-asks/archive
+asks/
 # Temporary workspace drafts
 tmp/**
 
