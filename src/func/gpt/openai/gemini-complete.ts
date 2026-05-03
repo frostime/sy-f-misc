@@ -391,6 +391,7 @@ export const geminiComplete = async (
         const chatOption = adaptChatOptions({
             chatOption: options.option || {},
             runtimeLLM,
+            toggles: options.toggles,
         });
         if (options.stream !== undefined) {
             chatOption.stream = options.stream;

@@ -11,7 +11,7 @@ DONE. 基础实现 + revision 001/002 已完成，`npx tsc --noEmit` 与 `pnpm r
 
 ## Key Files
 
-- `src/func/gpt/openai/adpater.ts` — `applyOptionCompat` + `adaptChatOptions` 重写核心；处理 toggle 删除、unsupported、thinkingStyle 注入、supportedEfforts clamp
+- `src/func/gpt/openai/adapter.ts` — `applyOptionCompat` + `adaptChatOptions` 重写核心；处理 toggle 删除、unsupported、thinkingStyle 注入、supportedEfforts clamp
 - `src/func/gpt/setting/ChatSetting.tsx` — UI 改动最大的文件，6 个 toggle + Reasoning / 采样参数 section
 - `src/func/gpt/setting/ProviderSettingV2.tsx` — 模型 compat panel 新增：thinking enabled / thinkingStyle / supportedEfforts / effortMap / enabledByDefault
 - `src/func/gpt/model/preset.ts` — MODEL_PRESETS 补齐 compat（GPT-5.x / DeepSeek / Claude / Gemini）
@@ -72,6 +72,8 @@ DONE. 基础实现 + revision 001/002 已完成，`npx tsc --noEmit` 与 `pnpm r
 - [2026-05-03T02:30] [Gotcha] **`CURRENT_SCHEMA` 位置**：在 `config_migration.ts` 而非 `config.ts`。Scope Summary 已修正。
 - [2026-05-03T04:20] [Gotcha] **`complete()` 自己声明了内联 options 类型**：不仅有 `protocol-utils.ts` 的 `CompleteOptions`，`openai/complete.ts` 也自己定义了 options 结构；给 `toggles` 加字段时两处都要改。
 - [2026-05-03T04:35] [Gotcha] **PowerShell / shell 替换可能破坏 UTF-8 emoji**：对 `tasks.md` 的批量替换曾导致 `⏳` / `✅` 变成乱码；已改为纯 ASCII 状态标记并重写文件。
+- [2026-05-03T19:42] [Gotcha] **`claude-complete` / `gemini-complete` 未透传 `toggles`（已修复）**：两个协议 builder 内部调用 `adaptChatOptions` 时遗漏了 `toggles: options.toggles`，导致用户关闭的 toggle 对 Claude/Gemini 路径无效。已补全两处调用。
+- [2026-05-03T19:42] [Gotcha] **`clampEffort` 对 `none` 的边界处理（已修复）**：`none` 表示关闭 thinking，不应参与 clamp。原代码在 `supportedEfforts` 不含 `none` 时会把 `none` clamp 到最低支持级别，导致用户想关闭 thinking 却被开启。修复：`supportedEfforts` 校验条件加上 `effort !== 'none'` 短路。
 
 ### Rejected
 
@@ -101,3 +103,4 @@ DONE. 基础实现 + revision 001/002 已完成，`npx tsc --noEmit` 与 `pnpm r
 - [2026-05-03T05:20] Revision 002: 完成 session reasoning / quick menu cleanup——去掉设置页「不设置」、补齐 3.2 migration（含脏数据清理）、快速菜单温度跟随 toggle、快速菜单新增 reasoning_effort
 - [2026-05-03T05:22] Verify: revision 002 的 `npx tsc --noEmit` 与 `pnpm run build` 通过
 - [2026-05-03T05:22] Critical: 发现 Phase 5 实现遗漏——3.2 schema migration 逻辑完全缺失（仅 bump 了常量），已在 revision 002 中补全
+- [2026-05-03T19:42] Post-review fix: 第三轮人工审查发现 3 个问题并修复——(1) claude/gemini adaptChatOptions 缺失 toggles 透传 [Critical]；(2) clampEffort 对 none 的边界处理错误 [Warning]；(3) adapter.ts 注释错字"兆容"->"兼容" [Info]。`npx tsc --noEmit` 与 `pnpm run build` 通过。

@@ -120,6 +120,9 @@ const buildClaudePayload = (
     option: IChatCompleteOption,
 ): Record<string, any> => {
     const tools = toClaudeTools(option.tools);
+    /**
+     *  Claude API 要求 max_tokens 必须存在，所以这里有个硬编码的 4096 兜底
+     */
     const payload: Record<string, any> = {
         model: model.model,
         messages,
@@ -389,6 +392,7 @@ export const claudeComplete = async (
         const chatOption = adaptChatOptions({
             chatOption: options.option || {},
             runtimeLLM,
+            toggles: options.toggles,
         });
         if (options.stream !== undefined) {
             chatOption.stream = options.stream;

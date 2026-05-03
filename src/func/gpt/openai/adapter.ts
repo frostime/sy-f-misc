@@ -20,7 +20,8 @@ export const DEFAULT_THINKING_BUDGETS: Record<string, number> = {
 
 const ALL_EFFORTS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
 
-/** clamp effort 到 supportedEfforts 中最近的可用值（优先高一级，其次低一级） */
+/** clamp effort 到 supportedEfforts 中最近的可用值（优先高一级，其次低一级）
+ *  注意：'none' 表示关闭 thinking，不参与 clamp，调用方应在调用前过滤 */
 const clampEffort = (
     effort: ReasoningEffort,
     supported: ReasoningEffort[],
@@ -65,14 +66,14 @@ export const applyOptionCompat = (
         }
     }
 
-    // 3. Thinking 参数注入（仅 OpenAI 兆容路径）
+    // 3. Thinking 参数注入（仅 OpenAI 兼容路径）
     const thinking = compat?.thinking;
     if (thinking?.enabled) {
         const rawEffort = option.reasoning_effort as ReasoningEffort | undefined;
         let effort = rawEffort;
 
-        // supportedEfforts 校验：不在列表的 effort clamp 到最近可用值
-        if (effort && thinking.supportedEfforts?.length) {
+        // supportedEfforts 校验：none 不参与 clamp（由后续 effort !== 'none' 判断处理）
+        if (effort && effort !== 'none' && thinking.supportedEfforts?.length) {
             effort = clampEffort(effort, thinking.supportedEfforts);
         }
 
