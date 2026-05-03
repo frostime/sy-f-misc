@@ -350,7 +350,10 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
         migrated = true;
     }
 
-    migrated = true;
+    // ========== Add new migration here when schema increase ==========
+
+    // ==========
+    // migrated = true;
     (data as any).schema = CURRENT_SCHEMA;
     return { data, migrated };
 }

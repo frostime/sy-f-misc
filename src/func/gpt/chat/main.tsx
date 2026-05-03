@@ -1280,7 +1280,7 @@ export const ChatSession: Component<{
                         // 温度选项
                         menu.addItem({
                             icon: 'iconLight',
-                            label: '温度: ' + config().chatOption.temperature.toFixed(2),
+                            label: '温度: ' + (config().chatOption.temperature?.toFixed(2) ?? 'API 默认'),
                             submenu: [
                                 {
                                     element: temperatureContainer
