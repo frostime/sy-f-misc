@@ -66,8 +66,14 @@ updated: "2026-05-03"
 ### Phase 7: ProviderSettingV2 compat 面板 [x]
 
 - [x] `src/func/gpt/setting/ProviderSettingV2.tsx` — 模型配置面板新增参数兼容 section：thinking enabled checkbox、thinkingStyle select、supportedEfforts 多选、effortMap JSON textarea、enabledByDefault 多选
+- [ ] `src/func/gpt/setting/ProviderSettingV2.tsx` — 将 `supportedEfforts` + `effortMap` 合并为单一 Effort Matrix 组件；所有 protocol 都显示，但右侧编辑控件按 protocol 区分（OpenAI=字符串映射，Claude adaptive=只读映射提示，Claude manual-budget=budget 输入，Gemini=budget 输入）
+- [ ] `src/func/gpt/openai/gemini-complete.ts` — `reasoning_effort === 'none'` 时显式发送 `thinkingBudget: 0`
 
 **Verification**: 打开模型配置面板，能看到参数兼容 section；修改后保存能持久化
+
+### Feedback Tasks (→ [003-provider-effort-matrix-ui](./revisions/003-provider-effort-matrix-ui.md))
+- [x] Provider Effort Matrix UI 合并 supported levels / mapping editor
+- [x] Gemini `none` thinking 语义与 UI 对齐
 
 ---
 

@@ -126,6 +126,71 @@ const ModelConfigPanel: Component<{
         'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'reasoning_effort'
     ];
     const EFFORT_LEVELS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+    const DEFAULT_BUDGET_HINTS: Partial<Record<ReasoningEffort, number>> = {
+        minimal: 1024,
+        low: 2048,
+        medium: 8192,
+        high: 16384,
+        xhigh: 32768,
+    };
+    const CLAUDE_ADAPTIVE_LABELS: Record<ReasoningEffort, string> = {
+        none: 'disabled',
+        minimal: 'low',
+        low: 'low',
+        medium: 'medium',
+        high: 'high',
+        xhigh: 'max',
+    };
+
+    const getThinkingConfig = () => ((model().options as any)?.compat?.thinking ?? {}) as NonNullable<ILLMOptionCompat['thinking']>;
+    const getSupportedEfforts = () => getThinkingConfig().supportedEfforts ?? [];
+    const getEffortMap = () => getThinkingConfig().effortMap ?? {};
+    const getBudgetMap = () => getThinkingConfig().budgetMap ?? {};
+
+    const updateSupportedEffort = (level: ReasoningEffort, checked: boolean) => {
+        const current = getSupportedEfforts();
+        const next = checked
+            ? Array.from(new Set([...current, level]))
+            : current.filter(item => item !== level);
+        updateCompatThinking({ supportedEfforts: next.length ? next : undefined });
+    };
+
+    const updateEffortMapValue = (level: ReasoningEffort, value: string) => {
+        const nextValue = value.trim();
+        const nextMap = { ...getEffortMap() };
+        if (!nextValue || nextValue === level || level === 'none') {
+            delete nextMap[level];
+        } else {
+            nextMap[level] = nextValue;
+        }
+        updateCompatThinking({ effortMap: Object.keys(nextMap).length ? nextMap : undefined });
+    };
+
+    const updateBudgetMapValue = (level: ReasoningEffort, value: string) => {
+        const nextValue = value.trim();
+        const nextMap = { ...getBudgetMap() };
+        if (!nextValue || level === 'none') {
+            delete nextMap[level];
+        } else {
+            const parsed = Number.parseInt(nextValue, 10);
+            if (Number.isNaN(parsed) || parsed < 0) {
+                showMessage('Budget 必须是大于等于 0 的整数');
+                return;
+            }
+            nextMap[level] = parsed;
+        }
+        updateCompatThinking({ budgetMap: Object.keys(nextMap).length ? nextMap : undefined });
+    };
+
+    const effortEditorMode = createMemo<'string-map' | 'budget-map' | 'claude-adaptive'>(() => {
+        if (providerProtocol() === 'claude') {
+            return getThinkingConfig().claudeMode === 'manual-budget' ? 'budget-map' : 'claude-adaptive';
+        }
+        if (providerProtocol() === 'gemini') {
+            return 'budget-map';
+        }
+        return 'string-map';
+    });
 
     const updateCustomOverride = (value: string) => {
         try {
@@ -444,57 +509,76 @@ const ModelConfigPanel: Component<{
                 </Show>
 
                 <Form.Wrap
-                    title="支持的 Effort 级别"
-                    description={providerProtocol() === 'claude'
-                        ? '限制该模型可用的 effort 级别；xhigh 在 Claude 中会映射到 max'
-                        : providerProtocol() === 'gemini'
-                            ? '限制该模型可用的 effort 级别；Gemini 最终走 thinkingBudget 数值预算'
-                            : '限制该模型可用的 effort 级别；留空表示全部支持'}
+                    title="Effort 兼容配置"
+                    description={effortEditorMode() === 'string-map'
+                        ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 API 原生值映射。留空表示直接使用级别名；如果全部取消勾选，将写回空值并表示全部支持。'
+                        : effortEditorMode() === 'claude-adaptive'
+                            ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；Claude adaptive 模式下右侧显示固定映射提示。如果全部取消勾选，将写回空值并表示全部支持。'
+                            : '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 thinking budget。留空表示使用内置默认预算；如果全部取消勾选，将写回空值并表示全部支持。'}
                     direction="row"
                 >
-                    <div style={{ display: 'flex', 'flex-wrap': 'wrap', gap: '6px' }}>
-                        {EFFORT_LEVELS.map(level => {
-                            const supported: ReasoningEffort[] = (model().options as any)?.compat?.thinking?.supportedEfforts ?? [];
-                            return (
-                                <label style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
-                                    <input
-                                        type="checkbox"
-                                        class="b3-checkbox"
-                                        checked={supported.includes(level)}
-                                        onChange={(e) => {
-                                            const cur: ReasoningEffort[] = (model().options as any)?.compat?.thinking?.supportedEfforts ?? [];
-                                            const next = e.currentTarget.checked
-                                                ? [...cur, level]
-                                                : cur.filter(x => x !== level);
-                                            updateCompatThinking({ supportedEfforts: next.length ? next : undefined });
-                                        }}
-                                    />
-                                    {level}
-                                </label>
-                            );
-                        })}
+                    <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
+                        <For each={EFFORT_LEVELS}>
+                            {(level) => (
+                                <div style={{
+                                    display: 'grid',
+                                    'grid-template-columns': '140px minmax(0, 1fr)',
+                                    gap: '12px',
+                                    'align-items': 'center'
+                                }}>
+                                    <label style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
+                                        <input
+                                            type="checkbox"
+                                            class="b3-checkbox"
+                                            checked={getSupportedEfforts().includes(level)}
+                                            onChange={(e) => updateSupportedEffort(level, e.currentTarget.checked)}
+                                        />
+                                        <span>{level}</span>
+                                    </label>
+
+                                    <Show when={effortEditorMode() === 'string-map'}>
+                                        <Show
+                                            when={level !== 'none'}
+                                            fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>关闭 thinking，不需要额外映射</span>}
+                                        >
+                                            <input
+                                                class="b3-text-field fn__flex-center"
+                                                value={getEffortMap()[level] ?? ''}
+                                                placeholder={level}
+                                                onChange={(e) => updateEffortMapValue(level, e.currentTarget.value)}
+                                            />
+                                        </Show>
+                                    </Show>
+
+                                    <Show when={effortEditorMode() === 'claude-adaptive'}>
+                                        <span style={{ color: 'var(--b3-theme-on-surface-light)' }}>
+                                            {level === 'none'
+                                                ? '关闭 thinking'
+                                                : `adaptive effort = ${CLAUDE_ADAPTIVE_LABELS[level]}`}
+                                        </span>
+                                    </Show>
+
+                                    <Show when={effortEditorMode() === 'budget-map'}>
+                                        <Show
+                                            when={level !== 'none'}
+                                            fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>{providerProtocol() === 'gemini' ? 'thinkingBudget = 0（关闭 thinking）' : '关闭 thinking，不使用 budget'}</span>}
+                                        >
+                                            <input
+                                                class="b3-text-field fn__flex-center"
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                value={getBudgetMap()[level] ?? ''}
+                                                placeholder={String(DEFAULT_BUDGET_HINTS[level] ?? '')}
+                                                onChange={(e) => updateBudgetMapValue(level, e.currentTarget.value)}
+                                            />
+                                        </Show>
+                                    </Show>
+                                </div>
+                            )}
+                        </For>
                     </div>
                 </Form.Wrap>
-
-                <Show when={providerProtocol() === 'openai'}>
-                    <Form.Wrap
-                        title="Effort 值映射（JSON）"
-                        description="归一化 effort → API 原生值，如 {&quot;xhigh&quot;: &quot;max&quot;}（DeepSeek V4）；留空表示直接使用级别名"
-                        direction="row"
-                    >
-                        <Form.Input
-                            type="textarea"
-                            value={JSON.stringify((model().options as any)?.compat?.thinking?.effortMap ?? {}, null, 2)}
-                            changed={(v) => {
-                                try {
-                                    const parsed = v.trim() ? JSON.parse(v) : undefined;
-                                    updateCompatThinking({ effortMap: Object.keys(parsed || {}).length ? parsed : undefined });
-                                } catch { showMessage('effortMap 格式错误，请使用 JSON'); }
-                            }}
-                            style={{ width: '100%', height: '70px', 'font-family': 'var(--b3-font-family-code)' }}
-                        />
-                    </Form.Wrap>
-                </Show>
 
                 <Form.Wrap
                     title="不支持的参数"

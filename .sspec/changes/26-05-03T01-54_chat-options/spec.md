@@ -7,6 +7,9 @@ reference:
   - source: .sspec/requests/26-05-03T00-36_chat-options.md
     type: request
     note: Linked from request
+  - source: .sspec/changes/26-05-03T01-54_chat-options/revisions/003-provider-effort-matrix-ui.md
+    type: revision
+    note: Provider effort matrix UI + Gemini none semantics
 ---
 
 # chat-options

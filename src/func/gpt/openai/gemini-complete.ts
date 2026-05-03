@@ -186,8 +186,10 @@ const buildGeminiPayload = (
     const compat = runtimeLLM?.config?.options?.compat;
     if (compat?.thinking?.enabled) {
         const effort = option.reasoning_effort as ReasoningEffort | undefined;
-        if (effort && effort !== 'none') {
-            const budget = compat.thinking.budgetMap?.[effort] ?? DEFAULT_THINKING_BUDGETS[effort] ?? 8192;
+        const budget = effort === 'none'
+            ? 0
+            : (compat.thinking.budgetMap?.[effort] ?? DEFAULT_THINKING_BUDGETS[effort] ?? 8192);
+        if (effort) {
             payload.generationConfig = {
                 ...payload.generationConfig,
                 thinkingConfig: { thinkingBudget: budget },
