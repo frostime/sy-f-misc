@@ -43,7 +43,7 @@ const clampEffort = (
  * 处理顺序：
  *   1. toggle=false 的 key 删除
  *   2. compat.unsupported 删除
- *   3. thinking 参数按 thinkingStyle 注入（仅 OpenAI 兆容路径）
+ *   3. thinking 参数按 thinkingStyle 注入（仅 OpenAI 兼容路径）
  */
 export const applyOptionCompat = (
     chatOption: IChatCompleteOption,
@@ -201,11 +201,15 @@ export const adaptChatOptions = (target: {
         }
     }
 
-    // Step 3: Filter legacy unsupported options (compat.unsupported already handled in applyOptionCompat)
-    // 保留兼容: 旧数据可能只有 options.unsupported 而无 compat.unsupported
-    if (config?.options?.unsupported && !config?.options?.compat?.unsupported) {
-        for (const key of config.options.unsupported) {
-            delete chatOption[key];
+    // Step 3: Filter legacy unsupported options
+    // compat.unsupported 已在 applyOptionCompat 中处理；此处合并旧 options.unsupported（去重）
+    const legacyUnsupported = config?.options?.unsupported;
+    if (legacyUnsupported?.length) {
+        const compatUnsupported = new Set<string>(config?.options?.compat?.unsupported ?? []);
+        for (const key of legacyUnsupported) {
+            if (!compatUnsupported.has(key)) {
+                delete chatOption[key];
+            }
         }
     }
 

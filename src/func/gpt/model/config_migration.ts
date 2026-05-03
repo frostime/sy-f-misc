@@ -314,7 +314,7 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
     // 3.2 版本: 向后兼容 schema <= 3.1; 变更:
     //   a. chatOptionToggles: 旧 chatOption 有实值的 key 全部 toggle=true（旧行为不变）
     //   b. capabilities.reasoningEffort → options.compat.thinking.enabled
-    //   c. 脏数据清理: toggle=true 但 effort 为空的 → 修正为 toggle=false
+    //   c. options.unsupported → options.compat.unsupported（不删除旧字段）
     if (compareSchemaVersion(dataSchema, '3.2') < 0) {
         const config = (data as any).config;
         if (config?.chatOption && !config.chatOptionToggles) {
@@ -324,10 +324,6 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
                     toggles[key] = true;
                 }
             }
-            // 脏数据清理: toggle=true 但 reasoning_effort 为空 → 修正为 false
-            if (toggles.reasoning_effort === true && !config.chatOption.reasoning_effort) {
-                toggles.reasoning_effort = false;
-            }
             config.chatOptionToggles = toggles;
         }
 
@@ -335,13 +331,23 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
         if (Array.isArray(llmProviders)) {
             llmProviders.forEach((provider) => {
                 (provider.models || []).forEach((model) => {
+                    const modelOptions = (model as any).options;
+                    if (!modelOptions) return;
+
+                    // capabilities.reasoningEffort → options.compat.thinking.enabled
                     if ((model as any).capabilities?.reasoningEffort) {
-                        model.options = model.options || {};
-                        const compat = (model.options as any).compat || {};
-                        compat.thinking = compat.thinking || {};
-                        compat.thinking.enabled = true;
-                        (model.options as any).compat = compat;
+                        modelOptions.compat = modelOptions.compat || {};
+                        modelOptions.compat.thinking = modelOptions.compat.thinking || {};
+                        modelOptions.compat.thinking.enabled = true;
                         // 保留 capabilities.reasoningEffort，不删除
+                    }
+
+                    // options.unsupported → options.compat.unsupported
+                    if (Array.isArray(modelOptions.unsupported) && modelOptions.unsupported.length
+                        && !(modelOptions.compat?.unsupported?.length)) {
+                        modelOptions.compat = modelOptions.compat || {};
+                        modelOptions.compat.unsupported = [...modelOptions.unsupported];
+                        // 保留旧字段，不删除
                     }
                 });
             });
@@ -352,8 +358,9 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
 
     // ========== Add new migration here when schema increase ==========
 
-    // ==========
-    // migrated = true;
-    (data as any).schema = CURRENT_SCHEMA;
+    // Guard: 仅当 schema 版本确实低于 CURRENT_SCHEMA 时才写入（防止意外降级）
+    if (compareSchemaVersion(dataSchema, CURRENT_SCHEMA) < 0) {
+        (data as any).schema = CURRENT_SCHEMA;
+    }
     return { data, migrated };
 }

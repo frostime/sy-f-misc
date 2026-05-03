@@ -179,7 +179,19 @@ const ChatSessionSetting = (props: {
                         type="checkbox"
                         value={config().chatOptionToggles?.reasoning_effort !== false}
                         changed={(v) => {
-                            updateToggle('reasoning_effort', v);
+                            const current = config().chatOptionToggles || {};
+                            const patch: Partial<Record<string, boolean>> = {
+                                ...current,
+                                reasoning_effort: v,
+                            };
+                            if (v && !config().chatOption.reasoning_effort) {
+                                const supported = currentModel()?.config?.options?.compat?.thinking?.supportedEfforts;
+                                const defaultEffort = supported?.length
+                                    ? (supported.includes('medium') ? 'medium' : supported[Math.floor(supported.length / 2)])
+                                    : 'medium';
+                                config.update('chatOption', 'reasoning_effort', defaultEffort as ReasoningEffort);
+                            }
+                            config.update('chatOptionToggles', patch);
                         }}
                     />
                     <SelectInput
