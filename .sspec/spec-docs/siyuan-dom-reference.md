@@ -37,6 +37,8 @@ deprecated: false
 | `--b3-theme-error-lighter` | 错误更浅 | — |
 | `--b3-theme-success` | 成功色 | `#65b84d` |
 
+注：实际值根据使用的主题不一而足。
+
 ### 文字色
 
 | 变量 | 用途 |
