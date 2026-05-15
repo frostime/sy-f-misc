@@ -4,10 +4,11 @@
  * @Date         : 2024-07-17 12:00:18
  * @FilePath     : /src/func/post-doc/core.ts
  * @LastEditTime : 2024-12-19 14:45:31
- * @Description  : 
+ * @Description  :
  */
 import { getBlockByID, listDocTree } from "@/api";
 import { simpleDialog } from "@frostime/siyuan-plugin-kits";
+import { siyuanVersion } from "@frostime/siyuan-plugin-kits";
 
 
 export const request = async (host: string, port: number, token: string, endpoint: string, payload?: any, type: 'json' | 'form' = 'json') => {
@@ -37,8 +38,8 @@ export const request = async (host: string, port: number, token: string, endpoin
 
 /**
  * getFile 会擅自改变获取数据的类型，这里自定义一个 getFile
- * @param endpoint 
- * @returns 
+ * @param endpoint
+ * @returns
  */
 const fetchFile = async (path: string): Promise<Blob | null> => {
     const endpoint = '/api/file/getFile'
@@ -73,7 +74,7 @@ const createForm = (path: string, isDir: boolean, file: Blob | any, stream?: boo
 
 /**
  * 获取思源文档 sy 文件
- * @param docId 
+ * @param docId
  * @returns sy: { file: Blob; assets: string[]; }
  */
 const getSyFile = async (docId: DocumentId) => {
@@ -209,9 +210,13 @@ export const post = async (props: IPostProps) => {
         await traverseTree(tree, `${root}${doc.id}/`);
     }
 
+    let endpoint = '/api/filetree/refreshFiletree';
+    if (siyuanVersion().compare('3.7.0') >= 0) {
+        endpoint = '/api/system/rebuildDataIndex';
+    }
     //远端服务器重新索引
-    await request(host, port, token, '/api/filetree/refreshFiletree', {});
+    await request(host, port, token, endpoint, {});
     log('重建索引，全部上传完成!')
+
     return true;
 }
-

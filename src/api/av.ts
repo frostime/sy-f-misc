@@ -516,25 +516,6 @@ export const getAttributeViewFilterSort = async (
 }
 
 /**
- * Search attribute view non-relation key
- * @param avID Attribute view ID
- * @param keyword Search keyword
- * @returns Promise with the non-relation keys
- */
-export const searchAttributeViewNonRelationKey = async (
-    avID: AvID,
-    keyword: string
-): Promise<{
-    keys: IAVColumn[];
-}> => {
-    const result = await request('/api/av/searchAttributeViewNonRelationKey', {
-        avID: avID,
-        keyword: keyword
-    });
-    return result.data;
-}
-
-/**
  * Search attribute view relation key
  * @param avID Attribute view ID
  * @param keyword Search keyword

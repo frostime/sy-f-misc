@@ -12,3 +12,4 @@ build
 tmp
 .aider*
 .env
+.pi-input.md

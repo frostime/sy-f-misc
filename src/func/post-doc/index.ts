@@ -4,7 +4,7 @@
  * @Date         : 2024-07-17 11:55:32
  * @FilePath     : /src/func/post-doc/index.ts
  * @LastEditTime : 2024-12-19 14:59:51
- * @Description  : 
+ * @Description  :
  */
 import type FMiscPlugin from "@/index";
 
@@ -100,5 +100,4 @@ export const unload = (plugin: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
     plugin.eventBus.off('click-editortitleicon', clickDocIcon);
-
 }

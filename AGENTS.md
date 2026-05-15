@@ -26,9 +26,9 @@ When uncertain, align — never proceed with unclarified assumptions.
 | Input | Action |
 |-------|--------|
 | Directive (`@resume`, `@memory`, etc.) | Execute → §4 |
-| Request under `.sspec/requests` | Assess scale → §2 |
+| Request under `.sspec/requests` | Check `kind` → §1.1 |
 | Resume existing change | `read(memory)` → infer phase from State → load phase SKILL → continue |
-| Create request | `sspec request new` |
+| Create request | `sspec request new [--kind directive|observe|idea]` |
 | Create spec doc | `sspec doc new` |
 | Micro (≤3 files, ≤30min, obvious) | Do directly |
 | Mini (user opts out of formal change) | Clarify+Design thinking → `sspec tmp new` → §2.0 |
@@ -52,6 +52,19 @@ When uncertain, align — never proceed with unclarified assumptions.
 - @align gate decisions → SHOULD update memory.md Knowledge
 - Time uncertain → `sspec tool now`
 - Template HTML comments with BCP 14 keywords (MUST, SHOULD, MAY per RFC 2119) are persistent constraints — never delete them.
+
+### 1.1 Request Dispatch
+
+When agent encounters a request under `.sspec/requests/`, check `kind` frontmatter:
+
+| kind | Agent behavior |
+|------|---------------|
+| `directive` | Assess scale → §2 Change Lifecycle (this is a task for the agent) |
+| `observe` | Read, note context, but do NOT create a change. The request is a phenomenon record for later human triage. |
+| `idea` | Read, may refer to it as context, but do NOT create a change unless explicitly asked. The request is a memo. |
+| (missing) | Treat as `directive` (backward compatible). |
+
+A request of any kind MAY be linked to a change later via `sspec request link`.
 
 ## 2. Change Lifecycle
 
@@ -117,6 +130,7 @@ Decisions → natural home: design → spec.md, direction → memory.md Knowledg
 | Command | Use |
 |---------|-----|
 | `sspec change new <name> [--from REQ] [--root] [--scaffold design]` | Create change |
+| `sspec request new <name> [--kind directive|observe|idea]` | Create request |
 | `sspec change scaffold <type> <change>` | Add file: tasks, design, revision |
 | `sspec change find/status <name>` | Inspect change |
 | `sspec doc new "<name>"` | Create spec-doc |
