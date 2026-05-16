@@ -221,15 +221,63 @@
             :root { --detail-width: 100%; }
             .toolbar-group { flex-wrap: wrap; }
         }
+
+        /* Breadcrumb - inline style */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 1;
+            min-width: 0;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none;
+            font-size: var(--fs-sm);
+        }
+        .breadcrumb::-webkit-scrollbar { display: none; }
+        .breadcrumb-item {
+            cursor: pointer;
+            color: var(--c-fg-muted);
+            transition: color var(--transition);
+            flex-shrink: 0;
+            padding: 0 2px;
+            border-radius: var(--radius-sm);
+        }
+        .breadcrumb-item:hover { color: var(--c-accent); background: var(--c-surface-hover); }
+        .breadcrumb-item.current {
+            color: var(--c-fg);
+            cursor: default;
+            font-weight: 500;
+        }
+        .breadcrumb-sep {
+            color: var(--c-fg-muted);
+            opacity: 0.4;
+            flex-shrink: 0;
+            font-size: 0.8em;
+        }
+
+        /* Directory card */
+        .dir-card {
+            border: 1px dashed var(--c-border);
+            background-color: var(--c-surface);
+        }
+        .dir-card:hover {
+            border-color: var(--c-accent);
+            background-color: var(--c-accent-bg);
+        }
     </style>
 </head>
 
 <body class="page">
     <div class="page-header flex items-center gap-2 overflow-hidden">
-        <!-- Toolbar Row 1: Search -->
-        <div class="flex items-center gap-2 flex-none" style="width: 300px;">
-            <div class="search-box flex-1 relative">
-                <input type="text" class="input" id="search-input" placeholder="搜索文件...">
+        <!-- Left: Back + Breadcrumb + Search -->
+        <div class="flex items-center gap-1 flex-1 min-w-0">
+            <button class="btn btn-icon flex-none" id="back-btn" title="返回上级" disabled>
+                <svg class="icon icon-stroke icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+            </button>
+            <div id="breadcrumb-container" class="breadcrumb"></div>
+            <div class="search-box flex-none relative" style="width: 180px;">
+                <input type="text" class="input" id="search-input" placeholder="搜索...">
             </div>
             <label class="check-row flex-none p-1">
                 <input type="checkbox" id="regex-search">
@@ -237,8 +285,8 @@
             </label>
         </div>
 
-        <!-- Toolbar Row 2: Actions -->
-        <div class="toolbar-actions flex items-center gap-2 flex-1 justify-end">
+        <!-- Right: Actions -->
+        <div class="toolbar-actions flex items-center gap-2 flex-none">
             <select class="select text-sm" style="width:auto" id="page-size">
                 <option value="50">50/页</option>
                 <option value="100" selected>100/页</option>
@@ -450,6 +498,9 @@
                 this.currentPage = 1;
                 this.pageSize = 100;
 
+                this.currentPath = '';  // '' = root, 'subfolder/nested' = deeper
+                this.pathHistory = [''];
+
                 this.dom = {
                     listContainer: document.getElementById('file-list'),
                     detailPanel: document.getElementById('detail-panel'),
@@ -477,7 +528,9 @@
                     replacePreviewImg: document.getElementById('replace-preview-img'),
                     replacePreviewInfo: document.getElementById('replace-preview-info'),
                     replaceFilename: document.getElementById('replace-filename'),
-                    confirmReplaceBtn: document.getElementById('confirm-replace-btn')
+                    confirmReplaceBtn: document.getElementById('confirm-replace-btn'),
+                    breadcrumb: document.getElementById('breadcrumb-container'),
+                    backBtn: document.getElementById('back-btn')
                 };
 
                 this.bindEvents();
@@ -517,6 +570,7 @@
                     this.renderList();
                 });
                 this.dom.refreshBtn.addEventListener('click', () => this.loadAssets());
+                this.dom.backBtn.addEventListener('click', () => this.goBack());
                 this.dom.closePanelBtn.addEventListener('click', () => this.closePanel());
 
                 // Pagination
@@ -554,23 +608,39 @@
                 const sdk = window.pluginSdk;
                 if (!sdk) return;
                 document.documentElement.setAttribute('data-theme-mode', sdk.themeMode || 'light');
+                this.renderBreadcrumb();
                 await this.loadAssets();
+            }
+
+            getFullPath(filename) {
+                return this.currentPath ? `${this.currentPath}/${filename}` : filename;
+            }
+
+            getAssetUrl(item) {
+                const path = this.getFullPath(item.name);
+                return `/assets/${path}?t=${item.updated || ''}`;
             }
 
             async getFileSize(filename) {
                 if (window.pluginSdk.getFileSize) {
-                    const ans = await window.pluginSdk.getFileSize(`/data/assets/${filename}`);
+                    const fullPath = this.getFullPath(filename);
+                    const ans = await window.pluginSdk.getFileSize(`/data/assets/${fullPath}`);
                     return ans.size;
                 }
                 return null;
             }
 
-            async loadAssets() {
+            async loadAssets(path) {
                 this.dom.listContainer.innerHTML = '<div class="empty-state"><div>加载中...</div></div>';
                 try {
-                    const res = await window.pluginSdk.request('/api/file/readDir', { path: '/data/assets' });
+                    const dirPath = path !== undefined ? path : this.currentPath;
+                    const apiPath = dirPath ? `/data/assets/${dirPath}` : '/data/assets';
+                    const res = await window.pluginSdk.request('/api/file/readDir', { path: apiPath });
                     if (!res.ok) throw new Error(res.msg);
-                    this.assets = res.data.filter(item => !item.isDir);
+                    this.assets = res.data;
+                    this.currentPath = dirPath;
+                    this.renderBreadcrumb();
+                    this.dom.backBtn.disabled = !this.currentPath;
                     this.applyFiltersAndSort();
                 } catch (e) {
                     this.dom.listContainer.innerHTML = `<div class="empty-state text-error"><div>加载失败: ${e.message}</div></div>`;
@@ -578,9 +648,68 @@
                 }
             }
 
+            async navigateTo(subdir) {
+                const newPath = this.currentPath ? `${this.currentPath}/${subdir}` : subdir;
+                this.pathHistory.push(newPath);
+                await this.loadAssets(newPath);
+            }
+
+            async navigateToPath(targetPath) {
+                // Find or rebuild history to targetPath
+                const parts = targetPath ? targetPath.split('/') : [];
+                this.pathHistory = [''];
+                for (let i = 0; i < parts.length; i++) {
+                    this.pathHistory.push(parts.slice(0, i + 1).join('/'));
+                }
+                await this.loadAssets(targetPath);
+            }
+
+            async goBack() {
+                if (this.pathHistory.length <= 1) return;
+                this.pathHistory.pop();
+                const prevPath = this.pathHistory[this.pathHistory.length - 1];
+                await this.loadAssets(prevPath);
+            }
+
+            renderBreadcrumb() {
+                const container = this.dom.breadcrumb;
+                container.innerHTML = '';
+
+                const addSegment = (text, path, isCurrent) => {
+                    if (container.children.length > 0) {
+                        const sep = document.createElement('span');
+                        sep.className = 'breadcrumb-sep';
+                        sep.textContent = '/';
+                        container.appendChild(sep);
+                    }
+                    const item = document.createElement('span');
+                    item.className = `breadcrumb-item${isCurrent ? ' current' : ''}`;
+                    item.textContent = text;
+                    if (!isCurrent) {
+                        item.onclick = () => this.navigateToPath(path);
+                    }
+                    container.appendChild(item);
+                };
+
+                addSegment('assets', '', !this.currentPath);
+
+                if (this.currentPath) {
+                    const parts = this.currentPath.split('/');
+                    let accumulated = '';
+                    for (let i = 0; i < parts.length; i++) {
+                        accumulated = accumulated ? `${accumulated}/${parts[i]}` : parts[i];
+                        addSegment(parts[i], accumulated, i === parts.length - 1);
+                    }
+                }
+            }
+
             applyFiltersAndSort() {
-                // Filter
-                this.filteredAssets = this.assets.filter(file => {
+                // Separate dirs and files
+                const dirs = this.assets.filter(item => item.isDir);
+                const files = this.assets.filter(item => !item.isDir);
+
+                // Filter only files
+                this.filteredAssets = files.filter(file => {
                     if (this.filterText) {
                         try {
                             if (this.regexSearch && !new RegExp(this.filterText, 'i').test(file.name)) return false;
@@ -593,7 +722,10 @@
                     return true;
                 });
 
-                // Sort
+                // Sort dirs by name
+                dirs.sort((a, b) => a.name.localeCompare(b.name));
+
+                // Sort files
                 this.filteredAssets.sort((a, b) => {
                     switch (this.sortBy) {
                         case 'updated-desc': return (b.updated || 0) - (a.updated || 0);
@@ -603,6 +735,9 @@
                         default: return 0;
                     }
                 });
+
+                // Prepend dirs to filtered files
+                this.filteredAssets = [...dirs, ...this.filteredAssets];
                 this.renderList();
             }
 
@@ -617,30 +752,57 @@
             }
 
             renderList() {
-                const totalPages = Math.ceil(this.filteredAssets.length / this.pageSize) || 1;
-                this.dom.pageInfo.textContent = `共 ${this.filteredAssets.length} 项`;
+                // Dirs are always shown (not paginated), only files are paginated
+                const dirs = this.filteredAssets.filter(item => item.isDir);
+                const files = this.filteredAssets.filter(item => !item.isDir);
+
+                const totalPages = Math.ceil(files.length / this.pageSize) || 1;
+                const totalItems = dirs.length + files.length;
+                this.dom.pageInfo.textContent = `共 ${totalItems} 项 (📁${dirs.length} 📄${files.length})`;
                 this.dom.prevPageBtn.disabled = this.currentPage === 1;
                 this.dom.nextPageBtn.disabled = this.currentPage >= totalPages;
                 this.renderPageNumbers(totalPages);
 
-                if (this.filteredAssets.length === 0) {
-                    this.dom.listContainer.innerHTML = '<div class="empty-state"><div>没有找到文件</div></div>';
+                if (totalItems === 0) {
+                    this.dom.listContainer.innerHTML = '<div class="empty-state"><div>此目录为空</div></div>';
                     return;
                 }
 
                 const start = (this.currentPage - 1) * this.pageSize;
-                const pageData = this.filteredAssets.slice(start, start + this.pageSize);
+                const pageFiles = files.slice(start, start + this.pageSize);
 
                 this.dom.listContainer.innerHTML = '';
 
-                pageData.forEach(file => {
-                    const isSelected = this.selectedFile?.name === file.name;
+                // Render directories first
+                dirs.forEach(dir => {
+                    const el = document.createElement('div');
+                    el.onclick = () => this.navigateTo(dir.name);
+
+                    if (this.currentView === 'grid') {
+                        el.className = 'card card-hover cursor-pointer p-2 flex flex-col items-center gap-2 dir-card';
+                        el.innerHTML = `
+                            <div class="file-card-thumb">📁</div>
+                            <div class="text-xs text-center text-truncate w-full" title="${dir.name}">${dir.name}</div>
+                        `;
+                    } else {
+                        el.className = 'list-item dir-card';
+                        el.innerHTML = `
+                            <div class="file-list-thumb">📁</div>
+                            <div class="flex-1 text-sm text-truncate" title="${dir.name}">${dir.name}</div>
+                            <div class="text-xs text-muted">目录</div>
+                        `;
+                    }
+                    this.dom.listContainer.appendChild(el);
+                });
+
+                // Render files
+                pageFiles.forEach(file => {
+                    const isSelected = this.selectedFile?.name === file.name && this.selectedFile?._dirPath === this.currentPath;
                     const el = document.createElement('div');
                     el.onclick = () => this.selectFile(file, el);
 
                     const isImage = /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(file.name);
-                    // Use ?t= param to prevent caching
-                    const imgUrl = `/assets/${file.name}?t=${file.updated || ''}`;
+                    const imgUrl = this.getAssetUrl(file);
 
                     if (this.currentView === 'grid') {
                         el.className = `card card-hover cursor-pointer p-2 flex flex-col items-center gap-2 ${isSelected ? 'selected-item' : ''}`;
@@ -707,12 +869,17 @@
             }
 
             selectFile(file, el) {
+                if (file.isDir) {
+                    this.navigateTo(file.name);
+                    return;
+                }
                 if (this.currentView === 'grid') {
                     document.querySelectorAll('.card').forEach(i => i.classList.remove('selected-item'));
                 } else {
                     document.querySelectorAll('.list-item').forEach(i => i.classList.remove('selected-item'));
                 }
                 el.classList.add('selected-item');
+                file._dirPath = this.currentPath;  // Track which dir this file was selected from
                 this.selectedFile = file;
                 this.renderDetail(file);
                 this.dom.detailPanel.classList.add('open');
@@ -720,7 +887,8 @@
 
             async renderDetail(file) {
                 const type = this.getFileType(file.name);
-                const url = `/assets/${file.name}?t=${file.updated || ''}`;
+                const fullPath = this.getFullPath(file.name);
+                const url = this.getAssetUrl(file);
 
                 let preview = ``;
                 if (type === 'image') preview = `<img src="${url}">`;
@@ -728,14 +896,14 @@
                 else preview = `<div style="font-size: 3em; line-height: 1;">${this.getFileIcon(file.name)}</div>`;
 
                 // Wrap in click container for fullscreen
-                preview = `<div class="preview-box cursor-pointer" onclick="app.openFullscreen('${file.name}', '${type}')">${preview}</div>`;
+                preview = `<div class="preview-box cursor-pointer" onclick="app.openFullscreen('${this.escapeAttribute(fullPath)}', '${type}')">${preview}</div>`;
 
                 this.dom.detailContent.innerHTML = `
                     ${preview}
                     <div class="flex flex-col gap-2">
                         <div class="form-group">
-                            <span class="text-xs text-muted">文件名</span>
-                            <div class="text-sm text-break select-all p-1 rounded border" style="background-color: var(--c-surface);">${this.escapeHtml(file.name)}</div>
+                            <span class="text-xs text-muted">文件路径</span>
+                            <div class="text-sm text-break select-all p-1 rounded border" style="background-color: var(--c-surface);">assets/${this.escapeHtml(fullPath)}</div>
                         </div>
                         <div class="flex gap-4">
                             <div class="form-group flex-1">
@@ -755,11 +923,11 @@
                         <div class="divider"></div>
 
                         <div class="grid grid-cols-2 gap-2">
-                            <button class="btn btn-sm" onclick="app.checkReferences('${this.escapeAttribute(file.name)}')">🔍 查找引用</button>
-                            <button class="btn btn-sm" onclick="app.copyLink('${this.escapeAttribute(file.name)}')">📋 复制链接</button>
-                            <button class="btn btn-sm" onclick="app.copyFileContent('${this.escapeAttribute(file.name)}')">📄 复制内容</button>
-                            <button class="btn btn-sm" onclick="app.downloadFile('${this.escapeAttribute(file.name)}')">⬇️ 下载文件</button>
-                            <button class="btn btn-sm" style="grid-column: span 2 / span 2;" onclick="app.triggerReplace('${this.escapeAttribute(file.name)}')">🔄 替换文件</button>
+                            <button class="btn btn-sm" onclick="app.checkReferences('${this.escapeAttribute(fullPath)}')">🔍 查找引用</button>
+                            <button class="btn btn-sm" onclick="app.copyLink('${this.escapeAttribute(fullPath)}', '${this.escapeAttribute(file.name)}')">📋 复制链接</button>
+                            <button class="btn btn-sm" onclick="app.copyFileContent('${this.escapeAttribute(fullPath)}')">📄 复制内容</button>
+                            <button class="btn btn-sm" onclick="app.downloadFile('${this.escapeAttribute(fullPath)}', '${this.escapeAttribute(file.name)}')">⬇️ 下载文件</button>
+                            <button class="btn btn-sm" style="grid-column: span 2 / span 2;" onclick="app.triggerReplace('${this.escapeAttribute(fullPath)}')">🔄 替换文件</button>
                         </div>
 
                         <div id="ref-results" class="mt-4 flex flex-col gap-1 text-sm"></div>
@@ -772,11 +940,11 @@
                 });
             }
 
-            async checkReferences(filename) {
+            async checkReferences(fullPath) {
                 const div = document.getElementById('ref-results');
                 div.innerHTML = '<div class="text-muted">正在搜索引用...</div>';
                 try {
-                    const safe = filename.replace(/'/g, "''");
+                    const safe = fullPath.replace(/'/g, "''");
                     const sql = `SELECT * FROM blocks WHERE (markdown LIKE '%/assets/${safe}%' OR markdown LIKE '%assets/${safe}%') LIMIT 50`;
                     const blocks = await window.pluginSdk.querySQL(sql);
 
@@ -796,18 +964,20 @@
                 }
             }
 
-            copyLink(name) {
-                navigator.clipboard.writeText(`![${name}](/assets/${name})`).then(() => window.pluginSdk.showMessage('链接已复制'));
+            copyLink(fullPath, displayName) {
+                const linkText = displayName || fullPath.split('/').pop();
+                navigator.clipboard.writeText(`![${linkText}](/assets/${fullPath})`).then(() => window.pluginSdk.showMessage('链接已复制'));
             }
 
-            async copyFileContent(name) {
+            async copyFileContent(fullPath) {
                 try {
-                    if (this.getFileType(name) === 'image') {
-                        const res = await fetch(`/assets/${name}?t=${this.selectedFile?.updated}`);
+                    const filename = fullPath.split('/').pop();
+                    if (this.getFileType(filename) === 'image') {
+                        const res = await fetch(`/assets/${fullPath}?t=${this.selectedFile?.updated}`);
                         const blob = await res.blob();
                         await navigator.clipboard.write([new ClipboardItem({[blob.type]: blob})]);
                     } else {
-                        const res = await window.pluginSdk.loadBlob(`/data/assets/${name}`);
+                        const res = await window.pluginSdk.loadBlob(`/data/assets/${fullPath}`);
                         if(!res.ok) throw new Error('Load failed');
                         await navigator.clipboard.writeText(await res.data.text());
                     }
@@ -815,16 +985,16 @@
                 } catch(e) { window.pluginSdk.showMessage('复制失败: '+e.message, 'error'); }
             }
 
-            downloadFile(name) {
+            downloadFile(fullPath, displayName) {
                 const a = document.createElement('a');
-                a.href = `/assets/${name}?t=${this.selectedFile?.updated}`;
-                a.download = name;
+                a.href = `/assets/${fullPath}?t=${this.selectedFile?.updated}`;
+                a.download = displayName || fullPath.split('/').pop();
                 a.click();
             }
 
-            triggerReplace(name) {
-                this.replaceTargetFilename = name;
-                this.dom.replaceFilename.textContent = name;
+            triggerReplace(fullPath) {
+                this.replaceTargetFilename = fullPath;
+                this.dom.replaceFilename.textContent = fullPath;
                 this.dom.replacePreview.classList.add('hidden');
                 this.dom.confirmReplaceBtn.disabled = true;
                 this.dom.replaceDialog.classList.remove('hidden');
@@ -868,8 +1038,8 @@
                     this.closeReplaceDialog();
                     this.loadAssets();
                     // Refresh detail if same
-                    if(this.selectedFile?.name === this.replaceTargetFilename) {
-                        // Trick to refresh detail view
+                    const currentFullPath = this.selectedFile ? this.getFullPath(this.selectedFile.name) : null;
+                    if(currentFullPath === this.replaceTargetFilename) {
                         const fakeFile = {...this.selectedFile, updated: Date.now()};
                         this.renderDetail(fakeFile);
                     }
@@ -877,10 +1047,11 @@
                 finally { this.dom.confirmReplaceBtn.textContent = '确认替换'; }
             }
 
-            async openFullscreen(name, type) {
+            async openFullscreen(fullPath, type) {
                 const content = this.dom.fullscreenContent;
                 content.innerHTML = '';
-                const url = `/assets/${name}?t=${Date.now()}`;
+                const url = `/assets/${fullPath}?t=${Date.now()}`;
+                const filename = fullPath.split('/').pop();
 
                 if (type === 'image') {
                     content.innerHTML = `<img src="${url}" id="fullscreen-img">`;
@@ -888,10 +1059,10 @@
                     setTimeout(() => this.imageViewer = new ImageViewer(document.getElementById('fullscreen-img')), 50);
                 } else if (type === 'video') {
                     content.innerHTML = `<video src="${url}" controls autoplay style="max-width:90vw; max-height:90vh"></video>`;
-                } else if (['document','other'].includes(type) || type === 'text' || name.match(/\.(txt|md|json|js|css|html|xml)$/i)) {
+                } else if (['document','other'].includes(type) || type === 'text' || filename.match(/\.(txt|md|json|js|css|html|xml)$/i)) {
                     // Try text load
                     try {
-                        const res = await window.pluginSdk.loadBlob(`/data/assets/${name}`);
+                        const res = await window.pluginSdk.loadBlob(`/data/assets/${fullPath}`);
                         content.innerHTML = `<div class="text-preview">${this.escapeHtml(await res.data.text())}</div>`;
                     } catch { content.innerHTML = '<div style="color:#fff;">无法预览</div>'; }
                 } else {
