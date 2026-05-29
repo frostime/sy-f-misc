@@ -232,7 +232,7 @@ export class SiYuanVFS {
     async exists(path: string): Promise<boolean> {
         const actualPath = this.resolve(path);
         const ans = await this.readFile(actualPath);
-        return ans.ok || (ans.code === 405); // 405 means it is dir
+        return ans.ok || (ans.code === 405) || (ans.code === 409); // 405/409 means it is dir
     }
 
     async readdir(path: string): Promise<{ ok: boolean; items: { name: string; isDir: boolean; updated: number; }[]; msg?: string; }> {

@@ -1,8 +1,8 @@
 {
   "name": "sy-f-misc",
-  "version": "7.11.2",
+  "version": "7.11.3",
   "type": "module",
-  "description": "Frostime 自动工具代码",
+  "description": "Frostime 个人插件合集",
   "repository": "https://github.com/frostime/sy-f-misc",
   "homepage": "",
   "author": "frostime",
