@@ -623,6 +623,7 @@ interface ToolChainParams {
     model: IRuntimeLLM;
     systemPrompt: string;
     chatOption: IChatCompleteOption;
+    toggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
     maxRounds: number;
     treeModel: ITreeModel;  // 从 messages 改为 treeModel
     scrollToBottom?: (force?: boolean) => void;
@@ -638,6 +639,7 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
         model,
         systemPrompt,
         chatOption,
+        toggles,
         maxRounds,
         treeModel,
         scrollToBottom
@@ -655,6 +657,7 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
             model,
             systemPrompt,
             chatOption,
+            toggles,
             checkToolResults: true,
             callbacks: {
                 onToolCallStart: (toolName, args, callId) => {
@@ -794,6 +797,7 @@ const useGptCommunication = (params: {
                 model: model(),
                 systemPrompt: chatHandler.buildSystemPrompt(),
                 chatOption: chatHandler.buildChatOption(),
+                toggles: config().chatOptionToggles,
                 maxRounds: config().toolCallMaxRounds,
                 treeModel,
                 scrollToBottom

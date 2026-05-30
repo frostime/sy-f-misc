@@ -269,6 +269,9 @@ export interface ToolChainOptions {
     // 聊天选项
     chatOption?: IChatCompleteOption;
 
+    // Chat option 开关；toggle=false 的字段不发送给模型
+    toggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
+
     // 是否检查工具结果
     checkToolResults?: boolean;
 
@@ -546,7 +549,8 @@ export async function executeToolChain(
                     stream: options.chatOption?.stream || false,
                     streamMsg: callbacks.onLLMResponseUpdate,
                     abortController: options.abortController,
-                    option: options.chatOption
+                    option: options.chatOption,
+                    toggles: options.toggles
                 });
 
                 currentResponse = response;
@@ -648,7 +652,8 @@ Provide a complete, helpful response even if some planned tool calls could not b
                     stream: options.chatOption?.stream || false,
                     streamMsg: callbacks.onLLMResponseUpdate,
                     abortController: options.abortController,
-                    option: options.chatOption
+                    option: options.chatOption,
+                    toggles: options.toggles
                 });
 
                 currentResponse = followUpResponse;
