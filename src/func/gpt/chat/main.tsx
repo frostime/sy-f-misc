@@ -22,6 +22,7 @@ import { debounce, inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits'
 import Form from '@/libs/components/Form';
 import { SliderInput } from '@/libs/components/Elements';
 import { solidDialog } from '@/libs/dialog';
+import { downloadBlob } from '@/libs/download';
 
 // Local components
 import MessageItem from './components/MessageItem';
@@ -32,6 +33,7 @@ import { openIframeDialog } from '@/func/html-pages/core';
 import SvgSymbol from '@/libs/components/Elements/IconSymbol';
 import SessionItemsManager from './components/SessionItemsManager';
 import { SessionToolsManager } from './components/SessionToolsManager';
+import ExportXmlDialog from './components/ExportXmlDialog';
 
 import { InlineApprovalCard } from '@gpt/tools/approval-ui';
 import { useSession, SimpleProvider } from './ChatSession/use-chat-session';
@@ -611,6 +613,29 @@ export const ChatSession: Component<{
         })
     }
 
+    const openXmlExportDialog = () => {
+        const { close } = solidDialog({
+            title: '导出为 XML',
+            loader: () => (
+                <ExportXmlDialog
+                    defaultSkipHidden={globalMiscConfigs().exportMDSkipHidden}
+                    onCancel={() => close()}
+                    onExport={async (options) => {
+                        const history = session.sessionHistory();
+                        const xml = persist.chatHistoryToXml(history, options);
+                        const filename = persist.safeXmlFilename(session.title(), `chat-history-${history.id}`);
+                        const blob = new Blob([xml], { type: 'application/xml' });
+                        await downloadBlob(blob, filename);
+                        close();
+                        showMessage('下载到' + filename);
+                    }}
+                />
+            ),
+            width: '520px',
+            maxHeight: '80vh'
+        })
+    }
+
     const openHistoryList = (e: MouseEvent) => {
         e.stopImmediatePropagation();
         e.preventDefault();
@@ -896,6 +921,13 @@ export const ChatSession: Component<{
                                 a.download = title;
                                 a.click();
                                 showMessage('下载到' + title);
+                            }
+                        });
+                        menu.addItem({
+                            icon: 'iconDownload',
+                            label: '导出为 XML',
+                            click: () => {
+                                openXmlExportDialog();
                             }
                         });
                         menu.addItem({
