@@ -1,7 +1,7 @@
 <!-- SSPEC:START -->
 # .sspec Agent Protocol
 
-SSPEC_SCHEMA::6.0
+SSPEC_SCHEMA::6.1
 
 ## 0. Structure
 
@@ -9,6 +9,7 @@ A spec-driven workflow, via `sspec` CLI and `.sspec/`.
 
 **Core Principle**: The user MUST be able to predict the outcome before implementation begins.
 When uncertain, align — never proceed with unclarified assumptions.
+When rules conflict or go silent, prefer the path that lets the user predict and decide sooner, on the spec rather than on the code.
 
 ```
 .sspec/
@@ -25,25 +26,24 @@ When uncertain, align — never proceed with unclarified assumptions.
 
 | Input | Action |
 |-------|--------|
-| Directive (`@resume`, `@memory`, etc.) | Execute → §4 |
-| Request under `.sspec/requests` | Check `kind` → §1.1 |
-| Resume existing change | `read(memory)` → infer phase from State → load phase SKILL → continue |
-| Create request | `sspec request new [--kind directive|observe|idea]` |
+| Request a change from `.sspec/requests` | User raw intend → §2 |
+| Resume existing change | `read(memory/spec)` → infer phase from State → load phase SKILL → continue |
+| Create request | `sspec request new` |
 | Create spec doc | `sspec doc new` |
-| Micro (≤3 files, ≤30min, obvious) | Do directly |
-| Mini (user opts out of formal change) | Clarify+Design thinking → `sspec tmp new` → §2.0 |
+| Update spec doc | `read(project.md)`→`read(spec-doc+code)`→Clarify with user on how to update |
+| Mini-change | Follow §2.2 |
 
 **Trigger-word → SKILL**:
 
 | User says | Load |
 |-----------|------|
 | clarify, 搞清楚, 理解一下 | `sspec-clarify` |
-| design, 设计, 出方案 | `sspec-design` |
-| align, 对齐, 确认一下 | §3 protocol |
+| design, 设计, 方案 | `sspec-design` |
+| align, 对齐 | `sspec-align` |
 | plan, 拆任务 | `sspec-plan` |
 | implement, 动手, 开始做 | `sspec-implement` |
-| review, 检查, 看看 | `sspec-review` |
-| mini change, 不要 change, 直接推进 | §2.0 |
+| review/argue, 检查 | `sspec-review` |
+| spec-doc, write/update | `write-spec-doc` |
 
 **Standing rules**:
 - Follow `Core Principle`.
@@ -52,19 +52,6 @@ When uncertain, align — never proceed with unclarified assumptions.
 - @align gate decisions → SHOULD update memory.md Knowledge
 - Time uncertain → `sspec tool now`
 - Template HTML comments with BCP 14 keywords (MUST, SHOULD, MAY per RFC 2119) are persistent constraints — never delete them.
-
-### 1.1 Request Dispatch
-
-When agent encounters a request under `.sspec/requests/`, check `kind` frontmatter:
-
-| kind | Agent behavior |
-|------|---------------|
-| `directive` | Assess scale → §2 Change Lifecycle (this is a task for the agent) |
-| `observe` | Read, note context, but do NOT create a change. The request is a phenomenon record for later human triage. |
-| `idea` | Read, may refer to it as context, but do NOT create a change unless explicitly asked. The request is a memo. |
-| (missing) | Treat as `directive` (backward compatible). |
-
-A request of any kind MAY be linked to a change later via `sspec request link`.
 
 ## 2. Change Lifecycle
 
@@ -79,51 +66,49 @@ Review   (sspec-review)     DONE | fix→Implement | amend→revision | follow-u
 ```
 
 `■` = hard stop, **MUST stop & align**. `→` = output summary, COULD keep going. Failed gate → return, update, realign.
-Post-Design gate: spec.md/design.md baselines immutable. Changes → `revisions/NNN-*.md`.
+Once Plan begins: spec.md/design.md locked. Changes → `revisions/NNN-*.md`.
 memory.md: maintained throughout, not a phase. → `sspec howto write-memory`
 
 → `sspec howto handle-review-scope-change`
 
-### 2.0 Mini Change Protocol
 
-Clarify/Design thinking without change entity. Output → `.sspec/tmp/`.
-
-Trigger: user explicitly opts out of formal change.
-Flow: clarify → design-level output → `sspec tmp new <topic>` → no gates, no tasks, no memory.
-Boundary: no code changes. If implementation needed → upgrade to change or confirm Micro.
-Agent MUST NOT self-downgrade to mini — only responds to user intent.
-
-### Scale
+### 2.1 Change Scale
 
 | Scale | Criteria | Path |
 |---|---|---|
 | Micro | ≤3 files, ≤30min, trivially reversible | Do directly |
-| Single | ≤1 week, ≤15 files, ≤20 tasks | `sspec change new <name>` |
-| Multi | >1 week OR >15 files OR >20 tasks | `sspec change new <name> --root` → sub-changes |
+| Single | ≤3 days, ≤15 files, ≤20 tasks | `sspec change new <name>` |
+| Multi | >3 week OR >15 files OR >20 tasks | `sspec change new <name> --root` → sub-changes |
 
 Status in spec.md MUST follow state machine. → `sspec howto update-change-status`
 
-## 3. @align
+### 2.2 Mini Change Protocol
 
-Structured sync at decision points. **Formalized exchange, not prose.**
+Follow SSPEC without `sspec change new`(for mini task).
+Action: Inline change content in `.sspec/tmp/` by `sspec tmp new <topic>`. Spec+Design only.
 
-**Format rule**: MUST be scannable in 5 seconds.
-GOOD: structured (tables, labeled items, code blocks) with high density.
-BAD: prose-style, redundant.
+Trigger: user explicitly opts "mimi".
+Agent MUST NOT self-downgrade to mini — only responds to user intent.
 
-| Level | Behavior | When |
-|---|---|---|
-| `report` | Summary, **keep going** | Plan done, progress |
-| `gate` | Summary, **stop and wait** | Design done, implement done, blockers, scope change |
 
-Decisions → natural home: design → spec.md, direction → memory.md Knowledge.
-📚 Full mechanics: `sspec-align` SKILL
+## 3. User-Agent Protocol
 
-## 4. Reference
+Cross-cutting sync between user and agent — runs across all phases, outside any single change. Two directions:
 
-**Directives**: `@change <n>` | `@resume` | `@memory` | `@sync` | `@argue` | `@subagent-audits`
+**@align** (agent → user) — the agent lays out its current understanding and plan for the user to inspect, at any decision boundary (phase exits, blockers, scope changes, irreversible actions).
+- `gate` = stop and wait · `report` = summarize and keep going
+- gate when safe progress depends on a user decision
+- → `sspec-align` SKILL: levels, format, anti-patterns, records
 
-**Spec-Docs**: Knowledge that code alone cannot adequately convey — either in code but scattered or hard to reconstruct (cross-module architecture, UX requirements, design norms, deliberate trade-offs), or entirely outside code (platform rules, API quirks, business constraints). Registered in `project.md` Spec-Docs Index. → `write-spec-doc` SKILL
+**@argue** (user → agent) — the user judges the direction is off and pushes back. Stop, reclassify, redirect. → `sspec-review` Rejection Protocol.
+
+## 4. Peripheral Rule
+
+**Spec-Docs**: {
+- **What**: Stroe knowledge that code alone cannot adequately convey — in-code-but-scattered (cross-module architecture, implicit contracts, deliberate trade-offs) or outside-code entirely (platform rules, API quirks, business constraints).
+- **High bar**: if an agent could reach the same understanding from code at little cost, it does NOT qualify.
+- **Write**: Registered in `project.md` Spec-Docs Index. Write in `.sspec/spec-docs`. → Follow `write-spec-doc` SKILL
+}
 
 **CLI**:
 
@@ -137,10 +122,10 @@ Decisions → natural home: design → spec.md, direction → memory.md Knowledg
 | `sspec howto [name...]` | Read HOWTOs (batch) |
 | `sspec tool <name> [opts]` | CLI tools (`--prompt` for usage) |
 
-**Tools** (`sspec tool <name>`): `now` · `ask` · `mdtoc` · `view-tree` · `fileinfo` · `patch/write` · `treesitter`
+**Tools** (`sspec tool <name>`): `now` · `mdtoc` · `view-tree` · `fileinfo` · `patch/write` · `ask` · `treesitter`
   Frequent: `now`, `mdtoc`, `view-tree`; See `sspec tool <name> --prompt` for usage.
 
-**HOWTO**: `sspec howto list` to browse; batch-read with `sspec howto read <n1> <n2>`.
+**HOWTO**: Mini rule. `sspec howto list` to browse; batch-read with `sspec howto read <n1> <n2>`.
 **SKILL**: Read before starting phase. Referenced file → MUST read. `sspec-*` not loaded → find under `.sspec/skills/`.
 
 **Fence nesting**: When showing content that contains ` ``` `, outer fence MUST use more backticks (e.g. `````). Always outer > inner.
