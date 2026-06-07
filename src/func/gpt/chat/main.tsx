@@ -826,7 +826,18 @@ export const ChatSession: Component<{
                 label: '完整对话结构',
                 click: () => {
                     showChatWorldTree({
-                        treeModel: session.treeModel
+                        treeModel: session.treeModel,
+                        onExtractSubtree: async ({ rootId, leafIds, title }) => {
+                            try {
+                                const history = session.extractSubtreeToHistory({ rootId, leafIds, title });
+                                newChatSession(history);
+                                showMessage('已提取子树为新对话');
+                            } catch (err) {
+                                console.error('Failed to extract subtree:', err);
+                                showMessage(`提取子树失败: ${(err as Error).message}`, 5000, 'error');
+                                throw err;
+                            }
+                        }
                     });
                 }
             });

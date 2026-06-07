@@ -544,6 +544,41 @@ export const useSession = (props: {
         });
     }
 
+    const extractSubtreeToHistory = (args: {
+        rootId: ItemID;
+        leafIds?: ItemID[];
+        title?: string;
+    }): IChatSessionHistoryV2 => {
+        const extracted = treeModel.extractSubtree({
+            rootId: args.rootId,
+            leafIds: args.leafIds,
+            regenerateIds: true,
+        });
+        const now = Date.now();
+        const sourceBookmarks = treeModel.getBookmarks();
+        const bookmarks: Record<ItemID, string> = {};
+        Object.entries(sourceBookmarks).forEach(([oldId, label]) => {
+            const newId = extracted.idMap[oldId];
+            if (newId) bookmarks[newId] = label;
+        });
+
+        return {
+            schema: 2,
+            type: 'history',
+            id: window.Lute.NewNodeID(),
+            title: args.title || `${title()} - 提取的子树`,
+            timestamp: now,
+            updated: now + 1,
+            tags: [...sessionTags.unwrap()],
+            sysPrompt: systemPrompt(),
+            customOptions: modelCustomOptions(),
+            nodes: extracted.nodes,
+            rootId: extracted.rootId,
+            worldLine: extracted.worldLine,
+            bookmarks,
+        };
+    }
+
     // ========== V2: applyHistory 支持 V2 格式 ==========
     const applyHistory = (history: Partial<IChatSessionHistoryV2>) => {
         batch(() => {
@@ -843,6 +878,7 @@ export const useSession = (props: {
         newSession,
         applyHistory,
         applySequence,
+        extractSubtreeToHistory,
 
         // 导出/保存
         sessionHistory,

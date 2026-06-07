@@ -1,6 +1,6 @@
 ---
 name: chat-tree-operations
-status: PLANNING
+status: DOING
 change-type: single
 created: 2026-06-07T22:07:49
 reference: null
