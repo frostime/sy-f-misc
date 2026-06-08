@@ -48,6 +48,7 @@ updated: "2026-06-07T22:08+08:00"
 | Phase 4 | 40% | 🚧 |
 
 **Recent**:
+- 2026-06-08T11:56+08:00 Review fixes complete: worldLine endpoint validation, duplicate toast prevention, redundant preview recompute removal; `pnpm run type-check` and `pnpm run build` passed.
 - 2026-06-07T22:08+08:00 Build verification complete; `pnpm run type-check` and `pnpm run build` passed. Manual SiYuan UI verification remains pending.
 - 2026-06-07T22:08+08:00 Phase 3 complete; `pnpm run type-check` passed.
 - 2026-06-07T22:08+08:00 Phase 2 complete; `pnpm run type-check` passed.

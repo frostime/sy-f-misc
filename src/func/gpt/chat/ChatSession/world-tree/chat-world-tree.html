@@ -858,14 +858,12 @@
                     includedNodeIds: new Set(),
                     includedEdges: new Set(),
                 };
-                this.recomputeOperationPreview();
                 this.renderTree(this.treeData);
             },
             setExtractRoot(rootId) {
                 if (!this.operation || !rootId || !this.treeData?.nodes?.[rootId]) return;
                 this.operation.rootId = rootId;
                 this.operation.leafIds = [];
-                this.recomputeOperationPreview();
                 this.renderTree(this.treeData);
             },
             toggleExtractLeaf(id) {
@@ -877,7 +875,6 @@
                 const idx = this.operation.leafIds.indexOf(id);
                 if (idx >= 0) this.operation.leafIds.splice(idx, 1);
                 else this.operation.leafIds.push(id);
-                this.recomputeOperationPreview();
                 this.renderTree(this.treeData);
                 this.selectNode(id);
             },
@@ -897,7 +894,7 @@
                         leafIds: [...this.operation.leafIds],
                     });
                 } catch (e) {
-                    window.pluginSdk?.showMessage?.('提取失败: ' + (e?.message || e), 'error');
+                    // Error toast is owned by the host-side callback; keep dialog open for retry.
                 }
             },
             async showFullContent(id) {

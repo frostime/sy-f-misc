@@ -1,6 +1,6 @@
 # Memory: chat-tree-operations
 
-**Updated**: 2026-06-07T22:09+08:00
+**Updated**: 2026-06-08T11:56+08:00
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -19,7 +19,7 @@ This section records the change starting point in git and MUST NOT be edited or 
 
 ## State
 
-Implementation code is complete through Phase 3 and automated verification passed. Phase 4 manual SiYuan UI verification remains pending: full subtree extraction, cropped multi-path extraction, existing switch/full-content actions.
+Implementation code is complete through Phase 3 and automated verification passed. Subagent review fixes were applied. Phase 4 manual SiYuan UI verification remains pending: full subtree extraction, cropped multi-path extraction, existing switch/full-content actions.
 
 ## Key Files
 
@@ -38,9 +38,11 @@ Implementation code is complete through Phase 3 and automated verification passe
 - [2026-06-07T22:07+08:00] Rejected Linear thread extraction is insufficient because the requested operation must preserve selected subtree shape across multiple leaf paths.
 - [2026-06-07T22:08+08:00] Decision User approved design and requested WIP branch development mode using a `feat/...` branch; branch created as `feat/chat-tree-operations`.
 - [2026-06-07T22:09+08:00] Gotcha Agent environment can run type/build checks but cannot complete SiYuan in-app HSPA interaction verification; keep Phase 4 manual checks pending until user tests in SiYuan.
+- [2026-06-08T11:56+08:00] Decision Review fix kept extraction failure dialog open by leaving host-side callback responsible for the error toast and letting iframe catch only suppress duplicate display.
 
 ## Milestones
 
 - [2026-06-07T22:07+08:00] Created change `26-06-07T22-07_chat-tree-operations` and drafted spec.md/design.md for alignment.
 - [2026-06-07T22:08+08:00] Design approved, branch `feat/chat-tree-operations` created, and tasks.md initialized.
 - [2026-06-07T22:09+08:00] Implemented subtree extraction data API, session wrapper, HSPA SDK bridge, and operation-mode UI; `pnpm run type-check` and `pnpm run build` passed.
+- [2026-06-08T11:56+08:00] Applied review fixes for extracted worldLine endpoint selection, duplicate error toast, and redundant HSPA preview recompute; `pnpm run type-check` and `pnpm run build` passed.

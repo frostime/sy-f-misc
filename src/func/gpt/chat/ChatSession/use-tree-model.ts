@@ -192,6 +192,14 @@ const traceBetween = (
     return [];
 };
 
+const isIncludedLeaf = (
+    nodes: Record<ItemID, IChatSessionMsgItemV2>,
+    id: ItemID,
+    includedIds: Set<ItemID>
+): boolean => {
+    return !nodes[id]?.children.some(childId => includedIds.has(childId));
+};
+
 const findFirstLeafPath = (
     nodes: Record<ItemID, IChatSessionMsgItemV2>,
     rootId: ItemID,
@@ -682,8 +690,8 @@ export const useTreeModel = (): ITreeModel => {
 
         if (rootIndex !== -1) {
             const suffix = currentWorldLine.slice(rootIndex).filter(id => includedIds.has(id));
-            const rootHasIncludedChild = currentNodes[rootId].children.some(childId => includedIds.has(childId));
-            if (suffix[0] === rootId && (suffix.length > 1 || !rootHasIncludedChild)) {
+            const suffixEnd = suffix[suffix.length - 1];
+            if (suffix[0] === rootId && suffixEnd && isIncludedLeaf(currentNodes, suffixEnd, includedIds)) {
                 selectedWorldLine = suffix;
             }
         }
