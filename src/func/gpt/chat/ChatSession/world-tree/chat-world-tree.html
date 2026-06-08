@@ -737,8 +737,11 @@
                 return { x: pos.x, y: pos.y + size / 2 };
             },
 
-            renderTree(data) {
+            renderTree(data, options = {}) {
                 const $e = this.$refs.edges, $n = this.$refs.nodes, $c = this.$refs.canvas, $v = this.$refs.viewport;
+                const prevViewport = options.preserveViewport && $v
+                    ? { left: $v.scrollLeft, top: $v.scrollTop }
+                    : null;
                 if (!data) {
                     $n.innerHTML = '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--c-fg-muted,#888)">'
                         + '<div style="font-size:48px;opacity:0.4">🌳</div><div>暂无数据</div></div>';
@@ -810,7 +813,13 @@
                     if (el) { e.stopPropagation(); this.handleNodeClick(el.getAttribute('data-id')); }
                 };
 
-                requestAnimationFrame(() => this.fitView());
+                requestAnimationFrame(() => {
+                    if (prevViewport) {
+                        $v.scrollTo({ left: prevViewport.left, top: prevViewport.top, behavior: 'auto' });
+                    } else {
+                        this.fitView();
+                    }
+                });
             },
 
             // ================================================================
@@ -858,13 +867,13 @@
                     includedNodeIds: new Set(),
                     includedEdges: new Set(),
                 };
-                this.renderTree(this.treeData);
+                this.renderTree(this.treeData, { preserveViewport: true });
             },
             setExtractRoot(rootId) {
                 if (!this.operation || !rootId || !this.treeData?.nodes?.[rootId]) return;
                 this.operation.rootId = rootId;
                 this.operation.leafIds = [];
-                this.renderTree(this.treeData);
+                this.renderTree(this.treeData, { preserveViewport: true });
             },
             toggleExtractLeaf(id) {
                 if (!this.operation || id === this.operation.rootId) return;
@@ -875,12 +884,12 @@
                 const idx = this.operation.leafIds.indexOf(id);
                 if (idx >= 0) this.operation.leafIds.splice(idx, 1);
                 else this.operation.leafIds.push(id);
-                this.renderTree(this.treeData);
+                this.renderTree(this.treeData, { preserveViewport: true });
                 this.selectNode(id);
             },
             cancelOperation() {
                 this.operation = null;
-                if (this.treeData) this.renderTree(this.treeData);
+                if (this.treeData) this.renderTree(this.treeData, { preserveViewport: true });
             },
             async confirmExtractSubtree() {
                 if (!this.operation || this.operation.id !== 'extract-subtree') return;

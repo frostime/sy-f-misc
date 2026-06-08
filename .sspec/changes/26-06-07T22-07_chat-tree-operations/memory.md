@@ -1,6 +1,6 @@
 # Memory: chat-tree-operations
 
-**Updated**: 2026-06-08T11:56+08:00
+**Updated**: 2026-06-08T15:35+08:00
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -39,6 +39,7 @@ Implementation code is complete through Phase 3 and automated verification passe
 - [2026-06-07T22:08+08:00] Decision User approved design and requested WIP branch development mode using a `feat/...` branch; branch created as `feat/chat-tree-operations`.
 - [2026-06-07T22:09+08:00] Gotcha Agent environment can run type/build checks but cannot complete SiYuan in-app HSPA interaction verification; keep Phase 4 manual checks pending until user tests in SiYuan.
 - [2026-06-08T11:56+08:00] Decision Review fix kept extraction failure dialog open by leaving host-side callback responsible for the error toast and letting iframe catch only suppress duplicate display.
+- [2026-06-08T15:35+08:00] Decision Subtree operation re-render preserves `tree-viewport` scroll position to prevent leaf selection from jumping back to top; initial tree load still uses `fitView()`.
 
 ## Milestones
 
@@ -46,3 +47,4 @@ Implementation code is complete through Phase 3 and automated verification passe
 - [2026-06-07T22:08+08:00] Design approved, branch `feat/chat-tree-operations` created, and tasks.md initialized.
 - [2026-06-07T22:09+08:00] Implemented subtree extraction data API, session wrapper, HSPA SDK bridge, and operation-mode UI; `pnpm run type-check` and `pnpm run build` passed.
 - [2026-06-08T11:56+08:00] Applied review fixes for extracted worldLine endpoint selection, duplicate error toast, and redundant HSPA preview recompute; `pnpm run type-check` and `pnpm run build` passed.
+- [2026-06-08T15:35+08:00] Fixed subtree operation viewport reset by preserving scroll on operation-mode `renderTree`; `pnpm run type-check` and `pnpm run build` passed.
