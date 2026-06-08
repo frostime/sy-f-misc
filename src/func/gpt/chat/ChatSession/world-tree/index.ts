@@ -62,6 +62,7 @@ const transformNodes = (nodes: Record<string, IChatSessionMsgItemV2>): Record<st
 
 export const showChatWorldTree = (options: {
     treeModel: ITreeModel,
+    onExtractSubtree?: (args: { rootId: string; leafIds?: string[]; title?: string }) => void | Promise<void>;
     width?: string;
     height?: string;
     maxWidth?: string;
@@ -107,6 +108,11 @@ export const showChatWorldTree = (options: {
                     switchWorldLine: (leafId: string) => {
                         treeModel.switchWorldLine(leafId);
                         // 关闭对话框或更新显示
+                        dialog.close();
+                    },
+                    extractSubtree: async (args: { rootId: string; leafIds?: string[]; title?: string }) => {
+                        if (!options.onExtractSubtree) return;
+                        await options.onExtractSubtree(args);
                         dialog.close();
                     }
                 }

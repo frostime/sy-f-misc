@@ -24,6 +24,19 @@ export interface IDeleteResult {
     reason?: 'NODE_NOT_FOUND' | 'ROOT_HAS_BRANCHES' | 'BRANCH_COMPRESSION' | 'NOT_ON_WORLDLINE' | 'NOT_CONTINUOUS' | 'MIDDLE_HAS_BRANCH' | 'EMPTY';
 }
 
+export interface IExtractSubtreeArgs {
+    rootId: ItemID;
+    leafIds?: ItemID[];
+    regenerateIds?: boolean;
+}
+
+export interface IExtractSubtreeResult {
+    nodes: Record<ItemID, IChatSessionMsgItemV2>;
+    rootId: ItemID;
+    worldLine: ItemID[];
+    idMap: Record<ItemID, ItemID>;
+}
+
 /**
  * TreeModel 对外接口
  */
@@ -86,6 +99,8 @@ export interface ITreeModel {
     switchWorldLine: (targetLeafId: ItemID) => void;
     /** 获取节点的所有分支（子节点） */
     getBranches: (id: ItemID) => IChatSessionMsgItemV2[];
+    /** 提取子树结构，用于创建独立会话 */
+    extractSubtree: (args: IExtractSubtreeArgs) => IExtractSubtreeResult;
 
     // ========== 版本管理 ==========
     /** 添加新版本到节点 */
@@ -131,6 +146,72 @@ const traceToRoot = (
     while (currentId) {
         path.unshift(currentId);
         currentId = nodes[currentId]?.parent ?? null;
+    }
+
+    return path;
+};
+
+const isDescendantOrSelf = (
+    nodes: Record<ItemID, IChatSessionMsgItemV2>,
+    rootId: ItemID,
+    targetId: ItemID
+): boolean => {
+    let currentId: ItemID | null = targetId;
+    while (currentId) {
+        if (currentId === rootId) return true;
+        currentId = nodes[currentId]?.parent ?? null;
+    }
+    return false;
+};
+
+const collectSubtreeIds = (
+    nodes: Record<ItemID, IChatSessionMsgItemV2>,
+    rootId: ItemID,
+    included = new Set<ItemID>()
+): Set<ItemID> => {
+    if (!nodes[rootId] || included.has(rootId)) return included;
+    included.add(rootId);
+    nodes[rootId].children.forEach(childId => collectSubtreeIds(nodes, childId, included));
+    return included;
+};
+
+const traceBetween = (
+    nodes: Record<ItemID, IChatSessionMsgItemV2>,
+    rootId: ItemID,
+    targetId: ItemID
+): ItemID[] => {
+    const path: ItemID[] = [];
+    let currentId: ItemID | null = targetId;
+
+    while (currentId) {
+        path.unshift(currentId);
+        if (currentId === rootId) return path;
+        currentId = nodes[currentId]?.parent ?? null;
+    }
+
+    return [];
+};
+
+const isIncludedLeaf = (
+    nodes: Record<ItemID, IChatSessionMsgItemV2>,
+    id: ItemID,
+    includedIds: Set<ItemID>
+): boolean => {
+    return !nodes[id]?.children.some(childId => includedIds.has(childId));
+};
+
+const findFirstLeafPath = (
+    nodes: Record<ItemID, IChatSessionMsgItemV2>,
+    rootId: ItemID,
+    includedIds: Set<ItemID>
+): ItemID[] => {
+    const path: ItemID[] = [];
+    let currentId: ItemID | null = rootId;
+
+    while (currentId && includedIds.has(currentId)) {
+        path.push(currentId);
+        const nextId = nodes[currentId]?.children.find(childId => includedIds.has(childId));
+        currentId = nextId ?? null;
     }
 
     return path;
@@ -561,6 +642,80 @@ export const useTreeModel = (): ITreeModel => {
         return node.children.map(childId => nodes()[childId]).filter(Boolean);
     };
 
+    const extractSubtree = (args: IExtractSubtreeArgs): IExtractSubtreeResult => {
+        const currentNodes = nodes.unwrap();
+        const { rootId, leafIds, regenerateIds = true } = args;
+        const rootNode = currentNodes[rootId];
+        if (!rootNode) throw new Error('Root node not found');
+
+        const selectedLeafIds = Array.from(new Set(leafIds ?? [])).filter(Boolean);
+        const includedIds = selectedLeafIds.length === 0
+            ? collectSubtreeIds(currentNodes, rootId)
+            : new Set<ItemID>();
+
+        if (selectedLeafIds.length > 0) {
+            selectedLeafIds.forEach(leafId => {
+                if (!currentNodes[leafId]) throw new Error(`Leaf node not found: ${leafId}`);
+                if (!isDescendantOrSelf(currentNodes, rootId, leafId)) {
+                    throw new Error(`Leaf is not under root: ${leafId}`);
+                }
+                traceBetween(currentNodes, rootId, leafId).forEach(id => includedIds.add(id));
+            });
+        }
+
+        if (includedIds.size === 0) throw new Error('Extracted subtree is empty');
+
+        const idMap: Record<ItemID, ItemID> = {};
+        includedIds.forEach(oldId => {
+            idMap[oldId] = regenerateIds ? generateId() : oldId;
+        });
+
+        const copiedNodes: Record<ItemID, IChatSessionMsgItemV2> = {};
+        includedIds.forEach(oldId => {
+            const oldNode = currentNodes[oldId];
+            const newId = idMap[oldId];
+            const copied = structuredClone(oldNode);
+            copied.id = newId;
+            copied.parent = oldNode.parent && includedIds.has(oldNode.parent) ? idMap[oldNode.parent] : null;
+            copied.children = oldNode.children
+                .filter(childId => includedIds.has(childId))
+                .map(childId => idMap[childId]);
+            copied.loading = false;
+            copiedNodes[newId] = copied;
+        });
+
+        const currentWorldLine = worldLine.unwrap();
+        const rootIndex = currentWorldLine.indexOf(rootId);
+        let selectedWorldLine: ItemID[] = [];
+
+        if (rootIndex !== -1) {
+            const suffix = currentWorldLine.slice(rootIndex).filter(id => includedIds.has(id));
+            const suffixEnd = suffix[suffix.length - 1];
+            if (suffix[0] === rootId && suffixEnd && isIncludedLeaf(currentNodes, suffixEnd, includedIds)) {
+                selectedWorldLine = suffix;
+            }
+        }
+
+        if (selectedWorldLine.length === 0 && selectedLeafIds.length > 0) {
+            selectedWorldLine = traceBetween(currentNodes, rootId, selectedLeafIds[0]);
+        }
+
+        if (selectedWorldLine.length === 0) {
+            selectedWorldLine = findFirstLeafPath(currentNodes, rootId, includedIds);
+        }
+
+        const newWorldLine = selectedWorldLine
+            .filter(id => includedIds.has(id))
+            .map(id => idMap[id]);
+
+        return {
+            nodes: copiedNodes,
+            rootId: idMap[rootId],
+            worldLine: newWorldLine.length > 0 ? newWorldLine : [idMap[rootId]],
+            idMap,
+        };
+    };
+
     // ========== 版本管理 ==========
 
     const addVersion = (id: ItemID, payload: IMessagePayload) => {
@@ -744,6 +899,7 @@ export const useTreeModel = (): ITreeModel => {
         createBranch,
         switchWorldLine,
         getBranches,
+        extractSubtree,
 
         // 版本管理
         addVersion,

@@ -247,6 +247,48 @@
         .node-circle.selected {
             box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.35);
         }
+        .tree-node.extract-excluded { opacity: 0.32; }
+        .tree-node.extract-included .node-circle {
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.28);
+        }
+        .tree-node.extract-root .node-circle {
+            box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.45);
+        }
+        .tree-edge.extract-included {
+            stroke: #4caf50;
+            stroke-width: 3;
+            opacity: 1;
+        }
+        .tree-edge.extract-excluded { opacity: 0.18; }
+        .node-op-badge {
+            position: absolute; top: -7px; left: -7px;
+            min-width: 18px; height: 18px; padding: 0 4px;
+            border-radius: 999px;
+            background: #4caf50; color: #fff;
+            font-size: 10px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .node-op-badge.root { background: #ff9800; }
+
+        .operation-panel {
+            border-top: 1px solid var(--c-border, #e0e0e0);
+            padding: var(--sp-3, 12px) var(--sp-4, 16px);
+            background: var(--c-surface, #f7f7f7);
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-2, 8px);
+        }
+        .operation-summary {
+            display: grid;
+            grid-template-columns: 72px 1fr;
+            gap: 4px 8px;
+            font-size: var(--fs-sm, 13px);
+        }
+        .operation-hint {
+            font-size: var(--fs-xs, 11px);
+            color: var(--c-fg-muted, #888);
+            line-height: 1.5;
+        }
 
         .node-badge {
             position: absolute; top: -5px; right: -5px;
@@ -428,6 +470,34 @@
                         @click="showFullContent(selectedNodeId)">
                         查看完整内容
                     </button>
+                    <button class="btn btn-sm w-full" @click="enterExtractSubtree(selectedNodeId)">
+                        提取 Subtree
+                    </button>
+                </div>
+
+                <!-- Operation panel -->
+                <div class="operation-panel" x-show="operation && operation.id === 'extract-subtree'" style="display:none;">
+                    <div class="text-bold">Extract Subtree</div>
+                    <div class="operation-summary">
+                        <span class="text-muted">Root</span>
+                        <span x-text="operation?.rootId || '-'" style="word-break:break-all;"></span>
+                        <span class="text-muted">Leaves</span>
+                        <span x-text="(operation?.leafIds?.length || 0) + ' selected'"></span>
+                        <span class="text-muted">Included</span>
+                        <span x-text="operation?.includedNodeIds?.size || 0"></span>
+                    </div>
+                    <div class="operation-hint">
+                        点击 root 下的节点 toggle leaf/path endpoint；不选 leaf = 复制完整 subtree。
+                    </div>
+                    <button class="btn btn-primary btn-sm w-full" @click="confirmExtractSubtree()">
+                        确认提取为新对话
+                    </button>
+                    <button class="btn btn-sm w-full" x-show="selectedNodeId" @click="setExtractRoot(selectedNodeId)">
+                        将当前节点设为 Root
+                    </button>
+                    <button class="btn btn-sm w-full" @click="cancelOperation()">
+                        取消操作
+                    </button>
                 </div>
             </div>
         </div>
@@ -471,6 +541,7 @@
             _initialized: false,
             _positions: new Map(),
             _worldLineSet: new Set(),
+            operation: null,
 
             // Full content overlay
             fullContentVisible: false,
@@ -524,6 +595,50 @@
                 if (!this.treeData) return false;
                 const n = this.treeData.nodes[id];
                 return n && n.children.length > 1;
+            },
+            isDescendantOrSelf(rootId, targetId) {
+                const nodes = this.treeData?.nodes; if (!nodes?.[rootId] || !nodes?.[targetId]) return false;
+                let cur = targetId;
+                while (cur) {
+                    if (cur === rootId) return true;
+                    cur = nodes[cur]?.parent;
+                }
+                return false;
+            },
+            traceBetween(rootId, targetId) {
+                const nodes = this.treeData?.nodes; if (!nodes) return [];
+                const path = [];
+                let cur = targetId;
+                while (cur) {
+                    path.unshift(cur);
+                    if (cur === rootId) return path;
+                    cur = nodes[cur]?.parent;
+                }
+                return [];
+            },
+            collectSubtreeIds(rootId, included = new Set()) {
+                const nodes = this.treeData?.nodes; if (!nodes?.[rootId] || included.has(rootId)) return included;
+                included.add(rootId);
+                nodes[rootId].children.forEach(cid => this.collectSubtreeIds(cid, included));
+                return included;
+            },
+            recomputeOperationPreview() {
+                if (!this.operation || !this.treeData?.nodes?.[this.operation.rootId]) return;
+                const included = this.operation.leafIds.length === 0
+                    ? this.collectSubtreeIds(this.operation.rootId)
+                    : new Set();
+                if (this.operation.leafIds.length > 0) {
+                    this.operation.leafIds.forEach(leafId => {
+                        this.traceBetween(this.operation.rootId, leafId).forEach(id => included.add(id));
+                    });
+                }
+                const edges = new Set();
+                included.forEach(id => {
+                    const n = this.treeData.nodes[id];
+                    n?.children?.forEach(cid => { if (included.has(cid)) edges.add(id + '→' + cid); });
+                });
+                this.operation.includedNodeIds = included;
+                this.operation.includedEdges = edges;
             },
             escapeHtml(str) {
                 if (!str) return '';
@@ -633,6 +748,7 @@
                 this.treeData = data;
                 this._worldLineSet = new Set(data.worldLine);
                 this.selectedNodeId = null;
+                if (this.operation) this.recomputeOperationPreview();
                 this.layoutTree(data);
 
                 const { nodes } = data;
@@ -653,7 +769,10 @@
                     for (const cid of node.children) {
                         const cc = this.getNodeCenter(cid, nodes); if (!cc) continue;
                         const act = wl.has(id) && wl.has(cid);
-                        eh += '<path class="tree-edge' + (act ? ' active' : '') + '" d="M ' + pc.x + ' ' + pc.y
+                        const edgeKey = id + '→' + cid;
+                        const inOp = this.operation?.includedEdges?.has(edgeKey);
+                        const exOp = this.operation && !inOp;
+                        eh += '<path class="tree-edge' + (act ? ' active' : '') + (inOp ? ' extract-included' : '') + (exOp ? ' extract-excluded' : '') + '" d="M ' + pc.x + ' ' + pc.y
                             + ' C ' + pc.x + ' ' + (pc.y + (cc.y - pc.y) * 0.4) + ', '
                             + cc.x + ' ' + (pc.y + (cc.y - pc.y) * 0.6) + ', ' + cc.x + ' ' + cc.y + '"/>';
                     }
@@ -669,10 +788,16 @@
                     const icon = node.role === 'user' ? 'U' : node.role === 'assistant' ? 'A' : '—';
                     const label = node.preview ? node.preview.slice(0, 25) : (isSep ? '分隔符' : '');
                     const tip = node.role ? (node.role === 'user' ? '用户' : '助手') + ': ' + (node.preview || '').slice(0, 50) : '分隔符';
+                    const inOp = this.operation?.includedNodeIds?.has(id);
+                    const isOpRoot = this.operation?.rootId === id;
+                    const isOpLeaf = this.operation?.leafIds?.includes(id);
+                    const exOp = this.operation && !inOp;
                     let badges = '';
+                    if (isOpRoot) badges += '<div class="node-op-badge root">R</div>';
+                    else if (isOpLeaf) badges += '<div class="node-op-badge">✓</div>';
                     if (node.versionCount > 1) badges += '<div class="node-badge">' + node.versionCount + '</div>';
                     if (node.children.length > 1) badges += '<div class="node-branch-badge">' + node.children.length + '</div>';
-                    nh += '<div class="tree-node" data-id="' + id + '" style="left:' + (pos.x - L.nodeWidth / 2) + 'px;top:' + pos.y + 'px;width:' + L.nodeWidth + 'px;">'
+                    nh += '<div class="tree-node' + (inOp ? ' extract-included' : '') + (isOpRoot ? ' extract-root' : '') + (exOp ? ' extract-excluded' : '') + '" data-id="' + id + '" style="left:' + (pos.x - L.nodeWidth / 2) + 'px;top:' + pos.y + 'px;width:' + L.nodeWidth + 'px;">'
                         + '<div class="node-tooltip">' + this.escapeHtml(tip) + '</div>'
                         + '<div class="node-circle ' + rc + (onWL ? ' on-worldline' : '') + '">' + icon + badges + '</div>'
                         + '<div class="node-label" title="' + this.escapeHtml(label) + '">' + this.escapeHtml(label) + '</div></div>';
@@ -682,7 +807,7 @@
                 // Click delegation
                 $n.onclick = (e) => {
                     const el = e.target.closest('.tree-node');
-                    if (el) { e.stopPropagation(); this.selectNode(el.getAttribute('data-id')); }
+                    if (el) { e.stopPropagation(); this.handleNodeClick(el.getAttribute('data-id')); }
                 };
 
                 requestAnimationFrame(() => this.fitView());
@@ -691,6 +816,10 @@
             // ================================================================
             //  Interactions
             // ================================================================
+            handleNodeClick(id) {
+                this.selectNode(id);
+                if (this.operation?.id === 'extract-subtree') this.toggleExtractLeaf(id);
+            },
             selectNode(id) {
                 if (!this.treeData?.nodes?.[id]) return;
                 this.$refs.nodes.querySelectorAll('.node-circle.selected').forEach(el => el.classList.remove('selected'));
@@ -719,6 +848,54 @@
                 const leafId = this.findLeafFrom(id);
                 if (window.pluginSdk?.switchWorldLine) window.pluginSdk.switchWorldLine(leafId);
                 else window.pluginSdk?.showMessage?.('已请求切换世界线');
+            },
+            enterExtractSubtree(rootId) {
+                if (!rootId || !this.treeData?.nodes?.[rootId]) return;
+                this.operation = {
+                    id: 'extract-subtree',
+                    rootId,
+                    leafIds: [],
+                    includedNodeIds: new Set(),
+                    includedEdges: new Set(),
+                };
+                this.renderTree(this.treeData);
+            },
+            setExtractRoot(rootId) {
+                if (!this.operation || !rootId || !this.treeData?.nodes?.[rootId]) return;
+                this.operation.rootId = rootId;
+                this.operation.leafIds = [];
+                this.renderTree(this.treeData);
+            },
+            toggleExtractLeaf(id) {
+                if (!this.operation || id === this.operation.rootId) return;
+                if (!this.isDescendantOrSelf(this.operation.rootId, id)) {
+                    window.pluginSdk?.showMessage?.('请选择 Root 子树内的节点', 'error');
+                    return;
+                }
+                const idx = this.operation.leafIds.indexOf(id);
+                if (idx >= 0) this.operation.leafIds.splice(idx, 1);
+                else this.operation.leafIds.push(id);
+                this.renderTree(this.treeData);
+                this.selectNode(id);
+            },
+            cancelOperation() {
+                this.operation = null;
+                if (this.treeData) this.renderTree(this.treeData);
+            },
+            async confirmExtractSubtree() {
+                if (!this.operation || this.operation.id !== 'extract-subtree') return;
+                if (!window.pluginSdk?.extractSubtree) {
+                    window.pluginSdk?.showMessage?.('当前环境不支持 subtree 提取', 'error');
+                    return;
+                }
+                try {
+                    await window.pluginSdk.extractSubtree({
+                        rootId: this.operation.rootId,
+                        leafIds: [...this.operation.leafIds],
+                    });
+                } catch (e) {
+                    // Error toast is owned by the host-side callback; keep dialog open for retry.
+                }
             },
             async showFullContent(id) {
                 if (!id) return;
