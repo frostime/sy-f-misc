@@ -3,12 +3,11 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:38:02
  * @FilePath     : /src/func/gpt/persistence/local-storage.ts
- * @LastEditTime : 2026-06-12 22:50:00
+ * @LastEditTime : 2026-06-12 23:10:00
  * @Description  : Per-session cache file I/O (split from monolithic gpt-chat-cache.json)
  */
 
-import { thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { api } from "@frostime/siyuan-plugin-kits";
+import { api, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
 import { showMessage } from "siyuan";
 
@@ -20,10 +19,23 @@ type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
 
 // ─── Internal Helpers ───────────────────────────────────────────────
 
-/** Write single session to cache dir */
-const writeCacheFile = async (id: string, history: IChatSessionHistoryV2) => {
-    const plugin = thisPlugin();
-    await plugin.saveBlob(`${CACHE_DIR}/${id}.json`, history);
+/** Per-session write queue to prevent out-of-order overwrites */
+const writeQueue = new Map<string, Promise<void>>();
+
+/** Serialize writes for the same session id */
+const enqueueWrite = (id: string, fn: () => Promise<void>) => {
+    const prev = writeQueue.get(id) ?? Promise.resolve();
+    const next = prev.then(fn, fn); // continue chain even on error
+    writeQueue.set(id, next);
+    return next;
+};
+
+/** Write single session to cache dir (serialized per id) */
+const writeCacheFile = (id: string, history: IChatSessionHistoryV2) => {
+    return enqueueWrite(id, async () => {
+        const plugin = thisPlugin();
+        await plugin.saveBlob(`${CACHE_DIR}/${id}.json`, history);
+    });
 };
 
 /** Delete single session cache file */
@@ -55,13 +67,23 @@ const readCacheFile = async (filename: string): Promise<ISessionHistoryUnion | n
     }
 };
 
+/** Drain all pending writes (call before final flush on unload) */
+const drainWriteQueue = async () => {
+    await Promise.all([...writeQueue.values()]);
+};
+
 // ─── Migration ──────────────────────────────────────────────────────
 
 /**
  * Detect legacy gpt-chat-cache.json and split into per-session files.
+ * Only runs if gpt-cache/ dir is empty or missing (one-time migration).
  * Old file is preserved (not deleted).
  */
 const migrateLegacyCacheIfNeeded = async () => {
+    // Guard: skip if split cache already has files
+    const existing = await listCacheDir();
+    if (existing.length > 0) return;
+
     const plugin = thisPlugin();
     const blob = await plugin.loadBlob(LEGACY_CACHE_FILE);
     if (!blob) return;
@@ -88,17 +110,16 @@ const migrateLegacyCacheIfNeeded = async () => {
     // Write each session to individual file
     const writes = histories.map(async (history: ISessionHistoryUnion) => {
         if (!history || !history.id) return;
-        // Migrate V1 → V2 during split
         let toWrite: IChatSessionHistoryV2;
         if (needsMigration(history)) {
             toWrite = migrateHistory(history) as IChatSessionHistoryV2;
         } else {
             toWrite = history as IChatSessionHistoryV2;
         }
-        await writeCacheFile(toWrite.id, toWrite);
+        const plugin = thisPlugin();
+        await plugin.saveBlob(`${CACHE_DIR}/${toWrite.id}.json`, toWrite);
     });
     await Promise.all(writes);
-    // Legacy file preserved — not deleted
 };
 
 // ─── Exported API (signatures unchanged) ────────────────────────────
@@ -108,8 +129,19 @@ const migrateLegacyCacheIfNeeded = async () => {
  * Called on unload as a safety net.
  */
 export const updateCacheFile = async () => {
+    // Drain any pending incremental writes first
+    await drainWriteQueue();
+
     let histories = listFromLocalStorage();
-    if (!histories || histories.length === 0) return;
+
+    // Even if localStorage is empty, still evict orphan files
+    const existingFiles = await listCacheDir();
+
+    if (!histories || histories.length === 0) {
+        // Delete all orphans
+        await Promise.all(existingFiles.map(f => deleteCacheFile(f.replace(/\.json$/, ''))));
+        return;
+    }
 
     // Sort by updated/timestamp desc, keep top N
     histories.sort((a, b) => {
@@ -121,10 +153,12 @@ export const updateCacheFile = async () => {
     const keepIds = new Set(histories.map(h => h.id));
 
     // Write all kept sessions
-    await Promise.all(histories.map(h => writeCacheFile(h.id, h)));
+    await Promise.all(histories.map(h => {
+        const plugin = thisPlugin();
+        return plugin.saveBlob(`${CACHE_DIR}/${h.id}.json`, h);
+    }));
 
     // Evict orphan files
-    const existingFiles = await listCacheDir();
     const orphans = existingFiles.filter(f => {
         const id = f.replace(/\.json$/, '');
         return !keepIds.has(id);
@@ -148,19 +182,19 @@ export const restoreCache = async () => {
 
     if (histories.length === 0) return;
 
-    // Sort by updated/timestamp desc
+    // Sort by updated/timestamp desc, only consider top N
     histories.sort((a, b) => {
         if (a.updated && b.updated) return b.updated - a.updated;
         return b.timestamp - a.timestamp;
     });
+    histories = histories.slice(0, KEEP_N_CACHE_ITEM);
 
     const isExist = (key: string) => {
         return Object.keys(localStorage).some(k => k === key);
     };
 
-    let kept = 0;
-    for (let i = 0; i < histories.length && kept < KEEP_N_CACHE_ITEM; i++) {
-        let history = histories[i] as ISessionHistoryUnion;
+    for (const entry of histories) {
+        let history = entry;
 
         // Migrate V1 → V2 on restore
         if (needsMigration(history)) {
@@ -170,7 +204,6 @@ export const restoreCache = async () => {
         const key = `gpt-chat-${history.id}`;
         if (!isExist(key)) {
             localStorage.setItem(key, JSON.stringify(history));
-            kept++;
         }
     }
 };
@@ -187,7 +220,7 @@ export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
     const key = `gpt-chat-${history.id}`;
     localStorage.setItem(key, JSON.stringify(historyWithType));
 
-    // Fire-and-forget: write to cache file
+    // Serialized async write to cache file (fire-and-forget from caller's perspective)
     writeCacheFile(history.id, historyWithType);
 };
 
