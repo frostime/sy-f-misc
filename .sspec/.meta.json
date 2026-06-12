@@ -1,9 +1,9 @@
 {
   "meta_schema": "2.1",
   "sspec_schema": "6.1",
-  "sspec_version": "2.5.0",
+  "sspec_version": "2.6.2",
   "created_at": "2026-02-15T16:35:47.258670",
-  "updated_at": "2026-06-07T16:32:08.518351",
+  "updated_at": "2026-06-12T21:32:22.443418",
   "file_hashes": {
     "skills/write-spec-doc": "13bb5686b0ff98e4",
     "skills/sspec-mdtoc": "b9fdfc4a23d816e0",
@@ -12,7 +12,7 @@
     "skills/sspec-plan": "66835d307810b317",
     "skills/sspec-review": "b722b407553ee9a8",
     "skills/sspec-align": "3c9493883f5bdbfa",
-    "skills/sspec-clarify": "394a2c14528a4681"
+    "skills/sspec-clarify": "553adce4925ef5c1"
   },
   "managed_skills": [
     "sspec-align",
