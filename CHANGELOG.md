@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v7.12.0 | 2026-06-14
+
+- GPT 对话临时缓存从单个 `gpt-chat-cache.json` 拆分为 `gpt-cache/{session-id}.json`，降低思源同步/历史快照膨胀。
+- 增加旧缓存自动迁移与迁移状态保护；保留旧缓存文件作为备份。
+- GPT 持久化读取支持桌面端 Node fs 优先、SiYuan API 兜底；写入/删除仍走 SiYuan API。
+
 ## v4.8.0
 
 - 和 Toggl 通信，并将今天的活动同步到 daily note 中

@@ -59,6 +59,7 @@ Obsolete items → mark [obsolete: timestamp], never silently delete. -->
 - [2026-06-13T21:47+08:00] [Gotcha] `readDir` results must preserve `ok`/`missing`/`failed`; collapsing failures to empty can trigger stale legacy fallback and unsafe orphan eviction.
 - [2026-06-13T22:46+08:00] [Decision] Legacy migration now writes `gpt-cache/_legacy_migrating` before splitting legacy sessions; if migration partially fails, later startup retries legacy migration instead of marking completion only because some split files exist.
 - [2026-06-13T22:46+08:00] [Constraint] `gpt-cache/{id}.json` writes/deletes only accept path-safe session ids (`[A-Za-z0-9_-]+`) to keep cache I/O inside the flat cache directory.
+- [2026-06-13T22:46+08:00] [Gotcha] `json-files.ts` snapshot rebuild has pre-existing lossy directory-read behavior (`readDir` failure → `[]`); marked with `// ISSUE` and intentionally left as follow-up.
 
 ## Milestones
 <!-- MUST append one line per session. Pure facts; new entries appended at the end.
@@ -68,3 +69,4 @@ CLI treats the last valid bullet as the latest milestone.
 - [2026-06-13T19:29+08:00] Added local GPT persistence read abstraction (`storage-read.ts`), wired fs-first reads into split cache and JSON history reads, verified TypeScript/build, and prepared WIP commit.
 - [2026-06-13T21:47+08:00] Fixed review blockers: one-time legacy migration marker, safe readDir status handling, and path traversal rejection for Node fs read paths.
 - [2026-06-13T22:46+08:00] Fixed final review edge cases: mixed missing/failed directory status is unsafe, cache ids are filename-validated, and partial legacy migration retries via `_legacy_migrating`; diagnostics and project type-check pass.
+- [2026-06-14T01:41+08:00] Fixed review follow-up #1: `_legacy_migrating` state now propagates through restore and prevents orphan eviction while migration remains incomplete.

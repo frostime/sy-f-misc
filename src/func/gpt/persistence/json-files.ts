@@ -430,6 +430,8 @@ const removeSessionFromSnapshot = async (sessionId: string) => {
  * 不涉及内部结构，所以 V1 V2 均可
  */
 const listFromJsonLegacy = async (): Promise<ISessionHistoryUnion[]> => {
+    // ISSUE: Pre-existing behavior: directory read failure is collapsed to [] here;
+    // snapshot rebuild may overwrite the snapshot with an empty list. Leave for follow-up.
     const files = await listStorageDir(rootName);
 
     let filename = files.filter(f => !f.isDir).map(f => f.name).filter(f => f.endsWith('.json'));

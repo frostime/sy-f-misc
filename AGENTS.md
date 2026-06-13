@@ -1,3 +1,14 @@
+## FAQ NOTE
+
+- 思源插件开发
+  - 思源 API; 依赖 siyuan-plugin-kits
+  - solidjs; 开发组件时请用 solid-signal-ref
+- 打包 @vite.config.ts
+- 版本 -> package.json + plugin.json
+- 多功能复合插件。插件入口 @src/index.ts, 各类子功能 @src/func/
+- 灵活运用 spec-docs, bash(rg, fd, asq file-tree, slsp) 等快速定位任务相关代码
+
+
 <!-- SSPEC:START -->
 # .sspec Agent Protocol
 
@@ -130,6 +141,3 @@ Cross-cutting sync between user and agent — runs across all phases, outside an
 
 **Fence nesting**: When showing content that contains ` ``` `, outer fence MUST use more backticks (e.g. `````). Always outer > inner.
 <!-- SSPEC:END -->
-
-
-

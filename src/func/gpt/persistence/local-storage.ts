@@ -20,9 +20,9 @@ const LEGACY_MIGRATION_IN_PROGRESS = '_legacy_migrating';
 
 type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
 type CacheDirRestoreResult =
-    | { status: 'empty'; histories: []; hasMigrationMarker: boolean }
-    | { status: 'ok'; histories: ISessionHistoryUnion[] }
-    | { status: 'partial'; histories: ISessionHistoryUnion[] }
+    | { status: 'empty'; histories: []; hasMigrationMarker: boolean; hasMigrationInProgress: boolean }
+    | { status: 'ok'; histories: ISessionHistoryUnion[]; hasMigrationMarker: boolean; hasMigrationInProgress: boolean }
+    | { status: 'partial'; histories: ISessionHistoryUnion[]; hasMigrationMarker: boolean; hasMigrationInProgress: boolean }
     | { status: 'failed'; histories: [] };
 
 type CacheDirListResult =
@@ -124,7 +124,12 @@ const migrateFromLegacy = async () => {
     }
 
     const legacyHistories = await readLegacyCache();
-    if (!legacyHistories || legacyHistories.length === 0) return;
+    if (!legacyHistories || legacyHistories.length === 0) {
+        if (existing.status === 'ok' && existing.hasMigrationInProgress) {
+            allowCacheEviction = false;
+        }
+        return;
+    }
 
     const started = existing.status === 'ok' && existing.hasMigrationInProgress
         ? true
@@ -201,15 +206,36 @@ const restoreFromCacheDir = async (): Promise<CacheDirRestoreResult> => {
     try {
         const dir = await listCacheDirResult();
         if (dir.status === 'failed') return { status: 'failed', histories: [] };
-        if (dir.status === 'missing') return { status: 'empty', histories: [], hasMigrationMarker: false };
+        if (dir.status === 'missing') {
+            return { status: 'empty', histories: [], hasMigrationMarker: false, hasMigrationInProgress: false };
+        }
         if (dir.filenames.length === 0) {
-            return { status: 'empty', histories: [], hasMigrationMarker: dir.hasMigrationMarker };
+            return {
+                status: 'empty',
+                histories: [],
+                hasMigrationMarker: dir.hasMigrationMarker,
+                hasMigrationInProgress: dir.hasMigrationInProgress
+            };
         }
 
         const results = await Promise.all(dir.filenames.map(readCacheFile));
         const histories = results.filter((h): h is ISessionHistoryUnion => h !== null);
-        if (histories.length === dir.filenames.length) return { status: 'ok', histories };
-        if (histories.length > 0) return { status: 'partial', histories };
+        if (histories.length === dir.filenames.length) {
+            return {
+                status: 'ok',
+                histories,
+                hasMigrationMarker: dir.hasMigrationMarker,
+                hasMigrationInProgress: dir.hasMigrationInProgress
+            };
+        }
+        if (histories.length > 0) {
+            return {
+                status: 'partial',
+                histories,
+                hasMigrationMarker: dir.hasMigrationMarker,
+                hasMigrationInProgress: dir.hasMigrationInProgress
+            };
+        }
         return { status: 'failed', histories: [] };
     } catch {
         return { status: 'failed', histories: [] };
@@ -256,14 +282,15 @@ export const restoreCache = async () => {
 
     if (cacheResult.status === 'ok' || cacheResult.status === 'partial') {
         histories = cacheResult.histories;
-        allowCacheEviction = cacheResult.status === 'ok';
+        const migrationIncomplete = cacheResult.hasMigrationInProgress && !cacheResult.hasMigrationMarker;
+        allowCacheEviction = allowCacheEviction && cacheResult.status === 'ok' && !migrationIncomplete;
         if (cacheResult.status === 'partial') {
             console.warn('GPT cache restore partially failed; orphan eviction is disabled for this session.');
         }
     } else if (cacheResult.status === 'empty') {
         if (cacheResult.hasMigrationMarker) return;
         histories = await readLegacyCache();
-        allowCacheEviction = true;
+        allowCacheEviction = allowCacheEviction && !cacheResult.hasMigrationInProgress;
     } else {
         allowCacheEviction = false;
         console.warn('GPT cache restore failed; skip legacy fallback and disable orphan eviction to avoid data loss.');
