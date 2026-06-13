@@ -16,6 +16,7 @@ const KEEP_N_CACHE_ITEM = 36;
 const CACHE_DIR = 'gpt-cache';
 const LEGACY_CACHE_FILE = 'gpt-chat-cache.json';
 const LEGACY_MIGRATION_MARKER = '_legacy_migrated';
+const LEGACY_MIGRATION_IN_PROGRESS = '_legacy_migrating';
 
 type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
 type CacheDirRestoreResult =
@@ -25,13 +26,23 @@ type CacheDirRestoreResult =
     | { status: 'failed'; histories: [] };
 
 type CacheDirListResult =
-    | { status: 'ok'; filenames: string[]; hasMigrationMarker: boolean }
-    | { status: 'missing'; filenames: []; hasMigrationMarker: false }
-    | { status: 'failed'; filenames: []; hasMigrationMarker: false };
+    | { status: 'ok'; filenames: string[]; hasMigrationMarker: boolean; hasMigrationInProgress: boolean }
+    | { status: 'missing'; filenames: []; hasMigrationMarker: false; hasMigrationInProgress: false }
+    | { status: 'failed'; filenames: []; hasMigrationMarker: false; hasMigrationInProgress: false };
 
 let allowCacheEviction = true;
 
 // ─── Cache file I/O ─────────────────────────────────────────────────
+
+const isSafeCacheId = (id: string) => /^[A-Za-z0-9_-]+$/.test(id);
+
+const cachePathForId = (id: string): string | null => {
+    if (!isSafeCacheId(id)) {
+        console.warn(`Skip GPT cache file I/O for unsafe session id: ${id}`);
+        return null;
+    }
+    return `${CACHE_DIR}/${id}.json`;
+};
 
 const writeQueue = new Map<string, Promise<boolean>>();
 
@@ -56,27 +67,32 @@ const enqueueWrite = (id: string, fn: () => Promise<void>) => {
 };
 
 const writeCacheFile = (id: string, history: IChatSessionHistoryV2) => {
+    const path = cachePathForId(id);
+    if (!path) return Promise.resolve(true);
     return enqueueWrite(id, async () => {
-        await thisPlugin().saveBlob(`${CACHE_DIR}/${id}.json`, history);
+        await thisPlugin().saveBlob(path, history);
     });
 };
 
 const deleteCacheFile = (id: string) => {
+    const path = cachePathForId(id);
+    if (!path) return Promise.resolve(true);
     return enqueueWrite(id, async () => {
-        await thisPlugin().removeBlob(`${CACHE_DIR}/${id}.json`);
+        await thisPlugin().removeBlob(path);
     });
 };
 
 const listCacheDirResult = async (): Promise<CacheDirListResult> => {
     const result = await listStorageDirResult(CACHE_DIR);
     if (result.status !== 'ok') {
-        return { status: result.status, filenames: [], hasMigrationMarker: false };
+        return { status: result.status, filenames: [], hasMigrationMarker: false, hasMigrationInProgress: false };
     }
 
     return {
         status: 'ok',
         filenames: result.items.filter(f => !f.isDir && f.name.endsWith('.json')).map(f => f.name),
-        hasMigrationMarker: result.items.some(f => !f.isDir && f.name === LEGACY_MIGRATION_MARKER)
+        hasMigrationMarker: result.items.some(f => !f.isDir && f.name === LEGACY_MIGRATION_MARKER),
+        hasMigrationInProgress: result.items.some(f => !f.isDir && f.name === LEGACY_MIGRATION_IN_PROGRESS)
     };
 };
 
@@ -101,7 +117,7 @@ const migrateFromLegacy = async () => {
 
     if (existing.status === 'ok') {
         if (existing.hasMigrationMarker) return;
-        if (existing.filenames.length > 0) {
+        if (existing.filenames.length > 0 && !existing.hasMigrationInProgress) {
             await writeLegacyMigrationMarker();
             return;
         }
@@ -109,6 +125,14 @@ const migrateFromLegacy = async () => {
 
     const legacyHistories = await readLegacyCache();
     if (!legacyHistories || legacyHistories.length === 0) return;
+
+    const started = existing.status === 'ok' && existing.hasMigrationInProgress
+        ? true
+        : await writeLegacyMigrationInProgressMarker();
+    if (!started) {
+        allowCacheEviction = false;
+        return;
+    }
 
     const results = await Promise.all(legacyHistories.map(h => {
         if (!h?.id) return Promise.resolve(true);
@@ -119,7 +143,14 @@ const migrateFromLegacy = async () => {
     }));
 
     if (results.every(Boolean)) {
-        await writeLegacyMigrationMarker();
+        const completed = await writeLegacyMigrationMarker();
+        if (completed) {
+            await removeLegacyMigrationInProgressMarker();
+        } else {
+            allowCacheEviction = false;
+        }
+    } else {
+        allowCacheEviction = false;
     }
 };
 
@@ -135,8 +166,32 @@ const writeLegacyMigrationMarker = async () => {
             legacyFile: LEGACY_CACHE_FILE,
             schema: 1
         });
+        return true;
     } catch (error) {
         console.warn('Failed to write GPT legacy cache migration marker:', error);
+        return false;
+    }
+};
+
+const writeLegacyMigrationInProgressMarker = async () => {
+    try {
+        await thisPlugin().saveBlob(`${CACHE_DIR}/${LEGACY_MIGRATION_IN_PROGRESS}`, {
+            startedAt: Date.now(),
+            legacyFile: LEGACY_CACHE_FILE,
+            schema: 1
+        });
+        return true;
+    } catch (error) {
+        console.warn('Failed to write GPT legacy cache migration in-progress marker:', error);
+        return false;
+    }
+};
+
+const removeLegacyMigrationInProgressMarker = async () => {
+    try {
+        await thisPlugin().removeBlob(`${CACHE_DIR}/${LEGACY_MIGRATION_IN_PROGRESS}`);
+    } catch (error) {
+        console.warn('Failed to remove GPT legacy cache migration in-progress marker:', error);
     }
 };
 

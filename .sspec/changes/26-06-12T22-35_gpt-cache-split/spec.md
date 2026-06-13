@@ -1,12 +1,15 @@
 ---
 name: gpt-cache-split
-status: PLANNING
+status: DOING
 change-type: single
 created: 2026-06-12 22:35:51
 reference:
 - source: .sspec/requests/26-06-12T21-32_gpt-chat-cache-issue.md
   type: request
   note: Linked from request
+- source: .sspec/changes/26-06-12T22-35_gpt-cache-split/revisions/001-harden-migration-edge-cases.md
+  type: revision
+  note: Harden directory status, path-safe cache ids, and partial migration retry semantics
 ---
 
 # gpt-cache-split

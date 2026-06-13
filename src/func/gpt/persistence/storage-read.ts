@@ -144,9 +144,11 @@ export const listStorageDirResult = async (path: string): Promise<StorageDirResu
 
     const apiResult = await listStorageDirWithSiyuanApi(path);
     if (apiResult.status === 'ok') return apiResult;
-    if (nodeResult?.status === 'missing' || apiResult.status === 'missing') return { status: 'missing', items: [] };
+    if (apiResult.status === 'missing' && (!nodeResult || nodeResult.status === 'missing')) {
+        return { status: 'missing', items: [] };
+    }
 
-    return nodeResult ?? apiResult;
+    return { status: 'failed', items: [] };
 };
 
 export const listStorageDir = async (path: string): Promise<StorageDirItem[]> => {

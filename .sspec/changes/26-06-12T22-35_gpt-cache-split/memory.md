@@ -23,7 +23,7 @@ A  .sspec/requests/26-06-12T21-32_gpt-chat-cache-issue.md
 <!-- Where we are and what's next — one to three lines.
 This is the resume entry point; the first section an agent reads on cold start. -->
 
-Implementation is in WIP: per-session GPT cache is implemented, restore hardening is applied, GPT persistence read paths use `storage-read.ts` (desktop Node fs first, SiYuan API fallback), and review blockers are fixed with a legacy migration marker + readDir status handling + path traversal guard. Next: runtime-test migration/restore in SiYuan desktop; do not use Node fs for writes/deletes.
+Implementation is in WIP: per-session GPT cache is implemented, restore hardening is applied, GPT persistence read paths use `storage-read.ts` (desktop Node fs first, SiYuan API fallback), review blockers are fixed, and final review edge cases are hardened with mixed missing/failed handling + path-safe cache ids + `_legacy_migrating` partial-migration retry. Next: runtime-test migration/restore in SiYuan desktop; do not use Node fs for writes/deletes.
 
 ## Key Files
 <!-- Files critical to understanding/continuing this change.
@@ -57,6 +57,8 @@ Obsolete items → mark [obsolete: timestamp], never silently delete. -->
 - [2026-06-13T19:29+08:00] [Gotcha] SiYuan API paths and Node fs paths are different: API uses `data/storage/petal/{plugin}/{relative}`, while desktop fs uses `{window.siyuan.config.system.dataDir}/storage/petal/{plugin}/{relative}`. `storage-read.ts` normalizes both relative and API-style paths.
 - [2026-06-13T21:47+08:00] [Decision] Legacy migration uses marker file `gpt-cache/_legacy_migrated` and never deletes `gpt-chat-cache.json`; if split cache already has any session files but no marker, the code writes the marker and skips importing missing legacy ids to avoid resurrecting deleted sessions.
 - [2026-06-13T21:47+08:00] [Gotcha] `readDir` results must preserve `ok`/`missing`/`failed`; collapsing failures to empty can trigger stale legacy fallback and unsafe orphan eviction.
+- [2026-06-13T22:46+08:00] [Decision] Legacy migration now writes `gpt-cache/_legacy_migrating` before splitting legacy sessions; if migration partially fails, later startup retries legacy migration instead of marking completion only because some split files exist.
+- [2026-06-13T22:46+08:00] [Constraint] `gpt-cache/{id}.json` writes/deletes only accept path-safe session ids (`[A-Za-z0-9_-]+`) to keep cache I/O inside the flat cache directory.
 
 ## Milestones
 <!-- MUST append one line per session. Pure facts; new entries appended at the end.
@@ -65,3 +67,4 @@ CLI treats the last valid bullet as the latest milestone.
 
 - [2026-06-13T19:29+08:00] Added local GPT persistence read abstraction (`storage-read.ts`), wired fs-first reads into split cache and JSON history reads, verified TypeScript/build, and prepared WIP commit.
 - [2026-06-13T21:47+08:00] Fixed review blockers: one-time legacy migration marker, safe readDir status handling, and path traversal rejection for Node fs read paths.
+- [2026-06-13T22:46+08:00] Fixed final review edge cases: mixed missing/failed directory status is unsafe, cache ids are filename-validated, and partial legacy migration retries via `_legacy_migrating`; diagnostics and project type-check pass.

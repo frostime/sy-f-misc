@@ -18,6 +18,11 @@ updated: "2026-06-13"
 - [x] Data-safety fixes after review: one-time legacy migration marker, directory read status (`ok`/`missing`/`failed`), and storage path traversal guard
 **Verification**: `pnpm run build` passes ✅
 
+### Feedback Tasks (→ [001-harden-migration-edge-cases](./revisions/001-harden-migration-edge-cases.md)) ✅
+- [x] Treat mixed directory `missing`/`failed` as unsafe failure instead of safely missing
+- [x] Validate cache session ids before writing/deleting `gpt-cache/{id}.json`
+- [x] Add in-progress legacy migration marker so partial migration retries instead of being marked complete
+
 ### Phase 2: Migration & cleanup ⏳
 - [ ] Verify migration path: place a legacy `gpt-chat-cache.json` in storage → restart → confirm sessions appear in `gpt-cache/` dir and localStorage
 - [ ] Verify eviction: set KEEP_N low (e.g. 3) temporarily → create >3 sessions → trigger unload → confirm only 3 files remain in `gpt-cache/`
@@ -26,14 +31,16 @@ updated: "2026-06-13"
 
 ## Progress
 
-**Overall**: 50%
+**Overall**: 75%
 
 | Phase | Progress | Status |
 |-------|----------|--------|
 | Phase 1 | 100% | ✅ |
+| Feedback Tasks | 100% | ✅ |
 | Phase 2 | 0% | ⏳ |
 
 **Recent**:
 - 2026-06-12: Phase 1 complete — `local-storage.ts` rewritten, build passes
 - 2026-06-13: Added `storage-read.ts` for GPT persistence fs-first reads/listing; `local-storage.ts` and `json-files.ts` now use the local read abstraction
 - 2026-06-13: Fixed review blockers: legacy cache no longer reimports after marker, readDir failures are no longer treated as empty cache, and Node fs read paths reject traversal
+- 2026-06-13: Fixed final review edge cases: mixed missing/failed directory status is unsafe, cache ids are filename-validated, and partial legacy migration retries via `_legacy_migrating`
