@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-12-23 17:38:02
  * @FilePath     : /src/func/gpt/persistence/local-storage.ts
- * @LastEditTime : 2026-06-12 23:10:00
+ * @LastEditTime : 2026-06-13 17:00:00
  * @Description  : Per-session cache file I/O (split from monolithic gpt-chat-cache.json)
  */
 
@@ -16,35 +16,48 @@ const CACHE_DIR = 'gpt-cache';
 const LEGACY_CACHE_FILE = 'gpt-chat-cache.json';
 
 type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
+type CacheDirRestoreResult =
+    | { status: 'empty'; histories: [] }
+    | { status: 'ok'; histories: ISessionHistoryUnion[] }
+    | { status: 'partial'; histories: ISessionHistoryUnion[] }
+    | { status: 'failed'; histories: [] };
 
-// ─── Internal Helpers ───────────────────────────────────────────────
+let allowCacheEviction = true;
 
-/** Per-session write queue to prevent out-of-order overwrites */
+// ─── Cache file I/O ─────────────────────────────────────────────────
+
 const writeQueue = new Map<string, Promise<void>>();
 
-/** Serialize writes for the same session id */
 const enqueueWrite = (id: string, fn: () => Promise<void>) => {
     const prev = writeQueue.get(id) ?? Promise.resolve();
-    const next = prev.then(fn, fn); // continue chain even on error
+    const next = prev
+        .catch(() => undefined)
+        .then(fn)
+        .catch((error) => {
+            console.warn(`Failed to update GPT cache file ${id}:`, error);
+        });
+
     writeQueue.set(id, next);
+    next.finally(() => {
+        if (writeQueue.get(id) === next) {
+            writeQueue.delete(id);
+        }
+    });
     return next;
 };
 
-/** Write single session to cache dir (serialized per id) */
 const writeCacheFile = (id: string, history: IChatSessionHistoryV2) => {
     return enqueueWrite(id, async () => {
-        const plugin = thisPlugin();
-        await plugin.saveBlob(`${CACHE_DIR}/${id}.json`, history);
+        await thisPlugin().saveBlob(`${CACHE_DIR}/${id}.json`, history);
     });
 };
 
-/** Delete single session cache file */
-const deleteCacheFile = async (id: string) => {
-    const plugin = thisPlugin();
-    await plugin.removeBlob(`${CACHE_DIR}/${id}.json`);
+const deleteCacheFile = (id: string) => {
+    return enqueueWrite(id, async () => {
+        await thisPlugin().removeBlob(`${CACHE_DIR}/${id}.json`);
+    });
 };
 
-/** List all filenames in cache dir */
 const listCacheDir = async (): Promise<string[]> => {
     const dir = `data/storage/petal/${thisPlugin().name}/${CACHE_DIR}/`;
     const files = await api.readDir(dir);
@@ -52,12 +65,13 @@ const listCacheDir = async (): Promise<string[]> => {
     return files.filter(f => !f.isDir && f.name.endsWith('.json')).map(f => f.name);
 };
 
-/** Read and parse a single cache file */
 const readCacheFile = async (filename: string): Promise<ISessionHistoryUnion | null> => {
-    const plugin = thisPlugin();
-    const blob = await plugin.loadBlob(`${CACHE_DIR}/${filename}`);
-    if (!blob) return null;
+    const fromFs = readCacheFileWithFs(filename);
+    if (fromFs) return fromFs;
+
     try {
+        const blob = await thisPlugin().loadBlob(`${CACHE_DIR}/${filename}`);
+        if (!blob) return null;
         const text = await blob.text();
         const data = JSON.parse(text);
         if (!data || (data as { code: number }).code === 404) return null;
@@ -67,140 +81,154 @@ const readCacheFile = async (filename: string): Promise<ISessionHistoryUnion | n
     }
 };
 
-/** Drain all pending writes (call before final flush on unload) */
 const drainWriteQueue = async () => {
-    await Promise.all([...writeQueue.values()]);
+    await Promise.allSettled([...writeQueue.values()]);
 };
 
-// ─── Migration ──────────────────────────────────────────────────────
+const getStorageFilePath = (...parts: string[]): string | null => {
+    try {
+        const nodePath = window?.require?.('path') ?? require('path');
+        const dataDir: string | undefined = (window as any)?.siyuan?.config?.system?.dataDir;
+        if (!nodePath || !dataDir) return null;
+        return nodePath.join(dataDir, 'storage', 'petal', thisPlugin().name, ...parts);
+    } catch {
+        return null;
+    }
+};
 
-/**
- * Detect legacy gpt-chat-cache.json and split into per-session files.
- * Only runs if gpt-cache/ dir is empty or missing (one-time migration).
- * Old file is preserved (not deleted).
- */
-const migrateLegacyCacheIfNeeded = async () => {
-    // Guard: skip if split cache already has files
+const readJsonFileWithFs = <T>(...parts: string[]): T | null => {
+    try {
+        const nodeFs = window?.require?.('fs') ?? require('fs');
+        const filePath = getStorageFilePath(...parts);
+        if (!nodeFs || !filePath || !nodeFs.existsSync(filePath)) return null;
+
+        const text = nodeFs.readFileSync(filePath, 'utf-8');
+        return JSON.parse(text) as T;
+    } catch {
+        return null;
+    }
+};
+
+const readCacheFileWithFs = (filename: string): ISessionHistoryUnion | null => {
+    return readJsonFileWithFs<ISessionHistoryUnion>(CACHE_DIR, filename);
+};
+
+// ─── Legacy migration (self-contained) ──────────────────────────────
+
+const migrateFromLegacy = async () => {
     const existing = await listCacheDir();
-    if (existing.length > 0) return;
+    const legacyHistories = readLegacyWithFs() ?? await readLegacyWithBlob();
+    if (!legacyHistories || legacyHistories.length === 0) return;
 
-    const plugin = thisPlugin();
-    const blob = await plugin.loadBlob(LEGACY_CACHE_FILE);
-    if (!blob) return;
-    let text: string;
-    try {
-        text = await blob.text();
-    } catch {
-        return;
-    }
-    if (!text) return;
+    const existingIds = new Set(existing.map(f => f.replace(/\.json$/, '')));
+    const pending = legacyHistories.filter(h => h?.id && !existingIds.has(h.id));
+    if (pending.length === 0) return;
 
-    let histories: any[];
-    try {
-        const parsed = JSON.parse(text);
-        if (!parsed || (parsed as { code: number }).code === 404) return;
-        if (!Array.isArray(parsed)) return;
-        histories = parsed;
-    } catch {
-        return;
-    }
-
-    if (histories.length === 0) return;
-
-    // Write each session to individual file
-    const writes = histories.map(async (history: ISessionHistoryUnion) => {
-        if (!history || !history.id) return;
-        let toWrite: IChatSessionHistoryV2;
-        if (needsMigration(history)) {
-            toWrite = migrateHistory(history) as IChatSessionHistoryV2;
-        } else {
-            toWrite = history as IChatSessionHistoryV2;
-        }
-        const plugin = thisPlugin();
-        await plugin.saveBlob(`${CACHE_DIR}/${toWrite.id}.json`, toWrite);
-    });
-    await Promise.all(writes);
+    await Promise.all(pending.map(h => {
+        const toWrite = needsMigration(h)
+            ? migrateHistory(h) as IChatSessionHistoryV2
+            : h as IChatSessionHistoryV2;
+        return writeCacheFile(toWrite.id, toWrite);
+    }));
 };
 
-// ─── Exported API (signatures unchanged) ────────────────────────────
+const readLegacyWithFs = (): ISessionHistoryUnion[] | null => {
+    const parsed = readJsonFileWithFs<unknown>(LEGACY_CACHE_FILE);
+    return Array.isArray(parsed) ? parsed as ISessionHistoryUnion[] : null;
+};
 
-/**
- * 全量同步 localStorage → cache files + evict orphans.
- * Called on unload as a safety net.
- */
+const readLegacyWithBlob = async (): Promise<ISessionHistoryUnion[] | null> => {
+    try {
+        const blob = await thisPlugin().loadBlob(LEGACY_CACHE_FILE);
+        if (!blob) return null;
+        const text = await blob.text();
+        const parsed = JSON.parse(text);
+        return Array.isArray(parsed) ? parsed : null;
+    } catch {
+        return null;
+    }
+};
+
+// ─── Exported API ───────────────────────────────────────────────────
+
+const restoreFromCacheDir = async (): Promise<CacheDirRestoreResult> => {
+    try {
+        const filenames = await listCacheDir();
+        if (filenames.length === 0) return { status: 'empty', histories: [] };
+
+        const results = await Promise.all(filenames.map(readCacheFile));
+        const histories = results.filter((h): h is ISessionHistoryUnion => h !== null);
+        if (histories.length === filenames.length) return { status: 'ok', histories };
+        if (histories.length > 0) return { status: 'partial', histories };
+        return { status: 'failed', histories: [] };
+    } catch {
+        return { status: 'failed', histories: [] };
+    }
+};
+
 export const updateCacheFile = async () => {
-    // Drain any pending incremental writes first
     await drainWriteQueue();
 
-    let histories = listFromLocalStorage();
-
-    // Even if localStorage is empty, still evict orphan files
+    const histories = listFromLocalStorage();
     const existingFiles = await listCacheDir();
 
     if (!histories || histories.length === 0) {
-        // Delete all orphans
-        await Promise.all(existingFiles.map(f => deleteCacheFile(f.replace(/\.json$/, ''))));
+        if (allowCacheEviction) {
+            await Promise.all(existingFiles.map(f => deleteCacheFile(f.replace(/\.json$/, ''))));
+        }
         return;
     }
 
-    // Sort by updated/timestamp desc, keep top N
     histories.sort((a, b) => {
         if (a.updated && b.updated) return b.updated - a.updated;
         return b.timestamp - a.timestamp;
     });
-    histories = histories.slice(0, KEEP_N_CACHE_ITEM);
+    const kept = histories.slice(0, KEEP_N_CACHE_ITEM);
+    const keepIds = new Set(kept.map(h => h.id));
 
-    const keepIds = new Set(histories.map(h => h.id));
+    await Promise.all(kept.map(h => writeCacheFile(h.id, h)));
 
-    // Write all kept sessions
-    await Promise.all(histories.map(h => {
-        const plugin = thisPlugin();
-        return plugin.saveBlob(`${CACHE_DIR}/${h.id}.json`, h);
-    }));
+    if (!allowCacheEviction) return;
 
-    // Evict orphan files
-    const orphans = existingFiles.filter(f => {
-        const id = f.replace(/\.json$/, '');
-        return !keepIds.has(id);
-    });
+    const orphans = existingFiles.filter(f => !keepIds.has(f.replace(/\.json$/, '')));
     await Promise.all(orphans.map(f => deleteCacheFile(f.replace(/\.json$/, ''))));
 };
 
-/**
- * Restore cache files → localStorage on startup.
- */
 export const restoreCache = async () => {
-    // One-time migration from legacy monolithic file
-    await migrateLegacyCacheIfNeeded();
+    await migrateFromLegacy();
 
-    const filenames = await listCacheDir();
-    if (filenames.length === 0) return;
+    const cacheResult = await restoreFromCacheDir();
+    let histories: ISessionHistoryUnion[] | null = null;
 
-    // Parallel read all cache files
-    const results = await Promise.all(filenames.map(readCacheFile));
-    let histories = results.filter((h): h is ISessionHistoryUnion => h !== null);
+    if (cacheResult.status === 'ok' || cacheResult.status === 'partial') {
+        histories = cacheResult.histories;
+        allowCacheEviction = cacheResult.status === 'ok';
+        if (cacheResult.status === 'partial') {
+            console.warn('GPT cache restore partially failed; orphan eviction is disabled for this session.');
+        }
+    } else if (cacheResult.status === 'empty') {
+        histories = readLegacyWithFs() ?? await readLegacyWithBlob();
+        allowCacheEviction = true;
+    } else {
+        allowCacheEviction = false;
+        console.warn('GPT cache restore failed; skip legacy fallback and disable orphan eviction to avoid data loss.');
+        return;
+    }
 
-    if (histories.length === 0) return;
+    if (!histories || histories.length === 0) return;
 
-    // Sort by updated/timestamp desc, only consider top N
     histories.sort((a, b) => {
         if (a.updated && b.updated) return b.updated - a.updated;
         return b.timestamp - a.timestamp;
     });
     histories = histories.slice(0, KEEP_N_CACHE_ITEM);
 
-    const isExist = (key: string) => {
-        return Object.keys(localStorage).some(k => k === key);
-    };
+    const isExist = (key: string) => Object.keys(localStorage).some(k => k === key);
 
-    for (const entry of histories) {
-        let history = entry;
-
-        // Migrate V1 → V2 on restore
+    for (let history of histories) {
         if (needsMigration(history)) {
             history = migrateHistory(history) as IChatSessionHistoryV2;
         }
-
         const key = `gpt-chat-${history.id}`;
         if (!isExist(key)) {
             localStorage.setItem(key, JSON.stringify(history));
@@ -208,25 +236,16 @@ export const restoreCache = async () => {
     }
 };
 
-/**
- * Save to localStorage + write corresponding cache file (incremental).
- */
 export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
     if (!history || history.schema !== 2) {
         showMessage('历史记录格式错误，无法保存到 localStorage');
         return;
     }
-    const historyWithType = { ...history, type: 'history' as const, schema: 2 };
-    const key = `gpt-chat-${history.id}`;
-    localStorage.setItem(key, JSON.stringify(historyWithType));
-
-    // Serialized async write to cache file (fire-and-forget from caller's perspective)
-    writeCacheFile(history.id, historyWithType);
+    const historyWithType = { ...history, type: 'history' as const, schema: 2 } as IChatSessionHistoryV2;
+    localStorage.setItem(`gpt-chat-${history.id}`, JSON.stringify(historyWithType));
+    void writeCacheFile(history.id, historyWithType);
 };
 
-/**
- * List all sessions from localStorage (V2 format).
- */
 export const listFromLocalStorage = (): IChatSessionHistoryV2[] => {
     const keys = Object.keys(localStorage).filter(key => key.startsWith('gpt-chat-'));
     return keys.map(key => {
@@ -238,13 +257,7 @@ export const listFromLocalStorage = (): IChatSessionHistoryV2[] => {
     });
 };
 
-/**
- * Remove from localStorage + delete corresponding cache file.
- */
 export const removeFromLocalStorage = (id: string) => {
-    const key = `gpt-chat-${id}`;
-    localStorage.removeItem(key);
-
-    // Fire-and-forget: delete cache file
-    deleteCacheFile(id);
+    localStorage.removeItem(`gpt-chat-${id}`);
+    void deleteCacheFile(id);
 };

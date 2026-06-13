@@ -12,6 +12,8 @@ updated: "2026-06-12"
 
 ### Phase 1: Core rewrite ✅
 - [x] Rewrite `src/func/gpt/persistence/local-storage.ts` — implement per-session file I/O per design.md (helpers, `saveToLocalStorage`, `listFromLocalStorage`, `removeFromLocalStorage`, `updateCacheFile`, `restoreCache`, `migrateLegacyCacheIfNeeded`)
+- [x] Fallback migration: Node fs for desktop (handles large 68MB+ legacy file), SiYuan API as cross-platform fallback
+- [x] Review fixes: serialize writes, guard migration, fix eviction
 **Verification**: `pnpm run build` passes ✅
 
 ### Phase 2: Migration & cleanup ⏳
