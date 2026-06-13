@@ -5,11 +5,17 @@
  */
 
 import { api, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { request } from "@frostime/siyuan-plugin-kits/api";
 
 type StorageDirItem = {
     name: string;
     isDir: boolean;
 };
+
+export type StorageDirResult =
+    | { status: 'ok'; items: StorageDirItem[] }
+    | { status: 'missing'; items: [] }
+    | { status: 'failed'; items: [] };
 
 const getNodeModule = <T = any>(name: string): T | null => {
     try {
@@ -19,18 +25,30 @@ const getNodeModule = <T = any>(name: string): T | null => {
     }
 };
 
-const normalizeStoragePath = (path: string): string => {
+const escapeRegExp = (text: string): string => {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const normalizeStoragePath = (path: string): string | null => {
     const pluginName = thisPlugin().name;
-    return path
+    const normalized = path
         .replace(/\\/g, '/')
         .replace(/^\/+/, '')
         .replace(/^data\/storage\/petal\/[^/]+\/?/, '')
-        .replace(new RegExp(`^storage/petal/${pluginName}/?`), '')
+        .replace(new RegExp(`^storage/petal/${escapeRegExp(pluginName)}/?`), '')
         .replace(/\/+$/, '');
+
+    if (/^[a-zA-Z]:/.test(normalized)) return null;
+
+    const parts = normalized.split('/').filter(Boolean);
+    if (parts.some(part => part === '.' || part === '..')) return null;
+
+    return parts.join('/');
 };
 
-const toApiPath = (path: string): string => {
+const toApiPath = (path: string): string | null => {
     const relativePath = normalizeStoragePath(path);
+    if (relativePath === null) return null;
     return `data/storage/petal/${thisPlugin().name}/${relativePath}`;
 };
 
@@ -40,6 +58,7 @@ const toNodePath = (path: string): string | null => {
     if (!nodePath || !dataDir) return null;
 
     const relativePath = normalizeStoragePath(path);
+    if (relativePath === null) return null;
     return nodePath.join(dataDir, 'storage', 'petal', thisPlugin().name, ...relativePath.split('/'));
 };
 
@@ -58,7 +77,9 @@ const readTextWithNodeFs = (path: string): string | null => {
 
 const readTextWithSiyuanApi = async (path: string): Promise<string | null> => {
     try {
-        const blob = await api.getFileBlob(toApiPath(path));
+        const apiPath = toApiPath(path);
+        if (!apiPath) return null;
+        const blob = await api.getFileBlob(apiPath);
         if (!blob) return null;
         return await blob.text();
     } catch {
@@ -77,32 +98,58 @@ export const readStorageJson = async <T = unknown>(path: string): Promise<T | nu
     }
 };
 
-const listStorageDirWithNodeFs = (path: string): StorageDirItem[] | null => {
+const listStorageDirWithNodeFs = (path: string): StorageDirResult | null => {
     const nodeFs = getNodeModule<any>('fs');
     const dirPath = toNodePath(path);
     if (!nodeFs || !dirPath) return null;
 
     try {
-        if (!nodeFs.existsSync(dirPath)) return null;
-        return nodeFs.readdirSync(dirPath, { withFileTypes: true }).map((entry: { name: string; isDirectory: () => boolean }) => ({
+        if (!nodeFs.existsSync(dirPath)) return { status: 'missing', items: [] };
+        const stat = nodeFs.statSync(dirPath);
+        if (!stat.isDirectory()) return { status: 'failed', items: [] };
+        const items = nodeFs.readdirSync(dirPath, { withFileTypes: true }).map((entry: { name: string; isDirectory: () => boolean }) => ({
             name: entry.name,
             isDir: entry.isDirectory()
         }));
+        return { status: 'ok', items };
     } catch {
-        return null;
+        return { status: 'failed', items: [] };
     }
 };
 
-const listStorageDirWithSiyuanApi = async (path: string): Promise<StorageDirItem[] | null> => {
+const listStorageDirWithSiyuanApi = async (path: string): Promise<StorageDirResult> => {
     try {
-        const files = await api.readDir(`${toApiPath(path)}/`);
-        if (!files) return null;
-        return files.map(f => ({ name: f.name, isDir: f.isDir }));
+        const apiPath = toApiPath(path);
+        if (!apiPath) return { status: 'failed', items: [] };
+        const response = await request('/api/file/readDir', { path: `${apiPath}/` }, 'response') as {
+            code: number;
+            data?: Array<{ name: string; isDir: boolean }>;
+        };
+        if (response.code === 0) {
+            return {
+                status: 'ok',
+                items: (response.data ?? []).map(f => ({ name: f.name, isDir: f.isDir }))
+            };
+        }
+        if (response.code === 404) return { status: 'missing', items: [] };
+        return { status: 'failed', items: [] };
     } catch {
-        return null;
+        return { status: 'failed', items: [] };
     }
+};
+
+export const listStorageDirResult = async (path: string): Promise<StorageDirResult> => {
+    const nodeResult = listStorageDirWithNodeFs(path);
+    if (nodeResult?.status === 'ok') return nodeResult;
+
+    const apiResult = await listStorageDirWithSiyuanApi(path);
+    if (apiResult.status === 'ok') return apiResult;
+    if (nodeResult?.status === 'missing' || apiResult.status === 'missing') return { status: 'missing', items: [] };
+
+    return nodeResult ?? apiResult;
 };
 
 export const listStorageDir = async (path: string): Promise<StorageDirItem[]> => {
-    return listStorageDirWithNodeFs(path) ?? await listStorageDirWithSiyuanApi(path) ?? [];
+    const result = await listStorageDirResult(path);
+    return result.status === 'ok' ? result.items : [];
 };
