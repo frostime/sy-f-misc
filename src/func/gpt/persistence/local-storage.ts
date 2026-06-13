@@ -7,9 +7,10 @@
  * @Description  : Per-session cache file I/O (split from monolithic gpt-chat-cache.json)
  */
 
-import { api, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
 import { showMessage } from "siyuan";
+import { listStorageDir, readStorageJson } from "./storage-read";
 
 const KEEP_N_CACHE_ITEM = 36;
 const CACHE_DIR = 'gpt-cache';
@@ -59,65 +60,25 @@ const deleteCacheFile = (id: string) => {
 };
 
 const listCacheDir = async (): Promise<string[]> => {
-    const dir = `data/storage/petal/${thisPlugin().name}/${CACHE_DIR}/`;
-    const files = await api.readDir(dir);
-    if (!files) return [];
+    const files = await listStorageDir(CACHE_DIR);
     return files.filter(f => !f.isDir && f.name.endsWith('.json')).map(f => f.name);
 };
 
 const readCacheFile = async (filename: string): Promise<ISessionHistoryUnion | null> => {
-    const fromFs = readCacheFileWithFs(filename);
-    if (fromFs) return fromFs;
-
-    try {
-        const blob = await thisPlugin().loadBlob(`${CACHE_DIR}/${filename}`);
-        if (!blob) return null;
-        const text = await blob.text();
-        const data = JSON.parse(text);
-        if (!data || (data as { code: number }).code === 404) return null;
-        return data as ISessionHistoryUnion;
-    } catch {
-        return null;
-    }
+    const data = await readStorageJson<ISessionHistoryUnion>(`${CACHE_DIR}/${filename}`);
+    if (!data || (data as unknown as { code: number }).code === 404) return null;
+    return data;
 };
 
 const drainWriteQueue = async () => {
     await Promise.allSettled([...writeQueue.values()]);
 };
 
-const getStorageFilePath = (...parts: string[]): string | null => {
-    try {
-        const nodePath = window?.require?.('path') ?? require('path');
-        const dataDir: string | undefined = (window as any)?.siyuan?.config?.system?.dataDir;
-        if (!nodePath || !dataDir) return null;
-        return nodePath.join(dataDir, 'storage', 'petal', thisPlugin().name, ...parts);
-    } catch {
-        return null;
-    }
-};
-
-const readJsonFileWithFs = <T>(...parts: string[]): T | null => {
-    try {
-        const nodeFs = window?.require?.('fs') ?? require('fs');
-        const filePath = getStorageFilePath(...parts);
-        if (!nodeFs || !filePath || !nodeFs.existsSync(filePath)) return null;
-
-        const text = nodeFs.readFileSync(filePath, 'utf-8');
-        return JSON.parse(text) as T;
-    } catch {
-        return null;
-    }
-};
-
-const readCacheFileWithFs = (filename: string): ISessionHistoryUnion | null => {
-    return readJsonFileWithFs<ISessionHistoryUnion>(CACHE_DIR, filename);
-};
-
 // ─── Legacy migration (self-contained) ──────────────────────────────
 
 const migrateFromLegacy = async () => {
     const existing = await listCacheDir();
-    const legacyHistories = readLegacyWithFs() ?? await readLegacyWithBlob();
+    const legacyHistories = await readLegacyCache();
     if (!legacyHistories || legacyHistories.length === 0) return;
 
     const existingIds = new Set(existing.map(f => f.replace(/\.json$/, '')));
@@ -132,21 +93,9 @@ const migrateFromLegacy = async () => {
     }));
 };
 
-const readLegacyWithFs = (): ISessionHistoryUnion[] | null => {
-    const parsed = readJsonFileWithFs<unknown>(LEGACY_CACHE_FILE);
+const readLegacyCache = async (): Promise<ISessionHistoryUnion[] | null> => {
+    const parsed = await readStorageJson<unknown>(LEGACY_CACHE_FILE);
     return Array.isArray(parsed) ? parsed as ISessionHistoryUnion[] : null;
-};
-
-const readLegacyWithBlob = async (): Promise<ISessionHistoryUnion[] | null> => {
-    try {
-        const blob = await thisPlugin().loadBlob(LEGACY_CACHE_FILE);
-        if (!blob) return null;
-        const text = await blob.text();
-        const parsed = JSON.parse(text);
-        return Array.isArray(parsed) ? parsed : null;
-    } catch {
-        return null;
-    }
 };
 
 // ─── Exported API ───────────────────────────────────────────────────
@@ -207,7 +156,7 @@ export const restoreCache = async () => {
             console.warn('GPT cache restore partially failed; orphan eviction is disabled for this session.');
         }
     } else if (cacheResult.status === 'empty') {
-        histories = readLegacyWithFs() ?? await readLegacyWithBlob();
+        histories = await readLegacyCache();
         allowCacheEviction = true;
     } else {
         allowCacheEviction = false;

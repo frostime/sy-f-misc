@@ -1,6 +1,6 @@
 ---
 change: "gpt-cache-split"
-updated: "2026-06-12"
+updated: "2026-06-13"
 ---
 
 # Tasks
@@ -14,6 +14,7 @@ updated: "2026-06-12"
 - [x] Rewrite `src/func/gpt/persistence/local-storage.ts` — implement per-session file I/O per design.md (helpers, `saveToLocalStorage`, `listFromLocalStorage`, `removeFromLocalStorage`, `updateCacheFile`, `restoreCache`, `migrateLegacyCacheIfNeeded`)
 - [x] Fallback migration: Node fs for desktop (handles large 68MB+ legacy file), SiYuan API as cross-platform fallback
 - [x] Review fixes: serialize writes, guard migration, fix eviction
+- [x] Local read abstraction: GPT persistence reads use desktop Node fs first, with SiYuan API fallback; writes/deletes stay on SiYuan API
 **Verification**: `pnpm run build` passes ✅
 
 ### Phase 2: Migration & cleanup ⏳
@@ -33,3 +34,4 @@ updated: "2026-06-12"
 
 **Recent**:
 - 2026-06-12: Phase 1 complete — `local-storage.ts` rewritten, build passes
+- 2026-06-13: Added `storage-read.ts` for GPT persistence fs-first reads/listing; `local-storage.ts` and `json-files.ts` now use the local read abstraction

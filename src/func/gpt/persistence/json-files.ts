@@ -8,7 +8,8 @@
  */
 import { downloadBlob } from "@/libs/download";
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
-import { thisPlugin, api, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
+import { thisPlugin, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
+import { listStorageDir, readStorageJson } from "./storage-read";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { extractMessageContent, getMessageProp, getPayload } from '@gpt/chat-utils';
 import { needsMigration, migrateHistory, isV1History, isV2History } from '@gpt/model/msg_migration';
@@ -146,21 +147,11 @@ export const downloadJsonFile = async (history: IChatSessionHistoryV2) => {
 
 
 export const tryRecoverFromJson = async (filePath: string) => {
-    // const plugin = thisPlugin();
-    const blob = await api.getFileBlob(filePath);
-    // 空?
-    if (!blob) {
+    const content = await readStorageJson(filePath);
+    if (!content) {
         return null;
     }
-    // 解析json
-    try {
-        //application json
-        let text = await blob.text();
-        return JSON.parse(text);
-    } catch (e) {
-        console.warn(`Failed to parse json file: ${filePath}`, e);
-        return null;
-    }
+    return content;
 }
 
 
@@ -439,9 +430,7 @@ const removeSessionFromSnapshot = async (sessionId: string) => {
  * 不涉及内部结构，所以 V1 V2 均可
  */
 const listFromJsonLegacy = async (): Promise<ISessionHistoryUnion[]> => {
-    const dir = `data/storage/petal/${thisPlugin().name}/${rootName}/`;
-    const files = await api.readDir(dir);
-    if (!files) return [];
+    const files = await listStorageDir(rootName);
 
     let filename = files.filter(f => !f.isDir).map(f => f.name).filter(f => f.endsWith('.json'));
     filename = filename.filter((f) => {
@@ -451,7 +440,7 @@ const listFromJsonLegacy = async (): Promise<ISessionHistoryUnion[]> => {
     })
 
     let promises = filename.map(async f => {
-        const content = await tryRecoverFromJson(`${dir}${f}`);
+        const content = await tryRecoverFromJson(`${rootName}/${f}`);
         if (!content) return null;
         return content
     });
