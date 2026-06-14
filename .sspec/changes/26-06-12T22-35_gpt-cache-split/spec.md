@@ -1,6 +1,6 @@
 ---
 name: gpt-cache-split
-status: DOING
+status: DONE
 change-type: single
 created: 2026-06-12 22:35:51
 reference:
