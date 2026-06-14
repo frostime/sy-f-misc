@@ -10,6 +10,9 @@ reference:
 - source: .sspec/changes/26-06-12T22-35_gpt-cache-split/revisions/001-harden-migration-edge-cases.md
   type: revision
   note: Harden directory status, path-safe cache ids, and partial migration retry semantics
+- source: .sspec/changes/26-06-12T22-35_gpt-cache-split/revisions/002-reduce-lifecycle-cache-io-risk.md
+  type: revision
+  note: Disable startup full sync and async beforeunload cache flush
 ---
 
 # gpt-cache-split

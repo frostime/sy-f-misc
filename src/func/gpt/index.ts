@@ -452,8 +452,11 @@ export const load = async (plugin: FMiscPlugin) => {
     chatInDoc.init();
 
     await persist.restoreCache();
-    await persist.updateCacheFile();
-    window.addEventListener('beforeunload', persist.updateCacheFile);
+    // NOTE: Do not call updateCacheFile() on startup. restoreCache() loads cache into localStorage;
+    // immediate full sync rewrites every split cache file and can overload SiYuan file APIs.
+    // NOTE: beforeunload does not await async handlers. Running updateCacheFile() there may abort
+    // putFile/removeFile requests mid-flight and leave cache files or SiYuan kernel state inconsistent.
+    // window.addEventListener('beforeunload', persist.updateCacheFile);
 
     globalThis.fmisc['gpt'] = {
         complete: openai.complete
@@ -470,7 +473,8 @@ export const unload = async (plugin: FMiscPlugin) => {
     chatInDoc.destroy();
 
     await persist.updateCacheFile();
-    window.removeEventListener('beforeunload', persist.updateCacheFile)
+    // See load() note: beforeunload updateCacheFile is intentionally disabled.
+    // window.removeEventListener('beforeunload', persist.updateCacheFile)
 
     globalThis.fmisc && delete globalThis.fmisc['gpt']
 }

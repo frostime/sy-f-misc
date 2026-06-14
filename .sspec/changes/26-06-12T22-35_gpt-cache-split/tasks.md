@@ -23,6 +23,10 @@ updated: "2026-06-13"
 - [x] Validate cache session ids before writing/deleting `gpt-cache/{id}.json`
 - [x] Add in-progress legacy migration marker so partial migration retries instead of being marked complete
 
+### Feedback Tasks (→ [002-reduce-lifecycle-cache-io-risk](./revisions/002-reduce-lifecycle-cache-io-risk.md)) ✅
+- [x] Disable startup full cache sync after restore
+- [x] Disable/comment async `beforeunload` cache flush and document the suspected lifecycle bug
+
 ### Phase 2: Migration & cleanup ⏳
 - [ ] Verify migration path: place a legacy `gpt-chat-cache.json` in storage → restart → confirm sessions appear in `gpt-cache/` dir and localStorage
 - [ ] Verify eviction: set KEEP_N low (e.g. 3) temporarily → create >3 sessions → trigger unload → confirm only 3 files remain in `gpt-cache/`
@@ -44,3 +48,4 @@ updated: "2026-06-13"
 - 2026-06-13: Added `storage-read.ts` for GPT persistence fs-first reads/listing; `local-storage.ts` and `json-files.ts` now use the local read abstraction
 - 2026-06-13: Fixed review blockers: legacy cache no longer reimports after marker, readDir failures are no longer treated as empty cache, and Node fs read paths reject traversal
 - 2026-06-13: Fixed final review edge cases: mixed missing/failed directory status is unsafe, cache ids are filename-validated, and partial legacy migration retries via `_legacy_migrating`
+- 2026-06-14: Disabled startup full cache sync and async `beforeunload` flush after runtime safety concern
