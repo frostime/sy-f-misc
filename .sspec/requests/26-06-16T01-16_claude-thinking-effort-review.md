@@ -396,3 +396,55 @@ if (protocol !== 'openai') {
 - `src/func/gpt/openai/adapter.ts` — 核心 `applyOptionCompat` 函数
 - `src/func/gpt/model/preset.ts` — 模型预设配置，Qwen3 缺失配置
 - `src/func/gpt/types.ts` — 类型定义，`ILLMOptionCompat` 结构
+
+
+# Supplementary | GPT 关于 Claude 模型 effort 参数的调研
+
+> 问: claude 是不是自从支持 effort 参数开始，就一直同时支持 xhigh 和 max?
+
+**不是。**从可查证资料看，Claude 并非“自从支持 effort 参数开始就同时支持 `xhigh` 和 `max`”。
+
+更准确的时间线是：
+
+1. **Opus 4.5 初始 effort beta：只支持 `low` / `medium` / `high`**
+   LiteLLM 2025-11-25 的 Opus 4.5 支持说明写的是 `reasoning_effort` 可取 `"high"`, `"medium"`, `"low"`，且需要 `effort-2025-11-24` beta header。([LiteLLM][1]) AWS 的 Opus 4.5 发布说明也只列出 `high` / `medium` / `low`。([Amazon Web Services, Inc.][2])
+
+2. **Claude 4.6 阶段出现 `max`，但没有 `xhigh`**
+   当前 Anthropic effort 文档说 `max` 可用于 Claude Opus 4.6 和 Sonnet 4.6；同一页又说 `xhigh` 可用于 Claude Opus 4.7、4.8、Fable/Mythos 等，不包括 4.6。([Claude][3]) LiteLLM 的兼容性说明也把 Opus 4.6 标成支持 `high` / `medium` / `low` / `max`。([LiteLLM][4])
+
+3. **Claude Opus 4.7 才引入 `xhigh`，并与 `max` 并存**
+   Anthropic migration guide 明确写 `xhigh (new)`，并建议 coding/agentic 场景从 `xhigh` 开始，同时把 `max` 描述为更高成本、可能收益递减的档位。([Claude API Docs][5]) 当前 effort 文档也明确区分：`xhigh` 适合长程 coding/agentic，`max` 是 absolute maximum capability。([Claude][3])
+
+所以对你这个代码问题的判断应当改成：
+
+> **当前 SDK 类型层面同时允许 `low | medium | high | xhigh | max`，但具体模型并不都支持所有值；`xhigh` 是后加入的档位，不能假设早期 Claude effort 一直支持 `xhigh`。**
+> 当前代码把 `xhigh -> max` 硬编码掉，会损坏 Claude 4.7+ 的语义；但如果要兼容 Claude 4.6 或更早 effort 形态，需要按模型能力做 `supportedEfforts` / `effortMap`，不能统一直传 `xhigh`。
+
+修复策略上，默认不要全局 `xhigh -> max`。更合理是：
+
+```ts
+const claudeEffort =
+    compat.thinking.effortMap?.[effort]
+    ?? (effort === 'minimal' ? 'low' : effort);
+```
+
+然后在具体 Claude preset 里表达模型差异：
+
+```ts
+// Claude 4.7+
+supportedEfforts: ['low', 'medium', 'high', 'xhigh', 'max']
+
+// Claude 4.6
+supportedEfforts: ['low', 'medium', 'high', 'max']
+
+// Claude Opus 4.5 beta
+supportedEfforts: ['low', 'medium', 'high']
+```
+
+这样既保留 `xhigh`/`max` 的当前语义，也能避免向旧模型发送不支持的 effort 值。
+
+[1]: https://docs.litellm.ai/blog/anthropic_advanced_features "Day 0 Support: Claude 4.5 Opus (+Advanced Features) | liteLLM"
+[2]: https://aws.amazon.com/blogs/machine-learning/claude-opus-4-5-now-in-amazon-bedrock/?utm_source=chatgpt.com "Claude Opus 4.5 now in Amazon Bedrock"
+[3]: https://platform.claude.com/docs/en/build-with-claude/effort "Effort - Claude API Docs"
+[4]: https://docs.litellm.ai/docs/providers/anthropic_effort "Anthropic Effort Parameter | liteLLM"
+[5]: https://docs.anthropic.com/en/docs/about-claude/models/migrating-to-claude-4 "Migration guide - Claude API Docs"
