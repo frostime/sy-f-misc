@@ -17,6 +17,7 @@ const CACHE_DIR = 'gpt-cache';
 const LEGACY_CACHE_FILE = 'gpt-chat-cache.json';
 const LEGACY_MIGRATION_MARKER = '_legacy_migrated';
 const LEGACY_MIGRATION_IN_PROGRESS = '_legacy_migrating';
+const PENDING_CACHE_OPS_KEY = 'gpt-cache-pending-v1';
 
 type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
 type CacheDirRestoreResult =
@@ -29,6 +30,14 @@ type CacheDirListResult =
     | { status: 'ok'; filenames: string[]; hasMigrationMarker: boolean; hasMigrationInProgress: boolean }
     | { status: 'missing'; filenames: []; hasMigrationMarker: false; hasMigrationInProgress: false }
     | { status: 'failed'; filenames: []; hasMigrationMarker: false; hasMigrationInProgress: false };
+
+type CachePendingOp = {
+    op: 'write' | 'delete';
+    token: string;
+    updatedAt: number;
+};
+
+type CachePendingJournal = Record<string, CachePendingOp>;
 
 let allowCacheEviction = true;
 
@@ -43,6 +52,82 @@ const cachePathForId = (id: string): string | null => {
     }
     return `${CACHE_DIR}/${id}.json`;
 };
+
+/**
+ * SPEC: split-cache consistency
+ *
+ * - `localStorage[gpt-chat-{id}]` remains the source of truth for temporary GPT sessions.
+ * - `gpt-cache/{id}.json` is an eventually-consistent replica used by SiYuan sync/restore.
+ * - `gpt-cache-pending-v1` is a tiny redo log for cache side effects only; it is not a
+ *   full cache index and never stores chat content.
+ * - A pending op is recorded before mutating the source-of-truth key, so reload/close can
+ *   finish interrupted cache writes/deletes without rewriting every cache file.
+ * - Successful async side effects clear only the matching token; an older queued write must
+ *   not clear a newer write/delete for the same session id.
+ */
+const usePendingCacheJournal = () => {
+    const read = (): CachePendingJournal => {
+        try {
+            const raw = localStorage.getItem(PENDING_CACHE_OPS_KEY);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw) as CachePendingJournal;
+            if (!parsed || typeof parsed !== 'object') return {};
+
+            return Object.fromEntries(Object.entries(parsed).filter(([id, op]) => {
+                return isSafeCacheId(id)
+                    && (op?.op === 'write' || op?.op === 'delete')
+                    && typeof op.token === 'string'
+                    && typeof op.updatedAt === 'number';
+            }));
+        } catch {
+            console.warn('Failed to read GPT cache pending journal; ignore malformed journal.');
+            return {};
+        }
+    };
+
+    const write = (journal: CachePendingJournal) => {
+        if (Object.keys(journal).length === 0) {
+            localStorage.removeItem(PENDING_CACHE_OPS_KEY);
+        } else {
+            localStorage.setItem(PENDING_CACHE_OPS_KEY, JSON.stringify(journal));
+        }
+    };
+
+    const createOp = (op: CachePendingOp['op']): CachePendingOp => ({
+        op,
+        token: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        updatedAt: Date.now()
+    });
+
+    const mark = (id: string, op: CachePendingOp['op']): CachePendingOp | null => {
+        if (!isSafeCacheId(id)) return null;
+        const pendingOp = createOp(op);
+        const journal = read();
+        journal[id] = pendingOp;
+        write(journal);
+        return pendingOp;
+    };
+
+    const clearIfCurrent = (id: string, op: CachePendingOp | null) => {
+        if (!op) return;
+        const journal = read();
+        const current = journal[id];
+        if (current?.op === op.op && current.token === op.token) {
+            delete journal[id];
+            write(journal);
+        }
+    };
+
+    const entries = () => Object.entries(read());
+
+    const pendingDeleteIds = () => new Set(entries()
+        .filter(([, op]) => op.op === 'delete')
+        .map(([id]) => id));
+
+    return { mark, clearIfCurrent, entries, pendingDeleteIds };
+};
+
+const pendingCacheJournal = usePendingCacheJournal();
 
 const writeQueue = new Map<string, Promise<boolean>>();
 
@@ -104,6 +189,44 @@ const readCacheFile = async (filename: string): Promise<ISessionHistoryUnion | n
 
 const drainWriteQueue = async () => {
     await Promise.allSettled([...writeQueue.values()]);
+};
+
+const localStorageKeyForId = (id: string) => `gpt-chat-${id}`;
+
+const readHistoryFromLocalStorage = (id: string): IChatSessionHistoryV2 | null => {
+    const data = localStorage.getItem(localStorageKeyForId(id));
+    if (!data) return null;
+
+    const parsed = JSON.parse(data) as ISessionHistoryUnion;
+    if (needsMigration(parsed)) {
+        return migrateHistory(parsed);
+    }
+    return { ...parsed, type: 'history' as const } as IChatSessionHistoryV2;
+};
+
+const replayPendingCacheOps = async () => {
+    const results = await Promise.all(pendingCacheJournal.entries().map(async ([id, op]) => {
+        if (op.op === 'delete') {
+            localStorage.removeItem(localStorageKeyForId(id));
+            const ok = await deleteCacheFile(id);
+            if (ok) pendingCacheJournal.clearIfCurrent(id, op);
+            return ok;
+        }
+
+        const history = readHistoryFromLocalStorage(id);
+        if (!history) {
+            pendingCacheJournal.clearIfCurrent(id, op);
+            return true;
+        }
+
+        const ok = await writeCacheFile(id, history);
+        if (ok) pendingCacheJournal.clearIfCurrent(id, op);
+        return ok;
+    }));
+
+    if (results.some(ok => !ok)) {
+        allowCacheEviction = false;
+    }
 };
 
 // ─── Legacy migration (self-contained) ──────────────────────────────
@@ -244,6 +367,7 @@ const restoreFromCacheDir = async (): Promise<CacheDirRestoreResult> => {
 
 export const updateCacheFile = async () => {
     await drainWriteQueue();
+    await replayPendingCacheOps();
 
     const histories = listFromLocalStorage();
     const existing = await listCacheDirResult();
@@ -266,9 +390,16 @@ export const updateCacheFile = async () => {
     const kept = histories.slice(0, KEEP_N_CACHE_ITEM);
     const keepIds = new Set(kept.map(h => h.id));
 
-    await Promise.all(kept.map(h => writeCacheFile(h.id, h)));
-
     if (!allowCacheEviction) return;
+
+    const existingIds = new Set(existingFiles.map(f => f.replace(/\.json$/, '')));
+    const missingResults = await Promise.all(kept
+        .filter(h => !existingIds.has(h.id))
+        .map(h => writeCacheFile(h.id, h)));
+    if (missingResults.some(ok => !ok)) {
+        allowCacheEviction = false;
+        return;
+    }
 
     const orphans = existingFiles.filter(f => !keepIds.has(f.replace(/\.json$/, '')));
     await Promise.all(orphans.map(f => deleteCacheFile(f.replace(/\.json$/, ''))));
@@ -276,6 +407,9 @@ export const updateCacheFile = async () => {
 
 export const restoreCache = async () => {
     await migrateFromLegacy();
+
+    const pendingDeleteIds = pendingCacheJournal.pendingDeleteIds();
+    pendingDeleteIds.forEach(id => localStorage.removeItem(localStorageKeyForId(id)));
 
     const cacheResult = await restoreFromCacheDir();
     let histories: ISessionHistoryUnion[] | null = null;
@@ -311,7 +445,8 @@ export const restoreCache = async () => {
         if (needsMigration(history)) {
             history = migrateHistory(history) as IChatSessionHistoryV2;
         }
-        const key = `gpt-chat-${history.id}`;
+        if (pendingDeleteIds.has(history.id)) continue;
+        const key = localStorageKeyForId(history.id);
         if (!isExist(key)) {
             localStorage.setItem(key, JSON.stringify(history));
         }
@@ -324,8 +459,11 @@ export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
         return;
     }
     const historyWithType = { ...history, type: 'history' as const, schema: 2 } as IChatSessionHistoryV2;
-    localStorage.setItem(`gpt-chat-${history.id}`, JSON.stringify(historyWithType));
-    void writeCacheFile(history.id, historyWithType);
+    const pendingOp = pendingCacheJournal.mark(history.id, 'write');
+    localStorage.setItem(localStorageKeyForId(history.id), JSON.stringify(historyWithType));
+    void writeCacheFile(history.id, historyWithType).then(ok => {
+        if (ok) pendingCacheJournal.clearIfCurrent(history.id, pendingOp);
+    });
 };
 
 export const listFromLocalStorage = (): IChatSessionHistoryV2[] => {
@@ -340,6 +478,9 @@ export const listFromLocalStorage = (): IChatSessionHistoryV2[] => {
 };
 
 export const removeFromLocalStorage = (id: string) => {
-    localStorage.removeItem(`gpt-chat-${id}`);
-    void deleteCacheFile(id);
+    const pendingOp = pendingCacheJournal.mark(id, 'delete');
+    localStorage.removeItem(localStorageKeyForId(id));
+    void deleteCacheFile(id).then(ok => {
+        if (ok) pendingCacheJournal.clearIfCurrent(id, pendingOp);
+    });
 };
