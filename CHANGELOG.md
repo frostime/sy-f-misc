@@ -5,12 +5,20 @@
 
 ## [Unreleased]
 
+## [7.12.1] - 2026-06-17
+
 ### Added
 
 - 新增 `max` reasoning effort 级别。
 - 新增 DeepSeek V4 Pro 模型预设。
 - Qwen3 预设补全 thinking 配置，匹配范围拓宽至 `qwen3-30b`、`qwen3-max` 等变体。
 - Effort 兼容配置新增帮助文档，按协议/模式展示实际发送行为；Claude adaptive 模式支持自定义 effortMap。
+- 新增 `gpt-chat-history-persistence` spec-doc，定义 GPT 对话历史持久化的概念模型与行为边界。
+
+### Changed
+
+- GPT 对话缓存写入改为增量式 pending redo log 机制：单次对话变更不再触发 unload 时全量重写最近 36 个 cache 文件，降低思源同步批量写入。
+- 缓存文件写入/删除改为直接检查 SiYuan file API 响应码，避免 API 静默失败导致 pending 状态误清除。
 
 ### Fixed
 
