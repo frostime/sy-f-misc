@@ -8,6 +8,7 @@
  */
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { request } from "@frostime/siyuan-plugin-kits/api";
 import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
 import { showMessage } from "siyuan";
 import { listStorageDirResult, readStorageJson } from "./storage-read";
@@ -39,6 +40,11 @@ type CachePendingOp = {
 
 type CachePendingJournal = Record<string, CachePendingOp>;
 
+type LocalStorageHistoryReadResult =
+    | { status: 'ok'; history: IChatSessionHistoryV2 }
+    | { status: 'missing' }
+    | { status: 'failed' };
+
 let allowCacheEviction = true;
 
 // ─── Cache file I/O ─────────────────────────────────────────────────
@@ -51,6 +57,49 @@ const cachePathForId = (id: string): string | null => {
         return null;
     }
     return `${CACHE_DIR}/${id}.json`;
+};
+
+type SiyuanFileApiResponse = { code: number; msg?: string; data?: unknown } | null;
+
+const storageApiPathFor = (storageName: string) => `/data/storage/petal/${thisPlugin().name}/${storageName}`;
+
+const toStorageFileBlob = (storageName: string, data: Blob | File | object | string): Blob | File => {
+    if (data instanceof Blob || data instanceof File) {
+        return data;
+    }
+    if (typeof data === 'object' && data !== null) {
+        return new Blob([JSON.stringify(data)], { type: 'application/json' });
+    }
+    if (typeof data === 'string') {
+        return new Blob([data], { type: storageName.endsWith('.json') ? 'application/json' : 'text/plain' });
+    }
+    throw new Error('Unsupported data type');
+};
+
+const saveStorageBlob = async (storageName: string, data: Blob | File | object | string) => {
+    const path = storageApiPathFor(storageName);
+    const blob = toStorageFileBlob(storageName, data);
+    const file = new File([blob], path.split('/').pop() || 'blob');
+    const form = new FormData();
+    form.append('path', path);
+    form.append('isDir', 'false');
+    form.append('modTime', Math.floor(Date.now()).toString());
+    form.append('file', file);
+
+    const response = await request('/api/file/putFile', form, 'response') as SiyuanFileApiResponse;
+    if (response?.code === 0) return true;
+
+    console.warn(`Failed to save GPT cache storage file ${storageName}:`, response);
+    return false;
+};
+
+const removeStorageBlob = async (storageName: string) => {
+    const path = storageApiPathFor(storageName);
+    const response = await request('/api/file/removeFile', { path }, 'response') as SiyuanFileApiResponse;
+    if (response?.code === 0 || response?.code === 404) return true;
+
+    console.warn(`Failed to remove GPT cache storage file ${storageName}:`, response);
+    return false;
 };
 
 /**
@@ -131,12 +180,11 @@ const pendingCacheJournal = usePendingCacheJournal();
 
 const writeQueue = new Map<string, Promise<boolean>>();
 
-const enqueueWrite = (id: string, fn: () => Promise<void>) => {
+const enqueueWrite = (id: string, fn: () => Promise<boolean>) => {
     const prev = writeQueue.get(id) ?? Promise.resolve(true);
     const next = prev
         .catch(() => false)
         .then(fn)
-        .then(() => true)
         .catch((error) => {
             console.warn(`Failed to update GPT cache file ${id}:`, error);
             return false;
@@ -154,17 +202,13 @@ const enqueueWrite = (id: string, fn: () => Promise<void>) => {
 const writeCacheFile = (id: string, history: IChatSessionHistoryV2) => {
     const path = cachePathForId(id);
     if (!path) return Promise.resolve(true);
-    return enqueueWrite(id, async () => {
-        await thisPlugin().saveBlob(path, history);
-    });
+    return enqueueWrite(id, () => saveStorageBlob(path, history));
 };
 
 const deleteCacheFile = (id: string) => {
     const path = cachePathForId(id);
     if (!path) return Promise.resolve(true);
-    return enqueueWrite(id, async () => {
-        await thisPlugin().removeBlob(path);
-    });
+    return enqueueWrite(id, () => removeStorageBlob(path));
 };
 
 const listCacheDirResult = async (): Promise<CacheDirListResult> => {
@@ -193,15 +237,20 @@ const drainWriteQueue = async () => {
 
 const localStorageKeyForId = (id: string) => `gpt-chat-${id}`;
 
-const readHistoryFromLocalStorage = (id: string): IChatSessionHistoryV2 | null => {
+const readHistoryFromLocalStorage = (id: string): LocalStorageHistoryReadResult => {
     const data = localStorage.getItem(localStorageKeyForId(id));
-    if (!data) return null;
+    if (!data) return { status: 'missing' };
 
-    const parsed = JSON.parse(data) as ISessionHistoryUnion;
-    if (needsMigration(parsed)) {
-        return migrateHistory(parsed);
+    try {
+        const parsed = JSON.parse(data) as ISessionHistoryUnion;
+        if (needsMigration(parsed)) {
+            return { status: 'ok', history: migrateHistory(parsed) };
+        }
+        return { status: 'ok', history: { ...parsed, type: 'history' as const } as IChatSessionHistoryV2 };
+    } catch (error) {
+        console.warn(`Failed to parse GPT localStorage history ${id}; keep pending cache op for retry.`, error);
+        return { status: 'failed' };
     }
-    return { ...parsed, type: 'history' as const } as IChatSessionHistoryV2;
 };
 
 const replayPendingCacheOps = async () => {
@@ -213,13 +262,16 @@ const replayPendingCacheOps = async () => {
             return ok;
         }
 
-        const history = readHistoryFromLocalStorage(id);
-        if (!history) {
+        const result = readHistoryFromLocalStorage(id);
+        if (result.status === 'missing') {
             pendingCacheJournal.clearIfCurrent(id, op);
             return true;
         }
+        if (result.status === 'failed') {
+            return false;
+        }
 
-        const ok = await writeCacheFile(id, history);
+        const ok = await writeCacheFile(id, result.history);
         if (ok) pendingCacheJournal.clearIfCurrent(id, op);
         return ok;
     }));
@@ -289,12 +341,11 @@ const readLegacyCache = async (): Promise<ISessionHistoryUnion[] | null> => {
 
 const writeLegacyMigrationMarker = async () => {
     try {
-        await thisPlugin().saveBlob(`${CACHE_DIR}/${LEGACY_MIGRATION_MARKER}`, {
+        return await saveStorageBlob(`${CACHE_DIR}/${LEGACY_MIGRATION_MARKER}`, {
             migratedAt: Date.now(),
             legacyFile: LEGACY_CACHE_FILE,
             schema: 1
         });
-        return true;
     } catch (error) {
         console.warn('Failed to write GPT legacy cache migration marker:', error);
         return false;
@@ -303,12 +354,11 @@ const writeLegacyMigrationMarker = async () => {
 
 const writeLegacyMigrationInProgressMarker = async () => {
     try {
-        await thisPlugin().saveBlob(`${CACHE_DIR}/${LEGACY_MIGRATION_IN_PROGRESS}`, {
+        return await saveStorageBlob(`${CACHE_DIR}/${LEGACY_MIGRATION_IN_PROGRESS}`, {
             startedAt: Date.now(),
             legacyFile: LEGACY_CACHE_FILE,
             schema: 1
         });
-        return true;
     } catch (error) {
         console.warn('Failed to write GPT legacy cache migration in-progress marker:', error);
         return false;
@@ -317,7 +367,7 @@ const writeLegacyMigrationInProgressMarker = async () => {
 
 const removeLegacyMigrationInProgressMarker = async () => {
     try {
-        await thisPlugin().removeBlob(`${CACHE_DIR}/${LEGACY_MIGRATION_IN_PROGRESS}`);
+        await removeStorageBlob(`${CACHE_DIR}/${LEGACY_MIGRATION_IN_PROGRESS}`);
     } catch (error) {
         console.warn('Failed to remove GPT legacy cache migration in-progress marker:', error);
     }
@@ -433,19 +483,20 @@ export const restoreCache = async () => {
 
     if (!histories || histories.length === 0) return;
 
-    histories.sort((a, b) => {
+    const restoredHistories = histories
+        .map(history => needsMigration(history)
+            ? migrateHistory(history) as IChatSessionHistoryV2
+            : history as IChatSessionHistoryV2)
+        .filter(history => !pendingDeleteIds.has(history.id));
+
+    restoredHistories.sort((a, b) => {
         if (a.updated && b.updated) return b.updated - a.updated;
         return b.timestamp - a.timestamp;
     });
-    histories = histories.slice(0, KEEP_N_CACHE_ITEM);
 
     const isExist = (key: string) => Object.keys(localStorage).some(k => k === key);
 
-    for (let history of histories) {
-        if (needsMigration(history)) {
-            history = migrateHistory(history) as IChatSessionHistoryV2;
-        }
-        if (pendingDeleteIds.has(history.id)) continue;
+    for (const history of restoredHistories.slice(0, KEEP_N_CACHE_ITEM)) {
         const key = localStorageKeyForId(history.id);
         if (!isExist(key)) {
             localStorage.setItem(key, JSON.stringify(history));
@@ -468,13 +519,21 @@ export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
 
 export const listFromLocalStorage = (): IChatSessionHistoryV2[] => {
     const keys = Object.keys(localStorage).filter(key => key.startsWith('gpt-chat-'));
-    return keys.map(key => {
-        const data = JSON.parse(localStorage.getItem(key)!) as ISessionHistoryUnion;
-        if (needsMigration(data)) {
-            return migrateHistory(data);
+    const histories: IChatSessionHistoryV2[] = [];
+
+    keys.forEach(key => {
+        try {
+            const data = JSON.parse(localStorage.getItem(key)!) as ISessionHistoryUnion;
+            histories.push(needsMigration(data)
+                ? migrateHistory(data)
+                : { ...data, type: 'history' as const } as IChatSessionHistoryV2);
+        } catch (error) {
+            allowCacheEviction = false;
+            console.warn(`Failed to parse GPT localStorage history ${key}; skip it and disable cache eviction.`, error);
         }
-        return { ...data, type: 'history' as const } as IChatSessionHistoryV2;
     });
+
+    return histories;
 };
 
 export const removeFromLocalStorage = (id: string) => {
