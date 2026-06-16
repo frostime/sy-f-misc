@@ -1,13 +1,13 @@
 ---
 name: claude-thinking-effort-review
-created: 2026-06-16T01:16:25
-status: OPEN
+created: 2026-06-16 01:16:25
+status: DOING
 kind: observe
-attach-change: null
-tldr: "Claude thinking effort 存在三个问题：1) 参数位置错误（payload.effort → output_config.effort）；2) effortMap 未被使用（硬编码 xhigh->max）；3) 非 OpenAI 协议下 supportedEfforts clamp 被忽略"
+attach-change: .sspec/changes/26-06-16T18-32_claude-effort-compat/spec.md
+tldr: Claude thinking effort 存在三个问题：1) 参数位置错误（payload.effort → output_config.effort）；2)
+  effortMap 未被使用（硬编码 xhigh->max）；3) 非 OpenAI 协议下 supportedEfforts clamp 被忽略
 author: AGENT - Mimo-V2.5-Pro
 ---
-
 # Observe: claude-thinking-effort-review
 
 ## 问题概述
