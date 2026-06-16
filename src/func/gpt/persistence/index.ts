@@ -5,6 +5,7 @@
  * @FilePath     : /src/func/gpt/persistence/index.ts
  * @LastEditTime : 2026-01-02 13:34:19
  * @Description  :
+ * @SpecDoc      : .sspec/spec-docs/gpt-chat-history-persistence.md
  */
 import { saveToSiYuan, saveToSiYuanAssetFile } from "./sy-doc";
 import { saveToJson } from "./json-files";

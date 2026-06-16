@@ -5,6 +5,7 @@
  * @FilePath     : /src/func/gpt/persistence/sy-doc.ts
  * @LastEditTime : 2025-12-28 01:49:54
  * @Description  :
+ * @SpecDoc      : .sspec/spec-docs/gpt-chat-history-persistence.md
  */
 import { formatDateTime, getNotebook, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { createDocWithMd, getBlockKramdown, renameDoc, setBlockAttrs, sql, updateBlock } from "@/api";
