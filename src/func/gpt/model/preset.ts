@@ -327,10 +327,7 @@ const MODEL_PRESETS: IModelPreset[] = [
 
     // Qwen3 系列 (最新)
     {
-        keywords: [
-            /^qwen3[-_]?(235b|30b|32b|14b|8b|4b|1\.7b|0\.6b)/i,
-            /^qwen3[-_]?(max|plus)/i
-        ],
+        keywords: [/^qwen3(?![-_]?vl)(?:[-_]?.*)?$/i],
         config: {
             type: 'chat',
             modalities: { input: ['text'], output: ['text'] },
@@ -365,7 +362,7 @@ const MODEL_PRESETS: IModelPreset[] = [
 
     // Qwen VL (视觉)
     {
-        keywords: [/^qwen[-_]?vl/i],
+        keywords: [/^qwen3[-_]?vl/i, /^qwen[-_]?vl/i],
         config: {
             type: 'chat',
             modalities: { input: ['text', 'image'], output: ['text'] },

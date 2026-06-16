@@ -1,6 +1,6 @@
 ---
 change: "claude-effort-compat"
-updated: "2026-06-16T19:00+08:00"
+updated: "2026-06-16T20:31+08:00"
 ---
 
 # Tasks
@@ -30,6 +30,8 @@ updated: "2026-06-16T19:00+08:00"
 ### Feedback Tasks
 
 - [x] Clarify ProviderSetting effort help doc with mode-specific send behavior.
+- [x] Propagate clamp result when it resolves to `none` for non-OpenAI protocols.
+- [x] Broaden Qwen3 preset matching while keeping Qwen VL handling separate.
 
 ---
 
@@ -45,6 +47,10 @@ updated: "2026-06-16T19:00+08:00"
 | Feedback | 100% | ✅ |
 
 **Recent**:
+- [2026-06-16T20:33+08:00] Review fixes verified: regex sample check, `pnpm run type-check`, and `pnpm run build`.
+- [2026-06-16T20:33+08:00] Broadened Qwen3 preset matching and routed Qwen3-VL to VL preset.
+- [2026-06-16T20:32+08:00] Fixed clamp-to-none propagation for non-OpenAI protocols.
+- [2026-06-16T20:31+08:00] Review feedback accepted: fix clamp-to-none propagation and broaden Qwen3 preset matching.
 - [2026-06-16T19:00+08:00] Clarified effort help doc with protocol/mode-specific send behavior; verification passed.
 - [2026-06-16T18:56+08:00] Review feedback accepted: clarify effort help doc.
 - [2026-06-16T18:53+08:00] Verification passed: `pnpm run type-check` and `pnpm run build`.

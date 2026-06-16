@@ -74,11 +74,11 @@ export const applyOptionCompat = (
         const rawEffort = option.reasoning_effort as ReasoningEffort | undefined;
         let effort = rawEffort;
 
-        // supportedEfforts 校验：none 不参与 clamp（由后续 effort !== 'none' 判断处理）
+        // supportedEfforts 校验：none 不参与 clamp 输入；若 clamp 结果为 none 也要写回
         if (effort && effort !== 'none' && thinking.supportedEfforts?.length) {
             effort = clampEffort(effort, thinking.supportedEfforts);
         }
-        if (effort && effort !== 'none') {
+        if (effort) {
             option.reasoning_effort = effort;
         }
 
