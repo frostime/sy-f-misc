@@ -44,17 +44,14 @@ When rules conflict or go silent, prefer the path that lets the user predict and
 | Update spec doc | `read(project.md)`→`read(spec-doc+code)`→Clarify with user on how to update |
 | Mini-change | Follow §2.2 |
 
-**Trigger-word → SKILL**:
+**Trigger → SKILL**:
 
-| User says | Load |
-|-----------|------|
-| clarify, 搞清楚, 理解一下 | `sspec-clarify` |
-| design, 设计, 方案 | `sspec-design` |
-| align, 对齐 | `sspec-align` |
-| plan, 拆任务 | `sspec-plan` |
-| implement, 动手, 开始做 | `sspec-implement` |
-| review/argue, 检查 | `sspec-review` |
-| spec-doc, write/update | `write-spec-doc` |
+- In Lifecycle: MUST, see §2
+- Out of Lifecycle: manually triggerable; for example, in case of user saying:
+  - `spec-doc, write/update`→`write-spec-doc`
+  - `clarify, 搞清楚, 理解一下`→`sspec-clarify`
+  - `design, 设计, 方案`→`sspec-design`
+  - `align, 对齐`→`sspec-align`
 
 **Standing rules**:
 - Follow `Core Principle`.
@@ -133,8 +130,8 @@ Cross-cutting sync between user and agent — runs across all phases, outside an
 | `sspec howto [name...]` | Read HOWTOs (batch) |
 | `sspec tool <name> [opts]` | CLI tools (`--prompt` for usage) |
 
-**Tools** (`sspec tool <name>`): `now` · `mdtoc` · `view-tree` · `fileinfo` · `patch/write` · `ask` · `treesitter`
-  Frequent: `now`, `mdtoc`, `view-tree`; See `sspec tool <name> --prompt` for usage.
+**Tools** (`sspec tool <name>`)
+  Frequent: `now`, `mdtoc`, `view-tree`, `fileinfo`; See `sspec tool <name> --prompt` for usage.
 
 **HOWTO**: Mini rule. `sspec howto list` to browse; batch-read with `sspec howto read <n1> <n2>`.
 **SKILL**: Read before starting phase. Referenced file → MUST read. `sspec-*` not loaded → find under `.sspec/skills/`.
