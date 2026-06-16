@@ -1334,7 +1334,7 @@ export const ChatSession: Component<{
                         // 推理设置
                         const current = config().chatOption.reasoning_effort;
                         const supported = model()?.config?.options?.compat?.thinking?.supportedEfforts;
-                        const all: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+                        const all: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
                         const levels = supported?.length ? all.filter(l => supported.includes(l)) : all;
                         const items = [
                             { label: '不设置', value: '' },

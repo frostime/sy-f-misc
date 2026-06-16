@@ -3,7 +3,7 @@ import Form from "@/libs/components/Form";
 import { llmProviders, resolveEndpointUrl, defaultModelId, defaultConfig } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
-import { solidDialog } from "@/libs/dialog";
+import { documentDialog, solidDialog } from "@/libs/dialog";
 import SvgSymbol from "@/libs/components/Elements/IconSymbol";
 import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
@@ -125,21 +125,14 @@ const ModelConfigPanel: Component<{
     const CONFIGURABLE_OPTIONS: ConfigurableChatOption[] = [
         'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'reasoning_effort'
     ];
-    const EFFORT_LEVELS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+    const EFFORT_LEVELS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
     const DEFAULT_BUDGET_HINTS: Partial<Record<ReasoningEffort, number>> = {
         minimal: 1024,
         low: 2048,
         medium: 8192,
         high: 16384,
         xhigh: 32768,
-    };
-    const CLAUDE_ADAPTIVE_LABELS: Record<ReasoningEffort, string> = {
-        none: 'disabled',
-        minimal: 'low',
-        low: 'low',
-        medium: 'medium',
-        high: 'high',
-        xhigh: 'max',
+        max: 65536,
     };
 
     const getThinkingConfig = () => ((model().options as any)?.compat?.thinking ?? {}) as NonNullable<ILLMOptionCompat['thinking']>;
@@ -191,6 +184,142 @@ const ModelConfigPanel: Component<{
         }
         return 'string-map';
     });
+
+    const showEffortCompatHelp = () => {
+        const protocol = providerProtocol();
+        const mode = effortEditorMode();
+        const thinking = getThinkingConfig();
+        const style = thinking.thinkingStyle ?? 'openai';
+        const supported = getSupportedEfforts();
+        const supportedText = supported.length ? supported.join(', ') : '不限制（全部支持）';
+        const mapExample = protocol === 'claude'
+            ? '`xhigh -> max`'
+            : '`max -> max` / `xhigh -> max`';
+
+        const sendBehavior = (() => {
+            if (protocol === 'claude' && mode === 'claude-adaptive') {
+                return `
+## 当前发送方式：Claude adaptive
+
+当本次聊天实际选择 \`effort = high\` 时，请求会包含：
+
+\`\`\`json
+{
+  "thinking": { "type": "adaptive" },
+  "output_config": { "effort": "high" }
+}
+\`\`\`
+
+发送值计算规则：\`effortMap[所选 effort] ?? 所选 effort\`；只有 \`minimal\` 在未填写映射时回退为 \`low\`。
+
+- 选择 \`max\` 且右侧留空 → 发送 \`output_config.effort = "max"\`
+- 选择 \`xhigh\` 且右侧填 \`max\` → 发送 \`output_config.effort = "max"\`
+- 选择 \`none\` / 关闭 reasoning → 不发送 \`thinking\`，也不发送 \`output_config.effort\`；已有的其它 \`output_config\` 字段会保留
+`;
+            }
+            if (protocol === 'claude' && mode === 'budget-map') {
+                return `
+## 当前发送方式：Claude manual-budget
+
+当本次聊天实际选择 \`effort = high\` 时，请求会包含：
+
+\`\`\`json
+{
+  "thinking": { "type": "enabled", "budget_tokens": 16384 }
+}
+\`\`\`
+
+右侧数字是 \`thinking.budget_tokens\`。留空时使用内置默认值；\`max\` 默认是 \`65536\`。
+
+此模式不发送 \`output_config.effort\`。
+`;
+            }
+            if (protocol === 'gemini') {
+                return `
+## 当前发送方式：Gemini
+
+当本次聊天实际选择 \`effort = high\` 时，请求会包含：
+
+\`\`\`json
+{
+  "generationConfig": {
+    "thinkingConfig": { "thinkingBudget": 16384 }
+  }
+}
+\`\`\`
+
+右侧数字是 \`thinkingBudget\`。选择 \`none\` 时发送 \`thinkingBudget = 0\`；\`max\` 默认是 \`65536\`。
+`;
+            }
+            if (style === 'qwen') {
+                return `
+## 当前发送方式：OpenAI-compatible / Qwen
+
+Qwen 风格不发送 \`reasoning_effort\`，只根据是否选择 \`none\` 发送开关：
+
+\`\`\`json
+{ "enable_thinking": true }
+\`\`\`
+
+因此右侧映射值对 Qwen 风格无效；左侧勾选仍会限制聊天 UI 可选项。
+`;
+            }
+            if (style === 'deepseek') {
+                return `
+## 当前发送方式：OpenAI-compatible / DeepSeek
+
+当本次聊天实际选择 \`effort = max\` 时，请求会包含：
+
+\`\`\`json
+{
+  "thinking": { "type": "enabled" },
+  "reasoning_effort": "max"
+}
+\`\`\`
+
+\`reasoning_effort\` 的发送值为 \`effortMap[所选 effort] ?? 所选 effort\`。选择 \`none\` 时发送 \`thinking.type = "disabled"\`，且不发送 \`reasoning_effort\`。
+`;
+            }
+            return `
+## 当前发送方式：OpenAI-compatible / OpenAI
+
+当本次聊天实际选择 \`effort = max\` 时，请求会包含：
+
+\`\`\`json
+{ "reasoning_effort": "max" }
+\`\`\`
+
+\`reasoning_effort\` 的发送值为 \`effortMap[所选 effort] ?? 所选 effort\`。选择 \`none\` 时不发送 \`reasoning_effort\`。
+`;
+        })();
+
+        documentDialog({
+            title: 'Effort 兼容配置',
+            markdown: `
+# Effort 兼容配置
+
+当前模型：\`${model().model}\`  
+当前协议：\`${protocol}\`  
+当前模式：\`${mode}${protocol === 'openai' ? ` / ${style}` : ''}\`  
+当前 supportedEfforts：\`${supportedText}\`
+
+## 左侧勾选：supportedEfforts
+
+左侧只决定“允许用户选择哪些 effort”，以及发送前 clamp 的目标集合。它本身不会作为字段发送。
+
+- 有勾选项：只允许这些 effort。
+- 全部取消勾选：存储为空，表示不限制，所有全局 effort 都可用。
+- 如果聊天里保存的 effort 不在勾选集合中，发送前会被 clamp 到最近的可用档位。
+
+## 右侧输入：effortMap 或 budgetMap
+
+- 字符串输入：\`effortMap\`，把标准 effort 映射成 API 原生字符串。留空表示直接使用 effort 名称。例如 ${mapExample}。
+- 数字输入：\`budgetMap\`，把标准 effort 映射成 thinking token budget。留空使用内置默认值。
+
+${sendBehavior}
+`
+        });
+    };
 
     const updateCustomOverride = (value: string) => {
         try {
@@ -510,12 +639,11 @@ const ModelConfigPanel: Component<{
 
                 <Form.Wrap
                     title="Effort 兼容配置"
-                    description={effortEditorMode() === 'string-map'
-                        ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 API 原生值映射。留空表示直接使用级别名；如果全部取消勾选，将写回空值并表示全部支持。'
-                        : effortEditorMode() === 'claude-adaptive'
-                            ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；Claude adaptive 模式下右侧显示固定映射提示。如果全部取消勾选，将写回空值并表示全部支持。'
-                            : '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 thinking budget。留空表示使用内置默认预算；如果全部取消勾选，将写回空值并表示全部支持。'}
+                    description={effortEditorMode() === 'budget-map'
+                        ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 thinking budget。留空表示使用内置默认预算；如果全部取消勾选，将写回空值并表示全部支持。'
+                        : '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 API 原生值映射。留空表示直接使用级别名；如果全部取消勾选，将写回空值并表示全部支持。'}
                     direction="row"
+                    help={showEffortCompatHelp}
                 >
                     <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
                         <For each={EFFORT_LEVELS}>
@@ -536,7 +664,7 @@ const ModelConfigPanel: Component<{
                                         <span>{level}</span>
                                     </label>
 
-                                    <Show when={effortEditorMode() === 'string-map'}>
+                                    <Show when={effortEditorMode() === 'string-map' || effortEditorMode() === 'claude-adaptive'}>
                                         <Show
                                             when={level !== 'none'}
                                             fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>关闭 thinking，不需要额外映射</span>}
@@ -544,18 +672,10 @@ const ModelConfigPanel: Component<{
                                             <input
                                                 class="b3-text-field fn__flex-center"
                                                 value={getEffortMap()[level] ?? ''}
-                                                placeholder={level}
+                                                placeholder={effortEditorMode() === 'claude-adaptive' && level === 'minimal' ? 'low' : level}
                                                 onChange={(e) => updateEffortMapValue(level, e.currentTarget.value)}
                                             />
                                         </Show>
-                                    </Show>
-
-                                    <Show when={effortEditorMode() === 'claude-adaptive'}>
-                                        <span style={{ color: 'var(--b3-theme-on-surface-light)' }}>
-                                            {level === 'none'
-                                                ? '关闭 thinking'
-                                                : `adaptive effort = ${CLAUDE_ADAPTIVE_LABELS[level]}`}
-                                        </span>
                                     </Show>
 
                                     <Show when={effortEditorMode() === 'budget-map'}>

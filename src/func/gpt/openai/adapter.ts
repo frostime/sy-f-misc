@@ -12,13 +12,14 @@ export const DEFAULT_THINKING_BUDGETS: Record<string, number> = {
     medium: 8192,
     high: 16384,
     xhigh: 32768,
+    max: 65536,
 };
 
 // ============================================================================
 // applyOptionCompat
 // ============================================================================
 
-const ALL_EFFORTS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+const ALL_EFFORTS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 
 /** clamp effort 到 supportedEfforts 中最近的可用值（优先高一级，其次低一级）
  *  注意：'none' 表示关闭 thinking，不参与 clamp，调用方应在调用前过滤 */
@@ -43,7 +44,7 @@ const clampEffort = (
  * 处理顺序：
  *   1. toggle=false 的 key 删除
  *   2. compat.unsupported 删除
- *   3. thinking 参数按 thinkingStyle 注入（仅 OpenAI 兼容路径）
+ *   3. thinking 参数按 supportedEfforts 归一化，OpenAI 兼容路径再按 thinkingStyle 注入
  */
 export const applyOptionCompat = (
     chatOption: IChatCompleteOption,
@@ -67,15 +68,18 @@ export const applyOptionCompat = (
         }
     }
 
-    // 3. Thinking 参数注入（仅 OpenAI-compatible 路径）
+    // 3. Thinking 参数归一化；OpenAI-compatible 路径继续注入协议字段
     const thinking = compat?.thinking;
     if (thinking?.enabled) {
         const rawEffort = option.reasoning_effort as ReasoningEffort | undefined;
         let effort = rawEffort;
 
-        // supportedEfforts 校验：none 不参与 clamp（由后续 effort !== 'none' 判断处理）
+        // supportedEfforts 校验：none 不参与 clamp 输入；若 clamp 结果为 none 也要写回
         if (effort && effort !== 'none' && thinking.supportedEfforts?.length) {
             effort = clampEffort(effort, thinking.supportedEfforts);
+        }
+        if (effort) {
+            option.reasoning_effort = effort;
         }
 
         // Claude / Gemini 由各自 payload builder 自己处理 thinking 语义，避免协议字段泄漏

@@ -38,7 +38,7 @@ const ChatSessionSetting = (props: {
 
     const currentModel = createMemo(() => props.model?.() ?? useModel(defaultModelId(), 'null'));
     const reasoningOptions = createMemo<Record<string, string>>(() => {
-        const all: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+        const all: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
         const supported = currentModel()?.config?.options?.compat?.thinking?.supportedEfforts;
         const levels = supported?.length ? all.filter(level => supported.includes(level)) : all;
 
