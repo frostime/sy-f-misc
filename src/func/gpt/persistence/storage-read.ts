@@ -2,6 +2,7 @@
  * @Description: Read-only helpers for GPT persistence files.
  * Desktop uses Node fs first; non-desktop falls back to SiYuan file API.
  * Writes/deletes must still go through SiYuan API.
+ * @SpecDoc: .sspec/spec-docs/gpt-chat-history-persistence.md
  */
 
 import { api, thisPlugin } from "@frostime/siyuan-plugin-kits";

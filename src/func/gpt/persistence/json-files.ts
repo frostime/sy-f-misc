@@ -5,6 +5,7 @@
  * @FilePath     : /src/func/gpt/persistence/json-files.ts
  * @LastEditTime : 2026-01-02 14:26:40
  * @Description  :
+ * @SpecDoc      : .sspec/spec-docs/gpt-chat-history-persistence.md
  */
 import { downloadBlob } from "@/libs/download";
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";

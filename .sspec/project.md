@@ -76,6 +76,7 @@ Format: `- [name](spec-docs/<file>) — one-line summary` -->
 - [external-bundle](spec-docs/external-bundle.md) — External module independent bundling system: vite-plugin-external-modules architecture, module registration, dynamic import pattern
 - [gpt-module-architecture-overview](spec-docs/gpt-module-architecture-overview.md) — Bird's-eye view of `src/func/gpt/`: initialization sequence, configuration system, provider/model lifecycle, chat session lifecycle (V2 tree model), API communication flow, and cross-cutting concerns (privacy, context providers, tools, persistence)
 - [gpt-chat-module-cross-file-architecture](spec-docs/gpt-chat-module-cross-file-architecture.md) — Cross-file call chains (parameter merge, context building, model resolution, protocol dispatch), naming pitfalls, schema migration pattern, model preset matching rules, V2 tree model design rationale, and agent traps for `src/func/gpt/`
+- [gpt-chat-history-persistence](spec-docs/gpt-chat-history-persistence.md) — MUST read before modifying GPT chat history persistence: temporary `localStorage` cache, `gpt-cache/` sync replica, pending redo log, durable JSON files, JSON snapshot index, SiYuan export, and related behavior boundaries
 
 ## External References
 

@@ -5,6 +5,7 @@
  * @FilePath     : /src/func/gpt/persistence/local-storage.ts
  * @LastEditTime : 2026-06-13 17:00:00
  * @Description  : Per-session cache file I/O (split from monolithic gpt-chat-cache.json)
+ * @SpecDoc      : .sspec/spec-docs/gpt-chat-history-persistence.md
  */
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
