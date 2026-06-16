@@ -186,17 +186,137 @@ const ModelConfigPanel: Component<{
     });
 
     const showEffortCompatHelp = () => {
+        const protocol = providerProtocol();
+        const mode = effortEditorMode();
+        const thinking = getThinkingConfig();
+        const style = thinking.thinkingStyle ?? 'openai';
+        const supported = getSupportedEfforts();
+        const supportedText = supported.length ? supported.join(', ') : '不限制（全部支持）';
+        const mapExample = protocol === 'claude'
+            ? '`xhigh -> max`'
+            : '`max -> max` / `xhigh -> max`';
+
+        const sendBehavior = (() => {
+            if (protocol === 'claude' && mode === 'claude-adaptive') {
+                return `
+## 当前发送方式：Claude adaptive
+
+当本次聊天实际选择 \`effort = high\` 时，请求会包含：
+
+\`\`\`json
+{
+  "thinking": { "type": "adaptive" },
+  "output_config": { "effort": "high" }
+}
+\`\`\`
+
+发送值计算规则：\`effortMap[所选 effort] ?? 所选 effort\`；只有 \`minimal\` 在未填写映射时回退为 \`low\`。
+
+- 选择 \`max\` 且右侧留空 → 发送 \`output_config.effort = "max"\`
+- 选择 \`xhigh\` 且右侧填 \`max\` → 发送 \`output_config.effort = "max"\`
+- 选择 \`none\` / 关闭 reasoning → 不发送 \`thinking\`，也不发送 \`output_config.effort\`；已有的其它 \`output_config\` 字段会保留
+`;
+            }
+            if (protocol === 'claude' && mode === 'budget-map') {
+                return `
+## 当前发送方式：Claude manual-budget
+
+当本次聊天实际选择 \`effort = high\` 时，请求会包含：
+
+\`\`\`json
+{
+  "thinking": { "type": "enabled", "budget_tokens": 16384 }
+}
+\`\`\`
+
+右侧数字是 \`thinking.budget_tokens\`。留空时使用内置默认值；\`max\` 默认是 \`65536\`。
+
+此模式不发送 \`output_config.effort\`。
+`;
+            }
+            if (protocol === 'gemini') {
+                return `
+## 当前发送方式：Gemini
+
+当本次聊天实际选择 \`effort = high\` 时，请求会包含：
+
+\`\`\`json
+{
+  "generationConfig": {
+    "thinkingConfig": { "thinkingBudget": 16384 }
+  }
+}
+\`\`\`
+
+右侧数字是 \`thinkingBudget\`。选择 \`none\` 时发送 \`thinkingBudget = 0\`；\`max\` 默认是 \`65536\`。
+`;
+            }
+            if (style === 'qwen') {
+                return `
+## 当前发送方式：OpenAI-compatible / Qwen
+
+Qwen 风格不发送 \`reasoning_effort\`，只根据是否选择 \`none\` 发送开关：
+
+\`\`\`json
+{ "enable_thinking": true }
+\`\`\`
+
+因此右侧映射值对 Qwen 风格无效；左侧勾选仍会限制聊天 UI 可选项。
+`;
+            }
+            if (style === 'deepseek') {
+                return `
+## 当前发送方式：OpenAI-compatible / DeepSeek
+
+当本次聊天实际选择 \`effort = max\` 时，请求会包含：
+
+\`\`\`json
+{
+  "thinking": { "type": "enabled" },
+  "reasoning_effort": "max"
+}
+\`\`\`
+
+\`reasoning_effort\` 的发送值为 \`effortMap[所选 effort] ?? 所选 effort\`。选择 \`none\` 时发送 \`thinking.type = "disabled"\`，且不发送 \`reasoning_effort\`。
+`;
+            }
+            return `
+## 当前发送方式：OpenAI-compatible / OpenAI
+
+当本次聊天实际选择 \`effort = max\` 时，请求会包含：
+
+\`\`\`json
+{ "reasoning_effort": "max" }
+\`\`\`
+
+\`reasoning_effort\` 的发送值为 \`effortMap[所选 effort] ?? 所选 effort\`。选择 \`none\` 时不发送 \`reasoning_effort\`。
+`;
+        })();
+
         documentDialog({
             title: 'Effort 兼容配置',
             markdown: `
 # Effort 兼容配置
 
-- 左侧勾选：该模型支持的 reasoning / thinking effort；用于聊天参数 UI 和发送前兼容处理。
+当前模型：\`${model().model}\`  
+当前协议：\`${protocol}\`  
+当前模式：\`${mode}${protocol === 'openai' ? ` / ${style}` : ''}\`  
+当前 supportedEfforts：\`${supportedText}\`
+
+## 左侧勾选：supportedEfforts
+
+左侧只决定“允许用户选择哪些 effort”，以及发送前 clamp 的目标集合。它本身不会作为字段发送。
+
+- 有勾选项：只允许这些 effort。
 - 全部取消勾选：存储为空，表示不限制，所有全局 effort 都可用。
-- 右侧留空：直接发送该 effort 名称。
-- 右侧填写：把该 effort 映射为 API 原生值，例如 \`xhigh -> max\`。
-- Claude adaptive：发送到 \`output_config.effort\`；\`minimal\` 默认回退为 \`low\`。
-- Claude manual-budget / Gemini：右侧为 thinking budget；\`max\` 默认预算为 65536，可手动覆盖。
+- 如果聊天里保存的 effort 不在勾选集合中，发送前会被 clamp 到最近的可用档位。
+
+## 右侧输入：effortMap 或 budgetMap
+
+- 字符串输入：\`effortMap\`，把标准 effort 映射成 API 原生字符串。留空表示直接使用 effort 名称。例如 ${mapExample}。
+- 数字输入：\`budgetMap\`，把标准 effort 映射成 thinking token budget。留空使用内置默认值。
+
+${sendBehavior}
 `
         });
     };

@@ -1,6 +1,6 @@
 # Memory: claude-effort-compat
 
-**Updated**: 2026-06-16T18:53+08:00
+**Updated**: 2026-06-16T19:00+08:00
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -42,3 +42,4 @@ Implementation complete and verified. Change is in REVIEW; next step is user rev
 
 - [2026-06-16T18:32+08:00] Created change and drafted spec/design for Claude effort compatibility.
 - [2026-06-16T18:53+08:00] Implemented effort compatibility changes and verified with `pnpm run type-check` + `pnpm run build`.
+- [2026-06-16T19:00+08:00] Addressed review feedback by expanding effort help docs with protocol/mode-specific payload examples; verification passed.

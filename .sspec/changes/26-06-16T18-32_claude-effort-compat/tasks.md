@@ -1,6 +1,6 @@
 ---
 change: "claude-effort-compat"
-updated: "2026-06-16T18:53+08:00"
+updated: "2026-06-16T19:00+08:00"
 ---
 
 # Tasks
@@ -29,7 +29,7 @@ updated: "2026-06-16T18:53+08:00"
 
 ### Feedback Tasks
 
-(none yet)
+- [x] Clarify ProviderSetting effort help doc with mode-specific send behavior.
 
 ---
 
@@ -42,8 +42,11 @@ updated: "2026-06-16T18:53+08:00"
 | Phase 1 | 100% | ✅ |
 | Phase 2 | 100% | ✅ |
 | Phase 3 | 100% | ✅ |
+| Feedback | 100% | ✅ |
 
 **Recent**:
+- [2026-06-16T19:00+08:00] Clarified effort help doc with protocol/mode-specific send behavior; verification passed.
+- [2026-06-16T18:56+08:00] Review feedback accepted: clarify effort help doc.
 - [2026-06-16T18:53+08:00] Verification passed: `pnpm run type-check` and `pnpm run build`.
 - [2026-06-16T18:43+08:00] Updated Claude, DeepSeek V4 Pro, and Qwen3 presets.
 - [2026-06-16T18:42+08:00] Updated provider compatibility editor for `max`, Claude adaptive maps, and help docs.
