@@ -130,7 +130,7 @@ const MODEL_PRESETS: IModelPreset[] = [
                     thinking: {
                         enabled: true,
                         claudeMode: 'adaptive',
-                        supportedEfforts: ['low', 'medium', 'high', 'xhigh'],
+                        supportedEfforts: ['none', 'low', 'medium', 'high'],
                     },
                 },
             },
@@ -166,6 +166,31 @@ const MODEL_PRESETS: IModelPreset[] = [
     // =========
     // DeepSeek
     // =========
+
+    // DeepSeek V4 Pro
+    {
+        keywords: [/^deepseek[-_]?v4[-_]?pro/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+                jsonMode: true,
+            },
+            options: {
+                compat: {
+                    unsupported: ['frequency_penalty', 'presence_penalty'],
+                    thinking: {
+                        enabled: true,
+                        thinkingStyle: 'deepseek',
+                        supportedEfforts: ['none', 'high', 'max'],
+                    },
+                },
+            },
+        },
+    },
 
     // DeepSeek V3.2
     {
@@ -314,6 +339,11 @@ const MODEL_PRESETS: IModelPreset[] = [
                 streaming: true,
                 reasoning: true,
                 jsonMode: true,
+            },
+            options: {
+                compat: {
+                    thinking: { enabled: true, thinkingStyle: 'qwen' },
+                },
             },
         },
     },

@@ -1,6 +1,6 @@
 ---
 change: "claude-effort-compat"
-updated: ""
+updated: "2026-06-16T18:53+08:00"
 ---
 
 # Tasks
@@ -10,34 +10,45 @@ updated: ""
 
 ## Tasks
 
-<!-- MUST organize by phases. Each task <2h, independently testable.
-Phase emoji: ⏳ pending | 🚧 in progress | ✅ done
+### Phase 1: Effort model + protocol fixes ⏳
+- [x] Add `max` to global effort type/lists and budget fallback in `src/func/gpt/types.ts` and `src/func/gpt/openai/adapter.ts` per **Type A**.
+- [x] Write clamped effort back before non-OpenAI protocol return in `src/func/gpt/openai/adapter.ts` per **Fix C**.
+- [x] Fix Claude adaptive payload in `src/func/gpt/openai/claude-complete.ts` per **Fix B**.
+**Verification**: `rg` confirms `max` in shared effort lists; `rg "payload\.effort" src/func/gpt/openai/claude-complete.ts` has no active assignment; TypeScript build passes.
 
-### Phase 1: <name> ⏳
-- [ ] Task description `path/file.py`
-- [ ] Task description `path/file.py`
-**Verification**: <how to verify this phase>
+### Phase 2: UI + preset updates ⏳
+- [x] Add `max` to chat reasoning option lists in `src/func/gpt/setting/ChatSetting.tsx` and `src/func/gpt/chat/main.tsx` per **Type A**.
+- [x] Update provider compatibility editor in `src/func/gpt/setting/ProviderSettingV2.tsx` per **UX D**.
+- [x] Update model presets in `src/func/gpt/model/preset.ts` per **Preset E**.
+**Verification**: `rg` confirms UI effort arrays include `max`; provider settings can edit `effortMap` in Claude adaptive mode; TypeScript build passes.
 
-### Feedback Tasks (→ [NNN-description](./revisions/NNN-description.md))
-Use this section for review/feedback tasks that still belong to the current change.
+### Phase 3: Final verification + memory ✅
+- [x] Run available project verification commands and targeted searches.
+- [x] Update `memory.md` with implementation milestone.
+**Verification**: build/typecheck command result recorded; final `git diff` limited to planned files plus sspec task/memory updates.
 
-If accepted feedback changes scope/design:
-- **Design phase**: update `spec.md` / `design.md` directly, then add tasks here.
-- **Plan/Implement/Review** (spec locked): create `revisions/NNN-*.md` FIRST, then update this section. Do NOT edit `spec.md` / `design.md`.
+### Feedback Tasks
 
-The section header MUST link the corresponding revision file (relative path).
-If the work belongs in a new follow-up or replacement change, the agent MUST NOT put it here unless the user has first approved that direction via `@align`.
--->
+(none yet)
 
 ---
 
 ## Progress
 
-**Overall**: 0%
+**Overall**: 100%
 
 | Phase | Progress | Status |
 |-------|----------|--------|
-| Phase 1 | 0% | ⏳ |
+| Phase 1 | 100% | ✅ |
+| Phase 2 | 100% | ✅ |
+| Phase 3 | 100% | ✅ |
 
 **Recent**:
-- (none yet)
+- [2026-06-16T18:53+08:00] Verification passed: `pnpm run type-check` and `pnpm run build`.
+- [2026-06-16T18:43+08:00] Updated Claude, DeepSeek V4 Pro, and Qwen3 presets.
+- [2026-06-16T18:42+08:00] Updated provider compatibility editor for `max`, Claude adaptive maps, and help docs.
+- [2026-06-16T18:39+08:00] Added `max` to chat reasoning option lists.
+- [2026-06-16T18:38+08:00] Fixed Claude adaptive payload to use merged `output_config.effort`.
+- [2026-06-16T18:37+08:00] Made non-OpenAI protocols receive clamped `reasoning_effort`.
+- [2026-06-16T18:36+08:00] Added global `max` effort type/list and default budget.
+- [2026-06-16T18:35+08:00] Plan initialized after design confirmation.

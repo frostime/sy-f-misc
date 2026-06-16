@@ -3,7 +3,7 @@ import Form from "@/libs/components/Form";
 import { llmProviders, resolveEndpointUrl, defaultModelId, defaultConfig } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
-import { solidDialog } from "@/libs/dialog";
+import { documentDialog, solidDialog } from "@/libs/dialog";
 import SvgSymbol from "@/libs/components/Elements/IconSymbol";
 import styles from "./SettingListStyles.module.scss";
 import { createSignalRef } from "@frostime/solid-signal-ref";
@@ -125,21 +125,14 @@ const ModelConfigPanel: Component<{
     const CONFIGURABLE_OPTIONS: ConfigurableChatOption[] = [
         'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'reasoning_effort'
     ];
-    const EFFORT_LEVELS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+    const EFFORT_LEVELS: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
     const DEFAULT_BUDGET_HINTS: Partial<Record<ReasoningEffort, number>> = {
         minimal: 1024,
         low: 2048,
         medium: 8192,
         high: 16384,
         xhigh: 32768,
-    };
-    const CLAUDE_ADAPTIVE_LABELS: Record<ReasoningEffort, string> = {
-        none: 'disabled',
-        minimal: 'low',
-        low: 'low',
-        medium: 'medium',
-        high: 'high',
-        xhigh: 'max',
+        max: 65536,
     };
 
     const getThinkingConfig = () => ((model().options as any)?.compat?.thinking ?? {}) as NonNullable<ILLMOptionCompat['thinking']>;
@@ -191,6 +184,22 @@ const ModelConfigPanel: Component<{
         }
         return 'string-map';
     });
+
+    const showEffortCompatHelp = () => {
+        documentDialog({
+            title: 'Effort 兼容配置',
+            markdown: `
+# Effort 兼容配置
+
+- 左侧勾选：该模型支持的 reasoning / thinking effort；用于聊天参数 UI 和发送前兼容处理。
+- 全部取消勾选：存储为空，表示不限制，所有全局 effort 都可用。
+- 右侧留空：直接发送该 effort 名称。
+- 右侧填写：把该 effort 映射为 API 原生值，例如 \`xhigh -> max\`。
+- Claude adaptive：发送到 \`output_config.effort\`；\`minimal\` 默认回退为 \`low\`。
+- Claude manual-budget / Gemini：右侧为 thinking budget；\`max\` 默认预算为 65536，可手动覆盖。
+`
+        });
+    };
 
     const updateCustomOverride = (value: string) => {
         try {
@@ -510,12 +519,11 @@ const ModelConfigPanel: Component<{
 
                 <Form.Wrap
                     title="Effort 兼容配置"
-                    description={effortEditorMode() === 'string-map'
-                        ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 API 原生值映射。留空表示直接使用级别名；如果全部取消勾选，将写回空值并表示全部支持。'
-                        : effortEditorMode() === 'claude-adaptive'
-                            ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；Claude adaptive 模式下右侧显示固定映射提示。如果全部取消勾选，将写回空值并表示全部支持。'
-                            : '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 thinking budget。留空表示使用内置默认预算；如果全部取消勾选，将写回空值并表示全部支持。'}
+                    description={effortEditorMode() === 'budget-map'
+                        ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 thinking budget。留空表示使用内置默认预算；如果全部取消勾选，将写回空值并表示全部支持。'
+                        : '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 API 原生值映射。留空表示直接使用级别名；如果全部取消勾选，将写回空值并表示全部支持。'}
                     direction="row"
+                    help={showEffortCompatHelp}
                 >
                     <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
                         <For each={EFFORT_LEVELS}>
@@ -536,7 +544,7 @@ const ModelConfigPanel: Component<{
                                         <span>{level}</span>
                                     </label>
 
-                                    <Show when={effortEditorMode() === 'string-map'}>
+                                    <Show when={effortEditorMode() === 'string-map' || effortEditorMode() === 'claude-adaptive'}>
                                         <Show
                                             when={level !== 'none'}
                                             fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>关闭 thinking，不需要额外映射</span>}
@@ -544,18 +552,10 @@ const ModelConfigPanel: Component<{
                                             <input
                                                 class="b3-text-field fn__flex-center"
                                                 value={getEffortMap()[level] ?? ''}
-                                                placeholder={level}
+                                                placeholder={effortEditorMode() === 'claude-adaptive' && level === 'minimal' ? 'low' : level}
                                                 onChange={(e) => updateEffortMapValue(level, e.currentTarget.value)}
                                             />
                                         </Show>
-                                    </Show>
-
-                                    <Show when={effortEditorMode() === 'claude-adaptive'}>
-                                        <span style={{ color: 'var(--b3-theme-on-surface-light)' }}>
-                                            {level === 'none'
-                                                ? '关闭 thinking'
-                                                : `adaptive effort = ${CLAUDE_ADAPTIVE_LABELS[level]}`}
-                                        </span>
                                     </Show>
 
                                     <Show when={effortEditorMode() === 'budget-map'}>

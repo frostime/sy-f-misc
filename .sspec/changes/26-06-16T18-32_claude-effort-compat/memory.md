@@ -1,6 +1,6 @@
 # Memory: claude-effort-compat
 
-**Updated**: 2026-06-16T18:32+08:00
+**Updated**: 2026-06-16T18:53+08:00
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -19,7 +19,7 @@ This section records the change starting point in git and MUST NOT be edited or 
 
 ## State
 
-Design drafted. Next: user alignment gate; if confirmed, enter Plan and fill `tasks.md`.
+Implementation complete and verified. Change is in REVIEW; next step is user review/acceptance.
 
 ## Key Files
 
@@ -41,3 +41,4 @@ Design drafted. Next: user alignment gate; if confirmed, enter Plan and fill `ta
 ## Milestones
 
 - [2026-06-16T18:32+08:00] Created change and drafted spec/design for Claude effort compatibility.
+- [2026-06-16T18:53+08:00] Implemented effort compatibility changes and verified with `pnpm run type-check` + `pnpm run build`.

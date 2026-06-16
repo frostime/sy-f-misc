@@ -353,7 +353,7 @@ interface ICompletionResult {
  * 归一化 reasoning 级别，严格匹配 OpenAI Chat Completions 官方值
  * https://developers.openai.com/api/reference/resources/chat/subresources/completions
  */
-type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 /** ChatSetting UI 中用户可手动 toggle 的 6 个采样参数 */
 type ConfigurableChatOption =
@@ -381,10 +381,10 @@ interface ILLMOptionCompat {
         thinkingStyle?: 'openai' | 'deepseek' | 'qwen';
         /** 模型支持的 effort 级别子集；不在列表的 effort 会被 clamp 到最近可用值 */
         supportedEfforts?: ReasoningEffort[];
-        /** 归一化 effort → API 原生字符串值（如 DeepSeek V4: { xhigh: 'max' }）*/
+        /** 归一化 effort → API 原生字符串值（如某些 API: { xhigh: 'max' }）*/
         effortMap?: Partial<Record<ReasoningEffort, string>>;
         /** 归一化 effort → token 预算（Claude/Gemini 协议用）
-         *  缺省时使用内置回退: minimal=1024, low=2048, medium=8192, high=16384, xhigh=32768 */
+         *  缺省时使用内置回退: minimal=1024, low=2048, medium=8192, high=16384, xhigh=32768, max=65536 */
         budgetMap?: Partial<Record<ReasoningEffort, number>>;
         /** Claude 协议内部的 thinking 模式，不复用 OpenAI-compatible 的 thinkingStyle */
         claudeMode?: 'adaptive' | 'manual-budget';

@@ -1,6 +1,6 @@
 ---
 name: claude-effort-compat
-status: PLANNING
+status: REVIEW
 change-type: single
 created: 2026-06-16 18:32:29
 reference:
