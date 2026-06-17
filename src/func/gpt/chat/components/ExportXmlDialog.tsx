@@ -1,7 +1,7 @@
 import { Component, JSX, createSignal } from 'solid-js';
 
 import ButtonInput from '@/libs/components/Elements/ButtonInput';
-import type { ChatXmlExportOptions, XmlVersionMode } from '@gpt/persistence';
+import type { ChatXmlExportOptions, XmlExportMode, XmlVersionMode } from '@gpt/persistence';
 
 const containerStyle: JSX.CSSProperties = {
     display: 'flex',
@@ -61,12 +61,14 @@ export const ExportXmlDialog: Component<{
     onCancel: () => void;
 }> = (props) => {
     const [versionMode, setVersionMode] = createSignal<XmlVersionMode>('current');
+    const [exportMode, setExportMode] = createSignal<XmlExportMode>('reading');
     const [skipHidden, setSkipHidden] = createSignal(props.defaultSkipHidden);
     const [includeReasoning, setIncludeReasoning] = createSignal(false);
 
     const exportXml = () => {
         props.onExport({
             versionMode: versionMode(),
+            exportMode: exportMode(),
             skipHidden: skipHidden(),
             includeReasoning: includeReasoning(),
         });
@@ -74,6 +76,22 @@ export const ExportXmlDialog: Component<{
 
     return (
         <div style={containerStyle}>
+            <OptionRow
+                title="导出偏好"
+                description="阅读：仅保留 role 和内容，适合阅读。程序：保留完整元信息，适合程序处理。"
+                control={
+                    <select
+                        class="b3-select"
+                        style={{ width: '180px' }}
+                        value={exportMode()}
+                        onChange={(e) => setExportMode(e.currentTarget.value as XmlExportMode)}
+                    >
+                        <option value="reading">阅读</option>
+                        <option value="programming">程序</option>
+                    </select>
+                }
+            />
+
             <OptionRow
                 title="版本范围"
                 description="所有版本会在同一个消息节点内嵌套 Version，不拆成多个 Role。"

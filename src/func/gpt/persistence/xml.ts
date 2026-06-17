@@ -1,7 +1,9 @@
 export type XmlVersionMode = 'current' | 'all';
+export type XmlExportMode = 'reading' | 'programming';
 
 export interface ChatXmlExportOptions {
     versionMode: XmlVersionMode;
+    exportMode?: XmlExportMode;
     includeReasoning?: boolean;
     skipHidden?: boolean;
 }
@@ -27,10 +29,12 @@ export const chatHistoryToXml = (
 ) => {
     const opts: ChatXmlExportOptions = {
         versionMode: options?.versionMode ?? 'current',
+        exportMode: options?.exportMode ?? 'programming',
         includeReasoning: options?.includeReasoning === true,
         skipHidden: options?.skipHidden === true,
     };
 
+    const isReading = opts.exportMode === 'reading';
     const nodes = extractWorldLineNodes(history, opts.skipHidden);
     const chunks = nodes.map(node => ({
         node,
@@ -42,15 +46,19 @@ export const chatHistoryToXml = (
 
     const lines: string[] = [];
     lines.push(`<ChatHistory schema="1">`);
-    lines.push(renderEmptyTag('Meta', {
-        title: history.title,
-        'session-id': history.id,
-        'exported-at': new Date().toISOString(),
-        mode: 'worldline',
-        'version-mode': opts.versionMode,
-        'chunk-count': chunkCount,
-        'node-count': nodes.length,
-    }));
+
+    if (!isReading) {
+        lines.push(renderEmptyTag('Meta', {
+            title: history.title,
+            'session-id': history.id,
+            'exported-at': new Date().toISOString(),
+            mode: 'worldline',
+            'version-mode': opts.versionMode,
+            'chunk-count': chunkCount,
+            'node-count': nodes.length,
+        }));
+    }
+
     lines.push(`<AgentGuide>`);
     lines.push(`Lossy export: optimized for structured reading, not restore. Raw JSON is the fidelity source.`);
     lines.push(`Scope: active worldline only; branch-count marks omitted sibling branches.`);
@@ -58,13 +66,16 @@ export const chatHistoryToXml = (
     lines.push(`Context: Context blocks are user-provided references merged into the prompt, not conversation turns.`);
     lines.push(`Media: Attachment blocks preserve metadata/source only; no fetching, decoding, or OCR was performed.`);
     lines.push(`</AgentGuide>`);
-    lines.push(renderEmptyTag('Summary', buildSummaryAttrs(history, nodes, opts, chunkCount)));
+
+    if (!isReading) {
+        lines.push(renderEmptyTag('Summary', buildSummaryAttrs(history, nodes, opts, chunkCount)));
+    }
 
     if (hasSystemPrompt) {
-        lines.push(renderBlock('Role-system', {
-            'data-chunk-idx': chunkIdx++,
-            source: 'session-sysPrompt',
-        }, [xmlText(history.sysPrompt ?? '')]));
+        lines.push(renderBlock('Role-system', isReading
+            ? { 'data-chunk-idx': chunkIdx++ }
+            : { 'data-chunk-idx': chunkIdx++, source: 'session-sysPrompt' },
+        [xmlText(history.sysPrompt ?? '')]));
     }
 
     for (const chunk of chunks) {
@@ -93,15 +104,34 @@ const selectPayloads = (node: Readonly<IChatSessionMsgItemV2>, versionMode: XmlV
 
 const renderNodeChunk = (chunk: XmlChunk, chunkIdx: number, options: ChatXmlExportOptions) => {
     const { node, payloads } = chunk;
+    const isReading = options.exportMode === 'reading';
+
     if (node.type === 'separator') {
-        return renderEmptyTag('Separator', {
-            'data-chunk-idx': chunkIdx,
-            'node-id': node.id,
-        });
+        return renderEmptyTag('Separator', isReading
+            ? { 'data-chunk-idx': chunkIdx }
+            : { 'data-chunk-idx': chunkIdx, 'node-id': node.id });
     }
 
     const role = sanitizeTagName(node.role || 'unknown');
     const tagName = `Role-${role}`;
+
+    if (isReading) {
+        const readingAttrs: Record<string, string | number | boolean | undefined> = {
+            'data-chunk-idx': chunkIdx,
+        };
+
+        if (options.versionMode === 'all') {
+            return renderBlock(tagName, readingAttrs, [
+                ...payloads.map((payload, idx) =>
+                    renderPayloadVersionReading(payload, idx, payload.id === node.currentVersionId, options.includeReasoning === true)),
+            ]);
+        }
+
+        const payload = payloads[0];
+        return renderBlock(tagName, readingAttrs, renderPayloadContent(payload, options.includeReasoning === true));
+    }
+
+    // Programming mode (original)
     const attrs: Record<string, string | number | boolean | undefined> = {
         'data-chunk-idx': chunkIdx,
         'node-id': node.id,
@@ -140,6 +170,18 @@ const renderPayloadVersion = (
         current: payload.id === node.currentVersionId,
         author: payload.author,
         timestamp: payload.timestamp ? new Date(payload.timestamp).toISOString() : undefined,
+    }, renderPayloadContent(payload, includeReasoning));
+};
+
+const renderPayloadVersionReading = (
+    payload: Readonly<IMessagePayload>,
+    index: number,
+    isCurrent: boolean,
+    includeReasoning: boolean
+) => {
+    return renderBlock('Version', {
+        idx: index + 1,
+        current: isCurrent ? true : undefined,
     }, renderPayloadContent(payload, includeReasoning));
 };
 
