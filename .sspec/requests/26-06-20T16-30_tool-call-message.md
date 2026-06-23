@@ -1,10 +1,10 @@
 ---
 name: tool-call-message
 created: 2026-06-20T16:30:38
-status: OPEN
+status: DOING
 kind: directive
 attach-change: null
-tldr: ""
+tldr: "新增 Standard 模式：工具调用 turn 以原生 IMessage[] 序列持久化与回放，废弃 Legacy 压缩；UI 分期改为 CodeX 式合并显示"
 ---
 
 <!-- MUST follow frontmatter schema:
@@ -55,3 +55,5 @@ This becomes the starting point for the change's spec.md Approach. -->
 <!-- What should Agent do to implement this request -->
 Adhere to the SSPEC protocol and commence development from the current Request file, following the SSPEC Change Lifecycle.
 Next step: Read `sspec-clarify` SKILL and cooperate with user.
+
+由于代码较多，可以尝试灵活使用 asq,rg,fd,slsp 辅助
