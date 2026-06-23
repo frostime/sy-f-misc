@@ -43,6 +43,11 @@ Clarify 完成，root + 两 sub-change spec/design 已写。待用户 @align 确
 - [2026-06-24] [Constraint] 数据契约（toolChainMessages/message/toolChainResult 字段 + 切分规则）phase 1 定型，phase 2 只消费不改。
 - [2026-06-24] [Gotcha] toolchain.ts:643 合成 [SYSTEM] user 消息只进 allMessages 不进 toolChainMessages → 持久化 toolChainMessages 自动排除，回放不重发。
 - [2026-06-24] [Gotcha] addMsgItemVersion 现状只拷 message，standard cell 需整组拷 toolChainMessages+toolChainResult 否则版本退化丢结构。
+- [2026-06-24] [Gotcha] toolchain.ts:682 follow-up catch 未置 status='error' → follow-up 异常被误报 completed，末元素为 tool(incomplete) 非 assistant。切分层用末元素 role 校验 fallback（合成空 message）；status bug 本 change 不修。
+- [2026-06-24] [CoordinationDecision] toolChainResult 不废弃：与 toolChainMessages 分工（回放源 vs UI/统计元数据源），重叠仅只读 result.data 无 drift；phase 1 UI 仍依赖。
+- [2026-06-24] [CoordinationDecision] reasoning_content：toolChainMessages 中 assistant 剥离；message（末条 assistant）保留供 phase 2 UI。
+- [2026-06-24] [CoordinationDecision] executeToolChain 返回值 phase 1 不改（已含 messages.toolChain 切分源）；MessageFlowFormatter 移集成层的清理不进 phase 1。
+- [2026-06-24] [Gotcha] xml.ts:213 已导出 toolChainResult JSON block，phase 1 standard cell 导出信息量不减（message.content 反更干净）；序列渲染留 phase 2。
 - [2026-06-24] [Deferred] reasoning_content 持久化前剥离；CodeX 式 UI + 编辑面板 + 结构化流式留 phase 2。
 
 ## Milestones

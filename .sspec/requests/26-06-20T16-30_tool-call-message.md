@@ -1,12 +1,12 @@
 ---
 name: tool-call-message
-created: 2026-06-20T16:30:38
+created: 2026-06-20 16:30:38
 status: DOING
 kind: directive
-attach-change: null
-tldr: "新增 Standard 模式：工具调用 turn 以原生 IMessage[] 序列持久化与回放，废弃 Legacy 压缩；UI 分期改为 CodeX 式合并显示"
+attach-change: .sspec/changes/26-06-24T01-00_standard-tool-call/spec.md
+tldr: 新增 Standard 模式：工具调用 turn 以原生 IMessage[] 序列持久化与回放，废弃 Legacy 压缩；UI 分期改为 CodeX
+  式合并显示
 ---
-
 <!-- MUST follow frontmatter schema:
 status: OPEN | DOING | DONE | CLOSED
 tldr: One-sentence summary for list views — fill this! -->

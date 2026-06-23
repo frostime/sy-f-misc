@@ -35,11 +35,12 @@ UI：phase 1 **近 0 改动**。standard cell 无 `userPromptSlice` → `Message
 
 - **Feat A: 模式开关** — `IChatSessionConfig` 新增 `toolCallMode: 'standard' | 'legacy'`，默认 `'standard'`；`defaultConfig` 同步。per-session 持久化随现有 config 路径。
 - **Feat B: 数据模型字段** — `IMessagePayload`（`types-v2.ts`）新增可选 `toolChainMessages?: IMessage[]`；`message` 语义在 standard 下 = 末条 assistant（字段类型不变）。
-- **Feat C: finalize 切分** — `handleToolChain` Standard 分支：从 `executeToolChain` 结果切出 `{message=末条 assistant, toolChainMessages=其余, toolChainResult}`，不设 `userPromptSlice`，剥离合成 `[SYSTEM]` user 消息；Legacy 分支保持现状。
+- **Feat C: finalize 切分** — `handleToolChain` Standard 分支：从 `executeToolChain` 返回的 `result.messages.toolChain`（已存在，执行器不改）切出 `{message=末条 assistant, toolChainMessages=其余, toolChainResult}`，不设 `userPromptSlice`，剥离 `toolChainMessages` 中 assistant 的 reasoning_content（`message` 保留末条 reasoning），follow-up 异常时末元素非 assistant → 合成空 `message` fallback；Legacy 分支保持现状。
 - **Feat D: 回放分流** — `getAttachedHistory` 末尾按 `toolChainMessages` 存在性分流展开。
-- **Feat E: addVersion 整组拷贝** — `addMsgItemVersion` 拷贝 `toolChainMessages` + `toolChainResult` 到新版本（仅 `message.content` 不同），避免版本退化丢结构。
+- **Feat E: addVersion 整组拷贝** — `addMsgItemVersion` 拷贝 `toolChainMessages` + `toolChainResult` 到新版本（仅 `message.content` 不同）；`userPromptSlice` 按 presence 拷（legacy cell 用）。避免版本退化丢结构。
 - **Feat F: Legacy 不 strip** — legacy cell 在 standard 会话中整段回放，无切片逻辑。
 - **Compat G: 迁移** — 无强制迁移；`msg_migration.ts` 透传新可选字段；旧数据无 `toolChainMessages` → 自动 legacy。
+- **Compat H: `toolChainResult` 不废弃** — 与 `toolChainMessages` 分工（消息序列/回放源 vs UI/统计元数据源），重叠仅只读 `result.data`，无 drift；phase 1 UI 仍依赖它。
 
 **What Stays Unchanged**:
 - `executeToolChain` 主循环、审批、maxRounds、abort、VariableSystem 缓存逻辑。
