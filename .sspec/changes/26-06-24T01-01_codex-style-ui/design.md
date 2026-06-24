@@ -139,8 +139,13 @@ src/func/gpt/tools/toolchain.ts    [改] callbacks 增 onAssistantTextDelta/onAs
 - `toolChainResult` 产出路径（仍是 UI 元数据源；ToolCallRow 的结果数据从其 toolCallHistory 查）。
 - phase 1 的 finalize 切分、回放分流、addVersion 整组拷贝。
 
-## 8. Open Questions（design 阶段需用户确认的分支）
+## 8. Resolved Decisions（@align 结果）
 
-- **OQ1 ToolCallRow 内联形态**：tool 行是单行可展开（CodeX 式，点击展开参数/结果），还是直接平铺参数+结果（更接近现 ToolChainTimeline）？
-- **OQ2 中间 assistant 文本段默认展示**：默认展开显示，还是折叠（次要思考文本）只显示 tool 行 + 最终回复？
-- **OQ3 流式优先级**：2c 结构化流式实现成本较高（改 executeToolChain 流式 emit），是否接受先 2a/2b/2d 用 final_swap，2c 作为可选增强？
+- **ToolCallRow 形态**：单行可展开（CodeX 式）。默认单行 = toolName + 状态图标 + 耗时；点击展开参数/结果（复用 ToolChainTimeline 的 formatData 截断 + viewDetailData 弹窗）。turn 内不占高。
+- **中间 assistant 文本段**：默认折叠为摘要，点击展开。突出 tool 行 + 最终回复，turn 紧凑。折叠摘要取文本前 N 字符。
+- **流式优先级**：先做 2a/2b/2d，2c 结构化流式作为可选增强后续独立做。phase 2 交付期流式仍用 final_swap（生成中占位、结束切结构化）。
+
+## 9. 内部交付范围（本次 phase 2）
+
+含：2a 静态交错渲染 + ToolCallRow 抽取 + MessageItem 分流；2b 多段编辑面板 + updateStandardTurn + onEditTurn；2d 导出/snapshot 完整序列渲染。
+不含：2c 结构化流式（后续可选增强，final_swap 期间过渡）。
