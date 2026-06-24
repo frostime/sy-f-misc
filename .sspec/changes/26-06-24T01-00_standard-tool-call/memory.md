@@ -52,3 +52,5 @@ Clarify 完成，root + 两 sub-change spec/design 已写。待用户 @align 确
 
 ## Milestones
 - [2026-06-24T01:30] Clarify 收敛：确定 standard 模式=原生 IMessage[] 持久化+回放、一节点一 turn 内嵌序列、message=末条 assistant、per-session 默认 standard、legacy 不 strip、分期交付；root + phase1/phase2 spec 写毕，待 align。
+- [2026-06-24T02:00] Design align 通过；subagent 审查意见落地（末元素 fallback、reasoning 策略、XML export 更正、toolChainResult 定位不废弃、executeToolChain 返回值不改）。
+- [2026-06-24T02:15] Plan 写毕：phase 1 tasks 6 阶段（类型配置/finalize切分/回放分流/addVersion/UI开关/集成验证），root milestones 两期。进 implement。

@@ -1,7 +1,7 @@
 ---
 change: "standard-tool-call"
 change-type: root
-updated: ""
+updated: "2026-06-24"
 ---
 
 # Milestones
@@ -11,15 +11,18 @@ updated: ""
 
 ## Milestones
 
-<!-- MUST track at phase level, not file level. Each milestone maps to a sub-change.
-Phase emoji: ⏳ pending | 🚧 in progress | ✅ done
+### Phase 1: standard-replay-backend ⏳
+- [x] Sub-change created and linked → [26-06-24T01-01_standard-replay-backend](../26-06-24T01-01_standard-replay-backend/)
+- [ ] Sub-change completed and verified
+**Deliverable**: standard 模式下工具调用 turn 以原生 `IMessage[]` 持久化与回放；per-session `toolCallMode` 开关默认 standard；legacy 兼容零迁移；旧常识边界（edit/addVersion/branch/delete）保持。
+**Sub-change**: [../26-06-24T01-01_standard-replay-backend/](../26-06-24T01-01_standard-replay-backend/)
 
-### Phase 1: <name> ⏳
-- [ ] Sub-change created and linked
-- [ ] Sub-change completed and archived
-**Deliverable**: <what Phase 1 delivers>
-**Sub-change**: <link when created>
--->
+### Phase 2: codex-style-ui ⏳
+- [x] Sub-change created and linked → [26-06-24T01-01_codex-style-ui](../26-06-24T01-01_codex-style-ui/)
+- [ ] Sub-change spec/design 补全（待 phase 1 落地后推演）
+- [ ] Sub-change completed and verified
+**Deliverable**: CodeX 式合并显示（assistant 文本段 + tool 行交错）+ 多段编辑面板 + 结构化流式 + 导出完整序列渲染。
+**Sub-change**: [../26-06-24T01-01_codex-style-ui/](../26-06-24T01-01_codex-style-ui/)
 
 ---
 
@@ -29,7 +32,8 @@ Phase emoji: ⏳ pending | 🚧 in progress | ✅ done
 
 | Phase | Sub-Change | Status | Deliverable |
 |-------|------------|--------|-------------|
-| Phase 1 | (pending) | ⏳ | |
+| Phase 1 | standard-replay-backend | 📋 PLANNING | 原生 IMessage[] 持久化+回放 |
+| Phase 2 | codex-style-ui | 📋 PLANNING | CodeX 式 UI |
 
 **Recent**:
 - (none yet)
