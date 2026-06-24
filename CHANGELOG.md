@@ -5,6 +5,25 @@
 
 ## [Unreleased]
 
+## [7.13.0] - 2026-06-24
+
+### Added
+
+- **Standard 工具调用模式**（默认）：工具调用 turn 以原生 `IMessage[]` 序列持久化与回放，续对话时向 LLM 发送真实的 `assistant(tool_calls)` + `role:tool` 消息序列，对齐 OpenAI 标准协议。
+- **CodeX 式交错渲染**：assistant 文本段与 tool 调用行在主区域内联显示；中间文本段折叠为摘要、点击展开，末条回复默认展开。
+- **Standard turn 多段编辑面板**：右键编辑支持修改所有 assistant 文本段（中间 + 最终），tool 调用行只读展示。
+- **Standard cell 导出**：SiYuan 文档与 XML 导出输出 assistant 文本段 + tool 调用块交错结构，替代原有单一回复 + JSON 块格式。
+- 每会话 `toolCallMode` 配置项（Standard / Legacy），新建会话默认 Standard。
+
+### Changed
+
+- 旧会话与 Legacy cell 自动沿用 Legacy 回放，无需数据迁移。
+- `tool-call/` 相关 spec-doc 随 Standard 模式更新。
+
+### Fixed
+
+- 修复 Standard cell 编辑面板内容缩窄与 tool 行 icon 偏移的布局问题。
+
 ## [7.12.1] - 2026-06-17
 
 ### Added
