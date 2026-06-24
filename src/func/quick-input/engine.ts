@@ -1,6 +1,6 @@
-import { showMessage } from "siyuan";
+import { confirm, showMessage } from "siyuan";
 import { createDailynote, openBlock } from "@frostime/siyuan-plugin-kits";
-import { appendBlock, createDocWithMd, getBlockByID, insertBlock, prependBlock } from "@frostime/siyuan-plugin-kits/api";
+import { appendBlock, createDocWithMd, getBlockByID, getIDsByHPath, insertBlock, prependBlock } from "@frostime/siyuan-plugin-kits/api";
 
 import type { QuickInputTemplate } from "./types";
 
@@ -8,6 +8,13 @@ const TEMPLATE_VAR_REGEXP = /(\\)?\$\{(\w+)\}/g;
 
 export interface ExecuteResult {
     blockId: string;
+}
+
+export class QuickInputCancelled extends Error {
+    constructor(message = 'QuickInput cancelled') {
+        super(message);
+        this.name = 'QuickInputCancelled';
+    }
 }
 
 const pad2 = (value: number) => value.toString().padStart(2, '0');
@@ -98,6 +105,17 @@ const showAndThrow = (message: string, error?: unknown): never => {
     throw error instanceof Error ? error : new Error(message);
 };
 
+const confirmDuplicateDocument = (hpath: string, count: number): Promise<boolean> => {
+    return new Promise(resolve => {
+        confirm(
+            '确认创建重复文档',
+            `路径「${hpath}」已经存在 ${count} 个文档。是否仍然创建一个新的同路径文档？`,
+            () => resolve(true),
+            () => resolve(false)
+        );
+    });
+};
+
 const renderedMarkdown = (template: QuickInputTemplate, ctx: Record<string, any>) => {
     const markdown = renderTemplateString(template.template ?? '', ctx);
     return markdown || '\n';
@@ -116,6 +134,12 @@ export const executeTemplate = async (
             const hpath = renderTemplateString(template.insertTo.hpath, ctx);
             if (!template.insertTo.notebook) throw new Error('未配置目标笔记本');
             if (!hpath) throw new Error('文档路径为空');
+
+            const existingIds = await getIDsByHPath(template.insertTo.notebook, hpath);
+            if (existingIds.length > 0) {
+                const confirmed = await confirmDuplicateDocument(hpath, existingIds.length);
+                if (!confirmed) throw new QuickInputCancelled();
+            }
 
             const docId = await createDocWithMd(template.insertTo.notebook, hpath, markdown);
             if (shouldOpen) openBlock(docId);
@@ -141,6 +165,7 @@ export const executeTemplate = async (
         if (shouldOpen) openBlock(blockId);
         return { blockId };
     } catch (error) {
+        if (error instanceof QuickInputCancelled) throw error;
         showAndThrow(error instanceof Error ? error.message : '快速输入执行失败', error);
     }
 };

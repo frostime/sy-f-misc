@@ -9,6 +9,12 @@ reference:
   - source: ".sspec/changes/26-06-24T22-43_quick-input/reference/input-template-type-draft.d.ts"
     type: "doc"
     note: "用户初版类型草案；本 change 对其做了收敛与简化（见 design.md 收敛对照表）。"
+  - source: ".sspec/changes/26-06-24T22-43_quick-input/revisions/001-rename-block-modes-before-after.md"
+    type: "revision"
+    note: "Block sibling modes renamed from next/prev to before/after."
+  - source: ".sspec/changes/26-06-24T22-43_quick-input/revisions/002-guard-duplicate-document-hpath.md"
+    type: "revision"
+    note: "Document preset checks duplicate hpath before createDocWithMd."
 ---
 
 # quick-input

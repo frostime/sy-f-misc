@@ -18,7 +18,7 @@ This section records the change starting point in git and MUST NOT be edited or 
 ```
 
 ## State
-Implementation 已完成，`spec.md` 状态为 REVIEW。Agent 验证 `pnpm run type-check` 与 `pnpm run build` 均通过；SiYuan runtime 行为需用户按 `reference/runtime-verification.md` 验证。
+Implementation + revision 002 已完成，`spec.md` 状态为 REVIEW。Agent 验证 `pnpm run type-check` 与 `pnpm run build` 均通过；SiYuan runtime 行为需用户按 `reference/runtime-verification.md` 与 `reference/runtime-verification-report.md` 验证。
 
 ## Key Files
 - `.sspec/changes/26-06-24T22-43_quick-input/spec.md` — 问题、BC-1..BC-5、实现项、scope
@@ -49,6 +49,7 @@ Implementation 已完成，`spec.md` 状态为 REVIEW。Agent 验证 `pnpm run t
 - [2026-06-24] [Decision] 模板插值定界符用 ${var}（非 {{var}}），避免与思源 kramdown 嵌入块 {{...}} 语法冲突；render 正则 /\$\{(\w+)\}/g，字面量 \${abc} 转义
 - [2026-06-24] [Gotcha] 思源 kramdown 嵌入块语法 {{...}} 与模板插值冲突——不用 {{var}}
 - [2026-06-24] [Decision] Verification 边界：Agent 只声明可跑 type-check/build/纯逻辑临时断言/API d.ts 静态确认；SiYuan runtime（内核 IAL/hpath/同名、UI 快捷键、真实插入位置）全部放 User Check 或 runtime-verification.md
+- [2026-06-25] [Gotcha] Runtime verification shows `createDocWithMd` silently creates duplicate documents for the same hpath; engine now guards document mode with `getIDsByHPath` + confirm before creating another duplicate
 
 ## Milestones
 - [2026-06-24T22:43] Clarify 完成，change 创建
@@ -57,3 +58,4 @@ Implementation 已完成，`spec.md` 状态为 REVIEW。Agent 验证 `pnpm run t
 - [2026-06-24T23:18] 用户指出 verification 边界错误；tasks.md 已修正为 Agent 可验证 vs SiYuan runtime User Check
 - [2026-06-25T00:55] 进入 Implement 前发现 mode 命名歧义；用户确认 next/prev 改 before/after，已记录 revision 001；用户明确要求先 git commit 设计/计划 checkpoint 再继续实现
 - [2026-06-25T01:38] Implementation 完成；`pnpm run type-check` 与 `pnpm run build` 通过；进入 REVIEW
+- [2026-06-25T02:22] Runtime report accepted as review feedback; revision 002 implemented duplicate hpath guard; `pnpm run type-check` 与 `pnpm run build` 通过

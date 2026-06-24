@@ -4,7 +4,7 @@ import { solidDialog, simpleFormDialog } from "@/libs/dialog";
 import { ButtonInput } from "@/libs/components/Elements";
 
 import { getTemplates } from "./config";
-import { executeTemplate } from "./engine";
+import { executeTemplate, QuickInputCancelled } from "./engine";
 import type { QuickInputTemplate } from "./types";
 
 const DEFAULT_GROUP = '默认';
@@ -41,6 +41,7 @@ function QuickInputPanel(props: { close: () => void }) {
             await executeTemplate(template, values);
             props.close();
         } catch (error) {
+            if (error instanceof QuickInputCancelled) return;
             console.error('[quick-input] execute failed', error);
         }
     };
