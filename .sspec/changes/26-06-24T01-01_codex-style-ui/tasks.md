@@ -46,9 +46,9 @@ updated: "2026-06-24"
 2. 导出 XML → 同样含交错结构。
 3. legacy cell 导出 → 与 phase 1 一致（最终回复 + ToolChain JSON 块）= legacy 不破坏。
 
-### Phase 2e: 集成验证 ⏳
-- [ ] 端到端：standard 交错渲染 + 多段编辑 + 导出；legacy 全回归；流式仍 final_swap（生成中占位、结束切结构化，与 phase 1 一致）
-- [ ] tsc/type-check 通过
+### Phase 2e: 集成验证 🚧
+- [x] 代码侧：type-check 通过，无类型错误
+- [ ] 端到端（待用户验证）：standard 交错渲染 + 多段编辑 + 导出；legacy 全回归；流式仍 final_swap
 **Verification**: 上述全通过。
 **User Check**:
 1. standard 模式完整流程：发工具调用问题 → 生成中占位 → 完成切交错结构 → 编辑多段 → 续对话承接 → 导出含结构。
@@ -59,15 +59,17 @@ updated: "2026-06-24"
 
 ## Progress
 
-**Overall**: 50%
+**Overall**: 85%
 
 | Phase | Progress | Status |
 |-------|----------|--------|
 | Phase 2a: 静态交错渲染 | 100% | ✅ |
 | Phase 2b: 多段编辑面板 | 100% | ✅ |
-| Phase 2d: 导出/snapshot 完整序列渲染 | 0% | ⏳ |
-| Phase 2e: 集成验证 | 0% | ⏳ |
+| Phase 2d: 导出/snapshot 完整序列渲染 | 100% | ✅ |
+| Phase 2e: 集成验证 | 30% | 🚧 |
 
 **Recent**:
 - 2a 实现：ToolCallRow + StandardTurnView + MessageItem 分流，tsc 通过。
 - 2b 实现：TurnEditPanel + updateStandardTurn + editMessage standard 分支弹面板，tsc 通过。
+- 2d 实现：xml.ts/sy-doc.ts standard 分支交错渲染；snapshot preview 无需改。
+- 2e 代码侧 type-check 通过；端到端待用户验证。

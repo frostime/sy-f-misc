@@ -1,6 +1,6 @@
 ---
 name: codex-style-ui
-status: PLANNING
+status: DOING
 change-type: sub
 created: 2026-06-24T01:01:03
 reference:
