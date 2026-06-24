@@ -13,6 +13,9 @@ reference:
 - source: .sspec/changes/26-06-24T01-01_codex-style-ui
   type: sub-change
   note: "Phase 2: codex-style-ui"
+- source: .sspec/changes/26-06-24T01-00_standard-tool-call/reference/handover.md
+  type: doc
+  note: "交接文档：phase 2 端到端验证前的状态与后续动作（只载 change 之外信息，详情见各 sub-change）"
 ---
 
 # standard-tool-call
