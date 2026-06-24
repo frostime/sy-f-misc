@@ -25,6 +25,7 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     utilityModelId: '',
     renderInStreamMode: true,
     toolCallMaxRounds: 7,
+    toolCallMode: 'standard',
     enablePrivacyMask: false, // 是否启用隐私屏蔽
     privacyFields: [] as IPrivacyField[], // 隐私字段配置
     chatOption: {

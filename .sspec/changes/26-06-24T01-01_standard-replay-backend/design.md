@@ -147,7 +147,7 @@ newPayload = {
 ## 6. Migration Path
 
 - 无强制迁移、无 schema 版本号变更。
-- `msg_migration.ts`：新版本透传 `toolChainMessages`（旧数据无此字段 → undefined → 自动 legacy）。
+- `msg_migration.ts`：V1→V2 迁移**无需透传** `toolChainMessages`（V1 `IChatSessionMsgItem` 无此字段，V1 数据不可能含此字段）。V2 payload 从 JSON 直接解析，新可选字段自然存在/缺省 undefined → 自动 legacy。
 - 旧会话：其 cell 均无 `toolChainMessages` → 即使会话切到 standard 模式，旧 cell 仍按 legacy 回放（不 strip）；新产生的 turn 才是 standard cell。
 - 新建会话：默认 `toolCallMode: 'standard'`，新 turn 即 standard cell。
 - 回滚：把 `toolCallMode` 改回 `'legacy'` 即恢复旧行为；已产生的 standard cell 仍能回放（`toolChainMessages` 存在 → 展开），不丢数据。

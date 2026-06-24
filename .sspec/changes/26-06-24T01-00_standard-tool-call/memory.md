@@ -48,9 +48,14 @@ Clarify 完成，root + 两 sub-change spec/design 已写。待用户 @align 确
 - [2026-06-24] [CoordinationDecision] reasoning_content：toolChainMessages 中 assistant 剥离；message（末条 assistant）保留供 phase 2 UI。
 - [2026-06-24] [CoordinationDecision] executeToolChain 返回值 phase 1 不改（已含 messages.toolChain 切分源）；MessageFlowFormatter 移集成层的清理不进 phase 1。
 - [2026-06-24] [Gotcha] xml.ts:213 已导出 toolChainResult JSON block，phase 1 standard cell 导出信息量不减（message.content 反更干净）；序列渲染留 phase 2。
+- [2026-06-24] [ImplementationNote] msg_migration 无需透传 toolChainMessages：V1 IChatSessionMsgItem 无此字段，V2 payload 从 JSON 直接加载自然含新可选字段。
+- [2026-06-24] [ImplementationNote] handleToolChain 非完成（aborted/error）分支保持现状返回 initialResponse（无 toolChainMessages → finalize 走 legacy 退化）。design 未覆盖此异常路径，保持与 legacy 一致的丢弃行为。
+- [2026-06-24] [ImplementationNote] config 加载 `{...defaultConfig, ...props.config}` 合并使旧会话也获 toolCallMode='standard'，但旧 cell 无 toolChainMessages 仍走 legacy 回放（cell 级判定），新 turn 才 standard。符合 design「旧 cell 保留、新 turn 按模式」。
+
 - [2026-06-24] [Deferred] reasoning_content 持久化前剥离；CodeX 式 UI + 编辑面板 + 结构化流式留 phase 2。
 
 ## Milestones
 - [2026-06-24T01:30] Clarify 收敛：确定 standard 模式=原生 IMessage[] 持久化+回放、一节点一 turn 内嵌序列、message=末条 assistant、per-session 默认 standard、legacy 不 strip、分期交付；root + phase1/phase2 spec 写毕，待 align。
 - [2026-06-24T02:00] Design align 通过；subagent 审查意见落地（末元素 fallback、reasoning 策略、XML export 更正、toolChainResult 定位不废弃、executeToolChain 返回值不改）。
 - [2026-06-24T02:15] Plan 写毕：phase 1 tasks 6 阶段（类型配置/finalize切分/回放分流/addVersion/UI开关/集成验证），root milestones 两期。进 implement。
+- [2026-06-24T02:45] Phase 1-5 代码实现完成，tsc/type-check 通过；Phase 6 端到端待用户验证。实现中发现：migration 无需透传（V1 无字段）、非完成分支保持现状、config 合并使旧会话 toolCallMode='standard' 但旧 cell 仍 legacy 回放。

@@ -220,7 +220,15 @@ export const useSession = (props: {
         const finalIds = new Set([...attachedMessages, ...pinnedMessages].map(m => getMeta(m, 'id')));
         const finalContext = previousMessages.filter(m => finalIds.has(getMeta(m, 'id')));
 
-        return [...finalContext, targetMessage].map(item => getPayload(item, 'message')!);
+        return [...finalContext, targetMessage].flatMap(item => {
+            const msg = getPayload(item, 'message')!;
+            const toolChainMessages = getPayload(item, 'toolChainMessages');
+            // standard cell: 展开原生消息序列 + 末条 assistant；legacy cell: 整段单条 assistant（不 strip）
+            if (toolChainMessages != null && toolChainMessages.length >= 0) {
+                return [...toolChainMessages, msg];
+            }
+            return [msg];
+        });
     }
 
     // ========== V2: 消息管理方法（直接使用 TreeModel）==========
@@ -365,6 +373,10 @@ export const useSession = (props: {
             },
             author: 'User',
             timestamp: Date.now(),
+            // 整组拷贝内容结构字段，避免版本切换退化丢工具调用结构
+            ...(currentPayload.toolChainMessages ? { toolChainMessages: currentPayload.toolChainMessages } : {}),
+            ...(currentPayload.toolChainResult ? { toolChainResult: currentPayload.toolChainResult } : {}),
+            ...(currentPayload.userPromptSlice ? { userPromptSlice: currentPayload.userPromptSlice } : {}),
         };
 
         treeModel.addVersion(itemId, newPayload);

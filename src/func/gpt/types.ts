@@ -543,6 +543,8 @@ interface IChatSessionConfig {
     utilityModelId?: string;
     renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
     toolCallMaxRounds: number; // 工具调用最大轮次
+    /** 工具调用持久化/回放模式。'standard'=原生 IMessage[] 序列持久化与回放；'legacy'=压缩串 + userPromptSlice。默认 'standard' */
+    toolCallMode: 'standard' | 'legacy';
     chatOption: IChatCompleteOption;
     /** 参数显式开关。key 不存在 ≈ toggle=true（兼容旧数据，默认发送）*/
     chatOptionToggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
