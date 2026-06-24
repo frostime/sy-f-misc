@@ -172,16 +172,16 @@ export default function QuickInputSetting(): JSX.Element;  // declareSettingPane
 {: custom-status="准备中" custom-type="${type}"}
 ```
 
-`${type}` 在 IAL 内由 `render` 先插值，再整体交给内核。**假设**：内核 `createDocWithMd`/`appendBlock` 解析 IAL 并把 `custom-*` 挂到对应块。约束：模板 IAL **只写 `custom-*`，不写死 `id`**（块 id 冲突）。Design 阶段（Plan 前）写最小用例验证：`appendBlock('markdown', 'xxx\n{: custom-test="1"}', someDocId)` 后 `getBlockAttrs(newBlockId)` 应见 `custom-test=1`。
+`${type}` 在 IAL 内由 `render` 先插值，再整体交给内核。~~**假设**：内核 `createDocWithMd`/`appendBlock` 解析 IAL 并把 `custom-*` 挂到对应块。~~ Update: runtime-verification-report.md V-1 已验证，内核正确解析 IAL 为块属性。约束：模板 IAL **只写 `custom-*`，不写死 `id`**（块 id 冲突）；IAL 属于“用户自担能力”，post-insert `setBlockAttrs` 更可靠：`appendBlock('markdown', 'xxx\n{: custom-test="1"}', someDocId)` 后 `getBlockAttrs(newBlockId)` 应见 `custom-test=1`。
 
 ## 7. 待定子决策 / 风险
 
 | ID | 项 | 状态 |
 |---|---|---|
 | P-1 ✅ | block 模式 anchorId 引用 `${todayDailynoteId}` 时 notebook 来源 | 已定 (a-flat)：`insertTo.block.notebook?` 可选字段，引用时必填；日记样板由 setting UI 快捷填充 |
-| V-1 | 内核 IAL 解析为块属性 | 假设，Plan/Implement 首任务最小用例验证 |
-| V-2 | `createDocWithMd` 对 hpath 中不存在父路径的创建行为 | 假设：内核自动创建中间文档；Plan 前验证 |
-| V-3 | `createDocWithMd` 同 hpath 已存在时的行为 | 假设：创建同名新文档（内核可能追加后缀）；Plan 前验证 |
+| V-1 | 内核 IAL 解析为块属性 | ~~假设，Plan/Implement 首任务最小用例验证~~ Update: 已验证，IAL 正确解析为块属性 |
+| V-2 | `createDocWithMd` 对 hpath 中不存在父路径的创建行为 | ~~假设：内核自动创建中间文档；Plan 前验证~~ Update: 已验证，内核自动创建中间路径文档 |
+| V-3 | `createDocWithMd` 同 hpath 已存在时的行为 | ~~假设：创建同名新文档（内核可能追加后缀）；Plan 前验证~~ Update: 已验证，内核静默创建新文档（不覆盖/不报错/不后缀）。engine 已在 document 模式加 `getIDsByHPath` + `confirm` 重复保护（revision 002） |
 | UX-1 | block anchorId 在 setting.tsx 的获取 UX | 候选：粘贴块 ID 输入框（MVP）/ 内置 block picker（后续）。MVP 用粘贴 + `getBlockByID` 校验 |
 
 ## 8. YAGNI Ledger

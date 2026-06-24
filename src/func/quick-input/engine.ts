@@ -4,6 +4,9 @@ import { appendBlock, createDocWithMd, getBlockByID, getIDsByHPath, insertBlock,
 
 import type { QuickInputTemplate } from "./types";
 
+// 定界符 ${var}（非 {{var}}）：思源 kramdown 嵌入块语法为 {{...}}，使用 {{var}} 会与之冲突。
+// render 先插值 ${var}，再将结果交给内核 kramdown 解析器（IAL 等）。
+// pre/postExecuteScript、SQL/JS anchorGenerator、Squirrelly 条件/循环均 deferred（schema 预留字段位，引擎不接线）。
 const TEMPLATE_VAR_REGEXP = /(\\)?\$\{(\w+)\}/g;
 
 export interface ExecuteResult {

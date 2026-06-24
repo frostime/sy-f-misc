@@ -18,7 +18,7 @@ This section records the change starting point in git and MUST NOT be edited or 
 ```
 
 ## State
-Implementation + revision 002 已完成，`spec.md` 状态为 REVIEW。Agent 验证 `pnpm run type-check` 与 `pnpm run build` 均通过；SiYuan runtime 行为需用户按 `reference/runtime-verification.md` 与 `reference/runtime-verification-report.md` 验证。
+Implementation + revision 002 已完成，`spec.md` 状态为 REVIEW。Agent 验证 `pnpm run type-check` 与 `pnpm run build` 均通过；SiYuan runtime 验证已由 subagent 完成（见 `reference/runtime-verification-report.md`），IAL/hpath 父路径/同 hpath 行为均已验证。
 
 ## Key Files
 - `.sspec/changes/26-06-24T22-43_quick-input/spec.md` — 问题、BC-1..BC-5、实现项、scope
