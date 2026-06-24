@@ -26,6 +26,7 @@ import * as pd from './post-doc';
 // import * as wb from './webview';
 import * as tg from './toggl';
 import * as qd from './quick-draft';
+import * as qi from './quick-input';
 import * as mr from './migrate-refs';
 import * as css from './custom-css-file';
 import * as gpt from './gpt';
@@ -60,6 +61,7 @@ let _ModulesToEnable: IFuncModule[] = [
     dft,
     dc,
     qd,
+    qi,
     it,
     tl,
     pd,

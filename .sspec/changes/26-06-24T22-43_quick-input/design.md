@@ -26,7 +26,7 @@ src/func/quick-input/
 ├── types.ts      QuickInputTemplate schema (insertTo discriminated union)
 ├── engine.ts     executeTemplate(tpl, userInput): Promise<{blockId}>  ← 深模块
 │                  ├── resolveCtx(tpl, userInput): 内置 var 字典 + 用户输入 → ctx
-│                  ├── render(str, ctx): {{var}} 手写插值
+│                  ├── render(str, ctx): ${var} 手写插值
 │                  └── resolveTarget + insert + openBlock
 ├── panel.tsx     openPanel(): solidDialog 列出预设(按 group) → simpleFormDialog(若需) → executeTemplate
 ├── setting.tsx   QuickInputSetting: 预设列表 CRUD + SimpleForm 编辑 (declareSettingPanel element)
@@ -41,10 +41,10 @@ src/func/quick-input/
 
 | 草案 | 本 change | 理由 |
 |---|---|---|
-| `InputPlace = block\|document\|dailynote` | `block\|document` | dailynote 是 block 的样板（`anchorId="{{todayDailynoteId}}"`） |
+| `InputPlace = block\|document\|dailynote` | `block\|document` | dailynote 是 block 的样板（`anchorId="${todayDailynoteId}"`） |
 | `IBasicVar`/`IMidVar`/`ITemplateVar` 三层 | 单一 evolving `ctx: Record<string,any>` | 同一字典的过早分层 |
 | `IDeclaredInputVar`（text/number/enum/bool） | 复用 `SimpleFormField` | 不重造表单规范 |
-| `InsertToTemplate` 含 `anchorGenerator{type:'sql'\|'js'}` | `anchorId: string`（`{{var}}` 模板）+ deferred 字段位 | MVP 不上 SQL/JS |
+| `InsertToTemplate` 含 `anchorGenerator{type:'sql'\|'js'}` | `anchorId: string`（`${var}` 模板）+ deferred 字段位 | MVP 不上 SQL/JS |
 | `pre/postExecuteScript` | schema 预留可选字段，引擎不接线 | deferred |
 | `TemplateStorage`（templates+groups+settings） | `templates: QuickInputTemplate[]` + group 从模板字段聚合 | 不单独存 group 实体 |
 
@@ -115,8 +115,8 @@ interface QuickInputConfig {            // custom-module.config.json → 'quick-
                 md = render(template, ctx)
                 mode=append  → appendBlock('markdown', md, anchorId')
                 mode=prepend → prependBlock('markdown', md, anchorId')
-                mode=next    → insertBlock('markdown', md, undefined, undefined, parentID?)  ◄── next/prev 需要 parent 上下文
-                mode=prev    → insertBlock('markdown', md, anchorId', undefined)
+                mode=before  → insertBlock('markdown', md, nextID=anchorId')
+                mode=after   → insertBlock('markdown', md, undefined, previousID=anchorId')
   │
   ▼
 [4] openBlock?.(docId|newBlockId)  (openBlock 默认 true)
@@ -131,10 +131,10 @@ done → 返回 {blockId}
 |---|---|---|
 | append | `appendBlock('markdown', md, parentID=anchorId')` | 作为 anchor 末尾子块 |
 | prepend | `prependBlock('markdown', md, parentID=anchorId')` | 作为 anchor 首个子块 |
-| next | `insertBlock('markdown', md, nextID=anchorId')` | anchor 的下一个兄弟 |
-| prev | `insertBlock('markdown', md, previousID=anchorId')` | anchor 的上一个兄弟 |
+| before | `insertBlock('markdown', md, nextID=anchorId')` | anchor 的前一个兄弟 |
+| after | `insertBlock('markdown', md, undefined, previousID=anchorId')` | anchor 的后一个兄弟 |
 
-> `insertBlock(dataType, data, nextID?, previousID?, parentID?)` 签名已确认（见 `api.d.ts:35`）。next/prev 传 `nextID`/`previousID`，不传 parentID。
+> `insertBlock(dataType, data, nextID?, previousID?, parentID?)` 签名已确认（见 `api.d.ts:35`）。before 传 `nextID`，after 传 `previousID`，不传 parentID。
 
 ## 5. 接口契约（关键签名）
 
@@ -147,7 +147,7 @@ export async function executeTemplate(
 
 // 内部（不导出，MVP）
 async function resolveCtx(tpl, userInput): Promise<Record<string, any>>;
-function render(str: string, ctx: Record<string, any>): string;  // {{var}} 插值，未定义 key → 空串
+function render(str: string, ctx: Record<string, any>): string;  // ${var} 插值，未定义 key → 空串
 
 // panel.tsx
 export function openPanel(): Promise<void>;  // solidDialog 内部自管生命周期
@@ -189,7 +189,7 @@ export default function QuickInputSetting(): JSX.Element;  // declareSettingPane
 **本次不建**：
 - `InsertTargetStrategy` / `VarResolver` interface + registry → 信号：第三种 insert 类型或脚本 var 出现且 switch/字典开始失控
 - `pre/postExecuteScript` 执行器、沙箱、错误 UX → 信号：用户提出动态计算 var 的真实场景且内置 var 字典不够
-- SQL/JS `anchorGenerator` → 信号：动态选位置需求超出 `{{var}}` 模板化 anchorId
+- SQL/JS `anchorGenerator` → 信号：动态选位置需求超出 `${var}` 模板化 anchorId
 - Squirrelly 条件/循环模板 → 信号：模板需要逻辑分支
 - 光标处插入 → 信号：用户明确提出
 - 模板分组管理 UI（group 实体）→ group 从模板字段聚合即可

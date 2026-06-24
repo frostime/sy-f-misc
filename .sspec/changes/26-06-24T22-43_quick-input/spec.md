@@ -1,6 +1,6 @@
 ---
 name: quick-input
-status: DOING
+status: REVIEW
 change-type: single
 created: 2026-06-24T22:43:38
 reference:
@@ -21,7 +21,7 @@ reference:
 
 ### Approach
 
-新建独立 func module `src/func/quick-input/`，提供"可配置预设 → 一键插入"能力。核心是**一个数据驱动的深引擎 `executeTemplate(template, userInput)`**：把"在哪里插、插什么、插完是否打开"全部编码为一条预设数据（`QuickInputTemplate`），引擎内部串起 var 解析 → `{{var}}` 渲染 → 解析插入目标 → 调用内核 API → openBlock 的完整管线。
+新建独立 func module `src/func/quick-input/`，提供"可配置预设 → 一键插入"能力。核心是**一个数据驱动的深引擎 `executeTemplate(template, userInput)`**：把"在哪里插、插什么、插完是否打开"全部编码为一条预设数据（`QuickInputTemplate`），引擎内部串起 var 解析 → `${var}` 渲染 → 解析插入目标 → 调用内核 API → openBlock 的完整管线。
 
 为什么是数据驱动单引擎而非策略/注册表模式：MVP 只有 2 类插入目标（document/block）和 2 类 var 来源（时间、今日日记）。单引擎内一个 `switch(insertTo.type)` + 一个扁平 `Record<string, () => Promise<any>>` var 字典已覆盖，且为后继扩展留最小缝——加 pre/post 脚本 = 字典加 entry + schema 加可选字段；加 SQL/JS anchorGenerator = switch 加一个 case。策略/注册表会为同一扩展点建两套等价抽象，MVP 阶段是负收益（shallow over-decomposition）。详见 [design.md](./design.md) Option 选型。
 
@@ -44,7 +44,7 @@ reference:
 **BC-3 预设执行（block）**
 - Surface: 思源编辑器
 - Before: 不存在
-- After: 点击预设 → 可选 `SimpleForm` → 解析 `anchorId`（支持 `{{var}}`，如 `{{todayDailynoteId}}`）→ 渲染 template → 按 `mode`（append/prepend/next/prev）调用 `appendBlock`/`prependBlock`/`insertBlock` → `openBlock` 默认打开定位到新块
+- After: 点击预设 → 可选 `SimpleForm` → 解析 `anchorId`（支持 `${var}`，如 `${todayDailynoteId}`）→ 渲染 template → 按 `mode`（append/prepend/next/prev；revision 001 改为 append/prepend/before/after）调用 `appendBlock`/`prependBlock`/`insertBlock` → `openBlock` 默认打开定位到新块
 - Boundary: `anchorId` 解析失败（块不存在）→ `showMessage` 报错并中止；IAL 同 BC-2
 
 **BC-4 配置管理**
@@ -62,7 +62,7 @@ reference:
 
 - **feat(module): 注册 quick-input func module** `src/func/index.ts` 加入 `_ModulesToEnable`；新建 `src/func/quick-input/index.ts`（`name/enabled/load/unload/declareToggleEnabled/declareSettingPanel`，注册 `Alt+I` command + 顶栏菜单）
 - **feat(types): 定义 QuickInputTemplate schema** `src/func/quick-input/types.ts`，`insertTo` 为 discriminated union（document|block），预留 `preExecuteScript`/`postExecuteScript`/`anchorGenerator` 可选字段位但不接线
-- **feat(engine): 实现 executeTemplate 管线** `src/func/quick-input/engine.ts`，单深模块：var 解析（时间 + `todayDailynoteId` 内置 var 字典）→ `{{var}}` 手写插值渲染 → resolve target → `createDocWithMd`/`appendBlock`/`prependBlock`/`insertBlock` → `openBlock`
+- **feat(engine): 实现 executeTemplate 管线** `src/func/quick-input/engine.ts`，单深模块：var 解析（时间 + `todayDailynoteId` 内置 var 字典）→ `${var}` 手写插值渲染 → resolve target → `createDocWithMd`/`appendBlock`/`prependBlock`/`insertBlock` → `openBlock`
 - **feat(ui): Alt+I 触发面板** `src/func/quick-input/panel.tsx`，`solidDialog` 渲染按 group 分组按钮 → 选中预设 → 有 `declaredInputVar` 则 `simpleFormDialog` → 调 `executeTemplate`
 - **feat(ui): 设置面板模板 CRUD** `src/func/quick-input/setting.tsx`，`declareSettingPanel` 独立 Tab，预设列表 + `SimpleForm` 编辑；block anchorId 获取 UX（粘贴块 ID / 内置 picker）在 Design 落地
 - **feat(config): 持久化** `src/func/quick-input/config.ts`，`declareModuleConfig`（key=`quick-input`）load/dump 预设列表到 `custom-module.config.json`
