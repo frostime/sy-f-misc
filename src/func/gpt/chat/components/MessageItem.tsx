@@ -16,6 +16,7 @@ import { useSimpleContext } from '../ChatSession/use-chat-session';
 import MessageVersionView from './MessageVersionView';
 import ToolChainIndicator from './ToolChainIndicator';
 import StandardTurnView from './StandardTurnView';
+import TurnEditPanel, { TurnEdits } from './TurnEditPanel';
 
 import { createMarkdownRenderer } from './MessageItem.helper';
 import { floatSiYuanTextEditor } from '../utils';
@@ -187,6 +188,24 @@ const MessageItem: Component<{
     const editMessage = (e: MouseEvent, useSiYuanEditor: boolean = false) => {
         e.stopPropagation();
         e.preventDefault();
+        // Standard 模式: 多段编辑面板
+        if (getPayload(props.messageItem, 'toolChainMessages') != null) {
+            const dlg = solidDialog({
+                title: '编辑工具调用回合',
+                width: '700px',
+                height: '70vh',
+                loader: () => (
+                    <TurnEditPanel
+                        messageItem={props.messageItem}
+                        onConfirm={(edits: TurnEdits) => {
+                            session.updateStandardTurn?.(props.messageItem.id, edits);
+                            dlg.close();
+                        }}
+                    />
+                )
+            });
+            return;
+        }
         if (!useSiYuanEditor) {
             floatingEditor({
                 initialText: textContent(),

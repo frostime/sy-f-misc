@@ -382,6 +382,42 @@ export const useSession = (props: {
         treeModel.addVersion(itemId, newPayload);
     };
 
+    /**
+     * Standard 模式 turn 多段编辑：更新当前 version payload 的 message.content 与 toolChainMessages[i].content
+     * （不碰 tool 消息、不碰 toolChainResult）
+     */
+    const updateStandardTurn = (
+        itemId: string,
+        edits: { finalMessageContent: string; intermediateEdits?: Record<number, string> }
+    ) => {
+        const node = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
+        if (!node || node.type !== 'message') return;
+        const current = node.versions[node.currentVersionId];
+        if (!current) return;
+        if (!current.toolChainMessages) return;  // 仅 standard cell
+
+        const newMessage: IMessage = {
+            ...current.message,
+            content: edits.finalMessageContent,
+        };
+
+        let newToolChainMessages: IMessage[] | undefined = current.toolChainMessages;
+        if (edits.intermediateEdits) {
+            newToolChainMessages = current.toolChainMessages.map((m, i) => {
+                const edit = edits.intermediateEdits?.[i];
+                if (edit !== undefined && m.role === 'assistant') {
+                    return { ...m, content: edit };
+                }
+                return m;
+            });
+        }
+
+        treeModel.updatePayload(itemId, {
+            message: newMessage,
+            toolChainMessages: newToolChainMessages,
+        });
+    };
+
     const switchMsgItemVersion = (itemId: string, version: string) => {
         const node = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
         if (!node) return;
@@ -906,6 +942,10 @@ export const useSession = (props: {
         // ========== 版本管理==========
         addMsgItemVersion: (itemId: string, content: string) => {
             addMsgItemVersion(itemId, content);
+            renewUpdatedTimestamp();
+        },
+        updateStandardTurn: (itemId: string, edits: { finalMessageContent: string; intermediateEdits?: Record<number, string> }) => {
+            updateStandardTurn(itemId, edits);
             renewUpdatedTimestamp();
         },
         switchMsgItemVersion: (itemId: string, version: string) => {
