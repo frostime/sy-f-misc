@@ -13,7 +13,7 @@ updated: "2026-06-24"
 
 ### Phase 1: standard-replay-backend ⏳
 - [x] Sub-change created and linked → [26-06-24T01-01_standard-replay-backend](../26-06-24T01-01_standard-replay-backend/)
-- [ ] Sub-change completed and verified
+- [x] Sub-change completed and verified
 **Deliverable**: standard 模式下工具调用 turn 以原生 `IMessage[]` 持久化与回放；per-session `toolCallMode` 开关默认 standard；legacy 兼容零迁移；旧常识边界（edit/addVersion/branch/delete）保持。
 **Sub-change**: [../26-06-24T01-01_standard-replay-backend/](../26-06-24T01-01_standard-replay-backend/)
 
