@@ -59,14 +59,15 @@ updated: "2026-06-24"
 
 ## Progress
 
-**Overall**: 25%
+**Overall**: 50%
 
 | Phase | Progress | Status |
 |-------|----------|--------|
 | Phase 2a: 静态交错渲染 | 100% | ✅ |
-| Phase 2b: 多段编辑面板 | 0% | ⏳ |
+| Phase 2b: 多段编辑面板 | 100% | ✅ |
 | Phase 2d: 导出/snapshot 完整序列渲染 | 0% | ⏳ |
 | Phase 2e: 集成验证 | 0% | ⏳ |
 
 **Recent**:
 - 2a 实现：ToolCallRow + StandardTurnView + MessageItem 分流，tsc 通过。
+- 2b 实现：TurnEditPanel + updateStandardTurn + editMessage standard 分支弹面板，tsc 通过。

@@ -82,6 +82,39 @@ ${SEPERATOR_LINE}
     if (message.role === 'assistant') {
         author = getPayload(item, 'author');
     }
+
+    // Standard 模式: 遍历 [...toolChainMessages, message] 交错渲染
+    const toolChainMessages = getPayload(item, 'toolChainMessages');
+    if (toolChainMessages && toolChainMessages.length >= 0) {
+        const timestamp = getPayload(item, 'timestamp');
+        const timeStr = timestamp ? formatDateTime(null, new Date(timestamp)) : '';
+        const sequence = [...toolChainMessages, message];
+        const parts: string[] = [];
+        for (const msg of sequence) {
+            if (msg.role === 'assistant') {
+                let { text, images } = extractMessageContent(msg.content);
+                if (defaultConfig().convertMathSyntax) {
+                    text = convertMathFormulas(text);
+                }
+                const imgs = (images && images.length > 0 && convertImage)
+                    ? images.map(b64 => `<img style="max-width: 100%; display: inline-block;" src="${b64}" />`).join('\n')
+                    : '';
+                const content = `${text}${imgs ? '\n\n' + imgs : ''}`.trim();
+                if (content) {
+                    parts.push(formatSingleItem('ASSISTANT', content, { author, timestamp: timeStr }));
+                }
+            } else if (msg.role === 'tool') {
+                const toolContent = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+                parts.push(formatSingleItem('TOOL', toolContent, {
+                    'tool_call_id': (msg as any).tool_call_id ?? '',
+                    name: (msg as any).name ?? '',
+                }));
+            }
+        }
+        return parts.join('\n\n');
+    }
+
+    // Legacy 模式: 现状
     let { text, images } = extractMessageContent(message.content);
     if (defaultConfig().convertMathSyntax) {
         text = convertMathFormulas(text);
