@@ -63,7 +63,14 @@ const TurnEditPanel: Component<TurnEditPanelProps> = (props) => {
     };
 
     return (
-        <div style={{ "max-height": "70vh", "overflow-y": "auto", padding: '12px' }}>
+        <div style={{
+            width: '100%',
+            height: '100%',
+            "max-height": "70vh",
+            "overflow-y": "auto",
+            padding: '12px',
+            "box-sizing": 'border-box'
+        }}>
             <For each={sequence()}>
                 {(msg, index) => {
                     const isLast = createMemo(() => index() === lastIndex());
@@ -78,7 +85,7 @@ const TurnEditPanel: Component<TurnEditPanelProps> = (props) => {
                     const hasToolCalls = createMemo(() => (toolCalls()?.length ?? 0) > 0);
 
                     return (
-                        <div style={{ "margin-bottom": '12px' }}>
+                        <div style={{ "margin-bottom": '12px', width: '100%', "box-sizing": 'border-box' }}>
                             <Show when={hasText()}>
                                 <div style={{ "font-size": '12px', color: 'var(--b3-theme-on-surface)', "margin-bottom": '4px' }}>
                                     {isLast() ? '最终回复' : `中间文本段 #${index()}`}
@@ -94,7 +101,8 @@ const TurnEditPanel: Component<TurnEditPanelProps> = (props) => {
                                         "min-height": isLast() ? '120px' : '60px',
                                         "font-size": '14px',
                                         padding: '6px',
-                                        resize: 'vertical'
+                                        resize: 'vertical',
+                                        "box-sizing": 'border-box'
                                     }}
                                 />
                             </Show>
@@ -102,16 +110,18 @@ const TurnEditPanel: Component<TurnEditPanelProps> = (props) => {
                                 <div style={{ "font-size": '12px', color: 'var(--b3-theme-on-surface)', "margin": '8px 0 4px' }}>
                                     工具调用（只读）
                                 </div>
-                                <For each={toolCalls()!}>
-                                    {(tc) => {
-                                        const entry = createMemo(() => toolResultMap().get(tc.id));
-                                        return (
-                                            <Show when={entry()}>
-                                                <ToolCallRow entry={entry()} />
-                                            </Show>
-                                        );
-                                    }}
-                                </For>
+                                <div class={styles.timelineList}>
+                                    <For each={toolCalls()!}>
+                                        {(tc) => {
+                                            const entry = createMemo(() => toolResultMap().get(tc.id));
+                                            return (
+                                                <Show when={entry()}>
+                                                    <ToolCallRow entry={entry()} />
+                                                </Show>
+                                            );
+                                        }}
+                                    </For>
+                                </div>
                             </Show>
                         </div>
                     );

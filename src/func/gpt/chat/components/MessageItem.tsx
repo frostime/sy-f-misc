@@ -201,6 +201,7 @@ const MessageItem: Component<{
                             session.updateStandardTurn?.(props.messageItem.id, edits);
                             dlg.close();
                         }}
+                        onCancel={() => dlg.close()}
                     />
                 )
             });

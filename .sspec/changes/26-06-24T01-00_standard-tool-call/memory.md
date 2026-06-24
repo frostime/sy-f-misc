@@ -1,6 +1,6 @@
 # Memory: standard-tool-call
 
-**Updated**: <!-- ISO timestamp, minute precision -->
+**Updated**: 2026-06-24T17:45+08:00
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -64,3 +64,5 @@ Phase 1 DONE。Phase 2 codex-style-ui design 写毕（含 UI 映射约束、Stan
 - [2026-06-24T03:30] Phase 2 design 写毕：subagent 映射 MessageItem UI 结构（924 行，6 处单串假设约束），design 含 StandardTurnView 交错渲染/多段编辑/结构化流式/文件布局/分步 2a-2d/3 OQ。spec-doc tool-call 已补 standard 模式。待 align。
 - [2026-06-24T03:40] Phase 2 design align：3 OQ 定（tool 行单行可展开/中间段折叠/2c 延后）。Plan 写毕：2a 静态交错、2b 编辑面板、2d 导出、2e 验证（2c 流式延后）。进 implement。
 - [2026-06-24T04:15] Phase 2 代码实现完成（2a/2b/2d），type-check 通过；2e 端到端待用户验证。新增文件：ToolCallRow、StandardTurnView、TurnEditPanel；改 MessageItem 分流、use-chat-session updateStandardTurn、xml.ts/sy-doc.ts standard 分支交错渲染。
+- [2026-06-24T17:45] Phase 2e 用户验证发现 standard cell 右键编辑复合 turn 时弹窗内容左侧窄列、右侧空白。修复 TurnEditPanel 根容器/段容器/textarea box sizing 与 width，使内容占满 solidDialog；MessageItem 补 onCancel 关闭弹窗。
+- [2026-06-24T17:55] 用户反馈编辑面板中 tool 行 icon 位置偏移（与 textarea 不对齐）。修复：工具行外包 `<div class={styles.timelineList}>`，使其与主视图共享同一套 timeline 缩进（padding-left + 竖线 + marker 绝对定位）。type-check 通过。
