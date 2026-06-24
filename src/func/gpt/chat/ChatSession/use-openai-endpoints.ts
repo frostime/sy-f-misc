@@ -51,6 +51,11 @@ interface RunResult {
 interface ExtendedCompletionResult extends ICompletionResult {
     hintSize?: number;
     toolChainResult?: IMessagePayload['toolChainResult'];
+    /**
+     * Standard 模式: turn 内原生消息序列（不含末条 assistant，已 strip reasoning）。
+     * 存在 → finalize 走 standard 分支；缺省 → legacy 分支（压缩串 + userPromptSlice）。
+     */
+    toolChainMessages?: IMessage[];
 }
 
 /** 消息完成时的元数据 */
@@ -190,8 +195,11 @@ const createMessageLifecycle = (
                 usage: result.usage,
                 time: result.time,
                 token: result.usage?.completion_tokens ?? null,
-                userPromptSlice: result.hintSize ? [result.hintSize, result.content.length] : undefined,
-                toolChainResult: result.toolChainResult ?? undefined
+                userPromptSlice: result.toolChainMessages
+                    ? undefined
+                    : (result.hintSize ? [result.hintSize, result.content.length] : undefined),
+                toolChainResult: result.toolChainResult ?? undefined,
+                toolChainMessages: result.toolChainMessages ?? undefined
             });
 
             treeModel.updateNode(id, {
@@ -614,6 +622,17 @@ const findImageFromRecentMessages = async (messages: IChatSessionMsgItemV2[], at
 // 3. Tool Chain Handler
 // ============================================================================
 
+/**
+ * 剥离 assistant 消息的 reasoning_content（持久化时不保留中间推理；tool 消息无此字段，no-op）
+ */
+function stripReasoning(msg: IMessage): IMessage {
+    if (msg.role === 'assistant' && 'reasoning_content' in msg) {
+        const { reasoning_content: _reasoning, ...rest } = msg;
+        return rest as IMessage;
+    }
+    return msg;
+}
+
 interface ToolChainParams {
     toolExecutor: ToolExecutor;
     initialResponse: ICompletionResult;
@@ -627,6 +646,7 @@ interface ToolChainParams {
     maxRounds: number;
     treeModel: ITreeModel;  // 从 messages 改为 treeModel
     scrollToBottom?: (force?: boolean) => void;
+    toolCallMode: 'standard' | 'legacy';
 }
 
 const handleToolChain = async (params: ToolChainParams): Promise<ExtendedCompletionResult> => {
@@ -642,7 +662,8 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
         toggles,
         maxRounds,
         treeModel,
-        scrollToBottom
+        scrollToBottom,
+        toolCallMode
     } = params;
 
     if (!toolExecutor || !initialResponse.tool_calls?.length) {
@@ -683,6 +704,43 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
         });
 
         if (toolChainResult.status === 'completed') {
+            if (toolCallMode === 'standard') {
+                // Standard: 切分原生消息序列，不压缩
+                const tcm = toolChainResult.messages.toolChain;
+                const last = tcm[tcm.length - 1];
+                let finalContent: string;
+                let finalReasoning: string | undefined;
+                let toolChainMessagesPersist: IMessage[];
+
+                if (last && last.role === 'assistant') {
+                    // 正常: 末元素为 final assistant
+                    finalContent = extractContentText(last.content);
+                    finalReasoning = last.reasoning_content;
+                    toolChainMessagesPersist = tcm.slice(0, -1).map(stripReasoning);
+                } else {
+                    // 边界 fallback: follow-up 异常，末元素为 tool(incomplete) 非 assistant
+                    // 合成空 message 保持 standard 形状，不混入 legacy
+                    finalContent = '';
+                    finalReasoning = undefined;
+                    toolChainMessagesPersist = tcm.map(stripReasoning);
+                }
+
+                return {
+                    content: finalContent,
+                    reasoning_content: finalReasoning,
+                    usage: toolChainResult.usage,
+                    time: initialResponse.time,
+                    toolChainMessages: toolChainMessagesPersist,
+                    // 不设 hintSize → finalize 不设 userPromptSlice
+                    toolChainResult: {
+                        toolCallHistory: toolChainResult.toolCallHistory,
+                        stats: toolChainResult.stats,
+                        status: toolChainResult.status,
+                        error: toolChainResult.error
+                    }
+                };
+            }
+            // Legacy: 现状（压缩串 + hintSize）
             return {
                 content: toolChainResult.toolChainContent + toolChainResult.responseContent,
                 usage: toolChainResult.usage,
@@ -800,7 +858,8 @@ const useGptCommunication = (params: {
                 toggles: config().chatOptionToggles,
                 maxRounds: config().toolCallMaxRounds,
                 treeModel,
-                scrollToBottom
+                scrollToBottom,
+                toolCallMode: config().toolCallMode
             });
         }
 

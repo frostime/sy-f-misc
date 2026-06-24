@@ -220,7 +220,15 @@ export const useSession = (props: {
         const finalIds = new Set([...attachedMessages, ...pinnedMessages].map(m => getMeta(m, 'id')));
         const finalContext = previousMessages.filter(m => finalIds.has(getMeta(m, 'id')));
 
-        return [...finalContext, targetMessage].map(item => getPayload(item, 'message')!);
+        return [...finalContext, targetMessage].flatMap(item => {
+            const msg = getPayload(item, 'message')!;
+            const toolChainMessages = getPayload(item, 'toolChainMessages');
+            // standard cell: 展开原生消息序列 + 末条 assistant；legacy cell: 整段单条 assistant（不 strip）
+            if (toolChainMessages != null && toolChainMessages.length >= 0) {
+                return [...toolChainMessages, msg];
+            }
+            return [msg];
+        });
     }
 
     // ========== V2: 消息管理方法（直接使用 TreeModel）==========
@@ -365,9 +373,49 @@ export const useSession = (props: {
             },
             author: 'User',
             timestamp: Date.now(),
+            // 整组拷贝内容结构字段，避免版本切换退化丢工具调用结构
+            ...(currentPayload.toolChainMessages ? { toolChainMessages: currentPayload.toolChainMessages } : {}),
+            ...(currentPayload.toolChainResult ? { toolChainResult: currentPayload.toolChainResult } : {}),
+            ...(currentPayload.userPromptSlice ? { userPromptSlice: currentPayload.userPromptSlice } : {}),
         };
 
         treeModel.addVersion(itemId, newPayload);
+    };
+
+    /**
+     * Standard 模式 turn 多段编辑：更新当前 version payload 的 message.content 与 toolChainMessages[i].content
+     * （不碰 tool 消息、不碰 toolChainResult）
+     */
+    const updateStandardTurn = (
+        itemId: string,
+        edits: { finalMessageContent: string; intermediateEdits?: Record<number, string> }
+    ) => {
+        const node = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
+        if (!node || node.type !== 'message') return;
+        const current = node.versions[node.currentVersionId];
+        if (!current) return;
+        if (!current.toolChainMessages) return;  // 仅 standard cell
+
+        const newMessage: IMessage = {
+            ...current.message,
+            content: edits.finalMessageContent,
+        };
+
+        let newToolChainMessages: IMessage[] | undefined = current.toolChainMessages;
+        if (edits.intermediateEdits) {
+            newToolChainMessages = current.toolChainMessages.map((m, i) => {
+                const edit = edits.intermediateEdits?.[i];
+                if (edit !== undefined && m.role === 'assistant') {
+                    return { ...m, content: edit };
+                }
+                return m;
+            });
+        }
+
+        treeModel.updatePayload(itemId, {
+            message: newMessage,
+            toolChainMessages: newToolChainMessages,
+        });
     };
 
     const switchMsgItemVersion = (itemId: string, version: string) => {
@@ -894,6 +942,10 @@ export const useSession = (props: {
         // ========== 版本管理==========
         addMsgItemVersion: (itemId: string, content: string) => {
             addMsgItemVersion(itemId, content);
+            renewUpdatedTimestamp();
+        },
+        updateStandardTurn: (itemId: string, edits: { finalMessageContent: string; intermediateEdits?: Record<number, string> }) => {
+            updateStandardTurn(itemId, edits);
             renewUpdatedTimestamp();
         },
         switchMsgItemVersion: (itemId: string, version: string) => {

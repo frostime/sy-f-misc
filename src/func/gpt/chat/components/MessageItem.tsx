@@ -15,6 +15,8 @@ import AttachmentList from './AttachmentList';
 import { useSimpleContext } from '../ChatSession/use-chat-session';
 import MessageVersionView from './MessageVersionView';
 import ToolChainIndicator from './ToolChainIndicator';
+import StandardTurnView from './StandardTurnView';
+import TurnEditPanel, { TurnEdits } from './TurnEditPanel';
 
 import { createMarkdownRenderer } from './MessageItem.helper';
 import { floatSiYuanTextEditor } from '../utils';
@@ -186,6 +188,25 @@ const MessageItem: Component<{
     const editMessage = (e: MouseEvent, useSiYuanEditor: boolean = false) => {
         e.stopPropagation();
         e.preventDefault();
+        // Standard 模式: 多段编辑面板
+        if (getPayload(props.messageItem, 'toolChainMessages') != null) {
+            const dlg = solidDialog({
+                title: '编辑工具调用回合',
+                width: '700px',
+                height: '70vh',
+                loader: () => (
+                    <TurnEditPanel
+                        messageItem={props.messageItem}
+                        onConfirm={(edits: TurnEdits) => {
+                            session.updateStandardTurn?.(props.messageItem.id, edits);
+                            dlg.close();
+                        }}
+                        onCancel={() => dlg.close()}
+                    />
+                )
+            });
+            return;
+        }
         if (!useSiYuanEditor) {
             floatingEditor({
                 initialText: textContent(),
@@ -885,21 +906,41 @@ const MessageItem: Component<{
                 </div>
 
                 {/* 消息正文 */}
-                <div class={styles.messageBody}>
-                    <ReasoningSection />
+                <Show
+                    when={getPayload(props.messageItem, 'toolChainMessages') != null}
+                    fallback={
+                        <>
+                            <div class={styles.messageBody}>
+                                <ReasoningSection />
+                                <div
+                                    oncontextmenu={onContextMenu}
+                                    classList={{
+                                        [styles.message]: true,
+                                        [styles[role()]]: true,
+                                        'b3-typography': true,
+                                        [styles.hidden]: getMeta(props.messageItem, 'hidden'),
+                                        [styles.pinned]: getMeta(props.messageItem, 'pinned')
+                                    }}
+                                    innerHTML={messageAsHTML()}
+                                    ref={msgRef}
+                                />
+                            </div>
+                            <ToolChainIndicator messageItem={props.messageItem} />
+                        </>
+                    }
+                >
+                    {/* Standard 模式: CodeX 式交错渲染（assistant 文本段 + tool 行），tool 行已内联，不再渲染独立 ToolChainIndicator */}
                     <div
                         oncontextmenu={onContextMenu}
                         classList={{
-                            [styles.message]: true,
                             [styles[role()]]: true,
-                            'b3-typography': true,
                             [styles.hidden]: getMeta(props.messageItem, 'hidden'),
                             [styles.pinned]: getMeta(props.messageItem, 'pinned')
                         }}
-                        innerHTML={messageAsHTML()}
-                        ref={msgRef}
-                    />
-                </div>
+                    >
+                        <StandardTurnView messageItem={props.messageItem} loading={props.loading} />
+                    </div>
+                </Show>
 
                 {/* 附件区域 */}
                 <Show when={multiModalAttachments().length > 0 || getMeta(props.messageItem, 'context')?.length > 0}>
@@ -909,8 +950,6 @@ const MessageItem: Component<{
                         size="small"
                     />
                 </Show>
-
-                <ToolChainIndicator messageItem={props.messageItem} />
 
                 <Show when={!props.loading}>
                     <MessageToolbar />

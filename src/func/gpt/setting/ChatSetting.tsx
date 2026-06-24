@@ -146,6 +146,22 @@ const ChatSessionSetting = (props: {
                 />
             </Form.Wrap>
             <Form.Wrap
+                title="工具调用模式"
+                description="Standard：工具调用以原生消息序列持久化与回放（符合 OpenAI 标准协议）；Legacy：压缩为单条字符串（旧版本行为，兼容保留）"
+            >
+                <Form.Input
+                    type="select"
+                    value={config().toolCallMode ?? 'standard'}
+                    changed={(v) => {
+                        config.update('toolCallMode', v as 'standard' | 'legacy');
+                    }}
+                    options={{
+                        'standard': 'Standard（原生消息序列）',
+                        'legacy': 'Legacy（压缩字符串）'
+                    }}
+                />
+            </Form.Wrap>
+            <Form.Wrap
                 title="Stream 模式"
                 description="以 Stream 模式请求"
             >

@@ -1,7 +1,7 @@
 ---
 name: Chat 集成层（use-openai-endpoints）
 description: Tool Call 在 ChatSession 中的完整集成逻辑：注入工具定义、构建 systemPrompt、执行链路、结果保存
-updated: 2026-02-22
+updated: 2026-06-24
 scope:
   - /src/func/gpt/chat/ChatSession/use-openai-endpoints.ts
   - /src/func/gpt/chat/ChatSession/use-chat-session.ts
@@ -13,6 +13,19 @@ deprecated: false
 **位置**：`/src/func/gpt/chat/ChatSession/use-openai-endpoints.ts`
 
 本文档描述 Tool Call 如何嵌入完整的 Chat 请求流程。
+
+---
+
+## 工具调用持久化模式
+
+`config().toolCallMode`（per-session，默认 `'standard'`）决定工具调用 turn 的持久化与回放形态：
+
+| 模式 | 持久化 | 回放 |
+|------|--------|------|
+| **Standard** | payload 新增 `toolChainMessages: IMessage[]`（原生序列，不含末条 assistant）；`message`=末条 assistant（唯一可编辑源）；不设 `userPromptSlice` | `getAttachedHistory` 展开为 `[...toolChainMessages, message]`，发给 LLM 的是真实 `assistant(tool_calls)` + `role:tool` 序列 |
+| **Legacy** | 压缩串 `toolChainContent + responseContent` 写入 `message.content`；`userPromptSlice=[hintSize, len]` 标记 hint 边界 | 单条 assistant 消息（压缩串，不 strip） |
+
+判定：`payload.toolChainMessages != null` → standard cell；否则 legacy cell。旧数据无此字段自动 legacy，零迁移。`executeToolChain` 自身不区分模式——分流发生在集成层 `handleToolChain` 与 `getAttachedHistory`。详见 [standard-tool-call change](/../../changes/26-06-24T01-00_standard-tool-call/)。
 
 ---
 
@@ -102,43 +115,50 @@ sendMessage(userMessage, attachments, contexts)
 - 从上下文还原用户输入（`extractMessageContent(userPayload.message.content)`）
 - 同样先获取历史再创建占位
 
+### 回放分流（getAttachedHistory）
+
+`getAttachedHistory`（[`use-chat-session.ts`](/src/func/gpt/chat/ChatSession/use-chat-session.ts)）在选定窗口（按 item=turn 计数）后，末尾按 cell 模式展开为发给 LLM 的 `IMessage[]`：
+
+```
+return [...finalContext, targetMessage].flatMap(item => {
+  const msg = getPayload(item, 'message')
+  const tcm = getPayload(item, 'toolChainMessages')
+  if (tcm != null)  return [...tcm, msg]   // standard: 展开原生序列 + 末条 assistant
+  else              return [msg]           // legacy: 整段单条 assistant（不 strip）
+})
+```
+
+窗口计数仍按 item（=turn），展开发生在窗口选定之后。语义：只有 user 输入才是 turn 边界，一个 assistant→tool→...→assistant 序列视为一个 turn。
+
 ---
 
 ## 4. 工具链集成（handleToolChain）
 
-```typescript
-const handleToolChain = async (params: ToolChainParams): Promise<ExtendedCompletionResult> => {
-    // 仅当 toolExecutor 存在且第一次响应含 tool_calls 时才调用
-    const toolChainResult = await executeToolChain(toolExecutor, initialResponse, {
-        contextMessages,       // 发给 LLM 的完整消息历史
-        maxRounds: config().toolCallMaxRounds,  // 用户可配置最大轮次
-        abortController: controller,
-        model,
-        systemPrompt: chatHandler.buildSystemPrompt(),  // ← 含 toolRules()
-        chatOption: chatHandler.buildChatOption(),
-        checkToolResults: true,   // 启用结果审批
-        callbacks: {
-            onLLMResponseUpdate: (content) => {
-                treeModel.updatePayload(targetId, { message: { role: 'assistant', content } });
-                scrollToBottom?.(false);  // 流式更新时实时滚动
-            },
-            onError: (error, phase) => showMessage(`工具调用出错 (${phase}): ${error.message}`)
-        }
-    });
+`handleToolChain` 调用 `executeToolChain()` 后，按 `config().toolCallMode` 分流收尾。`executeToolChain` 自身不区分模式，始终返回 `{ messages.toolChain, toolChainContent, responseContent, toolCallHistory, stats, status, error, usage }`。
 
-    if (toolChainResult.status === 'completed') {
-        return {
-            content: toolChainResult.toolChainContent + toolChainResult.responseContent,
-            hintSize: toolChainResult.toolChainContent.length,  // ← 记录分隔位置
-            toolChainResult: {
-                toolCallHistory: toolChainResult.toolCallHistory,
-                stats:  toolChainResult.stats,
-                status: toolChainResult.status,
-                error:  toolChainResult.error
-            },
-            usage: toolChainResult.usage,
-            ...
-        };
+```
+result = executeToolChain(...)
+if status == 'completed':
+  if mode == 'standard':
+    tcm = result.messages.toolChain                  // 原生序列（已不含合成 [SYSTEM] user）
+    last = tcm[末]
+    if last.role == 'assistant':                      // 正常
+      message = { role:'assistant', content=extractContentText(last.content), reasoning_content=last.reasoning_content }
+      toolChainMessages_persist = tcm[0..-2].map(stripReasoning)   // 剥离中间 assistant 的 reasoning
+    else:                                             // 边界 fallback（follow-up 异常，末元素为 tool(incomplete)）
+      message = { role:'assistant', content='' }
+      toolChainMessages_persist = tcm.map(stripReasoning)
+    return { content, reasoning_content, toolChainMessages: toolChainMessages_persist, toolChainResult, usage }
+    // 不设 hintSize → finalize 不设 userPromptSlice
+  else:  // legacy
+    return { content: toolChainContent + responseContent, hintSize: toolChainContent.length, toolChainResult, usage }
+else:
+  return initialResponse   // aborted/error：退化走 legacy finalize（无 toolChainMessages）
+```
+
+`stripReasoning(msg)`：剥离 assistant 消息的 `reasoning_content`（tool 消息 no-op）。`toolChainMessages` 中间 assistant 一律剥离；`message`（末条 assistant）保留 reasoning 供 UI。
+
+**数据源**：`result.messages.toolChain` 由 `executeToolChain` 返回（执行器不改），即 `state.toolChainMessages`。合成 `[SYSTEM]` user 消息（maxRounds 兜底）只进 `state.allMessages` 不进 `toolChainMessages` → 持久化自动排除。
     }
 };
 ```
@@ -147,27 +167,28 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
 
 ## 5. 结果持久化（lifecycle.finalize）
 
-`finalize()` 将 `ExtendedCompletionResult` 写入 TreeModel 节点：
+`finalize()` 将 `ExtendedCompletionResult` 写入 TreeModel 节点，按模式分流：
 
 ```typescript
 treeModel.updatePayload(id, {
-    message: { role: 'assistant', content: result.content },
-    // content = toolChainContent + responseContent（拼接字符串）
-    usage:    result.usage,
-    time:     result.time,
-    token:    result.usage?.completion_tokens,
+    message: { role: 'assistant', content: result.content, ...reasoning_content },
+    usage, time, token,
 
-    // 工具链专属字段
-    userPromptSlice: result.hintSize ? [result.hintSize, result.content.length] : undefined,
-    // userPromptSlice[0] = toolChainContent.length = System Hint 的字节边界
-    // UI 通过 userPromptSlice 知道哪部分是 "hint"，哪部分是真正的回复
-
-    toolChainResult: result.toolChainResult ?? undefined
-    // 保存完整工具调用历史，供 UI 展示工具调用面板使用
+    // standard: userPromptSlice=undefined，写 toolChainMessages
+    // legacy:   userPromptSlice=[hintSize, len]，无 toolChainMessages
+    userPromptSlice: result.toolChainMessages
+        ? undefined
+        : (result.hintSize ? [result.hintSize, result.content.length] : undefined),
+    toolChainMessages: result.toolChainMessages ?? undefined,
+    toolChainResult: result.toolChainResult ?? undefined   // 两模式均写（UI timeline 元数据源）
 });
 ```
 
-**`userPromptSlice` 的作用**：在 Chat UI 中，`message.content` 是 `toolChainContent + responseContent` 的拼接，`userPromptSlice` 告诉 UI 在位置 `[0, hintSize)` 是 System Hint（可以折叠/隐藏），`[hintSize, end)` 才是展示给用户的真实回复。
+**Standard**：`message.content` = 末条 assistant 最终回复（纯文本/多模态，符合 OpenAI 规范）；`toolChainMessages` = turn 内原生序列；UI 通过 `toolChainResult` 驱动折叠 timeline。
+
+**Legacy**：`message.content` = `toolChainContent + responseContent`（压缩串）；`userPromptSlice[0]` = hintSize = System Hint 字节边界，UI 在 `[0, hintSize)` 折叠 hint、`[hintSize, end)` 显示回复。
+
+**`toolChainResult` 定位**：两模式均产出，是 UI/统计元数据源（timing、llmUsage、rejectReason、stats、status、error），与 `toolChainMessages`（消息序列/回放源）分工；重叠仅只读 `result.data`，无 drift。
 
 ---
 
@@ -175,8 +196,9 @@ treeModel.updatePayload(id, {
 
 ```typescript
 interface ExtendedCompletionResult extends ICompletionResult {
-    hintSize?: number;             // toolChainContent 的字符长度（分隔边界）
-    toolChainResult?: IMessagePayload['toolChainResult'];  // 工具调用历史 + 统计
+    hintSize?: number;             // legacy: toolChainContent 字符长度（分隔边界）；standard: 不设
+    toolChainResult?: IMessagePayload['toolChainResult'];  // 两模式：UI/统计元数据
+    toolChainMessages?: IMessage[];  // standard: turn 内原生序列（不含末条 assistant，已 strip reasoning）
 }
 ```
 

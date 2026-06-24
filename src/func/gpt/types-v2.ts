@@ -38,8 +38,20 @@ interface IMessagePayload {
     usage?: ICompletionUsage;
     time?: { latency: number; throughput?: number };
 
-    // 用户输入的 prompt slice（每次编辑可能不同）
+    // 用户输入的 prompt slice（每次编辑可能不同）；仅 legacy 工具调用模式设置，standard 不设
     userPromptSlice?: [number, number];
+
+    /**
+     * Standard 工具调用模式: 一个 turn 内的原生消息序列（不含末条 assistant）。
+     * 缺省 = legacy cell，回放走 legacy 分支（整段单条 assistant，不 strip）。
+     * 顺序: [首条 assistant(content?, tool_calls=[A]), tool(id=A, content=finalText),
+     *        assistant(content?, tool_calls=[B]), tool(id=B, content=finalText), ..., 末个 tool result]
+     * 末条 assistant 已拆到 message 字段（唯一可编辑源，避免双份 drift）。
+     * 持久化前剥离 assistant 消息的 reasoning_content（回放不把 reasoning 灌回 LLM + 减 payload）；
+     *   tool 消息无 reasoning_content，strip 是 no-op。
+     * 判定规则: toolChainMessages != null → standard cell；否则 legacy cell。
+     */
+    toolChainMessages?: IMessage[];
 
     // tool_call_id?: string;  // role === 'tool' 时必需
     // refusal?: string | null;

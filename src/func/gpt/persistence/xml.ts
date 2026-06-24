@@ -203,6 +203,35 @@ const renderNodeContext = (node: Readonly<IChatSessionMsgItemV2>) => {
 const renderPayloadContent = (payload: Readonly<IMessagePayload> | undefined, includeReasoning: boolean) => {
     if (!payload?.message) return [];
     const body: string[] = [];
+
+    // Standard 模式: 遍历 [...toolChainMessages, message] 交错渲染 assistant 文本段 + tool 调用块
+    if (payload.toolChainMessages && payload.toolChainMessages.length >= 0) {
+        const sequence = [...payload.toolChainMessages, payload.message];
+        for (const msg of sequence) {
+            if (msg.role === 'assistant') {
+                if (includeReasoning && msg.reasoning_content) {
+                    body.push(renderBlock('Reasoning', {}, [xmlText(msg.reasoning_content)]));
+                }
+                const text = typeof msg.content === 'string' ? msg.content : '';
+                if (text) body.push(...renderMessageContent(msg.content));
+                if ((msg as any).tool_calls?.length) {
+                    body.push(renderBlock('ToolCalls', {}, [xmlText(JSON.stringify((msg as any).tool_calls))]));
+                }
+            } else if (msg.role === 'tool') {
+                body.push(renderBlock('ToolResult', {
+                    'tool_call_id': (msg as any).tool_call_id ?? '',
+                    name: (msg as any).name ?? '',
+                }, [xmlText(typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content))]));
+            }
+        }
+        // toolChainResult 元数据仍导出（UI/统计源）
+        if (payload.toolChainResult) {
+            body.push(renderBlock('ToolChainMeta', {}, [xmlText(JSON.stringify(payload.toolChainResult))]));
+        }
+        return body;
+    }
+
+    // Legacy 模式: 现状
     if (includeReasoning && payload.message.reasoning_content) {
         body.push(renderBlock('Reasoning', {}, [xmlText(payload.message.reasoning_content)]));
     }

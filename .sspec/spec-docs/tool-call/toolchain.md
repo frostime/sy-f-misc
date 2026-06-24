@@ -1,7 +1,7 @@
 ---
 name: 工具调用链（ToolChain）
 description: executeToolChain() LLM↔工具对话循环、消息结构、MessageFlowFormatter
-updated: 2026-02-22
+updated: 2026-06-24
 scope:
   - /src/func/gpt/tools/toolchain.ts
 deprecated: false
@@ -184,6 +184,8 @@ Status: ✓ Success
 ---
 
 ## 设计考量：为什么压缩工具链消息
+
+> **注**：本节描述的是 **Legacy 模式**（`toolCallMode='legacy'`）的压缩设计。**Standard 模式**（默认）不再压缩，原生 `IMessage[]` 序列持久化与回放，详见 [integration.md](./integration.md) 的「工具调用持久化模式」。`executeToolChain` 执行期两种模式共用，差异仅在集成层收尾。
 
 ### 问题背景
 

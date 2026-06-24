@@ -26,7 +26,6 @@
   ],
   "skill_locations": [
     ".agents/skills",
-    ".github/skills",
     ".sspec/skills"
   ]
 }
