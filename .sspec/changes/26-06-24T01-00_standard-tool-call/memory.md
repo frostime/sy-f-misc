@@ -28,7 +28,7 @@ This is the authoritative root coordination summary that `change status` reads. 
 
 ## State
 <!-- Current coordination focus — which phase to advance next. -->
-Phase 1 DONE。启动 phase 2 codex-style-ui Design（补 design.md + plan）。
+Phase 1 DONE。Phase 2 codex-style-ui design 写毕（含 UI 映射约束、StandardTurnView、编辑面板、流式、分步 2a-2d、3 Open Questions），待用户 @align design 后进 plan。
 
 ## Key Files
 <!-- Cross-phase key files/documents.
@@ -61,3 +61,4 @@ Phase 1 DONE。启动 phase 2 codex-style-ui Design（补 design.md + plan）。
 - [2026-06-24T02:45] Phase 1-5 代码实现完成，tsc/type-check 通过；Phase 6 端到端待用户验证。实现中发现：migration 无需透传（V1 无字段）、非完成分支保持现状、config 合并使旧会话 toolCallMode='standard' 但旧 cell 仍 legacy 回放。
 - [2026-06-24T03:00] 用户在思源中测试基本常用操作基本 OK（未全测）。Phase 1 tasks 100%，spec status → REVIEW。
 - [2026-06-24T03:10] Phase 1 验收通过 → DONE。启动 phase 2。
+- [2026-06-24T03:30] Phase 2 design 写毕：subagent 映射 MessageItem UI 结构（924 行，6 处单串假设约束），design 含 StandardTurnView 交错渲染/多段编辑/结构化流式/文件布局/分步 2a-2d/3 OQ。spec-doc tool-call 已补 standard 模式。待 align。

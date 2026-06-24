@@ -49,4 +49,4 @@ Phase 1 落地后 standard cell 数据已是原生 `IMessage[]` 序列，但 UI 
 
 ### Design Reference
 
-详细 design 待 phase 1 完成后、进入 phase 2 规划时再补（依赖 phase 1 实落地后的 UI 验证）。
+→ See [design.md](./design.md)（含 UI 现状约束映射、StandardTurnView 渲染/编辑/流式设计、文件布局、内部分步 2a-2d、Open Questions）。
