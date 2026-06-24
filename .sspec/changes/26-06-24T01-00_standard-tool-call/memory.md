@@ -62,3 +62,4 @@ Phase 1 DONE。Phase 2 codex-style-ui design 写毕（含 UI 映射约束、Stan
 - [2026-06-24T03:00] 用户在思源中测试基本常用操作基本 OK（未全测）。Phase 1 tasks 100%，spec status → REVIEW。
 - [2026-06-24T03:10] Phase 1 验收通过 → DONE。启动 phase 2。
 - [2026-06-24T03:30] Phase 2 design 写毕：subagent 映射 MessageItem UI 结构（924 行，6 处单串假设约束），design 含 StandardTurnView 交错渲染/多段编辑/结构化流式/文件布局/分步 2a-2d/3 OQ。spec-doc tool-call 已补 standard 模式。待 align。
+- [2026-06-24T03:40] Phase 2 design align：3 OQ 定（tool 行单行可展开/中间段折叠/2c 延后）。Plan 写毕：2a 静态交错、2b 编辑面板、2d 导出、2e 验证（2c 流式延后）。进 implement。
