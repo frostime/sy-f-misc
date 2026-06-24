@@ -10,12 +10,12 @@ updated: "2026-06-24"
 
 ## Tasks
 
-### Phase 2a: 静态交错渲染 ⏳
-- [ ] 抽取 `ToolCallRow` 单行可展开组件（从 ToolChainTimeline 渲染单元提取：toolName+状态+耗时 单行，点击展开参数/结果 + viewDetailData）`src/func/gpt/chat/components/ToolCallRow.tsx` [新]
-- [ ] `StandardTurnView` 遍历 `[...toolChainMessages, message]` 交错渲染：assistant 文本段（独立 renderMarkdown）+ ToolCallRow；中间 assistant 文本段默认折叠摘要可展开；末条 assistant（message）默认展开；共享 `turnRootRef` 供 runMarkdownPostRender `src/func/gpt/chat/components/StandardTurnView.tsx` [新]
-- [ ] tool 结果查找：从 `toolChainResult.toolCallHistory` 建 `Map<callId, entry>` 供 ToolCallRow `src/func/gpt/chat/components/StandardTurnView.tsx`
-- [ ] `MessageItem` 顶层分流：`toolChainMessages != null` → `<StandardTurnView/>`；否则 legacy 路径不动 `src/func/gpt/chat/components/MessageItem.tsx`
-- [ ] standard 分支不再渲染独立 `ToolChainIndicator`（tool 行已内联）；legacy 分支保留
+### Phase 2a: 静态交错渲染 ✅
+- [x] 抽取 `ToolCallRow` 单行可展开组件（从 ToolChainTimeline 渲染单元提取：toolName+状态+耗时 单行，点击展开参数/结果 + viewDetailData）`src/func/gpt/chat/components/ToolCallRow.tsx` [新]
+- [x] `StandardTurnView` 遍历 `[...toolChainMessages, message]` 交错渲染：assistant 文本段（独立 renderMarkdown）+ ToolCallRow；中间 assistant 文本段默认折叠摘要可展开；末条 assistant（message）默认展开；共享 `turnRootRef` 供 runMarkdownPostRender `src/func/gpt/chat/components/StandardTurnView.tsx` [新]
+- [x] tool 结果查找：从 `toolChainResult.toolCallHistory` 建 `Map<callId, entry>` 供 ToolCallRow `src/func/gpt/chat/components/StandardTurnView.tsx`
+- [x] `MessageItem` 顶层分流：`toolChainMessages != null` → `<StandardTurnView/>`；否则 legacy 路径不动 `src/func/gpt/chat/components/MessageItem.tsx`
+- [x] standard 分支不再渲染独立 `ToolChainIndicator`（tool 行已内联）；legacy 分支保留
 **Verification**: tsc 通过；standard cell 完成后显示交错 turn（tool 行单行可展开 + 中间文本段折叠 + 最终回复展开）；legacy cell 渲染不变。
 **User Check**:
 1. standard 模式发触发工具调用的问题 → 回复完成后消息格显示：tool 行（单行，点开看参数/结果）+ 最终回复文本，**tool 行内联在文本流中而非底部独立折叠区**。
@@ -59,14 +59,14 @@ updated: "2026-06-24"
 
 ## Progress
 
-**Overall**: 0%
+**Overall**: 25%
 
 | Phase | Progress | Status |
 |-------|----------|--------|
-| Phase 2a: 静态交错渲染 | 0% | ⏳ |
+| Phase 2a: 静态交错渲染 | 100% | ✅ |
 | Phase 2b: 多段编辑面板 | 0% | ⏳ |
 | Phase 2d: 导出/snapshot 完整序列渲染 | 0% | ⏳ |
 | Phase 2e: 集成验证 | 0% | ⏳ |
 
 **Recent**:
-- (none yet)
+- 2a 实现：ToolCallRow + StandardTurnView + MessageItem 分流，tsc 通过。
