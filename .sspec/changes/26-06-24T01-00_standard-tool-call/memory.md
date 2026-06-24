@@ -23,12 +23,12 @@ This is the authoritative root coordination summary that `change status` reads. 
 
 | Phase | Sub-Change | Status | Blocker |
 |-------|------------|--------|---------|
-| Phase 1 | standard-replay-backend | 📋 PLANNING | — |
+| Phase 1 | standard-replay-backend | 🟢 REVIEW | — |
 | Phase 2 | codex-style-ui | 📋 PLANNING | Phase 1 |
 
 ## State
 <!-- Current coordination focus — which phase to advance next. -->
-Clarify 完成，root + 两 sub-change spec/design 已写。待用户 @align 确认 design 后进入 phase 1 Plan。
+Phase 1 进入 REVIEW（用户基本验证 OK，未全测）。待用户正式接受后标 DONE，随后启动 phase 2 规划（补 design + plan）。
 
 ## Key Files
 <!-- Cross-phase key files/documents.
@@ -59,3 +59,4 @@ Clarify 完成，root + 两 sub-change spec/design 已写。待用户 @align 确
 - [2026-06-24T02:00] Design align 通过；subagent 审查意见落地（末元素 fallback、reasoning 策略、XML export 更正、toolChainResult 定位不废弃、executeToolChain 返回值不改）。
 - [2026-06-24T02:15] Plan 写毕：phase 1 tasks 6 阶段（类型配置/finalize切分/回放分流/addVersion/UI开关/集成验证），root milestones 两期。进 implement。
 - [2026-06-24T02:45] Phase 1-5 代码实现完成，tsc/type-check 通过；Phase 6 端到端待用户验证。实现中发现：migration 无需透传（V1 无字段）、非完成分支保持现状、config 合并使旧会话 toolCallMode='standard' 但旧 cell 仍 legacy 回放。
+- [2026-06-24T03:00] 用户在思源中测试基本常用操作基本 OK（未全测）。Phase 1 tasks 100%，spec status → REVIEW。

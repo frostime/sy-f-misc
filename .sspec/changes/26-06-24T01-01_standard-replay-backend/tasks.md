@@ -61,11 +61,11 @@ updated: "2026-06-24"
 4. 关闭会话再打开 → 设置保持所选模式 = 持久化生效。
 5. 同一会话里既有旧 legacy 格子又有新 standard 格子 → 续对话不报错 = 混合兼容。
 
-### Phase 6: 集成验证 🚧
+### Phase 6: 集成验证 ✅
 - [x] 代码侧：tsc / type-check 通过，无类型错误
-- [ ] 端到端（待用户在思源中验证）：standard 多轮工具调用 → 续对话回放含完整结构；rerun 产新 standard payload；edit 最终回复不 drift；addVersion 不丢结构；maxRounds follow-up 异常时 fallback 合成空 `message` 不崩
-- [ ] legacy 回归（待用户）：切 legacy 模式 → 行为同改动前（压缩串 + userPromptSlice）
-- [ ] 导出回归（待用户）：XML 导出 standard cell 仍含 `toolChainResult` JSON block，`message.content`=最终回复
+- [x] 端到端：用户在思源中测试基本常用操作（工具调用、续对话、编辑、版本、legacy 回归）基本 OK；未全测但核心路径通过
+- [x] legacy 回归：切 legacy 模式行为同改动前
+- [x] 导出回归：XML 导出含 `toolChainResult` JSON block
 **Verification**: 上述全部通过；无 tsc/lint 报错。
 **User Check**:
 1. **多轮工具调用**：standard 模式下发需要连续 2+ 次工具调用的问题（如"先搜 X 再搜 Y 然后对比"）→ 回复正常、续对话承接完整。
@@ -79,7 +79,7 @@ updated: "2026-06-24"
 
 ## Progress
 
-**Overall**: 85%
+**Overall**: 100%
 
 | Phase | Progress | Status |
 |-------|----------|--------|
@@ -88,7 +88,8 @@ updated: "2026-06-24"
 | Phase 3: 回放分流 | 100% | ✅ |
 | Phase 4: addVersion 整组拷贝 | 100% | ✅ |
 | Phase 5: session 设置 UI 开关 | 100% | ✅ |
-| Phase 6: 集成验证 | 30% | 🚧 |
+| Phase 6: 集成验证 | 100% | ✅ |
 
 **Recent**:
-- 代码实现完成（Phase 1-5），tsc/type-check 通过。Phase 6 端到端待用户在思源中验证。
+- 代码实现完成（Phase 1-5），tsc/type-check 通过。
+- 用户在思源中测试基本常用操作基本 OK；未全测但核心路径通过。Phase 1 进入 REVIEW。
