@@ -7,7 +7,7 @@ import type { QuickInputTemplate } from "./types";
 // 定界符 ${var}（非 {{var}}）：思源 kramdown 嵌入块语法为 {{...}}，使用 {{var}} 会与之冲突。
 // render 先插值 ${var}，再将结果交给内核 kramdown 解析器（IAL 等）。
 // pre/postExecuteScript、SQL/JS anchorGenerator、Squirrelly 条件/循环均 deferred（schema 预留字段位，引擎不接线）。
-const TEMPLATE_VAR_REGEXP = /(\\)?\$\{(\w+)\}/g;
+const templateVarRegexp = () => /(\\)?\$\{(\w+)\}/g;
 
 export interface ExecuteResult {
     blockId: string;
@@ -44,7 +44,7 @@ export const createTimeVars = (date = new Date()): Record<string, string> => {
 };
 
 export const renderTemplateString = (input: string, ctx: Record<string, any>): string => {
-    return input.replace(TEMPLATE_VAR_REGEXP, (_matched, escaped: string | undefined, key: string) => {
+    return input.replace(templateVarRegexp(), (_matched, escaped: string | undefined, key: string) => {
         if (escaped) return `\${${key}}`;
         const value = ctx[key];
         return value === undefined || value === null ? '' : String(value);
@@ -54,7 +54,7 @@ export const renderTemplateString = (input: string, ctx: Record<string, any>): s
 export const extractTemplateVars = (input?: string): string[] => {
     if (!input) return [];
     const vars = new Set<string>();
-    for (const match of input.matchAll(TEMPLATE_VAR_REGEXP)) {
+    for (const match of input.matchAll(templateVarRegexp())) {
         if (match[1]) continue;
         vars.add(match[2]);
     }

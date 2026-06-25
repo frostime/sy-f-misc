@@ -1,6 +1,6 @@
 # Memory: quick-input
 
-**Updated**: 2026-06-25T01:38
+**Updated**: 2026-06-25T15:49
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -18,7 +18,7 @@ This section records the change starting point in git and MUST NOT be edited or 
 ```
 
 ## State
-Implementation + revision 002 已完成，`spec.md` 状态为 REVIEW。Agent 验证 `pnpm run type-check` 与 `pnpm run build` 均通过；SiYuan runtime 验证已由 subagent 完成（见 `reference/runtime-verification-report.md`），IAL/hpath 父路径/同 hpath 行为均已验证。
+Implementation + revision 002 + external review follow-up 已完成，`spec.md` 状态为 REVIEW。Agent 验证 `pnpm run type-check` 与 `pnpm run build` 均通过；SiYuan runtime 验证已由 subagent 完成（见 `reference/runtime-verification-report.md`），IAL/hpath 父路径/同 hpath 行为均已验证。
 
 ## Key Files
 - `.sspec/changes/26-06-24T22-43_quick-input/spec.md` — 问题、BC-1..BC-5、实现项、scope
@@ -50,6 +50,7 @@ Implementation + revision 002 已完成，`spec.md` 状态为 REVIEW。Agent 验
 - [2026-06-24] [Gotcha] 思源 kramdown 嵌入块语法 {{...}} 与模板插值冲突——不用 {{var}}
 - [2026-06-24] [Decision] Verification 边界：Agent 只声明可跑 type-check/build/纯逻辑临时断言/API d.ts 静态确认；SiYuan runtime（内核 IAL/hpath/同名、UI 快捷键、真实插入位置）全部放 User Check 或 runtime-verification.md
 - [2026-06-25] [Gotcha] Runtime verification shows `createDocWithMd` silently creates duplicate documents for the same hpath; engine now guards document mode with `getIDsByHPath` + confirm before creating another duplicate
+- [2026-06-25] [Review] External review follow-up: accepted regex factory and `declaredInputVar` normalization; treated number empty default as optional semantic cleanup; treated `InsertMode` type-only import as not-a-bug and added a clarifying comment
 
 ## Milestones
 - [2026-06-24T22:43] Clarify 完成，change 创建
@@ -59,3 +60,5 @@ Implementation + revision 002 已完成，`spec.md` 状态为 REVIEW。Agent 验
 - [2026-06-25T00:55] 进入 Implement 前发现 mode 命名歧义；用户确认 next/prev 改 before/after，已记录 revision 001；用户明确要求先 git commit 设计/计划 checkpoint 再继续实现
 - [2026-06-25T01:38] Implementation 完成；`pnpm run type-check` 与 `pnpm run build` 通过；进入 REVIEW
 - [2026-06-25T02:22] Runtime report accepted as review feedback; revision 002 implemented duplicate hpath guard; `pnpm run type-check` 与 `pnpm run build` 通过
+- [2026-06-25T15:44] External review follow-up implemented; `pnpm run type-check` 与 `pnpm run build` 通过
+- [2026-06-25T15:49] Corrected external review follow-up wording to distinguish accepted issues, optional semantic cleanup, and not-a-bug note

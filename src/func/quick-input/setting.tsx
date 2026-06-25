@@ -77,7 +77,11 @@ const textToOptions = (text: string): Record<string, string> => {
 
 const normalizeFieldValue = (type: DeclaredInputType, value: any) => {
     if (type === 'checkbox') return Boolean(value);
-    if (type === 'number') return Number(value || 0);
+    if (type === 'number') {
+        if (value === '' || value === undefined || value === null) return '';
+        const numberValue = Number(value);
+        return Number.isFinite(numberValue) ? numberValue : '';
+    }
     return value ?? '';
 };
 
