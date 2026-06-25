@@ -92,6 +92,7 @@ const normalizeTemplate = (value: unknown): QuickInputTemplate | null => {
         name: String(value.name || '未命名模板'),
         icon: value.icon ? String(value.icon) : undefined,
         group: value.group ? String(value.group) : undefined,
+        description: value.description ? String(value.description) : undefined,
         insertTo,
         template: typeof value.template === 'string' ? value.template : '',
         declaredInputVar: Array.isArray(value.declaredInputVar)

@@ -35,6 +35,7 @@ const newTemplate = (): QuickInputTemplate => ({
     name: '未命名模板',
     group: '默认',
     icon: '📝',
+    description: '',
     insertTo: {
         type: 'document',
         notebook: '',
@@ -256,6 +257,17 @@ function TemplateEditor(props: {
                         <div style={{ flex: 1, display: 'flex', 'align-items': 'center', gap: '8px' }}>
                             <CheckboxInput checked={props.template.openBlock !== false} changed={(value) => props.onPatch({ openBlock: value })} />
                             <span style={{ color: 'var(--b3-theme-on-surface-light)', 'font-size': '12px' }}>执行后是否自动打开目标文档或块</span>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', 'align-items': 'flex-start', gap: '12px' }}>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)', 'padding-top': '8px' }}>说明</label>
+                        <div style={{ flex: 1 }}>
+                            <TextArea
+                                value={props.template.description ?? ''}
+                                onChanged={(value) => props.onPatch({ description: value })}
+                                style={{ width: '100%', height: '64px' }}
+                            />
+                            <div style={{ color: 'var(--b3-theme-on-surface-light)', 'font-size': '12px', 'margin-top': '4px' }}>用于 Alt+I 面板上显示的模板说明</div>
                         </div>
                     </div>
                 </div>

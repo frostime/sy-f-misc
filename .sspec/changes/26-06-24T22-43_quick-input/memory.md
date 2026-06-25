@@ -1,6 +1,6 @@
 # Memory: quick-input
 
-**Updated**: 2026-06-25T16:12
+**Updated**: 2026-06-25T16:17
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -69,3 +69,4 @@ Implementation + revision 002 + external review follow-up + UI/UX review 003 进
 - [2026-06-25T16:05] Revision 004 implemented; `pnpm run type-check` 与 `pnpm run build` 通过
 - [2026-06-25T16:09] Minor UI fixes: toggle alignment, input field form layout, daily-note button placement
 - [2026-06-25T16:12] Bugfix: `${todayDailynoteId:<notebookId>}` inline syntax was not rendered because regex only matched `\w+` keys
+- [2026-06-25T16:17] UI polish: fixed SimpleForm checkbox stretching, added template description field, converted Alt+I buttons to mini cards

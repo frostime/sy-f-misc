@@ -1,7 +1,6 @@
 import { For, Show } from "solid-js";
 
 import { solidDialog, simpleFormDialog } from "@/libs/dialog";
-import { ButtonInput } from "@/libs/components/Elements";
 
 import { getTemplates } from "./config";
 import { executeTemplate, QuickInputCancelled } from "./engine";
@@ -63,14 +62,47 @@ function QuickInputPanel(props: { close: () => void }) {
                             }}>
                                 {group.group}
                             </div>
-                            <div style={{ display: 'flex', 'flex-wrap': 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'grid', 'grid-template-columns': 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px' }}>
                                 <For each={group.items}>
                                     {(template) => (
-                                        <ButtonInput
-                                            label={`${template.icon ? `${template.icon} ` : ''}${template.name}`}
+                                        <div
                                             onClick={() => runTemplate(template)}
-                                            style={{ 'min-width': '120px' }}
-                                        />
+                                            style={{
+                                                border: '1px solid var(--b3-border-color)',
+                                                'border-radius': '6px',
+                                                padding: '10px 12px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                'flex-direction': 'column',
+                                                gap: '4px',
+                                                transition: 'background-color 0.15s ease',
+                                                'background-color': 'var(--b3-theme-background)'
+                                            }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--b3-theme-surface-light)')}
+                                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--b3-theme-background)')}
+                                        >
+                                            <div style={{
+                                                'font-weight': 600,
+                                                color: 'var(--b3-theme-on-surface)',
+                                                'font-size': '14px',
+                                                overflow: 'hidden',
+                                                'text-overflow': 'ellipsis',
+                                                'white-space': 'nowrap'
+                                            }}>
+                                                {template.icon ? `${template.icon} ` : ''}{template.name}
+                                            </div>
+                                            <Show when={template.description}>
+                                                <div style={{
+                                                    color: 'var(--b3-theme-on-surface-light)',
+                                                    'font-size': '12px',
+                                                    overflow: 'hidden',
+                                                    'text-overflow': 'ellipsis',
+                                                    'white-space': 'nowrap'
+                                                }}>
+                                                    {template.description}
+                                                </div>
+                                            </Show>
+                                        </div>
                                     )}
                                 </For>
                             </div>

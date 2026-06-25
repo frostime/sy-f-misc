@@ -26,6 +26,7 @@ export interface QuickInputTemplate {
     name: string;
     icon?: string;
     group?: string;
+    description?: string;
     insertTo: InsertTo;
     template?: string;
     declaredInputVar?: DeclaredVar[];
