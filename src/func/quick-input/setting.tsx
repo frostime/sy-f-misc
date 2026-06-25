@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { showMessage } from "siyuan";
-import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
+import { getBlockByID, lsNotebooks } from "@frostime/siyuan-plugin-kits/api";
 
 import { documentDialog, simpleFormDialog } from "@/libs/dialog";
 import SimpleForm from "@/libs/components/simple-form";
@@ -87,6 +87,7 @@ const normalizeFieldValue = (type: DeclaredInputType, value: any) => {
 
 function TemplateEditor(props: {
     template: QuickInputTemplate;
+    notebooks: () => Record<NotebookId, string>;
     onPatch: (patch: Partial<QuickInputTemplate>) => void;
     onReplaceInsertTo: (insertTo: InsertTo) => void;
     onReplaceFields: (fields: DeclaredVar[]) => void;
@@ -97,7 +98,7 @@ function TemplateEditor(props: {
         { key: 'name', label: '名称', type: 'text', value: props.template.name },
         { key: 'icon', label: '图标', type: 'text', value: props.template.icon ?? '' },
         { key: 'group', label: '分组', type: 'text', value: props.template.group ?? '' },
-        { key: 'openBlock', label: '插入后打开', type: 'checkbox', value: props.template.openBlock !== false }
+        { key: 'openBlock', label: '插入后打开', type: 'checkbox', value: props.template.openBlock !== false, description: '执行后是否自动打开目标文档或块' }
     ];
 
     const updateInsertTo = (patch: Partial<InsertTo>) => {
@@ -180,18 +181,30 @@ function TemplateEditor(props: {
         return anchorId.includes('${todayDailynoteId}') && !/\$\{todayDailynoteId:[^}]+\}/.test(anchorId);
     };
 
+    const notebookOptions = createMemo(() => props.notebooks());
+
+    const currentNotebookLabel = (notebookId: NotebookId) => {
+        return props.notebooks()[notebookId] ?? notebookId;
+    };
+
     const fillDailyNote = async () => {
         const currentNotebook = props.template.insertTo.type === 'document'
             ? props.template.insertTo.notebook
             : (props.template.insertTo.notebook ?? '');
+        const notebookIds = Object.keys(props.notebooks());
+        const defaultNotebook = currentNotebook && notebookIds.includes(currentNotebook)
+            ? currentNotebook
+            : notebookIds[0] ?? '';
+
         const result = await simpleFormDialog({
             title: '插入今日日记',
             fields: [
                 {
                     key: 'notebook',
-                    label: '日记本 ID',
-                    type: 'text',
-                    value: currentNotebook,
+                    label: '日记本',
+                    type: 'select',
+                    value: defaultNotebook,
+                    options: props.notebooks(),
                     description: '用于 createDailynote(notebook) 解析 ${todayDailynoteId}'
                 }
             ]
@@ -253,10 +266,11 @@ function TemplateEditor(props: {
                         changed={(value) => switchInsertType(value as InsertTo['type'])}
                     />
                     <Show when={props.template.insertTo.type === 'document'}>
-                        <label>笔记本 ID</label>
-                        <TextInput
+                        <label>笔记本</label>
+                        <SelectInput
                             value={(props.template.insertTo as Extract<InsertTo, { type: 'document' }>).notebook}
-                            onChanged={(value) => updateInsertTo({ notebook: value } as Partial<InsertTo>)}
+                            options={notebookOptions()}
+                            changed={(value) => updateInsertTo({ notebook: value } as Partial<InsertTo>)}
                         />
                         <label>文档 hpath</label>
                         <TextInput
@@ -283,11 +297,11 @@ function TemplateEditor(props: {
                             changed={(value) => updateInsertTo({ mode: value as InsertMode } as Partial<InsertTo>)}
                         />
                         <Show when={needsDailynoteNotebook()}>
-                            <label>日记本 ID</label>
-                            <TextInput
+                            <label>日记本</label>
+                            <SelectInput
                                 value={(props.template.insertTo as Extract<InsertTo, { type: 'block' }>).notebook ?? ''}
-                                onChanged={(value) => updateInsertTo({ notebook: value } as Partial<InsertTo>)}
-                                placeholder="anchorId 引用 ${todayDailynoteId} 时必填"
+                                options={notebookOptions()}
+                                changed={(value) => updateInsertTo({ notebook: value } as Partial<InsertTo>)}
                             />
                         </Show>
                         <label />
@@ -317,12 +331,31 @@ function TemplateEditor(props: {
                 </div>
                 <For each={props.template.declaredInputVar ?? []}>
                     {(field, index) => (
-                        <div style={{ display: 'grid', 'grid-template-columns': '1fr 1fr 120px 1fr auto', gap: '8px', 'align-items': 'center', 'margin-bottom': '8px' }}>
-                            <TextInput value={field.key} placeholder="key" onChanged={(value) => updateField(index(), { key: value })} />
-                            <TextInput value={field.label ?? ''} placeholder="label" onChanged={(value) => updateField(index(), { label: value })} />
-                            <SelectInput value={field.type} options={INPUT_TYPE_OPTIONS} changed={(value) => updateField(index(), { type: value as DeclaredInputType })} />
-                            {renderDefaultValueEditor(field, index())}
-                            <ButtonInput label="删除" classOutlined={true} onClick={() => removeField(index())} />
+                        <div style={{
+                            border: '1px solid var(--b3-border-color)',
+                            'border-radius': '6px',
+                            padding: '12px',
+                            'margin-bottom': '12px',
+                            display: 'flex',
+                            'flex-direction': 'column',
+                            gap: '10px'
+                        }}>
+                            <div style={{ display: 'grid', 'grid-template-columns': '1fr 1fr 120px auto', gap: '8px', 'align-items': 'center' }}>
+                                <TextInput value={field.key} placeholder="key" onChanged={(value) => updateField(index(), { key: value })} />
+                                <TextInput value={field.label ?? ''} placeholder="label" onChanged={(value) => updateField(index(), { label: value })} />
+                                <SelectInput value={field.type} options={INPUT_TYPE_OPTIONS} changed={(value) => updateField(index(), { type: value as DeclaredInputType })} />
+                                <ButtonInput label="删除" classOutlined={true} onClick={() => removeField(index())} />
+                            </div>
+                            <div>
+                                {renderDefaultValueEditor(field, index())}
+                            </div>
+                            <div>
+                                <TextInput
+                                    value={field.description ?? ''}
+                                    placeholder="字段说明（可选）"
+                                    onChanged={(value) => updateField(index(), { description: value })}
+                                />
+                            </div>
                         </div>
                     )}
                 </For>
@@ -381,6 +414,24 @@ export default function QuickInputSetting() {
         persist(next);
     };
 
+    const [notebooks, setNotebooks] = createSignal<Record<NotebookId, string>>({});
+
+    const loadNotebooks = async () => {
+        try {
+            const response = await lsNotebooks();
+            const list = response?.notebooks ?? [];
+            const options: Record<NotebookId, string> = {};
+            for (const notebook of list) {
+                if (!notebook.closed) options[notebook.id] = `${notebook.icon || '📒'} ${notebook.name}`;
+            }
+            setNotebooks(options);
+        } catch (error) {
+            console.error('[quick-input] load notebooks failed', error);
+        }
+    };
+
+    loadNotebooks();
+
     return (
         <div class="config__tab-container" data-name="quick-input" style={{ padding: '12px 16px', height: '100%', 'box-sizing': 'border-box' }}>
             <div style={{ display: 'grid', 'grid-template-columns': '260px 1fr', gap: '16px', height: '100%', overflow: 'hidden' }}>
@@ -417,6 +468,7 @@ export default function QuickInputSetting() {
                                 </div>
                                 <TemplateEditor
                                     template={template}
+                                    notebooks={notebooks}
                                     onPatch={patchSelected}
                                     onReplaceInsertTo={replaceInsertTo}
                                     onReplaceFields={replaceFields}
