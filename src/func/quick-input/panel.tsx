@@ -37,8 +37,8 @@ function QuickInputPanel(props: { close: () => void }) {
         }
 
         try {
-            await executeTemplate(template, values);
             props.close();
+            await executeTemplate(template, values);
         } catch (error) {
             if (error instanceof QuickInputCancelled) return;
             console.error('[quick-input] execute failed', error);

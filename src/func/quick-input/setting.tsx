@@ -93,7 +93,7 @@ function TemplateEditor(props: {
 }) {
     const [preview, setPreview] = createSignal('');
 
-    const labelWidth = '90px';
+    const labelWidth = '120px';
 
     const updateInsertTo = (patch: Partial<InsertTo>) => {
         props.onReplaceInsertTo({ ...props.template.insertTo, ...patch } as InsertTo);
@@ -235,32 +235,32 @@ function TemplateEditor(props: {
                 <div class="b3-label__text" style={{ 'font-weight': 600, 'margin-bottom': '8px' }}>基础信息</div>
                 <div style={{ display: 'flex', 'flex-direction': 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
-                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>名称</label>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>名称</label>
                         <div style={{ flex: 1 }}>
                             <TextInput value={props.template.name} onChanged={(value) => props.onPatch({ name: value })} />
                         </div>
                     </div>
                     <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
-                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>图标</label>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>图标</label>
                         <div style={{ flex: 1 }}>
                             <TextInput value={props.template.icon ?? ''} onChanged={(value) => props.onPatch({ icon: value })} />
                         </div>
                     </div>
                     <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
-                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>分组</label>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>分组</label>
                         <div style={{ flex: 1 }}>
                             <TextInput value={props.template.group ?? ''} onChanged={(value) => props.onPatch({ group: value })} />
                         </div>
                     </div>
                     <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
-                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>插入后打开</label>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>插入后打开</label>
                         <div style={{ flex: 1, display: 'flex', 'align-items': 'center', gap: '8px' }}>
                             <CheckboxInput checked={props.template.openBlock !== false} changed={(value) => props.onPatch({ openBlock: value })} />
                             <span style={{ color: 'var(--b3-theme-on-surface-light)', 'font-size': '12px' }}>执行后是否自动打开目标文档或块</span>
                         </div>
                     </div>
                     <div style={{ display: 'flex', 'align-items': 'flex-start', gap: '12px' }}>
-                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)', 'padding-top': '8px' }}>说明</label>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'left', color: 'var(--b3-theme-on-surface)', 'padding-top': '8px' }}>说明</label>
                         <div style={{ flex: 1 }}>
                             <TextArea
                                 value={props.template.description ?? ''}
@@ -358,16 +358,16 @@ function TemplateEditor(props: {
                             'flex-direction': 'column',
                             gap: '10px'
                         }}>
-                            <div style={{ display: 'grid', 'grid-template-columns': '80px 1fr', gap: '8px 12px', 'align-items': 'center' }}>
-                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>key</label>
+                            <div style={{ display: 'grid', 'grid-template-columns': '120px 1fr', gap: '8px 12px', 'align-items': 'center' }}>
+                                <label style={{ 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>key</label>
                                 <TextInput value={field.key} placeholder="模板中引用的变量名" onChanged={(value) => updateField(index(), { key: value })} />
-                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>标签</label>
+                                <label style={{ 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>标签</label>
                                 <TextInput value={field.label ?? ''} placeholder="表单上显示的标签" onChanged={(value) => updateField(index(), { label: value })} />
-                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>类型</label>
+                                <label style={{ 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>类型</label>
                                 <SelectInput value={field.type} options={INPUT_TYPE_OPTIONS} changed={(value) => updateField(index(), { type: value as DeclaredInputType })} />
-                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>默认值</label>
+                                <label style={{ 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>默认值</label>
                                 <div>{renderDefaultValueEditor(field, index())}</div>
-                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>说明</label>
+                                <label style={{ 'text-align': 'left', color: 'var(--b3-theme-on-surface)' }}>说明</label>
                                 <TextInput
                                     value={field.description ?? ''}
                                     placeholder="字段说明（可选）"

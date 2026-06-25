@@ -154,28 +154,31 @@ export const executeTemplate = async (
             }
 
             const docId = await createDocWithMd(template.insertTo.notebook, hpath, markdown);
-            if (shouldOpen) openBlock(docId);
+            if (shouldOpen) openBlock(docId, { zoomIn: true });
             return { blockId: docId };
+        } else if (template.insertTo.type === 'block') {
+          const anchorId = renderTemplateString(template.insertTo.anchorId, ctx);
+          if (!anchorId) throw new Error('目标块 ID 为空');
+
+          const anchor = await getBlockByID(anchorId);
+          if (!anchor) throw new Error(`目标块不存在: ${anchorId}`);
+
+          const operations = template.insertTo.mode === 'append'
+              ? await appendBlock('markdown', markdown, anchorId)
+              : template.insertTo.mode === 'prepend'
+                  ? await prependBlock('markdown', markdown, anchorId)
+                  : template.insertTo.mode === 'before'
+                      ? await insertBlock('markdown', markdown, anchorId)
+                      : await insertBlock('markdown', markdown, undefined, anchorId);
+
+          const blockId = firstOperationId(operations);
+          if (!blockId) throw new Error('无法获取插入后的块 ID');
+          if (shouldOpen) openBlock(blockId, { zoomIn: true });
+          return { blockId };
+        } else {
+          throw new Error('未知的插入类型');
         }
 
-        const anchorId = renderTemplateString(template.insertTo.anchorId, ctx);
-        if (!anchorId) throw new Error('目标块 ID 为空');
-
-        const anchor = await getBlockByID(anchorId);
-        if (!anchor) throw new Error(`目标块不存在: ${anchorId}`);
-
-        const operations = template.insertTo.mode === 'append'
-            ? await appendBlock('markdown', markdown, anchorId)
-            : template.insertTo.mode === 'prepend'
-                ? await prependBlock('markdown', markdown, anchorId)
-                : template.insertTo.mode === 'before'
-                    ? await insertBlock('markdown', markdown, anchorId)
-                    : await insertBlock('markdown', markdown, undefined, anchorId);
-
-        const blockId = firstOperationId(operations);
-        if (!blockId) throw new Error('无法获取插入后的块 ID');
-        if (shouldOpen) openBlock(blockId);
-        return { blockId };
     } catch (error) {
         if (error instanceof QuickInputCancelled) throw error;
         showAndThrow(error instanceof Error ? error.message : '快速输入执行失败', error);
