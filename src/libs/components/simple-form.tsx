@@ -105,11 +105,21 @@ export default function SimpleForm(props: SimpleFormProps) {
                 );
             case 'checkbox':
                 return (
-                    <CheckboxInput
-                        checked={value}
-                        changed={(v) => updateField(field.key, v)}
-                        style={inputStyles}
-                    />
+                    <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                        <CheckboxInput
+                            checked={value}
+                            changed={(v) => updateField(field.key, v)}
+                        />
+                        {field.description && (
+                            <span style={{
+                                'font-size': '12px',
+                                color: 'var(--b3-theme-on-surface-light)',
+                                'line-height': '1.4'
+                            }}>
+                                {field.description}
+                            </span>
+                        )}
+                    </div>
                 );
             case 'select':
                 return (
@@ -205,7 +215,7 @@ export default function SimpleForm(props: SimpleFormProps) {
                             gap: '4px'
                         }}>
                             {renderInput(field)}
-                            {field.description && (
+                            {field.description && field.type !== 'checkbox' && (
                                 <div style={{
                                     'font-size': '12px',
                                     color: 'var(--b3-theme-on-surface-light)',
