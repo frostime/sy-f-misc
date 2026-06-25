@@ -7,7 +7,8 @@ import type { QuickInputTemplate } from "./types";
 // 定界符 ${var}（非 {{var}}）：思源 kramdown 嵌入块语法为 {{...}}，使用 {{var}} 会与之冲突。
 // render 先插值 ${var}，再将结果交给内核 kramdown 解析器（IAL 等）。
 // pre/postExecuteScript、SQL/JS anchorGenerator、Squirrelly 条件/循环均 deferred（schema 预留字段位，引擎不接线）。
-const templateVarRegexp = () => /(\\)?\$\{(\w+)\}/g;
+// Match ${key} or ${key:inline-arg}. The inline-arg is engine-specific (e.g. todayDailynoteId:notebookId).
+const templateVarRegexp = () => /(\\)?\$\{(\w+)(:[^}]*)?\}/g;
 
 export interface ExecuteResult {
     blockId: string;
@@ -60,6 +61,8 @@ export const extractTemplateVars = (input?: string): string[] => {
     }
     return [...vars];
 };
+
+
 
 const referencedVars = (template: QuickInputTemplate): Set<string> => {
     const source = [template.template ?? ''];
