@@ -3,8 +3,6 @@ import { showMessage } from "siyuan";
 import { getBlockByID, lsNotebooks } from "@frostime/siyuan-plugin-kits/api";
 
 import { documentDialog, simpleFormDialog } from "@/libs/dialog";
-import SimpleForm from "@/libs/components/simple-form";
-import type { SimpleFormField } from "@/libs/components/simple-form";
 import { ButtonInput, CheckboxInput, SelectInput, TextArea, TextInput } from "@/libs/components/Elements";
 
 import { getTemplates, saveTemplates } from "./config";
@@ -94,12 +92,7 @@ function TemplateEditor(props: {
 }) {
     const [preview, setPreview] = createSignal('');
 
-    const baseFields = (): SimpleFormField[] => [
-        { key: 'name', label: '名称', type: 'text', value: props.template.name },
-        { key: 'icon', label: '图标', type: 'text', value: props.template.icon ?? '' },
-        { key: 'group', label: '分组', type: 'text', value: props.template.group ?? '' },
-        { key: 'openBlock', label: '插入后打开', type: 'checkbox', value: props.template.openBlock !== false, description: '执行后是否自动打开目标文档或块' }
-    ];
+    const labelWidth = '90px';
 
     const updateInsertTo = (patch: Partial<InsertTo>) => {
         props.onReplaceInsertTo({ ...props.template.insertTo, ...patch } as InsertTo);
@@ -183,10 +176,6 @@ function TemplateEditor(props: {
 
     const notebookOptions = createMemo(() => props.notebooks());
 
-    const currentNotebookLabel = (notebookId: NotebookId) => {
-        return props.notebooks()[notebookId] ?? notebookId;
-    };
-
     const fillDailyNote = async () => {
         const currentNotebook = props.template.insertTo.type === 'document'
             ? props.template.insertTo.notebook
@@ -243,21 +232,37 @@ function TemplateEditor(props: {
         <div style={{ display: 'flex', 'flex-direction': 'column', gap: '16px' }}>
             <section class="b3-label">
                 <div class="b3-label__text" style={{ 'font-weight': 600, 'margin-bottom': '8px' }}>基础信息</div>
-                <SimpleForm
-                    fields={baseFields()}
-                    onChange={(key, value) => props.onPatch({ [key]: value } as Partial<QuickInputTemplate>)}
-                    labelWidth="90px"
-                />
+                <div style={{ display: 'flex', 'flex-direction': 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>名称</label>
+                        <div style={{ flex: 1 }}>
+                            <TextInput value={props.template.name} onChanged={(value) => props.onPatch({ name: value })} />
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>图标</label>
+                        <div style={{ flex: 1 }}>
+                            <TextInput value={props.template.icon ?? ''} onChanged={(value) => props.onPatch({ icon: value })} />
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>分组</label>
+                        <div style={{ flex: 1 }}>
+                            <TextInput value={props.template.group ?? ''} onChanged={(value) => props.onPatch({ group: value })} />
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', 'align-items': 'center', gap: '12px' }}>
+                        <label style={{ width: labelWidth, 'flex-shrink': 0, 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>插入后打开</label>
+                        <div style={{ flex: 1, display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                            <CheckboxInput checked={props.template.openBlock !== false} changed={(value) => props.onPatch({ openBlock: value })} />
+                            <span style={{ color: 'var(--b3-theme-on-surface-light)', 'font-size': '12px' }}>执行后是否自动打开目标文档或块</span>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section class="b3-label">
                 <div class="b3-label__text" style={{ 'font-weight': 600, 'margin-bottom': '8px' }}>插入位置</div>
-                <Show when={props.template.insertTo.type === 'block'}>
-                    <div style={{ 'margin-bottom': '12px' }}>
-                        <ButtonInput label="插入今日日记" onClick={fillDailyNote} />
-                        <span style={{ color: 'var(--b3-theme-on-surface-light)', 'margin-left': '8px', 'font-size': '12px' }}>一键填充 anchorId 为今日日记</span>
-                    </div>
-                </Show>
                 <div style={{ display: 'grid', 'grid-template-columns': '120px 1fr', gap: '8px 12px', 'align-items': 'center' }}>
                     <label>类型</label>
                     <SelectInput
@@ -289,6 +294,7 @@ function TemplateEditor(props: {
                                 style={{ flex: 1 }}
                             />
                             <ButtonInput label="校验" onClick={checkAnchor} />
+                            <ButtonInput label="插入今日日记" onClick={fillDailyNote} />
                         </div>
                         <label>插入方式</label>
                         <SelectInput
@@ -340,21 +346,24 @@ function TemplateEditor(props: {
                             'flex-direction': 'column',
                             gap: '10px'
                         }}>
-                            <div style={{ display: 'grid', 'grid-template-columns': '1fr 1fr 120px auto', gap: '8px', 'align-items': 'center' }}>
-                                <TextInput value={field.key} placeholder="key" onChanged={(value) => updateField(index(), { key: value })} />
-                                <TextInput value={field.label ?? ''} placeholder="label" onChanged={(value) => updateField(index(), { label: value })} />
+                            <div style={{ display: 'grid', 'grid-template-columns': '80px 1fr', gap: '8px 12px', 'align-items': 'center' }}>
+                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>key</label>
+                                <TextInput value={field.key} placeholder="模板中引用的变量名" onChanged={(value) => updateField(index(), { key: value })} />
+                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>标签</label>
+                                <TextInput value={field.label ?? ''} placeholder="表单上显示的标签" onChanged={(value) => updateField(index(), { label: value })} />
+                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>类型</label>
                                 <SelectInput value={field.type} options={INPUT_TYPE_OPTIONS} changed={(value) => updateField(index(), { type: value as DeclaredInputType })} />
-                                <ButtonInput label="删除" classOutlined={true} onClick={() => removeField(index())} />
-                            </div>
-                            <div>
-                                {renderDefaultValueEditor(field, index())}
-                            </div>
-                            <div>
+                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>默认值</label>
+                                <div>{renderDefaultValueEditor(field, index())}</div>
+                                <label style={{ 'text-align': 'right', color: 'var(--b3-theme-on-surface)' }}>说明</label>
                                 <TextInput
                                     value={field.description ?? ''}
                                     placeholder="字段说明（可选）"
                                     onChanged={(value) => updateField(index(), { description: value })}
                                 />
+                            </div>
+                            <div style={{ display: 'flex', 'justify-content': 'flex-end' }}>
+                                <ButtonInput label="删除" classOutlined={true} onClick={() => removeField(index())} />
                             </div>
                         </div>
                     )}

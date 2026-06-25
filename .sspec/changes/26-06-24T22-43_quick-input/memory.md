@@ -1,6 +1,6 @@
 # Memory: quick-input
 
-**Updated**: 2026-06-25T16:05
+**Updated**: 2026-06-25T16:09
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -67,3 +67,4 @@ Implementation + revision 002 + external review follow-up + UI/UX review 003 进
 - [2026-06-25T15:56] Revision 003 implemented; `pnpm run type-check` 与 `pnpm run build` 通过
 - [2026-06-25T16:02] Revision 004 created; notebook picker, toggle layout, input field card layout
 - [2026-06-25T16:05] Revision 004 implemented; `pnpm run type-check` 与 `pnpm run build` 通过
+- [2026-06-25T16:09] Minor UI fixes: toggle alignment, input field form layout, daily-note button placement
