@@ -71,9 +71,15 @@ const referencedVars = (template: QuickInputTemplate): Set<string> => {
     return new Set(source.flatMap(extractTemplateVars));
 };
 
+const extractInlineDailynoteNotebook = (anchorId: string): NotebookId | null => {
+    const match = anchorId.match(/\$\{todayDailynoteId:([^}]+)\}/);
+    return match ? match[1] as NotebookId : null;
+};
+
 const notebookForTemplate = (template: QuickInputTemplate): NotebookId | undefined => {
     if (template.insertTo.type === 'document') return template.insertTo.notebook;
-    return template.insertTo.notebook;
+    const inlineNotebook = extractInlineDailynoteNotebook(template.insertTo.anchorId);
+    return inlineNotebook ?? template.insertTo.notebook;
 };
 
 export const resolveCtx = async (

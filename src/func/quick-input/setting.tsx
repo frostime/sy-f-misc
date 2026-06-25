@@ -2,7 +2,7 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import { showMessage } from "siyuan";
 import { getBlockByID } from "@frostime/siyuan-plugin-kits/api";
 
-import { simpleFormDialog } from "@/libs/dialog";
+import { documentDialog, simpleFormDialog } from "@/libs/dialog";
 import SimpleForm from "@/libs/components/simple-form";
 import type { SimpleFormField } from "@/libs/components/simple-form";
 import { ButtonInput, CheckboxInput, SelectInput, TextArea, TextInput } from "@/libs/components/Elements";
@@ -175,7 +175,9 @@ function TemplateEditor(props: {
     };
 
     const needsDailynoteNotebook = () => {
-        return props.template.insertTo.type === 'block' && props.template.insertTo.anchorId.includes('${todayDailynoteId}');
+        if (props.template.insertTo.type !== 'block') return false;
+        const anchorId = props.template.insertTo.anchorId;
+        return anchorId.includes('${todayDailynoteId}') && !/\$\{todayDailynoteId:[^}]+\}/.test(anchorId);
     };
 
     const fillDailyNote = async () => {
@@ -195,11 +197,12 @@ function TemplateEditor(props: {
             ]
         });
         if (!result.ok) return;
+        const notebook = String(result.values?.notebook ?? '').trim();
         props.onReplaceInsertTo({
             type: 'block',
-            anchorId: '${todayDailynoteId}',
+            anchorId: notebook ? `\${todayDailynoteId:${notebook}}` : '${todayDailynoteId}',
             mode: 'append',
-            notebook: String(result.values?.notebook ?? '')
+            notebook
         });
         showMessage('已填充“插入今日日记”样板');
     };
@@ -236,6 +239,12 @@ function TemplateEditor(props: {
 
             <section class="b3-label">
                 <div class="b3-label__text" style={{ 'font-weight': 600, 'margin-bottom': '8px' }}>插入位置</div>
+                <Show when={props.template.insertTo.type === 'block'}>
+                    <div style={{ 'margin-bottom': '12px' }}>
+                        <ButtonInput label="插入今日日记" onClick={fillDailyNote} />
+                        <span style={{ color: 'var(--b3-theme-on-surface-light)', 'margin-left': '8px', 'font-size': '12px' }}>一键填充 anchorId 为今日日记</span>
+                    </div>
+                </Show>
                 <div style={{ display: 'grid', 'grid-template-columns': '120px 1fr', gap: '8px 12px', 'align-items': 'center' }}>
                     <label>类型</label>
                     <SelectInput
@@ -283,7 +292,6 @@ function TemplateEditor(props: {
                         </Show>
                         <label />
                         <div style={{ display: 'flex', gap: '8px', 'align-items': 'center' }}>
-                            <ButtonInput label="插入今日日记" onClick={fillDailyNote} />
                             <span style={{ color: 'var(--b3-theme-on-surface-light)' }}>{preview()}</span>
                         </div>
                     </Show>
@@ -374,9 +382,9 @@ export default function QuickInputSetting() {
     };
 
     return (
-        <div class="config__tab-container" data-name="quick-input" style={{ padding: '12px 16px' }}>
-            <div style={{ display: 'grid', 'grid-template-columns': '260px 1fr', gap: '16px', height: '100%' }}>
-                <aside style={{ border: '1px solid var(--b3-border-color)', padding: '8px', 'border-radius': '6px' }}>
+        <div class="config__tab-container" data-name="quick-input" style={{ padding: '12px 16px', height: '100%', 'box-sizing': 'border-box' }}>
+            <div style={{ display: 'grid', 'grid-template-columns': '260px 1fr', gap: '16px', height: '100%', overflow: 'hidden' }}>
+                <aside style={{ border: '1px solid var(--b3-border-color)', padding: '8px', 'border-radius': '6px', overflow: 'auto' }}>
                     <div style={{ display: 'flex', gap: '8px', 'margin-bottom': '8px', 'flex-wrap': 'wrap' }}>
                         <ButtonInput label="新增" onClick={addTemplate} />
                         <ButtonInput label="上移" classOutlined={true} onClick={() => moveSelected(-1)} />
@@ -395,7 +403,7 @@ export default function QuickInputSetting() {
                         )}
                     </For>
                 </aside>
-                <main style={{ overflow: 'auto', 'padding-right': '8px' }}>
+                <main style={{ overflow: 'auto', 'padding-right': '8px', height: '100%', 'box-sizing': 'border-box' }}>
                     <Show when={selectedTemplate()} keyed fallback={
                         <div style={{ color: 'var(--b3-theme-on-surface-light)', 'text-align': 'center', padding: '48px 0' }}>
                             选择或新增一个 QuickInput 模板。
@@ -403,7 +411,8 @@ export default function QuickInputSetting() {
                     }>
                         {(template) => (
                             <>
-                                <div style={{ display: 'flex', 'justify-content': 'flex-end', 'margin-bottom': '8px' }}>
+                                <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center', 'margin-bottom': '8px' }}>
+                                    <ButtonInput label="? 使用说明" classOutlined={true} onClick={() => documentDialog({ sourceUrl: '{{docs}}/quick-input.md' })} />
                                     <ButtonInput label="删除当前模板" classOutlined={true} onClick={removeTemplate} />
                                 </div>
                                 <TemplateEditor
