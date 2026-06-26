@@ -12,7 +12,7 @@
 <!-- SSPEC:START -->
 # .sspec Agent Protocol
 
-SSPEC_SCHEMA::6.1
+SSPEC_SCHEMA::6.2
 
 ## 0. Structure
 
