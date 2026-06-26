@@ -21,6 +21,8 @@ const LEGACY_MIGRATION_MARKER = '_legacy_migrated';
 const LEGACY_MIGRATION_IN_PROGRESS = '_legacy_migrating';
 const PENDING_CACHE_OPS_KEY = 'gpt-cache-pending-v1';
 
+let hasShownLocalStorageSaveFailure = false;
+
 type ISessionHistoryUnion = IChatSessionHistory | IChatSessionHistoryV2;
 type CacheDirRestoreResult =
     | { status: 'empty'; histories: []; hasMigrationMarker: boolean; hasMigrationInProgress: boolean }
@@ -136,10 +138,17 @@ const usePendingCacheJournal = () => {
     };
 
     const write = (journal: CachePendingJournal) => {
-        if (Object.keys(journal).length === 0) {
-            localStorage.removeItem(PENDING_CACHE_OPS_KEY);
-        } else {
-            localStorage.setItem(PENDING_CACHE_OPS_KEY, JSON.stringify(journal));
+        try {
+            if (Object.keys(journal).length === 0) {
+                localStorage.removeItem(PENDING_CACHE_OPS_KEY);
+            } else {
+                localStorage.setItem(PENDING_CACHE_OPS_KEY, JSON.stringify(journal));
+            }
+            return true;
+        } catch (error) {
+            allowCacheEviction = false;
+            console.warn('Failed to write GPT cache pending journal; cache eviction is disabled.', error);
+            return false;
         }
     };
 
@@ -154,8 +163,7 @@ const usePendingCacheJournal = () => {
         const pendingOp = createOp(op);
         const journal = read();
         journal[id] = pendingOp;
-        write(journal);
-        return pendingOp;
+        return write(journal) ? pendingOp : null;
     };
 
     const clearIfCurrent = (id: string, op: CachePendingOp | null) => {
@@ -237,6 +245,39 @@ const drainWriteQueue = async () => {
 };
 
 const localStorageKeyForId = (id: string) => `gpt-chat-${id}`;
+
+const isQuotaExceededError = (error: unknown) => {
+    return error instanceof DOMException
+        && (error.name === 'QuotaExceededError'
+            || error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+            || error.code === 22
+            || error.code === 1014);
+};
+
+const reportLocalStorageSaveFailure = (key: string, error: unknown) => {
+    allowCacheEviction = false;
+    console.warn(`Failed to save GPT localStorage history ${key}; cache eviction is disabled.`, error);
+
+    if (hasShownLocalStorageSaveFailure) return;
+    hasShownLocalStorageSaveFailure = true;
+    showMessage(
+        isQuotaExceededError(error)
+            ? 'GPT 临时对话保存失败：localStorage 空间不足，请归档/导出重要对话后清理临时历史。'
+            : 'GPT 临时对话保存失败，请查看控制台。',
+        7000,
+        'error'
+    );
+};
+
+const trySetLocalStorage = (key: string, value: string) => {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch (error) {
+        reportLocalStorageSaveFailure(key, error);
+        return false;
+    }
+};
 
 const readHistoryFromLocalStorage = (id: string): LocalStorageHistoryReadResult => {
     const data = localStorage.getItem(localStorageKeyForId(id));
@@ -500,7 +541,7 @@ export const restoreCache = async () => {
     for (const history of restoredHistories.slice(0, KEEP_N_CACHE_ITEM)) {
         const key = localStorageKeyForId(history.id);
         if (!isExist(key)) {
-            localStorage.setItem(key, JSON.stringify(history));
+            trySetLocalStorage(key, JSON.stringify(history));
         }
     }
 };
@@ -512,7 +553,12 @@ export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
     }
     const historyWithType = { ...history, type: 'history' as const, schema: 2 } as IChatSessionHistoryV2;
     const pendingOp = pendingCacheJournal.mark(history.id, 'write');
-    localStorage.setItem(localStorageKeyForId(history.id), JSON.stringify(historyWithType));
+    const saved = trySetLocalStorage(localStorageKeyForId(history.id), JSON.stringify(historyWithType));
+    if (!saved) {
+        pendingCacheJournal.clearIfCurrent(history.id, pendingOp);
+        void writeCacheFile(history.id, historyWithType);
+        return;
+    }
     void writeCacheFile(history.id, historyWithType).then(ok => {
         if (ok) pendingCacheJournal.clearIfCurrent(history.id, pendingOp);
     });
