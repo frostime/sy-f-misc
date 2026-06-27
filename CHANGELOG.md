@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [7.13.1] - 2026-06-26
+
 ### Fixed
 
 - 修复 GPT 临时对话保存时 localStorage 超额导致对话框无法关闭的问题。
