@@ -73,6 +73,34 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             }
         },
         {
+            type: 'textinput',
+            title: 'Zotero Debug-Bridge Token（已废弃）',
+            description: '新版不再使用 debug-bridge。此 Token 仅保留作为旧配置参考，不影响当前功能。',
+            key: 'legacyToken',
+            get: () => configs.zoteroPassword,
+            set: (value: string) => {
+                configs.zoteroPassword = value;
+            }
+        },
+        {
+            type: 'button',
+            title: '迁移指南',
+            description: '从旧版 Better BibTeX debug-bridge 迁移到新版 Local API + Bridge 的详细说明',
+            key: 'showMigrationGuide',
+            get: () => '',
+            set: () => {
+            },
+            button: {
+                label: '查看迁移指南',
+                callback: () => {
+                    documentDialog({
+                        title: 'Zotero 功能迁移指南',
+                        sourceUrl: `{{docs}}/zotero-migration.md`,
+                    });
+                }
+            }
+        },
+        {
             type: 'button',
             title: '检查 Zotero 连接',
             description: '检查 Zotero Local API 和 sy-f-misc Bridge 扩展是否正常',
