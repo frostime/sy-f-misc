@@ -1,17 +1,41 @@
-从 Zotero 中导入一些数据；默认 Zotero V7 版本
+从 Zotero v9+ 导入选中条目和笔记。
 
-1. 前置条件：使用 zotero debug bridge 绑定 zotero (debug-bridge >= 1.0)
+## 功能
 
-    1. [https://github.com/retorquere/zotero-better-bibtex/releases/tag/debug-bridge](https://github.com/retorquere/zotero-better-bibtex/releases/tag/debug-bridge)
-    2. 详情参考「文献引用」插件中对 Debug Bridge 的介绍，本插件采用和这个插件一样的连接方式
-2. 需要在设置中配置连接的密码 ； 这里 CCT 只是例子；设置密码之后别忘了在插件设置中也填上密码
+- `/cite`：引用 Zotero 当前选中的论文条目。
+- `/cite`：导入 Zotero 当前选中条目的笔记。
+- 粘贴 Zotero 标注链接时，自动简化为更适合思源阅读的链接格式。
 
-    ```js
-    Zotero.Prefs.set("extensions.zotero.debug-bridge.token","CTT",true);
-    ```
-3. `/cite` 触发功能
+## 前置条件
 
-    1. 功能：引用选中的 Zotero 论文条目
-    2. 功能：将选定论文的笔记导入到思源中
+1. 启动 Zotero v9+。
+2. 在 Zotero 中启用 Local API。
+3. 安装 sy-f-misc Zotero Bridge 扩展。
+4. 在本插件设置中点击「检查连接」，确认 Local API 和 Bridge 都可用。
 
-        注意，zotero 笔记中的图片默认只会以 `file:///` 链接的形式插入到笔记中；你可以在思源文档中自行将「网络资源图片转换到本地」，来将这些图片导入到思源当中
+Bridge 扩展只负责读取 Zotero 当前选中的条目；标准数据读取使用 Zotero 官方 Local API。
+
+## 安装 Bridge 扩展
+
+1. 找到 `f-zotero-ext@frostime.github.io.xpi`。
+   - 插件分发包内路径：`external/zotero-bridge/f-zotero-ext@frostime.github.io.xpi`
+   - 或从项目 Release 下载同名文件。
+2. 打开 Zotero：`Tools` → `Add-ons`。
+3. 点击齿轮菜单，选择 `Install Add-on From File...`。
+4. 选择 `.xpi` 文件并重启 Zotero。
+
+## Zotero 数据存储目录
+
+`Zotero 数据存储目录`用于把 Zotero 笔记中的图片路径转换为 `file:///` 链接。
+
+在 Zotero 中查看路径：`设置` → `高级` → `数据存储目录`。
+
+该配置按设备独立保存；多设备使用时，每台设备都需要设置自己的本地路径。
+
+## 笔记图片
+
+Zotero 笔记中的图片默认以 `file:///` 链接插入思源。需要真正导入思源资源库时，可以在思源中使用「网络资源图片转换到本地」。
+
+## 迁移
+
+旧版本依赖 Better BibTeX debug-bridge 和 token。新版本不再需要 token；如从旧版本升级，请查看 `zotero-migration.md`。

@@ -60,16 +60,10 @@
   - 默认数据库需要手动刷新，可以在设置中开启「打开文档时自动刷新」的选项
 - Zotero 工具
 
-  - 默认 Zotero V7 版本
-  - 注意需要使用 zotero debug bridge 绑定 zotero (debug-bridge >= 1.0)
-
-    - [https://github.com/retorquere/zotero-better-bibtex/releases/tag/debug-bridge](https://github.com/retorquere/zotero-better-bibtex/releases/tag/debug-bridge)
-    - 详情参考「文献引用」插件中对 Debug Bridge 的介绍，本插件采用和这个插件一样的连接方式
-    - 需要在设置中配置连接的密码
-
-      ```js
-      Zotero.Prefs.set("extensions.zotero.debug-bridge.token","CTT",true);
-      ```
+  - 支持 Zotero v9+
+  - 使用 Zotero 官方 Local API 读取数据，使用 sy-f-misc Zotero Bridge 获取当前选中条目
+  - 不再需要 Better BibTeX debug-bridge 或 token
+  - 需要安装 `f-zotero-ext@frostime.github.io.xpi`，并在插件设置中点击「检查连接」确认 Local API 和 Bridge 状态
   - 引用选中的 Zotero 论文条目；`/cite`​ 触发
   - 将选定论文的笔记导入到思源中
 

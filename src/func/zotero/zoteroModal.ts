@@ -7,180 +7,129 @@
  * @Description  : 拷贝自思源 zotero 文件引用插件，做了一些修改
  * @Source       : https://github.com/WingDr/siyuan-plugin-citation
  */
-// import Fuse from "fuse.js";
 
-import {
-    // Plugin,
-    // Protyle,
-    showMessage
-} from "siyuan";
+import { showMessage } from "siyuan";
 
-// import * as api from '@/api';
-// import type FMiscPlugin from "@/index";
-import { getPassword } from "./config";
-import { thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
+const ZOTERO_BASE_URL = 'http://127.0.0.1:23119';
+const ZOTERO_LOCAL_API = `${ZOTERO_BASE_URL}/api/`;
+const ZOTERO_CONNECTOR_PING = `${ZOTERO_BASE_URL}/connector/ping`;
+const ZOTERO_BRIDGE_SELECTED = `${ZOTERO_BASE_URL}/f-zotero-ext/api/v1/selected`;
 
-
-// function processKey(key: string): [number, string] {
-//     if (!key) return [1, key];
-//     const group = key.split("_");
-//     if (group.length <= 1 || isNaN(+group[0])) {
-//         // 整个长度小于等于1（不含"_"或者为空）或者第一个字符不是数字的，都视为非新生成的
-//         return [1, key];
-//     } else {
-//         return [eval(group[0]), group.slice(1).join("_")];
-//     }
-// }
+type BridgeResponse<T> = {
+    ok: boolean;
+    error?: string;
+} & T;
 
 interface ISelectedItem {
     key: string,
     title: string,
-    publicationTitle: string
+    publicationTitle?: string
     itemType: string,
     date: string,
     url: string,
     DOI: string,
-    volume: string,
+    volume?: string,
 }
 
-export class ZoteroDBModal {
-    private absZoteroJSPath: string;
-    // public plugin: Plugin;
-    // public protyle: Protyle;
+type ZoteroApiItem = {
+    key: string;
+    data: {
+        key: string;
+        itemType: string;
+        title?: string;
+        note?: string;
+    };
+};
 
+export class ZoteroDBModal {
     logger = {
-        info: (msg: string, data ?: any) => console.log(msg, data),
+        info: (msg: string, data?: any) => console.log(msg, data),
         error: (msg: string, data?: any) => console.error(msg, data)
     };
 
-    constructor() {
-        // this.plugin = plugin;
-        let plugin = thisPlugin();
-        this.absZoteroJSPath = `/data/plugins/${plugin.name}/zotero/`;
-    }
-
     public async getSelectedItems(): Promise<ISelectedItem[]> {
-        let isRunning = await this.checkZoteroRunning();
-        if (isRunning) {
-            return await this._getSelectedItems();
-        } else {
+        if (!await this.checkZoteroRunning()) {
             showMessage("无法连接到 Zotero", 5000, 'error');
             return null;
         }
+        return await this.getSelectedItemsFromBridge();
     }
 
-    public async getItemNote() {
-        return this.requests(async () => {
-            return await this._callZoteroJS("getItemNote", "");
-        });
-    }
-
-    private async requests(call: CallableFunction) {
-        let isRunning = await this.checkZoteroRunning();
-        if (isRunning) {
-            return await call();
-        } else {
+    public async getItemNote(): Promise<Record<string, string>> {
+        if (!await this.checkZoteroRunning()) {
             showMessage("无法连接到 Zotero", 5000, 'error');
             return null;
         }
-    }
 
-    private async _getSelectedItems() {
-        return await this._callZoteroJS("getSelectedItems", "");
+        const selectedItems = await this.getSelectedItemsFromBridge();
+        if (!selectedItems || selectedItems.length === 0) {
+            return null;
+        }
+
+        const notes: Record<string, string> = {};
+        for (const item of selectedItems) {
+            const noteItems = await this.getItemNotes(item.key);
+            for (const noteItem of noteItems) {
+                const noteTitle = noteItem.data.title || item.title || noteItem.key;
+                if (noteItem.data.note) {
+                    notes[noteTitle] = noteItem.data.note;
+                }
+            }
+        }
+        return notes;
     }
 
     public async checkZoteroRunning(): Promise<boolean> {
-        let data = (await this._callZoteroJS("checkRunning", ""));
-        return data?.ready;
+        if (await this.isEndpointReachable(ZOTERO_LOCAL_API)) {
+            return true;
+        }
+        return await this.isEndpointReachable(ZOTERO_CONNECTOR_PING);
     }
 
-    /** 这部分先不用
-    private async checkItemKeyExist(libraryID: number, itemKey: string): Promise<boolean> {
-        if (!itemKey.length) return false;
-        return (await this._callZoteroJS("checkItemKeyExist", `
-      var key = "${itemKey}";
-      var libraryID = ${libraryID};
-    `)).itemKeyExist;
+    private async getSelectedItemsFromBridge(): Promise<ISelectedItem[]> {
+        const data = await this.fetchJson<BridgeResponse<{ items: ISelectedItem[] }>>(ZOTERO_BRIDGE_SELECTED);
+        if (!data?.ok) {
+            const error = data?.error ?? 'Bridge returned an invalid response';
+            this.logger.error(error);
+            showMessage('无法获取 Zotero 选中项，请确认 Bridge 扩展已安装', 5000, 'error');
+            return null;
+        }
+        return data.items ?? [];
     }
 
-    private async getAllItems(): Promise<SearchItem[]> {
-        return await this._callZoteroJS("getAllItems", "");
+    private async getItemNotes(itemKey: string): Promise<ZoteroApiItem[]> {
+        const childrenUrl = `${ZOTERO_LOCAL_API}users/0/items/${itemKey}/children`;
+        const children = await this.fetchJson<ZoteroApiItem[]>(childrenUrl);
+        if (!children) {
+            return [];
+        }
+        return children.filter(item => item.data?.itemType === 'note');
     }
 
-    private async getItemByItemKey(libraryID: number, itemKey: string) {
-        return await this._callZoteroJS("getItemByItemKey", `
-      var key = "${itemKey}";
-      var libraryID = ${libraryID};
-    `);
-    }
-
-    private async getItemKeyByCitekey(libraryID: number, citekey: string) {
-        return (await this._callZoteroJS("getItemKeyByCiteKey", `
-      var citekey = "${citekey}";
-      var libraryID = ${libraryID};
-    `)).itemKey;
-    }
-
-    private async getNotesByItemKey(libraryID: number, itemKey: string) {
-        return await this._callZoteroJS("getNotesByItemKey", `
-      var key = "${itemKey}";
-      var libraryID = ${libraryID};
-    `);
-    }
-
-    private async _updateURLToItem(libraryID: number, itemKey: string, title: string, url: string) {
-        return await this._callZoteroJS("updateURLToItem", `
-      var key = "${itemKey}";
-      var libraryID = ${libraryID};
-      var url = "${url}";
-      var title = "${title}";
-    `);
-    }
-    */
-
-    /**
-     * Execute JavaScript code in Zotero
-     * @param code JavaScript code to execute
-     * @returns Response from Zotero
-     */
-    public async executeZoteroJS(code: string) {
-        const password = getPassword();
-        const requestOptions = {
-            method: "POST",
-            headers: {
-                'Authorization': `Bearer ${password}`,
-                'Content-Type': 'text/plain',
-                'Zotero-Allowed-Request': 'true'
-            },
-            body: code
-        };
-
+    private async isEndpointReachable(url: string): Promise<boolean> {
         try {
-            let response = await fetch(
-                `http://127.0.0.1:23119/debug-bridge/execute`, requestOptions
-            );
-            if (response.ok) {
-                const data = await response.json();
-                return data;
-            } else {
-                throw new Error(response.statusText);
-            }
-        } catch (e) {
-            console.warn('远程链接 Zotero 失败');
-            console.warn(e);
-            return null;
+            const response = await fetch(url);
+            return response.ok;
+        } catch (error) {
+            this.logger.error(`Zotero endpoint is not reachable: ${url}`, error);
+            return false;
         }
     }
 
-    private async _callZoteroJS(filename: string, prefix: string) {
-        const path = siyuanVfs.join(this.absZoteroJSPath, filename + ".js")
-        const { ok, data: jsContent } = await siyuanVfs.readFile(path, 'text');
-        if (!ok) {
-            showMessage(`无法加载 Zotero 脚本文件: ${filename}.js`, 5000, 'error');
+    private async fetchJson<T>(url: string): Promise<T> {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Zotero-Allowed-Request': 'true',
+                }
+            });
+            if (!response.ok) {
+                throw new Error(`${response.status} ${response.statusText}`);
+            }
+            return await response.json();
+        } catch (error) {
+            this.logger.error(`Zotero request failed: ${url}`, error);
             return null;
         }
-        const code = prefix + "\n" + jsContent;
-        return await this.executeZoteroJS(code);
     }
 }

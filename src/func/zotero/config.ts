@@ -1,13 +1,28 @@
 import { deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
-import { ZoteroDBModal } from "./zoteroModal";
 import { showMessage } from "siyuan";
 import { documentDialog } from "@/libs/dialog";
+import type FMiscPlugin from "@/index";
 
-let configs = {
-    zoteroPassword: 'CTT',
-}
+type ZoteroConfig = {
+    zoteroPassword: string;
+    migrationPromptPending: boolean;
+};
 
-let zoteroDir = {};
+type ZoteroConnectionStatus = {
+    localApi: boolean;
+    bridge: boolean;
+};
+
+const ZOTERO_LOCAL_API = 'http://127.0.0.1:23119/api/';
+const ZOTERO_BRIDGE_STATUS = 'http://127.0.0.1:23119/f-zotero-ext/api/v1/status';
+
+let configs: ZoteroConfig = {
+    zoteroPassword: '',
+    migrationPromptPending: false,
+};
+
+let zoteroDir: Record<string, string> = {};
+let configLoadPromise: Promise<void> = null;
 
 export const getZoteroDir = () => {
     const device = window.siyuan.config.system;
@@ -18,31 +33,32 @@ export const getPassword = () => {
     return configs.zoteroPassword;
 }
 
+export const ensureZoteroConfigLoaded = (data: Partial<ZoteroConfig> = {}) => {
+    configLoadPromise ??= loadZoteroConfig(data);
+    return configLoadPromise;
+}
+
+export const shouldShowMigrationPrompt = () => {
+    return configs.migrationPromptPending;
+}
+
+export const markMigrationPromptShown = async () => {
+    configs.migrationPromptPending = false;
+    await saveZoteroModuleConfig();
+}
+
 export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     key: 'Zotero',
-    title: 'Zotero 7',
-    load: async (data: { zoteroPassword: string, zoteroDir: string }) => {
-        configs.zoteroPassword = data.zoteroPassword ?? configs.zoteroPassword;
-        let plugin = thisPlugin();
-        let configDir = await plugin.loadData('zoteroDir.config.json');
-        if (configDir) {
-            zoteroDir = deepMerge(zoteroDir, configDir);
-        }
+    title: 'Zotero',
+    load: (data: Partial<ZoteroConfig> = {}) => {
+        return ensureZoteroConfigLoaded(data);
     },
+    dump: () => ({
+        zoteroPassword: configs.zoteroPassword,
+        migrationPromptPending: configs.migrationPromptPending,
+        // zoteroDir is device-local state; keeping it out of custom-module.config.json avoids cross-device path leakage.
+    }),
     items: [
-        {
-            type: 'textinput',
-            title: 'Zotero Debug-Bridge 访问 Token, 默认 CTT',
-            description: `依赖于 <a href="https://github.com/retorquere/zotero-better-bibtex/tree/master/test/fixtures/debug-bridge">Zotero Debug-Bridge</a> 插件, 测试版本: Zotero 7 / 插件版本 1.0
-<br />
-在 Zotero 面板中设置 Token: Zotero.Prefs.set("extensions.zotero.debug-bridge.token","<你的Token>",true);
-`,
-            key: 'zoteroPassword',
-            get: () => configs.zoteroPassword,
-            set: (value: string) => {
-                configs.zoteroPassword = value;
-            }
-        },
         {
             type: 'textinput',
             title: 'Zotero 数据存储目录',
@@ -59,22 +75,16 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
         {
             type: 'button',
             title: '检查 Zotero 连接',
-            description: '',
+            description: '检查 Zotero Local API 和 sy-f-misc Bridge 扩展是否正常',
             key: 'checkZoteroConnection',
             get: () => '',
             set: () => {
             },
             button: {
                 label: '检查连接',
-                callback: () => {
-                    let zotero = new ZoteroDBModal();
-                    zotero.checkZoteroRunning().then(res => {
-                        if (res) {
-                            showMessage("Zotero 连接成功", 3000);
-                        } else {
-                            showMessage("无法连接到 Zotero", 3000, 'error');
-                        }
-                    });
+                callback: async () => {
+                    const status = await checkZoteroConnection();
+                    showConnectionStatus(status);
                 }
             }
         }
@@ -84,4 +94,62 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
             sourceUrl: `{{docs}}/zotero-desc.md`,
         });
     }
+}
+
+const loadZoteroConfig = async (data: Partial<ZoteroConfig>) => {
+    const plugin = thisPlugin() as unknown as FMiscPlugin;
+    const legacyPassword = plugin.getConfig('Misc', 'zoteroPassword');
+    const hasLegacyPassword = typeof legacyPassword === 'string' && legacyPassword.trim() !== '';
+
+    configs = {
+        zoteroPassword: data.zoteroPassword ?? (hasLegacyPassword ? legacyPassword : ''),
+        migrationPromptPending: data.migrationPromptPending ?? hasLegacyPassword,
+    };
+
+    const configDir = await plugin.loadData('zoteroDir.config.json');
+    if (configDir) {
+        zoteroDir = deepMerge(zoteroDir, configDir);
+    }
+}
+
+const saveZoteroModuleConfig = async () => {
+    const plugin = thisPlugin();
+    const storageName = 'custom-module.config.json';
+    const storage = await plugin.loadData(storageName) || {};
+    storage.Zotero = declareModuleConfig.dump();
+    await plugin.saveData(storageName, storage);
+}
+
+const checkZoteroConnection = async (): Promise<ZoteroConnectionStatus> => {
+    const [localApi, bridge] = await Promise.all([
+        isEndpointReachable(ZOTERO_LOCAL_API),
+        isEndpointReachable(ZOTERO_BRIDGE_STATUS),
+    ]);
+    return { localApi, bridge };
+}
+
+const isEndpointReachable = async (url: string) => {
+    try {
+        const response = await fetch(url);
+        return response.ok;
+    } catch (error) {
+        console.warn(`Zotero connection check failed: ${url}`, error);
+        return false;
+    }
+}
+
+const showConnectionStatus = (status: ZoteroConnectionStatus) => {
+    if (status.localApi && status.bridge) {
+        showMessage('Zotero Local API 和 Bridge 扩展连接成功', 3000);
+        return;
+    }
+    if (status.localApi) {
+        showMessage('Zotero 已连接，但 Bridge 扩展未安装或未启动', 5000, 'error');
+        return;
+    }
+    if (status.bridge) {
+        showMessage('Bridge 扩展已启动，但 Zotero Local API 不可用', 5000, 'error');
+        return;
+    }
+    showMessage('无法连接到 Zotero，请确认 Zotero 已启动并安装 Bridge 扩展', 5000, 'error');
 }
