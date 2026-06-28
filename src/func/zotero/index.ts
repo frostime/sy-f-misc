@@ -11,7 +11,8 @@ import type FMiscPlugin from "@/index";
 import { addProcessor, delProcessor } from "@/func/global-paste";
 
 import { ZoteroDBModal } from "./zoteroModal";
-import { getZoteroDir } from "./config";
+import { ensureZoteroConfigLoaded, getZoteroDir, markMigrationPromptShown, shouldShowMigrationPrompt } from "./config";
+import { documentDialog } from "@/libs/dialog";
 
 export { declareModuleConfig } from "./config";
 
@@ -35,8 +36,22 @@ const pasteProcessor = (detail: ISiyuanEventPaste) => {
 }
 
 let zotero: ZoteroDBModal = null;
+let migrationPromptChecked = false;
 
 const SPECIAL_CHAR_DOLLAR = '转义美元真麻烦';
+
+const showMigrationGuideIfNeeded = async () => {
+    await ensureZoteroConfigLoaded();
+    if (migrationPromptChecked || !shouldShowMigrationPrompt()) {
+        return;
+    }
+    migrationPromptChecked = true;
+    await markMigrationPromptShown();
+    documentDialog({
+        title: 'Zotero 功能升级提示',
+        sourceUrl: `{{docs}}/zotero-migration.md`,
+    });
+}
 
 const parseNoteHtml = (html: string, zoteroDir: string) => {
     console.group('Parse note html');
@@ -192,12 +207,14 @@ export const load = (plugin: FMiscPlugin) => {
     addProcessor(name, pasteProcessor);
     enabled = true;
 
+    ensureZoteroConfigLoaded();
     zotero = new ZoteroDBModal();
     plugin.addProtyleSlash({
         id: "zotero-cite-selected",
         filter: ["cite", "zotero"],
         html: '引用 Zotero 选中项',
         callback: async (protyle: Protyle) => {
+            await showMigrationGuideIfNeeded();
             const data = await zotero.getSelectedItems();
             protyle.insert(window.Lute.Caret, false, false); //插入特殊字符清除 slash
             if ([null, undefined].includes(data) || data.length === 0) {
@@ -219,6 +236,7 @@ export const load = (plugin: FMiscPlugin) => {
         html: '导入 Zotero 选中项笔记',
         callback: async (protyle: Protyle) => {
             // console.log(protyle);
+            await showMigrationGuideIfNeeded();
             const data: Object = await zotero.getItemNote();
             if (!data) return;
             let keys = Object.keys(data);
@@ -265,9 +283,6 @@ export const load = (plugin: FMiscPlugin) => {
     globalThis.ZoteroSDK = {
         checkConnection: async () => {
             return await zotero.checkZoteroRunning();
-        },
-        executeJSCode: async (code: string) => {
-            return await zotero.executeZoteroJS(code);
         }
     }
 }
@@ -281,5 +296,6 @@ export const unload = (plugin: FMiscPlugin) => {
     enabled = false;
 
     zotero = null;
+    migrationPromptChecked = false;
     delete globalThis.ZoteroSDK;
 }

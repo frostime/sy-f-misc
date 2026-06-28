@@ -1,0 +1,19 @@
+{
+  "addons": {
+    "f-zotero-ext@frostime.github.io": {
+      "updates": [
+        {
+          "version": "0.1.0",
+          "update_link": "https://github.com/frostime/sy-f-misc/releases/latest/download/f-zotero-ext@frostime.github.io.xpi",
+          "update_hash": "sha256:64fa4b306d8b14ee48e388c9ec3df2908749518dd7f6a2aa7e57a5c6cb599849",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "9.0",
+              "strict_max_version": "9.99.99"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

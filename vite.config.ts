@@ -77,7 +77,7 @@ export default defineConfig({
                 { src: "./plugin.json", dest: "./" },
                 { src: "./preview.png", dest: "./" },
                 { src: "./icon.png", dest: "./" },
-                { src: "src/func/zotero/js/**/*", dest: "zotero" }
+                { src: "src/external/zotero-bridge/*.xpi", dest: "external/zotero-bridge" }
             ],
         }),
         process.env.ANALYZE_BUNDLE === 'true' &&
