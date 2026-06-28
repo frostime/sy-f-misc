@@ -5,7 +5,28 @@
 
 ## [Unreleased]
 
-## [7.13.1] - 2026-06-26
+### Changed
+
+- **Zotero 模块重构**：移除 Better BibTeX debug-bridge 依赖，改用 Zotero Local API 读取笔记数据、自研 Bridge 扩展获取当前选中条目。不再需要配置 `zoteroPassword`/token。
+- 删除 `globalThis.ZoteroSDK.executeJSCode()`；`checkConnection()` 保留。
+- Zotero 配置存储迁移：`zoteroPassword` 迁移至 `custom-module.config.json`，`zoteroDir` 继续使用独立文件 `zoteroDir.config.json`。
+
+### Added
+
+- 支持 Zotero v9+。
+- Zotero Bridge 扩展自动更新：通过 `raw.githubusercontent.com` 托管 `updates.json`，Zotero 每 24h 检查更新。
+- 设置面板新增「检查连接」按钮，区分 Local API 和 Bridge 扩展状态。
+- 设置面板新增「迁移指南」按钮和废弃 Token 提示，引导旧用户迁移。
+- 首次使用 Zotero 功能时自动弹窗显示迁移文档。
+- 新增 `zotero-migration.md` 迁移指南。
+
+### Fixed
+
+- 修复 Zotero 缺少显式 `dump()` 导致 `zoteroDir` 单设备值被错误写入会跨设备同步的 `custom-module.config.json` 的问题。
+
+### Removed
+
+- 删除 `src/func/zotero/js/*.js`（8 个 Zotero 注入脚本）。## [7.13.1] - 2026-06-26
 
 ### Fixed
 
