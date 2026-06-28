@@ -86,3 +86,4 @@ CLI treats the last valid bullet as the latest milestone.
 - [2026-06-28T19:20+08:00] Completed design revision after storage audits: final plan uses bridge + Local API, Zotero-local explicit `dump()` fix, preserves `zoteroDir.config.json`, and avoids modifying core settings engine.
 - [2026-06-28T19:30+08:00] Committed design/request artifacts, then initialized `tasks.md` with six implementation phases and validation checks.
 - [2026-06-28T20:05+08:00] Completed implementation: removed debug-bridge runtime path, added Zotero-local config dump safety, updated docs, and validated type-check/build.
+- [2026-06-28T21:45+08:00] Completed bridge auto-update research: created `updates.json` at `src/external/zotero-bridge/updates.json`, set `manifest.json` `update_url` to `raw.githubusercontent.com/frostime/sy-f-misc/main/.../updates.json`, enhanced `pack.sh` to output SHA-256 hash. Zotero v9+ will auto-check for bridge updates every 24h via raw.githubusercontent.com.
