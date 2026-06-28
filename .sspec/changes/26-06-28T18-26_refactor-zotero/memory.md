@@ -1,6 +1,6 @@
 # Memory: refactor-zotero
 
-**Updated**: 2026-06-28T19:20+08:00
+**Updated**: 2026-06-28T19:30+08:00
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -23,7 +23,7 @@ A  .sspec/requests/references/2026-06-28_handover.md
 <!-- Where we are and what's next — one to three lines.
 This is the resume entry point; the first section an agent reads on cold start. -->
 
-Design phase complete, awaiting user confirmation to enter Plan phase. `spec.md` and `design.md` have been updated after two subagent audits. Do NOT implement yet; next step is `sspec-plan` after user confirms Design Gate.
+Plan phase initialized after user confirmed continuing. `tasks.md` contains six implementation phases. Next step is implementation, starting with Phase 1 config storage safety; do not modify `src/settings/index.ts`.
 
 ## Key Files
 <!-- Files critical to understanding/continuing this change.
@@ -84,3 +84,4 @@ CLI treats the last valid bullet as the latest milestone.
 
 - [2026-06-28T18:26+08:00] Created change `26-06-28T18-26_refactor-zotero` from request and entered Design phase.
 - [2026-06-28T19:20+08:00] Completed design revision after storage audits: final plan uses bridge + Local API, Zotero-local explicit `dump()` fix, preserves `zoteroDir.config.json`, and avoids modifying core settings engine.
+- [2026-06-28T19:30+08:00] Committed design/request artifacts, then initialized `tasks.md` with six implementation phases and validation checks.
