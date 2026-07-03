@@ -1,6 +1,6 @@
 # Memory: extract-siyuan-hspa
 
-**Updated**: 2026-07-04T01:45+08:00
+**Updated**: 2026-07-04T02:05+08:00
 
 ## Git Baseline (Immutable)
 <!-- Captured during `sspec change new` before any change files are written.
@@ -21,7 +21,7 @@ This section records the change starting point in git and MUST NOT be edited or 
 <!-- Where we are and what's next — one to three lines.
 This is the resume entry point; the first section an agent reads on cold start. -->
 
-Review phase. Implementation complete with subagent review fixes. New package repo `../siyuan-hspa` has latest commit `2e7620d`; current sy-f-misc branch HEAD records the review fixes in sspec memory/tasks.
+Review phase. Implementation complete with revision 001. New package repo `../siyuan-hspa` has latest commit `6fe4359`; current sy-f-misc branch HEAD records revision 001.
 
 ## Key Files
 <!-- Files critical to understanding/continuing this change.
@@ -66,6 +66,8 @@ Obsolete items → mark [obsolete: timestamp], never silently delete. -->
 - [2026-07-04T01:22+08:00] [Gotcha] `vite-plugin-static-copy` with `assets/hspa/**/*` created both flattened files and nested files; `hspaStaticCopyTargets()` now returns separate `styles/*` and `scripts/*` targets to preserve only `hspa/styles` and `hspa/scripts`.
 - [2026-07-04T01:45+08:00] [Decision] Lute parity difference with fmisc is intentionally left unchanged per user instruction.
 - [2026-07-04T01:45+08:00] [Insight] Third-party alpha fixes added: mock type-check, ready dispatch warning, tab handle cache, `createSiyuanIframePage`, removal of unused `requestReturnRaw`, docs/example corrections.
+- [2026-07-04T02:05+08:00] [Decision] Package guidance is now SKILL-first: `docs/` removed, README minimized, and `skill/hspa/SKILL.md` is the primary agent-facing usage guide.
+- [2026-07-04T02:05+08:00] [Gotcha] Avoid parallel root package build and mock plugin build: root `tsup` cleans `dist`, and mock plugin resolves the workspace package through `dist`; run root build before mock build.
 
 ## Milestones
 <!-- MUST append one line per session. Pure facts; new entries appended at the end.
@@ -75,3 +77,4 @@ CLI treats the last valid bullet as the latest milestone.
 - [2026-07-04T00:40+08:00] Created sspec change, created branch `feat/extract-siyuan-hspa`, clarified package boundaries, and filled `spec.md`/`design.md` for user alignment.
 - [2026-07-04T01:22+08:00] Implemented package, docs, assets, mock plugin, verification, package repo checkpoint commit `223bf65`, and sy-f-misc checkpoint commit at current branch HEAD.
 - [2026-07-04T01:45+08:00] Applied subagent review fixes, reran verification, and committed package fix `2e7620d`.
+- [2026-07-04T02:05+08:00] Applied revision 001: removed docs, rewrote/validated SKILL, fixed SKILL review warnings, reran verification, and committed package update `6fe4359`.

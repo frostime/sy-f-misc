@@ -84,6 +84,15 @@ updated: "2026-07-04T00:45+08:00"
 - [x] Document `workspace:*` mock dependency replacement and custom asset dest links.
 - [x] Reorder mock page event listener registration before awaiting `pluginSdkReady`.
 
+### Feedback Tasks (→ [001-skill-first-agent-docs](./revisions/001-skill-first-agent-docs.md))
+- [x] Remove `../siyuan-hspa/docs/` and package `files` entry.
+- [x] Rewrite `../siyuan-hspa/skill/hspa/SKILL.md` as the primary agent-facing guide.
+- [x] Absorb API/assets/HTML authoring guidance into SKILL.
+- [x] Simplify `../siyuan-hspa/README.md` to package orientation and SKILL pointer.
+- [x] Validate SKILL with `skill-creator/scripts/quick_validate.py`.
+- [x] Run package and mock-plugin verification.
+- [x] Apply independent SKILL review fixes for CSS class names, Vite page-copy snippet, event timing, and `customCss` explanation.
+
 ---
 
 ## Progress
@@ -100,6 +109,7 @@ updated: "2026-07-04T00:45+08:00"
 | Phase 6 | 4/4 | ✅ |
 
 **Recent**:
+- 2026-07-04T02:05+08:00: Revision 001 complete; docs removed, SKILL rewritten and validated, package repo commit `6fe4359` created.
 - 2026-07-04T01:45+08:00: Subagent review fixes complete; package repo commit `2e7620d` created and verification rerun.
 - 2026-07-04T01:22+08:00: Phase 6 complete; package builds, mock plugin builds, pack dry-run is clean, package repo checkpoint commit `223bf65` created.
 - 2026-07-04T01:12+08:00: Phase 5 complete; mock plugin created and type-checks with local source paths.

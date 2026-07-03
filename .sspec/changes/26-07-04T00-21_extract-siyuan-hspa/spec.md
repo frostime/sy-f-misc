@@ -3,7 +3,10 @@ name: extract-siyuan-hspa
 status: REVIEW
 change-type: single
 created: 2026-07-04T00:21:02
-reference: null
+reference:
+  - source: ".sspec/changes/26-07-04T00-21_extract-siyuan-hspa/revisions/001-skill-first-agent-docs.md"
+    type: "revision"
+    note: "Make SKILL the primary agent-facing documentation and remove docs/."
 ---
 
 <!-- MUST follow frontmatter schema:
