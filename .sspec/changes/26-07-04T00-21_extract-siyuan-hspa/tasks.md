@@ -74,8 +74,15 @@ updated: "2026-07-04T00:45+08:00"
 3. BC-3/BC-4: mock plugin source shows runtime + stable-core preset usage.
 4. BC-5: mock/plugin docs show asset copy to `hspa/` and HTML explicit relative links.
 
-### Feedback Tasks (→ revisions)
-- (none yet)
+### Feedback Tasks (→ subagent review minor fixes)
+- [x] Fix mock plugin `tsconfig.json` type-check failure.
+- [x] Add `createSiyuanIframePage` and warn when low-level `createIframePage` is used with preset SDK but no SiYuan preset factory.
+- [x] Cache tab handles by `plugin.name:tabId` and warn on dispatch before iframe readiness.
+- [x] Implement dialog `maxWidth` / `maxHeight` styling.
+- [x] Remove unused `requestReturnRaw` public option.
+- [x] Fix example CSS classes from `muted` to `text-muted`.
+- [x] Document `workspace:*` mock dependency replacement and custom asset dest links.
+- [x] Reorder mock page event listener registration before awaiting `pluginSdkReady`.
 
 ---
 
@@ -93,6 +100,7 @@ updated: "2026-07-04T00:45+08:00"
 | Phase 6 | 4/4 | ✅ |
 
 **Recent**:
+- 2026-07-04T01:45+08:00: Subagent review fixes complete; package repo commit `2e7620d` created and verification rerun.
 - 2026-07-04T01:22+08:00: Phase 6 complete; package builds, mock plugin builds, pack dry-run is clean, package repo checkpoint commit `223bf65` created.
 - 2026-07-04T01:12+08:00: Phase 5 complete; mock plugin created and type-checks with local source paths.
 - 2026-07-04T01:07+08:00: Phase 4 complete; README, docs, SKILL, and Vanilla/Alpine examples created.
