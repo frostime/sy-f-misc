@@ -7,6 +7,9 @@ reference:
   - source: ".sspec/changes/26-07-04T00-21_extract-siyuan-hspa/revisions/001-skill-first-agent-docs.md"
     type: "revision"
     note: "Make SKILL the primary agent-facing documentation and remove docs/."
+  - source: ".sspec/changes/26-07-04T00-21_extract-siyuan-hspa/revisions/002-add-conservative-cli-init-doctor.md"
+    type: "revision"
+    note: "Add conservative init/doctor CLI."
 ---
 
 <!-- MUST follow frontmatter schema:

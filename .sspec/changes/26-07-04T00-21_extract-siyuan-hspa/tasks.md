@@ -93,6 +93,14 @@ updated: "2026-07-04T00:45+08:00"
 - [x] Run package and mock-plugin verification.
 - [x] Apply independent SKILL review fixes for CSS class names, Vite page-copy snippet, event timing, and `customCss` explanation.
 
+### Feedback Tasks (→ [002-add-conservative-cli-init-doctor](./revisions/002-add-conservative-cli-init-doctor.md))
+- [x] Add `src/cli.ts` with `siyuan-hspa init` and `siyuan-hspa doctor`.
+- [x] Add `package.json#bin.siyuan-hspa` and `tsup` CLI entry.
+- [x] Keep `init` SKILL-first: copy project-local SKILL + example page, no `docs/`.
+- [x] Keep `doctor` read-only with dependency/Vite/SKILL/HTML checks and `--json`.
+- [x] Update README and package SKILL with CLI usage.
+- [x] Verify CLI smoke tests, package build, pack dry-run, and mock-plugin build.
+
 ---
 
 ## Progress
@@ -109,6 +117,7 @@ updated: "2026-07-04T00:45+08:00"
 | Phase 6 | 4/4 | ✅ |
 
 **Recent**:
+- 2026-07-04T02:20+08:00: Revision 002 complete; conservative `siyuan-hspa init/doctor` CLI implemented and verified.
 - 2026-07-04T02:05+08:00: Revision 001 complete; docs removed, SKILL rewritten and validated, package repo commit `6fe4359` created.
 - 2026-07-04T01:45+08:00: Subagent review fixes complete; package repo commit `2e7620d` created and verification rerun.
 - 2026-07-04T01:22+08:00: Phase 6 complete; package builds, mock plugin builds, pack dry-run is clean, package repo checkpoint commit `223bf65` created.
