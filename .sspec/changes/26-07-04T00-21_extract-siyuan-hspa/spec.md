@@ -1,6 +1,6 @@
 ---
 name: extract-siyuan-hspa
-status: REVIEW
+status: DONE
 change-type: single
 created: 2026-07-04T00:21:02
 reference:
@@ -11,26 +11,6 @@ reference:
     type: "revision"
     note: "Add conservative init/doctor CLI."
 ---
-
-<!-- MUST follow frontmatter schema:
-status: PLANNING | DOING | REVIEW | DONE | BLOCKED
-change-type: single | sub
-reference?: Array<{source, type: 'request'|'root-change'|'sub-change'|'prev-change'|'doc'|'revision', note?}>
-
-Sub-change MUST link root:
-reference:
-  - source: ".sspec/changes/<root-change-dir>"
-    type: "root-change"
-    note: "Phase <n>: <phase-name>"
-
-Single-change common reference:
-reference:
-  - source: ".sspec/requests/<request-file>.md"
-    type: "request"
-  - source: ".sspec/changes/<change-dir>"
-    type: "prev-change"
-    note: "Follow-up to <change-name>."
--->
 
 # extract-siyuan-hspa
 

@@ -1,6 +1,6 @@
 ---
 name: refactor-zotero
-status: PLANNING
+status: DONE
 change-type: single
 created: 2026-06-28 18:26:25
 reference:
@@ -8,25 +8,6 @@ reference:
   type: request
   note: Linked from request
 ---
-<!-- MUST follow frontmatter schema:
-status: PLANNING | DOING | REVIEW | DONE | BLOCKED
-change-type: single | sub
-reference?: Array<{source, type: 'request'|'root-change'|'sub-change'|'prev-change'|'doc'|'revision', note?}>
-
-Sub-change MUST link root:
-reference:
-  - source: ".sspec/changes/<root-change-dir>"
-    type: "root-change"
-    note: "Phase <n>: <phase-name>"
-
-Single-change common reference:
-reference:
-  - source: ".sspec/requests/<request-file>.md"
-    type: "request"
-  - source: ".sspec/changes/<change-dir>"
-    type: "prev-change"
-    note: "Follow-up to <change-name>."
--->
 
 # refactor-zotero
 

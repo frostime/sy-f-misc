@@ -1,6 +1,6 @@
 ---
 name: quick-input
-status: REVIEW
+status: DONE
 change-type: single
 created: 2026-06-24T22:43:38
 reference:
