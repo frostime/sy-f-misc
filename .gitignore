@@ -10,6 +10,7 @@ dev
 dist
 build
 tmp
+packages/siyuan-hspa
 .aider*
 .env
 .pi-input.md
