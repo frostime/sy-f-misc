@@ -1,7 +1,7 @@
 ---
 name: GPT Module Architecture Overview
 description: Comprehensive bird's-eye view of src/func/gpt/ — module entry points, configuration system, provider/model lifecycle, chat session lifecycle (V2), API communication flow, and cross-cutting concerns. Entry-level spec-doc for agents orienting in this module.
-updated: 2026-05-03
+updated: 2026-07-26
 scope:
   - /src/func/gpt/**
 ---
@@ -18,6 +18,11 @@ export let name = "GPT";
 export let enabled = false;
 export const declareToggleEnabled = { title: '🤖 ChatGPT', defaultEnabled: false };
 export const declareSettingPanel = [{ key: 'GPT', title: '🤖 GPT', element: setting.GlobalSetting }];
+export const declareDedicatedSettingsStorage = {
+    fileName: 'gpt.config.json',
+    getRuntimeSettingsSnapshot,
+    applyStoredSettingsToRuntime
+};
 
 // 生命周期
 export const load = async (plugin: FMiscPlugin) => { ... }
@@ -29,23 +34,29 @@ export const openGptWindow = async (history?) => { ... }
 export { openai };  // complete() 等
 ```
 
-### load() 初始化序列
+### 初始化序列
+
+GPT settings 与 feature startup 分属两个生命周期：
 
 ```
-load(plugin)
-├── registerGlobalChat(plugin)     → 注册新窗口 Tab 类型
-├── plugin.registerMenuTopMenu()   → 顶栏菜单（新建对话/历史记录/Tool Hub）
-├── plugin.addCommand() ×2         → Ctrl+Shift+L / Shift+Alt+C
-├── setting.load(plugin)           → 加载配置持久化数据
-│   └── if pinChatDock → addDock()  → 侧边栏固定对话窗口
-├── clickEvent.register()          → 文档图标点击事件（打开导出历史）
-├── plugin.eventBus.on('open-siyuan-url-plugin')  → URL 协议打开历史
-├── addSVG(plugin)                 → 注入图标 symbol
-├── chatInDoc.init()               → 文档内嵌入对话功能
-├── persist.restoreCache()         → 恢复消息缓存
-├── persist.updateCacheFile()      → 更新缓存文件（防丢失）
-└── globalThis.fmisc['gpt'] = { complete }  → 暴露给其他模块
+SettingsPersistence.initialize()              ← /src/settings/persistence.ts
+└── loadData('gpt.config.json')
+    └── applyStoredSettingsToRuntime()
+        ├── schema migration + defaults merge
+        └── 分发到 model/config.ts stores
+
+GPT.load(plugin)
+├── registerGlobalChat/plugin menus/commands
+├── loadStartupExtensions()
+│   ├── custom preprocess/context modules
+│   └── optional custom script tools
+├── if pinChatDock → addDock()
+├── click/URL events + SVG + chatInDoc
+├── persist.restoreCache()                     → 恢复临时消息缓存
+└── globalThis.fmisc['gpt'] = { complete }
 ```
+
+正常启动先完成 settings apply，再执行 `GPT.load()`。GPT 被禁用时仍加载 settings variables 供设置面板使用，但不注册功能资源、加载脚本或添加 Dock。
 
 ### 用户触达面
 
@@ -76,8 +87,11 @@ model/config.ts (响应式 stores)
 └── toolsManager: StoreRef<{...}>                    工具权限配置
 
 model/storage.ts
-├── save()  → plugin.saveData("gpt.config.json", asStorage())
-└── load()  → plugin.loadData() → 历史版本兼容() → deepMerge → 分发到 stores
+├── getRuntimeSettingsSnapshot() → asStorage(CURRENT_SCHEMA)
+├── applyStoredSettingsToRuntime(stored) → migration → deepMerge → stores
+├── loadStartupExtensions() → custom modules/tools（startup-only）
+├── save() → plugin.saveData("gpt.config.json", snapshot)
+└── load() → read + apply + startup extensions（完整兼容入口）
 
 model/config_migration.ts
 └── 历史版本兼容(data, storeName)  → CURRENT_SCHEMA='3.1'
@@ -92,7 +106,8 @@ graph TD
         JSON[gpt.config.json]
     end
     subgraph "加载"
-        Load[storage.load]
+        Load[SettingsPersistence read]
+        Apply[applyStoredSettingsToRuntime]
         Migrate[历史版本兼容]
         Merge[deepMerge defaults]
         Dist[分发到 signal/store]
@@ -108,11 +123,13 @@ graph TD
         Save[debounced save 2s]
     end
 
-    JSON --> Load --> Migrate --> Merge --> Dist --> Config & Providers & UI & Misc
+    JSON --> Load --> Apply --> Migrate --> Merge --> Dist --> Config & Providers & UI & Misc
     Config & Providers & UI & Misc --> AsStorage --> Save --> JSON
 ```
 
-**Agent trap**：`save()` 是 debounce 2 秒的。在 save 触发前如果页面关闭，数据丢失。`persist.updateCacheFile()` 在 `beforeunload` 事件中做最终写入来兜底。
+**关键边界**：`save()` 保留 2 秒 debounce，并由设置面板 `onCleanup` 触发。`SettingsPersistence` 不替换此本地保存路径；同步通知到达时以 disk/applied/current snapshots 区分本地未保存编辑，避免远端文件覆盖当前 runtime stores。
+
+同步 reconciliation 只调用 `applyStoredSettingsToRuntime()`。禁止调用完整 `load()` 或 `loadStartupExtensions()`，因此不会重扫自定义脚本、改变 restart-only Dock，也不会改变进行中的请求；后续请求读取更新后的 stores。
 
 ---
 
@@ -367,17 +384,19 @@ ToolExecutor (tools/executor.ts)
 
 工具审批流程：`executor.ts` → `approval-ui.tsx (InlineApprovalCard)` → 用户 approve/reject → 继续或中止。
 
-### 7.4 持久化
+### 7.4 对话持久化与设置同步的边界
 
 ```
 persistence/
-├── local-storage.ts   — localStorage (快速, 有容量限制)
+├── local-storage.ts   — localStorage + gpt-cache/ 临时同步副本
 ├── json-files.ts      — 归档为 JSON 文件
 ├── sy-doc.ts          — 导出到思源文档
 ├── assets.ts          — 附件管理
-├── import-platform.ts — 导入外部平台对话 (Google AI Studio, Aizex, Cherry Studio)
+├── import-platform.ts — 导入外部平台对话
 └── index.ts           — 统一 API
 ```
+
+SiYuan 对 `gpt-cache/`、history 或 assets 的同步也会触发 plugin-level `onDataChanged()`，但 callback 不提供变化路径。settings coordinator 固定比较四个已知设置文件；这些对话数据变化不会触发 GPT settings apply、cache restore 或 feature restart。对话持久化合同见 [GPT Chat History Persistence](gpt-chat-history-persistence.md)。
 
 ---
 
@@ -387,7 +406,7 @@ persistence/
 |------|------|
 | `index.ts` | 模块入口：注册菜单/命令/dock/事件 |
 | `model/config.ts` | 全局响应式 stores |
-| `model/storage.ts` | 持久化 save/load |
+| `model/storage.ts` | settings snapshot/apply、startup extensions、完整 save/load 兼容入口 |
 | `model/config_migration.ts` | Schema 版本迁移 |
 | `model/model_resolution.ts` | `useModel()` — bareId → IRuntimeLLM |
 | `model/preset.ts` | 模型预设匹配 |
@@ -410,3 +429,5 @@ persistence/
 ## 9. Related Spec-Docs
 
 - [Cross-File Architecture](gpt-chat-module-cross-file-architecture.md) — 跨文件调用链、隐式约定、命名陷阱、Agent 避坑指南
+- [GPT Chat History Persistence](gpt-chat-history-persistence.md) — 临时 cache、durable history、snapshot 与同步边界
+- [Function Module Architecture](func-module-architecture.md) — `SettingsPersistence`、module lifecycle 与 dedicated settings declaration

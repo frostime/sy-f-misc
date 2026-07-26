@@ -30,6 +30,10 @@ export {
 
 // Storage
 export {
+    GPT_SETTINGS_FILE,
+    getRuntimeSettingsSnapshot,
+    applyStoredSettingsToRuntime,
+    loadStartupExtensions,
     save,
     load,
     loadCustomScriptTools

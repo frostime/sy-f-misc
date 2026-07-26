@@ -1,6 +1,6 @@
 # Memory: sync-plugin-runtime-config
 
-**Updated**: 2026-07-26T01:33+08:00
+**Updated**: 2026-07-26T02:27+08:00
 
 ## Git Baseline (Immutable)
 
@@ -17,18 +17,19 @@
 
 ## State
 
-Design and Plan approved on `feat/sync-plugin-runtime-config`; status is `DOING`. Create the requested sspec checkpoint commit, then implement Phase 1 from `tasks.md` with per-task progress updates and phase verification.
+Implementation complete on `feat/sync-plugin-runtime-config`; change status is `REVIEW` and all 19 Plan tasks are complete. Agent-side type-check, production build, diff/doc checks, LSP diagnostics, and a temporary mocked reconciliation harness passed. Two-device SiYuan user checks from `tasks.md` remain pending; do not mark the change DONE until user acceptance.
 
 ## Key Files
 
 - `spec.md` - Confirmed problem boundary, behavior contracts, implementation labels, and estimated scope.
 - `design.md` - Proposed interfaces, snapshot decisions, apply ordering, module-specific effects, and verification matrix.
 - `tmp/handover_sync-plugin-restart.md` - Root-cause investigation and upstream SiYuan references.
-- `src/index.ts` - `FMiscPlugin`; currently inherits the restarting `onDataChanged()` behavior.
-- `src/settings/index.ts` - Current legacy/module config initialization and debounced persistence.
-- `src/func/index.ts` - Current synchronous-looking module registry; async module functions are not awaited.
-- `src/func/gpt/model/storage.ts` - GPT storage apply currently combines runtime signals with heavyweight startup effects.
-- `src/func/toggl/state/config.ts` - Toggl config load currently combines runtime state with network refresh.
+- `src/index.ts` - `FMiscPlugin`; forwards synchronous `onDataChanged()` notifications into settings persistence without calling the restarting base implementation.
+- `src/settings/index.ts` - Thin settings declaration/UI assembly layer.
+- `src/settings/persistence.ts` - Settings initialization, snapshots, dirty decisions, reconciliation queue, apply ordering, and error isolation.
+- `src/func/index.ts` - Awaitable aggregate module lifecycle and single-module Enable transitions.
+- `src/func/gpt/model/storage.ts` - GPT settings apply and startup extensions decomposed behind complete load/save compatibility wrappers.
+- `src/func/toggl/state/config.ts` - Toggl settings apply and account metadata loading decomposed behind complete load/save compatibility wrappers.
 
 ## Knowledge
 
@@ -45,6 +46,10 @@ Design and Plan approved on `feat/sync-plugin-runtime-config`; status is `DOING`
 - [2026-07-24T01:26+08:00] [Decision] Work continues on branch `feat/sync-plugin-runtime-config` as requested by the user.
 - [2026-07-26T01:28+08:00] [Decision] User approved the revised Design direction and requested a Plan review before checkpoint commit and implementation.
 - [2026-07-26T01:33+08:00] [Decision] User approved the 4-phase, 19-task Plan and authorized checkpoint commit followed by implementation.
+- [2026-07-26T02:27+08:00] [Implementation] `SettingsPersistence` now owns initialization and synchronized reconciliation for legacy, shared module, GPT, and Toggl settings; feature startup effects remain in module lifecycles.
+- [2026-07-26T02:27+08:00] [Verification] `pnpm run type-check`, `pnpm run build:publish`, `git diff --check`, spec-doc checks, and LSP diagnostics for changed core files passed. `src/index.ts` retains one pre-existing unused `showMessage` import hint.
+- [2026-07-26T02:27+08:00] [Verification] A temporary, untracked mock harness passed clean apply ordering, local-dirty preservation, cross-module isolation, already-current snapshots, deletion deferral, scope failure isolation, and notification coalescing.
+- [2026-07-26T02:27+08:00] [Pending] Two-device SiYuan checks in `tasks.md` are user-run acceptance steps and have not been executed by the agent.
 
 ## Milestones
 
@@ -52,4 +57,6 @@ Design and Plan approved on `feat/sync-plugin-runtime-config`; status is `DOING`
 - [2026-07-24T01:26+08:00] Revised Design to preserve old import/export behavior inside a settings-owned persistence lifecycle; awaiting renewed Design approval.
 - [2026-07-24T01:33+08:00] User paused the change before approving the revised Design gate; all current change artifacts were staged without a commit.
 - [2026-07-26T01:28+08:00] User approved the Design direction; implementation Plan drafted and awaiting review before checkpoint commit.
-- [2026-07-26T01:33+08:00] Plan approved; change entered DOING and is ready for the requested checkpoint commit.
+- [2026-07-26T01:33+08:00] Plan approved; change entered DOING and checkpoint commit `1ca8c58` recorded the sspec artifacts.
+- [2026-07-26T01:44+08:00] Phase 1 paused for context compaction after creating untracked `src/settings/persistence.ts`; initial type-check passed, integration tasks remained open.
+- [2026-07-26T02:27+08:00] All implementation and documentation tasks completed; change entered REVIEW with user-run SiYuan acceptance checks pending.

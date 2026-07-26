@@ -46,6 +46,12 @@ export const declareSettingPanel = [
     }
 ]
 
+export const declareDedicatedSettingsStorage: NonNullable<IFuncModule['declareDedicatedSettingsStorage']> = {
+    fileName: setting.GPT_SETTINGS_FILE,
+    getRuntimeSettingsSnapshot: setting.getRuntimeSettingsSnapshot,
+    applyStoredSettingsToRuntime: setting.applyStoredSettingsToRuntime
+};
+
 const attachSelectedText = async () => {
     // 获取光标所在位置
     const selection = window.getSelection();
@@ -437,11 +443,13 @@ export const load = async (plugin: FMiscPlugin) => {
             openGptWindow();
         }
     });
-    setting.load(plugin).then(() => {
+    void setting.loadStartupExtensions().then(() => {
         if (globalMiscConfigs().pinChatDock) {
             addDock(plugin);
         }
-    })
+    }).catch(error => {
+        console.error('Failed to load GPT startup extensions:', error);
+    });
     clickEvent.register();
 
     plugin.eventBus.on('open-siyuan-url-plugin', openUrl);

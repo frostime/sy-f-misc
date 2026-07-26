@@ -1,6 +1,6 @@
 ---
 name: sync-plugin-runtime-config
-status: DOING
+status: REVIEW
 change-type: single
 created: 2026-07-24T00:54:25
 reference:

@@ -84,41 +84,36 @@ export const ModulesAlwaysEnable = _ModulesAlwaysEnable.filter(module => module.
 const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enable${module.name}`, module]));
 
 
-export const load = (plugin: FMiscPlugin) => {
-    ModulesToEnable.forEach(module => {
-        if (plugin.getConfig('Enable', `Enable${module.name}`)) {
-            module.load(plugin);
+export const load = async (plugin: FMiscPlugin) => {
+    const enabledModules = ModulesToEnable.filter(module =>
+        plugin.getConfig('Enable', `Enable${module.name}`)
+    );
+    await Promise.all([
+        ...enabledModules.map(async module => {
+            await module.load(plugin);
             console.debug(`Load ${module.name}`);
-        }
-    });
-
-    ModulesAlwaysEnable.forEach(module => {
-        module.load(plugin);
-    });
+        }),
+        ...ModulesAlwaysEnable.map(module => module.load(plugin))
+    ]);
 }
 
-export const unload = (plugin: FMiscPlugin) => {
-    ModulesToEnable.forEach(module => {
-        module.unload(plugin);
-    });
-
-    ModulesAlwaysEnable.forEach(module => {
-        module.unload(plugin);
-    });
+export const unload = async (plugin: FMiscPlugin) => {
+    await Promise.all([
+        ...ModulesToEnable.map(module => module.unload(plugin)),
+        ...ModulesAlwaysEnable.map(module => module.unload(plugin))
+    ]);
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];
 
-export const toggleEnable = (plugin: FMiscPlugin, key: EnableKey, enable: boolean) => {
-    const DoAction = (module: IFuncModule) => {
-        if (module === undefined) return;
-        if (enable === true) {
-            module.load(plugin);
-        } else {
-            module.unload(plugin);
-        }
-    };
+export const toggleEnable = async (plugin: FMiscPlugin, key: EnableKey, enable: boolean) => {
     const module = EnableKey2Module?.[key];
+    if (module === undefined) return;
+
     console.debug(`Toggle ${key} to ${enable}`);
-    DoAction(module);
+    if (enable === true) {
+        await module.load(plugin);
+    } else {
+        await module.unload(plugin);
+    }
 }

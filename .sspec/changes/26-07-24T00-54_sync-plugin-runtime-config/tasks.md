@@ -1,6 +1,6 @@
 ---
 change: "sync-plugin-runtime-config"
-updated: "2026-07-26T01:28+08:00"
+updated: "2026-07-26T02:27+08:00"
 ---
 
 # Tasks
@@ -10,13 +10,13 @@ updated: "2026-07-26T01:28+08:00"
 
 ## Tasks
 
-### Phase 1: Extract Existing Settings Persistence ⏳
+### Phase 1: Extract Existing Settings Persistence ✅
 
-- [ ] Add the internal `SettingsPersistence` lifecycle shell and move the existing legacy/module initialization and debounced-save ownership into it, preserving the `refactor(settings)` and `feat(settings-persistence)` contracts. `src/settings/persistence.ts`
-- [ ] Reduce `initSetting()` to declaration collection, persistence initialization, settings-dialog assembly, and local event delegation without changing setting descriptors or UI behavior. `src/settings/index.ts`
-- [ ] Expand module lifecycle types to truthfully allow existing async implementations, without adding a synchronized-data hook. `src/func/types.d.ts`
-- [ ] Make aggregate module startup/teardown and `toggleEnable()` await existing module transitions while preserving registration order and current enable decisions. `src/func/index.ts`
-- [ ] Store and dispose the initialized persistence lifecycle around feature startup/teardown, retaining `loadConfigs()` / `saveConfigs()` as compatibility entry points. `src/index.ts`
+- [x] Add the internal `SettingsPersistence` lifecycle shell and move the existing legacy/module initialization and debounced-save ownership into it, preserving the `refactor(settings)` and `feat(settings-persistence)` contracts. `src/settings/persistence.ts`
+- [x] Reduce `initSetting()` to declaration collection, persistence initialization, settings-dialog assembly, and local event delegation without changing setting descriptors or UI behavior. `src/settings/index.ts`
+- [x] Expand module lifecycle types to truthfully allow existing async implementations, without adding a synchronized-data hook. `src/func/types.d.ts`
+- [x] Make aggregate module startup/teardown and `toggleEnable()` await existing module transitions while preserving registration order and current enable decisions. `src/func/index.ts`
+- [x] Store and dispose the initialized persistence lifecycle around feature startup/teardown, retaining `loadConfigs()` / `saveConfigs()` as compatibility entry points. `src/index.ts`
 
 **Verification**:
 - Agent: `pnpm run type-check` exits 0 after the extraction.
@@ -27,13 +27,13 @@ updated: "2026-07-26T01:28+08:00"
 1. BC-6: With SiYuan sync disabled, open fmisc settings, change a legacy setting and a declared module setting, restart the plugin, and confirm both persist exactly as before.
 2. BC-6: Toggle an existing module locally and confirm its current load/unload behavior is unchanged.
 
-### Phase 2: Add Dedicated Settings Adapters ⏳
+### Phase 2: Add Dedicated Settings Adapters ✅
 
-- [ ] Add the optional `declareDedicatedSettingsStorage` type and collect dedicated-file declarations inside `SettingsPersistence`. `src/func/types.d.ts`, `src/settings/persistence.ts`
-- [ ] Split GPT settings import from startup extensions, expose the dedicated settings declaration, retain the complete storage `load()` / `save()` wrappers, and make normal module startup consume preloaded settings. `src/func/gpt/model/storage.ts`, `src/func/gpt/index.ts`
-- [ ] Split Toggl settings import from account metadata/network initialization, expose the dedicated settings declaration, retain the complete config `load()` / `save()` wrappers, and make normal module startup consume preloaded settings. `src/func/toggl/state/config.ts`, `src/func/toggl/index.ts`
-- [ ] Separate repeatable shared Zotero settings application from one-time device-directory initialization while preserving existing compatibility callers. `src/func/zotero/config.ts`
-- [ ] Initialize dedicated settings after shared module settings and before feature modules start; establish initial runtime snapshots without running feature effects. `src/settings/persistence.ts`, `src/index.ts`
+- [x] Add the optional `declareDedicatedSettingsStorage` type and collect dedicated-file declarations inside `SettingsPersistence`. `src/func/types.d.ts`, `src/settings/persistence.ts`
+- [x] Split GPT settings import from startup extensions, expose the dedicated settings declaration, retain the complete storage `load()` / `save()` wrappers, and make normal module startup consume preloaded settings. `src/func/gpt/model/storage.ts`, `src/func/gpt/index.ts`
+- [x] Split Toggl settings import from account metadata/network initialization, expose the dedicated settings declaration, retain the complete config `load()` / `save()` wrappers, and make normal module startup consume preloaded settings. `src/func/toggl/state/config.ts`, `src/func/toggl/index.ts`
+- [x] Separate repeatable shared Zotero settings application from one-time device-directory initialization while preserving existing compatibility callers. `src/func/zotero/config.ts`
+- [x] Initialize dedicated settings after shared module settings and before feature modules start; establish initial runtime snapshots without running feature effects. `src/settings/persistence.ts`, `src/index.ts`
 
 **Verification**:
 - Agent: `pnpm run type-check` exits 0 with the new declarations and decomposed loaders.
@@ -44,13 +44,13 @@ updated: "2026-07-26T01:28+08:00"
 1. BC-2, BC-6: With sync disabled and GPT/Toggl enabled, restart fmisc and confirm stored settings plus existing startup behavior are unchanged.
 2. BC-2: Disable GPT/Toggl, restart fmisc, open their settings panels, and confirm persisted values are shown without feature resources or startup-only effects being activated.
 
-### Phase 3: Reconcile Settings After SiYuan Sync ⏳
+### Phase 3: Reconcile Settings After SiYuan Sync ✅
 
-- [ ] Add private per-scope disk/applied snapshots and the decision paths defined in Design for unchanged, already-current, local-dirty, applicable, and deleted settings. `src/settings/persistence.ts`
-- [ ] Reconcile legacy keys, shared module sections, and dedicated GPT/Toggl files in the specified order; collect and sequentially await clean Enable transitions only after all settings imports finish. `src/settings/persistence.ts`, `src/func/index.ts`
-- [ ] Add the coalescing reconciliation queue, disposal guard, per-scope failure isolation, and value-redacted diagnostics. `src/settings/persistence.ts`
-- [ ] Override `FMiscPlugin.onDataChanged(): void`, forward notifications without calling the base handler, and retain one notification that arrives before settings initialization completes. `src/index.ts`
-- [ ] Audit all declared module-config import functions for repeatability and make only directly required compatibility adaptations; leave unrelated refactors untouched. `src/func/**`
+- [x] Add private per-scope disk/applied snapshots and the decision paths defined in Design for unchanged, already-current, local-dirty, applicable, and deleted settings. `src/settings/persistence.ts`
+- [x] Reconcile legacy keys, shared module sections, and dedicated GPT/Toggl files in the specified order; collect and sequentially await clean Enable transitions only after all settings imports finish. `src/settings/persistence.ts`, `src/func/index.ts`
+- [x] Add the coalescing reconciliation queue, disposal guard, per-scope failure isolation, and value-redacted diagnostics. `src/settings/persistence.ts`
+- [x] Override `FMiscPlugin.onDataChanged(): void`, forward notifications without calling the base handler, and retain one notification that arrives before settings initialization completes. `src/index.ts`
+- [x] Audit all declared module-config import functions for repeatability and make only directly required compatibility adaptations; leave unrelated refactors untouched. `src/func/**`
 
 **Verification**:
 - Agent: `pnpm run type-check` exits 0.
@@ -66,12 +66,12 @@ updated: "2026-07-26T01:28+08:00"
 5. BC-3: Remotely change an Enable key; confirm shared/dedicated settings update first and the existing module transition then runs once.
 6. BC-7: Introduce one malformed/failing settings scope in a test workspace; confirm its previous runtime state remains and independent scopes still reconcile.
 
-### Phase 4: Documentation and Final Quality Gates ⏳
+### Phase 4: Documentation and Final Quality Gates ✅
 
-- [ ] Document `SettingsPersistence`, declaration types, initialization order, compatibility wrappers, synchronized reconciliation, and ownership boundaries. `.sspec/spec-docs/func-module-architecture.md`
-- [ ] Document GPT's compatible complete-loader decomposition and sync-time exclusion of startup extensions. `.sspec/spec-docs/gpt-module-architecture-overview.md`
-- [ ] Review the complete change for interface depth, naming, lifecycle ownership, stale comments/imports, and accidental storage behavior changes; fix only issues introduced by this change. `src/**`
-- [ ] Run final static/build checks and update change memory with implementation results, verification gaps, and user-run SiYuan checks still pending. `.sspec/changes/26-07-24T00-54_sync-plugin-runtime-config/memory.md`
+- [x] Document `SettingsPersistence`, declaration types, initialization order, compatibility wrappers, synchronized reconciliation, and ownership boundaries. `.sspec/spec-docs/func-module-architecture.md`
+- [x] Document GPT's compatible complete-loader decomposition and sync-time exclusion of startup extensions. `.sspec/spec-docs/gpt-module-architecture-overview.md`
+- [x] Review the complete change for interface depth, naming, lifecycle ownership, stale comments/imports, and accidental storage behavior changes; fix only issues introduced by this change. `src/**`
+- [x] Run final static/build checks and update change memory with implementation results, verification gaps, and user-run SiYuan checks still pending. `.sspec/changes/26-07-24T00-54_sync-plugin-runtime-config/memory.md`
 
 **Verification**:
 - Agent: `pnpm run type-check` exits 0.
@@ -88,14 +88,29 @@ updated: "2026-07-26T01:28+08:00"
 
 ## Progress
 
-**Overall**: 0/19 (0%)
+**Overall**: 19/19 (100%)
 
 | Phase | Progress | Status |
 |---|---:|---|
-| Phase 1: Extract Existing Settings Persistence | 0/5 | ⏳ |
-| Phase 2: Add Dedicated Settings Adapters | 0/5 | ⏳ |
-| Phase 3: Reconcile Settings After SiYuan Sync | 0/5 | ⏳ |
-| Phase 4: Documentation and Final Quality Gates | 0/4 | ⏳ |
+| Phase 1: Extract Existing Settings Persistence | 5/5 | ✅ |
+| Phase 2: Add Dedicated Settings Adapters | 5/5 | ✅ |
+| Phase 3: Reconcile Settings After SiYuan Sync | 5/5 | ✅ |
+| Phase 4: Documentation and Final Quality Gates | 4/4 | ✅ |
 
 **Recent**:
+- 2026-07-26: Final type-check/build/diff/doc checks passed; change entered REVIEW with two-device SiYuan checks pending.
+- 2026-07-26: Completed intent/structure review, fixed concurrency/lifecycle edge cases, and passed the temporary reconciliation harness.
+- 2026-07-26: Updated module/GPT spec-docs for persistence ownership, compatible loader decomposition, and sync exclusions.
+- 2026-07-26: Phase 3 implemented scope snapshots, dirty decisions, ordered apply, coalescing, failure isolation, and the synchronous SiYuan callback; all phase gates passed.
+- 2026-07-26: Phase 2 passed type-check, production build, diff check, and complete-loader/save compatibility audit.
+- 2026-07-26: Initialized dedicated settings before feature startup and captured initial dedicated snapshots; type-check passed.
+- 2026-07-26: Separated repeatable Zotero shared settings from one-time device-directory initialization; type-check passed.
+- 2026-07-26: Decomposed Toggl settings import/account metadata while retaining complete load/save wrappers; type-check passed.
+- 2026-07-26: Decomposed GPT settings import/startup extensions while retaining complete load/save wrappers; type-check passed.
+- 2026-07-26: Added and internally collected dedicated settings-storage declarations; type-check passed.
+- 2026-07-26: Phase 1 passed type-check, production build, diff check, and storage/debounce compatibility audit.
+- 2026-07-26: Connected settings persistence to plugin startup/teardown and retained complete legacy load/save entry points; type-check passed.
+- 2026-07-26: Made aggregate module transitions awaitable in existing registration order; type-check passed.
+- 2026-07-26: Expanded module lifecycle/import types to `MaybePromise`; type-check passed.
+- 2026-07-26: Extracted existing legacy/module persistence and reduced `initSetting()` to UI orchestration; type-check passed.
 - 2026-07-26: Design approved; initialized the implementation Plan for review.

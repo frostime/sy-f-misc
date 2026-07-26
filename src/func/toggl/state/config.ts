@@ -86,28 +86,33 @@ export const fetchProjectsTags = async () => {
 
 //******************** Data IO ********************
 
-const StoreName = 'toggl.json';
+export const TOGGL_SETTINGS_FILE = 'toggl.json';
+
+export const getRuntimeSettingsSnapshot = () => ({ ...config.unwrap() });
+
+export const applyStoredSettingsToRuntime = (stored: Record<string, unknown> | undefined) => {
+    if (stored) {
+        mergeConfig(stored);
+    }
+}
 
 const save_ = async (plugin: Plugin) => {
-    let data = config.unwrap();
-    plugin.saveData(StoreName, data);
-    console.debug('Save toggl data:', data);
+    await plugin.saveData(TOGGL_SETTINGS_FILE, getRuntimeSettingsSnapshot());
 }
 export const save = debounce(save_, 2000);
 
-export const load = async (plugin: Plugin) => {
-    let data = await plugin.loadData(StoreName);
-    data = data || {};
-    if (data) {
-        console.debug('Load toggl data:', data);
-        mergeConfig(data);
-        console.debug('Merge toggl data:', config);
-    }
-    let ok = await fetchMe();
+export const loadAccountMetadata = async () => {
+    const ok = await fetchMe();
     if (!ok) {
         console.warn('Toggl: can not fetch user');
         return false;
     }
     await fetchProjectsTags();
     return true;
+}
+
+export const load = async (plugin: Plugin) => {
+    const stored = await plugin.loadData(TOGGL_SETTINGS_FILE);
+    applyStoredSettingsToRuntime(stored);
+    return loadAccountMetadata();
 }

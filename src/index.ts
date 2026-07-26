@@ -20,6 +20,7 @@ import { load, unload } from "./func";
 import "@/index.scss";
 
 import { initSetting } from "./settings";
+import type { SettingsPersistence } from "./settings/persistence";
 
 import { registerPlugin } from "@frostime/siyuan-plugin-kits";
 
@@ -59,12 +60,17 @@ export default class FMiscPlugin extends Plugin {
 
     deviceStorage: Awaited<ReturnType<typeof useLocalDeviceStorage>>;
 
+    private settingsPersistence?: SettingsPersistence;
+    private settingsChangePending = false;
+    private acceptsSettingsChanges = false;
+
     get petalRoute() {
         return '/data/storage/petal/' + this.name;
     }
 
     async onload() {
         globalThis.fmisc = {}
+        this.acceptsSettingsChanges = true;
         const frontEnd = getFrontend();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         registerPlugin(this);
@@ -74,14 +80,31 @@ export default class FMiscPlugin extends Plugin {
 
         let svgs = Object.values(Svg);
         this.addIcons(svgs.join(''));
-        await initSetting(this);
-        load(this);
+        this.settingsPersistence = await initSetting(this);
+        if (this.settingsChangePending) {
+            this.settingsChangePending = false;
+            this.settingsPersistence.scheduleReconcileAfterStorageSync();
+        }
+        await load(this);
+    }
+
+    onDataChanged(): void {
+        if (!this.acceptsSettingsChanges) return;
+        if (!this.settingsPersistence) {
+            this.settingsChangePending = true;
+            return;
+        }
+        this.settingsPersistence.scheduleReconcileAfterStorageSync();
     }
 
     async onunload() {
         globalThis.fmisc && delete globalThis.fmisc
 
-        unload(this);
+        this.acceptsSettingsChanges = false;
+        this.settingsChangePending = false;
+        this.settingsPersistence?.dispose();
+        this.settingsPersistence = undefined;
+        await unload(this);
     }
 
     async onLayoutReady() {
@@ -116,26 +139,27 @@ export default class FMiscPlugin extends Plugin {
         return configs?.[group]?.[key];
     }
 
-    async loadConfigs() {
-        let currentData = this.data[StorageNameConfigs];
-        let outData = await this.loadData(StorageNameConfigs + '.json');
-        console.debug('导入', outData);
-        if (!outData) {
-            return;
-        }
-        for (let groupName in currentData) {
-            let group = currentData[groupName];
-            let outConfig = outData?.[groupName];
-            if (!outConfig) {
-                continue;
-            }
-            for (let key in group) {
-                if (outConfig?.[key] !== undefined) {
-                    group[key] = outConfig[key];
+    applyConfigs(stored: Record<string, any> | undefined) {
+        if (!stored) return;
+
+        const currentData = this.data[StorageNameConfigs];
+        for (const groupName in currentData) {
+            const group = currentData[groupName];
+            const storedGroup = stored[groupName];
+            if (!storedGroup) continue;
+
+            for (const key in group) {
+                if (storedGroup[key] !== undefined) {
+                    group[key] = storedGroup[key];
                 }
             }
         }
         this.data[StorageNameConfigs] = currentData;
+    }
+
+    async loadConfigs(): Promise<Record<string, any> | undefined> {
+        const stored = await this.loadData(StorageNameConfigs + '.json');
+        this.applyConfigs(stored);
         //读入 zoteroDir 进行覆盖
         // this.deviceStorage = await useLocalDeviceStorage(this);
         // let zoteroDir = this.deviceStorage.get('zoteroDir');
@@ -146,6 +170,7 @@ export default class FMiscPlugin extends Plugin {
         // if (codeEditor) {
         //     this.data[StorageNameConfigs].Misc.codeEditor = codeEditor;
         // }
+        return stored;
     }
 
     async saveConfigs() {
@@ -155,11 +180,10 @@ export default class FMiscPlugin extends Plugin {
 
         // 创建 this.data[StorageNameConfigs] 的副本，并去掉 zoteroDir
         let s = JSON.stringify(this.data[StorageNameConfigs]);
-        console.debug('SaveConfigs', s);
         let dataToSave: any = JSON.parse(s);
         // dataToSave.Misc.zoteroDir = "/";
         // dataToSave.Misc.codeEditor = "";
-        this.saveData(StorageNameConfigs + '.json', dataToSave);
+        await this.saveData(StorageNameConfigs + '.json', dataToSave);
     }
 
     public customMenuItems: Record<string, IMenu[] | (() => IMenu[])> = {};

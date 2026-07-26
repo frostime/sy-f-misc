@@ -1,11 +1,12 @@
 ---
 name: func-module-architecture
 description: src/func/ 多模块架构：IFuncModule 接口、注册与加载、设置面板、数据持久化、Plugin 集成
-updated: 2026-05-04
+updated: 2026-07-26
 scope:
   - /src/func/types.d.ts
   - /src/func/index.ts
   - /src/settings/index.ts
+  - /src/settings/persistence.ts
   - /src/settings/settings.tsx
   - /src/index.ts
 deprecated: false
@@ -21,10 +22,11 @@ deprecated: false
 
 ```
 src/func/types.d.ts          ← IFuncModule 接口定义
-src/func/index.ts            ← 模块注册、加载/卸载、toggle
-src/settings/index.ts        ← 收集模块声明 → 初始化设置 → 持久化
+src/func/index.ts            ← 模块注册、awaitable 加载/卸载/toggle
+src/settings/index.ts        ← 收集模块声明 → 组装设置 UI
+src/settings/persistence.ts  ← 设置初始化、持久化、同步 reconciliation
 src/settings/settings.tsx    ← SolidJS 设置面板 UI
-src/index.ts                 ← FMiscPlugin 生命周期集成
+src/index.ts                 ← SiYuan 与 settings/feature 生命周期适配
 ```
 
 ---
@@ -39,8 +41,14 @@ interface IFuncModule {
     enabled: boolean;
     allowToUse?: () => boolean;       // 环境过滤（如仅桌面端）
 
-    load: (plugin: FMiscPlugin) => void;
-    unload: (plugin?: FMiscPlugin) => void;
+    load: (plugin: FMiscPlugin) => void | Promise<void>;
+    unload: (plugin?: FMiscPlugin) => void | Promise<void>;
+
+    declareDedicatedSettingsStorage?: {
+        fileName: string;
+        getRuntimeSettingsSnapshot: () => Record<string, unknown>;
+        applyStoredSettingsToRuntime: (stored, plugin) => void | Promise<void>;
+    };
 
     // 可选声明 — 决定模块在设置 UI 中的呈现方式
     declareToggleEnabled?: { title, description, defaultEnabled? };
@@ -54,11 +62,13 @@ interface IFuncModule {
 | 声明 | 效果 | 存储位置 |
 |------|------|---------|
 | `declareToggleEnabled` | 在 "✅ 启用功能" Tab 显示开关 | `configs.json` → `Enable.Enable${name}` |
-| `declareSettingPanel` | 独立 Tab（整个面板自定义） | 模块自行管理 |
-| `declareModuleConfig` | 嵌入 "🔧 其他设置" Tab 底部 | `custom-module.config.json` → `${key}` |
+| `declareSettingPanel` | 独立 Tab（整个面板自定义） | 不规定存储 |
+| `declareModuleConfig` | 声明 shared module settings | `custom-module.config.json` → `${key}` |
+| `declareDedicatedSettingsStorage` | 声明 dedicated file 与 runtime settings 的双向映射 | 声明中的 `fileName` |
 
-模块可以同时声明 `declareToggleEnabled` + `declareModuleConfig`（如 insert-time）。
-`declareSettingPanel` 和 `declareModuleConfig` 互斥使用（前者是独立 Tab，后者是嵌入区域）。
+四种声明相互独立。GPT/Toggl 组合 `declareSettingPanel` 与 `declareDedicatedSettingsStorage`；常规模块通常组合 `declareToggleEnabled` 与 `declareModuleConfig`。
+
+`applyStoredSettingsToRuntime()` 只更新设置运行状态。禁止在其中注册命令、事件、Dock、网络初始化或脚本扩展；这些副作用属于 `load()`。
 
 ---
 
@@ -82,17 +92,18 @@ let _ModulesAlwaysEnable: IFuncModule[] = [sc];
 
 ```
 FMiscPlugin.onload()
-  ├── initSetting(plugin)           ← settings/index.ts
+  ├── initSetting(plugin)                         ← settings/index.ts
   │     ├── 收集所有模块的 declare* 声明
-  │     ├── 初始化 plugin.data.configs（Enable + Misc 默认值）
-  │     ├── plugin.loadConfigs()    ← 从 configs.json 合并
-  │     ├── 加载 custom-module.config.json → 调用各模块 config.load()
-  │     ├── 注入 config.set() 回调（变更时自动 debounce 保存）
+  │     ├── SettingsPersistence.initialize()      ← settings/persistence.ts
+  │     │   ├── defaults → configs.json
+  │     │   ├── custom-module.config.json → config.load()
+  │     │   ├── dedicated files → applyStoredSettingsToRuntime()
+  │     │   ├── 建立 disk/applied runtime snapshots
+  │     │   └── 注入现有 debounce 保存回调
   │     └── 设置 plugin.openSetting()
-  └── load(plugin)                  ← func/index.ts
-        ├── ModulesToEnable: 检查 plugin.getConfig('Enable', 'Enable${name}')
-        │   └── true → module.load(plugin)
-        └── ModulesAlwaysEnable: 无条件 module.load(plugin)
+  └── await load(plugin)                          ← func/index.ts
+        ├── ModulesToEnable: Enable=true → await module.load(plugin)
+        └── ModulesAlwaysEnable: await module.load(plugin)
 ```
 
 ### Toggle 流程
@@ -101,9 +112,10 @@ FMiscPlugin.onload()
 
 ```
 settings changed({ group: 'Enable', key: 'EnableXxx', value: true/false })
-  → toggleEnable(plugin, key, enable)     ← func/index.ts
-      → EnableKey2Module[key].load(plugin)   // enable=true
-      → EnableKey2Module[key].unload(plugin) // enable=false
+  → debounce side effect
+  → await toggleEnable(plugin, key, enable)  ← func/index.ts
+      → await EnableKey2Module[key].load(plugin)   // enable=true
+      → await EnableKey2Module[key].unload(plugin) // enable=false
 ```
 
 **关键约定**：Enable key 格式必须是 `Enable${module.name}`。`EnableKey2Module` 在模块加载时由映射表构建。
@@ -112,7 +124,7 @@ settings changed({ group: 'Enable', key: 'EnableXxx', value: true/false })
 
 ## 数据持久化
 
-插件存在**两套独立的持久化系统**（历史原因）：
+插件保留两套 shared persistence，并为拥有独立文件的模块增加 dedicated settings 声明。三者由 [`SettingsPersistence`](/src/settings/persistence.ts) 统一初始化和协调，但 schema 与 runtime 映射仍由原所有者负责。
 
 ### 系统 1：Legacy configs（plugin.data.configs）
 
@@ -122,16 +134,15 @@ settings changed({ group: 'Enable', key: 'EnableXxx', value: true/false })
 ```json
 {
   "Enable": { "EnableGPT": true, "EnableInsertTime": false, ... },
-  "Docky": { "DockyEnableZoom": true, ... },
   "Misc": { "zoteroPassword": "...", ... }
 }
 ```
 
 **生命周期**：
-- `initSetting()` 构建默认值 → `plugin.loadConfigs()` 从文件合并 → `plugin.saveConfigs()` 写回
-- 变更通过 `onChanged()` 回调 → debounce 10s 保存
+- `SettingsPersistence.initialize()` 构建默认值 → `plugin.loadConfigs()` 从文件合并
+- `initSetting()` 将 UI change 转交 persistence → debounce 10s → `plugin.saveConfigs()`
 
-**使用方**：`declareToggleEnabled` 的开关状态、`Docky` 配置、`Misc` 杂项
+**使用方**：`declareToggleEnabled` 的开关状态与 legacy `Misc` 杂项
 
 ### 系统 2：Module Configs（custom-module.config.json）
 
@@ -141,31 +152,62 @@ settings changed({ group: 'Enable', key: 'EnableXxx', value: true/false })
 ```json
 {
   "insert-time": { "templatePattern": "..." },
-  "gpt": { ... },
+  "Docky": { "DockyEnableZoom": true, ... },
   "doc-context": { ... }
 }
 ```
 
 **生命周期**：
-- `initSetting()` 加载文件 → 遍历 `CustomModuleConfigs` → 调用 `config.load(storage[config.key])`
-- `config.set()` 被注入回调 → `onModuleConfigChanged()` → debounce 5s 保存整个文件
+- `SettingsPersistence.initialize()` 加载文件 → 遍历 declarations → 调用 `config.load(storage[config.key])`
+- persistence 包装 `config.items[].set()` → debounce 5s 保存整个文件
 - `config.dump()` 或 `config.items[].get()` 序列化当前值
 
 **使用方**：`declareModuleConfig` 的所有模块
 
-### 两套系统的关系
+### 系统 3：Dedicated Settings Files
+
+GPT/Toggl 的自定义设置面板分别使用 `gpt.config.json` / `toggl.json`。模块通过 `declareDedicatedSettingsStorage` 暴露：
+
+- `getRuntimeSettingsSnapshot()`：返回现有 save 路径使用的 payload。
+- `applyStoredSettingsToRuntime()`：复用现有 load 路径中“文件已读取、启动副作用尚未执行”的步骤。
+
+模块保留完整 `load/save` 兼容入口；settings persistence 不接管本地面板的 save trigger。
+
+### 三套系统的关系
 
 ```
-initSetting()
-  ├── 系统 1: plugin.data.configs (Enable/Misc/Docky)
-  │     └── 变更 → plugin.saveConfigs() → configs.json
-  │
-  └── 系统 2: CustomModuleConfigs[]
-        └── 变更 → saveModuleConfig() → custom-module.config.json
+SettingsPersistence.initialize()
+  ├── legacy: configs.json
+  ├── shared module: custom-module.config.json
+  └── dedicated: gpt.config.json / toggl.json
+
+本地写入
+  ├── legacy → plugin.saveConfigs() (10s debounce)
+  ├── shared module → whole-file save (5s debounce)
+  └── dedicated → 模块现有 save() (2s debounce)
 ```
 
-模块的 `declareModuleConfig.load()` 接收的是 `custom-module.config.json` 中该模块 key 下的值。
-模块的 `declareModuleConfig.dump()` 返回的值会被写入 `custom-module.config.json`。
+模块的 `declareModuleConfig.load()` 接收该模块 key 下的值，并必须支持重复 apply；`dump()` 返回相同 scope 的当前 runtime settings。
+
+---
+
+## 同步后的 Settings Reconciliation
+
+SiYuan 3.7.0 在同步合并改变 `/storage/petal/<plugin>/` 时调用 [`FMiscPlugin.onDataChanged()`](/src/index.ts)，但不提供变化文件名，也不等待 Promise。fmisc 的同步入口保持 `void`，只调度 `SettingsPersistence` 队列；禁止调用基类实现，因为基类会完整重启插件。
+
+每个 scope 保留 `lastSeenDisk` 与 `lastAppliedRuntime`：
+
+| 条件 | 行为 |
+|---|---|
+| disk 未变化 | 跳过 |
+| disk 等于当前 runtime | 仅刷新 snapshots；覆盖本地 save 未通知 coordinator 的情况 |
+| runtime 不等于 last applied | 视为本地未保存编辑，保留 runtime |
+| runtime clean 且 disk 变化 | 调用该 scope 现有 apply 操作 |
+| 已存在的文件/section 被删除 | 运行期间不 reset；下次正常启动应用 defaults |
+
+粒度：legacy 为 group/key，shared module 为 module key，dedicated 为整文件。一次 run 只读取 `configs.json`、`custom-module.config.json`、GPT/Toggl dedicated files；cache/history/assets 变化只造成这些固定文件的无变化检查。
+
+apply 顺序固定为 legacy（暂存 Enable）→ shared module → dedicated → 设置描述符 → sequential `toggleEnable()`。因此远端启用模块时，模块启动前已获得最新 shared/dedicated settings。队列合并并发通知；一个 scope 失败不阻塞其他 scope，日志只记录 scope 和操作。
 
 ---
 
@@ -308,12 +350,17 @@ class FMiscPlugin extends Plugin {
     async onload() {
         registerPlugin(this);
         this.initDefaultFunctions();   // 顶栏菜单
-        await initSetting(this);       // 收集声明 + 加载配置
-        load(this);                    // 加载各模块
+        this.settingsPersistence = await initSetting(this);
+        await load(this);              // 设置完成后加载各模块
+    }
+
+    onDataChanged(): void {
+        this.settingsPersistence.scheduleReconcileAfterStorageSync();
     }
 
     async onunload() {
-        unload(this);                  // 卸载各模块
+        this.settingsPersistence.dispose();
+        await unload(this);
     }
 
     // 模块可调用的 API

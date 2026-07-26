@@ -23,67 +23,62 @@ import {
 import { CURRENT_SCHEMA, 历史版本兼容 } from "./config_migration";
 import { loadCustomPreprocessModule, loadCustomContextProviderModule } from "./module_loading";
 
-const StoreName = 'gpt.config.json';
+export const GPT_SETTINGS_FILE = 'gpt.config.json';
+
+export const getRuntimeSettingsSnapshot = () => asStorage(CURRENT_SCHEMA);
 
 const save_ = async (plugin?: Plugin) => {
     plugin = plugin ?? thisPlugin();
-
-    let storageData = asStorage(CURRENT_SCHEMA);
-    plugin.saveData(StoreName, storageData);
-    console.debug('Save GPT config:', storageData);
+    await plugin.saveData(GPT_SETTINGS_FILE, getRuntimeSettingsSnapshot());
 }
 
 export const save = debounce(save_, 2000);
 
-export const load = async (plugin?: Plugin) => {
-    let defaultData = asStorage(CURRENT_SCHEMA);
+export const applyStoredSettingsToRuntime = async (
+    stored: Record<string, unknown> | undefined,
+    plugin?: Plugin
+) => {
+    if (!stored) return;
 
-    plugin = plugin ?? thisPlugin();
-    let data = await plugin.loadData(StoreName);
-    // data = data;
-    let migrated = false;
-    if (data) {
-        const compatibilityResult = 历史版本兼容(data, StoreName);
-        data = compatibilityResult.data;
-        migrated = compatibilityResult.migrated;
+    const compatibilityResult = 历史版本兼容(stored, GPT_SETTINGS_FILE);
+    const current = deepMerge(getRuntimeSettingsSnapshot(), compatibilityResult.data);
 
-        let current = deepMerge(defaultData, data);
-        current.defaultModel && defaultModelId(current.defaultModel);
-        // current.visualModel && visualModel(current.visualModel);
-        current.config && defaultConfig(current.config);
-        current.globalMiscConfigs && globalMiscConfigs(current.globalMiscConfigs);
-        // current.providers && providers(current.providers);
-        if (Array.isArray(current.llmProviders)) {
-            llmProviders(current.llmProviders);
-        }
-        current.ui && UIConfig(current.ui)
-        current.promptTemplates && promptTemplates(current.promptTemplates)
-        console.debug('Load GPT config:', current);
-        if (current.toolsManager) {
-            // 向后兼容：确保 toolPermissionOverrides 字段存在
-            if (!current.toolsManager.toolPermissionOverrides) {
-                current.toolsManager.toolPermissionOverrides = {};
-            }
-            toolsManager(current.toolsManager);
-        }
-        console.debug('Load GPT config:', current);
+    current.defaultModel && defaultModelId(current.defaultModel);
+    current.config && defaultConfig(current.config);
+    current.globalMiscConfigs && globalMiscConfigs(current.globalMiscConfigs);
+    if (Array.isArray(current.llmProviders)) {
+        llmProviders(current.llmProviders);
+    }
+    current.ui && UIConfig(current.ui);
+    current.promptTemplates && promptTemplates(current.promptTemplates);
+    if (current.toolsManager) {
+        current.toolsManager.toolPermissionOverrides ??= {};
+        toolsManager(current.toolsManager);
     }
 
-    if (migrated) {
+    if (compatibilityResult.migrated) {
         await save_(plugin);
     }
+}
 
+export const loadStartupExtensions = async () => {
     await Promise.all([
         loadCustomPreprocessModule(),
         loadCustomContextProviderModule()
     ]);
 
-    // 根据开关决定是否加载自定义脚本工具
     if (globalMiscConfigs().enableCustomScriptTools) {
         await loadCustomScriptTools();
     } else {
         console.log('自定义脚本工具功能已禁用，跳过加载');
     }
+}
+
+export const load = async (plugin?: Plugin) => {
+    plugin = plugin ?? thisPlugin();
+    const stored = await plugin.loadData(GPT_SETTINGS_FILE);
+    await applyStoredSettingsToRuntime(stored, plugin);
+    await loadStartupExtensions();
 }
 
 /**
