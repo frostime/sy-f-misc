@@ -1,3 +1,6 @@
+/**
+ * @SpecDoc src/runtime-lifecycle.SPEC.md
+ */
 export type RuntimeLifecycleState =
     | 'created'
     | 'loading-settings'
