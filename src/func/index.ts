@@ -85,15 +85,14 @@ export const ModulesAlwaysEnable = _ModulesAlwaysEnable.filter(module => module.
 const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enable${module.name}`, module]));
 
 
-export const load = async (plugin: FMiscPlugin, signal?: AbortSignal) => {
+export const load = async (plugin: FMiscPlugin) => {
     const enabledModules = ModulesToEnable.filter(module =>
         plugin.getConfig('Enable', `Enable${module.name}`)
     );
     await settleModuleTransitions(
         'load',
         [...enabledModules, ...ModulesAlwaysEnable],
-        plugin,
-        signal
+        plugin
     );
 }
 

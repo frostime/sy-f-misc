@@ -5,6 +5,7 @@
  * @FilePath     : /src/index.ts
  * @LastEditTime : 2025-12-29 20:53:49
  * @Description  : 
+ * @SpecDoc      : src/settings/SETTINGS-LIFECYCLE.SPEC.md
  */
 import {
     IMenu,
@@ -20,7 +21,7 @@ import { load, unload } from "./func";
 import "@/index.scss";
 
 import { initSetting } from "./settings";
-import { FMiscRuntimeLifecycle } from './runtime-lifecycle';
+import type { SettingsPersistence } from './settings/persistence';
 
 import { registerPlugin } from "@frostime/siyuan-plugin-kits";
 
@@ -60,10 +61,16 @@ export default class FMiscPlugin extends Plugin {
 
     deviceStorage: Awaited<ReturnType<typeof useLocalDeviceStorage>>;
 
-    private runtimeLifecycle?: FMiscRuntimeLifecycle;
+    private runtimeState: 'loading' | 'active' | 'disposed' = 'loading';
+    private settingsChangePending = false;
+    private settingsPersistence?: SettingsPersistence;
 
     get petalRoute() {
         return '/data/storage/petal/' + this.name;
+    }
+
+    private isRuntimeDisposed() {
+        return this.runtimeState === 'disposed';
     }
 
     async onload() {
@@ -78,25 +85,45 @@ export default class FMiscPlugin extends Plugin {
         let svgs = Object.values(Svg);
         this.addIcons(svgs.join(''));
 
-        const runtimeLifecycle = new FMiscRuntimeLifecycle({
-            initializeSettings: () => initSetting(this),
-            loadFeatures: signal => load(this, signal),
-            unloadFeatures: () => unload(this)
-        });
-        this.runtimeLifecycle = runtimeLifecycle;
-        await runtimeLifecycle.load();
+        const settingsPersistence = await initSetting(this);
+        if (this.runtimeState === 'disposed') {
+            settingsPersistence.dispose();
+            return;
+        }
+
+        this.settingsPersistence = settingsPersistence;
+        await load(this);
+        if (this.isRuntimeDisposed()) {
+            console.error('[fmisc] Startup completed after plugin disposal. Reload the SiYuan UI if fmisc resources appear incomplete.');
+            return;
+        }
+
+        this.runtimeState = 'active';
+        if (this.settingsChangePending) {
+            this.settingsChangePending = false;
+            settingsPersistence.scheduleReconcileAfterStorageSync();
+        }
     }
 
     onDataChanged(): void {
-        this.runtimeLifecycle?.notifyStorageDataChanged();
+        if (this.runtimeState === 'disposed') return;
+        if (this.runtimeState !== 'active' || !this.settingsPersistence) {
+            this.settingsChangePending = true;
+            return;
+        }
+        this.settingsPersistence.scheduleReconcileAfterStorageSync();
     }
 
     onunload(): void {
         globalThis.fmisc && delete globalThis.fmisc
 
-        const runtimeLifecycle = this.runtimeLifecycle;
-        this.runtimeLifecycle = undefined;
-        void runtimeLifecycle?.unload();
+        this.runtimeState = 'disposed';
+        this.settingsChangePending = false;
+        this.settingsPersistence?.dispose();
+        this.settingsPersistence = undefined;
+        void unload(this).catch(error => {
+            console.error('[fmisc] Failed to unload all feature modules. Reload the SiYuan UI if fmisc resources remain active.', error);
+        });
     }
 
     async onLayoutReady() {

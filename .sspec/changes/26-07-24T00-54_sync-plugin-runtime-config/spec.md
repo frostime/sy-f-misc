@@ -9,7 +9,10 @@ reference:
     note: "Root-cause research for SiYuan storage-sync plugin restarts."
   - source: ".sspec/changes/26-07-24T00-54_sync-plugin-runtime-config/revisions/001-extract-runtime-lifecycle-coordinator.md"
     type: "revision"
-    note: "Move lifecycle ordering into a tested coordinator after verifying SiYuan initial-load concurrency."
+    note: "Move lifecycle ordering into a tested coordinator after verifying SiYuan initial-load concurrency. Superseded by revision 002."
+  - source: ".sspec/changes/26-07-24T00-54_sync-plugin-runtime-config/revisions/002-simplify-runtime-responsibility-boundary.md"
+    type: "revision"
+    note: "Remove disproportionate cross-generation guarantees and define UI reload as recovery for rare observable runtime inconsistencies."
 ---
 
 # sync-plugin-runtime-config

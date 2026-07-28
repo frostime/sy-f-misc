@@ -102,11 +102,18 @@ updated: "2026-07-28T16:44+08:00"
 1. BC-1/BC-2: Start SiYuan while another device has just synchronized fmisc data → fmisc reaches a usable state and applies synchronized settings only after feature startup settles.
 2. BC-6: With sync disabled, restart fmisc and confirm legacy, module, GPT, Toggl, and device-local Zotero settings import exactly as before.
 
+### Feedback Tasks (→ [002-simplify-runtime-responsibility-boundary](./revisions/002-simplify-runtime-responsibility-boundary.md)) ✅
+
+- [x] Replace the runtime coordinator with a small startup notification gate in `FMiscPlugin`; remove the cross-generation barrier and startup cancellation propagation.
+- [x] Remove teardown draining and failed Enable-transition retries while retaining disposal guards, missing-file handling, and module failure isolation.
+- [x] Add focused reconciliation-decision tests and actionable module/settings failure logs.
+- [x] Update lasting architecture documentation and pass runtime-config tests, type-check, production build, and diff checks.
+
 ---
 
 ## Progress
 
-**Overall**: 24/24 (100%)
+**Overall**: 28/28 (100%)
 
 | Phase | Progress | Status |
 |---|---:|---|
@@ -114,9 +121,11 @@ updated: "2026-07-28T16:44+08:00"
 | Phase 2: Add Dedicated Settings Adapters | 5/5 | ✅ |
 | Phase 3: Reconcile Settings After SiYuan Sync | 5/5 | ✅ |
 | Phase 4: Documentation and Final Quality Gates | 4/4 | ✅ |
-| Feedback: Runtime lifecycle coordinator | 5/5 | ✅ |
+| Feedback: Runtime lifecycle coordinator (superseded) | 5/5 | ✅ |
+| Feedback: Simplified responsibility boundary | 4/4 | ✅ |
 
 **Recent**:
+- 2026-07-28: Revision 002 removed disproportionate lifecycle guarantees, added reconciliation decision tests, and returned the change to REVIEW.
 - 2026-07-28: Revision 001 lifecycle tests (7/7), type-check, production build, and diff checks passed; change returned to REVIEW.
 - 2026-07-28: Upstream SiYuan v3.7.0 evidence showed initial `onload()` is not isolated from `onDataChanged()`; revision 001 entered DOING.
 - 2026-07-26: Final type-check/build/diff/doc checks passed; change entered REVIEW with two-device SiYuan checks pending.

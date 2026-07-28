@@ -31,12 +31,13 @@ test('one failed module does not prevent unrelated module transitions from settl
         'load',
         modules,
         {},
-        undefined,
         (message, error) => {
             errors.push(`${message} ${error === failure}`);
         }
     );
 
     assert.deepEqual(settled.sort(), ['A', 'C']);
-    assert.deepEqual(errors, ['Failed to load module B: true']);
+    assert.deepEqual(errors, [
+        '[fmisc] Failed to load module B. Reload the SiYuan UI if fmisc state appears inconsistent: true'
+    ]);
 });

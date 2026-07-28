@@ -1,6 +1,6 @@
 # Memory: sync-plugin-runtime-config
 
-**Updated**: 2026-07-28T16:44+08:00
+**Updated**: 2026-07-28T18:02+08:00
 
 ## Git Baseline (Immutable)
 
@@ -17,7 +17,7 @@
 
 ## State
 
-Implementation plus revision 001 are complete on `feat/sync-plugin-runtime-config`; change status is `REVIEW` and all 24 tasks are complete. Revision verification passed 7 deterministic lifecycle tests, type-check, production build, and diff checks. Two-device SiYuan user checks from `tasks.md` remain pending; do not mark the change DONE until user acceptance.
+Implementation plus simplification revision 002 are complete on `feat/sync-plugin-runtime-config`; change status remains `REVIEW`. Cross-generation lifecycle guarantees from revision 001 were removed after responsibility-boundary review. Runtime-config decision tests, type-check, production build, and diff checks pass. Two-device SiYuan user checks remain pending; do not mark the change DONE until user acceptance.
 
 ## Key Files
 
@@ -25,8 +25,8 @@ Implementation plus revision 001 are complete on `feat/sync-plugin-runtime-confi
 - `design.md` - Proposed interfaces, snapshot decisions, apply ordering, module-specific effects, and verification matrix.
 - `tmp/handover_sync-plugin-restart.md` - Root-cause investigation and upstream SiYuan references.
 - `src/index.ts` - `FMiscPlugin`; thinly forwards SiYuan callbacks into the runtime lifecycle without calling the restarting base implementation.
-- `src/runtime-lifecycle.ts` - Explicit settings/features lifecycle state machine, startup cancellation, and cross-generation teardown barrier.
 - `src/settings/index.ts` - Thin settings declaration/UI assembly layer.
+- `src/settings/SETTINGS-LIFECYCLE.SPEC.md` - Durable settings lifecycle, conflict, side-effect, failure, and recovery contract.
 - `src/settings/persistence.ts` - Settings initialization, snapshots, dirty decisions, reconciliation queue, apply ordering, and error isolation.
 - `src/func/index.ts` - Awaitable aggregate module lifecycle and single-module Enable transitions.
 - `src/func/gpt/model/storage.ts` - GPT settings apply and startup extensions decomposed behind complete load/save compatibility wrappers.
@@ -54,7 +54,11 @@ Implementation plus revision 001 are complete on `feat/sync-plugin-runtime-confi
 - [2026-07-28T16:44+08:00] [Upstream] SiYuan v3.7.0 initial loading adds a Plugin instance to `app.plugins` before awaiting `onload()`; storage notifications are not contractually isolated from asynchronous startup.
 - [2026-07-28T16:44+08:00] [Implementation] Revision 001 extracted `FMiscRuntimeLifecycle`, added pending notification coalescing, cross-generation teardown ordering, startup AbortSignal, reconciliation/Enable-transition draining, and per-module failure isolation.
 - [2026-07-28T16:44+08:00] [Decision] Runtime divergence is locally authoritative for the current plugin session; it is not claimed to precisely track whether existing debounce saves have completed.
-- [2026-07-28T16:44+08:00] [Verification] `pnpm run test:runtime-lifecycle` passed 7/7; `pnpm run type-check`, `pnpm run build:publish`, and `git diff --check` passed.
+- [2026-07-28T16:44+08:00] [Verification] Revision 001 originally passed 7/7 lifecycle tests, type-check, production build, and diff checks.
+- [2026-07-28T18:02+08:00] [Decision] User accepted session runtime precedence and a bounded recovery contract: rare observable resource inconsistencies may require a SiYuan UI reload; persistent data integrity and ordinary synchronization remain plugin responsibilities.
+- [2026-07-28T18:02+08:00] [Implementation] Revision 002 removed the runtime coordinator, cross-generation barrier, startup AbortSignal propagation, teardown draining, and failed Enable-transition retries. A small startup notification gate remains in `FMiscPlugin`.
+- [2026-07-28T18:02+08:00] [Verification] `pnpm run test:runtime-config` passed 7/7 focused reconciliation/module-isolation tests; type-check, production build, and diff checks passed.
+- [2026-07-28T18:33+08:00] [Documentation] Added the module-local settings lifecycle SPEC and linked it from persistence, reconciliation decisions, plugin callbacks, project index, and related architecture docs.
 
 ## Milestones
 
@@ -66,3 +70,4 @@ Implementation plus revision 001 are complete on `feat/sync-plugin-runtime-confi
 - [2026-07-26T01:44+08:00] Phase 1 paused for context compaction after creating untracked `src/settings/persistence.ts`; initial type-check passed, integration tasks remained open.
 - [2026-07-26T02:27+08:00] All implementation and documentation tasks completed; change entered REVIEW with user-run SiYuan acceptance checks pending.
 - [2026-07-28T16:44+08:00] Revision 001 completed and returned to REVIEW after lifecycle tests, type-check, build, and diff checks passed.
+- [2026-07-28T18:02+08:00] Revision 002 superseded revision 001's lifecycle guarantees, simplified the implementation, and returned the change to REVIEW.

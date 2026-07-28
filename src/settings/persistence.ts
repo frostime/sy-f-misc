@@ -1,52 +1,27 @@
+/**
+ * @SpecDoc src/settings/SETTINGS-LIFECYCLE.SPEC.md
+ */
 import type FMiscPlugin from '@/index';
 import { toggleEnable } from '@/func';
 import { debounce } from '@frostime/siyuan-plugin-kits';
+import {
+    decideSettingsReconciliation,
+    type SettingsReconcileDecision,
+    type SettingsScopeSnapshot
+} from './reconcile-decision';
 
 const LEGACY_CONFIG_FILE = 'configs.json';
 const MODULE_CONFIG_FILE = 'custom-module.config.json';
-
-type SettingsScopeSnapshot = {
-    diskExisted: boolean;
-    lastSeenDisk: unknown;
-    lastAppliedRuntime: unknown;
-};
 
 type StorageReadResult =
     | { ok: true; exists: boolean; data: unknown }
     | { ok: false };
 
-type ReconcileDecision =
-    | 'unchanged'
-    | 'already-current'
-    | 'keep-local-dirty'
-    | 'apply-stored-settings'
-    | 'defer-deletion'
-    | 'apply-failed';
+type ReconcileDecision = SettingsReconcileDecision | 'apply-failed';
 
 const cloneSettingsValue = <T>(value: T): T => {
     if (value === undefined) return undefined;
     return JSON.parse(JSON.stringify(value));
-};
-
-const settingsEqual = (left: unknown, right: unknown): boolean => {
-    if (Object.is(left, right)) return true;
-    if (typeof left !== 'object' || left === null || typeof right !== 'object' || right === null) {
-        return false;
-    }
-    if (Array.isArray(left) || Array.isArray(right)) {
-        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
-            return false;
-        }
-        return left.every((value, index) => settingsEqual(value, right[index]));
-    }
-
-    const leftRecord = left as Record<string, unknown>;
-    const rightRecord = right as Record<string, unknown>;
-    const leftKeys = Object.keys(leftRecord);
-    const rightKeys = Object.keys(rightRecord);
-    return leftKeys.length === rightKeys.length
-        && leftKeys.every(key => Object.prototype.hasOwnProperty.call(rightRecord, key))
-        && leftKeys.every(key => settingsEqual(leftRecord[key], rightRecord[key]));
 };
 
 const asRecord = (value: unknown): Record<string, any> | undefined => {
@@ -77,14 +52,11 @@ export class SettingsPersistence {
     private readonly legacySnapshots = new Map<string, SettingsScopeSnapshot>();
     private readonly moduleSnapshots = new Map<string, SettingsScopeSnapshot>();
     private readonly dedicatedSettingsSnapshots = new Map<string, SettingsScopeSnapshot>();
-    private readonly pendingEnableTransitions = new Map<string, boolean>();
-    private readonly activeEnableTransitions = new Set<Promise<void>>();
     private readonly restoreModuleSettingSetters: (() => void)[] = [];
 
     private disposed = false;
     private reconciliationRunning = false;
     private reconciliationPending = false;
-    private reconciliationPromise?: Promise<void>;
 
     private readonly saveLegacySettingsDebounced = debounce(
         () => this.plugin.saveConfigs(),
@@ -142,25 +114,13 @@ export class SettingsPersistence {
             return;
         }
 
-        const reconciliation = this.drainReconciliationQueue();
-        this.reconciliationPromise = reconciliation;
-        const forgetReconciliation = () => {
-            if (this.reconciliationPromise === reconciliation) {
-                this.reconciliationPromise = undefined;
-            }
-        };
-        void reconciliation.then(forgetReconciliation, forgetReconciliation);
+        void this.drainReconciliationQueue();
     }
 
-    async dispose(): Promise<void> {
+    dispose(): void {
         this.disposed = true;
         this.reconciliationPending = false;
-        this.pendingEnableTransitions.clear();
         this.restoreModuleSettingSetters.splice(0).forEach(restore => restore());
-        await Promise.allSettled([
-            this.reconciliationPromise,
-            ...this.activeEnableTransitions
-        ]);
     }
 
     private async loadInitialSettings() {
@@ -227,7 +187,10 @@ export class SettingsPersistence {
                 await this.reconcileStoredSettings();
             } while (this.reconciliationPending && !this.disposed);
         } catch (error) {
-            console.error('Failed to reconcile synchronized settings:', error);
+            console.error(
+                '[fmisc] Failed to reconcile synchronized settings. Reload the SiYuan UI if runtime settings remain inconsistent:',
+                error
+            );
         } finally {
             this.reconciliationRunning = false;
             if (this.reconciliationPending && !this.disposed) {
@@ -240,8 +203,7 @@ export class SettingsPersistence {
         const reads = await this.readKnownSettingsFiles();
         if (this.disposed) return;
 
-        const enableTransitions = new Map(this.pendingEnableTransitions);
-        this.pendingEnableTransitions.clear();
+        const enableTransitions = new Map<string, boolean>();
 
         const legacyRead = reads.get(LEGACY_CONFIG_FILE);
         if (legacyRead?.ok) {
@@ -267,10 +229,8 @@ export class SettingsPersistence {
             if (this.disposed) break;
             if (this.plugin.getConfig('Enable', key) !== enable) continue;
             try {
-                await this.startEnableTransition(key, enable);
+                await toggleEnable(this.plugin, key, enable);
             } catch (error) {
-                if (this.disposed) break;
-                this.pendingEnableTransitions.set(key, enable);
                 this.logScopeError(`legacy:Enable.${key}`, 'transition', error);
             }
         }
@@ -399,24 +359,22 @@ export class SettingsPersistence {
         apply: (value: unknown) => MaybePromise<void>;
     }): Promise<ReconcileDecision> {
         const { scope, snapshot, nextExists, nextDisk, getCurrentRuntime, apply } = options;
-        if (!nextExists) {
-            return snapshot.diskExisted ? 'defer-deletion' : 'unchanged';
-        }
-        if (snapshot.diskExisted && settingsEqual(nextDisk, snapshot.lastSeenDisk)) {
-            return 'unchanged';
-        }
-
         const currentRuntime = getCurrentRuntime();
-        if (settingsEqual(nextDisk, currentRuntime)) {
+        const decision = decideSettingsReconciliation({
+            snapshot,
+            nextExists,
+            nextDisk,
+            currentRuntime
+        });
+        if (decision === 'already-current') {
             snapshot.diskExisted = true;
             snapshot.lastSeenDisk = cloneSettingsValue(nextDisk);
             snapshot.lastAppliedRuntime = cloneSettingsValue(currentRuntime);
-            return 'already-current';
+            return decision;
         }
-        if (!settingsEqual(currentRuntime, snapshot.lastAppliedRuntime)) {
-            return 'keep-local-dirty';
+        if (decision !== 'apply-stored-settings' || this.disposed) {
+            return decision;
         }
-        if (this.disposed) return 'unchanged';
 
         try {
             await apply(cloneSettingsValue(nextDisk));
@@ -466,7 +424,7 @@ export class SettingsPersistence {
     private applyLegacySettingSideEffect(group: string, key: string, value: any) {
         if (this.disposed) return;
         if (group === 'Enable') {
-            void this.startEnableTransition(key, value).catch(error => {
+            void toggleEnable(this.plugin, key, value).catch(error => {
                 if (this.disposed) return;
                 this.logScopeError(`legacy:Enable.${key}`, 'transition', error);
             });
@@ -481,14 +439,6 @@ export class SettingsPersistence {
             '--plugin-docky-zoom',
             enable === false ? 'unset' : `${factor}`
         );
-    }
-
-    private startEnableTransition(key: string, enable: boolean): Promise<void> {
-        const transition = toggleEnable(this.plugin, key, enable);
-        this.activeEnableTransitions.add(transition);
-        const forgetTransition = () => this.activeEnableTransitions.delete(transition);
-        void transition.then(forgetTransition, forgetTransition);
-        return transition;
     }
 
     private installModuleSettingSetters() {
@@ -520,6 +470,9 @@ export class SettingsPersistence {
     }
 
     private logScopeError(scope: string, operation: string, error: unknown) {
-        console.error(`Settings ${operation} failed for ${scope}:`, error);
+        console.error(
+            `[fmisc] Settings ${operation} failed for ${scope}. Reload the SiYuan UI if runtime settings remain inconsistent:`,
+            error
+        );
     }
 }

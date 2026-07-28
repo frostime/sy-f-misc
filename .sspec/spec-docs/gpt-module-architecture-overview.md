@@ -430,4 +430,5 @@ SiYuan 对 `gpt-cache/`、history 或 assets 的同步也会触发 plugin-level 
 
 - [Cross-File Architecture](gpt-chat-module-cross-file-architecture.md) — 跨文件调用链、隐式约定、命名陷阱、Agent 避坑指南
 - [GPT Chat History Persistence](gpt-chat-history-persistence.md) — 临时 cache、durable history、snapshot 与同步边界
-- [Function Module Architecture](func-module-architecture.md) — `SettingsPersistence`、module lifecycle 与 dedicated settings declaration
+- [Function Module Architecture](func-module-architecture.md) — module lifecycle 与 dedicated settings declaration
+- [Settings Lifecycle Specification](/src/settings/SETTINGS-LIFECYCLE.SPEC.md) — synchronized settings reconciliation、session runtime precedence 与 side-effect boundary
