@@ -327,7 +327,7 @@ const addDock = (plugin: FMiscPlugin) => {
     })
 }
 
-export const load = async (plugin: FMiscPlugin) => {
+export const load = async (plugin: FMiscPlugin, signal?: AbortSignal) => {
     if (enabled) return;
     enabled = true;
 
@@ -443,8 +443,8 @@ export const load = async (plugin: FMiscPlugin) => {
             openGptWindow();
         }
     });
-    void setting.loadStartupExtensions().then(() => {
-        if (globalMiscConfigs().pinChatDock) {
+    const startupExtensions = setting.loadStartupExtensions().then(() => {
+        if (!signal?.aborted && enabled && globalMiscConfigs().pinChatDock) {
             addDock(plugin);
         }
     }).catch(error => {
@@ -459,7 +459,11 @@ export const load = async (plugin: FMiscPlugin) => {
     // 初始化文档内对话功能
     chatInDoc.init();
 
-    await persist.restoreCache();
+    await Promise.all([
+        startupExtensions,
+        persist.restoreCache()
+    ]);
+    if (signal?.aborted) return;
     // NOTE: Do not call updateCacheFile() on startup. restoreCache() loads cache into localStorage;
     // immediate full sync rewrites every split cache file and can overload SiYuan file APIs.
     // NOTE: beforeunload does not await async handlers. Running updateCacheFile() there may abort

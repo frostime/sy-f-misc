@@ -57,6 +57,9 @@ const asRecord = (value: unknown): Record<string, any> | undefined => {
 const hasOwn = (record: Record<string, any> | undefined, key: string) =>
     record !== undefined && Object.prototype.hasOwnProperty.call(record, key);
 
+const storedFileExists = (value: unknown) =>
+    value !== undefined && value !== null && value !== '';
+
 export interface SettingsPersistenceOptions {
     plugin: FMiscPlugin;
     enabledSettingItems: ISettingItem[];
@@ -75,11 +78,13 @@ export class SettingsPersistence {
     private readonly moduleSnapshots = new Map<string, SettingsScopeSnapshot>();
     private readonly dedicatedSettingsSnapshots = new Map<string, SettingsScopeSnapshot>();
     private readonly pendingEnableTransitions = new Map<string, boolean>();
+    private readonly activeEnableTransitions = new Set<Promise<void>>();
     private readonly restoreModuleSettingSetters: (() => void)[] = [];
 
     private disposed = false;
     private reconciliationRunning = false;
     private reconciliationPending = false;
+    private reconciliationPromise?: Promise<void>;
 
     private readonly saveLegacySettingsDebounced = debounce(
         () => this.plugin.saveConfigs(),
@@ -136,14 +141,26 @@ export class SettingsPersistence {
             this.reconciliationPending = true;
             return;
         }
-        void this.drainReconciliationQueue();
+
+        const reconciliation = this.drainReconciliationQueue();
+        this.reconciliationPromise = reconciliation;
+        const forgetReconciliation = () => {
+            if (this.reconciliationPromise === reconciliation) {
+                this.reconciliationPromise = undefined;
+            }
+        };
+        void reconciliation.then(forgetReconciliation, forgetReconciliation);
     }
 
-    dispose() {
+    async dispose(): Promise<void> {
         this.disposed = true;
         this.reconciliationPending = false;
         this.pendingEnableTransitions.clear();
         this.restoreModuleSettingSetters.splice(0).forEach(restore => restore());
+        await Promise.allSettled([
+            this.reconciliationPromise,
+            ...this.activeEnableTransitions
+        ]);
     }
 
     private async loadInitialSettings() {
@@ -177,7 +194,7 @@ export class SettingsPersistence {
                 const stored = await this.plugin.loadData(storage.fileName);
                 await storage.applyStoredSettingsToRuntime(stored, this.plugin);
                 this.dedicatedSettingsSnapshots.set(storage.fileName, {
-                    diskExisted: stored !== undefined && stored !== null,
+                    diskExisted: storedFileExists(stored),
                     lastSeenDisk: cloneSettingsValue(stored),
                     lastAppliedRuntime: cloneSettingsValue(storage.getRuntimeSettingsSnapshot())
                 });
@@ -247,10 +264,12 @@ export class SettingsPersistence {
         if (this.disposed) return;
 
         for (const [key, enable] of enableTransitions) {
+            if (this.disposed) break;
             if (this.plugin.getConfig('Enable', key) !== enable) continue;
             try {
-                await toggleEnable(this.plugin, key, enable);
+                await this.startEnableTransition(key, enable);
             } catch (error) {
+                if (this.disposed) break;
                 this.pendingEnableTransitions.set(key, enable);
                 this.logScopeError(`legacy:Enable.${key}`, 'transition', error);
             }
@@ -268,7 +287,7 @@ export class SettingsPersistence {
                 const data = await this.plugin.loadData(fileName);
                 return [fileName, {
                     ok: true,
-                    exists: data !== undefined && data !== null,
+                    exists: storedFileExists(data),
                     data
                 }];
             } catch (error) {
@@ -445,8 +464,10 @@ export class SettingsPersistence {
     }
 
     private applyLegacySettingSideEffect(group: string, key: string, value: any) {
+        if (this.disposed) return;
         if (group === 'Enable') {
-            void toggleEnable(this.plugin, key, value).catch(error => {
+            void this.startEnableTransition(key, value).catch(error => {
+                if (this.disposed) return;
                 this.logScopeError(`legacy:Enable.${key}`, 'transition', error);
             });
             return;
@@ -460,6 +481,14 @@ export class SettingsPersistence {
             '--plugin-docky-zoom',
             enable === false ? 'unset' : `${factor}`
         );
+    }
+
+    private startEnableTransition(key: string, enable: boolean): Promise<void> {
+        const transition = toggleEnable(this.plugin, key, enable);
+        this.activeEnableTransitions.add(transition);
+        const forgetTransition = () => this.activeEnableTransitions.delete(transition);
+        void transition.then(forgetTransition, forgetTransition);
+        return transition;
     }
 
     private installModuleSettingSetters() {

@@ -1,6 +1,6 @@
 # Memory: sync-plugin-runtime-config
 
-**Updated**: 2026-07-26T02:27+08:00
+**Updated**: 2026-07-28T16:44+08:00
 
 ## Git Baseline (Immutable)
 
@@ -17,14 +17,15 @@
 
 ## State
 
-Implementation complete on `feat/sync-plugin-runtime-config`; change status is `REVIEW` and all 19 Plan tasks are complete. Agent-side type-check, production build, diff/doc checks, LSP diagnostics, and a temporary mocked reconciliation harness passed. Two-device SiYuan user checks from `tasks.md` remain pending; do not mark the change DONE until user acceptance.
+Implementation plus revision 001 are complete on `feat/sync-plugin-runtime-config`; change status is `REVIEW` and all 24 tasks are complete. Revision verification passed 7 deterministic lifecycle tests, type-check, production build, and diff checks. Two-device SiYuan user checks from `tasks.md` remain pending; do not mark the change DONE until user acceptance.
 
 ## Key Files
 
 - `spec.md` - Confirmed problem boundary, behavior contracts, implementation labels, and estimated scope.
 - `design.md` - Proposed interfaces, snapshot decisions, apply ordering, module-specific effects, and verification matrix.
 - `tmp/handover_sync-plugin-restart.md` - Root-cause investigation and upstream SiYuan references.
-- `src/index.ts` - `FMiscPlugin`; forwards synchronous `onDataChanged()` notifications into settings persistence without calling the restarting base implementation.
+- `src/index.ts` - `FMiscPlugin`; thinly forwards SiYuan callbacks into the runtime lifecycle without calling the restarting base implementation.
+- `src/runtime-lifecycle.ts` - Explicit settings/features lifecycle state machine, startup cancellation, and cross-generation teardown barrier.
 - `src/settings/index.ts` - Thin settings declaration/UI assembly layer.
 - `src/settings/persistence.ts` - Settings initialization, snapshots, dirty decisions, reconciliation queue, apply ordering, and error isolation.
 - `src/func/index.ts` - Awaitable aggregate module lifecycle and single-module Enable transitions.
@@ -50,6 +51,10 @@ Implementation complete on `feat/sync-plugin-runtime-config`; change status is `
 - [2026-07-26T02:27+08:00] [Verification] `pnpm run type-check`, `pnpm run build:publish`, `git diff --check`, spec-doc checks, and LSP diagnostics for changed core files passed. `src/index.ts` retains one pre-existing unused `showMessage` import hint.
 - [2026-07-26T02:27+08:00] [Verification] A temporary, untracked mock harness passed clean apply ordering, local-dirty preservation, cross-module isolation, already-current snapshots, deletion deferral, scope failure isolation, and notification coalescing.
 - [2026-07-26T02:27+08:00] [Pending] Two-device SiYuan checks in `tasks.md` are user-run acceptance steps and have not been executed by the agent.
+- [2026-07-28T16:44+08:00] [Upstream] SiYuan v3.7.0 initial loading adds a Plugin instance to `app.plugins` before awaiting `onload()`; storage notifications are not contractually isolated from asynchronous startup.
+- [2026-07-28T16:44+08:00] [Implementation] Revision 001 extracted `FMiscRuntimeLifecycle`, added pending notification coalescing, cross-generation teardown ordering, startup AbortSignal, reconciliation/Enable-transition draining, and per-module failure isolation.
+- [2026-07-28T16:44+08:00] [Decision] Runtime divergence is locally authoritative for the current plugin session; it is not claimed to precisely track whether existing debounce saves have completed.
+- [2026-07-28T16:44+08:00] [Verification] `pnpm run test:runtime-lifecycle` passed 7/7; `pnpm run type-check`, `pnpm run build:publish`, and `git diff --check` passed.
 
 ## Milestones
 
@@ -60,3 +65,4 @@ Implementation complete on `feat/sync-plugin-runtime-config`; change status is `
 - [2026-07-26T01:33+08:00] Plan approved; change entered DOING and checkpoint commit `1ca8c58` recorded the sspec artifacts.
 - [2026-07-26T01:44+08:00] Phase 1 paused for context compaction after creating untracked `src/settings/persistence.ts`; initial type-check passed, integration tasks remained open.
 - [2026-07-26T02:27+08:00] All implementation and documentation tasks completed; change entered REVIEW with user-run SiYuan acceptance checks pending.
+- [2026-07-28T16:44+08:00] Revision 001 completed and returned to REVIEW after lifecycle tests, type-check, build, and diff checks passed.

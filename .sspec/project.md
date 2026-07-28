@@ -17,7 +17,7 @@ A comprehensive personal toolbox plugin for SiYuan Note, providing a collection 
   - @frostime/solid-signal-ref
   - @frostime/siyuan-plugin-kits
 - **Build Tool**: Vite + pnpm
-- **Test Framework**: None — siyuan plugin cannot be easily tested; use `pnpm run dev` and debug/test within SiYuan app.
+- **Test Framework**: Node built-in test runner for isolated lifecycle/state logic; SiYuan integration still requires in-app testing.
 
 ### Build
 

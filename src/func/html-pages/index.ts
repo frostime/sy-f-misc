@@ -605,7 +605,7 @@ const initializeDefaults = async () => {
 export const name = 'HTMLPages';
 export const enabled = false;
 
-export const load = async (plugin_: FMiscPlugin) => {
+export const load = async (plugin_: FMiscPlugin, signal?: AbortSignal) => {
     plugin = plugin_;
 
     // try {
@@ -615,9 +615,11 @@ export const load = async (plugin_: FMiscPlugin) => {
     //     console.warn('数据目录可能已存在:', e);
     // }
     await siyuanVfs.mkdir(DATA_DIR);
+    if (signal?.aborted) return;
 
     // 初始化默认配置
     await initializeDefaults();
+    if (signal?.aborted) return;
 
     // await readDir(DATA_DIR);
 

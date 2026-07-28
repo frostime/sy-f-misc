@@ -20,7 +20,7 @@ import { load, unload } from "./func";
 import "@/index.scss";
 
 import { initSetting } from "./settings";
-import type { SettingsPersistence } from "./settings/persistence";
+import { FMiscRuntimeLifecycle } from './runtime-lifecycle';
 
 import { registerPlugin } from "@frostime/siyuan-plugin-kits";
 
@@ -60,9 +60,7 @@ export default class FMiscPlugin extends Plugin {
 
     deviceStorage: Awaited<ReturnType<typeof useLocalDeviceStorage>>;
 
-    private settingsPersistence?: SettingsPersistence;
-    private settingsChangePending = false;
-    private acceptsSettingsChanges = false;
+    private runtimeLifecycle?: FMiscRuntimeLifecycle;
 
     get petalRoute() {
         return '/data/storage/petal/' + this.name;
@@ -70,7 +68,6 @@ export default class FMiscPlugin extends Plugin {
 
     async onload() {
         globalThis.fmisc = {}
-        this.acceptsSettingsChanges = true;
         const frontEnd = getFrontend();
         this.isMobile = frontEnd === "mobile" || frontEnd === "browser-mobile";
         registerPlugin(this);
@@ -80,31 +77,26 @@ export default class FMiscPlugin extends Plugin {
 
         let svgs = Object.values(Svg);
         this.addIcons(svgs.join(''));
-        this.settingsPersistence = await initSetting(this);
-        if (this.settingsChangePending) {
-            this.settingsChangePending = false;
-            this.settingsPersistence.scheduleReconcileAfterStorageSync();
-        }
-        await load(this);
+
+        const runtimeLifecycle = new FMiscRuntimeLifecycle({
+            initializeSettings: () => initSetting(this),
+            loadFeatures: signal => load(this, signal),
+            unloadFeatures: () => unload(this)
+        });
+        this.runtimeLifecycle = runtimeLifecycle;
+        await runtimeLifecycle.load();
     }
 
     onDataChanged(): void {
-        if (!this.acceptsSettingsChanges) return;
-        if (!this.settingsPersistence) {
-            this.settingsChangePending = true;
-            return;
-        }
-        this.settingsPersistence.scheduleReconcileAfterStorageSync();
+        this.runtimeLifecycle?.notifyStorageDataChanged();
     }
 
-    async onunload() {
+    onunload(): void {
         globalThis.fmisc && delete globalThis.fmisc
 
-        this.acceptsSettingsChanges = false;
-        this.settingsChangePending = false;
-        this.settingsPersistence?.dispose();
-        this.settingsPersistence = undefined;
-        await unload(this);
+        const runtimeLifecycle = this.runtimeLifecycle;
+        this.runtimeLifecycle = undefined;
+        void runtimeLifecycle?.unload();
     }
 
     async onLayoutReady() {

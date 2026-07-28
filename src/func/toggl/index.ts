@@ -61,11 +61,12 @@ const useSolidRoot = () => {
 const reactivityRoot = useSolidRoot();
 
 
-export const load = async (plugin: FMiscPlugin) => {
+export const load = async (plugin: FMiscPlugin, signal?: AbortSignal) => {
     if (enabled) return;
     enabled = true;
 
     await config.loadAccountMetadata();
+    if (signal?.aborted) return;
     active.load()
     globalThis.toggl = null;
 

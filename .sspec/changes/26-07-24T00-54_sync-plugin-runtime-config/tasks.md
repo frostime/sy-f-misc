@@ -1,6 +1,6 @@
 ---
 change: "sync-plugin-runtime-config"
-updated: "2026-07-26T02:27+08:00"
+updated: "2026-07-28T16:44+08:00"
 ---
 
 # Tasks
@@ -84,11 +84,29 @@ updated: "2026-07-26T02:27+08:00"
 1. BC-1 through BC-7: Run the Phase 1-3 SiYuan checks on two synchronized devices and report any mismatch before Review acceptance.
 2. BC-6: Confirm normal local settings import/export and module startup still behave as before when synchronization is disabled.
 
+### Feedback Tasks (→ [001-extract-runtime-lifecycle-coordinator](./revisions/001-extract-runtime-lifecycle-coordinator.md)) ✅
+
+- [x] Add `FMiscRuntimeLifecycle` with explicit startup/active/disposal states, cross-generation teardown barrier, startup cancellation, and deterministic mock tests for pending notification coalescing and teardown ordering. `src/runtime-lifecycle.ts`, `tests/runtime-lifecycle.test.ts`, `package.json`
+- [x] Replace inline settings lifecycle booleans in `FMiscPlugin` with thin coordinator callback forwarding. `src/index.ts`
+- [x] Isolate aggregate feature module startup/teardown failures, propagate startup cancellation to async modules, and preserve registration order plus awaitable `toggleEnable()`. `src/func/index.ts`, `src/func/gpt/index.ts`, `src/func/toggl/index.ts`, `src/func/websocket/index.ts`, `src/func/html-pages/index.ts`
+- [x] Prevent disposed persistence from starting later Enable transitions, drain already-started transitions, recognize SiYuan's `""` missing-file response, and document session-local runtime precedence. `src/settings/persistence.ts`, `.sspec/spec-docs/func-module-architecture.md`
+- [x] Run lifecycle tests, type-check, production build, diff checks, and focused intent review; record results and return the change to REVIEW. `.sspec/changes/26-07-24T00-54_sync-plugin-runtime-config/memory.md`
+
+**Verification**:
+- Agent: `pnpm run test:runtime-lifecycle` proves notifications before active are coalesced, active notifications reconcile immediately, and teardown during feature startup waits for startup settlement before aggregate unload.
+- Agent: a failing feature module does not prevent unrelated modules from settling; failure logs identify the operation and module without settings values.
+- Agent: `pnpm run type-check`, `pnpm run build:publish`, and `git diff --check` exit 0.
+- Agent: existing settings filenames, payload builders, migration/apply calls, and debounce intervals remain unchanged.
+
+**User Check**:
+1. BC-1/BC-2: Start SiYuan while another device has just synchronized fmisc data → fmisc reaches a usable state and applies synchronized settings only after feature startup settles.
+2. BC-6: With sync disabled, restart fmisc and confirm legacy, module, GPT, Toggl, and device-local Zotero settings import exactly as before.
+
 ---
 
 ## Progress
 
-**Overall**: 19/19 (100%)
+**Overall**: 24/24 (100%)
 
 | Phase | Progress | Status |
 |---|---:|---|
@@ -96,8 +114,11 @@ updated: "2026-07-26T02:27+08:00"
 | Phase 2: Add Dedicated Settings Adapters | 5/5 | ✅ |
 | Phase 3: Reconcile Settings After SiYuan Sync | 5/5 | ✅ |
 | Phase 4: Documentation and Final Quality Gates | 4/4 | ✅ |
+| Feedback: Runtime lifecycle coordinator | 5/5 | ✅ |
 
 **Recent**:
+- 2026-07-28: Revision 001 lifecycle tests (7/7), type-check, production build, and diff checks passed; change returned to REVIEW.
+- 2026-07-28: Upstream SiYuan v3.7.0 evidence showed initial `onload()` is not isolated from `onDataChanged()`; revision 001 entered DOING.
 - 2026-07-26: Final type-check/build/diff/doc checks passed; change entered REVIEW with two-device SiYuan checks pending.
 - 2026-07-26: Completed intent/structure review, fixed concurrency/lifecycle edge cases, and passed the temporary reconciliation harness.
 - 2026-07-26: Updated module/GPT spec-docs for persistence ownership, compatible loader decomposition, and sync exclusions.

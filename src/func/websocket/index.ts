@@ -24,7 +24,7 @@ export const declareToggleEnabled = {
     defaultEnabled: false
 };
 
-export const load = async (plugin: FMiscPlugin) => {
+export const load = async (plugin: FMiscPlugin, signal?: AbortSignal) => {
     if (enabled) return;
     enabled = true;
 
@@ -36,6 +36,7 @@ export const load = async (plugin: FMiscPlugin) => {
     }
 
     let info = await api.request('/api/broadcast/getChannelInfo', { name: plugin.name });
+    if (signal?.aborted) return;
     if (info.channel?.count > 0) {
         console.info('已经存在 Web Socket 服务，无需重复连接.')
         console.log(info.channel);
@@ -48,6 +49,7 @@ export const load = async (plugin: FMiscPlugin) => {
     wsManager.createWebSocket();
 
     let handlers = await Handlers();
+    if (signal?.aborted) return;
     Object.entries(handlers).forEach(([key, handler]) => {
         wsManager.registerMessageHandler(key, handler);
     });

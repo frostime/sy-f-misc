@@ -9,6 +9,7 @@
 // import { type JSX } from "solid-js";
 
 import type FMiscPlugin from "@/index";
+import { settleModuleTransitions } from './lifecycle';
 // import * as nf from './new-file/legacy';
 import * as nf from './asset-file';
 import * as it from './insert-time';
@@ -84,24 +85,24 @@ export const ModulesAlwaysEnable = _ModulesAlwaysEnable.filter(module => module.
 const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enable${module.name}`, module]));
 
 
-export const load = async (plugin: FMiscPlugin) => {
+export const load = async (plugin: FMiscPlugin, signal?: AbortSignal) => {
     const enabledModules = ModulesToEnable.filter(module =>
         plugin.getConfig('Enable', `Enable${module.name}`)
     );
-    await Promise.all([
-        ...enabledModules.map(async module => {
-            await module.load(plugin);
-            console.debug(`Load ${module.name}`);
-        }),
-        ...ModulesAlwaysEnable.map(module => module.load(plugin))
-    ]);
+    await settleModuleTransitions(
+        'load',
+        [...enabledModules, ...ModulesAlwaysEnable],
+        plugin,
+        signal
+    );
 }
 
 export const unload = async (plugin: FMiscPlugin) => {
-    await Promise.all([
-        ...ModulesToEnable.map(module => module.unload(plugin)),
-        ...ModulesAlwaysEnable.map(module => module.unload(plugin))
-    ]);
+    await settleModuleTransitions(
+        'unload',
+        [...ModulesToEnable, ...ModulesAlwaysEnable],
+        plugin
+    );
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];

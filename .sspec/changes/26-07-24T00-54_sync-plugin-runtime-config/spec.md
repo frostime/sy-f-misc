@@ -7,6 +7,9 @@ reference:
   - source: "tmp/handover_sync-plugin-restart.md"
     type: "doc"
     note: "Root-cause research for SiYuan storage-sync plugin restarts."
+  - source: ".sspec/changes/26-07-24T00-54_sync-plugin-runtime-config/revisions/001-extract-runtime-lifecycle-coordinator.md"
+    type: "revision"
+    note: "Move lifecycle ordering into a tested coordinator after verifying SiYuan initial-load concurrency."
 ---
 
 # sync-plugin-runtime-config

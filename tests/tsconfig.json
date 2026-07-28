@@ -1,0 +1,19 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "noEmit": false,
+        "outDir": "../tmp/runtime-lifecycle-tests",
+        "rootDir": "..",
+        "declaration": false,
+        "sourceMap": false
+    },
+    "include": [
+        "runtime-lifecycle.test.ts",
+        "func-lifecycle.test.ts",
+        "../src/runtime-lifecycle.ts",
+        "../src/func/lifecycle.ts"
+    ],
+    "references": []
+}

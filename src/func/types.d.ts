@@ -25,7 +25,7 @@ interface IFuncModule {
     enabled: boolean;
     allowToUse?: () => boolean;
 
-    load: (plugin: FMiscPlugin) => MaybePromise<void>;
+    load: (plugin: FMiscPlugin, signal?: AbortSignal) => MaybePromise<void>;
     unload: (plugin?: FMiscPlugin) => MaybePromise<void>;
     declareDedicatedSettingsStorage?: {
         fileName: string;

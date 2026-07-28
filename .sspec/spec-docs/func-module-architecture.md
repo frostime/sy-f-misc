@@ -26,7 +26,8 @@ src/func/index.ts            ← 模块注册、awaitable 加载/卸载/toggle
 src/settings/index.ts        ← 收集模块声明 → 组装设置 UI
 src/settings/persistence.ts  ← 设置初始化、持久化、同步 reconciliation
 src/settings/settings.tsx    ← SolidJS 设置面板 UI
-src/index.ts                 ← SiYuan 与 settings/feature 生命周期适配
+src/runtime-lifecycle.ts     ← settings/feature 生命周期状态机
+src/index.ts                 ← SiYuan callback 的薄适配层
 ```
 
 ---
@@ -92,18 +93,20 @@ let _ModulesAlwaysEnable: IFuncModule[] = [sc];
 
 ```
 FMiscPlugin.onload()
-  ├── initSetting(plugin)                         ← settings/index.ts
-  │     ├── 收集所有模块的 declare* 声明
-  │     ├── SettingsPersistence.initialize()      ← settings/persistence.ts
-  │     │   ├── defaults → configs.json
-  │     │   ├── custom-module.config.json → config.load()
-  │     │   ├── dedicated files → applyStoredSettingsToRuntime()
-  │     │   ├── 建立 disk/applied runtime snapshots
-  │     │   └── 注入现有 debounce 保存回调
-  │     └── 设置 plugin.openSetting()
-  └── await load(plugin)                          ← func/index.ts
-        ├── ModulesToEnable: Enable=true → await module.load(plugin)
-        └── ModulesAlwaysEnable: await module.load(plugin)
+  └── FMiscRuntimeLifecycle.load()                ← runtime-lifecycle.ts
+        ├── loading-settings
+        │     └── initSetting(plugin)             ← settings/index.ts
+        │           ├── SettingsPersistence.initialize()
+        │           │   ├── defaults → configs.json
+        │           │   ├── custom-module.config.json → config.load()
+        │           │   ├── dedicated files → applyStoredSettingsToRuntime()
+        │           │   ├── 建立 disk/applied runtime snapshots
+        │           │   └── 注入现有 debounce 保存回调
+        │           └── 设置 plugin.openSetting()
+        ├── loading-features
+        │     └── settle module.load()            ← func/index.ts
+        └── active
+              └── flush 一次初始化期间合并的 storage notification
 ```
 
 ### Toggle 流程
@@ -193,7 +196,11 @@ SettingsPersistence.initialize()
 
 ## 同步后的 Settings Reconciliation
 
-SiYuan 3.7.0 在同步合并改变 `/storage/petal/<plugin>/` 时调用 [`FMiscPlugin.onDataChanged()`](/src/index.ts)，但不提供变化文件名，也不等待 Promise。fmisc 的同步入口保持 `void`，只调度 `SettingsPersistence` 队列；禁止调用基类实现，因为基类会完整重启插件。
+SiYuan 3.7.0 在同步合并改变 `/storage/petal/<plugin>/` 时调用 [`FMiscPlugin.onDataChanged()`](/src/index.ts)，但不提供变化文件名，也不等待 Promise。fmisc 的同步入口保持 `void`，转交 [`FMiscRuntimeLifecycle`](/src/runtime-lifecycle.ts)；禁止调用基类实现，因为基类会完整重启插件。
+
+SiYuan 初次加载插件时先把实例加入 `app.plugins`，再等待异步 `onload()`，因此 storage notification 可能落在初始化期间。协调器在 `loading-settings` / `loading-features` 阶段只保留一个 pending notification，到 `active` 后再触发一次 reconciliation。
+
+`onunload()` 将协调器同步标记为 `disposed` 并 abort feature startup signal。异步模块在跨越 await 后、注册新资源前检查该 signal；协调器等待已开始的 settings reconciliation、Enable transition 和 feature startup 收束后，再执行 aggregate feature unload。teardown Promise 通过 `globalThis` 上的 `Symbol.for` barrier 暴露给下一 plugin generation，新 generation 在初始化 settings 前等待旧 generation 完成，避免两代实例同时操作模块级 singleton 状态。
 
 每个 scope 保留 `lastSeenDisk` 与 `lastAppliedRuntime`：
 
@@ -201,13 +208,15 @@ SiYuan 3.7.0 在同步合并改变 `/storage/petal/<plugin>/` 时调用 [`FMiscP
 |---|---|
 | disk 未变化 | 跳过 |
 | disk 等于当前 runtime | 仅刷新 snapshots；覆盖本地 save 未通知 coordinator 的情况 |
-| runtime 不等于 last applied | 视为本地未保存编辑，保留 runtime |
+| runtime 不等于 last applied | 当前 plugin session 以本地 runtime 为准；同 scope 远端值延迟应用 |
 | runtime clean 且 disk 变化 | 调用该 scope 现有 apply 操作 |
 | 已存在的文件/section 被删除 | 运行期间不 reset；下次正常启动应用 defaults |
 
 粒度：legacy 为 group/key，shared module 为 module key，dedicated 为整文件。一次 run 只读取 `configs.json`、`custom-module.config.json`、GPT/Toggl dedicated files；cache/history/assets 变化只造成这些固定文件的无变化检查。
 
 apply 顺序固定为 legacy（暂存 Enable）→ shared module → dedicated → 设置描述符 → sequential `toggleEnable()`。因此远端启用模块时，模块启动前已获得最新 shared/dedicated settings。队列合并并发通知；一个 scope 失败不阻塞其他 scope，日志只记录 scope 和操作。
+
+“本地 runtime 为准”是 session 级保守策略，不精确区分该值是否已被现有 debounce save 持久化。其目的是避免同 scope 的远端内容在当前会话中覆盖本地运行状态；runtime 再次与磁盘收敛或插件正常重启后，远端最终文件可重新成为加载输入。SiYuan `loadData()` 对缺失文件返回空字符串，persistence 将其视为 missing，而不是有效 JSON 配置。
 
 ---
 
@@ -346,21 +355,26 @@ Settings App
 ```typescript
 class FMiscPlugin extends Plugin {
     data: { configs: { Enable, Docky, Misc } };
+    private runtimeLifecycle?: FMiscRuntimeLifecycle;
 
     async onload() {
         registerPlugin(this);
-        this.initDefaultFunctions();   // 顶栏菜单
-        this.settingsPersistence = await initSetting(this);
-        await load(this);              // 设置完成后加载各模块
+        this.initDefaultFunctions();
+        this.runtimeLifecycle = new FMiscRuntimeLifecycle({
+            initializeSettings: () => initSetting(this),
+            loadFeatures: () => load(this),
+            unloadFeatures: () => unload(this)
+        });
+        await this.runtimeLifecycle.load();
     }
 
     onDataChanged(): void {
-        this.settingsPersistence.scheduleReconcileAfterStorageSync();
+        this.runtimeLifecycle?.notifyStorageDataChanged();
     }
 
-    async onunload() {
-        this.settingsPersistence.dispose();
-        await unload(this);
+    onunload(): void {
+        void this.runtimeLifecycle?.unload();
+        this.runtimeLifecycle = undefined;
     }
 
     // 模块可调用的 API
