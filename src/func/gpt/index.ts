@@ -46,10 +46,51 @@ export const declareSettingPanel = [
     }
 ]
 
+const useStartupExtensions = () => {
+    let loading = false;
+    let settingsConflictShown = false;
+
+    const applySynchronizedSettings = (
+        stored: Record<string, unknown> | undefined,
+        plugin: FMiscPlugin
+    ) => {
+        if (loading) {
+            if (!settingsConflictShown) {
+                settingsConflictShown = true;
+                showMessage(
+                    'GPT 设置同步与自定义扩展加载同时发生，本次 GPT 设置未应用。请重新加载思源界面。',
+                    8000,
+                    'error'
+                );
+            }
+            throw new Error('GPT settings sync arrived while startup extensions were loading');
+        }
+        return setting.applyStoredSettingsToRuntime(stored, plugin);
+    };
+
+    const load = (plugin: FMiscPlugin) => {
+        loading = true;
+        settingsConflictShown = false;
+        void setting.loadStartupExtensions().then(() => {
+            if (enabled && globalMiscConfigs().pinChatDock) {
+                addDock(plugin);
+            }
+        }).catch(error => {
+            console.error('[fmisc] Failed to load GPT startup extensions. Reload the SiYuan UI if GPT extensions remain unavailable:', error);
+        }).finally(() => {
+            loading = false;
+        });
+    };
+
+    return { applySynchronizedSettings, load };
+};
+
+const startupExtensions = useStartupExtensions();
+
 export const declareDedicatedSettingsStorage: NonNullable<IFuncModule['declareDedicatedSettingsStorage']> = {
     fileName: setting.GPT_SETTINGS_FILE,
     getRuntimeSettingsSnapshot: setting.getRuntimeSettingsSnapshot,
-    applyStoredSettingsToRuntime: setting.applyStoredSettingsToRuntime
+    applyStoredSettingsToRuntime: startupExtensions.applySynchronizedSettings
 };
 
 const attachSelectedText = async () => {
@@ -443,13 +484,7 @@ export const load = async (plugin: FMiscPlugin) => {
             openGptWindow();
         }
     });
-    void setting.loadStartupExtensions().then(() => {
-        if (enabled && globalMiscConfigs().pinChatDock) {
-            addDock(plugin);
-        }
-    }).catch(error => {
-        console.error('[fmisc] Failed to load GPT startup extensions. Reload the SiYuan UI if GPT extensions remain unavailable:', error);
-    });
+    startupExtensions.load(plugin);
     clickEvent.register();
 
     plugin.eventBus.on('open-siyuan-url-plugin', openUrl);
