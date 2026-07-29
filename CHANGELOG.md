@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [7.13.1] - 2026-07-07
+
 ### Changed
 
 - **Zotero 模块重构**：移除 Better BibTeX debug-bridge 依赖，改用 Zotero Local API 读取笔记数据、自研 Bridge 扩展获取当前选中条目。不再需要配置 `zoteroPassword`/token。
