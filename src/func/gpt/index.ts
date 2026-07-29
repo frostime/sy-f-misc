@@ -46,31 +46,38 @@ export const declareSettingPanel = [
     }
 ]
 
+/**
+ * Startup extensions decide startup-only effects from GPT settings. If a synced GPT
+ * config arrives while they are loading, this plugin instance keeps its existing
+ * settings and rejects later GPT sync applies as well. Reloading SiYuan creates a
+ * new instance that loads the synchronized file before extensions start.
+ */
 const useStartupExtensions = () => {
     let loading = false;
-    let settingsConflictShown = false;
+    let settingsSyncRejected = false;
+    let settingsSyncErrorShown = false;
 
     const applySynchronizedSettings = (
         stored: Record<string, unknown> | undefined,
         plugin: FMiscPlugin
     ) => {
-        if (loading) {
-            if (!settingsConflictShown) {
-                settingsConflictShown = true;
+        if (loading) settingsSyncRejected = true;
+        if (settingsSyncRejected) {
+            if (!settingsSyncErrorShown) {
+                settingsSyncErrorShown = true;
                 showMessage(
-                    'GPT 设置同步与自定义扩展加载同时发生，本次 GPT 设置未应用。请重新加载思源界面。',
+                    'GPT 设置同步与自定义扩展加载同时发生。当前启动已拒绝 GPT 设置同步，请重新加载思源界面。',
                     8000,
                     'error'
                 );
             }
-            throw new Error('GPT settings sync arrived while startup extensions were loading');
+            throw new Error('GPT settings sync rejected until plugin reload');
         }
         return setting.applyStoredSettingsToRuntime(stored, plugin);
     };
 
     const load = (plugin: FMiscPlugin) => {
         loading = true;
-        settingsConflictShown = false;
         void setting.loadStartupExtensions().then(() => {
             if (enabled && globalMiscConfigs().pinChatDock) {
                 addDock(plugin);
