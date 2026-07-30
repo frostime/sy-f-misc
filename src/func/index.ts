@@ -9,6 +9,7 @@
 // import { type JSX } from "solid-js";
 
 import type FMiscPlugin from "@/index";
+import { settleModuleTransitions } from './lifecycle';
 // import * as nf from './new-file/legacy';
 import * as nf from './asset-file';
 import * as it from './insert-time';
@@ -84,41 +85,35 @@ export const ModulesAlwaysEnable = _ModulesAlwaysEnable.filter(module => module.
 const EnableKey2Module = Object.fromEntries(ModulesToEnable.map(module => [`Enable${module.name}`, module]));
 
 
-export const load = (plugin: FMiscPlugin) => {
-    ModulesToEnable.forEach(module => {
-        if (plugin.getConfig('Enable', `Enable${module.name}`)) {
-            module.load(plugin);
-            console.debug(`Load ${module.name}`);
-        }
-    });
-
-    ModulesAlwaysEnable.forEach(module => {
-        module.load(plugin);
-    });
+export const load = async (plugin: FMiscPlugin) => {
+    const enabledModules = ModulesToEnable.filter(module =>
+        plugin.getConfig('Enable', `Enable${module.name}`)
+    );
+    await settleModuleTransitions(
+        'load',
+        [...enabledModules, ...ModulesAlwaysEnable],
+        plugin
+    );
 }
 
-export const unload = (plugin: FMiscPlugin) => {
-    ModulesToEnable.forEach(module => {
-        module.unload(plugin);
-    });
-
-    ModulesAlwaysEnable.forEach(module => {
-        module.unload(plugin);
-    });
+export const unload = async (plugin: FMiscPlugin) => {
+    await settleModuleTransitions(
+        'unload',
+        [...ModulesToEnable, ...ModulesAlwaysEnable],
+        plugin
+    );
 }
 
 type EnableKey = keyof FMiscPlugin['data']['configs']['Enable'];
 
-export const toggleEnable = (plugin: FMiscPlugin, key: EnableKey, enable: boolean) => {
-    const DoAction = (module: IFuncModule) => {
-        if (module === undefined) return;
-        if (enable === true) {
-            module.load(plugin);
-        } else {
-            module.unload(plugin);
-        }
-    };
+export const toggleEnable = async (plugin: FMiscPlugin, key: EnableKey, enable: boolean) => {
     const module = EnableKey2Module?.[key];
+    if (module === undefined) return;
+
     console.debug(`Toggle ${key} to ${enable}`);
-    DoAction(module);
+    if (enable === true) {
+        await module.load(plugin);
+    } else {
+        await module.unload(plugin);
+    }
 }

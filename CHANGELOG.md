@@ -5,6 +5,14 @@
 
 ## [Unreleased]
 
+## [7.14.0] - 2026-07-30
+
+### Changed
+
+- **设置同步机制重构**：适配思源插件数据同步；同步 fmisc 数据不再重启插件，活动中的 GPT 对话保持运行，设置会在当前实例中更新。
+
+## [7.13.1] - 2026-07-07
+
 ### Changed
 
 - **Zotero 模块重构**：移除 Better BibTeX debug-bridge 依赖，改用 Zotero Local API 读取笔记数据、自研 Bridge 扩展获取当前选中条目。不再需要配置 `zoteroPassword`/token。

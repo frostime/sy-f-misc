@@ -6,6 +6,8 @@
  * @LastEditTime : 2025-12-20 19:29:38
  * @Description  :
  */
+type MaybePromise<T> = T | Promise<T>;
+
 interface IConfigItem<T> extends Omit<ISettingItem, 'value'> {
     get: () => T;
     set: (value: T) => void;
@@ -23,8 +25,16 @@ interface IFuncModule {
     enabled: boolean;
     allowToUse?: () => boolean;
 
-    load: (plugin: FMiscPlugin) => void;
-    unload: (plugin?: FMiscPlugin) => void;
+    load: (plugin: FMiscPlugin) => MaybePromise<void>;
+    unload: (plugin?: FMiscPlugin) => MaybePromise<void>;
+    declareDedicatedSettingsStorage?: {
+        fileName: string;
+        getRuntimeSettingsSnapshot: () => Record<string, unknown>;
+        applyStoredSettingsToRuntime: (
+            stored: Record<string, unknown> | undefined,
+            plugin: FMiscPlugin
+        ) => MaybePromise<void>;
+    };
     // 如果声明了, 在会在设置面板中显示启用的按钮
     declareToggleEnabled?: {
         title: string;
@@ -42,7 +52,7 @@ interface IFuncModule {
         key: string;
         title?: string;
         items?: IConfigItem<any>[];
-        load?: (itemValues?: Record<string, any>) => void;
+        load?: (itemValues?: Record<string, any>) => MaybePromise<void>;
         dump?: () => Record<string, any>;
         customPanel?: () => FlexibleElement;
         help?: (...args: any[]) => void;  // 点击帮助按钮弹出帮助文档

@@ -20,6 +20,12 @@ import { createEffect, createRoot, on } from 'solid-js';
 export let name = 'Toggl';
 export let enabled = false;
 
+export const declareDedicatedSettingsStorage: NonNullable<IFuncModule['declareDedicatedSettingsStorage']> = {
+    fileName: config.TOGGL_SETTINGS_FILE,
+    getRuntimeSettingsSnapshot: config.getRuntimeSettingsSnapshot,
+    applyStoredSettingsToRuntime: config.applyStoredSettingsToRuntime
+};
+
 
 const useSolidRoot = () => {
     let disposer = () => { };
@@ -59,7 +65,7 @@ export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
 
-    await config.load(plugin);
+    await config.loadAccountMetadata();
     active.load()
     globalThis.toggl = null;
 

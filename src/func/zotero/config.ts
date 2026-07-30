@@ -22,7 +22,8 @@ let configs: ZoteroConfig = {
 };
 
 let zoteroDir: Record<string, string> = {};
-let configLoadPromise: Promise<void> = null;
+let sharedConfigInitialized = false;
+let deviceConfigLoadPromise: Promise<void> = null;
 
 export const getZoteroDir = () => {
     const device = window.siyuan.config.system;
@@ -33,9 +34,12 @@ export const getPassword = () => {
     return configs.zoteroPassword;
 }
 
-export const ensureZoteroConfigLoaded = (data: Partial<ZoteroConfig> = {}) => {
-    configLoadPromise ??= loadZoteroConfig(data);
-    return configLoadPromise;
+export const ensureZoteroConfigLoaded = (data?: Partial<ZoteroConfig>) => {
+    if (data !== undefined || !sharedConfigInitialized) {
+        applyZoteroModuleConfig(data ?? {});
+    }
+    deviceConfigLoadPromise ??= loadZoteroDeviceConfig();
+    return deviceConfigLoadPromise;
 }
 
 export const shouldShowMigrationPrompt = () => {
@@ -124,7 +128,7 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
     }
 }
 
-const loadZoteroConfig = async (data: Partial<ZoteroConfig>) => {
+const applyZoteroModuleConfig = (data: Partial<ZoteroConfig>) => {
     const plugin = thisPlugin() as unknown as FMiscPlugin;
     const legacyPassword = plugin.getConfig('Misc', 'zoteroPassword');
     const hasLegacyPassword = typeof legacyPassword === 'string' && legacyPassword.trim() !== '';
@@ -133,7 +137,11 @@ const loadZoteroConfig = async (data: Partial<ZoteroConfig>) => {
         zoteroPassword: data.zoteroPassword ?? (hasLegacyPassword ? legacyPassword : ''),
         migrationPromptPending: data.migrationPromptPending ?? hasLegacyPassword,
     };
+    sharedConfigInitialized = true;
+}
 
+const loadZoteroDeviceConfig = async () => {
+    const plugin = thisPlugin();
     const configDir = await plugin.loadData('zoteroDir.config.json');
     if (configDir) {
         zoteroDir = deepMerge(zoteroDir, configDir);

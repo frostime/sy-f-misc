@@ -1,0 +1,19 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "noEmit": false,
+        "outDir": "../tmp/runtime-config-tests",
+        "rootDir": "..",
+        "declaration": false,
+        "sourceMap": false
+    },
+    "include": [
+        "settings-reconciliation.test.ts",
+        "func-lifecycle.test.ts",
+        "../src/settings/reconcile-decision.ts",
+        "../src/func/lifecycle.ts"
+    ],
+    "references": []
+}

@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "7.13.1",
+  "version": "7.14.0",
   "type": "module",
   "description": "Frostime 个人插件合集",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -9,6 +9,7 @@
   "license": "GPL-3.0-only",
   "scripts": {
     "type-check": "tsc --project tsconfig.json --noEmit --skipLibCheck --noUnusedLocals false --noUnusedParameters false",
+    "test:runtime-config": "node -e \"require('fs').rmSync('tmp/runtime-config-tests',{recursive:true,force:true})\" && tsc --project tests/tsconfig.json && node --test tmp/runtime-config-tests/tests/settings-reconciliation.test.js tmp/runtime-config-tests/tests/func-lifecycle.test.js",
     "dev": "pnpm run dev:full",
     "dev:full": "cross-env NODE_ENV=development VITE_SOURCEMAP=inline PRIVATE_ADD=true vite build --watch",
     "dev:publish": "cross-env NODE_ENV=development VITE_SOURCEMAP=inline vite build --watch",

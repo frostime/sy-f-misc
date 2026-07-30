@@ -17,7 +17,7 @@ A comprehensive personal toolbox plugin for SiYuan Note, providing a collection 
   - @frostime/solid-signal-ref
   - @frostime/siyuan-plugin-kits
 - **Build Tool**: Vite + pnpm
-- **Test Framework**: None — siyuan plugin cannot be easily tested; use `pnpm run dev` and debug/test within SiYuan app.
+- **Test Framework**: Node built-in test runner for isolated lifecycle/state logic; SiYuan integration still requires in-app testing.
 
 ### Build
 
@@ -72,7 +72,8 @@ MUST keep entries in sync with actual spec-doc files.
 Format: `- [name](spec-docs/<file>) — one-line summary` -->
 
 - [siyuan-dom-reference](spec-docs/siyuan-dom-reference.md) — 本插件依赖的 SiYuan 平台 DOM 知识：CSS 变量 (--b3-*)、类名 (.protyle-*/.layout-*/.b3-*)、data-* 属性、querySelector 高频模式
-- [func-module-architecture](spec-docs/func-module-architecture.md) — src/func/ 多模块架构：IFuncModule 接口、注册与加载、设置面板、两套持久化系统、Plugin 集成
+- [func-module-architecture](spec-docs/func-module-architecture.md) — src/func/ 多模块架构：IFuncModule、模块生命周期、settings declarations 与 Plugin 集成
+- [settings-lifecycle](../src/settings/SETTINGS-LIFECYCLE.SPEC.md) — settings 初始化、同步 reconciliation、session runtime precedence、side-effect boundary 与恢复合同
 - [external-bundle](spec-docs/external-bundle.md) — External module independent bundling system: vite-plugin-external-modules architecture, module registration, dynamic import pattern
 - [gpt-module-architecture-overview](spec-docs/gpt-module-architecture-overview.md) — Bird's-eye view of `src/func/gpt/`: initialization sequence, configuration system, provider/model lifecycle, chat session lifecycle (V2 tree model), API communication flow, and cross-cutting concerns (privacy, context providers, tools, persistence)
 - [gpt-chat-module-cross-file-architecture](spec-docs/gpt-chat-module-cross-file-architecture.md) — Cross-file call chains (parameter merge, context building, model resolution, protocol dispatch), naming pitfalls, schema migration pattern, model preset matching rules, V2 tree model design rationale, and agent traps for `src/func/gpt/`
