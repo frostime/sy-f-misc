@@ -15,7 +15,7 @@
     --chat-max-width: 1250px;
 
     // 头像
-    --avatar-size: 32px;
+    --avatar-size: 24px;
     --avatar-user-bg: var(--b3-theme-primary);
     --avatar-assistant-bg: var(--b3-theme-secondary);
 
@@ -158,13 +158,6 @@ $chat-very-narrow-container: 400px;
         // box-shadow: inset 0 0 0 2px var(--b3-theme-primary-lighter);
     }
 
-    @container (max-width: #{$chat-narrow-container}) {
-        --avatar-size: 28px;
-    }
-
-    @container (max-width: #{$chat-very-narrow-container}) {
-        --avatar-size: 24px;
-    }
 }
 
 .inputContainer {

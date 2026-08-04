@@ -888,17 +888,13 @@ const MessageItem: Component<{
             <PinIndicator />
             <LegacyBranchIndicator />
 
-            {/* 头像区域 */}
-            <div class={styles.avatarColumn}>
-                <div class={styles.avatar} data-role={role()}>
-                    {role() === 'user' ? <IconUser /> : <IconAssistant />}
-                </div>
-            </div>
-
             {/* 内容区域 */}
             <div class={styles.contentColumn}>
                 {/* 消息头部 */}
                 <div class={styles.messageHeader}>
+                    <div class={styles.avatar} data-role={role()}>
+                        {role() === 'user' ? <IconUser /> : <IconAssistant />}
+                    </div>
                     <span class={styles.roleName}>{role() === 'user' ? 'You' : 'Assistant'}</span>
                     <span class={styles.timestamp}>
                         {formatDateTime(null, new Date(getPayload(props.messageItem, 'timestamp')))}

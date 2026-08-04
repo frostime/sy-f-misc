@@ -9,7 +9,6 @@ $chat-very-narrow-container: 400px;
     --chat-hidden-message-max-height: 7.5em;
 
     display: flex;
-    gap: 16px;
     padding: 15px 5px 5px 5px;
     position: relative;
     width: 100%;
@@ -44,7 +43,6 @@ $chat-very-narrow-container: 400px;
     // 响应式
     @container (max-width: #{$chat-narrow-container}) {
         padding: 16px 0;
-        gap: 12px;
     }
 }
 
@@ -99,12 +97,7 @@ $chat-very-narrow-container: 400px;
     }
 }
 
-// ==================== 头像区域 ====================
-.avatarColumn {
-    flex-shrink: 0;
-    width: var(--avatar-size);
-}
-
+// ==================== 头像 ====================
 .avatar {
     width: var(--avatar-size);
     height: var(--avatar-size);
@@ -137,14 +130,19 @@ $chat-very-narrow-container: 400px;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .messageHeader {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-height: var(--avatar-size);
     font-size: 14px;
+
+    .avatar {
+        flex-shrink: 0;
+    }
 
     .roleName {
         font-weight: 600;
