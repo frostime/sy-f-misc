@@ -1,6 +1,11 @@
 Project summary: read `.dev/project.md`
 Development document: read `.dev/docs/`
 
+
+=== CHANGE Based Devflow ===
+
+对于复杂任务，在 .dev/changes/ 下创建 change 单元管理跨周期开发。
+
 === FAQ NOTE ===
 
 - 思源插件开发
