@@ -4,14 +4,14 @@ description: "Add, use, or migrate a module to the external bundle system in sy-
 metadata:
     version: 1.0.0
     author: frostime
-    reference: .sspec/spec-docs/external-bundle.md
+    reference: .dev/docs/external-bundle.md
 ---
 
 ## What This Skill Covers
 
 The `external bundle` system lets you split large/infrequently-used modules out of the main `index.js` bundle. They are compiled to separate `.js` files under `external/` and loaded at runtime via dynamic `import()`.
 
-**Full architecture details** → [spec-doc](/.sspec/spec-docs/external-bundle.md)
+**Full architecture details** → [dev-doc](/.dev/docs/external-bundle.md)
 
 ---
 

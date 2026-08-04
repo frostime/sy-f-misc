@@ -1,4 +1,7 @@
-## 条件打包
+---
+name: conditional-bundle
+description: 使用条件打包拆分个人需求和发布版本需求
+---
 
 存在一些个人需求和发布版需求有偏差的地方，就需要条件打包。
 
@@ -13,3 +16,7 @@
 私人打包的时候会删除，而发布版中会保留的代码
 //#endif
 ```
+
+参见:
+- package.json
+- vite.config.ts —— vitePluginConditionalCompile
