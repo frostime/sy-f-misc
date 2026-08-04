@@ -135,6 +135,7 @@ const ChatInDocWindow = (props: {
 
     const isLoading = createSignalRef<boolean>(false);
     const modelId = createSignalRef<string>(defaultModelId());
+    const selectedModel = createMemo(() => useModel(modelId(), 'null'));
 
     const useDocContext = createSignalRef<boolean>(false);
     const useRefContext = createSignalRef<boolean>(false);
@@ -203,6 +204,12 @@ const ChatInDocWindow = (props: {
             return;
         }
 
+        const model = selectedModel();
+        if (!model) {
+            showMessage("未配置可用模型，请先选择模型", 3000, 'error');
+            return;
+        }
+
         try {
             isLoading(true);
             // setResponseText("");
@@ -243,7 +250,6 @@ const ChatInDocWindow = (props: {
             }
 
             // 获取当前选择的模型
-            const model = useModel(modelId());
             const modelDisplayName = modelId() === 'siyuan' ? '思源内置模型' : modelId().split('@')[0];
 
             // 使用 system prompt hook
@@ -374,8 +380,8 @@ const ChatInDocWindow = (props: {
                         <button
                             class="b3-button"
                             onClick={handleSendToGPT}
-                            disabled={isLoading()}
-                            title="发送文档中的对话到GPT"
+                            disabled={isLoading() || !selectedModel()}
+                            title={selectedModel() ? "发送文档中的对话到GPT" : "未配置模型"}
                         >
                             发送
                         </button>
@@ -425,7 +431,14 @@ const ChatInDocWindow = (props: {
             />
 
             <LeftRight
-                left={<span>模型</span>}
+                left={
+                    <span>
+                        模型
+                        <Show when={!selectedModel()}>
+                            <span style={{ color: 'var(--b3-theme-error)', "margin-left": '8px' }}>未配置模型</span>
+                        </Show>
+                    </span>
+                }
                 right={
                     <SelectInput
                         value={modelId()}

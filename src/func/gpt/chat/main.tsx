@@ -68,12 +68,26 @@ export const ChatSession: Component<{
     };
     updateTitleCallback?: (title: string) => void;
 }> = (props) => {
+    // ========== 模型解析与不可用状态 ==========
     const modelId = useSignalRef(defaultModelId());
-
+    const unavailableModel: IRuntimeLLM = {
+        bareId: 'none',
+        url: '',
+        model: '未配置模型',
+        apiKey: '',
+        type: 'chat',
+    };
 
     const model: Accessor<IRuntimeLLM> = createMemo(() => {
-        const llm = useModel(modelId(), 'null');
+        const selectedModelId = modelId();
+        const llm = useModel(selectedModelId, 'null');
         if (llm !== null) return llm;  // 如果正在对话的模型突然在面板中被删掉就会出现这种奇葩情况
+
+        // 思源模型未配置时保持显式不可用状态，不参与下面的通用模型回退链
+        if (selectedModelId === 'siyuan') {
+            showMessage('思源未配置可用的 AI 编辑模型', 3000, 'error');
+            return unavailableModel;
+        }
 
         const defaultModel = useModel(defaultModelId(), 'null');
         if (defaultModel !== null) {
@@ -106,15 +120,10 @@ export const ChatSession: Component<{
 
         showMessage('当前模型不可用，请重新手动指定模型');
 
-        return {
-            bareId: 'none',
-            url: 'http://api.openai.com/v1/chat/completions',
-            model: 'gpt-3.5-turbo',
-            apiKey: '',
-            type: 'chat',
-            // config: null
-        } satisfies IRuntimeLLM;
+        return unavailableModel;
     });
+
+    const isModelUnavailable = createMemo(() => model().bareId === 'none');
 
     //Detach from the solidjs store's reactive system
     let defaultConfigVal = JSON.parse(JSON.stringify(defaultConfig.unwrap()));
@@ -452,6 +461,10 @@ export const ChatSession: Component<{
 
     const handleSubmit = async (e: Event) => {
         e.preventDefault();
+        if (isModelUnavailable()) {
+            showMessage('未配置可用模型，请先选择模型', 3000, 'error');
+            return;
+        }
         const userMessage = input().trim();
         if (!userMessage) return;
 
@@ -1537,8 +1550,8 @@ export const ChatSession: Component<{
                         classList={{
                             'b3-button--text': session.loading(),
                         }}
-                        aria-label="发送消息"
-                        disabled={session.loading()}
+                        aria-label={isModelUnavailable() ? '未配置模型' : '发送消息'}
+                        disabled={session.loading() || isModelUnavailable()}
                         onclick={handleSubmit}
                     >
                         <SvgSymbol>iconSendGpt</SvgSymbol>

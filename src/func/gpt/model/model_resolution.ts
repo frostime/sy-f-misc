@@ -7,6 +7,7 @@
  * @Description  : Model lookup and endpoint resolution logic
  */
 
+import { siyuanVersion } from "@frostime/siyuan-plugin-kits";
 import { trimTrailingSlash, ensureLeadingSlash, resolveProviderEndpointPath, normalizeProviderProtocol } from "./url_utils";
 import { defaultModelId, llmProviders } from "./config";
 
@@ -36,20 +37,70 @@ const parseBareId = (bareId: string): {
     }
 };
 
-const siyuanModel = (): IRuntimeLLM & {
-    baseUrl: string;
-} => {
-    let { apiBaseURL, apiModel, apiKey } = window.siyuan.config.ai.openAI;
-    let url = `${apiBaseURL.endsWith('/') ? apiBaseURL : apiBaseURL + '/'}chat/completions`;
-    return {
-        bareId: 'siyuan',
-        url,
-        baseUrl: apiBaseURL,
-        model: apiModel,
-        apiKey: apiKey,
-        type: 'chat'  // 思源内置模型默认为 chat 类型
+type SiYuanRuntimeModel = IRuntimeLLM & { baseUrl: string };
+
+type LegacySiYuanAIConfig = {
+    openAI?: {
+        apiBaseURL?: string;
+        apiModel?: string;
+        apiKey?: string;
+    };
+};
+
+type CurrentSiYuanAIConfig = {
+    editing?: { modelId?: string };
+    providers?: Array<{
+        enabled: boolean;
+        baseURL: string;
+        apiKey: string;
+        models?: Array<{
+            id: string;
+            enabled: boolean;
+            name: string;
+        }>;
+    }>;
+};
+
+const createSiYuanRuntimeModel = (baseUrl: string, model: string, apiKey = ''): SiYuanRuntimeModel => ({
+    bareId: 'siyuan',
+    url: `${trimTrailingSlash(baseUrl)}/chat/completions`,
+    baseUrl,
+    model,
+    apiKey,
+    type: 'chat',
+    protocol: 'openai'
+});
+
+const resolveSiYuanModel = (): SiYuanRuntimeModel | null => {
+    const ai = window.siyuan.config.ai as unknown;
+
+    if (siyuanVersion().compare('3.7.0') < 0) {
+        const { apiBaseURL, apiModel, apiKey } = (ai as LegacySiYuanAIConfig).openAI ?? {};
+        if (!apiBaseURL || !apiModel) return null;
+        return createSiYuanRuntimeModel(apiBaseURL, apiModel, apiKey);
     }
-}
+
+    const { editing, providers = [] } = ai as CurrentSiYuanAIConfig;
+    if (!editing?.modelId) return null;
+
+    for (const provider of providers) {
+        if (!provider.enabled) continue;
+        const model = provider.models?.find(item => item.enabled && item.id === editing.modelId);
+        if (model) {
+            return createSiYuanRuntimeModel(provider.baseURL, model.name, provider.apiKey);
+        }
+    }
+
+    return null;
+};
+
+const siyuanModel = (error: 'throw' | 'null'): SiYuanRuntimeModel | null => {
+    const model = resolveSiYuanModel();
+    if (!model && error === 'throw') {
+        throw new Error('思源未配置可用的 AI 编辑模型');
+    }
+    return model;
+};
 
 const ModelTypeName: Record<LLMServiceType, string> = {
     chat: '对话',
@@ -63,9 +114,10 @@ const ModelTypeName: Record<LLMServiceType, string> = {
 
 
 export const listAvialableModels = (): Record<string, string> => {
-    const availableModels: Record<string, string> = {
-        'siyuan': '思源内置模型'
-    };
+    const availableModels: Record<string, string> = {};
+    if (resolveSiYuanModel()) {
+        availableModels.siyuan = '思源内置模型';
+    }
     llmProviders().forEach((provider) => {
         if (provider.disabled) return;
         const providerProtocol = normalizeProviderProtocol(provider);
@@ -116,7 +168,7 @@ export const resolveEndpointUrl = (provider: ILLMProviderV2, type: LLMServiceTyp
 export const useModel = (bareId: ModelBareId, error: 'throw' | 'null' = 'throw'): IRuntimeLLM => {
     const targetId = (bareId || '').trim() || defaultModelId();
     if (targetId === 'siyuan') {
-        return siyuanModel();
+        return siyuanModel(error);
     }
 
     // 解析 bareId
