@@ -19,7 +19,7 @@
 
 1. 找到 `f-zotero-ext@frostime.github.io.xpi`。
    - 插件分发包内路径：`external/zotero-bridge/f-zotero-ext@frostime.github.io.xpi`
-   - 或从项目 Release 下载同名文件。
+   - 或从项目的 Zotero Bridge 独立 Release 下载同名文件。
 2. 打开 Zotero：`Tools` → `Add-ons`。
 3. 点击齿轮菜单，选择 `Install Add-on From File...`。
 4. 选择 `.xpi` 文件并重启 Zotero。
@@ -37,4 +37,4 @@
 
 - 旧的 debug-bridge token 会保留在历史配置中，但新版不会再使用它。
 - `Zotero 数据存储目录`继续按设备独立保存；多设备需要分别设置本地路径。
-- Bridge 扩展自动更新暂不在本次迁移中处理，后续会作为独立任务调研。
+- Bridge 扩展通过 Zotero 原生更新检查读取项目维护的在线更新清单；手动安装时也可以使用插件分发包或 Bridge 独立 Release 中的 XPI。

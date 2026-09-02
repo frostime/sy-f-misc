@@ -19,7 +19,7 @@ Bridge 扩展只负责读取 Zotero 当前选中的条目；标准数据读取�
 
 1. 找到 `f-zotero-ext@frostime.github.io.xpi`。
    - 插件分发包内路径：`external/zotero-bridge/f-zotero-ext@frostime.github.io.xpi`
-   - 或从项目 Release 下载同名文件。
+   - 或从项目的 Zotero Bridge 独立 Release 下载同名文件。
 2. 打开 Zotero：`Tools` → `Add-ons`。
 3. 点击齿轮菜单，选择 `Install Add-on From File...`。
 4. 选择 `.xpi` 文件并重启 Zotero。
