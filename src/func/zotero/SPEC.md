@@ -159,7 +159,7 @@ Operational rule:
 
 ## Compatibility rules
 
-- Current bridge target is Zotero 9.x as declared by `strict_min_version: "9.0"` and `strict_max_version: "9.99.99"`.
+- Current bridge target is Zotero 9–10 as declared by `strict_min_version: "9.0"` and `strict_max_version: "10.0.*"`.
 - Lowering `strict_min_version` or widening support to older Zotero major versions requires bridge runtime testing against those versions.
 - Changing the bridge endpoint prefix or response shape is a breaking change for the SiYuan plugin module.
 - Changing the bridge extension ID is a breaking update path for already installed bridge users.
