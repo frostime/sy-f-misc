@@ -374,8 +374,8 @@ ToolExecutor (tools/executor.ts)
 └── toolRules() → 注入 system prompt 的工具规则
 
 工具分类:
-├── basic.ts          — datetime, calculator
-├── file-system/      — 文件编辑/查看/shell
+├── basic.ts          — datetime, text
+├── file-system/      — 文件编辑/查看
 ├── siyuan/           — 思源笔记内容操作/搜索
 ├── web/              — 网页搜索/抓取
 ├── custom-program-tools/ — 自定义 Python/PowerShell 脚本工具

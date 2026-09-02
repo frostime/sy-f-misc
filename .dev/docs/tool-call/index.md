@@ -97,12 +97,12 @@ TreeModel 更新 → UI 响应式刷新
 
 | 工具组名 | 主要工具 | 特殊机制 |
 |---------|---------|---------|
-| `basic` | 时间、计算 | — |
+| `basic` | datetime、text | — |
 | `web` | Bing/Google/Tavily 搜索、FetchWebPage、ExtractContent | extractHtml 返回 DOM 结构 |
-| `file-system` | ViewFile、EditFile、ShellCommand、ListDirectory | ShellCommand 仅桌面端 |
+| `file-system` | fs-View、fs-SearchReplace、fs-WriteFile | 仅桌面端 |
 | `siyuan` | SearchBlocks、GetDocument、UpdateBlock、DiffEdit | DiffEdit 涉及复杂差异算法（见代码） |
 | `vars` | ReadVar、WriteVar、ListVars、RemoveVars | 内置，当有其他工具启用时自动注入 |
-| `script` | ExecuteJS、ExecuteShell | 仅桌面端 (`IS_IN_APP`) |
+| `script` | Shell、Python、JavaScript | 仅桌面端 (`IS_IN_APP`) |
 | 自定义工具组 | 由 `.tool.json` 描述，Python/PowerShell 执行 | 见 [custom-tools.md](./custom-tools.md) |
 
 > **不在本文档覆盖范围**：

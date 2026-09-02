@@ -66,17 +66,12 @@ export const getPlatform = (): Platform => {
 };
 
 /**
- * Get script name for current platform
+ * Check synchronously if a command exists in the system.
+ *
+ * The underlying check uses execSync, so keeping this operation synchronous
+ * lets callers build tool descriptions during module initialization.
  */
-export const getScriptName = (): string => {
-    const platform = getPlatform();
-    return platform === 'win32' ? 'PowerShell' : 'Bash';
-};
-
-/**
- * Check if a command exists in the system
- */
-export const hasCommand = async (command: string): Promise<boolean> => {
+const hasCommandSync = (command: string): boolean => {
     if (!childProcess) return false;
 
     const platform = getPlatform();
@@ -88,6 +83,25 @@ export const hasCommand = async (command: string): Promise<boolean> => {
     } catch (_) {
         return false;
     }
+};
+
+/**
+ * Get script name for current platform
+ */
+export const getScriptName = (): string => {
+    const platform = getPlatform();
+    if (platform !== 'win32') {
+        return 'Bash';
+    }
+    const hasPwsh = hasCommandSync('pwsh');
+    return hasPwsh ? 'pwsh (Powershell 7)' : 'Powershell';
+};
+
+/**
+ * Check if a command exists in the system
+ */
+export const hasCommand = async (command: string): Promise<boolean> => {
+    return hasCommandSync(command);
 };
 
 // Cache for pwsh availability

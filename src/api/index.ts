@@ -448,17 +448,6 @@ export async function exportResources(paths: string[], name: string): Promise<IR
     return request(url, data);
 }
 
-// **************************************** Convert ****************************************
-
-export type PandocArgs = string;
-export async function pandoc(args: PandocArgs[]) {
-    let data = {
-        args: args
-    }
-    let url = '/api/convert/pandoc';
-    return request(url, data);
-}
-
 // **************************************** Notification ****************************************
 
 // /api/notification/pushMsg

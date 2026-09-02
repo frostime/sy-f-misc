@@ -14,17 +14,8 @@ const nodeReadline: typeof import('readline') = window?.require?.('readline');
 export const LIMITS = {
     MAX_FILE_SIZE: 0.5 * 1024 * 1024,      // 0.5MB - 单次读取最大文件大小
     MAX_PREVIEW_LINES: 100,               // 预览模式最大行数
-    MAX_LIST_ITEMS: 500,                  // 列表最大项目数
     BINARY_DETECT_BYTES: 8192,            // 二进制检测采样字节数
 };
-
-export const EXCLUDED_DIRS = [
-    'node_modules', '.git', '.svn', '.hg',
-    'dist', 'build', 'out', 'target',
-    '.next', '.nuxt', '.vscode', '.idea',
-    '__pycache__', '.pytest_cache',
-    'vendor', 'coverage', '.venv'
-];
 
 // 常见文本文件扩展名
 const TEXT_EXTENSIONS = new Set([
@@ -147,7 +138,7 @@ export async function safeReadFile(filePath: string, maxSize: number = LIMITS.MA
             return { error: '二进制文件，无法以文本查看', size, fileType: 'binary' };
         }
         if (fileType === 'directory') {
-            return { error: '这是一个目录，请使用 List 工具', size, fileType: 'text' };
+            return { error: '这是一个目录，无法读取', size, fileType: 'text' };
         }
 
         const content = nodeFs.readFileSync(filePath, 'utf-8');
@@ -264,36 +255,6 @@ export function addLineNumbers(text: string, startLine: number = 1): string {
             return `${num} │ ${line}`;
         })
         .join('\n');
-}
-
-// ============================================================
-// 路径 / 模式匹配
-// ============================================================
-
-export function shouldExclude(itemName: string, excludePatterns: string[]): boolean {
-    if (excludePatterns.includes(itemName)) return true;
-    for (const pattern of excludePatterns) {
-        if (pattern.includes('*')) {
-            const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-            if (regex.test(itemName)) return true;
-        }
-    }
-    return false;
-}
-
-export function matchPattern(fileName: string, pattern: string, isRegex: boolean): boolean {
-    try {
-        if (isRegex) {
-            return new RegExp(pattern, 'i').test(fileName);
-        }
-        const regexPattern = pattern
-            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-            .replace(/\*/g, '.*')
-            .replace(/\?/g, '.');
-        return new RegExp('^' + regexPattern + '$', 'i').test(fileName);
-    } catch {
-        return false;
-    }
 }
 
 // ============================================================

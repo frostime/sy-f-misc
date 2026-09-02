@@ -40,7 +40,7 @@ export const toolExecutorFactory = (options: {
     toolExecutor.registerToolGroup(basicTool);
     toolExecutor.registerToolGroup(toolGroupWeb);
 
-    // 统一文件系统工具组（合并了查看/搜索/编辑/文件操作）
+    // 统一文件系统工具组（查看 + 编辑）
     toolExecutor.registerToolGroup(createFileSystemToolGroup());
 
     IS_IN_APP && toolExecutor.registerToolGroup(scriptTools);

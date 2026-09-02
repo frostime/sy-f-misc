@@ -7,18 +7,8 @@
  */
 
 import type { ToolGroup } from "../types";
-import { getPlatform, getScriptName } from "@/libs/system-utils";
 
 type SkillRule = NonNullable<ToolGroup['declareSkillRules']>[string];
-
-const platform = getPlatform();
-const shellName = getScriptName();
-const isWin = platform === 'win32';
-
-// ============================================================================
-// 基础概念类（alwaysLoad）
-// ============================================================================
-
 
 // ============================================================================
 // 查看工具详解
@@ -56,76 +46,6 @@ const VIEWER_DOCS: Record<string, SkillRule> = {
 \`\`\`
 
 **注意**: 大文件（>0.5MB）不要用 full 模式，优先用 head/tail/range。
-`.trim()
-    },
-};
-
-// ============================================================================
-// 搜索工具详解
-// ============================================================================
-
-const SEARCH_DOCS: Record<string, SkillRule> = {
-    'fs-glob-usage': {
-        desc: 'fs-Glob 文件名搜索用法与示例',
-        when: '需要按文件名或扩展名搜索文件时',
-        prompt: `
-## fs-Glob 用法
-
-按文件名/路径模式搜索，底层调用系统命令（Unix: find, Windows: Get-ChildItem）。
-
-**参数**:
-- \`path\`: 搜索根目录
-- \`pattern\`: 文件名模式（通配符），如 \`"*.ts"\`, \`"test_*.py"\`, \`"README*"\`
-- \`maxDepth\`: 最大搜索深度，默认 10
-- \`type\`: \`"file"\`（默认）/ \`"dir"\` / \`"all"\`
-- \`maxResults\`: 最大结果数，默认 100
-
-**示例**:
-\`\`\`json
-// 查找所有 TypeScript 文件
-{ "path": "/project/src", "pattern": "*.ts" }
-
-// 查找测试文件，限制深度
-{ "path": "/project", "pattern": "test_*", "maxDepth": 5 }
-
-// 查找目录
-{ "path": "/home", "pattern": "node_modules", "type": "dir", "maxDepth": 3 }
-\`\`\`
-
-返回相对路径列表。
-`.trim()
-    },
-
-    'fs-grep-usage': {
-        desc: 'fs-Grep 内容搜索用法与示例',
-        when: '需要在文件内容中搜索文本或正则时',
-        prompt: `
-## fs-Grep 用法
-
-在文件内容中搜索，底层调用系统命令（Unix: grep -rn, Windows: Select-String）。
-
-**参数**:
-- \`path\`: 搜索根目录
-- \`pattern\`: 搜索模式（文本或正则）
-- \`include\`: 文件名过滤，如 \`"*.ts"\`
-- \`regex\`: 是否为正则表达式，默认 false（纯文本匹配）
-- \`caseSensitive\`: 区分大小写，默认 false
-- \`contextLines\`: 上下文行数，默认 0
-- \`maxResults\`: 最大结果数，默认 50
-
-**示例**:
-\`\`\`json
-// 在 TypeScript 文件中搜索函数名
-{ "path": "/project/src", "pattern": "createFileSystem", "include": "*.ts" }
-
-// 正则搜索 + 上下文
-{ "path": "/project", "pattern": "TODO|FIXME|HACK", "regex": true, "contextLines": 2 }
-
-// 大小写敏感搜索
-{ "path": "/project", "pattern": "className", "include": "*.tsx", "caseSensitive": true }
-\`\`\`
-
-自动排除 node_modules/.git/dist 等目录。返回格式：\`文件:行号:内容\`。
 `.trim()
     },
 };
@@ -218,163 +138,10 @@ function example() {
 };
 
 // ============================================================================
-// Shell 操作详解
-// ============================================================================
-
-const WIN_COMMANDS = [
-    'New-Item', 'Copy-Item', 'Move-Item', 'Remove-Item', 'Rename-Item',
-    'Get-Item', 'Get-ChildItem', 'Get-Content', 'Set-Content',
-    'Test-Path', 'Resolve-Path', 'Split-Path', 'Join-Path',
-    'Compress-Archive', 'Expand-Archive', 'Get-FileHash',
-    'mkdir', 'cp', 'copy', 'mv', 'move', 'rm', 'del', 'rmdir', 'cat', 'type', 'dir', 'ls'
-];
-
-const UNIX_COMMANDS = [
-    'mkdir', 'cp', 'mv', 'rm', 'rmdir', 'touch', 'ln', 'chmod',
-    'tar', 'zip', 'unzip', 'gzip', 'gunzip',
-    'cat', 'head', 'tail', 'wc', 'diff', 'stat', 'file',
-    'sort', 'uniq', 'cut', 'tr', 'sed', 'awk',
-    'ls', 'tree', 'du', 'df', 'find',
-    'basename', 'dirname', 'realpath', 'readlink'
-];
-
-const fileOpsPrompt = isWin ? `
-## fs-FileOps 命令白名单（${shellName}）
-
-### 允许的命令
-${WIN_COMMANDS.join(', ')}
-
-### 语法注意
-使用 **PowerShell 语法**编写命令。参数用 \`-ParameterName\` 格式。
-
-### 常用操作示例
-
-**创建目录**:
-\`\`\`powershell
-mkdir 'new_folder'
-New-Item -Path 'path/to/dir' -ItemType Directory -Force
-\`\`\`
-
-**复制文件/目录**:
-\`\`\`powershell
-Copy-Item -Path 'src' -Destination 'backup' -Recurse
-cp 'file.txt' 'file.bak'
-\`\`\`
-
-**移动/重命名**:
-\`\`\`powershell
-Move-Item -Path 'old.txt' -Destination 'new.txt'
-mv 'folder1' 'folder2'
-\`\`\`
-
-**删除文件/目录**:
-\`\`\`powershell
-Remove-Item -Path 'file.txt'
-Remove-Item -Path 'folder' -Recurse -Force
-rm 'temp/*'
-\`\`\`
-
-**压缩/解压**:
-\`\`\`powershell
-Compress-Archive -Path 'src' -DestinationPath 'backup.zip'
-Expand-Archive -Path 'archive.zip' -DestinationPath 'output'
-\`\`\`
-
-**查看/统计**:
-\`\`\`powershell
-Get-ChildItem -Path '.' -Recurse | Measure-Object
-Get-Content 'file.txt' | Select-Object -First 10
-\`\`\`
-
-### 安全限制
-- 首个命令词必须在白名单中
-- 不允许执行任意脚本或下载命令
-- 命令在 \`directory\` 参数指定的目录下执行
-`.trim() : `
-## fs-FileOps 命令白名单（${shellName}）
-
-### 允许的命令
-${UNIX_COMMANDS.join(', ')}
-
-### 语法注意
-使用 **Bash 语法**编写命令。参数用 \`-flag\` 或 \`--option\` 格式。
-
-### 常用操作示例
-
-**创建目录**:
-\`\`\`bash
-mkdir new_folder
-mkdir -p path/to/nested/dir
-\`\`\`
-
-**复制文件/目录**:
-\`\`\`bash
-cp file.txt file.bak
-cp -r src/ backup/
-\`\`\`
-
-**移动/重命名**:
-\`\`\`bash
-mv old.txt new.txt
-mv folder1/ folder2/
-\`\`\`
-
-**删除文件/目录**:
-\`\`\`bash
-rm file.txt
-rm -rf temp_folder/
-\`\`\`
-
-**改权限**:
-\`\`\`bash
-chmod 755 script.sh
-chmod -R 644 *.txt
-\`\`\`
-
-**压缩/解压**:
-\`\`\`bash
-tar -czf backup.tar.gz src/
-tar -xzf archive.tar.gz
-zip -r backup.zip src/
-unzip archive.zip -d output/
-\`\`\`
-
-**查看/统计**:
-\`\`\`bash
-ls -lah
-find . -name '*.log' -mtime +7
-du -sh *
-\`\`\`
-
-**文本处理**:
-\`\`\`bash
-cat file.txt | head -n 10
-sort data.txt | uniq -c
-sed 's/old/new/g' file.txt
-\`\`\`
-
-### 安全限制
-- 首个命令词必须在白名单中
-- 不允许执行任意脚本或下载命令
-- 命令在 \`directory\` 参数指定的目录下执行
-`.trim();
-
-const SHELL_DOCS: Record<string, SkillRule> = {
-    'fs-fileops-commands': {
-        desc: 'FileOps 命令白名单与常用操作',
-        when: '需要使用 fs-FileOps 进行文件操作时',
-        prompt: fileOpsPrompt
-    },
-};
-
-// ============================================================================
 // 导出合并后的规则集
 // ============================================================================
 
 export const fileSystemSkillRules: ToolGroup['declareSkillRules'] = {
-    // ...BASICS,
     ...VIEWER_DOCS,
-    ...SEARCH_DOCS,
     ...EDITOR_DOCS,
-    ...SHELL_DOCS,
 };

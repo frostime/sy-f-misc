@@ -4,15 +4,12 @@ import { DEFAULT_LIMIT_CHAR } from './utils';
 import {
     execScript,
     execPython,
-    execFile,
     getPlatform,
     getScriptName,
     ExecResult
 } from "@/libs/system-utils";
 
-// Import Node.js modules for file operations
-const fs = window?.require?.('fs');
-const path = window?.require?.('path');
+const path: typeof import('path') = window?.require?.('path');
 
 /**
  * Format execution result as output string
@@ -292,92 +289,11 @@ const javascriptTool: Tool = {
 };
 
 /**
- * Pandoc document conversion tool
- */
-const pandocTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: 'Pandoc stdout 输出（通常是转换后的 Markdown）'
-    },
-
-    definition: {
-        type: 'function',
-        function: {
-            name: 'Pandoc',
-            description: '使用思源自带的 Pandoc 命令，默认执行 `pandoc -s <file> --to markdown`；也可自定义完整命令',
-            parameters: {
-                type: 'object',
-                properties: {
-                    file: {
-                        type: 'string',
-                        description: '要转换的文件路径'
-                    },
-                    customCommand: {
-                        type: 'string',
-                        description: '自定义的 pandoc 参数，如果提供则替换默认参数'
-                    }
-                },
-                required: ['file']
-            }
-        }
-    },
-
-    permission: {
-        executionPolicy: 'auto',
-        resultApprovalPolicy: 'always'
-    },
-
-    execute: async (params: { file: string; customCommand?: string }): Promise<ToolExecuteResult> => {
-        try {
-            // Get Pandoc path from SiYuan workspace
-            const pandocPath = path.join(
-                globalThis.siyuan.config.system.workspaceDir,
-                'temp/pandoc/bin/pandoc.exe'
-            );
-
-            // Check if Pandoc exists
-            if (!fs.existsSync(pandocPath)) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `Pandoc 未找到: ${pandocPath}`
-                };
-            }
-
-            // Build arguments
-            const args = params.customCommand
-                ? params.customCommand.split(/\s+/)
-                : ['-s', params.file, '--to', 'markdown'];
-
-            // Execute Pandoc
-            const fileDir = path.dirname(params.file);
-            const result = await execFile(pandocPath, args, { cwd: fileDir });
-
-            if (!result.success) {
-                return {
-                    status: ToolExecuteStatus.ERROR,
-                    error: `Pandoc 执行错误: ${result.error}\n${result.stderr}`
-                };
-            }
-
-            return {
-                status: ToolExecuteStatus.SUCCESS,
-                data: result.stdout || 'Pandoc 运行完成，无输出'
-            };
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: `Pandoc 执行错误: ${error.message}`
-            };
-        }
-    }
-};
-
-/**
  * Script tools group
  */
 export const scriptTools: ToolGroup = {
     name: '脚本执行工具组',
-    tools: [shellTool, pythonTool, javascriptTool, pandocTool],
+    tools: [shellTool, pythonTool, javascriptTool],
     declareSkillRules: {
         'var-ref-inject': {
             when: '复用大批量的工具调用结果，例如先获取网页，然后利用脚本自动化分析内容',
