@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [7.15.0] - 2026-07-07
+
 ### Changed
 
 - **GPT 内置工具组精简**：文件系统工具聚焦查看与编辑，脚本工具组保留 Shell、Python 和 JavaScript，减少重复工具与规则提示。
