@@ -1,0 +1,55 @@
+/* Keep the settings split independent of SiYuan's version-specific tab defaults. */
+.layout {
+    min-width: 0;
+    min-height: 0;
+}
+
+.layout > :global(.b3-tab-bar) {
+    width: 200px;
+    flex: 0 0 200px;
+    min-width: 60px;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+.layout > :global(.b3-tab-bar) > li {
+    padding-left: 1rem;
+}
+
+.content {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.panel {
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+@media screen and (max-width: 768px) {
+    .layout > :global(.b3-tab-bar) {
+        width: 100px;
+        flex-basis: 100px;
+    }
+
+    .layout :global(.b3-list-item__text) {
+        font-size: 14px;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        display: block !important;
+    }
+
+    .layout :global(.b3-list-item) {
+        min-height: 40px;
+        line-height: 40px;
+        padding: 0 0.5rem !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+}

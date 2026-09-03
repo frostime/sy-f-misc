@@ -5,6 +5,20 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **GPT 内置工具组精简**：文件系统工具聚焦查看与编辑，脚本工具组保留 Shell、Python 和 JavaScript，减少重复工具与规则提示。
+- **Zotero Bridge 0.2.0**：扩展 Zotero 兼容范围至 9–10，并支持独立版本发布与自动更新。
+
+### Fixed
+
+- 修复 Zotero 导入笔记时行内公式和块级公式丢失或未渲染的问题；导入后会立即触发公式渲染。
+- 修复 SiYuan 3.8.0+ 设置面板侧栏布局异常问题，固定侧栏宽度为 200px，避免侧栏与内容区挤压或重叠。
+
+### Removed
+
+- 移除 GPT 内置的 JSON 转 TypeScript 接口、Pandoc、`fs-Glob`、`fs-Grep`、`fs-List`、`fs-Inspect` 和 `fs-FileOps` 工具。
+
 ## [7.14.1] - 2026-08-04
 
 ### Changed
@@ -233,7 +247,12 @@
 
 _7.8.0 之前的版本记录请参考 git log。_
 
-[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.11.6...HEAD
+[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.14.1...HEAD
+[7.14.1]: https://github.com/frostime/sy-f-misc/compare/v7.14.0...v7.14.1
+[7.14.0]: https://github.com/frostime/sy-f-misc/compare/v7.13.1...v7.14.0
+[7.13.1]: https://github.com/frostime/sy-f-misc/compare/v7.13.0...v7.13.1
+[7.13.0]: https://github.com/frostime/sy-f-misc/compare/v7.12.1...v7.13.0
+[7.12.1]: https://github.com/frostime/sy-f-misc/compare/v7.12.0...v7.12.1
 [7.12.0]: https://github.com/frostime/sy-f-misc/compare/v7.11.6...v7.12.0
 [7.11.6]: https://github.com/frostime/sy-f-misc/compare/v7.11.5...v7.11.6
 [7.11.5]: https://github.com/frostime/sy-f-misc/compare/v7.11.4...v7.11.5

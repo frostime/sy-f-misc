@@ -1,5 +1,6 @@
 import { Component, For, JSX, Show, createSignal, onCleanup, onMount } from "solid-js";
 import SettingPanel from "@/libs/components/setting-panel";
+import layoutStyles from './settings.module.scss';
 
 import Form from '@/libs/components/Form';
 
@@ -146,14 +147,13 @@ const App: Component<IArgs> = (props) => {
 
     return (
         <>
-            <div class="fn__flex-1 fn__flex config__panel" style={{ "height": "100%" }}>
+            <div class={`fn__flex-1 fn__flex ${layoutStyles.layout}`} style={{ "height": "100%" }}>
                 <ul class="b3-tab-bar b3-list b3-list--background">
                     <For each={groups}>
                         {(group: { key: string, text: string }) => (
                             <li
                                 data-name="editor"
                                 class={`b3-list-item${group.key === focus() ? " b3-list-item--focus" : ""}`}
-                                style="padding-left: 1rem"
                                 onClick={() => setFocus(group.key)}
                                 onKeyDown={() => { }}
                             >
@@ -162,8 +162,10 @@ const App: Component<IArgs> = (props) => {
                         )}
                     </For>
                 </ul>
-                <div class="config__tab-wrap">
-                    <Dynamic component={showGroups[focus()]} />
+                <div class={layoutStyles.content}>
+                    <div class={layoutStyles.panel}>
+                        <Dynamic component={showGroups[focus()]} />
+                    </div>
                 </div>
             </div>
         </>
