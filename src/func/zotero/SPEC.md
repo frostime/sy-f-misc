@@ -62,7 +62,7 @@ Endpoint prefix:
 {
   "ok": true,
   "plugin": "f-zotero-ext@frostime.github.io",
-  "version": "0.1.0",
+  "version": "<bridge-version>",
   "zotero": "<zotero-version>"
 }
 ```

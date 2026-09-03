@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "SiYuan Bridge",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Local HTTP bridge endpoints for SiYuan f-misc integration",
   "author": "frostime",
   "applications": {

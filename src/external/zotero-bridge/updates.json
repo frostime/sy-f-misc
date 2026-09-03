@@ -3,9 +3,9 @@
     "f-zotero-ext@frostime.github.io": {
       "updates": [
         {
-          "version": "0.1.1",
+          "version": "0.2.0",
           "update_link": "https://raw.githubusercontent.com/frostime/sy-f-misc/main/src/external/zotero-bridge/f-zotero-ext@frostime.github.io.xpi",
-          "update_hash": "sha256:2819f46fa3f9d375976946c8eadcb1431d9a3e15996f05737aa58274618dad0e",
+          "update_hash": "sha256:32c760687b5ef19c89ac8f55c732fde1b04a4727907aeaa030793418f33b559c",
           "applications": {
             "zotero": {
               "strict_min_version": "9.0",

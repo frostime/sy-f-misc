@@ -118,8 +118,8 @@ Zotero-Allowed-Request: true
 在通过运行时测试后，对包含最终 XPI 的 `main` commit 创建 tag：
 
 ```bash
-git tag -a zotero-bridge-v0.1.1 -m "Zotero Bridge v0.1.1"
-git push origin zotero-bridge-v0.1.1
+git tag -a zotero-bridge-v0.2.0 -m "Zotero Bridge v0.2.0"
+git push origin zotero-bridge-v0.2.0
 ```
 
 `.github/workflows/release-zotero-bridge.yml` 会验证 tag、manifest、updates 和 XPI，随后创建不占用仓库 Latest 标记的独立 Release。校验失败时不会发布。
@@ -131,7 +131,7 @@ git push origin zotero-bridge-v0.1.1
 同一仓库无法为一组 tag 提供独立的 `releases/latest` 语义。仓库级 Latest 应留给 sy-f-misc 主插件。因此：
 
 - 自动更新使用固定的 Raw main URL。
-- Bridge Release 使用版本化 tag，例如 `zotero-bridge-v0.1.1`。
+- Bridge Release 使用版本化 tag，例如 `zotero-bridge-v0.2.0`。
 - 不维护可变的 `zotero-bridge-latest` tag，也不反复覆盖同名 asset。
 
 如果 Bridge 将来形成独立项目和发布节奏，再迁移到独立仓库；当前规模不需要承担该维护成本。
