@@ -57,7 +57,7 @@ let _ModulesToEnable: IFuncModule[] = [
     gp,
     md,
     zt,
-    tg,
+    // tg,
     nf,
     dft,
     dc,
@@ -69,8 +69,9 @@ let _ModulesToEnable: IFuncModule[] = [
     tr,
     mr,
     ws,
-    // #if [!PRIVATE_REMOVE]
     docky,
+    // #if [!PRIVATE_REMOVE]
+    tg,
     // #endif
 ];
 
