@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "SiYuan Bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local HTTP bridge endpoints for SiYuan f-misc integration",
   "author": "frostime",
   "applications": {
@@ -9,7 +9,7 @@
       "id": "f-zotero-ext@frostime.github.io",
       "update_url": "https://raw.githubusercontent.com/frostime/sy-f-misc/main/src/external/zotero-bridge/updates.json",
       "strict_min_version": "9.0",
-      "strict_max_version": "9.99.99"
+      "strict_max_version": "10.0.*"
     }
   }
 }

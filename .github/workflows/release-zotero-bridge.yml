@@ -1,0 +1,89 @@
+name: Release Zotero Bridge
+
+on:
+  push:
+    tags:
+      - "zotero-bridge-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v4
+
+      - name: Verify Bridge release artifacts
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import zipfile
+          from pathlib import Path
+
+          tag_prefix = "zotero-bridge-v"
+          tag_name = os.environ["TAG_NAME"]
+          if not tag_name.startswith(tag_prefix):
+              raise SystemExit(f"Unexpected tag: {tag_name}")
+          tag_version = tag_name.removeprefix(tag_prefix)
+
+          bridge_dir = Path("src/external/zotero-bridge")
+          manifest = json.loads((bridge_dir / "manifest.json").read_text())
+          updates = json.loads((bridge_dir / "updates.json").read_text())
+          xpi_path = bridge_dir / "f-zotero-ext@frostime.github.io.xpi"
+
+          addon_id = manifest["applications"]["zotero"]["id"]
+          update = updates["addons"][addon_id]["updates"][0]
+          manifest_compatibility = manifest["applications"]["zotero"]
+          update_compatibility = update["applications"]["zotero"]
+          expected_update_link = (
+              "https://raw.githubusercontent.com/frostime/sy-f-misc/main/"
+              "src/external/zotero-bridge/f-zotero-ext@frostime.github.io.xpi"
+          )
+          xpi_hash = "sha256:" + hashlib.sha256(xpi_path.read_bytes()).hexdigest()
+
+          with zipfile.ZipFile(xpi_path) as xpi:
+              packed_manifest = json.loads(xpi.read("manifest.json"))
+              packed_files = xpi.namelist()
+
+          if tag_version != manifest["version"]:
+              raise SystemExit(
+                  f"Tag version {tag_version} does not match manifest version {manifest['version']}"
+              )
+          if update["version"] != manifest["version"]:
+              raise SystemExit("updates.json version does not match manifest version")
+          if update["update_hash"] != xpi_hash:
+              raise SystemExit("updates.json hash does not match the tracked XPI")
+          if update["update_link"] != expected_update_link:
+              raise SystemExit("updates.json does not point to the Raw main-branch XPI")
+          for key in ("strict_min_version", "strict_max_version"):
+              if update_compatibility[key] != manifest_compatibility[key]:
+                  raise SystemExit(f"Compatibility mismatch for {key}")
+          if packed_manifest != manifest:
+              raise SystemExit("XPI manifest does not match the source manifest")
+          if any(
+              path not in {"manifest.json", "bootstrap.js"}
+              and not path.startswith("content/")
+              for path in packed_files
+          ):
+              raise SystemExit("XPI contains files outside the Bridge package contract")
+
+          print(f"Verified Zotero Bridge {tag_version}: {xpi_hash}")
+          PY
+
+      - name: Publish dedicated Bridge release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: |
+            Zotero Bridge extension release for sy-f-misc.
+
+            Install `f-zotero-ext@frostime.github.io.xpi` from Zotero's add-on manager.
+          files: src/external/zotero-bridge/f-zotero-ext@frostime.github.io.xpi
+          fail_on_unmatched_files: true
+          make_latest: "false"

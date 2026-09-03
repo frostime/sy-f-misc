@@ -6,7 +6,7 @@
  * @LastEditTime : 2025-03-24 15:38:59
  * @Description  : 
  */
-import { Menu, Protyle, showMessage } from "siyuan";
+import { Menu, Protyle, ProtyleMethod, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
 import { addProcessor, delProcessor } from "@/func/global-paste";
 
@@ -38,7 +38,30 @@ const pasteProcessor = (detail: ISiyuanEventPaste) => {
 let zotero: ZoteroDBModal = null;
 let migrationPromptChecked = false;
 
-const SPECIAL_CHAR_DOLLAR = '转义美元真麻烦';
+const stripMathDelimiters = (source: string, display: boolean) => {
+    const delimiter = display ? '$$' : '$';
+    const text = source.trim();
+    if (text.startsWith(delimiter) && text.endsWith(delimiter)) {
+        return text.slice(delimiter.length, -delimiter.length).trim();
+    }
+    return text;
+}
+
+const replaceZoteroMath = (root: HTMLElement) => {
+    root.querySelectorAll<HTMLElement>('span.math, pre.math').forEach((source) => {
+        const display = source.matches('pre.math');
+        const math = document.createElement(display ? 'div' : 'span');
+        math.className = 'language-math';
+        math.dataset.tex = stripMathDelimiters(source.textContent ?? '', display);
+
+        if (display) {
+            const displayMarker = document.createElement('span');
+            displayMarker.className = 'katex-display';
+            math.appendChild(displayMarker);
+        }
+        source.replaceWith(math);
+    });
+}
 
 const showMigrationGuideIfNeeded = async () => {
     await ensureZoteroConfigLoaded();
@@ -113,16 +136,7 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
             span.parentNode.replaceChild(container, span);
         }
     });
-    ele.querySelectorAll('span.math')?.forEach((span: HTMLSpanElement) => {
-        const math = document.createElement('span');
-        math.className = 'language-math';
-        let text = span.innerText;
-        text = text.replaceAll('$', SPECIAL_CHAR_DOLLAR);
-        math.innerText = text;
-        if (span.parentNode) {
-            span.parentNode.replaceChild(math, span);
-        }
-    });
+    replaceZoteroMath(ele);
     ele.querySelectorAll('span[data-annotation]')?.forEach((span: HTMLSpanElement) => {
         // Create a container to hold both the text span and the link
         const container = document.createElement('span');
@@ -187,7 +201,6 @@ const parseNoteHtml = (html: string, zoteroDir: string) => {
         }
     });
     console.groupEnd();
-    // console.log(ele)
     return ele.innerHTML;
 }
 
@@ -242,17 +255,20 @@ export const load = (plugin: FMiscPlugin) => {
             let keys = Object.keys(data);
 
             const parseNote = (inputHTML: string) => {
-                let html = parseNoteHtml(inputHTML, getZoteroDir());
-                let lute = window.Lute.New();
-                let md = lute.HTML2Md(html);
-                md = md.replaceAll(SPECIAL_CHAR_DOLLAR, '$');
-                md = md.replace(/\\+/g, '\\');
-                return md;
+                const html = parseNoteHtml(inputHTML, getZoteroDir());
+                const lute = window.Lute.New();
+                let markdown = lute.HTML2Md(html);
+                markdown = markdown.replace(/\\+/g, '\\');
+                return lute.Md2BlockDOM(markdown);
+            }
+
+            const insertNote = (blockDOM: string) => {
+                protyle.insert(blockDOM, true);
+                ProtyleMethod.mathRender(protyle.protyle.wysiwyg.element);
             }
 
             if (keys.length === 1) {
-                let md = parseNote(data[keys[0]]);
-                protyle.insert(md, true);
+                insertNote(parseNote(data[keys[0]]));
             } else if (keys.length > 1) {
                 const selection = document.getSelection();
                 // 获取第一个范围（通常只有一个范围）
@@ -267,8 +283,7 @@ export const load = (plugin: FMiscPlugin) => {
                     menu.addItem({
                         label: key.length > maxLength ? key.slice(0, maxLength) + '...' : key,
                         click: () => {
-                            let md = parseNote(data[keys[index]]);
-                            protyle.insert(md, true);
+                            insertNote(parseNote(data[keys[index]]));
                         }
                     });
                 });

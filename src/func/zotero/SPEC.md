@@ -24,7 +24,8 @@ The module provides three observable behaviors:
    - The slash command for note import first reads selected Zotero item keys through the bridge extension.
    - For each selected item, notes are read through Zotero Local API.
    - Imported note HTML is converted to Markdown before insertion.
-   - Zotero citation spans, annotation spans, annotation images, math spans, and PDF links must keep their current conversion semantics.
+   - Zotero inline formulas (`span.math`) and display formulas (`pre.math`) must preserve their TeX source and remain inline and display math respectively after Markdown conversion.
+   - Zotero citation spans, annotation spans, annotation images, and PDF links must keep their current conversion semantics.
 
 ## Zotero integration boundary
 
@@ -62,7 +63,7 @@ Endpoint prefix:
 {
   "ok": true,
   "plugin": "f-zotero-ext@frostime.github.io",
-  "version": "0.1.0",
+  "version": "<bridge-version>",
   "zotero": "<zotero-version>"
 }
 ```
@@ -159,7 +160,7 @@ Operational rule:
 
 ## Compatibility rules
 
-- Current bridge target is Zotero 9.x as declared by `strict_min_version: "9.0"` and `strict_max_version: "9.99.99"`.
+- Current bridge target is Zotero 9–10 as declared by `strict_min_version: "9.0"` and `strict_max_version: "10.0.*"`.
 - Lowering `strict_min_version` or widening support to older Zotero major versions requires bridge runtime testing against those versions.
 - Changing the bridge endpoint prefix or response shape is a breaking change for the SiYuan plugin module.
 - Changing the bridge extension ID is a breaking update path for already installed bridge users.
