@@ -24,7 +24,8 @@ The module provides three observable behaviors:
    - The slash command for note import first reads selected Zotero item keys through the bridge extension.
    - For each selected item, notes are read through Zotero Local API.
    - Imported note HTML is converted to Markdown before insertion.
-   - Zotero citation spans, annotation spans, annotation images, math spans, and PDF links must keep their current conversion semantics.
+   - Zotero inline formulas (`span.math`) and display formulas (`pre.math`) must preserve their TeX source and remain inline and display math respectively after Markdown conversion.
+   - Zotero citation spans, annotation spans, annotation images, and PDF links must keep their current conversion semantics.
 
 ## Zotero integration boundary
 
