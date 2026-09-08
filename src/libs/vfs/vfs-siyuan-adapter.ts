@@ -30,6 +30,7 @@
  * - 文件时间戳信息可能不准确（API 限制）
  */
 import { request, putFile, removeFile } from '@frostime/siyuan-plugin-kits/api';
+import { currentAppId } from '../app-id';
 
 
 export class SiYuanVFS {
@@ -215,6 +216,12 @@ export class SiYuanVFS {
             // 核心修改：FormData append 第三个参数用于强制指定文件名
             // 这样无论 data 是什么来源，后端收到的文件名永远匹配 path 参数
             form.append('file', file, targetFileName);
+
+            // 插件存储写入必须携带发起者标识, 否则存储变更广播会回环到本实例 (#19187)
+            const appId = currentAppId();
+            if (appId) {
+                form.append('app', appId);
+            }
 
             let url = '/api/file/putFile';
             const response = await request(url, form, 'response');

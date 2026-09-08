@@ -8,6 +8,8 @@
 
 import { fetchPost, fetchSyncPost, IWebSocketData } from "siyuan";
 
+import { currentAppId } from "@/libs/app-id";
+
 
 export async function request(url: string, data: any, returnType: 'data' | 'response' | 'result' = 'data') {
     let response: IWebSocketData = await fetchSyncPost(url, data);
@@ -414,13 +416,21 @@ export async function putFile(path: string, isDir: boolean, file: any) {
     form.append('isDir', isDir.toString());
     form.append('modTime', Math.floor(Date.now()).toString());
     form.append('file', file);
+    const appId = currentAppId();
+    if (appId) {
+        form.append('app', appId);
+    }
     let url = '/api/file/putFile';
     return request(url, form);
 }
 
 export async function removeFile(path: string) {
-    let data = {
+    let data: { path: string; app?: string } = {
         path: path
+    }
+    const appId = currentAppId();
+    if (appId) {
+        data.app = appId;
     }
     let url = '/api/file/removeFile';
     return request(url, data);

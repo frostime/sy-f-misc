@@ -10,6 +10,7 @@
 
 import { thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { request } from "@frostime/siyuan-plugin-kits/api";
+import { currentAppId } from "@/libs/app-id";
 import { needsMigration, migrateHistory } from '@gpt/model/msg_migration';
 import { showMessage } from "siyuan";
 import { listStorageDirResult, readStorageJson } from "./storage-read";
@@ -89,6 +90,11 @@ const saveStorageBlob = async (storageName: string, data: Blob | File | object |
     form.append('modTime', Math.floor(Date.now()).toString());
     form.append('file', file);
 
+    const appId = currentAppId();
+    if (appId) {
+        form.append('app', appId);
+    }
+
     const response = await request('/api/file/putFile', form, 'response') as SiyuanFileApiResponse;
     if (response?.code === 0) return true;
 
@@ -98,7 +104,9 @@ const saveStorageBlob = async (storageName: string, data: Blob | File | object |
 
 const removeStorageBlob = async (storageName: string) => {
     const path = storageApiPathFor(storageName);
-    const response = await request('/api/file/removeFile', { path }, 'response') as SiyuanFileApiResponse;
+    // 插件存储删除必须携带发起者标识, 否则存储变更广播会回环到本实例 (#19187)
+    const appId = currentAppId();
+    const response = await request('/api/file/removeFile', appId ? { path, app: appId } : { path }, 'response') as SiyuanFileApiResponse;
     if (response?.code === 0 || response?.code === 404) return true;
 
     console.warn(`Failed to remove GPT cache storage file ${storageName}:`, response);
