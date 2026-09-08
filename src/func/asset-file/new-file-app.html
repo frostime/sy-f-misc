@@ -465,6 +465,55 @@
         let selectedBlocks = new Set();
         let hasInserted = false;
 
+        // ============ 扩展名 hook ============
+        /**
+         * 封装"扩展名"相关的全部状态与逻辑：
+         * - 记住上次选择的扩展名（localStorage 临时记忆，不写入插件配置）
+         * - 拆分文件名与扩展名，决定最终生成的扩展名
+         */
+        function useExtMemory(extSelect) {
+            const STORAGE_KEY = 'sy-f-misc:asset-file:last-ext';
+
+            // 恢复上次选择的扩展名：仅当仍在下拉选项中时生效，否则留在"自定义"
+            function restore() {
+                const lastExt = localStorage.getItem(STORAGE_KEY);
+                if (lastExt && [...extSelect.options].some(opt => opt.value === lastExt)) {
+                    extSelect.value = lastExt;
+                }
+            }
+
+            // 记录本次选择，下次打开对话框时恢复
+            function remember() {
+                localStorage.setItem(STORAGE_KEY, extSelect.value);
+            }
+
+            /**
+             * 拆分文件名与扩展名
+             * - 下拉框显式选择扩展名时以选择为准（如选 .md，输入 a.txt 仍得到 a.txt.md）
+             * - "自定义"模式（下拉框为空）下，文件名自带扩展名则沿用（输入 a.txt 得到 a.txt），否则默认 md
+             */
+            function resolveNameParts(fileName) {
+                let base = fileName;
+                let ext = extSelect.value.trim();
+                if (ext) {
+                    ext = ext.startsWith('.') ? ext.slice(1) : ext;
+                } else {
+                    const dotIndex = fileName.lastIndexOf('.');
+                    if (dotIndex > 0) {
+                        base = fileName.slice(0, dotIndex);
+                        ext = fileName.slice(dotIndex + 1);
+                    }
+                }
+                if (!ext) ext = 'md';
+                return { base, ext };
+            }
+
+            return { restore, remember, resolveNameParts };
+        }
+
+        // 页面静态 HTML 中已定义 <select id="fileExt">，此处创建实例供各流程共用
+        const extMemory = useExtMemory(document.getElementById('fileExt'));
+
         // ============ SDK 初始化 ============
         window.addEventListener('pluginSdkReady', async () => {
             console.log('SDK 已就绪');
@@ -527,6 +576,8 @@
                 extSelect.appendChild(option);
             });
 
+            extMemory.restore();
+
             updatePathPreview();
             setTimeout(() => document.getElementById('fileName')?.focus(), 100);
         }
@@ -546,16 +597,13 @@
         function updatePathPreview() {
             const prefix = document.getElementById('pathPrefix').value.trim();
             const fileName = document.getElementById('fileName').value.trim();
-            const extSelect = document.getElementById('fileExt').value;
-
-            let ext = extSelect || 'md';
-            ext = ext.startsWith('.') ? ext.slice(1) : ext;
+            const { base, ext } = extMemory.resolveNameParts(fileName);
 
             const idSuffix = addId ? '-<ID>' : '';
             const pathPrefix = prefix ? `${prefix}/` : '';
 
-            currentPath = `${pathPrefix}${fileName}.${ext}`;
-            const displayPath = `assets/user/${pathPrefix}${fileName}${idSuffix}.${ext}`;
+            currentPath = `${pathPrefix}${base}.${ext}`;
+            const displayPath = `assets/user/${pathPrefix}${base}${idSuffix}.${ext}`;
 
             document.getElementById('fullPath').textContent = displayPath || '(请填写文件名)';
         }
@@ -567,7 +615,10 @@
 
         document.getElementById('pathPrefix').addEventListener('input', updatePathPreview);
         document.getElementById('fileName').addEventListener('input', updatePathPreview);
-        document.getElementById('fileExt').addEventListener('change', updatePathPreview);
+        document.getElementById('fileExt').addEventListener('change', () => {
+            extMemory.remember();
+            updatePathPreview();
+        });
 
         document.getElementById('pathPrefixPreset').addEventListener('change', (e) => {
             document.getElementById('pathPrefix').value = e.target.value;
