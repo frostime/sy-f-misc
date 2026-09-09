@@ -64,7 +64,7 @@ export function useLiveReload({
                     console.error(
                         `[live-reload] 端口 ${port} 已被占用（可能是另一个插件项目的 dev watch）。\n` +
                         `  - 查看占用: netstat -ano | findstr ${port}\n` +
-                        `  - 换端口: 设置环境变量 SIYUAN_LIVERELOAD_PORT=<port> 后重新构建`
+                        `  - 换端口: 在 vite.config.ts 的 useLiveReload({ port }) 中指定其他端口后重新构建`
                     );
                 } else {
                     console.error(`[live-reload] unable to listen on port ${port}:`, error);
@@ -224,7 +224,7 @@ function createClientScript({ port, pluginName, frontend, message, debounceMs, r
                 if (payload.plugin === options.pluginName) {
                     ownerVerified = true;
                 } else {
-                    console.warn("[live-reload] livereload server on port " + options.port + " belongs to plugin '" + payload.plugin + "', not '" + options.pluginName + "'. Disconnecting; use a different SIYUAN_LIVERELOAD_PORT per plugin.");
+                    console.warn("[live-reload] livereload server on port " + options.port + " belongs to plugin '" + payload.plugin + "', not '" + options.pluginName + "'. Disconnecting; configure a different port for each plugin project.");
                     socket.close();
                 }
                 return;
