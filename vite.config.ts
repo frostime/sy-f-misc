@@ -1,7 +1,8 @@
 import { resolve } from "path"
 import { defineConfig } from "vite"
 import { viteStaticCopy } from "vite-plugin-static-copy"
-import livereload from "rollup-plugin-livereload"
+import { createServer as createLiveReloadServer } from "livereload";
+import { createSiYuanLiveReloadScript } from './scripts/siyuan_live_reload';
 import solidPlugin from 'vite-plugin-solid';
 import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
@@ -25,6 +26,13 @@ const PLUGIN_BASE_PATH = '/plugins/sy-f-misc';
 console.log("isDev=>", isDev);
 console.log("isSrcmap=>", isSrcmap);
 console.log("outputDir=>", outputDir);
+
+const pluginManifest = JSON.parse(fs.readFileSync(resolve(__dirname, "plugin.json"), "utf8"));
+const liveReloadPort = Number.parseInt(env.SIYUAN_LIVERELOAD_PORT || "35740", 10);
+const liveReloadFrontend = env.SIYUAN_LIVERELOAD_FRONTEND || "desktop";
+const liveReloadMessage = env.SIYUAN_LIVERELOAD_MESSAGE || `Live reload: ${pluginManifest.name}`;
+const liveReloadDebounceMs = Number.parseInt(env.SIYUAN_LIVERELOAD_DEBOUNCE_MS || "300", 10);
+const pluginReloadGapMs = Number.parseInt(env.SIYUAN_PLUGIN_RELOAD_GAP_MS || "500", 10);
 
 export default defineConfig({
     resolve: {
@@ -107,10 +115,8 @@ export default defineConfig({
             plugins: [
                 ...(
                     isDev ? [
-                        livereload({
-                            watch: outputDir,
-                            delay: 2000  // 防抖
-                        }),
+                        liveReloadServer(),
+                        siYuanPluginReload(),
                         {
                             name: 'watch-external',
                             async buildStart() {
@@ -144,15 +150,72 @@ export default defineConfig({
             output: {
                 entryFileNames: "[name].js",
                 assetFileNames: (assetInfo) => {
-                    if (assetInfo.name === "style.css") {
+                    if (assetInfo.names[0] === "style.css") {
                         return "index.css"
                     }
-                    return assetInfo.name
+                    return assetInfo.names[0]
                 },
             },
         },
     }
 });
+
+/**
+ * Live reload server for dev mode: watch dist/ and notify clients via WebSocket.
+ * Paired with siYuanPluginReload(), which embeds a client into the bundle.
+ */
+function liveReloadServer() {
+    let server: ReturnType<typeof createLiveReloadServer> | undefined;
+
+    return {
+        name: "siyuan-live-reload-server",
+        buildStart() {
+            if (server) {
+                return;
+            }
+            server = createLiveReloadServer({
+                port: liveReloadPort,
+                delay: liveReloadDebounceMs
+            });
+            server.on("error", (error: Error) => {
+                console.error(`[live-reload] unable to listen on port ${liveReloadPort}:`, error);
+                throw error;
+            });
+            server.watch(resolve(__dirname, outputDir));
+        },
+        closeWatcher() {
+            // watch 模式结束时关闭 server
+            server?.close();
+            server = undefined;
+        },
+        closeBundle() {
+            // CLI 一次性 build 结束时清理 server；watch 模式下本 hook 每次 rebuild 都会触发，
+            // 必须保持 server 存活，仅在不处于 watch 模式时关闭
+            if (!this.meta.watchMode) {
+                server?.close();
+                server = undefined;
+            }
+        }
+    };
+}
+
+/**
+ * Embed a dev-only client into the bundle: on livereload message, reload the
+ * plugin in SiYuan by toggling it off/on via /api/petal/setPetalEnabled.
+ */
+function siYuanPluginReload() {
+    return {
+        name: "siyuan-plugin-reload",
+        banner: () => createSiYuanLiveReloadScript({
+            port: liveReloadPort,
+            pluginName: pluginManifest.name,
+            frontend: liveReloadFrontend,
+            message: liveReloadMessage,
+            debounceMs: liveReloadDebounceMs,
+            reloadGapMs: pluginReloadGapMs
+        })
+    };
+}
 
 function createCopyFilesPlugin(options: {
     globPattern: string;

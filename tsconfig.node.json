@@ -8,6 +8,7 @@
     },
     "include": [
         "vite.config.ts",
-        "./vite*.ts"
+        "./vite*.ts",
+        "./scripts/*.ts"
     ]
 }
