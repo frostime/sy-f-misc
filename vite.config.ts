@@ -208,8 +208,9 @@ function liveReloadServer() {
                 }
                 throw error;
             });
-            // 握手身份广播：每个新连接立即告知本 server 归属的插件，
-            // 客户端校验 owner，防止误连到别的插件项目的 server
+            // 握手身份广播：livereload 包 hello 响应的 serverName 是硬编码的、不可配置，
+            // 故借底层 ws Server 的 connection 事件向每个新连接告知归属插件；
+            // 客户端据此校验 owner，防止多插件并行开发时误连到别的项目的 server
             server.server.on("connection", (socket) => {
                 socket.send(JSON.stringify({ command: "plugin-identity", plugin: pluginManifest.name }));
             });

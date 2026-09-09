@@ -34,7 +34,7 @@ export function createSiYuanLiveReloadScript({ port, pluginName, frontend, messa
     let ownerVerified = false;
     let warnedUnverified = false;
     const previousSocket = globalThis[socketKey];
-    previousSocket?.close?.();
+    previousSocket?.close();
 
     const showMessage = (text) => {
         try {
