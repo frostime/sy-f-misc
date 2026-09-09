@@ -24,6 +24,15 @@ export function createSiYuanLiveReloadScript({ port, pluginName, frontend, messa
     return `(function () {
     const options = ${values};
     const socketKey = "__siYuanPluginLiveReload";
+    // livereload server binds to whatever "localhost" resolves to (::1 on IPv6-preferring
+    // systems, 127.0.0.1 otherwise); try both loopback forms to survive the mismatch.
+    const hosts = ["localhost", "127.0.0.1"];
+    let hostIndex = 0;
+    // Handshake guard: only act on reload after the server has identified itself as
+    // the livereload server of THIS plugin (avoids cross-plugin crosstalk when two
+    // plugin projects' dev watches share a port).
+    let ownerVerified = false;
+    let warnedUnverified = false;
     const previousSocket = globalThis[socketKey];
     previousSocket?.close?.();
 
@@ -86,26 +95,51 @@ export function createSiYuanLiveReloadScript({ port, pluginName, frontend, messa
         reloadTimer = setTimeout(runReload, options.debounceMs);
     };
 
-    const socket = new WebSocket("ws://127.0.0.1:" + options.port + "/livereload");
-    globalThis[socketKey] = socket;
+    const connect = () => {
+        const socket = new WebSocket("ws://" + hosts[hostIndex] + ":" + options.port + "/livereload");
+        globalThis[socketKey] = socket;
 
-    socket.addEventListener("open", () => {
-        socket.send(JSON.stringify({
-            command: "hello",
-            protocols: ["http://livereload.com/protocols/official-7"],
-            ver: "4.0.0"
-        }));
-    });
+        socket.addEventListener("open", () => {
+            socket.send(JSON.stringify({
+                command: "hello",
+                protocols: ["http://livereload.com/protocols/official-7"],
+                ver: "4.0.0"
+            }));
+        });
 
-    socket.addEventListener("message", async (event) => {
-        const payload = JSON.parse(event.data);
-        if (payload.command === "reload") {
-            scheduleReload();
-        }
-    });
+        socket.addEventListener("message", async (event) => {
+            const payload = JSON.parse(event.data);
+            if (payload.command === "plugin-identity") {
+                if (payload.plugin === options.pluginName) {
+                    ownerVerified = true;
+                } else {
+                    console.warn("[live-reload] livereload server on port " + options.port + " belongs to plugin '" + payload.plugin + "', not '" + options.pluginName + "'. Disconnecting; use a different SIYUAN_LIVERELOAD_PORT per plugin.");
+                    socket.close();
+                }
+                return;
+            }
+            if (payload.command === "reload") {
+                if (!ownerVerified) {
+                    if (!warnedUnverified) {
+                        warnedUnverified = true;
+                        console.warn("[live-reload] Ignoring reload: livereload server on port " + options.port + " did not identify itself as '" + options.pluginName + "'.");
+                    }
+                    return;
+                }
+                scheduleReload();
+            }
+        });
 
-    socket.addEventListener("error", () => {
-        console.warn("SiYuan plugin live reload could not connect to port " + options.port);
-    });
+        socket.addEventListener("error", () => {
+            hostIndex += 1;
+            if (hostIndex < hosts.length) {
+                setTimeout(connect, 200);
+            } else {
+                console.warn("SiYuan plugin live reload could not connect to port " + options.port + " (tried: " + hosts.join(", ") + ")");
+            }
+        });
+    };
+
+    connect();
 })();`;
 }

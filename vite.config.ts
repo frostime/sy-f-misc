@@ -28,7 +28,26 @@ console.log("isSrcmap=>", isSrcmap);
 console.log("outputDir=>", outputDir);
 
 const pluginManifest = JSON.parse(fs.readFileSync(resolve(__dirname, "plugin.json"), "utf8"));
-const liveReloadPort = Number.parseInt(env.SIYUAN_LIVERELOAD_PORT || "35740", 10);
+// Livereload 端口会烘焙进插件 bundle，因此必须确定性。优先级：
+// SIYUAN_LIVERELOAD_PORT > LIVERELOAD_PORT_DEFAULT（本项目显式固定）> 按插件名自动派生
+// （派生端口用于多插件项目并行开发时天然错开，避免冲突/串扰）
+const LIVERELOAD_PORT_DEFAULT: string | undefined = "31415";
+const LIVERELOAD_PORT_BASE = 35740;
+const LIVERELOAD_PORT_RANGE = 1000;
+
+function derivedLiveReloadPort(pluginName: string): number {
+    let hash = 2166136261; // FNV-1a 32-bit
+    for (let i = 0; i < pluginName.length; i++) {
+        hash ^= pluginName.charCodeAt(i);
+        hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return LIVERELOAD_PORT_BASE + (hash % LIVERELOAD_PORT_RANGE);
+}
+
+const liveReloadPort = Number.parseInt(
+    env.SIYUAN_LIVERELOAD_PORT || LIVERELOAD_PORT_DEFAULT || String(derivedLiveReloadPort(pluginManifest.name)),
+    10
+);
 const liveReloadFrontend = env.SIYUAN_LIVERELOAD_FRONTEND || "desktop";
 const liveReloadMessage = env.SIYUAN_LIVERELOAD_MESSAGE || `Live reload: ${pluginManifest.name}`;
 const liveReloadDebounceMs = Number.parseInt(env.SIYUAN_LIVERELOAD_DEBOUNCE_MS || "300", 10);
@@ -177,9 +196,22 @@ function liveReloadServer() {
                 port: liveReloadPort,
                 delay: liveReloadDebounceMs
             });
-            server.on("error", (error: Error) => {
-                console.error(`[live-reload] unable to listen on port ${liveReloadPort}:`, error);
+            server.on("error", (error: NodeJS.ErrnoException) => {
+                if (error.code === "EADDRINUSE") {
+                    console.error(
+                        `[live-reload] 端口 ${liveReloadPort} 已被占用（可能是另一个插件项目的 dev watch）。\n` +
+                        `  - 查看占用: netstat -ano | findstr ${liveReloadPort}\n` +
+                        `  - 换端口: 设置环境变量 SIYUAN_LIVERELOAD_PORT=<port> 后重新构建`
+                    );
+                } else {
+                    console.error(`[live-reload] unable to listen on port ${liveReloadPort}:`, error);
+                }
                 throw error;
+            });
+            // 握手身份广播：每个新连接立即告知本 server 归属的插件，
+            // 客户端校验 owner，防止误连到别的插件项目的 server
+            server.server.on("connection", (socket) => {
+                socket.send(JSON.stringify({ command: "plugin-identity", plugin: pluginManifest.name }));
             });
             server.watch(resolve(__dirname, outputDir));
         },
