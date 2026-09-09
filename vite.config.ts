@@ -1,8 +1,7 @@
 import { resolve } from "path"
 import { defineConfig } from "vite"
 import { viteStaticCopy } from "vite-plugin-static-copy"
-import { createServer as createLiveReloadServer } from "livereload";
-import { createSiYuanLiveReloadScript } from './scripts/siyuan_live_reload';
+import { useLiveReload } from './scripts/siyuan_live_reload';
 import solidPlugin from 'vite-plugin-solid';
 import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
@@ -26,32 +25,6 @@ const PLUGIN_BASE_PATH = '/plugins/sy-f-misc';
 console.log("isDev=>", isDev);
 console.log("isSrcmap=>", isSrcmap);
 console.log("outputDir=>", outputDir);
-
-const pluginManifest = JSON.parse(fs.readFileSync(resolve(__dirname, "plugin.json"), "utf8"));
-// Livereload 端口会烘焙进插件 bundle，因此必须确定性。优先级：
-// SIYUAN_LIVERELOAD_PORT > LIVERELOAD_PORT_DEFAULT（本项目显式固定）> 按插件名自动派生
-// （派生端口用于多插件项目并行开发时天然错开，避免冲突/串扰）
-const LIVERELOAD_PORT_DEFAULT: string | undefined = "31415";
-const LIVERELOAD_PORT_BASE = 35740;
-const LIVERELOAD_PORT_RANGE = 1000;
-
-function derivedLiveReloadPort(pluginName: string): number {
-    let hash = 2166136261; // FNV-1a 32-bit
-    for (let i = 0; i < pluginName.length; i++) {
-        hash ^= pluginName.charCodeAt(i);
-        hash = Math.imul(hash, 16777619) >>> 0;
-    }
-    return LIVERELOAD_PORT_BASE + (hash % LIVERELOAD_PORT_RANGE);
-}
-
-const liveReloadPort = Number.parseInt(
-    env.SIYUAN_LIVERELOAD_PORT || LIVERELOAD_PORT_DEFAULT || String(derivedLiveReloadPort(pluginManifest.name)),
-    10
-);
-const liveReloadFrontend = env.SIYUAN_LIVERELOAD_FRONTEND || "desktop";
-const liveReloadMessage = env.SIYUAN_LIVERELOAD_MESSAGE || `Live reload: ${pluginManifest.name}`;
-const liveReloadDebounceMs = Number.parseInt(env.SIYUAN_LIVERELOAD_DEBOUNCE_MS || "300", 10);
-const pluginReloadGapMs = Number.parseInt(env.SIYUAN_PLUGIN_RELOAD_GAP_MS || "500", 10);
 
 export default defineConfig({
     resolve: {
@@ -134,8 +107,7 @@ export default defineConfig({
             plugins: [
                 ...(
                     isDev ? [
-                        liveReloadServer(),
-                        siYuanPluginReload(),
+                        useLiveReload({ outputDir }),
                         {
                             name: 'watch-external',
                             async buildStart() {
@@ -178,77 +150,6 @@ export default defineConfig({
         },
     }
 });
-
-/**
- * Live reload server for dev mode: watch dist/ and notify clients via WebSocket.
- * Paired with siYuanPluginReload(), which embeds a client into the bundle.
- */
-function liveReloadServer() {
-    let server: ReturnType<typeof createLiveReloadServer> | undefined;
-
-    return {
-        name: "siyuan-live-reload-server",
-        buildStart() {
-            if (server) {
-                return;
-            }
-            server = createLiveReloadServer({
-                port: liveReloadPort,
-                delay: liveReloadDebounceMs
-            });
-            server.on("error", (error: NodeJS.ErrnoException) => {
-                if (error.code === "EADDRINUSE") {
-                    console.error(
-                        `[live-reload] 端口 ${liveReloadPort} 已被占用（可能是另一个插件项目的 dev watch）。\n` +
-                        `  - 查看占用: netstat -ano | findstr ${liveReloadPort}\n` +
-                        `  - 换端口: 设置环境变量 SIYUAN_LIVERELOAD_PORT=<port> 后重新构建`
-                    );
-                } else {
-                    console.error(`[live-reload] unable to listen on port ${liveReloadPort}:`, error);
-                }
-                throw error;
-            });
-            // 握手身份广播：livereload 包 hello 响应的 serverName 是硬编码的、不可配置，
-            // 故借底层 ws Server 的 connection 事件向每个新连接告知归属插件；
-            // 客户端据此校验 owner，防止多插件并行开发时误连到别的项目的 server
-            server.server.on("connection", (socket) => {
-                socket.send(JSON.stringify({ command: "plugin-identity", plugin: pluginManifest.name }));
-            });
-            server.watch(resolve(__dirname, outputDir));
-        },
-        closeWatcher() {
-            // watch 模式结束时关闭 server
-            server?.close();
-            server = undefined;
-        },
-        closeBundle() {
-            // CLI 一次性 build 结束时清理 server；watch 模式下本 hook 每次 rebuild 都会触发，
-            // 必须保持 server 存活，仅在不处于 watch 模式时关闭
-            if (!this.meta.watchMode) {
-                server?.close();
-                server = undefined;
-            }
-        }
-    };
-}
-
-/**
- * Embed a dev-only client into the bundle: on livereload message, reload the
- * plugin in SiYuan by toggling it off/on via /api/petal/setPetalEnabled.
- */
-function siYuanPluginReload() {
-    return {
-        name: "siyuan-plugin-reload",
-        banner: () => createSiYuanLiveReloadScript({
-            port: liveReloadPort,
-            pluginName: pluginManifest.name,
-            frontend: liveReloadFrontend,
-            message: liveReloadMessage,
-            debounceMs: liveReloadDebounceMs,
-            reloadGapMs: pluginReloadGapMs
-        })
-    };
-}
 
 function createCopyFilesPlugin(options: {
     globPattern: string;
