@@ -1,11 +1,7 @@
 /*
- * Adapted from https://github.com/siyuan-note/plugin-sample-vite-svelte
- * (scripts/siyuan_live_reload.js, MIT License)
- *
- * SiYuan 插件的 dev-only live reload：
- * - server 端（useLiveReload 插件）：监听 livereload WebSocket，输出目录文件变更时广播 reload
- * - client 端（以 banner 注入插件 bundle 的脚本）：收到 reload 后调用 /api/petal/setPetalEnabled
- *   将插件关闭再开启，实现思源内自动重载，无需手动去设置里开关插件
+ * Development-only live reload for SiYuan plugins:
+ * - The useLiveReload server watches the build output and broadcasts changes over WebSocket.
+ * - The client injected into the bundle reloads the plugin through /api/petal/setPetalEnabled.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -14,41 +10,43 @@ import { createServer as createLiveReloadServer } from "livereload";
 import type { Plugin } from "vite";
 
 export interface LiveReloadOptions {
-    /** vite 输出目录（相对项目根），server 监听该目录的文件变更 */
+    /** Build output directory relative to the project root. */
     outputDir: string;
     /**
-     * livereload server 端口。会烘焙进客户端 bundle，因此必须确定性；
-     * 多个插件项目并行开发时，各项目使用不同端口（客户端会校验 server 归属）。
+     * LiveReload server port embedded into the client bundle. By default, a stable
+     * port is derived from the plugin name. Set this when two plugins collide.
      */
     port?: number;
-    /** 传给 /api/petal/setPetalEnabled 的 frontend 参数 */
+    /** Frontend value passed to /api/petal/setPetalEnabled. */
     frontend?: string;
-    /** 重载时 showMessage 的提示语，默认 "Live reload: <插件名>" */
+    /** Reload notification. Defaults to "Live reload: <plugin name>". */
     message?: string;
     /**
-     * 防抖毫秒数：server 端延迟广播，client 端合并多条变更消息。
-     * bundle 构建会分多轮写入 dev/，每轮都可能触发一次文件变更，故默认值刻意偏大。
+     * Delay before the server broadcasts and the client processes changes.
+     * A build may update the output directory in several passes, so the default
+     * deliberately groups changes over a longer interval.
      */
     debounceMs?: number;
-    /** 插件 disable 与 enable 之间的间隔毫秒数 */
+    /** Delay between disabling and re-enabling the plugin. */
     reloadGapMs?: number;
 }
 
 /**
- * Dev 构建使用的 vite 插件：启动 livereload server，并把自动重载客户端
- * 以 banner 形式注入插件 bundle。仅在 dev 构建分支中调用。
+ * Starts the LiveReload server and injects its client into development bundles.
  */
 export function useLiveReload({
     outputDir,
-    port = 31415,
+    port,
     frontend = "desktop",
     message,
     debounceMs = 1000 * 5,
     reloadGapMs = 500,
 }: LiveReloadOptions): Plugin {
-    const manifest = readPluginManifest();
+    const projectRoot = findPluginRoot();
+    const manifest = readPluginManifest(projectRoot);
+    const liveReloadPort = port ?? deriveLiveReloadPort(manifest.name);
     const reloadMessage = message ?? `Live reload: ${manifest.name}`;
-    console.log("liveReloadPort=>", port);
+    console.log(`[live-reload] port: ${liveReloadPort}`);
 
     let server: ReturnType<typeof createLiveReloadServer> | undefined;
 
@@ -58,42 +56,39 @@ export function useLiveReload({
             if (server) {
                 return;
             }
-            server = createLiveReloadServer({ port, delay: debounceMs });
+            server = createLiveReloadServer({ port: liveReloadPort, delay: debounceMs });
             server.on("error", (error: NodeJS.ErrnoException) => {
                 if (error.code === "EADDRINUSE") {
                     console.error(
-                        `[live-reload] 端口 ${port} 已被占用（可能是另一个插件项目的 dev watch）。\n` +
-                        `  - 查看占用: netstat -ano | findstr ${port}\n` +
-                        `  - 换端口: 在 vite.config.ts 的 useLiveReload({ port }) 中指定其他端口后重新构建`
+                        `[live-reload] port ${liveReloadPort} is already in use, possibly by another plugin's dev watcher.\n` +
+                        `  - Inspect the port: netstat -ano | findstr ${liveReloadPort}\n` +
+                        `  - Choose another port: set useLiveReload({ port }) in vite.config.ts and restart the build.`
                     );
                 } else {
-                    console.error(`[live-reload] unable to listen on port ${port}:`, error);
+                    console.error(`[live-reload] unable to listen on port ${liveReloadPort}:`, error);
                 }
                 throw error;
             });
-            // 握手身份广播：livereload 包 hello 响应的 serverName 是硬编码的、不可配置，
-            // 故借底层 ws Server 的 connection 事件向每个新连接告知归属插件；
-            // 客户端据此校验 owner，防止多插件并行开发时误连到别的项目的 server
+            // LiveReload's hello response has a fixed serverName, so send a separate
+            // identity message that prevents clients from connecting to another plugin's server.
             server.server.on("connection", (socket) => {
                 socket.send(JSON.stringify({ command: "plugin-identity", plugin: manifest.name }));
             });
-            server.watch(resolve(__dirname, outputDir));
+            server.watch(resolve(projectRoot, outputDir));
         },
         closeWatcher() {
-            // watch 模式结束时关闭 server
             server?.close();
             server = undefined;
         },
         closeBundle() {
-            // CLI 一次性 build 结束时清理 server；watch 模式下本 hook 每次 rebuild 都会触发，
-            // 必须保持 server 存活，仅在不处于 watch 模式时关闭
+            // closeBundle runs after every rebuild in watch mode, where the server must stay alive.
             if (!this.meta.watchMode) {
                 server?.close();
                 server = undefined;
             }
         },
         banner: () => createClientScript({
-            port,
+            port: liveReloadPort,
             pluginName: manifest.name,
             frontend,
             message: reloadMessage,
@@ -103,20 +98,36 @@ export function useLiveReload({
     };
 }
 
-function readPluginManifest(): { name: string } {
-    // vite 会把本模块打进 config bundle，并把 __dirname 替换为 vite.config.ts 所在目录（项目根）；
-    // 直接以 node 运行（如测试脚本）时 __dirname 是 scripts/，故向上多找一层
-    for (const base of [__dirname, resolve(__dirname, "..")]) {
-        const manifestPath = resolve(base, "plugin.json");
-        if (existsSync(manifestPath)) {
-            return JSON.parse(readFileSync(manifestPath, "utf8"));
+function findPluginRoot(): string {
+    // Bundled Vite configs resolve this module from the project root, while the
+    // native config loader resolves it from scripts/. Support both locations.
+    for (const directory of [import.meta.dirname, resolve(import.meta.dirname, "..")]) {
+        if (existsSync(resolve(directory, "plugin.json"))) {
+            return directory;
         }
     }
     throw new Error("plugin.json not found (expected at project root)");
 }
 
+function readPluginManifest(projectRoot: string): { name: string } {
+    return JSON.parse(readFileSync(resolve(projectRoot, "plugin.json"), "utf8"));
+}
+
+function deriveLiveReloadPort(pluginName: string): number {
+    const portRangeStart = 35740;
+    const portRangeSize = 1000;
+    let hash = 2166136261;
+
+    for (let index = 0; index < pluginName.length; index += 1) {
+        hash ^= pluginName.charCodeAt(index);
+        hash = Math.imul(hash, 16777619) >>> 0;
+    }
+
+    return portRangeStart + (hash % portRangeSize);
+}
+
 interface ClientOptions {
-    /** livereload WebSocket server 端口（与 useLiveReload 启动的 server 配对） */
+    /** LiveReload WebSocket port paired with the server started by useLiveReload. */
     port: number;
     pluginName: string;
     frontend: string;
@@ -126,8 +137,8 @@ interface ClientOptions {
 }
 
 /**
- * 生成注入 bundle 的客户端脚本。脚本会连接 livereload WebSocket 并校验
- * server 的 plugin-identity 身份，只有确认 server 归属本插件后才执行重载。
+ * Generates the client injected into the bundle. The client reloads only after
+ * the LiveReload server identifies itself as belonging to this plugin.
  */
 function createClientScript({ port, pluginName, frontend, message, debounceMs, reloadGapMs }: ClientOptions): string {
     const values = JSON.stringify({ frontend, message, pluginName, port, debounceMs, reloadGapMs });

@@ -107,7 +107,7 @@ export default defineConfig({
             plugins: [
                 ...(
                     isDev ? [
-                        useLiveReload({ outputDir }),
+                        useLiveReload({ outputDir, port: 11451 }),
                         {
                             name: 'watch-external',
                             async buildStart() {
