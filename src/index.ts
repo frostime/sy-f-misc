@@ -3,7 +3,7 @@
  * @Author       : frostime
  * @Date         : 2024-03-19 14:07:28
  * @FilePath     : /src/index.ts
- * @LastEditTime : 2025-12-29 20:53:49
+ * @LastEditTime : 2026-09-13 17:53:49
  * @Description  : 
  * @SpecDoc      : src/settings/SETTINGS-LIFECYCLE.SPEC.md
  */

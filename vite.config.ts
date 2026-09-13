@@ -1,7 +1,7 @@
 import { resolve } from "path"
 import { defineConfig } from "vite"
 import { viteStaticCopy } from "vite-plugin-static-copy"
-import livereload from "rollup-plugin-livereload"
+import { useLiveReload } from './scripts/siyuan_live_reload';
 import solidPlugin from 'vite-plugin-solid';
 import zipPack from "vite-plugin-zip-pack";
 import fg from 'fast-glob';
@@ -107,10 +107,7 @@ export default defineConfig({
             plugins: [
                 ...(
                     isDev ? [
-                        livereload({
-                            watch: outputDir,
-                            delay: 2000  // 防抖
-                        }),
+                        useLiveReload({ outputDir, port: 11451 }),
                         {
                             name: 'watch-external',
                             async buildStart() {
@@ -144,10 +141,10 @@ export default defineConfig({
             output: {
                 entryFileNames: "[name].js",
                 assetFileNames: (assetInfo) => {
-                    if (assetInfo.name === "style.css") {
+                    if (assetInfo.names[0] === "style.css") {
                         return "index.css"
                     }
-                    return assetInfo.name
+                    return assetInfo.names[0]
                 },
             },
         },
