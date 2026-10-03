@@ -62,7 +62,8 @@ const transformNodes = (nodes: Record<string, IChatSessionMsgItemV2>): Record<st
 
 export const showChatWorldTree = (options: {
     treeModel: ITreeModel,
-    onExtractSubtree?: (args: { rootId: string; leafIds?: string[]; title?: string }) => void | Promise<void>;
+    onExtractSubtree?: (args: { rootId: string; leafIds?: string[]; title?: string; mode?: 'copy' | 'cut' }) => boolean | Promise<boolean>;
+    onDeleteSubtree?: (args: { rootId: string; leafIds?: string[] }) => boolean | Promise<boolean>;
     width?: string;
     height?: string;
     maxWidth?: string;
@@ -78,6 +79,11 @@ export const showChatWorldTree = (options: {
     const treeModel = options.treeModel;
 
     const size = { ...defaultSize, ...options };
+    const getTreeData = async () => ({
+        rootId: treeModel.getRootId(),
+        worldLine: treeModel.getWorldLine(),
+        nodes: transformNodes(treeModel.getNodes())
+    });
 
     const dialog = openIframeDialog({
         title: 'Chat Tree',
@@ -92,13 +98,7 @@ export const showChatWorldTree = (options: {
                 presetSdk: true,
                 siyuanCss: true,
                 customSdk: {
-                    getTreeData: async () => {
-                        return {
-                            rootId: treeModel.getRootId(),
-                            worldLine: treeModel.getWorldLine(),
-                            nodes: transformNodes(treeModel.getNodes())
-                        };
-                    },
+                    getTreeData,
                     getFullContent: async (nodeId: string) => {
                         const nodes = treeModel.getNodes();
                         const item = nodes[nodeId];
@@ -110,10 +110,16 @@ export const showChatWorldTree = (options: {
                         // 关闭对话框或更新显示
                         dialog.close();
                     },
-                    extractSubtree: async (args: { rootId: string; leafIds?: string[]; title?: string }) => {
-                        if (!options.onExtractSubtree) return;
-                        await options.onExtractSubtree(args);
-                        dialog.close();
+                    extractSubtree: async (args: { rootId: string; leafIds?: string[]; title?: string; mode?: 'copy' | 'cut' }) => {
+                        if (!options.onExtractSubtree) throw new Error('当前环境不支持子树提取');
+                        const completed = await options.onExtractSubtree(args);
+                        if (completed) dialog.close();
+                        return completed;
+                    },
+                    deleteSubtree: async (args: { rootId: string; leafIds?: string[] }) => {
+                        if (!options.onDeleteSubtree) throw new Error('当前环境不支持子树删除');
+                        const completed = await options.onDeleteSubtree(args);
+                        return completed ? await getTreeData() : null;
                     }
                 }
             }

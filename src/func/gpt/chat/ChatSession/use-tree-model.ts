@@ -9,6 +9,7 @@
 
 import { Accessor, batch, createMemo } from 'solid-js';
 import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
+import { collectSelectedSubtree, planSubtreeDeletion, ISubtreeSelection } from './subtree-selection';
 
 // ============================================================================
 // 类型定义
@@ -24,9 +25,7 @@ export interface IDeleteResult {
     reason?: 'NODE_NOT_FOUND' | 'ROOT_HAS_BRANCHES' | 'BRANCH_COMPRESSION' | 'NOT_ON_WORLDLINE' | 'NOT_CONTINUOUS' | 'MIDDLE_HAS_BRANCH' | 'EMPTY';
 }
 
-export interface IExtractSubtreeArgs {
-    rootId: ItemID;
-    leafIds?: ItemID[];
+export interface IExtractSubtreeArgs extends ISubtreeSelection {
     regenerateIds?: boolean;
 }
 
@@ -79,8 +78,8 @@ export interface ITreeModel {
     insertAfter: (afterId: ItemID, node: Omit<IChatSessionMsgItemV2, 'parent' | 'children'>) => void;
     /** 更新节点 */
     updateNode: (id: ItemID, updates: Partial<IChatSessionMsgItemV2>) => void;
-    /** 更新节点的 Payload（当前版本） */
-    updatePayload: (id: ItemID, updates: Partial<IMessagePayload>) => void;
+    /** Update the requested version, defaulting to the currently selected version for edits. */
+    updatePayload: (id: ItemID, updates: Partial<IMessagePayload>, versionId?: string) => void;
     /** 删除节点（安全删除，返回操作结果） */
     deleteNode: (id: ItemID) => IDeleteResult;
     /** 批量删除（必须连续且中间无分支） */
@@ -101,6 +100,10 @@ export interface ITreeModel {
     getBranches: (id: ItemID) => IChatSessionMsgItemV2[];
     /** 提取子树结构，用于创建独立会话 */
     extractSubtree: (args: IExtractSubtreeArgs) => IExtractSubtreeResult;
+    /** Validate before any cut side effects; returns exclusive nodes to prune. */
+    validateSubtreeDeletion: (args: ISubtreeSelection) => number;
+    /** Delete exclusive branches without reconnecting descendants or removing shared ancestors. */
+    deleteSubtree: (args: ISubtreeSelection) => number;
 
     // ========== 版本管理 ==========
     /** 添加新版本到节点 */
@@ -149,30 +152,6 @@ const traceToRoot = (
     }
 
     return path;
-};
-
-const isDescendantOrSelf = (
-    nodes: Record<ItemID, IChatSessionMsgItemV2>,
-    rootId: ItemID,
-    targetId: ItemID
-): boolean => {
-    let currentId: ItemID | null = targetId;
-    while (currentId) {
-        if (currentId === rootId) return true;
-        currentId = nodes[currentId]?.parent ?? null;
-    }
-    return false;
-};
-
-const collectSubtreeIds = (
-    nodes: Record<ItemID, IChatSessionMsgItemV2>,
-    rootId: ItemID,
-    included = new Set<ItemID>()
-): Set<ItemID> => {
-    if (!nodes[rootId] || included.has(rootId)) return included;
-    included.add(rootId);
-    nodes[rootId].children.forEach(childId => collectSubtreeIds(nodes, childId, included));
-    return included;
 };
 
 const traceBetween = (
@@ -353,12 +332,10 @@ export const useTreeModel = (): ITreeModel => {
         nodes.update(id, prev => ({ ...prev, ...updates }));
     };
 
-    /**
-     * 更新节点的当前版本 Payload
-     */
-    const updatePayload = (id: ItemID, updates: Partial<IMessagePayload>) => {
+    const updatePayload = (id: ItemID, updates: Partial<IMessagePayload>, versionId?: string) => {
         const node = nodes()[id];
-        if (!node || !node.currentVersionId) return;
+        const targetVersionId = versionId ?? node?.currentVersionId;
+        if (!node?.versions[targetVersionId]) return;
 
         // 替换整个节点，更新特定版本的 payload
         // 要以节点为粒度更新，不然无法触发 version 的响应式
@@ -368,8 +345,8 @@ export const useTreeModel = (): ITreeModel => {
                 ...prev[id],
                 versions: {
                     ...prev[id].versions,
-                    [node.currentVersionId]: {
-                        ...prev[id].versions[node.currentVersionId],
+                    [targetVersionId]: {
+                        ...prev[id].versions[targetVersionId],
                         ...updates,
                     },
                 },
@@ -645,25 +622,8 @@ export const useTreeModel = (): ITreeModel => {
     const extractSubtree = (args: IExtractSubtreeArgs): IExtractSubtreeResult => {
         const currentNodes = nodes.unwrap();
         const { rootId, leafIds, regenerateIds = true } = args;
-        const rootNode = currentNodes[rootId];
-        if (!rootNode) throw new Error('Root node not found');
-
-        const selectedLeafIds = Array.from(new Set(leafIds ?? [])).filter(Boolean);
-        const includedIds = selectedLeafIds.length === 0
-            ? collectSubtreeIds(currentNodes, rootId)
-            : new Set<ItemID>();
-
-        if (selectedLeafIds.length > 0) {
-            selectedLeafIds.forEach(leafId => {
-                if (!currentNodes[leafId]) throw new Error(`Leaf node not found: ${leafId}`);
-                if (!isDescendantOrSelf(currentNodes, rootId, leafId)) {
-                    throw new Error(`Leaf is not under root: ${leafId}`);
-                }
-                traceBetween(currentNodes, rootId, leafId).forEach(id => includedIds.add(id));
-            });
-        }
-
-        if (includedIds.size === 0) throw new Error('Extracted subtree is empty');
+        const selectedLeafIds = Array.from(new Set(leafIds ?? []));
+        const includedIds = collectSelectedSubtree(currentNodes, { rootId, leafIds: selectedLeafIds });
 
         const idMap: Record<ItemID, ItemID> = {};
         includedIds.forEach(oldId => {
@@ -714,6 +674,34 @@ export const useTreeModel = (): ITreeModel => {
             worldLine: newWorldLine.length > 0 ? newWorldLine : [idMap[rootId]],
             idMap,
         };
+    };
+
+    const validateSubtreeDeletion = (args: ISubtreeSelection) => {
+        return planSubtreeDeletion(nodes.unwrap(), args).deleted.size;
+    };
+
+    const deleteSubtree = (args: ISubtreeSelection): number => {
+        const currentNodes = nodes.unwrap();
+        const { deleted } = planSubtreeDeletion(currentNodes, args);
+        const remainingNodes: Record<ItemID, IChatSessionMsgItemV2> = {};
+        Object.entries(currentNodes).forEach(([id, node]) => {
+            if (deleted.has(id)) return;
+            remainingNodes[id] = {
+                ...node,
+                children: node.children.filter(childId => !deleted.has(childId)),
+            };
+        });
+
+        batch(() => {
+            // Store setters merge objects; explicit undefined is required to actually remove keys.
+            deleted.forEach(id => nodes.update(id, undefined));
+            nodes.update(remainingNodes);
+            // Deleted nodes form a suffix of any affected world line. Do not jump to another branch.
+            worldLine.update(prev => prev.filter(id => !deleted.has(id)));
+            if (deleted.has(rootId())) rootId.value = null;
+            deleted.forEach(id => bookmarks.update(id, undefined));
+        });
+        return deleted.size;
     };
 
     // ========== 版本管理 ==========
@@ -809,15 +797,14 @@ export const useTreeModel = (): ITreeModel => {
     };
 
     const fromHistory = (history: IChatSessionHistoryV2) => {
+        const restoredNodes = structuredClone(history.nodes || {});
+        const restoredBookmarks = structuredClone(history.bookmarks || {});
         batch(() => {
+            clear();
             rootId.value = history.rootId ?? null;
-            // nodes.update(history.nodes || {});
-            // worldLine.update(history.worldLine || []);
-            // bookmarks.update(history.bookmarks || []);
-            nodes.update(structuredClone(history.nodes || {}));
+            nodes.update(restoredNodes);
             worldLine.update([...(history.worldLine || [])]);
-            // bookmarks.update([...(history.bookmarks || {})]);
-            bookmarks.update(structuredClone(history.bookmarks || {}));
+            bookmarks.update(restoredBookmarks);
         });
     };
 
@@ -859,11 +846,10 @@ export const useTreeModel = (): ITreeModel => {
 
     const clear = () => {
         batch(() => {
-            nodes.update({});
+            Object.keys(nodes()).forEach(id => nodes.update(id, undefined));
             rootId.value = null;
             worldLine.update([]);
-            // bookmarks.update([]);
-            bookmarks.update({});
+            Object.keys(bookmarks()).forEach(id => bookmarks.update(id, undefined));
         });
     };
 
@@ -900,6 +886,8 @@ export const useTreeModel = (): ITreeModel => {
         switchWorldLine,
         getBranches,
         extractSubtree,
+        validateSubtreeDeletion,
+        deleteSubtree,
 
         // 版本管理
         addVersion,

@@ -421,6 +421,10 @@ export const useSession = (props: {
     const switchMsgItemVersion = (itemId: string, version: string) => {
         const node = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
         if (!node) return;
+        if (node.loading) {
+            showMessage('回复生成中，请等待完成后再切换版本');
+            return;
+        }
         if (node.currentVersionId === version) return;
         if (!node.versions || !node.versions[version]) return;
 
@@ -435,6 +439,10 @@ export const useSession = (props: {
             return;
         }
 
+        if (node.loading) {
+            showMessage('回复生成中，不能删除此消息的版本');
+            return;
+        }
         const versionKeys = Object.keys(node.versions);
         if (versionKeys.length <= 1) {
             showMessage('唯一的消息版本不能删除');
@@ -592,11 +600,21 @@ export const useSession = (props: {
         });
     }
 
+    const deleteSubtree = (args: { rootId: ItemID; leafIds?: ItemID[] }): number => {
+        if (loading()) throw new Error('回复生成中，不能删除或剪切对话树');
+        const deletedCount = treeModel.deleteSubtree(args);
+        renewUpdatedTimestamp();
+        return deletedCount;
+    };
+
     const extractSubtreeToHistory = (args: {
         rootId: ItemID;
         leafIds?: ItemID[];
         title?: string;
+        mode?: 'copy' | 'cut';
     }): IChatSessionHistoryV2 => {
+        if (loading()) throw new Error('回复生成中，请等待完成后再提取对话树');
+        if (args.mode === 'cut') treeModel.validateSubtreeDeletion(args);
         const extracted = treeModel.extractSubtree({
             rootId: args.rootId,
             leafIds: args.leafIds,
@@ -610,7 +628,7 @@ export const useSession = (props: {
             if (newId) bookmarks[newId] = label;
         });
 
-        return {
+        const history: IChatSessionHistoryV2 = {
             schema: 2,
             type: 'history',
             id: window.Lute.NewNodeID(),
@@ -625,6 +643,9 @@ export const useSession = (props: {
             worldLine: extracted.worldLine,
             bookmarks,
         };
+        // Finish copying every version and its metadata before mutating the source.
+        if (args.mode === 'cut') deleteSubtree(args);
+        return history;
     }
 
     // ========== V2: applyHistory 支持 V2 格式 ==========
@@ -927,6 +948,7 @@ export const useSession = (props: {
         applyHistory,
         applySequence,
         extractSubtreeToHistory,
+        deleteSubtree,
 
         // 导出/保存
         sessionHistory,

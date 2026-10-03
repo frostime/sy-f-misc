@@ -15,7 +15,7 @@ import {
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { Menu, showMessage } from 'siyuan';
+import { Menu, showMessage, confirm } from 'siyuan';
 import { debounce, inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits';
 
 // UI Components
@@ -840,14 +840,54 @@ export const ChatSession: Component<{
                 click: () => {
                     showChatWorldTree({
                         treeModel: session.treeModel,
-                        onExtractSubtree: async ({ rootId, leafIds, title }) => {
+                        onExtractSubtree: async ({ rootId, leafIds, title, mode = 'copy' }) => {
+                            let original: IChatSessionHistoryV2 | undefined;
+                            let sourceChanged = false;
                             try {
-                                const history = session.extractSubtreeToHistory({ rootId, leafIds, title });
+                                if (mode === 'cut') {
+                                    if (session.loading()) throw new Error('回复生成中，不能剪切对话树');
+                                    const count = session.treeModel.validateSubtreeDeletion({ rootId, leafIds });
+                                    const approved = await new Promise<boolean>(resolve => {
+                                        confirm('剪切子树', `将提取为新对话，并从原对话删除 ${count} 个独占节点。公共路径会保留，此操作不能撤销。`,
+                                            () => resolve(true), () => resolve(false));
+                                    });
+                                    if (!approved) return false;
+                                    original = session.sessionHistory();
+                                    if (!original) throw new Error('无法备份原对话，已取消剪切');
+                                }
+                                const history = session.extractSubtreeToHistory({ rootId, leafIds, title, mode });
+                                sourceChanged = mode === 'cut';
+                                // newChatSession normally saves the source, but skips empty chats.
+                                // Persist an emptied source too, so its old cached tree cannot reappear.
+                                if (sourceChanged && !session.hasMessages()) persist.saveToLocalStorage(session.sessionHistory());
                                 newChatSession(history);
-                                showMessage('已提取子树为新对话');
+                                showMessage(mode === 'cut' ? '已剪切子树为新对话，公共路径已保留' : '已复制子树为新对话');
+                                return true;
                             } catch (err) {
+                                if (sourceChanged && original) {
+                                    session.applyHistory(original);
+                                    persist.saveToLocalStorage(original);
+                                }
                                 console.error('Failed to extract subtree:', err);
                                 showMessage(`提取子树失败: ${(err as Error).message}`, 5000, 'error');
+                                throw err;
+                            }
+                        },
+                        onDeleteSubtree: async ({ rootId, leafIds }) => {
+                            try {
+                                if (session.loading()) throw new Error('回复生成中，不能删除对话树');
+                                const count = session.treeModel.validateSubtreeDeletion({ rootId, leafIds });
+                                const approved = await new Promise<boolean>(resolve => {
+                                    confirm('删除子树', `将从当前对话删除 ${count} 个独占节点，公共路径会保留。此操作不能撤销，是否继续？`,
+                                        () => resolve(true), () => resolve(false));
+                                });
+                                if (!approved) return false;
+                                const deleted = session.deleteSubtree({ rootId, leafIds });
+                                persist.saveToLocalStorage(session.sessionHistory());
+                                showMessage(`已删除 ${deleted} 个节点，公共路径已保留`);
+                                return true;
+                            } catch (err) {
+                                showMessage(`删除子树失败: ${(err as Error).message}`, 5000, 'error');
                                 throw err;
                             }
                         }

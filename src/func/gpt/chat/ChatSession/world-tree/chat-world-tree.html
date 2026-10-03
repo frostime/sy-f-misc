@@ -460,7 +460,7 @@
 
                 <!-- Actions -->
                 <div class="detail-panel-footer" x-show="detailNode" style="display:none;">
-                    <button class="btn btn-primary btn-sm w-full"
+                    <button class="btn btn-primary btn-sm w-full" :disabled="busy"
                         x-show="!isOnWorldLine(selectedNodeId) || canSwitchFrom(selectedNodeId)"
                         @click="switchToNode(selectedNodeId)">
                         切换到此分支
@@ -470,32 +470,44 @@
                         @click="showFullContent(selectedNodeId)">
                         查看完整内容
                     </button>
-                    <button class="btn btn-sm w-full" @click="enterExtractSubtree(selectedNodeId)">
-                        提取 Subtree
+                    <button class="btn btn-sm w-full" :disabled="busy" @click="enterSubtreeOperation(selectedNodeId, 'copy')">
+                        提取子树
+                    </button>
+                    <button class="btn btn-sm w-full" :disabled="busy" @click="enterSubtreeOperation(selectedNodeId, 'delete')">
+                        删除子树
                     </button>
                 </div>
 
                 <!-- Operation panel -->
-                <div class="operation-panel" x-show="operation && operation.id === 'extract-subtree'" style="display:none;">
-                    <div class="text-bold">Extract Subtree</div>
+                <div class="operation-panel" x-show="operation" style="display:none;">
+                    <div class="text-bold">子树操作</div>
+                    <label class="flex gap-2" style="align-items:center;">
+                        操作
+                        <select :value="operation?.mode || 'copy'" :disabled="busy" @change="operation.mode = $event.target.value">
+                            <option value="copy">复制为新对话</option>
+                            <option value="cut">剪切为新对话</option>
+                            <option value="delete">从当前对话删除</option>
+                        </select>
+                    </label>
                     <div class="operation-summary">
                         <span class="text-muted">Root</span>
                         <span x-text="operation?.rootId || '-'" style="word-break:break-all;"></span>
-                        <span class="text-muted">Leaves</span>
+                        <span class="text-muted">路径终点</span>
                         <span x-text="(operation?.leafIds?.length || 0) + ' selected'"></span>
                         <span class="text-muted">Included</span>
                         <span x-text="operation?.includedNodeIds?.size || 0"></span>
                     </div>
                     <div class="operation-hint">
-                        点击 root 下的节点 toggle leaf/path endpoint；不选 leaf = 复制完整 subtree。
+                        点击 Root 下的节点选择或取消路径终点；不选终点 = 完整子树。
+                        <br>删除/剪切只移除独占分支，公共路径保留。终点若仍有未选后代，操作会被拒绝。
                     </div>
-                    <button class="btn btn-primary btn-sm w-full" @click="confirmExtractSubtree()">
-                        确认提取为新对话
+                    <button class="btn btn-primary btn-sm w-full" :disabled="busy" @click="confirmSubtreeOperation()"
+                        x-text="busy ? '处理中…' : operation?.mode === 'delete' ? '确认删除选中子树' : operation?.mode === 'cut' ? '确认剪切为新对话' : '确认复制为新对话'">
                     </button>
-                    <button class="btn btn-sm w-full" x-show="selectedNodeId" @click="setExtractRoot(selectedNodeId)">
+                    <button class="btn btn-sm w-full" :disabled="busy" x-show="selectedNodeId" @click="setExtractRoot(selectedNodeId)">
                         将当前节点设为 Root
                     </button>
-                    <button class="btn btn-sm w-full" @click="cancelOperation()">
+                    <button class="btn btn-sm w-full" :disabled="busy" @click="cancelOperation()">
                         取消操作
                     </button>
                 </div>
@@ -547,6 +559,7 @@
             fullContentVisible: false,
             fullContentText: '',
             fullContentRole: '',
+            busy: false,
 
             // Layout
             LAYOUT: Object.freeze({
@@ -742,15 +755,15 @@
                 const prevViewport = options.preserveViewport && $v
                     ? { left: $v.scrollLeft, top: $v.scrollTop }
                     : null;
-                if (!data) {
+                this.treeData = data;
+                this._worldLineSet = new Set(data?.worldLine || []);
+                this.selectedNodeId = null;
+                if (!data?.rootId) {
                     $n.innerHTML = '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--c-fg-muted,#888)">'
                         + '<div style="font-size:48px;opacity:0.4">🌳</div><div>暂无数据</div></div>';
                     $e.innerHTML = ''; return;
                 }
 
-                this.treeData = data;
-                this._worldLineSet = new Set(data.worldLine);
-                this.selectedNodeId = null;
                 if (this.operation) this.recomputeOperationPreview();
                 this.layoutTree(data);
 
@@ -827,7 +840,7 @@
             // ================================================================
             handleNodeClick(id) {
                 this.selectNode(id);
-                if (this.operation?.id === 'extract-subtree') this.toggleExtractLeaf(id);
+                if (this.operation && !this.busy) this.toggleExtractLeaf(id);
             },
             selectNode(id) {
                 if (!this.treeData?.nodes?.[id]) return;
@@ -854,14 +867,15 @@
                 return cur;
             },
             switchToNode(id) {
+                if (this.busy) return;
                 const leafId = this.findLeafFrom(id);
                 if (window.pluginSdk?.switchWorldLine) window.pluginSdk.switchWorldLine(leafId);
                 else window.pluginSdk?.showMessage?.('已请求切换世界线');
             },
-            enterExtractSubtree(rootId) {
-                if (!rootId || !this.treeData?.nodes?.[rootId]) return;
+            enterSubtreeOperation(rootId, mode = 'copy') {
+                if (this.busy || !rootId || !this.treeData?.nodes?.[rootId]) return;
                 this.operation = {
-                    id: 'extract-subtree',
+                    mode,
                     rootId,
                     leafIds: [],
                     includedNodeIds: new Set(),
@@ -870,7 +884,7 @@
                 this.renderTree(this.treeData, { preserveViewport: true });
             },
             setExtractRoot(rootId) {
-                if (!this.operation || !rootId || !this.treeData?.nodes?.[rootId]) return;
+                if (this.busy || !this.operation || !rootId || !this.treeData?.nodes?.[rootId]) return;
                 this.operation.rootId = rootId;
                 this.operation.leafIds = [];
                 this.renderTree(this.treeData, { preserveViewport: true });
@@ -888,22 +902,29 @@
                 this.selectNode(id);
             },
             cancelOperation() {
+                if (this.busy) return;
                 this.operation = null;
                 if (this.treeData) this.renderTree(this.treeData, { preserveViewport: true });
             },
-            async confirmExtractSubtree() {
-                if (!this.operation || this.operation.id !== 'extract-subtree') return;
-                if (!window.pluginSdk?.extractSubtree) {
-                    window.pluginSdk?.showMessage?.('当前环境不支持 subtree 提取', 'error');
-                    return;
-                }
+            async confirmSubtreeOperation() {
+                if (this.busy || !this.operation) return;
+                const { rootId, mode } = this.operation;
+                const leafIds = [...this.operation.leafIds];
+                this.busy = true;
                 try {
-                    await window.pluginSdk.extractSubtree({
-                        rootId: this.operation.rootId,
-                        leafIds: [...this.operation.leafIds],
-                    });
+                    if (mode === 'delete') {
+                        const data = await window.pluginSdk.deleteSubtree({ rootId, leafIds });
+                        if (data) {
+                            this.operation = null;
+                            this.renderTree(data, { preserveViewport: true });
+                        }
+                    } else {
+                        await window.pluginSdk.extractSubtree({ rootId, leafIds, mode });
+                    }
                 } catch (e) {
-                    // Error toast is owned by the host-side callback; keep dialog open for retry.
+                    // Host owns the error toast; leave the selection intact for correction/retry.
+                } finally {
+                    this.busy = false;
                 }
             },
             async showFullContent(id) {
