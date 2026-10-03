@@ -611,10 +611,8 @@ export const useSession = (props: {
         rootId: ItemID;
         leafIds?: ItemID[];
         title?: string;
-        mode?: 'copy' | 'cut';
     }): IChatSessionHistoryV2 => {
         if (loading()) throw new Error('回复生成中，请等待完成后再提取对话树');
-        if (args.mode === 'cut') treeModel.validateSubtreeDeletion(args);
         const extracted = treeModel.extractSubtree({
             rootId: args.rootId,
             leafIds: args.leafIds,
@@ -643,8 +641,6 @@ export const useSession = (props: {
             worldLine: extracted.worldLine,
             bookmarks,
         };
-        // Finish copying every version and its metadata before mutating the source.
-        if (args.mode === 'cut') deleteSubtree(args);
         return history;
     }
 
@@ -655,7 +651,7 @@ export const useSession = (props: {
             history.title && (title.update(history.title));
             history.timestamp && (timestamp = history.timestamp);
             history.updated && (updated = history.updated);
-            history.sysPrompt && (systemPrompt.update(history.sysPrompt));
+            if (history.sysPrompt !== undefined) systemPrompt.update(history.sysPrompt);
             history.tags && (sessionTags.update(history.tags));
             history.customOptions && (modelCustomOptions.value = history.customOptions);
 

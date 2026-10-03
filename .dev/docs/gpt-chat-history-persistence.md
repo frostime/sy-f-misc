@@ -32,8 +32,11 @@ The cache exists to make temporary chat history survive normal reload/restart an
 | Open/reload the plugin | Restore missing temporary conversations from cache without overwriting already-local working copies |
 | Close/unload the plugin | Finish interrupted writes/deletes and clean safe orphans; do not rewrite every kept cache file |
 | User explicitly saves/exports a conversation | Use the durable persistence path selected by the user; do not infer that every temporary cache update is a permanent save |
+| Cut selected branches into another conversation | Save the destination's local working copy before pruning the source; verify the source's local save, including an empty source. A failed local save rejects the cut and restores the live source |
 
 Temporary cache correctness is “eventual replica correctness”, not “every file proves the newest state at every moment”. The newest temporary content lives in localStorage while the app is operating.
+
+`saveToLocalStorage()` returns whether the authoritative local working copy was written. Ordinary callers may ignore it and retain the existing asynchronous replica behavior; destructive subtree operations check it before reporting success. This is not a guarantee that the cache replica has finished syncing, nor a cross-device transaction.
 
 ## Storage layers and why they exist
 

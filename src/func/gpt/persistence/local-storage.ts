@@ -554,10 +554,11 @@ export const restoreCache = async () => {
     }
 };
 
-export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
+/** Returns whether the authoritative local working copy was saved; the sync replica remains asynchronous. */
+export const saveToLocalStorage = (history: IChatSessionHistoryV2): boolean => {
     if (!history || history.schema !== 2) {
         showMessage('历史记录格式错误，无法保存到 localStorage');
-        return;
+        return false;
     }
     const historyWithType = { ...history, type: 'history' as const, schema: 2 } as IChatSessionHistoryV2;
     const pendingOp = pendingCacheJournal.mark(history.id, 'write');
@@ -565,11 +566,12 @@ export const saveToLocalStorage = (history: IChatSessionHistoryV2) => {
     if (!saved) {
         pendingCacheJournal.clearIfCurrent(history.id, pendingOp);
         void writeCacheFile(history.id, historyWithType);
-        return;
+        return false;
     }
     void writeCacheFile(history.id, historyWithType).then(ok => {
         if (ok) pendingCacheJournal.clearIfCurrent(history.id, pendingOp);
     });
+    return true;
 };
 
 export const listFromLocalStorage = (): IChatSessionHistoryV2[] => {
