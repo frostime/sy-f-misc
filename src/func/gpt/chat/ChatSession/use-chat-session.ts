@@ -360,6 +360,10 @@ export const useSession = (props: {
     const addMsgItemVersion = (itemId: string, content: string) => {
         const node = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
         if (!node || node.type !== 'message') return;
+        if (node.loading) {
+            showMessage('回复生成中，不能为此消息添加版本');
+            return;
+        }
 
         const currentPayload = node.versions[node.currentVersionId];
         if (!currentPayload) return;

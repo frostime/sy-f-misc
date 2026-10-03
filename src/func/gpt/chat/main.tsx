@@ -54,6 +54,7 @@ import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
 import { jsonAgent } from '../openai/tiny-agent';
 import { showChatWorldTree } from './ChatSession/world-tree';
+import { commitSubtreeRemoval } from './ChatSession/subtree-removal';
 import { openVarsManager } from '../tools/vars';
 import Markdown from '@/libs/components/Elements/Markdown';
 
@@ -841,9 +842,6 @@ export const ChatSession: Component<{
                     showChatWorldTree({
                         treeModel: session.treeModel,
                         onExtractSubtree: async ({ rootId, leafIds, title, mode = 'copy' }) => {
-                            let original: IChatSessionHistoryV2 | undefined;
-                            let sourceChanged = false;
-                            let destinationId: string | undefined;
                             try {
                                 if (mode === 'cut') {
                                     if (session.loading()) throw new Error('回复生成中，不能剪切对话树');
@@ -853,40 +851,32 @@ export const ChatSession: Component<{
                                             () => resolve(true), () => resolve(false));
                                     });
                                     if (!approved) return false;
-                                    original = session.sessionHistory();
-                                    if (!original) throw new Error('无法备份原对话，已取消剪切');
+
                                 }
                                 const history = session.extractSubtreeToHistory({ rootId, leafIds, title });
                                 if (mode === 'cut') {
-                                    // Save the destination before pruning: an interrupted cut must never lose both copies.
-                                    destinationId = history.id;
-                                    if (!persist.saveToLocalStorage(history)) throw new Error('新对话无法写入本地存储，已取消剪切');
-                                    session.deleteSubtree({ rootId, leafIds });
-                                    sourceChanged = true;
-                                    // Save empty sources too, so their old cached tree cannot reappear.
-                                    if (!persist.saveToLocalStorage(session.sessionHistory())) throw new Error('原对话无法写入本地存储，已取消剪切');
+                                    commitSubtreeRemoval({
+                                        source: {
+                                            snapshot: session.sessionHistory,
+                                            remove: () => session.deleteSubtree({ rootId, leafIds }),
+                                            restore: session.applyHistory,
+                                        },
+                                        persistence: { save: persist.saveToLocalStorage, remove: persist.removeFromLocalStorage },
+                                        destination: history,
+                                        onCommit: () => newChatSession(history, true),
+                                    });
+                                } else {
+                                    newChatSession(history);
                                 }
-                                newChatSession(history, mode === 'cut');
                                 showMessage(mode === 'cut' ? '已剪切子树为新对话，公共路径已保留' : '已复制子树为新对话');
                                 return true;
                             } catch (err) {
-                                let sourceSaved = !sourceChanged;
-                                if (sourceChanged && original) {
-                                    session.applyHistory(original);
-                                    sourceSaved = persist.saveToLocalStorage(original);
-                                }
-                                if (destinationId && sourceSaved) {
-                                    persist.removeFromLocalStorage(destinationId);
-                                }
-                                // If storage also rejects rollback, keep the saved destination as a recoverable backup.
                                 console.error('Failed to extract subtree:', err);
                                 showMessage(`提取子树失败: ${(err as Error).message}`, 5000, 'error');
                                 throw err;
                             }
                         },
                         onDeleteSubtree: async ({ rootId, leafIds }) => {
-                            let original: IChatSessionHistoryV2 | undefined;
-                            let sourceChanged = false;
                             try {
                                 if (session.loading()) throw new Error('回复生成中，不能删除对话树');
                                 const count = session.treeModel.validateSubtreeDeletion({ rootId, leafIds });
@@ -895,18 +885,17 @@ export const ChatSession: Component<{
                                         () => resolve(true), () => resolve(false));
                                 });
                                 if (!approved) return false;
-                                original = session.sessionHistory();
-                                if (!original) throw new Error('无法备份原对话，已取消删除');
-                                const deleted = session.deleteSubtree({ rootId, leafIds });
-                                sourceChanged = true;
-                                if (!persist.saveToLocalStorage(session.sessionHistory())) throw new Error('原对话无法写入本地存储，已取消删除');
+                                const deleted = commitSubtreeRemoval({
+                                    source: {
+                                        snapshot: session.sessionHistory,
+                                        remove: () => session.deleteSubtree({ rootId, leafIds }),
+                                        restore: session.applyHistory,
+                                    },
+                                    persistence: { save: persist.saveToLocalStorage, remove: persist.removeFromLocalStorage },
+                                });
                                 showMessage(`已删除 ${deleted} 个节点，公共路径已保留`);
                                 return true;
                             } catch (err) {
-                                if (sourceChanged && original) {
-                                    session.applyHistory(original);
-                                    persist.saveToLocalStorage(original);
-                                }
                                 showMessage(`删除子树失败: ${(err as Error).message}`, 5000, 'error');
                                 throw err;
                             }
