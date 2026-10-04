@@ -1,5 +1,6 @@
 import { showMessage } from "siyuan";
 import { checkSupportsModality } from "../setting";
+import { mergeOpenAIStreamToolCalls, parseOpenAIMessage, extractOpenAIDelta } from "./response-parse";
 import { type complete } from "./complete";
 
 // ============================================================================
@@ -319,39 +320,24 @@ export const adaptResponseReferences = (responseData: any): TReference[] | undef
 
 
 /**
- * 处理响应消息，提取内容、推理内容和工具调用
- * @param message 响应消息
- * @returns 处理后的消息
+ * 处理响应消息，提取内容、推理内容和工具调用。
+ * 实现已下沉到零依赖的 response-parse.ts（reasoning 字段提取 + 前缀 think 标签分区），此处仅转发。
  */
-export const adaptResponseMessage = (message: Record<string, string>): {
+export const adaptResponseMessage = (message: Record<string, any>): {
     content: string;
     reasoning_content?: string;
     tool_calls?: IToolCallResponse[];
 } => {
-    const result: any = {
-        content: message['content'] || '',
-        reasoning_content: ''
+    const parsed = parseOpenAIMessage(message);
+    return {
+        content: parsed.content,
+        reasoning_content: parsed.reasoning_content,
+        ...(parsed.tool_calls?.length ? { tool_calls: parsed.tool_calls as IToolCallResponse[] } : {}),
     };
-
-    // 处理 reasoning_content
-    if (message['reasoning_content']) {
-        result.reasoning_content = message['reasoning_content'];
-    } else if (message['reasoning']) {
-        result.reasoning_content = message['reasoning'];
-    } else if (message['reasoning_details']) {
-        result.reasoning_content = message['reasoning_details'];
-    }
-
-    // 处理 tool_calls
-    if (message['tool_calls']) {
-        result.tool_calls = message['tool_calls'];
-    }
-
-    return result;
 }
 
 /**
- * 处理流式响应的数据块
+ * 处理流式响应的数据块（不做 think 标签分区；分区在流式累积层进行）
  * @param messageInChoices 响应消息
  * @returns 处理后的消息
  */
@@ -360,7 +346,7 @@ export const adaptChunkMessage = (messageInChoices: Record<string, any>): {
     reasoning_content?: string;
     tool_calls?: IToolCallResponse[];
 } => {
-    return adaptResponseMessage(messageInChoices);
+    return extractOpenAIDelta(messageInChoices);
 }
 
 /**
@@ -385,28 +371,6 @@ export const adaptChunkMessage = (messageInChoices: Record<string, any>): {
 export const adaptToolCalls = (
     allChunks: any[][]
 ): IToolCallResponse[] => {
-    // console.log(allChunks)
-    const toolCallsMap = new Map<number, IToolCallResponse>();
-
-    // 先展开成一维数组
-    const flattenedChunks = allChunks.flat();
-
-    const toolCallIdNumber = flattenedChunks.filter(call => call.id).length;
-    if (toolCallIdNumber === flattenedChunks.length) {
-        //特殊情况：所有 chunk 都有 id，说明每个 chunk 都是完整的 tool call，不需要合并，直接返回
-        //某平台适配 gemini 格式不到位，返回了 chunck 格式和标准格式不同
-        return flattenedChunks;
-    }
-
-    for (const call of flattenedChunks) {
-        if (toolCallsMap.has(call.index)) {
-            // 合并参数
-            const existing = toolCallsMap.get(call.index);
-            existing.function.arguments += call.function.arguments;
-        } else {
-            toolCallsMap.set(call.index, { ...call });
-        }
-    }
-
-    return Array.from(toolCallsMap.values());
+    // 实现已下沉到零依赖的 response-parse.ts（便于离线单测），语义不变
+    return mergeOpenAIStreamToolCalls(allChunks);
 }

@@ -284,19 +284,38 @@ interface IChatCompleteOption {
 // ========================================
 // Response
 // ========================================
-interface ICompletionUsage {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
+/**
+ * 归一化的 usage 明细桶。
+ * 协议归一化语义（详见 openai/response-parse.ts 与 change 单元 reference/protocol-evidence.md）：
+ * - cached_tokens / cache_creation_tokens 均视为 prompt_tokens 的子集（Claude 原始计数是相加的，
+ *   归一化时已折算进 prompt_tokens，原始值保留在 providerMeta.claudeUsage）。
+ * - reasoning_tokens 视为 completion_tokens 的子集（Gemini 的 thoughtsTokenCount 原始计数不在
+ *   candidatesTokenCount 内，归一化时已折算进 completion_tokens）。
+ * - 未上报的字段保持 undefined，不伪造 0。
+ */
+interface ICompletionUsageDetails {
+    /** 保留提供方实际给出的其他标准数字明细字段（如 image_tokens、text_tokens、cache_write_tokens 等） */
+    [key: string]: number | undefined;
+}
 
-    //trivials
-    prompt_tokens_details?: {
+interface ICompletionUsage {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+
+    prompt_tokens_details?: ICompletionUsageDetails & {
+        /** 缓存读取 token */
         cached_tokens?: number;
+        /** 缓存写入 token（Claude cache_creation_input_tokens / OpenAI cache_write_tokens） */
+        cache_creation_tokens?: number;
         audio_tokens?: number;
     };
-    completion_tokens_details?: {
+    completion_tokens_details?: ICompletionUsageDetails & {
+        /** 推理（thinking/reasoning）token，completion_tokens 的子集 */
         reasoning_tokens?: number;
         audio_tokens?: number;
+        accepted_prediction_tokens?: number;
+        rejected_prediction_tokens?: number;
     };
 }
 
@@ -326,11 +345,7 @@ interface ICompletionUsage {
 interface ICompletionResult {
     ok?: boolean;
     content: string;
-    usage?: {
-        completion_tokens: number;
-        prompt_tokens: number;
-        total_tokens: number;
-    };
+    usage?: ICompletionUsage | null;
     reasoning_content?: string;
     references?: {
         title?: string;
@@ -597,11 +612,7 @@ interface IChatSessionMsgItem {
     // 通过 slice 可以 获取 user prompt, 而去掉 context prompt 部分
     userPromptSlice?: [number, number];
     token?: number;
-    usage?: {
-        completion_tokens: number;
-        prompt_tokens: number;
-        total_tokens: number;
-    };
+    usage?: ICompletionUsage;
     time?: {
         latency: number; // ms
         throughput?: number; // tokens/s

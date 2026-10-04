@@ -1,11 +1,12 @@
 import { showMessage } from 'siyuan';
 import { adpatInputMessage } from './adapter';
+import type { TStreamMsgCallback } from './response-parse';
 
 export interface CompleteOptions {
     model?: IRuntimeLLM;
     systemPrompt?: string;
     stream?: boolean;
-    streamMsg?: (msg: string, toolCalls?: IToolCallResponse[]) => void;
+    streamMsg?: TStreamMsgCallback;
     streamInterval?: number;
     option?: IChatCompleteOption;
     /** chatOptionToggles：toggle=false 的字段在 adapter 中被删除（不发送该参数） */
@@ -156,34 +157,13 @@ export const applyGeminiModelPlaceholder = (url: string, model: string): string 
     return url.replaceAll('{model}', encodeURIComponent(model));
 };
 
-export const parseJsonSafe = <T = any>(text: string, fallback: T = null as T): T => {
-    try {
-        return JSON.parse(text) as T;
-    } catch {
-        return fallback;
-    }
-};
+// parseJsonSafe 实现已下沉到零依赖的 response-parse.ts（便于离线单测），此处仅转发
+export { parseJsonSafe } from './response-parse';
 
 export const toErrorResult = (error: any): ICompletionResult => {
     return {
         ok: false,
         content: `[Error] ${error?.message || String(error)}`,
         usage: null,
-    };
-};
-
-export const toOpenAIUsage = (usage: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-} | null | undefined) => {
-    if (!usage) return null;
-    const prompt_tokens = usage.prompt_tokens || 0;
-    const completion_tokens = usage.completion_tokens || 0;
-    const total_tokens = usage.total_tokens || (prompt_tokens + completion_tokens);
-    return {
-        prompt_tokens,
-        completion_tokens,
-        total_tokens,
     };
 };

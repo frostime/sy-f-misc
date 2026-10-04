@@ -1,21 +1,11 @@
 import { defaultModelId, useModel } from "../model/store";
 import { appendLog } from "../MessageLogger";
-import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, TReference, userCustomizedPreprocessor, adaptChunkMessage, adaptResponseMessage, adaptToolCalls } from './adapter';
+import { adpatInputMessage, adaptChatOptions, adaptResponseReferences, userCustomizedPreprocessor } from './adapter';
+import { consumeOpenAIStream, parseOpenAINonStream } from './response-parse';
+import type { TStreamMsgCallback } from './response-parse';
 import { getProviderProtocol } from './protocol-utils';
 import { claudeComplete } from './claude-complete';
 import { geminiComplete } from './gemini-complete';
-
-interface StreamChunkData {
-    content: string;
-    reasoning_content: string;
-    references?: TReference[];
-    tool_calls?: IToolCallResponse[];
-    usage?: {
-        completion_tokens: number;
-        prompt_tokens: number;
-        total_tokens: number;
-    };
-}
 
 const buildReferencesText = (refers: ICompletionResult['references']) => {
     if (!refers) return '';
@@ -25,183 +15,25 @@ const buildReferencesText = (refers: ICompletionResult['references']) => {
 }
 
 /**
- * 处理流式响应的数据块
- */
-const handleStreamChunk = (line: string): (StreamChunkData | { usage: any }) | null => {
-    appendLog({ type: 'chunk', data: line });
-    if (line.includes('[DONE]') || !line.startsWith('data:')) {
-        return null;
-    }
-
-    try {
-        const responseData = JSON.parse(line.slice(5).trim());
-        if (responseData.error && !responseData.choices) {
-            const error = `**[Error]** \`\`\`json\n${JSON.stringify(responseData.error)}\`\`\``;
-            return {
-                content: error,
-                reasoning_content: ''
-            };
-        }
-
-        let result = {
-            content: '',
-            reasoning_content: '',
-            usage: null
-        };
-
-        if (responseData.usage) {
-            result['usage'] = responseData.usage;
-        }
-        result['references'] = adaptResponseReferences(responseData);
-
-        if (responseData.choices && responseData.choices.length > 0) {
-            const delta = responseData.choices[0].delta || {};
-            result = { ...result, ...adaptChunkMessage(delta) };
-        }
-        return result;
-    } catch (e) {
-        console.warn('Failed to parse stream data:', e);
-        return null;
-    }
-}
-
-/**
- * 处理流式响应
+ * 处理流式响应：解析委托给零依赖的 response-parse.consumeOpenAIStream（网络边界可 mock），
+ * 此处只负责引用文本注入。耗时/throughput/abort/error 均在 consumeOpenAIStream 内处理。
  */
 const handleStreamResponse = async (
     response: Response,
     options: NonNullable<Parameters<typeof complete>[1]> & { t0: number }
 ): Promise<ICompletionResult> => {
-    if (!response.body) {
-        throw new Error('Response body is null');
-    }
-
-    const responseContent: ICompletionResult = {
-        content: '',
-        reasoning_content: '',
-        usage: null,
-        time: {
-            latency: null,
-            throughput: null
-        },
-        tool_calls: [], // 初始化 tool_calls 数组
-    };
-
-    let references: TReference[] = null;
-
-
-    const transformStream = new TransformStream({
-        transform: (chunk: string, controller) => {
-            const lines = chunk.split('\n').filter(line => line.trim() !== '');
-            for (const line of lines) {
-                const result = handleStreamChunk(line);
-                if (result) {
-                    controller.enqueue(result);
-                }
-            }
-        }
+    const result = await consumeOpenAIStream(response, {
+        streamMsg: options.streamMsg,
+        abortController: options.abortController,
+        t0: options.t0,
+        extractReferences: adaptResponseReferences,
+        onRawEvent: (data) => appendLog({ type: 'chunk', data }),
     });
 
-    const stream = response.body
-        .pipeThrough(new TextDecoderStream())
-        .pipeThrough(transformStream);
-
-    const reader = stream.getReader();
-    const checkAbort = options?.abortController?.signal
-        ? () => options.abortController.signal.aborted
-        : () => false;
-
-    let t1 = null;
-
-    // 收集所有原始的 tool_calls chunks，最后统一合并
-    const allToolCallsChunks: any[][] = [];
-
-    try {
-        while (true) {
-            const readResult = await reader.read();
-            if (!t1) t1 = new Date().getTime();
-            if (readResult.done) break;
-
-            if (checkAbort()) {
-                await reader.cancel();
-                responseContent.content += `\n **[Error]** Request aborted`;
-                break;
-            }
-
-            // Check if this chunk contains usage data
-            if ('usage' in readResult.value && readResult.value.usage) {
-                responseContent.usage = readResult.value.usage;
-                // continue;
-            }
-
-            const { content, reasoning_content, tool_calls } = readResult.value as StreamChunkData;
-
-            // 更新内容
-            if (content) {
-                responseContent.content += content;
-            }
-
-            // 更新推理内容
-            if (reasoning_content) {
-                responseContent.reasoning_content += reasoning_content;
-            }
-
-            // 收集原始 tool_calls chunks
-            if (tool_calls) {
-                allToolCallsChunks.push(tool_calls);
-            }
-
-            // 构建流式消息
-            let streamingMsg = '';
-            if (responseContent.reasoning_content) {
-                streamingMsg += `<think>\n${responseContent.reasoning_content}\n</think>\n`;
-            }
-            if (responseContent.content) {
-                streamingMsg += responseContent.content;
-            }
-
-            // 调用回调
-            options.streamMsg?.(streamingMsg);
-
-            // 引用
-            const refers = adaptResponseReferences(readResult.value as StreamChunkData);
-            if (refers) {
-                references = references || [];
-                // 只添加不存在的引用，保持原有顺序
-                for (const ref of refers) {
-                    if (!references.some(existing => existing.url === ref.url)) {
-                        references.push(ref);
-                    }
-                }
-            }
-        }
-    } catch (error) {
-        responseContent.content += `\n **[Error]** ${error}`;
-        responseContent.ok = false;
+    if (result.references?.length) {
+        result.content += '\n\n' + buildReferencesText(result.references);
     }
-    let t2 = new Date().getTime();
-
-    // 循环结束后，统一合并所有 tool_calls chunks
-    if (allToolCallsChunks.length > 0) {
-        responseContent.tool_calls = adaptToolCalls(allToolCallsChunks);
-    }
-
-    responseContent['time'] = {
-        latency: t1 - options.t0,
-    }
-
-    if (responseContent['usage']?.completion_tokens) {
-        const completion_tokens = responseContent['usage'].completion_tokens;
-        const seconds = (t2 - t1) / 1000;
-        responseContent['time'].throughput = completion_tokens / seconds;
-    }
-
-    if (references && references.length) {
-        // responseContent.references = references;
-        responseContent.content += '\n\n' + buildReferencesText(references);
-    }
-
-    return responseContent;
+    return result;
 }
 
 /**
@@ -209,8 +41,6 @@ const handleStreamResponse = async (
  */
 const handleNormalResponse = async (response: Response, options: { t0: number }): Promise<ICompletionResult> => {
     const data = await response.json();
-    const t1 = new Date().getTime();
-    const latency = t1 - options.t0;
 
     appendLog({ type: 'response', data });
     if (data.error && !data.data) {
@@ -222,23 +52,29 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
         };
     }
 
-    // 使用适配器处理消息
-    let results = adaptResponseMessage(data.choices[0].message) as ICompletionResult;
-    results.usage = data.usage;
+    if (!data.choices?.[0]?.message) {
+        return {
+            usage: null,
+            content: `[Error] Unexpected response shape: missing choices[0].message\n${JSON.stringify(data).slice(0, 2000)}`,
+            ok: false
+        };
+    }
 
-    // 处理引用
-    let references = adaptResponseReferences(data);
-    if (references && references.length) {
-        // results.references = data.references;
-        results.content += '\n\n' + buildReferencesText(references);
+    const results = parseOpenAINonStream(data, { extractReferences: adaptResponseReferences });
+
+    if (results.references?.length) {
+        results.content += '\n\n' + buildReferencesText(results.references);
     }
+
+    const t1 = new Date().getTime();
     results['time'] = {
-        latency
+        latency: t1 - options.t0
     }
-    if (data.usage?.completion_tokens) {
-        const completion_tokens = data.usage.completion_tokens;
-        const seconds = completion_tokens / 1000;
-        results['time'].throughput = completion_tokens / seconds;
+    // throughput = completion_tokens / 实际耗时（秒）；请求耗时缺失时不计算，不伪造数值
+    const completionTokens = results.usage?.completion_tokens;
+    const elapsedSeconds = (t1 - options.t0) / 1000;
+    if (completionTokens && elapsedSeconds > 0) {
+        results['time'].throughput = completionTokens / elapsedSeconds;
     }
 
     results['ok'] = true;
@@ -247,11 +83,12 @@ const handleNormalResponse = async (response: Response, options: { t0: number })
 }
 
 
+
 export const complete = async (input: string | IMessage[], options?: {
     model?: IRuntimeLLM,
     systemPrompt?: string,
     stream?: boolean,
-    streamMsg?: (msg: string, toolCalls?: IToolCallResponse[]) => void,
+    streamMsg?: TStreamMsgCallback,
     streamInterval?: number,
     option?: IChatCompleteOption
     /** chatOptionToggles：toggle=false 的字段在 adapter 中被删除 */

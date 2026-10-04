@@ -1,6 +1,7 @@
 import { appendLog } from '../MessageLogger';
 import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adapter';
-import { buildProtocolHeaders, CompleteOptions, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult, toOpenAIUsage } from './protocol-utils';
+import { buildProtocolHeaders, CompleteOptions, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult } from './protocol-utils';
+import { consumeClaudeStream, parseClaudeResponse } from './response-parse';
 
 const pushClaudeMessage = (messages: IClaudeMessage[], role: IClaudeMessage['role'], blocks: ClaudeContentBlock[]) => {
     if (!blocks.length) return;
@@ -195,186 +196,6 @@ const buildClaudePayload = (
     return payload;
 };
 
-const parseClaudeMessage = (message: IClaudeResponse): ICompletionResult => {
-    const contentBlocks = message?.content || [];
-    const textParts: string[] = [];
-    const thinkingParts: string[] = [];
-    const tool_calls: IToolCall[] = [];
-
-    contentBlocks.forEach((block: any, index: number) => {
-        if (block.type === 'text') {
-            textParts.push(block.text || '');
-            return;
-        }
-        if (block.type === 'thinking') {
-            thinkingParts.push(block.thinking || '');
-            return;
-        }
-        if (block.type === 'tool_use') {
-            tool_calls.push({
-                id: block.id || `claude_call_${index}`,
-                type: 'function',
-                function: {
-                    name: block.name || 'tool',
-                    arguments: JSON.stringify(block.input || {}),
-                },
-            });
-        }
-    });
-
-    const usage = toOpenAIUsage({
-        prompt_tokens: message?.usage?.input_tokens,
-        completion_tokens: message?.usage?.output_tokens,
-        total_tokens: (message?.usage?.input_tokens || 0) + (message?.usage?.output_tokens || 0),
-    });
-
-    return {
-        ok: true,
-        content: textParts.join(''),
-        usage,
-        tool_calls,
-        reasoning_content: thinkingParts.length > 0 ? thinkingParts.join('') : undefined,
-        providerMeta: {
-            stop_reason: message?.stop_reason,
-        }
-    };
-};
-
-const parseClaudeStream = async (response: Response, options: CompleteOptions): Promise<ICompletionResult> => {
-    if (!response.body) {
-        return {
-            ok: false,
-            content: '[Error] Claude stream response body is null',
-            usage: null,
-        };
-    }
-
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = '';
-
-    let content = '';
-    let thinking = '';
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let stopReason = '';
-    const toolCallsById = new Map<string, IToolCall>();
-    const toolIndexToId = new Map<number, string>();
-    const thinkingIndexes = new Set<number>();  // indexes of 'thinking' content blocks
-
-    const parseEventBlock = (eventBlock: string) => {
-        // Claude stream uses SSE-like framing: each event contains one JSON payload in `data:` lines.
-        const lines = eventBlock.split('\n');
-        const dataLines = lines
-            .filter((line) => line.startsWith('data:'))
-            .map((line) => line.slice(5).trim())
-            .filter(Boolean);
-        if (!dataLines.length) return;
-
-        const rawData = dataLines.join('\n');
-        if (rawData === '[DONE]') return;
-
-        const payload = parseJsonSafe<any>(rawData, null);
-        if (!payload) return;
-        appendLog({ type: 'chunk', data: payload });
-
-        if (payload.type === 'message_start') {
-            inputTokens = payload.message?.usage?.input_tokens || 0;
-            outputTokens = payload.message?.usage?.output_tokens || 0;
-            return;
-        }
-
-        if (payload.type === 'message_delta') {
-            stopReason = payload.delta?.stop_reason || stopReason;
-            outputTokens = payload.usage?.output_tokens || outputTokens;
-            return;
-        }
-
-        if (payload.type === 'content_block_start') {
-            const idx = payload.index;
-            const block = payload.content_block;
-            if (block?.type === 'thinking') {
-                thinkingIndexes.add(idx);
-            }
-            if (block?.type === 'tool_use') {
-                const id = block.id || `claude_call_${idx}`;
-                toolIndexToId.set(idx, id);
-                toolCallsById.set(id, {
-                    id,
-                    index: idx,
-                    type: 'function',
-                    function: {
-                        name: block.name || 'tool',
-                        // Fix C: initialize to '' (not JSON.stringify({})), so delta appends work correctly
-                        arguments: Object.keys(block.input || {}).length > 0 ? JSON.stringify(block.input) : '',
-                    }
-                });
-            }
-            return;
-        }
-
-        if (payload.type === 'content_block_delta') {
-            const delta = payload.delta || {};
-            if (delta.type === 'text_delta') {
-                content += delta.text || '';
-                options.streamMsg?.(content);
-                return;
-            }
-            if (delta.type === 'thinking_delta') {
-                thinking += delta.thinking || '';
-                return;
-            }
-            if (delta.type === 'input_json_delta') {
-                const id = toolIndexToId.get(payload.index);
-                if (!id) return;
-                const toolCall = toolCallsById.get(id);
-                if (!toolCall) return;
-                // Fix C: unconditional append — no special-casing of '{}' or 'null'
-                toolCall.function.arguments += (delta.partial_json || '');
-            }
-        }
-    };
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        if (options.abortController?.signal?.aborted) {
-            await reader.cancel();
-            return {
-                ok: false,
-                content: `${content}\n[Error] Request aborted`,
-                usage: null,
-            };
-        }
-
-        buffer += value;
-        const events = buffer.split('\n\n');
-        buffer = events.pop() || '';
-        events.forEach(parseEventBlock);
-    }
-
-    if (buffer.trim()) {
-        parseEventBlock(buffer);
-    }
-
-    const usage = toOpenAIUsage({
-        prompt_tokens: inputTokens,
-        completion_tokens: outputTokens,
-        total_tokens: inputTokens + outputTokens,
-    });
-
-    return {
-        ok: true,
-        content,
-        usage,
-        tool_calls: Array.from(toolCallsById.values()),
-        reasoning_content: thinking || undefined,
-        providerMeta: {
-            stop_reason: stopReason,
-        }
-    };
-};
-
 export const claudeComplete = async (
     input: string | IMessage[],
     options: CompleteOptions
@@ -411,6 +232,7 @@ export const claudeComplete = async (
 
         appendLog({ type: 'request', data: payload });
 
+        const t0 = new Date().getTime();
         const response = await fetch(runtimeLLM.url, {
             method: 'POST',
             headers: buildProtocolHeaders('claude', runtimeLLM, Boolean(chatOption.stream)),
@@ -429,12 +251,19 @@ export const claudeComplete = async (
         }
 
         if (chatOption.stream) {
-            return parseClaudeStream(response, options);
+            return consumeClaudeStream(response, {
+                streamMsg: options.streamMsg,
+                abortController: options.abortController,
+                onRawEvent: (data) => appendLog({ type: 'chunk', data }),
+                t0,
+            });
         }
 
         const data = await response.json() as IClaudeResponse;
         appendLog({ type: 'response', data });
-        return parseClaudeMessage(data);
+        const result = parseClaudeResponse(data);
+        result.time = { latency: new Date().getTime() - t0 };
+        return result;
     } catch (error) {
         return toErrorResult(error);
     }
