@@ -10,6 +10,7 @@ import { Component, createSignal, Show } from 'solid-js';
 import { inputDialog } from '@frostime/siyuan-plugin-kits';
 import { ToolExecuteStatus } from '@gpt/tools/types';
 import styles from './ToolChainTimeline.module.scss';
+import { describeUsage } from './usage-display';
 
 export interface ToolCallEntry {
     callId: string;
@@ -26,11 +27,7 @@ export interface ToolCallEntry {
     roundIndex: number;
     resultRejected?: boolean;
     resultRejectReason?: string;
-    llmUsage?: {
-        prompt_tokens: number;
-        completion_tokens: number;
-        total_tokens: number;
-    };
+    llmUsage?: ICompletionUsage;
 }
 
 interface ToolCallRowProps {
@@ -150,9 +147,7 @@ const ToolCallRow: Component<ToolCallRowProps> = (props) => {
                         <div class={styles.tokenInfo}>
                             <span class={styles.tokenLabel}>Token:</span>
                             <span class={styles.tokenValue}>
-                                总计 {entry().llmUsage.total_tokens} =
-                                输入 {entry().llmUsage.prompt_tokens} +
-                                输出 {entry().llmUsage.completion_tokens}
+                                {describeUsage(entry().llmUsage).summary.replace('Token: ', '')}
                             </span>
                         </div>
                     </Show>

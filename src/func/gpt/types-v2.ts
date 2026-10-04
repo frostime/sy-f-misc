@@ -78,11 +78,7 @@ interface IMessagePayload {
             resultRejected?: boolean;
             resultRejectReason?: string;
             // 本轮的 token 使用情况（如果有）
-            llmUsage?: {
-                prompt_tokens: number;
-                completion_tokens: number;
-                total_tokens: number;
-            };
+            llmUsage?: ICompletionUsage;
         }[];
         // 执行统计
         stats: {

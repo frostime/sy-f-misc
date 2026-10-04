@@ -14,6 +14,8 @@ import styles from './MessageItem.module.scss';
 import AttachmentList from './AttachmentList';
 import { useSimpleContext } from '../ChatSession/use-chat-session';
 import MessageVersionView from './MessageVersionView';
+import UsageDetails from './UsageDetails';
+import { describeUsage } from './usage-display';
 import ToolChainIndicator from './ToolChainIndicator';
 import StandardTurnView from './StandardTurnView';
 import TurnEditPanel, { TurnEdits } from './TurnEditPanel';
@@ -466,10 +468,12 @@ const MessageItem: Component<{
         // }
         const usage = getPayload(props.messageItem, 'usage');
         if (usage) {
+            const display = describeUsage(usage);
             submenus.push({
-                label: `Token: ${usage.total_tokens} ↑ ${usage.prompt_tokens} ↓ ${usage.completion_tokens}`,
-                type: 'readonly'
-            })
+                label: display.summary,
+                type: 'submenu',
+                submenu: display.rows.map(row => ({ label: `${row.label}: ${row.value}`, type: 'readonly' })),
+            });
         }
 
         menu.addItem({
@@ -729,7 +733,7 @@ const MessageItem: Component<{
 
         return (
             <Show when={reasoningContent()}>
-                <details class={styles.reasoningDetails}>
+                <details class={styles.reasoningDetails} open={props.messageItem.loading}>
                     <summary>
                         推理过程
                         <button
@@ -780,11 +784,7 @@ const MessageItem: Component<{
                     <span data-label="attachedItems">
                         {attachedText()}
                     </span>
-                    <Show when={getPayload(props.messageItem, 'usage')}>
-                        <span data-label="token">
-                            Token: {getPayload(props.messageItem, 'usage')?.total_tokens} ({getPayload(props.messageItem, 'usage')?.prompt_tokens}↑ {getPayload(props.messageItem, 'usage')?.completion_tokens}↓)
-                        </span>
-                    </Show>
+                    <UsageDetails usage={getPayload(props.messageItem, 'usage')} />
 
                     <Show when={getPayload(props.messageItem, 'time')}>
                         <span data-label="time">
