@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>对话树 · 选择集合原型</title>
+<style>
+:root { color-scheme:light; --ink:#202735; --muted:#677588; --line:#e1e6ee; --blue:#2868d7; --soft:#edf4ff; --amber:#906019; --amber-bg:#fff6e7; --danger:#b93545; }
+* { box-sizing:border-box; } body { margin:0; background:#f3f5f8; color:var(--ink); font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif; }
+button { font:inherit; cursor:pointer; background:white; border:1px solid #d5dce7; border-radius:7px; color:inherit; padding:8px 12px; }
+button:hover:not(:disabled) { background:#f5f8fe; } button:disabled { cursor:not-allowed; opacity:.45; }
+button:focus-visible { outline:3px solid #98baff; outline-offset:3px; } button.primary { background:var(--blue); border-color:var(--blue); color:white; }
+button.primary:hover:not(:disabled) { background:#205bbe; } button.danger { color:var(--danger); border-color:#e7bbc0; }
+button.quiet { background:none; border-color:transparent; padding:3px 6px; color:var(--blue); } button.small { padding:4px 8px; font-size:12px; }
+h1,h2,h3,p { margin:0; } h1 { font-size:22px; } h2 { font-size:17px; } h3 { font-size:14px; }
+.muted { color:var(--muted); } .helper { font-size:12px; color:var(--muted); line-height:1.65; } .row { display:flex; align-items:center; gap:8px; } .between { justify-content:space-between; } .stack { display:grid; gap:9px; }
+.page { max-width:1500px; margin:auto; padding:18px 22px; } .intro { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:13px; }
+.intro p { margin-top:4px; color:var(--muted); } .tag { font-size:12px; background:#e8ecf3; padding:5px 10px; border-radius:20px; color:#596579; white-space:nowrap; }
+.review { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:10px 12px; background:#eef0f4; border:1px dashed #c6ceda; border-radius:9px; margin-bottom:13px; }
+.review button { padding:5px 9px; font-size:12px; } .review button.active { color:var(--blue); border-color:#8dafea; background:white; } .review span { color:#637087; font-size:12px; }
+.workspace { border:1px solid var(--line); border-radius:12px; background:white; overflow:hidden; box-shadow:0 5px 22px #15254008; }
+.workspace-header { padding:13px 18px; border-bottom:1px solid var(--line); } .layout { display:grid; grid-template-columns:minmax(0,1fr) 360px; min-height:690px; }
+.tree-area { min-width:0; display:flex; flex-direction:column; } .instruction { padding:10px 16px; background:#f8faff; color:#49607c; border-bottom:1px solid #edf0f5; min-height:42px; }
+.viewport { overflow:auto; flex:1; background-image:radial-gradient(#e5e9f1 .7px,transparent .7px); background-size:16px 16px; } .canvas { position:relative; width:880px; height:650px; margin:auto; }
+.edges { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; } .edge { stroke:#d7dee8; stroke-width:2; fill:none; } .edge.chosen { stroke:#6f9ce9; stroke-width:3; } .edge.keep { stroke:#cda465; stroke-width:3; }
+.node { position:absolute; width:184px; height:75px; border:1.5px solid #d7dee8; border-radius:9px; background:white; box-shadow:0 2px 5px #253b5608; }
+.node.chosen { border:2px solid #5489e0; background:var(--soft); } .node.keep { border:2px solid #c59a57; background:var(--amber-bg); } .node.viewed { box-shadow:0 0 0 3px #9cbcf94d; }
+.node-body { width:100%; height:100%; padding:7px 10px; border:0; border-radius:8px; background:transparent; text-align:left; } .node-body:hover:not(:disabled) { background:#ecf2ff88; }
+.node-top { display:flex; align-items:center; gap:6px; height:17px; padding-right:22px; font-size:11px; color:var(--muted); }
+.role { color:#237450; } .role.assistant { color:#2868d7; } .world-dot { width:7px; height:7px; border-radius:50%; background:#8fabd6; display:inline-block; }
+.preview { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; margin-top:3px; } .flags { display:flex; gap:5px; margin-top:3px; min-height:14px; font-size:10px; }
+.flag { border-radius:3px; padding:0 4px; background:#e2eafa; color:#3c62a0; } .flag.keep { background:#f1dfbf; color:#896020; }
+.node-more { position:absolute; top:4px; right:5px; width:25px; height:23px; border:0; background:transparent; color:#50678d; padding:0; border-radius:4px; font-size:18px; }
+.sidebar { border-left:1px solid var(--line); display:flex; flex-direction:column; min-width:0; } .side-header { padding:15px 18px; border-bottom:1px solid var(--line); }
+.side-body { padding:16px 18px; display:grid; gap:15px; align-content:start; flex:1; } .section { display:grid; gap:9px; }
+.summary { padding:13px; background:#f8f9fc; border:1px solid var(--line); border-radius:8px; } .count { font-size:25px; font-weight:600; line-height:1.3; }
+.status { font-size:12px; padding:3px 6px; background:#eaf2ff; color:#496a9c; border-radius:4px; }
+.operation { border:1px solid var(--line); border-radius:8px; padding:10px 11px; display:grid; gap:5px; } .operation h3 { font-size:13px; } .available { font-size:11px; color:#317152; } .blocked { font-size:11px; color:var(--amber); }
+.warning { padding:10px 11px; background:var(--amber-bg); border:1px solid #e2c38f; color:#80591f; border-radius:7px; font-size:12px; }
+.repair { display:grid; gap:7px; padding:10px 11px; border:1px dashed #a5bfeb; background:#f8fbff; border-radius:7px; }
+.metrics { display:grid; gap:6px; padding-top:10px; border-top:1px solid var(--line); } .metric { display:flex; justify-content:space-between; gap:10px; font-size:12px; }
+.side-footer { border-top:1px solid var(--line); padding:14px 18px; display:grid; gap:8px; background:#fcfdff; } .actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.legend { border-top:1px solid var(--line); padding:10px 17px; display:flex; gap:18px; flex-wrap:wrap; align-items:center; font-size:11px; color:var(--muted); }
+.legend-key { display:flex; align-items:center; gap:6px; } .swatch { width:12px; height:12px; border:1px solid #5489e0; border-radius:3px; background:var(--soft); } .swatch.keep { border-color:#c59a57; background:var(--amber-bg); }
+.baseline-block { border-top:1px solid var(--line); padding:15px 18px; background:#f7f7f7; display:grid; gap:9px; }
+.node-menu { position:fixed; z-index:30; width:294px; max-width:calc(100vw - 24px); border:1px solid #cfd8e6; border-radius:9px; padding:7px; background:white; box-shadow:0 9px 34px #1834522d; }
+.node-menu[hidden] { display:none; } .menu-title { padding:5px 8px 8px; color:#637087; font-size:12px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+.node-menu button { display:block; width:100%; border:0; text-align:left; padding:8px; border-radius:5px; font-size:13px; } .node-menu .sub { display:block; color:var(--muted); font-size:11px; margin-top:1px; }
+.menu-separator { border-top:1px solid var(--line); margin:5px 0; } #notice { min-height:22px; margin-top:7px; color:#45617e; font-size:12px; }
+.review-note { margin-top:6px; color:var(--muted); font-size:12px; } dialog { border:1px solid var(--line); border-radius:12px; width:min(850px,92vw); padding:0; color:var(--ink); box-shadow:0 18px 80px #15254040; }
+dialog::backdrop { background:#14243b66; } .dialog-header { padding:16px 20px; border-bottom:1px solid var(--line); } .dialog-body { padding:20px; max-height:68vh; overflow:auto; }
+.dialog-footer { padding:12px 20px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; } .outcomes { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:15px; }
+.outcome { border:1px solid var(--line); border-radius:8px; padding:12px; } .outcome ul { list-style:none; padding:0; margin:10px 0 0; } .outcome li { font-size:12px; padding:5px 0 5px calc(var(--depth)*12px); border-bottom:1px solid #edf0f5; }
+@media(max-width:1000px) { .page { padding:12px; } .layout { grid-template-columns:minmax(0,1fr) 340px; } }
+@media(max-width:720px) { .layout { grid-template-columns:1fr; } .sidebar { border-left:0; border-top:1px solid var(--line); } .viewport { max-height:500px; } .outcomes { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="intro"><div><h1>对话树：自由选择，再决定怎么处理</h1><p>单击增选 / 取消一个节点；节点菜单处理整棵加入、整棵排除和连接路径。</p></div><span class="tag">交互原型 · 模拟数据</span></header>
+  <nav class="review" aria-label="原型评审场景"><span>对照</span><button data-view="baseline">现状示意</button><button data-view="proposal">集合选择方案</button><span style="margin-left:10px">体验场景</span><button data-scene="browse">浏览 / 进入选择</button><button data-scene="whole">完整子树</button><button data-scene="shared">连通路径</button><button data-scene="forest">不相连的区域</button><button data-scene="unsafe">中间节点</button><button data-scene="menu">节点菜单</button></nav>
+  <section class="workspace">
+    <header class="workspace-header row between"><div class="row"><h2>对话树</h2><span class="helper">番茄钟设计讨论</span></div><div class="row"><span class="helper">12 个消息节点</span><button id="mode-button" class="primary" data-command="toggle-mode">进入选择模式</button></div></header>
+    <div class="layout"><main class="tree-area"><div class="instruction" id="instruction"></div><div class="viewport"><div class="canvas"><svg class="edges" id="edges" aria-hidden="true"></svg><div id="nodes"></div></div></div></main><aside class="sidebar" id="sidebar" aria-label="节点查看或选择集合"></aside></div>
+    <footer class="legend" id="legend"></footer>
+  </section>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <p class="review-note">仅评审交互：未接入保存、真实删除或会话切换。结构对应的操作权限也是待评审方案，特别是多个独立区域的处理；树图样式为示意。</p>
+</div>
+<div class="node-menu" id="node-menu" hidden role="group" aria-label="节点范围操作"></div>
+<dialog id="dialog" aria-labelledby="dialog-title"><header class="dialog-header row between"><h2 id="dialog-title"></h2><button data-command="close-dialog" class="quiet" aria-label="关闭">✕</button></header><div class="dialog-body" id="dialog-body"></div><footer class="dialog-footer" id="dialog-footer"></footer></dialog>
+<script>
+// Disposable prototype: a local selection set, not a production tree implementation.
+const SAMPLE = [
+  { id:'R', parent:null, role:'user', title:'一起设计一个番茄钟', x:440, y:25 },
+  { id:'A', parent:'R', role:'assistant', title:'先确定核心流程', x:440, y:125, versions:2 },
+  { id:'B', parent:'A', role:'user', title:'先做桌面版本', x:250, y:235 },
+  { id:'C', parent:'A', role:'user', title:'换成手机版', x:660, y:235 },
+  { id:'D', parent:'B', role:'assistant', title:'桌面版交互草稿', x:250, y:335, versions:3 },
+  { id:'I', parent:'C', role:'assistant', title:'手机版交互草稿', x:660, y:335 },
+  { id:'E', parent:'D', role:'user', title:'补充快捷键', x:130, y:445 },
+  { id:'G', parent:'D', role:'user', title:'加入统计页', x:380, y:445 },
+  { id:'J', parent:'I', role:'user', title:'考虑离线提醒', x:660, y:445 },
+  { id:'F', parent:'E', role:'assistant', title:'快捷键方案', x:130, y:550 },
+  { id:'H', parent:'G', role:'assistant', title:'统计页草稿', x:380, y:550 },
+  { id:'K', parent:'J', role:'assistant', title:'离线提醒方案', x:660, y:550 },
+];
+const byId = Object.fromEntries(SAMPLE.map(node => [node.id,node]));
+const childrenOf = id => SAMPLE.filter(node => node.parent === id).map(node => node.id);
+const worldLine = new Set(['R','A','B','D','E','F']);
+const state = { view:'proposal', scene:'browse', phase:'browse', viewed:'D', selected:new Set(), menuNode:null, legacyRoot:'A', legacyEnds:['F'] };
+const labels = { copy:'复制为新对话', cut:'剪切为新对话', delete:'仅从原对话删除' };
+const escapeText = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const roleLabel = node => node.role === 'user' ? '用户' : '助手';
+
+function ancestors(id) {
+  const result = [];
+  for (let current = id; current; current = byId[current].parent) result.push(current);
+  return result;
+}
+function descendants(root) {
+  const result = new Set();
+  const visit = id => { result.add(id); childrenOf(id).forEach(visit); };
+  visit(root);
+  return result;
+}
+function connectingClosure(ids) {
+  const selected = new Set(ids);
+  if (!selected.size) return selected;
+  const paths = [...selected].map(ancestors);
+  const common = paths[0].find(id => paths.every(path => path.includes(id)));
+  for (const path of paths) {
+    for (const id of path) { selected.add(id); if (id === common) break; }
+  }
+  return selected;
+}
+function evaluateSelection(ids) {
+  const selected = new Set(ids);
+  const roots = [...selected].filter(id => !selected.has(byId[id].parent));
+  const complete = roots.every(root => [...descendants(root)].every(id => selected.has(id)));
+  const protectedIds = new Set();
+  const removable = new Set();
+  const unsafeEnds = [...selected].filter(id => childrenOf(id).length && !childrenOf(id).some(child => selected.has(child)));
+  // A set has no parent-first click order; inspect deepest nodes before their ancestors.
+  for (const id of [...selected].sort((a,b) => ancestors(b).length-ancestors(a).length)) {
+    if (childrenOf(id).some(child => !selected.has(child) || protectedIds.has(child))) protectedIds.add(id);
+    else removable.add(id);
+  }
+  const canCopy = selected.size > 0 && roots.length === 1;
+  const canDelete = selected.size > 0 && !unsafeEnds.length && removable.size > 0;
+  let shape = '尚未选择';
+  if (selected.size) shape = complete ? roots.length === 1 ? '一棵完整子树' : `${roots.length} 棵完整子树` : roots.length === 1 ? '连通的路径 / 部分分支' : '不相连的选区';
+  const additions = [...connectingClosure(selected)].filter(id => !selected.has(id));
+  return { selected, roots, shape, protectedIds, removable, unsafeEnds, additions, canCopy, canDelete, canCut:canCopy && canDelete };
+}
+function preset(scene) {
+  Object.assign(state, { scene, viewed:'D', phase:scene === 'browse' ? 'browse' : 'select', selected:new Set(), menuNode:null });
+  if (scene === 'whole') state.selected = descendants('D');
+  if (scene === 'shared') state.selected = new Set(['F','E','D','B','A']);
+  if (scene === 'forest' || scene === 'menu') state.selected = new Set(['F','H']);
+  if (scene === 'unsafe') state.selected = new Set(['B']);
+  if (scene === 'menu') state.menuNode = 'D';
+}
+function legacySelection() {
+  if (!state.legacyEnds.length) return descendants(state.legacyRoot);
+  const selected = new Set();
+  for (const endpoint of state.legacyEnds) {
+    const path = ancestors(endpoint);
+    const end = path.indexOf(state.legacyRoot);
+    if (end >= 0) path.slice(0,end+1).forEach(id => selected.add(id));
+  }
+  return selected;
+}
+
+function render() {
+  const baseline = state.view === 'baseline';
+  const operating = baseline || state.phase === 'select';
+  const selected = baseline ? legacySelection() : state.selected;
+  const preview = evaluateSelection(selected);
+  const modeButton = document.getElementById('mode-button');
+  modeButton.hidden = baseline;
+  modeButton.textContent = operating ? '退出选择' : '进入选择模式';
+  modeButton.className = operating ? '' : 'primary';
+  document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active',button.dataset.view === state.view));
+  document.querySelectorAll('[data-scene]').forEach(button => { button.classList.toggle('active',button.dataset.scene === state.scene); button.disabled = baseline; });
+  document.getElementById('instruction').textContent = baseline ? '现状示意：单击既更新节点详情，又修改路径终点；右侧同时保留旧入口和新操作面板。' : operating ? '选择模式：单击只增选 / 取消这个节点。整棵加入、整棵排除等操作在节点 ⋯ 菜单中。' : '浏览模式：点击查看节点详情。需要整理对话时，先点击右上方“进入选择模式”。';
+  document.getElementById('edges').innerHTML = SAMPLE.filter(node => node.parent).map(node => {
+    const parent = byId[node.parent];
+    const chosen = operating && selected.has(node.id) && selected.has(parent.id);
+    const keep = chosen && preview.protectedIds.has(node.id) && preview.protectedIds.has(parent.id);
+    return `<path class="edge ${chosen ? 'chosen' : ''} ${keep ? 'keep' : ''}" d="M ${parent.x} ${parent.y+75} C ${parent.x} ${parent.y+100}, ${node.x} ${node.y-25}, ${node.x} ${node.y}"/>`;
+  }).join('');
+  document.getElementById('nodes').innerHTML = SAMPLE.map(node => {
+    const chosen = operating && selected.has(node.id);
+    const keep = chosen && preview.protectedIds.has(node.id);
+    const flags = `${chosen ? '<span class="flag">已选 ✓</span>' : ''}${keep ? '<span class="flag keep">需在原树保留</span>' : ''}${baseline && node.id === state.legacyRoot ? '<span class="flag">Root</span>' : ''}`;
+    return `<article class="node ${chosen ? 'chosen' : ''} ${keep ? 'keep' : ''} ${!operating && node.id === state.viewed ? 'viewed' : ''}" data-card="${node.id}" style="left:${node.x-92}px;top:${node.y}px">
+      <button class="node-body" data-node="${node.id}" aria-label="${operating ? chosen ? '取消选择' : '选择' : '查看'}：${escapeText(node.title)}" aria-pressed="${chosen}"><div class="node-top"><span class="role ${node.role}">${roleLabel(node)}</span>${worldLine.has(node.id) ? '<span class="world-dot" title="当前分支"></span>' : ''}${node.versions ? `<span>${node.versions} 版本</span>` : ''}</div><div class="preview">${escapeText(node.title)}</div><div class="flags">${flags}</div></button>
+      <button class="node-more" data-more="${node.id}" title="${operating && !baseline ? '节点范围操作' : '查看内容'}" aria-label="${escapeText(node.title)}：${operating && !baseline ? '范围操作' : '查看内容'}">${operating && !baseline ? '⋯' : 'ⓘ'}</button></article>`;
+  }).join('');
+  document.getElementById('sidebar').innerHTML = baseline ? baselineSidebar(preview) : operating ? selectionSidebar(preview) : browsingSidebar();
+  document.getElementById('legend').innerHTML = operating ? '<span class="legend-key"><span class="swatch"></span>已选节点</span><span class="legend-key"><span class="swatch keep"></span>已选 · 仍被未选内容依赖</span><span>未选节点仍可随时点击加入</span>' : '<span class="legend-key"><span class="world-dot"></span>当前分支</span><span>节点卡片和布局是示意，不作为正式样式定案</span>';
+  renderMenu();
+}
+function browsingSidebar() {
+  const node = byId[state.viewed];
+  return `<header class="side-header"><h2>节点详情</h2></header><div class="side-body"><section class="section"><div class="row between"><span class="role ${node.role}">${roleLabel(node)}</span><span class="helper">${node.versions || 1} 个版本</span></div><h3>${escapeText(node.title)}</h3><p class="muted">这是一条示例消息。浏览时不会更改选择集合。</p></section><section class="section"><h3>所在位置</h3><p class="helper">${node.parent ? '上条消息：'+escapeText(byId[node.parent].title) : '对话起点'}<br>后续分支：${childrenOf(node.id).length} 个</p></section><button data-inspect="${node.id}">查看内容</button><button data-command="switch-branch">切换到此分支</button></div><footer class="side-footer"><p class="helper">需要复制、剪切或删除内容时，使用上方“进入选择模式”。</p></footer>`;
+}
+function selectionSidebar(preview) {
+  const copyReason = !preview.selected.size ? '先选择内容。' : !preview.canCopy ? `选区分成 ${preview.roots.length} 个区域，不能直接组成一个新对话。不会自动补齐上下文。` : `新对话包含全部 ${preview.selected.size} 条所选消息；原对话不变。`;
+  const deleteReason = !preview.selected.size ? '先选择内容。' : preview.unsafeEnds.length ? `“${escapeText(byId[preview.unsafeEnds[0]].title)}”是中间节点，后续内容未选；不能把它直接移除。` : !preview.canDelete ? '没有可安全移除的节点。' : `仅移除 ${preview.removable.size} 条独占消息；${preview.protectedIds.size} 条仍被其他内容依赖的消息保留。`;
+  const cutReason = preview.canCut ? `新对话包含全部 ${preview.selected.size} 条；原对话只移除 ${preview.removable.size} 条独占消息。` : !preview.canCopy ? '需要能组成一个新对话的连通选区。' : '当前集合不能安全地从原对话移除。';
+  const status = allowed => `<span class="${allowed ? 'available' : 'blocked'}">${allowed ? '可用' : '不可用'}</span>`;
+  const repair = preview.additions.length ? `<div class="repair"><p class="helper">如果想把这些节点组成一个新对话，可以显式加入 ${preview.additions.length} 条连接消息；不会自动加入。</p><button class="small" data-command="connect-selection">补齐连接路径 · 加入 ${preview.additions.length} 条</button></div>` : '';
+  return `<header class="side-header row between"><h2>已选内容</h2><div class="row"><button class="quiet small" data-command="select-all">全选</button><button class="quiet small" data-command="clear" ${preview.selected.size ? '' : 'disabled'}>清空</button></div></header>
+    <div class="side-body"><section class="summary stack"><div class="row between"><span class="count">${preview.selected.size} <span style="font-size:13px;font-weight:400">条消息</span></span><span class="status">${preview.shape}</span></div><p class="helper">单击连续选择；⋯ 菜单负责范围操作。<br>所选的是消息节点，包含其全部版本。</p></section>
+      <section class="section"><h3>当前集合允许哪些操作</h3><div class="operation"><div class="row between"><h3>复制为新对话</h3>${status(preview.canCopy)}</div><p class="helper">${copyReason}</p></div><div class="operation"><div class="row between"><h3>剪切为新对话</h3>${status(preview.canCut)}</div><p class="helper">${cutReason}</p></div><div class="operation"><div class="row between"><h3>仅从原对话删除</h3>${status(preview.canDelete)}</div><p class="helper">${deleteReason}</p></div></section>
+      ${repair}<div class="metrics"><div class="metric"><span>原对话中需要保留的所选消息</span><strong>${preview.protectedIds.size} 条</strong></div><p class="helper">选择可以暂时不完整；执行时才检查结构。不会隐式补选、重连或删除未选内容。</p></div>
+    </div><footer class="side-footer"><div class="actions"><button class="primary" data-action="copy" ${preview.canCopy ? '' : 'disabled'}>复制为新对话</button><button data-action="cut" ${preview.canCut ? '' : 'disabled'}>剪切为新对话</button></div><button class="danger" data-action="delete" ${preview.canDelete ? '' : 'disabled'}>仅从原对话删除</button></footer>`;
+}
+function baselineSidebar(preview) {
+  const node = byId[state.viewed];
+  return `<header class="side-header"><h2>节点详情 · 现状示意</h2></header><div class="side-body"><h3>基本信息</h3><p class="helper">ID：mock-${node.id}-current-node</p><p>角色：${roleLabel(node)}<br>内容：${escapeText(node.title)}</p></div><div class="side-footer"><button data-inspect="${node.id}">查看完整内容</button><button data-command="legacy-begin">提取子树</button><button data-command="legacy-begin">删除子树</button></div><div class="baseline-block"><h3>子树操作</h3><p>操作：复制为新对话</p><p class="helper">Root：mock-${state.legacyRoot}-operation-root<br>路径终点：${state.legacyEnds.length} selected<br>Included：${preview.selected.size}</p><p class="helper">点击 Root 下的节点选择或取消路径终点；不选终点 = 完整子树。</p><button class="primary" data-command="legacy-confirm">确认复制为新对话</button><button data-command="legacy-root">将当前节点设为 Root</button><button data-command="toggle-mode">取消操作</button></div>`;
+}
+function renderMenu() {
+  const menu = document.getElementById('node-menu');
+  if (!state.menuNode || state.phase !== 'select' || state.view !== 'proposal') { menu.hidden = true; return; }
+  const id = state.menuNode;
+  const node = byId[id];
+  const subtree = descendants(id);
+  const newlyAdded = [...subtree].filter(child => !state.selected.has(child)).length;
+  const alreadySelected = [...subtree].filter(child => state.selected.has(child)).length;
+  const linked = connectingClosure(new Set([...state.selected,id]));
+  const extraLinks = [...linked].filter(child => !state.selected.has(child)).length;
+  menu.innerHTML = `<div class="menu-title">对“${escapeText(node.title)}”操作</div><button data-menu-command="toggle">${state.selected.has(id) ? '取消选择此节点' : '加入此节点'}<span class="sub">与普通单击相同，仅改变这一条消息</span></button><button data-menu-command="add-subtree">加入此节点及全部后代<span class="sub">共 ${subtree.size} 条，新增 ${newlyAdded} 条</span></button><button data-menu-command="remove-subtree" ${alreadySelected ? '' : 'disabled'}>排除此节点及全部后代<span class="sub">从集合移除 ${alreadySelected} 条，不删除消息</span></button><div class="menu-separator"></div><button data-menu-command="connect" ${state.selected.size && extraLinks ? '' : 'disabled'}>连接此节点与当前选区<span class="sub">显式加入 ${extraLinks} 条消息，包括缺失的连接路径</span></button><button data-menu-command="inspect">查看内容<span class="sub">不改变选择集合</span></button>`;
+  menu.hidden = false;
+  const anchor = document.querySelector(`[data-more="${id}"]`).getBoundingClientRect();
+  menu.style.left = Math.max(12,Math.min(anchor.right+7,innerWidth-menu.offsetWidth-12))+'px';
+  menu.style.top = Math.max(12,Math.min(anchor.top,innerHeight-menu.offsetHeight-12))+'px';
+}
+function applyNodeCommand(command,id) {
+  if (command === 'toggle') state.selected.has(id) ? state.selected.delete(id) : state.selected.add(id);
+  if (command === 'add-subtree') descendants(id).forEach(child => state.selected.add(child));
+  if (command === 'remove-subtree') descendants(id).forEach(child => state.selected.delete(child));
+  if (command === 'connect') state.selected = connectingClosure(new Set([...state.selected,id]));
+}
+function clickNode(id) {
+  if (state.view === 'baseline') {
+    state.viewed = id;
+    if (id !== state.legacyRoot && ancestors(id).includes(state.legacyRoot)) state.legacyEnds = state.legacyEnds.includes(id) ? state.legacyEnds.filter(endpoint => endpoint !== id) : [...state.legacyEnds,id];
+  } else if (state.phase === 'browse') state.viewed = id;
+  else applyNodeCommand('toggle',id);
+  state.menuNode = null;
+  render();
+}
+
+function notice(message = '') { document.getElementById('notice').textContent = message; }
+function showDialog(title,body,footer = '<button data-command="close-dialog">关闭</button>') {
+  document.getElementById('dialog-title').textContent = title;
+  document.getElementById('dialog-body').innerHTML = body;
+  document.getElementById('dialog-footer').innerHTML = footer;
+  const dialog = document.getElementById('dialog');
+  if (!dialog.open) dialog.showModal();
+}
+function inspectNode(id) {
+  const node = byId[id];
+  showDialog('查看消息 · 选区不变', `<span class="role ${node.role}">${roleLabel(node)}</span><h3 style="margin:10px 0">${escapeText(node.title)}</h3><p class="muted">这里代表完整消息正文；原型不加载真实聊天记录。</p><p class="helper" style="margin-top:15px">${node.versions || 1} 个版本；选择的是整个消息节点。</p>`);
+}
+function outcomeList(ids) {
+  const selected = new Set(ids);
+  if (!selected.size) return '<p class="helper" style="margin-top:10px">空对话，仍可继续输入。</p>';
+  return '<ul>'+SAMPLE.filter(node => selected.has(node.id)).map(node => {
+    let depth = 0;
+    for (let parent = node.parent; parent && selected.has(parent); parent = byId[parent].parent) depth++;
+    return `<li style="--depth:${depth}"><span class="role ${node.role}">${roleLabel(node)}</span> · ${escapeText(node.title)}</li>`;
+  }).join('')+'</ul>';
+}
+function resultPreview(action) {
+  const preview = evaluateSelection(state.selected);
+  const sourceIds = SAMPLE.map(node => node.id).filter(id => action === 'copy' || !preview.removable.has(id));
+  const target = action === 'delete' ? '<div class="outcome"><h3>不创建新对话</h3><p class="helper" style="margin-top:10px">仅移除原对话中的独占选中节点。</p></div>' : `<div class="outcome"><h3>新对话 · ${preview.selected.size} 条</h3>${outcomeList(preview.selected)}</div>`;
+  showDialog(labels[action]+' · 结果模拟', `<p>${action === 'copy' ? '原对话完整保留；所选内容进入新对话。' : `原对话移除 ${preview.removable.size} 条消息，保留 ${preview.protectedIds.size} 条所选公共上下文。`}</p><div class="outcomes"><div class="outcome"><h3>原对话 · 保留 ${sourceIds.length} 条</h3>${outcomeList(sourceIds)}</div>${target}</div><p class="helper" style="margin-top:15px">仅展示预期结果，不保存、不删除，也不切换会话。关闭后可继续尝试原样例树。</p>`);
+}
+function requestAction(action) {
+  const preview = evaluateSelection(state.selected);
+  const allowed = { copy:preview.canCopy, cut:preview.canCut, delete:preview.canDelete };
+  if (!allowed[action] || state.phase !== 'select') return;
+  if (action === 'copy') { resultPreview(action); return; }
+  showDialog(action === 'cut' ? '确认剪切为新对话' : '确认删除所选内容', `<p>原对话将移除 <strong>${preview.removable.size} 条独占消息</strong>，保留 <strong>${preview.protectedIds.size} 条仍被其他内容依赖的所选消息</strong>。</p>${action === 'cut' ? `<p style="margin-top:9px">新对话包含全部 ${preview.selected.size} 条所选消息。</p>` : ''}<p class="warning" style="margin-top:16px">正式执行不能撤销；这份原型只模拟结果，不实际删除。</p>`, `<button data-command="close-dialog">返回调整</button><button class="${action === 'delete' ? 'danger' : 'primary'}" data-confirm-action="${action}">确认${action === 'cut' ? '剪切' : '删除'}（模拟）</button>`);
+}
+
+if (typeof document !== 'undefined') {
+  const params = new URLSearchParams(location.search);
+  preset(params.get('scene') || 'browse');
+  if (params.get('view') === 'baseline') { state.view = 'baseline'; state.phase = 'select'; state.viewed = 'E'; }
+  document.addEventListener('click',event => {
+    const button = event.target.closest('button');
+    if (!button || button.disabled) {
+      if (!event.target.closest('#node-menu')) { state.menuNode = null; renderMenu(); }
+      return;
+    }
+    if (button.dataset.menuCommand) {
+      const id = state.menuNode;
+      const command = button.dataset.menuCommand;
+      state.menuNode = null;
+      if (command === 'inspect') { renderMenu(); inspectNode(id); return; }
+      applyNodeCommand(command,id); notice(); render(); return;
+    }
+    state.menuNode = null;
+    document.getElementById('node-menu').hidden = true;
+    if (button.dataset.view) {
+      if (state.view === button.dataset.view) return;
+      state.view = button.dataset.view;
+      if (state.view === 'baseline') { state.phase = 'select'; state.viewed = 'E'; }
+      else { state.selected = legacySelection(); state.phase = 'select'; }
+      notice(); render(); return;
+    }
+    if (button.dataset.scene) { preset(button.dataset.scene); notice(); render(); return; }
+    if (button.dataset.more) {
+      if (state.phase === 'select' && state.view === 'proposal') { state.menuNode = button.dataset.more; renderMenu(); }
+      else inspectNode(button.dataset.more);
+      return;
+    }
+    if (button.dataset.inspect) { inspectNode(button.dataset.inspect); return; }
+    if (button.dataset.node) { notice(); clickNode(button.dataset.node); return; }
+    if (button.dataset.action) { renderMenu(); requestAction(button.dataset.action); return; }
+    if (button.dataset.confirmAction) { resultPreview(button.dataset.confirmAction); return; }
+    const command = button.dataset.command;
+    if (command === 'close-dialog') { document.getElementById('dialog').close(); return; }
+    if (command === 'toggle-mode') { state.view = 'proposal'; state.phase = state.phase === 'select' ? 'browse' : 'select'; state.selected.clear(); }
+    if (command === 'clear') state.selected.clear();
+    if (command === 'select-all') state.selected = new Set(SAMPLE.map(node => node.id));
+    if (command === 'connect-selection') state.selected = connectingClosure(state.selected);
+    if (command === 'legacy-begin' || command === 'legacy-root') { state.legacyRoot = state.viewed; state.legacyEnds = []; }
+    if (command === 'legacy-confirm') { notice('现状示意仅用于对照，请切到集合方案体验结果预览。'); return; }
+    if (command === 'switch-branch') { notice('这里保留浏览入口的示意，不模拟真实切换。'); return; }
+    notice(); render();
+  });
+  document.addEventListener('contextmenu',event => {
+    const card = event.target.closest('[data-card]');
+    if (!card || state.phase !== 'select' || state.view !== 'proposal') return;
+    event.preventDefault(); state.menuNode = card.dataset.card; renderMenu();
+  });
+  document.addEventListener('keydown',event => { if (event.key === 'Escape' && state.menuNode) { state.menuNode = null; renderMenu(); event.preventDefault(); } });
+  addEventListener('resize',renderMenu);
+  render();
+}
+</script>
+</body>
+</html>

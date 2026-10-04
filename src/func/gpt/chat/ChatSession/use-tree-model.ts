@@ -9,7 +9,11 @@
 
 import { Accessor, batch, createMemo } from 'solid-js';
 import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { collectSelectedSubtree, planSubtreeDeletion, ISubtreeSelection } from './subtree-selection';
+import {
+    assertRootRemovalCoversAllRecords,
+    collectSelectedSubtree, isNodeIdsSelection, planNodeSelection, planSubtreeDeletion,
+    INodeSelectionPlan, ITreeSelection,
+} from './subtree-selection';
 
 // ============================================================================
 // 类型定义
@@ -25,9 +29,9 @@ export interface IDeleteResult {
     reason?: 'NODE_NOT_FOUND' | 'ROOT_HAS_BRANCHES' | 'BRANCH_COMPRESSION' | 'NOT_ON_WORLDLINE' | 'NOT_CONTINUOUS' | 'MIDDLE_HAS_BRANCH' | 'EMPTY';
 }
 
-export interface IExtractSubtreeArgs extends ISubtreeSelection {
+export type IExtractSubtreeArgs = ITreeSelection & {
     regenerateIds?: boolean;
-}
+};
 
 export interface IExtractSubtreeResult {
     nodes: Record<ItemID, IChatSessionMsgItemV2>;
@@ -98,12 +102,14 @@ export interface ITreeModel {
     switchWorldLine: (targetLeafId: ItemID) => void;
     /** 获取节点的所有分支（子节点） */
     getBranches: (id: ItemID) => IChatSessionMsgItemV2[];
+    /** 计算任意节点 ID 集合的安全规划（纯函数，供预览/桥接校验，不产生副作用） */
+    getSelectionPlan: (nodeIds: ItemID[]) => INodeSelectionPlan;
     /** 提取子树结构，用于创建独立会话 */
     extractSubtree: (args: IExtractSubtreeArgs) => IExtractSubtreeResult;
-    /** Validate before any cut side effects; returns exclusive nodes to prune. */
-    validateSubtreeDeletion: (args: ISubtreeSelection) => number;
-    /** Delete exclusive branches without reconnecting descendants or removing shared ancestors. */
-    deleteSubtree: (args: ISubtreeSelection) => number;
+    /** Validate before any cut side effects; returns the count of safely removable nodes. */
+    validateSubtreeDeletion: (args: ITreeSelection) => number;
+    /** Delete only nodes whose every descendant is selected; protected ancestors stay. */
+    deleteSubtree: (args: ITreeSelection) => number;
 
     // ========== 版本管理 ==========
     /** 添加新版本到节点 */
@@ -434,10 +440,8 @@ export const useTreeModel = (): ITreeModel => {
             });
 
             // 3. 删除节点本身
-            nodes.update(prev => {
-                const { [id]: _, ...rest } = prev;
-                return rest;
-            });
+            // Solid store 对象赋值是 merge 语义，解构式移除会残留幽灵键，必须显式置 undefined。
+            nodes.update(id, undefined);
 
             // 4. 更新 worldLine
             worldLine.update(prev => prev.filter(wid => wid !== id));
@@ -449,11 +453,8 @@ export const useTreeModel = (): ITreeModel => {
                 rootId.value = null;
             }
 
-            // 6. 更新 bookmarks
-            bookmarks.update(prev => {
-                const { [id]: _, ...rest } = prev;
-                return rest;
-            });
+            // 6. 更新 bookmarks（同上，需显式移除键）
+            bookmarks.update(id, undefined);
         });
 
         return { success: true };
@@ -619,11 +620,35 @@ export const useTreeModel = (): ITreeModel => {
         return node.children.map(childId => nodes()[childId]).filter(Boolean);
     };
 
+    /** 纯规划入口：桥接层在任何副作用前重新计算并比对，防止过期选择被执行。 */
+    const getSelectionPlan = (nodeIds: ItemID[]): INodeSelectionPlan => {
+        const currentNodes = nodes.unwrap();
+        const plan = planNodeSelection(currentNodes, nodeIds);
+        // 提议删除树根的规划必须覆盖全部记录，否则 UI 预览阶段就拒绝。
+        assertRootRemovalCoversAllRecords(currentNodes, new Set(plan.removableIds), rootId());
+        return plan;
+    };
+
     const extractSubtree = (args: IExtractSubtreeArgs): IExtractSubtreeResult => {
         const currentNodes = nodes.unwrap();
-        const { rootId, leafIds, regenerateIds = true } = args;
-        const selectedLeafIds = Array.from(new Set(leafIds ?? []));
-        const includedIds = collectSelectedSubtree(currentNodes, { rootId, leafIds: selectedLeafIds });
+        const { regenerateIds = true } = args;
+
+        let selectedRootId: ItemID;
+        let includedIds: Set<ItemID>;
+        let endpointIds: ItemID[];
+        if (isNodeIdsSelection(args)) {
+            // 任意集合路径：必须构成单根连通子树；空集不会按整棵树处理。
+            const plan = planNodeSelection(currentNodes, args.nodeIds);
+            if (!plan.canExtract) throw new Error('所选节点不是一个连通的单根子树，无法复制或剪切');
+            selectedRootId = plan.rootIds[0];
+            includedIds = new Set(plan.nodeIds);
+            endpointIds = plan.nodeIds.filter(id => !currentNodes[id].children.some(c => includedIds.has(c)));
+        } else {
+            // 旧 root+leaf 路径：保持既有语义（路径并集；leafIds 为空表示整棵子树）。
+            selectedRootId = args.rootId;
+            includedIds = collectSelectedSubtree(currentNodes, { rootId: args.rootId, leafIds: args.leafIds });
+            endpointIds = [...new Set(args.leafIds ?? [])];
+        }
 
         const idMap: Record<ItemID, ItemID> = {};
         includedIds.forEach(oldId => {
@@ -645,23 +670,23 @@ export const useTreeModel = (): ITreeModel => {
         });
 
         const currentWorldLine = worldLine.unwrap();
-        const rootIndex = currentWorldLine.indexOf(rootId);
+        const rootIndex = currentWorldLine.indexOf(selectedRootId);
         let selectedWorldLine: ItemID[] = [];
 
         if (rootIndex !== -1) {
             const suffix = currentWorldLine.slice(rootIndex).filter(id => includedIds.has(id));
             const suffixEnd = suffix[suffix.length - 1];
-            if (suffix[0] === rootId && suffixEnd && isIncludedLeaf(currentNodes, suffixEnd, includedIds)) {
+            if (suffix[0] === selectedRootId && suffixEnd && isIncludedLeaf(currentNodes, suffixEnd, includedIds)) {
                 selectedWorldLine = suffix;
             }
         }
 
-        if (selectedWorldLine.length === 0 && selectedLeafIds.length > 0) {
-            selectedWorldLine = traceBetween(currentNodes, rootId, selectedLeafIds[0]);
+        if (selectedWorldLine.length === 0 && endpointIds.length > 0) {
+            selectedWorldLine = traceBetween(currentNodes, selectedRootId, endpointIds[0]);
         }
 
         if (selectedWorldLine.length === 0) {
-            selectedWorldLine = findFirstLeafPath(currentNodes, rootId, includedIds);
+            selectedWorldLine = findFirstLeafPath(currentNodes, selectedRootId, includedIds);
         }
 
         const newWorldLine = selectedWorldLine
@@ -670,19 +695,24 @@ export const useTreeModel = (): ITreeModel => {
 
         return {
             nodes: copiedNodes,
-            rootId: idMap[rootId],
-            worldLine: newWorldLine.length > 0 ? newWorldLine : [idMap[rootId]],
+            rootId: idMap[selectedRootId],
+            worldLine: newWorldLine.length > 0 ? newWorldLine : [idMap[selectedRootId]],
             idMap,
         };
     };
 
-    const validateSubtreeDeletion = (args: ISubtreeSelection) => {
-        return planSubtreeDeletion(nodes.unwrap(), args).deleted.size;
-    };
-
-    const deleteSubtree = (args: ISubtreeSelection): number => {
+    const validateSubtreeDeletion = (args: ITreeSelection) => {
         const currentNodes = nodes.unwrap();
         const { deleted } = planSubtreeDeletion(currentNodes, args);
+        assertRootRemovalCoversAllRecords(currentNodes, deleted, rootId());
+        return deleted.size;
+    };
+
+    const deleteSubtree = (args: ITreeSelection): number => {
+        const currentNodes = nodes.unwrap();
+        const { deleted } = planSubtreeDeletion(currentNodes, args);
+        // 删除树根前必须确认覆盖全部记录，孤儿数据要么保留要么明确拒绝，不做静默清理。
+        assertRootRemovalCoversAllRecords(currentNodes, deleted, rootId());
         const remainingNodes: Record<ItemID, IChatSessionMsgItemV2> = {};
         Object.entries(currentNodes).forEach(([id, node]) => {
             if (deleted.has(id)) return;
@@ -862,6 +892,7 @@ export const useTreeModel = (): ITreeModel => {
         getWorldLine,
         getRootId,
         getBookmarks,
+        getSelectionPlan,
 
         // 节点访问
         getNodeById,

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRoot } from 'solid-js';
 import { useTreeModel } from '../src/func/gpt/chat/ChatSession/use-tree-model';
+import { assertRootRemovalCoversAllRecords, isSameSelectionPlan, INodeSelectionPlan } from '../src/func/gpt/chat/ChatSession/subtree-selection';
 import { createMessageLifecycle } from '../src/func/gpt/chat/ChatSession/message-lifecycle';
 import { describeUsage } from '../src/func/gpt/chat/components/usage-display';
 import { sumReportedUsage } from '../src/func/gpt/tools/usage-sum';
@@ -39,6 +40,29 @@ const fixture = (): IChatSessionHistoryV2 => {
 };
 
 const snapshot = (tree: ReturnType<typeof useTreeModel>) => tree.toHistory({ id: 'source', title: 'source', timestamp: 1, updated: 1 });
+
+/** Pure R→A→B chain for root-promotion probes. */
+const chainHistory = (): IChatSessionHistoryV2 => {
+    const base = fixture();
+    return {
+        ...base,
+        nodes: {
+            R: { ...base.nodes.R, children: ['A'] },
+            A: { ...base.nodes.A, children: ['B'] },
+            B: base.nodes.B,
+        },
+        rootId: 'R',
+        worldLine: ['R', 'A', 'B'],
+        bookmarks: { B: 'leaf' },
+    };
+};
+
+/** Same visible tree plus a consistent but unreachable second root record. */
+const orphanHistory = (): IChatSessionHistoryV2 => {
+    const history = fixture();
+    history.nodes.X = { ...history.nodes.B, id: 'X', parent: null, children: [] };
+    return history;
+};
 const withTree = (run: (tree: ReturnType<typeof useTreeModel>) => void) => createRoot(dispose => {
     try {
         const tree = useTreeModel();
@@ -85,16 +109,201 @@ test('cut a branch: copy all versions, prune only exclusive nodes, retain shared
     assert.equal(source.nodes.B.versions.old.message.content, 'answer B');
 }));
 
-test('an intermediate endpoint fails before mutation; copying the same endpoint remains allowed', () => withTree(tree => {
+test('a mixed selection degrades to safe partial deletion; nothing removable still rejects', () => withTree(tree => {
     const before = snapshot(tree);
-    assert.throws(() => tree.validateSubtreeDeletion({ rootId: 'R', leafIds: ['A'] }), /中间终点/);
-    assert.throws(() => tree.deleteSubtree({ rootId: 'R', leafIds: ['A', 'D'] }), /中间终点/, 'one invalid endpoint must reject the entire selection');
+    // Legacy root+leaf args share the protection rule: the intermediate endpoint A stays,
+    // its removable leaf D goes, B and C are untouched.
+    assert.equal(tree.deleteSubtree({ rootId: 'R', leafIds: ['A', 'D'] }), 1);
+    let history = snapshot(tree);
+    assert.deepEqual(Object.keys(history.nodes).sort(), ['A', 'B', 'C', 'R']);
+    assert.deepEqual(history.nodes.A.children, ['B', 'C']);
+    assertTreeConsistent(history);
+
+    tree.fromHistory(fixture());
+    // Zero removable: every selected node still has unselected descendants depending on it.
+    assert.throws(() => tree.validateSubtreeDeletion({ rootId: 'R', leafIds: ['A'] }), /没有可安全删除/);
     assert.deepEqual(snapshot(tree), before);
     assert.throws(() => tree.deleteSubtree({ rootId: 'A', leafIds: ['D'] }), /不在/);
     assert.deepEqual(snapshot(tree), before);
+    // Copying an intermediate endpoint through legacy args remains allowed.
     const copied = tree.extractSubtree({ rootId: 'R', leafIds: ['A'] });
     assert.equal(Object.keys(copied.nodes).length, 2);
     assert.deepEqual(copied.nodes[copied.idMap.A].children, []);
+}));
+
+test('getSelectionPlan describes arbitrary unordered sets deterministically', () => withTree(tree => {
+    const plan = tree.getSelectionPlan(['D', 'B', 'R', 'B']);
+    assert.deepEqual(plan.nodeIds, ['R', 'B', 'D']);
+    assert.deepEqual(plan.rootIds, ['R', 'B']);
+    assert.deepEqual(plan.removableIds, ['B', 'D']);
+    assert.deepEqual(plan.retainedIds, ['R']);
+    assert.deepEqual(plan.connectionIds, ['R', 'A', 'B', 'D']);
+    assert.equal(plan.canExtract, false);
+    const reordered = tree.getSelectionPlan(['R', 'D', 'B']);
+    assert.deepEqual(reordered, plan);
+    assert.equal(isSameSelectionPlan(plan, reordered), true);
+    assert.deepEqual(tree.getSelectionPlan([]), {
+        nodeIds: [], rootIds: [], removableIds: [], retainedIds: [], connectionIds: [], canExtract: false,
+    });
+}));
+
+test('connectionIds fill only the gaps between selected nodes, never above their common ancestor', () => withTree(tree => {
+    const siblings = tree.getSelectionPlan(['C', 'B']);
+    assert.deepEqual(siblings.nodeIds, ['B', 'C']);
+    assert.deepEqual(siblings.rootIds, ['B', 'C']);
+    assert.deepEqual(siblings.connectionIds, ['A', 'B', 'C'], 'LCA A closes the gap; the global root R stays out');
+    assert.equal(siblings.canExtract, false);
+    assert.deepEqual(tree.getSelectionPlan(['B']).connectionIds, ['B'], 'a singleton needs no extra ancestor');
+    assert.deepEqual(tree.getSelectionPlan(['R', 'A', 'B']).connectionIds, ['R', 'A', 'B'], 'a connected selection gains nothing');
+    assert.deepEqual(tree.getSelectionPlan(['R', 'B']).connectionIds, ['R', 'A', 'B'], 'the gap up to a selected root is filled');
+}));
+
+test('removing the actual root is rejected while unselected orphan records would survive', () => withTree(tree => {
+    // A clean map allows whole-tree deletion and leaves nothing behind.
+    assert.equal(tree.deleteSubtree({ nodeIds: ['R', 'A', 'B', 'C', 'D'] }), 5);
+    assert.deepEqual(snapshot(tree).nodes, {});
+
+    tree.fromHistory(orphanHistory());
+    const before = snapshot(tree);
+    assert.throws(() => tree.getSelectionPlan(['R', 'A', 'B', 'C', 'D']), /孤儿/, 'the plan itself must not propose an orphan-leaving root removal');
+    assert.throws(() => tree.validateSubtreeDeletion({ rootId: 'R' }), /孤儿/);
+    assert.throws(() => tree.deleteSubtree({ rootId: 'R' }), /孤儿/);
+    assert.throws(() => tree.deleteSubtree({ nodeIds: ['R', 'A', 'B', 'C', 'D'] }), /孤儿/);
+    assert.deepEqual(snapshot(tree), before);
+    // Operations that never touch the root stay available and orphans are untouched.
+    assert.equal(tree.deleteSubtree({ nodeIds: ['B'] }), 1);
+    assert.equal(tree.getNodes().B, undefined);
+    assert.ok(tree.getNodes().X, 'unrelated orphan record must not be silently deleted');
+}));
+
+test('assertRootRemovalCoversAllRecords guards both directions of coverage mismatch', () => {
+    const nodes = { R: { parent: null, children: ['A'] }, A: { parent: 'R', children: [] } };
+    assert.doesNotThrow(() => assertRootRemovalCoversAllRecords(nodes, new Set(['R', 'A']), 'R'));
+    assert.throws(() => assertRootRemovalCoversAllRecords(nodes, new Set(['R']), 'R'), /孤儿/);
+    assert.doesNotThrow(() => assertRootRemovalCoversAllRecords(nodes, new Set(['A']), 'R'), 'non-root removals are unrestricted');
+    assert.doesNotThrow(() => assertRootRemovalCoversAllRecords(nodes, new Set(['R']), null));
+});
+
+test('disconnected nodeIds delete their full subtrees but never extract or copy', () => withTree(tree => {
+    const before = snapshot(tree);
+    assert.throws(() => tree.extractSubtree({ nodeIds: ['B', 'D'] }), /连通的单根子树/);
+    assert.throws(() => tree.extractSubtree({ nodeIds: [] }), /连通的单根子树/, 'empty nodeIds must not be read as the whole tree');
+    assert.deepEqual(snapshot(tree), before);
+    assert.equal(tree.deleteSubtree({ nodeIds: ['B', 'D'] }), 2);
+    const history = snapshot(tree);
+    assert.deepEqual(Object.keys(history.nodes).sort(), ['A', 'C', 'R']);
+    assert.deepEqual(history.nodes.R.children, ['A']);
+    assert.deepEqual(history.worldLine, ['R', 'A']);
+    assert.deepEqual(history.bookmarks, { A: 'shared', C: 'retained' });
+    assertTreeConsistent(history);
+}));
+
+test('explicit connection paths make an arbitrary set extractable; sub-root selections keep their own root', () => withTree(tree => {
+    const source = snapshot(tree);
+    const copied = tree.extractSubtree({ nodeIds: ['R', 'A', 'B'] });
+    assert.equal(copied.rootId, copied.idMap.R);
+    assert.deepEqual(copied.nodes[copied.idMap.A].children, [copied.idMap.B]);
+    assert.deepEqual(copied.worldLine, ['R', 'A', 'B'].map(id => copied.idMap[id]));
+    // Every version, payload and usage survives the copy; mutating it cannot leak back.
+    const copiedB = copied.nodes[copied.idMap.B];
+    assert.deepEqual(copiedB.versions, source.nodes.B.versions);
+    copiedB.versions.old.message.content = 'edited copy';
+    assert.equal(tree.getNodeById('B').versions.old.message.content, 'answer B');
+    assert.deepEqual(snapshot(tree), source);
+
+    const branch = tree.extractSubtree({ nodeIds: ['A', 'B'], regenerateIds: false });
+    assert.equal(branch.rootId, 'A');
+    assert.deepEqual(branch.worldLine, ['A', 'B']);
+    assert.deepEqual(branch.nodes.B.parent, 'A');
+    assert.deepEqual(branch.nodes.A.parent, null);
+}));
+
+test('protection propagates from unselected descendants through selected ancestors up to the root', () => withTree(tree => {
+    const before = snapshot(tree);
+    assert.throws(() => tree.deleteSubtree({ nodeIds: ['R'] }), /没有可安全删除/, 'the actual root must not be deletable while other branches remain');
+    assert.deepEqual(snapshot(tree), before);
+    assert.equal(tree.deleteSubtree({ nodeIds: ['R', 'A', 'B', 'C'] }), 3);
+    const history = snapshot(tree);
+    assert.deepEqual(Object.keys(history.nodes).sort(), ['D', 'R']);
+    assert.deepEqual(history.nodes.R.children, ['D']);
+    assert.deepEqual(history.worldLine, ['R']);
+    assertTreeConsistent(history);
+}));
+
+test('deleting the whole tree yields a genuinely empty session and appending starts a new root', () => withTree(tree => {
+    assert.equal(tree.deleteSubtree({ nodeIds: ['R', 'A', 'B', 'C', 'D'] }), 5);
+    const history = snapshot(tree);
+    assert.deepEqual(history.nodes, {});
+    assert.deepEqual(history.worldLine, []);
+    assert.equal(history.rootId, null);
+    assert.deepEqual(history.bookmarks, {});
+    assert.equal(tree.hasMessages(), false);
+    tree.appendNode({
+        id: 'new-root', type: 'message', role: 'user', currentVersionId: 'new-root-version',
+        versions: { 'new-root-version': { id: 'new-root-version', message: { role: 'user', content: 'hi' }, author: 'user' } },
+    });
+    assert.equal(tree.getRootId(), 'new-root');
+    assert.equal(tree.count(), 1);
+    assertTreeConsistent(snapshot(tree));
+}));
+
+test('a stale plan mismatches once the tree changed; reordered but equivalent selections still match', () => withTree(tree => {
+    const plan = tree.getSelectionPlan(['B']);
+    assert.deepEqual(plan.removableIds, ['B']);
+    // Growing a child under B turns it into a protected ancestor: same nodeIds, different subset.
+    tree.createBranch('B');
+    const grown = tree.getSelectionPlan(['B']);
+    assert.deepEqual(grown.retainedIds, ['B']);
+    assert.deepEqual(grown.removableIds, []);
+    assert.equal(isSameSelectionPlan(plan, grown), false);
+    assert.equal(isSameSelectionPlan(plan, tree.getSelectionPlan(['B', 'D'])), false);
+    assert.equal(isSameSelectionPlan(tree.getSelectionPlan(['B', 'D']), tree.getSelectionPlan(['D', 'B'])), true);
+}));
+
+test('isSameSelectionPlan compares multiset membership and rejects incomplete plans', () => {
+    const base = { nodeIds: [], rootIds: [], removableIds: [], retainedIds: [], connectionIds: [], canExtract: false };
+    assert.equal(isSameSelectionPlan(
+        { ...base, removableIds: ['a', 'a'] },
+        { ...base, removableIds: ['a', 'b'] },
+    ), false, 'duplicated IDs must not collapse into set membership');
+    assert.equal(isSameSelectionPlan(
+        { ...base, removableIds: ['a', 'b'] },
+        { ...base, removableIds: ['b', 'a'] },
+    ), true, 'order independence is still required');
+    assert.equal(isSameSelectionPlan(base, { nodeIds: [] } as INodeSelectionPlan), false, 'a plan missing arrays never matches');
+    assert.equal(isSameSelectionPlan(base, { ...base, canExtract: undefined } as unknown as INodeSelectionPlan), false);
+});
+
+test('legacy deleteNode removes its map and bookmark keys exactly, with or without root promotion', () => withTree(tree => {
+    tree.deleteNode('B');
+    assert.equal(tree.getNodes().B, undefined, 'no ghost node may survive a store-merge removal');
+    assert.equal(tree.getBookmarks().B, undefined, 'no ghost bookmark may survive');
+    assert.deepEqual(tree.getNodes().A.children, ['C']);
+    assert.equal(tree.getRootId(), 'R');
+    assert.deepEqual(tree.getWorldLine(), ['R', 'A']);
+
+    tree.fromHistory(chainHistory());
+    tree.deleteNode('R');
+    assert.equal(tree.getRootId(), 'A', 'the single child is promoted');
+    assert.equal(tree.getNodes().R, undefined);
+    assert.equal(tree.getNodeById('A').parent, null);
+    assert.deepEqual(tree.getWorldLine(), ['A', 'B']);
+    assertTreeConsistent(snapshot(tree));
+}));
+
+test('invalid or structurally inconsistent selections fail without any mutation', () => withTree(tree => {
+    const before = snapshot(tree);
+    assert.throws(() => tree.getSelectionPlan(['missing']), /已不存在/);
+    assert.throws(() => tree.deleteSubtree({ nodeIds: ['B', 'missing'] }), /已不存在/);
+    assert.deepEqual(snapshot(tree), before);
+
+    const corrupt = fixture();
+    corrupt.nodes.A.children = ['B'];
+    tree.fromHistory(corrupt);
+    const corruptedSnapshot = snapshot(tree);
+    assert.throws(() => tree.getSelectionPlan(['C']), /不一致/);
+    assert.throws(() => tree.deleteSubtree({ nodeIds: ['R', 'C'] }), /不一致/);
+    assert.deepEqual(snapshot(tree), corruptedSnapshot);
 }));
 
 test('deleting a complete non-active subtree leaves the current world line unchanged', () => withTree(tree => {

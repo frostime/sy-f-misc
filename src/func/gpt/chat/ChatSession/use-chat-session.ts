@@ -30,6 +30,7 @@ import type { PendingApproval } from '@gpt/tools/types';
 
 // V2 TreeModel
 import { useTreeModel } from './use-tree-model';
+import type { ITreeSelection } from './subtree-selection';
 
 
 interface ISimpleContext {
@@ -604,22 +605,17 @@ export const useSession = (props: {
         });
     }
 
-    const deleteSubtree = (args: { rootId: ItemID; leafIds?: ItemID[] }): number => {
+    const deleteSubtree = (args: ITreeSelection): number => {
         if (loading()) throw new Error('回复生成中，不能删除或剪切对话树');
         const deletedCount = treeModel.deleteSubtree(args);
         renewUpdatedTimestamp();
         return deletedCount;
     };
 
-    const extractSubtreeToHistory = (args: {
-        rootId: ItemID;
-        leafIds?: ItemID[];
-        title?: string;
-    }): IChatSessionHistoryV2 => {
+    const extractSubtreeToHistory = (args: ITreeSelection & { title?: string }): IChatSessionHistoryV2 => {
         if (loading()) throw new Error('回复生成中，请等待完成后再提取对话树');
         const extracted = treeModel.extractSubtree({
-            rootId: args.rootId,
-            leafIds: args.leafIds,
+            ...args,
             regenerateIds: true,
         });
         const now = Date.now();

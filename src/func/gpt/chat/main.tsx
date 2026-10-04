@@ -839,66 +839,34 @@ export const ChatSession: Component<{
                 icon: 'iconGraph',
                 label: '完整对话结构',
                 click: () => {
+                    const sourceSessionId = session.sessionId();
                     showChatWorldTree({
                         treeModel: session.treeModel,
-                        onExtractSubtree: async ({ rootId, leafIds, title, mode = 'copy' }) => {
-                            try {
-                                if (mode === 'cut') {
-                                    if (session.loading()) throw new Error('回复生成中，不能剪切对话树');
-                                    const count = session.treeModel.validateSubtreeDeletion({ rootId, leafIds });
-                                    const approved = await new Promise<boolean>(resolve => {
-                                        confirm('剪切子树', `将提取为新对话，并从原对话删除 ${count} 个独占节点。公共路径会保留，此操作不能撤销。`,
-                                            () => resolve(true), () => resolve(false));
-                                    });
-                                    if (!approved) return false;
+                        onSelectionOperation: ({ nodeIds, mode, plan }) => {
+                            if (session.sessionId() !== sourceSessionId) throw new Error('当前对话已切换，请关闭并重新打开树视图');
+                            if (session.loading()) throw new Error('回复生成中，请等待完成后再操作对话树');
+                            const selection = { nodeIds };
+                            if (mode === 'copy') {
+                                newChatSession(session.extractSubtreeToHistory(selection));
+                                showMessage(`已复制 ${plan.nodeIds.length} 个节点为新对话，原对话不变`);
+                                return true;
+                            }
 
-                                }
-                                const history = session.extractSubtreeToHistory({ rootId, leafIds, title });
-                                if (mode === 'cut') {
-                                    commitSubtreeRemoval({
-                                        source: {
-                                            snapshot: session.sessionHistory,
-                                            remove: () => session.deleteSubtree({ rootId, leafIds }),
-                                            restore: session.applyHistory,
-                                        },
-                                        persistence: { save: persist.saveToLocalStorage, remove: persist.removeFromLocalStorage },
-                                        destination: history,
-                                        onCommit: () => newChatSession(history, true),
-                                    });
-                                } else {
-                                    newChatSession(history);
-                                }
-                                showMessage(mode === 'cut' ? '已剪切子树为新对话，公共路径已保留' : '已复制子树为新对话');
-                                return true;
-                            } catch (err) {
-                                console.error('Failed to extract subtree:', err);
-                                showMessage(`提取子树失败: ${(err as Error).message}`, 5000, 'error');
-                                throw err;
-                            }
-                        },
-                        onDeleteSubtree: async ({ rootId, leafIds }) => {
-                            try {
-                                if (session.loading()) throw new Error('回复生成中，不能删除对话树');
-                                const count = session.treeModel.validateSubtreeDeletion({ rootId, leafIds });
-                                const approved = await new Promise<boolean>(resolve => {
-                                    confirm('删除子树', `将从当前对话删除 ${count} 个独占节点，公共路径会保留。此操作不能撤销，是否继续？`,
-                                        () => resolve(true), () => resolve(false));
-                                });
-                                if (!approved) return false;
-                                const deleted = commitSubtreeRemoval({
-                                    source: {
-                                        snapshot: session.sessionHistory,
-                                        remove: () => session.deleteSubtree({ rootId, leafIds }),
-                                        restore: session.applyHistory,
-                                    },
-                                    persistence: { save: persist.saveToLocalStorage, remove: persist.removeFromLocalStorage },
-                                });
-                                showMessage(`已删除 ${deleted} 个节点，公共路径已保留`);
-                                return true;
-                            } catch (err) {
-                                showMessage(`删除子树失败: ${(err as Error).message}`, 5000, 'error');
-                                throw err;
-                            }
+                            const destination = mode === 'cut' ? session.extractSubtreeToHistory(selection) : undefined;
+                            const deleted = commitSubtreeRemoval({
+                                source: {
+                                    snapshot: session.sessionHistory,
+                                    remove: () => session.deleteSubtree(selection),
+                                    restore: session.applyHistory,
+                                },
+                                persistence: { save: persist.saveToLocalStorage, remove: persist.removeFromLocalStorage },
+                                destination,
+                                onCommit: destination ? () => newChatSession(destination, true) : undefined,
+                            });
+                            showMessage(mode === 'cut'
+                                ? `已提取 ${plan.nodeIds.length} 个节点为新对话，原对话移除 ${deleted} 个、保留 ${plan.retainedIds.length} 个所选公共节点`
+                                : `已删除 ${deleted} 个节点，${plan.retainedIds.length} 个所选依赖节点已保留`);
+                            return true;
                         }
                     });
                 }
