@@ -549,6 +549,7 @@
     </main>
     <footer class="foot">
       <div id="selection-summary" class="selection">未勾选任何记录组</div>
+      <button id="archive" hidden>更新永久存档…</button>
       <button id="preview" class="danger" disabled>预览清理…</button>
     </footer>
     <div
@@ -560,18 +561,21 @@
       aria-labelledby="confirmation-title"
     >
       <div class="confirm-box">
-        <h2 id="confirmation-title">确认清理图外记录</h2>
+        <h2 id="confirmation-title">清理预览：先备份，再清理工作版</h2>
         <p id="confirmation-summary"></p>
         <div id="confirmation-groups" class="confirm-groups"></div>
         <p class="warning-box">
-          先将完整原始对话保存为「残留清理前备份」，可从永久历史列表恢复；备份成功后才删除勾选的整组记录及对应书签。正常可见树和无关断链不会被修改。保存失败则恢复原对话。
+          第一步：明确新建完整备份并核验文件。第二步：单独点击「清理当前工作版」。保存备份不会自动开始清理，返回审查也不会删除已保存的备份。正常树和无关断链不会被修改。
         </p>
         <p class="muted">
-          清理更新当前临时对话及缓存；已有的原会话永久存档不会被覆盖，需要时请重新保存。
+          备份会作为独立项目出现在永久历史列表。清理只更新当前工作版及缓存；原永久存档不会被覆盖，需要时请另行更新。
         </p>
+        <p id="backup-location" class="muted"></p>
+        <p id="backup-status" class="muted"></p>
         <div class="confirm-actions">
-          <button id="cancel">返回审查</button
-          ><button id="confirm" class="danger">保存完整备份并清理</button>
+          <button id="cancel">返回审查</button>
+          <button id="save-backup">保存清理前完整备份</button>
+          <button id="confirm" class="danger" disabled>清理当前工作版</button>
         </div>
       </div>
     </div>
@@ -632,6 +636,8 @@
             "clear-selection",
             "preview",
             "confirm",
+            "save-backup",
+            "archive",
             "cancel",
             "groups-tab",
             "issues-tab",
@@ -687,6 +693,9 @@
             state.busy ||
             !groups.length ||
             !!state.report?.cleanupBlockedReason;
+          $("confirm").disabled = state.busy || !state.pending?.backupVerified;
+          $("save-backup").disabled =
+            state.busy || !state.pending || !!state.pending.backupVerified;
           $("select-filtered").disabled =
             state.busy ||
             state.tab !== "groups" ||
@@ -710,7 +719,12 @@
           if (state.tab === "issues") {
             const query = $("search").value.trim().toLowerCase();
             const issues = state.report.issues.filter((issue) =>
-              [issue.message, issue.nodeId, state.report.nodes[issue.nodeId]?.preview, ...issue.relatedNodeIds]
+              [
+                issue.message,
+                issue.nodeId,
+                state.report.nodes[issue.nodeId]?.preview,
+                ...issue.relatedNodeIds,
+              ]
                 .join(" ")
                 .toLowerCase()
                 .includes(query),
@@ -866,7 +880,10 @@
           $("group-title").textContent = groupTitle(group);
           $("group-meta").textContent =
             `${group.nodeIds.length} 个图外节点 · ${kb(group.bytes)} · ${group.issueIds.length} 项关联异常 · ${time(group.firstTimestamp)} — ${time(group.lastTimestamp)}`;
-          const blocked = [state.report.cleanupBlockedReason, ...group.blockedReasons].filter(Boolean);
+          const blocked = [
+            state.report.cleanupBlockedReason,
+            ...group.blockedReasons,
+          ].filter(Boolean);
           $("group-warning").textContent = blocked.length
             ? "禁止清理：" + blocked.join("；")
             : "可勾选整组清理；图中的正常树锚点与缺失记录不会被删除。";
@@ -884,11 +901,21 @@
           renderList();
           $("graph-wrap").scrollTo(0, 0);
           const query = $("search").value.trim().toLowerCase();
-          const match = query && group.nodeIds.find(id => {
-            const node = state.report.nodes[id];
-            return [id, node.preview, node.author, time(node.firstTimestamp), time(node.lastTimestamp)]
-              .join(" ").toLowerCase().includes(query);
-          });
+          const match =
+            query &&
+            group.nodeIds.find((id) => {
+              const node = state.report.nodes[id];
+              return [
+                id,
+                node.preview,
+                node.author,
+                time(node.firstTimestamp),
+                time(node.lastTimestamp),
+              ]
+                .join(" ")
+                .toLowerCase()
+                .includes(query);
+            });
           inspectNode(match || group.nodeIds[0], !!match);
         }
         function openIssue(issue) {
@@ -969,9 +996,10 @@
           // parent-only claims stay dashed and missing records remain stubs.
           const byPair = new Map();
           for (const declaration of sourceEdges) {
-            const edge = declaration.kind === "parent"
-              ? { from: declaration.to, to: declaration.from, kind: "parent" }
-              : declaration;
+            const edge =
+              declaration.kind === "parent"
+                ? { from: declaration.to, to: declaration.from, kind: "parent" }
+                : declaration;
             const key = JSON.stringify([edge.from, edge.to]);
             if (!byPair.has(key) || edge.kind === "child")
               byPair.set(key, edge);
@@ -1031,7 +1059,9 @@
             }),
           );
           const labelClip = svgElement("clipPath", { id: "node-label-clip" });
-          labelClip.append(svgElement("rect", { x: 8, y: 4, width: 189, height: 75 }));
+          labelClip.append(
+            svgElement("rect", { x: 8, y: 4, width: 189, height: 75 }),
+          );
           defs.append(marker, labelClip);
           svg.append(defs);
           const layer = svgElement("g", { id: "drawing" });
@@ -1306,19 +1336,47 @@
                 );
               }),
             );
+            $("backup-location").textContent =
+              `独立备份：${plan.backup.title}\n新建文件：${plan.backup.path}（不覆盖原永久存档）`;
+            $("backup-status").textContent = plan.backupVerified
+              ? "当前工作版已有核验通过的完整备份，可以单独清理。"
+              : "尚未保存备份，清理按钮不可用。";
             $("confirmation").hidden = false;
-            $("confirm").focus();
+            $("cancel").focus();
           } catch (error) {
             fail(error);
           } finally {
             setBusy(false);
           }
         }
+        async function saveBackup() {
+          if (state.busy || !state.pending || state.pending.backupVerified)
+            return;
+          setBusy(true);
+          status("正在新建并读取核验完整备份；不会开始清理…");
+          try {
+            const backup = await window.pluginSdk.saveResidueBackup(
+              state.pending.revision,
+            );
+            state.pending.backupVerified = true;
+            $("backup-status").textContent =
+              `备份已保存并核验：${backup.path}。现在可单独清理，也可返回审查，备份仍保留。`;
+            status(
+              "完整备份已保存并核验，当前工作版尚未清理。永久原存档未覆盖。",
+            );
+          } catch (error) {
+            state.pending = null;
+            $("confirmation").hidden = true;
+            fail(error);
+          } finally {
+            setBusy(false);
+          }
+        }
         async function execute() {
-          if (state.busy || !state.pending) return;
+          if (state.busy || !state.pending?.backupVerified) return;
           const plan = state.pending;
           setBusy(true);
-          status("正在保存完整备份；备份成功后才会清理…");
+          status("正在复核备份及来源，仅清理当前工作版和缓存…");
           try {
             const result = await window.pluginSdk.executeResidueCleanup(
               [...plan.groupIds],
@@ -1326,8 +1384,9 @@
             );
             renderReport(result.report);
             status(
-              `已清理 ${result.removedCount} 个图外节点，估算 ${kb(result.bytes)}。完整备份已保存到永久历史：${result.backupId}`,
+              `当前工作版及缓存已清理 ${result.removedCount} 个图外节点，估算 ${kb(result.bytes)}。原永久存档尚未更新。完整备份保留于：${result.backupPath}`,
             );
+            $("archive").hidden = false;
             $("refresh").focus();
           } catch (error) {
             state.pending = null;
@@ -1376,7 +1435,26 @@
           wrap.scrollTo(0, 0);
         });
         $("preview").addEventListener("click", preview);
+        $("save-backup").addEventListener("click", saveBackup);
         $("confirm").addEventListener("click", execute);
+        $("archive").addEventListener("click", async () => {
+          if (state.busy) return;
+          setBusy(true);
+          try {
+            const saved = await window.pluginSdk.archiveResidueWorkingCopy(
+              state.report.revision,
+            );
+            status(
+              saved
+                ? "当前工作版已写入永久存档，完整清理前备份仍保留。"
+                : "归档操作未确认完成（取消或失败）；请查看提示，错误时核查目标文件。当前工作版仍保留。",
+            );
+          } catch (error) {
+            fail(error);
+          } finally {
+            setBusy(false);
+          }
+        });
         $("cancel").addEventListener("click", () => {
           if (!state.busy) {
             state.pending = null;
@@ -1388,13 +1466,18 @@
           if ($("confirmation").hidden) return;
           if (event.key === "Escape" && !state.busy) $("cancel").click();
           if (event.key === "Tab") {
-            const controls = [...$("confirmation").querySelectorAll("button:not(:disabled)")];
-            const first = controls[0], last = controls.at(-1);
+            const controls = [
+              ...$("confirmation").querySelectorAll("button:not(:disabled)"),
+            ];
+            const first = controls[0],
+              last = controls.at(-1);
             if (!first) event.preventDefault();
             else if (event.shiftKey && document.activeElement === first) {
-              event.preventDefault(); last.focus();
+              event.preventDefault();
+              last.focus();
             } else if (!event.shiftKey && document.activeElement === last) {
-              event.preventDefault(); first.focus();
+              event.preventDefault();
+              first.focus();
             }
           }
         });

@@ -259,37 +259,18 @@ const HistoryList = (props: {
     const batchPersist = async () => {
         if (selectedItems().size === 0 || sourceType() !== 'temporary') return;
 
-        const itemCount = selectedItems().size;
-        confirmDialog({
-            title: `确认持久化 ${itemCount} 个项目?`,
-            content: `选中的项目将从临时存储移动到持久化存储。`,
-            confirm: () => {
-                // 获取选中项的历史记录
-                const selectedHistories = historyRef().filter(h => selectedItems().has(h.id));
-
-                // 批量持久化
-                batch(async () => {
-                    for (const history of selectedHistories) {
-                        // temporary 模式下的数据必定是 IChatSessionHistory 类型
-                        // if (history?.type !== 'snapshot') {
-                        //     await persist.saveToJson(history as IChatSessionHistory);
-                        // }{
-                        if (isV2History(history)) {
-                            await persist.saveToJson(history satisfies IChatSessionHistoryV2)
-                        } else {
-                            console.error(`无法持久化历史记录，类型不支持: ${history.title}@${history.id}`);
-                        }
-                    }
-
-                    // 重新加载历史记录
-                    // await fetchHistory('temporary');
-                });
-
-                // 清空选中项
-                selectedItems.value = new Set();
-                showMessage(`已持久化 ${itemCount} 个项目`);
-            }
-        });
+        const histories = historyRef().filter(history => selectedItems().has(history.id));
+        let completed = 0;
+        // Each archive gets its own target/content confirmation; cancellation or
+        // failure stops the batch without clearing unprocessed selections.
+        for (const history of histories) {
+            if (!isV2History(history) || !await persist.archiveWorkingHistory(history)) break;
+            completed++;
+            const remaining = new Set(selectedItems());
+            remaining.delete(history.id);
+            selectedItems.value = remaining;
+        }
+        if (completed) showMessage(`本次完成 ${completed} 个永久存档；临时缓存未删除，未处理项目仍保留勾选`);
     };
 
     const onclick = async (history: HistoryItem) => {
