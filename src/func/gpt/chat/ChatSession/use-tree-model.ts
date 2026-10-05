@@ -10,8 +10,9 @@
 import { Accessor, batch, createMemo } from 'solid-js';
 import { useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
 import {
+    assertLegacyExtractionProjection,
     assertRootRemovalCoversAllRecords,
-    collectSelectedSubtree, isNodeIdsSelection, planNodeSelection, planSubtreeDeletion,
+    collectSelectedSubtree, getRootedTreeNodes, isNodeIdsSelection, planNodeSelection, planSubtreeDeletion, projectSelection,
     INodeSelectionPlan, ITreeSelection,
 } from './subtree-selection';
 
@@ -620,14 +621,10 @@ export const useTreeModel = (): ITreeModel => {
         return node.children.map(childId => nodes()[childId]).filter(Boolean);
     };
 
-    /** 纯规划入口：桥接层在任何副作用前重新计算并比对，防止过期选择被执行。 */
-    const getSelectionPlan = (nodeIds: ItemID[]): INodeSelectionPlan => {
-        const currentNodes = nodes.unwrap();
-        const plan = planNodeSelection(currentNodes, nodeIds);
-        // 提议删除树根的规划必须覆盖全部记录，否则 UI 预览阶段就拒绝。
-        assertRootRemovalCoversAllRecords(currentNodes, new Set(plan.removableIds), rootId());
-        return plan;
-    };
+    /** 纯规划入口：桥接层在任何副作用前重新计算并比对，防止过期选择被执行。
+     *  传入实际树根，使预览与删除使用同一份“保留树根”的调整后规划。 */
+    const getSelectionPlan = (nodeIds: ItemID[]): INodeSelectionPlan =>
+        planNodeSelection(nodes.unwrap(), nodeIds, rootId());
 
     const extractSubtree = (args: IExtractSubtreeArgs): IExtractSubtreeResult => {
         const currentNodes = nodes.unwrap();
@@ -635,16 +632,21 @@ export const useTreeModel = (): ITreeModel => {
 
         let selectedRootId: ItemID;
         let includedIds: Set<ItemID>;
-        let endpointIds: ItemID[];
+        let projectedParentOf: Map<ItemID, ItemID | null> | null = null;
+        let endpointIds: ItemID[] = [];
         if (isNodeIdsSelection(args)) {
-            // 任意集合路径：必须构成单根连通子树；空集不会按整棵树处理。
-            const plan = planNodeSelection(currentNodes, args.nodeIds);
-            if (!plan.canExtract) throw new Error('所选节点不是一个连通的单根子树，无法复制或剪切');
-            selectedRootId = plan.rootIds[0];
-            includedIds = new Set(plan.nodeIds);
-            endpointIds = plan.nodeIds.filter(id => !currentNodes[id].children.some(c => includedIds.has(c)));
+            // 任意集合路径：投影到选中 children 边上，必须是单根连通子树；空集不按整棵树处理。
+            // 关键几何错误（缺失 ID、环、多父）由 projectSelection 抛出带诊断的类型化错误。
+            const projection = projectSelection(currentNodes, args.nodeIds, rootId());
+            const projectedRoots = projection.order.filter(id => projection.parentOf.get(id) === null);
+            if (projectedRoots.length !== 1) throw new Error('所选节点不是一个连通的单根子树，无法复制或剪切');
+            selectedRootId = projectedRoots[0];
+            includedIds = new Set(projection.order);
+            projectedParentOf = projection.parentOf;
         } else {
             // 旧 root+leaf 路径：保持既有语义（路径并集；leafIds 为空表示整棵子树）。
+            // 复制前校验投影为以请求根为唯一根的树且原始父链接一致；畸形数据拒绝，不修复。
+            assertLegacyExtractionProjection(currentNodes, args.rootId, args.leafIds);
             selectedRootId = args.rootId;
             includedIds = collectSelectedSubtree(currentNodes, { rootId: args.rootId, leafIds: args.leafIds });
             endpointIds = [...new Set(args.leafIds ?? [])];
@@ -657,13 +659,25 @@ export const useTreeModel = (): ITreeModel => {
 
         const copiedNodes: Record<ItemID, IChatSessionMsgItemV2> = {};
         includedIds.forEach(oldId => {
+            const seenChildren = new Set<ItemID>();
             const oldNode = currentNodes[oldId];
             const newId = idMap[oldId];
             const copied = structuredClone(oldNode);
             copied.id = newId;
-            copied.parent = oldNode.parent && includedIds.has(oldNode.parent) ? idMap[oldNode.parent] : null;
+            if (projectedParentOf) {
+                // 副本父级按选中 children 边重建；原始引用不回填，源数据不受影响。
+                const projectedParentId = projectedParentOf.get(oldId);
+                copied.parent = projectedParentId ? idMap[projectedParentId] : null;
+            } else {
+                copied.parent = oldNode.parent && includedIds.has(oldNode.parent) ? idMap[oldNode.parent] : null;
+            }
             copied.children = oldNode.children
-                .filter(childId => includedIds.has(childId))
+                .filter(childId => {
+                    // 目标 children 永不重复同一条消息；重复边在源数据中原样保留。
+                    if (!includedIds.has(childId) || seenChildren.has(childId)) return false;
+                    seenChildren.add(childId);
+                    return true;
+                })
                 .map(childId => idMap[childId]);
             copied.loading = false;
             copiedNodes[newId] = copied;
@@ -674,19 +688,42 @@ export const useTreeModel = (): ITreeModel => {
         let selectedWorldLine: ItemID[] = [];
 
         if (rootIndex !== -1) {
-            const suffix = currentWorldLine.slice(rootIndex).filter(id => includedIds.has(id));
-            const suffixEnd = suffix[suffix.length - 1];
-            if (suffix[0] === selectedRootId && suffixEnd && isIncludedLeaf(currentNodes, suffixEnd, includedIds)) {
-                selectedWorldLine = suffix;
+            if (projectedParentOf) {
+                // 新路径：仅当当前世界线在投影树中确为一条 root→叶子路径时才沿用；
+                // 否则回退到投影树中按源 children 顺序的一条完整叶子路径。
+                const path: ItemID[] = [selectedRootId];
+                let cursor = selectedRootId;
+                for (let i = rootIndex + 1; i < currentWorldLine.length; i++) {
+                    const nextId = currentWorldLine[i];
+                    if (!includedIds.has(nextId) || !currentNodes[cursor]?.children.includes(nextId)) break;
+                    path.push(nextId);
+                    cursor = nextId;
+                }
+                const endIsProjectedLeaf = !currentNodes[cursor].children.some(childId => includedIds.has(childId));
+                if (endIsProjectedLeaf) selectedWorldLine = path;
+            } else {
+                const suffix = currentWorldLine.slice(rootIndex).filter(id => includedIds.has(id));
+                const suffixEnd = suffix[suffix.length - 1];
+                if (suffix[0] === selectedRootId && suffixEnd && isIncludedLeaf(currentNodes, suffixEnd, includedIds)) {
+                    selectedWorldLine = suffix;
+                }
             }
         }
 
-        if (selectedWorldLine.length === 0 && endpointIds.length > 0) {
-            selectedWorldLine = traceBetween(currentNodes, selectedRootId, endpointIds[0]);
-        }
-
         if (selectedWorldLine.length === 0) {
-            selectedWorldLine = findFirstLeafPath(currentNodes, selectedRootId, includedIds);
+            if (projectedParentOf) {
+                const path: ItemID[] = [];
+                let cursor: ItemID | null = selectedRootId;
+                while (cursor) {
+                    path.push(cursor);
+                    cursor = currentNodes[cursor].children.find(childId => includedIds.has(childId)) ?? null;
+                }
+                selectedWorldLine = path;
+            } else if (endpointIds.length > 0) {
+                selectedWorldLine = traceBetween(currentNodes, selectedRootId, endpointIds[0]);
+            } else {
+                selectedWorldLine = findFirstLeafPath(currentNodes, selectedRootId, includedIds);
+            }
         }
 
         const newWorldLine = selectedWorldLine
@@ -702,24 +739,25 @@ export const useTreeModel = (): ITreeModel => {
     };
 
     const validateSubtreeDeletion = (args: ITreeSelection) => {
-        const currentNodes = nodes.unwrap();
-        const { deleted } = planSubtreeDeletion(currentNodes, args);
-        assertRootRemovalCoversAllRecords(currentNodes, deleted, rootId());
+        const { deleted } = planSubtreeDeletion(nodes.unwrap(), args, rootId());
         return deleted.size;
     };
 
     const deleteSubtree = (args: ITreeSelection): number => {
         const currentNodes = nodes.unwrap();
-        const { deleted } = planSubtreeDeletion(currentNodes, args);
-        // 删除树根前必须确认覆盖全部记录，孤儿数据要么保留要么明确拒绝，不做静默清理。
+        // 与预览完全相同的规划（含“保留树根”调整）；断言仅作变异前兑底。
+        const { deleted } = planSubtreeDeletion(currentNodes, args, rootId());
         assertRootRemovalCoversAllRecords(currentNodes, deleted, rootId());
+        const treeNodes = getRootedTreeNodes(currentNodes, rootId());
         const remainingNodes: Record<ItemID, IChatSessionMsgItemV2> = {};
         Object.entries(currentNodes).forEach(([id, node]) => {
             if (deleted.has(id)) return;
-            remainingNodes[id] = {
+            // Only the rooted graph is being edited. Graph-external historical records
+            // remain verbatim; cleaning their stale links is a separate recovery action.
+            remainingNodes[id] = treeNodes[id] ? {
                 ...node,
                 children: node.children.filter(childId => !deleted.has(childId)),
-            };
+            } : node;
         });
 
         batch(() => {

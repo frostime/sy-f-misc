@@ -11,6 +11,7 @@
     "type-check": "tsc --project tsconfig.json --noEmit --skipLibCheck --noUnusedLocals false --noUnusedParameters false",
     "test:gpt": "pnpm run test:gpt-chat && pnpm run test:gpt-protocol",
     "test:gpt-chat": "node tests/run-gpt-chat-tests.mjs",
+    "test:gpt-tree-menu": "node tests/run-gpt-tree-menu-tests.mjs",
     "test:gpt-protocol": "tsc --project tests/tsconfig.gpt-protocol.json && node tests/run-gpt-protocol-tests.mjs",
     "test:runtime-config": "node -e \"require('fs').rmSync('tmp/runtime-config-tests',{recursive:true,force:true})\" && tsc --project tests/tsconfig.json && node --test tmp/runtime-config-tests/tests/settings-reconciliation.test.js tmp/runtime-config-tests/tests/func-lifecycle.test.js",
     "dev": "pnpm run dev:full",

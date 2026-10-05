@@ -1,5 +1,13 @@
 # 验证结果
 
+## 本轮：统一可见树与操作范围
+
+旧单节点删除、clear/fromHistory 把 Solid store merge 当作替换，能够留下图外记录；这些写入入口在当前源码已修正，不自动清理已保存的数据。本轮取消“图外 parent 声明阻挡可见子树”的规则，树图和规划共用 root 沿 children 可达的图。
+
+对用户提供的 20251027000751-mvjoah0.json 做只读载入，在真实 TreeModel 的内存副本中验证：2019 条存储记录中 133 条属于当前树；截图选区 9 条全部可复制/移除，保留 0 条。删除后可见树剩余 124 条，双向关系一致；1886 条图外记录原样保留。改变 active path、当前 version 和点击顺序不改变规划，复制保留全部版本。源文件前后字节一致。该验证不写入思源存储，也不等于应用内保存/重载验收。
+
+根节点仍有独立安全边界：若整树删除会留下未选存储记录，保留实际 root，避免未经授权丢弃残留。历史清理/恢复不是本轮功能。
+
 ## 执行与范围
 
 - 等待至 2026-10-04 06:45:00 +08:00 后开始实现；分支 `feat/gpt-subtree-response-compat`。
@@ -12,7 +20,8 @@
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm run test:gpt` | 通过：chat 13/13，protocol 42/42，总计 55/55 |
+| `pnpm run test:gpt` | 通过：chat 31/31，protocol 42/42，总计 73/73 |
+| `pnpm run test:gpt-tree-menu` | 正式 HTML 菜单、范围选择、影响图和 2000 节点回归通过；隐藏残留不再保留整个可见子树 |
 | `pnpm run type-check` | 退出 2，仅未修改的 `src/func/docfile-tools.ts` 有 4 个既有错误；本次文件无类型错误 |
 | `pnpm run build:publish` | 通过：Vite 发布构建与 ZIP 打包完成 |
 | `git diff --check` | 通过 |
@@ -30,7 +39,7 @@
 ## 测试覆盖的关键行为
 
 - 全部版本/usage 复制独立；安全剪切保留共享路径、未选分支和书签；多终点、整树、非当前分支删除。
-- 危险中间终点拒绝整个操作，复制仍允许；原树和书签不变。
+- 中间节点与独占部分混选：明确预览后删除安全部分，公共路径保留；零可移除内容拒绝。图外残留不能限制完整可见子树。
 - Solid store 真实清空/恢复，无孤儿 map 项；当前世界线只保留合法前缀。
 - 剪切目标保存先于原树删除；整树剪切写入空原会话；目标/来源保存失败、UI 切换失败的回滚；持续存储失败时保留完整目标备份。
 - rerun 不继承旧 usage/耗时/推理；流式和完成结果绑定准备时的 version，查看其他 version 不串写；模型标签保留请求时选择。
@@ -45,4 +54,4 @@
 - 未进行思源应用内视觉和交互验收，未实测真实设备同步或强制退出。待验收项见 manual-verification.md。
 - 本次保证现有本地工作副本的有序提交与失败回滚，缓存仍异步复制；没有引入跨设备事务。中断可能保留两份完整内容，不承诺恰好一份。
 
-日志位于忽略目录：`tmp/gpt-final-tests.log`、`tmp/gpt-final-typecheck.log`、`tmp/gpt-final-build.log`。
+本轮日志位于忽略目录：`tmp/gpt-rooted-graph-tests.log`、`tmp/gpt-rooted-graph-types.log`、`tmp/gpt-rooted-graph-browser.log`、`tmp/gpt-rooted-graph-build.log`。真实结构只读探针为 `tmp/gpt-rooted-real-case.ts`，不作为 CI 测试或可迁移夹具（依赖本地案例路径）。

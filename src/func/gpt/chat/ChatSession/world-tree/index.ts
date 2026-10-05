@@ -11,7 +11,7 @@ import { ITreeModel } from "../use-tree-model";
 import { extractContentText } from "@/func/gpt/chat-utils/msg-content";
 import { getMessageProp, getPayload } from "@/func/gpt/chat-utils";
 import { showMessage } from "siyuan";
-import { isSameSelectionPlan, type INodeSelectionPlan } from "../subtree-selection";
+import { getRootedTreeNodes, isSameSelectionPlan, type INodeSelectionPlan } from "../subtree-selection";
 
 export interface ITreeSelectionOperation {
     nodeIds: string[];
@@ -90,7 +90,7 @@ export const showChatWorldTree = (options: {
     const getTreeData = async () => ({
         rootId: treeModel.getRootId(),
         worldLine: treeModel.getWorldLine(),
-        nodes: transformNodes(treeModel.getNodes())
+        nodes: transformNodes(getRootedTreeNodes(treeModel.getNodes(), treeModel.getRootId()))
     });
 
     const dialog = openIframeDialog({

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRoot } from 'solid-js';
 import { useTreeModel } from '../src/func/gpt/chat/ChatSession/use-tree-model';
-import { assertRootRemovalCoversAllRecords, isSameSelectionPlan, INodeSelectionPlan } from '../src/func/gpt/chat/ChatSession/subtree-selection';
+import {
+    assertRootRemovalCoversAllRecords, isSameSelectionPlan, NodeSelectionError, INodeSelectionPlan,
+} from '../src/func/gpt/chat/ChatSession/subtree-selection';
 import { createMessageLifecycle } from '../src/func/gpt/chat/ChatSession/message-lifecycle';
 import { describeUsage } from '../src/func/gpt/chat/components/usage-display';
 import { sumReportedUsage } from '../src/func/gpt/tools/usage-sum';
@@ -143,7 +145,7 @@ test('getSelectionPlan describes arbitrary unordered sets deterministically', ()
     assert.deepEqual(reordered, plan);
     assert.equal(isSameSelectionPlan(plan, reordered), true);
     assert.deepEqual(tree.getSelectionPlan([]), {
-        nodeIds: [], rootIds: [], removableIds: [], retainedIds: [], connectionIds: [], canExtract: false,
+        nodeIds: [], rootIds: [], removableIds: [], retainedIds: [], connectionIds: [], canExtract: false, issues: [],
     });
 }));
 
@@ -158,22 +160,30 @@ test('connectionIds fill only the gaps between selected nodes, never above their
     assert.deepEqual(tree.getSelectionPlan(['R', 'B']).connectionIds, ['R', 'A', 'B'], 'the gap up to a selected root is filled');
 }));
 
-test('removing the actual root is rejected while unselected orphan records would survive', () => withTree(tree => {
+test('destructive root selection with leftover records keeps the root and removes safe descendants', () => withTree(tree => {
     // A clean map allows whole-tree deletion and leaves nothing behind.
     assert.equal(tree.deleteSubtree({ nodeIds: ['R', 'A', 'B', 'C', 'D'] }), 5);
     assert.deepEqual(snapshot(tree).nodes, {});
 
     tree.fromHistory(orphanHistory());
     const before = snapshot(tree);
-    assert.throws(() => tree.getSelectionPlan(['R', 'A', 'B', 'C', 'D']), /孤儿/, 'the plan itself must not propose an orphan-leaving root removal');
-    assert.throws(() => tree.validateSubtreeDeletion({ rootId: 'R' }), /孤儿/);
-    assert.throws(() => tree.deleteSubtree({ rootId: 'R' }), /孤儿/);
-    assert.throws(() => tree.deleteSubtree({ nodeIds: ['R', 'A', 'B', 'C', 'D'] }), /孤儿/);
+    const plan = tree.getSelectionPlan(['R', 'A', 'B', 'C', 'D']);
+    assert.equal(plan.canExtract, true, 'copy is nondestructive: leftover records must not block it');
+    assert.deepEqual(plan.retainedIds, ['R']);
+    assert.deepEqual(plan.removableIds, ['A', 'B', 'C', 'D']);
+    assert.ok(plan.issues.some(issue => issue.kind === 'ROOT_RETAINED_WITH_RESIDUE'
+        && issue.nodeId === 'R' && issue.relatedNodeIds.includes('X')));
+    const copied = tree.extractSubtree({ nodeIds: ['R', 'A', 'B', 'C', 'D'] });
+    assert.equal(Object.keys(copied.nodes).length, 5);
     assert.deepEqual(snapshot(tree), before);
-    // Operations that never touch the root stay available and orphans are untouched.
-    assert.equal(tree.deleteSubtree({ nodeIds: ['B'] }), 1);
-    assert.equal(tree.getNodes().B, undefined);
-    assert.ok(tree.getNodes().X, 'unrelated orphan record must not be silently deleted');
+    // Preview and execution share the exact adjusted plan: root stays, descendants go.
+    assert.equal(tree.validateSubtreeDeletion({ rootId: 'R' }), 4);
+    assert.equal(tree.deleteSubtree({ nodeIds: ['R', 'A', 'B', 'C', 'D'] }), 4);
+    const history = snapshot(tree);
+    assert.deepEqual(Object.keys(history.nodes).sort(), ['R', 'X']);
+    assert.equal(history.rootId, 'R');
+    assert.deepEqual(history.worldLine, ['R']);
+    assert.ok(history.nodes.X, 'unrelated orphan record must not be silently deleted');
 }));
 
 test('assertRootRemovalCoversAllRecords guards both directions of coverage mismatch', () => {
@@ -261,7 +271,7 @@ test('a stale plan mismatches once the tree changed; reordered but equivalent se
 }));
 
 test('isSameSelectionPlan compares multiset membership and rejects incomplete plans', () => {
-    const base = { nodeIds: [], rootIds: [], removableIds: [], retainedIds: [], connectionIds: [], canExtract: false };
+    const base = { nodeIds: [], rootIds: [], removableIds: [], retainedIds: [], connectionIds: [], canExtract: false, issues: [] };
     assert.equal(isSameSelectionPlan(
         { ...base, removableIds: ['a', 'a'] },
         { ...base, removableIds: ['a', 'b'] },
@@ -273,6 +283,33 @@ test('isSameSelectionPlan compares multiset membership and rejects incomplete pl
     assert.equal(isSameSelectionPlan(base, { nodeIds: [] } as INodeSelectionPlan), false, 'a plan missing arrays never matches');
     assert.equal(isSameSelectionPlan(base, { ...base, canExtract: undefined } as unknown as INodeSelectionPlan), false);
 });
+
+test('legacy extraction rejects a disowned unreachable node and copies nothing malformed', () => withTree(tree => {
+    const history = fixture();
+    // X claims A as parent but is absent from A.children.
+    history.nodes.X = { ...history.nodes.B, id: 'X', parent: 'A', children: [] };
+    tree.fromHistory(history);
+    const before = snapshot(tree);
+    try {
+        tree.extractSubtree({ rootId: 'A', leafIds: ['X'] });
+        assert.fail('malformed legacy extraction must reject');
+    } catch (error) {
+        assert.ok(error instanceof NodeSelectionError);
+        const typed = error as NodeSelectionError;
+        assert.ok(typed.issues.length > 0);
+        assert.ok(typed.issues.some(issue => issue.nodeId === 'X' || issue.relatedNodeIds.includes('X')));
+        assert.ok(!typed.message.includes('X'), 'error text stays readable without raw ids');
+    }
+    assert.deepEqual(snapshot(tree), before, 'the source must stay untouched');
+
+    // Healthy legacy extractions are unaffected, including sub-root and whole-subtree forms.
+    const copied = tree.extractSubtree({ rootId: 'A', leafIds: ['C'] });
+    assert.equal(copied.rootId, copied.idMap.A);
+    assert.deepEqual(copied.nodes[copied.idMap.C].parent, copied.idMap.A);
+    const subtree = tree.extractSubtree({ rootId: 'A' });
+    assert.equal(Object.keys(subtree.nodes).length, 3);
+    assert.deepEqual(subtree.nodes[subtree.rootId].parent, null);
+}));
 
 test('legacy deleteNode removes its map and bookmark keys exactly, with or without root promotion', () => withTree(tree => {
     tree.deleteNode('B');
@@ -291,19 +328,154 @@ test('legacy deleteNode removes its map and bookmark keys exactly, with or witho
     assertTreeConsistent(snapshot(tree));
 }));
 
-test('invalid or structurally inconsistent selections fail without any mutation', () => withTree(tree => {
+test('missing or graph-external selections reject without changing stored records', () => withTree(tree => {
     const before = snapshot(tree);
-    assert.throws(() => tree.getSelectionPlan(['missing']), /已不存在/);
-    assert.throws(() => tree.deleteSubtree({ nodeIds: ['B', 'missing'] }), /已不存在/);
+    // Missing selected ids are critical and never mutate.
+    try {
+        tree.getSelectionPlan(['missing']);
+        assert.fail('missing selection must reject');
+    } catch (error) {
+        assert.ok(error instanceof NodeSelectionError);
+        assert.ok((error as NodeSelectionError).issues.some(issue => issue.kind === 'MISSING_SELECTED_NODE' && issue.nodeId === 'missing'));
+        assert.ok(!(error as Error).message.includes('missing'), 'error text stays readable without raw ids');
+    }
+    try {
+        tree.deleteSubtree({ nodeIds: ['B', 'missing'] });
+        assert.fail('missing selection must reject');
+    } catch (error) {
+        assert.ok(error instanceof NodeSelectionError);
+    }
     assert.deepEqual(snapshot(tree), before);
 
+    // A graph-external record cannot become selectable just because it has a parent claim.
     const corrupt = fixture();
     corrupt.nodes.A.children = ['B'];
     tree.fromHistory(corrupt);
     const corruptedSnapshot = snapshot(tree);
-    assert.throws(() => tree.getSelectionPlan(['C']), /不一致/);
-    assert.throws(() => tree.deleteSubtree({ nodeIds: ['R', 'C'] }), /不一致/);
+    assert.throws(() => tree.getSelectionPlan(['C']), NodeSelectionError);
+    assert.throws(() => tree.extractSubtree({ nodeIds: ['C'] }), NodeSelectionError);
+    assert.throws(() => tree.deleteSubtree({ nodeIds: ['R', 'C'] }), NodeSelectionError);
     assert.deepEqual(snapshot(tree), corruptedSnapshot);
+}));
+
+test('unrelated broken records and branches do not block healthy selections or get repaired', () => withTree(tree => {
+    for (const failure of ['missing-parent', 'missing-child', 'unlisted-child']) {
+        const history = fixture();
+        if (failure === 'missing-child') history.nodes.D.children = ['absent'];
+        else history.nodes.X = {
+            ...history.nodes.B, id: 'X', parent: failure === 'missing-parent' ? 'absent' : 'D', children: [],
+        };
+        tree.fromHistory(history);
+        const before = snapshot(tree);
+        const plan = tree.getSelectionPlan(['B']);
+        assert.deepEqual(plan.removableIds, ['B'], failure);
+        assert.deepEqual(plan.connectionIds, ['B']);
+        const copy = tree.extractSubtree({ nodeIds: ['B'] });
+        assert.deepEqual(copy.nodes[copy.rootId].versions, before.nodes.B.versions);
+        assert.deepEqual(snapshot(tree), before, 'analysis/copy must not repair the source');
+        assert.equal(tree.deleteSubtree({ nodeIds: ['B'] }), 1);
+        const after = snapshot(tree);
+        assert.deepEqual(after.nodes.D, before.nodes.D, 'the unrelated branch is unchanged');
+        assert.deepEqual(after.nodes.X, before.nodes.X, 'unrelated malformed records are retained verbatim');
+        assert.deepEqual(after.nodes.A.children, ['C']);
+        assert.deepEqual(after.worldLine, ['R', 'A']);
+    }
+}));
+
+test('graph-external parent claims and child links do not block a visible leaf; residue stays stored', () => withTree(tree => {
+    const history = fixture();
+    history.nodes.X = { ...history.nodes.B, id: 'X', parent: 'B', children: ['B'] };
+    tree.fromHistory(history);
+    const before = snapshot(tree);
+    const plan = tree.getSelectionPlan(['B']);
+    assert.deepEqual(plan.nodeIds, ['B']);
+    assert.deepEqual(plan.rootIds, ['B']);
+    assert.deepEqual(plan.retainedIds, []);
+    assert.deepEqual(plan.removableIds, ['B']);
+    assert.equal(plan.canExtract, true);
+    assert.deepEqual(plan.issues, []);
+    const copied = tree.extractSubtree({ nodeIds: ['B'] });
+    assert.deepEqual(Object.keys(copied.nodes), [copied.idMap.B]);
+    assert.equal(copied.nodes[copied.idMap.B].parent, null);
+    assert.deepEqual(snapshot(tree), before, 'copy and analysis never touch the source');
+    assert.equal(tree.deleteSubtree({ nodeIds: ['B'] }), 1);
+    assert.deepEqual(tree.getNodes().X, before.nodes.X, 'graph-external data is not silently cleaned');
+    assert.deepEqual(tree.getNodes().A.children, ['C']);
+    assert.deepEqual(tree.getSelectionPlan(['D']).removableIds, ['D']);
+    tree.fromHistory(before);
+    assert.equal(tree.deleteSubtree({ rootId: 'B' }), 1, 'legacy removal uses the same visible graph');
+}));
+
+test('a foreign incoming child link keeps copy available and conservatively retains the node', () => withTree(tree => {
+    const history = fixture();
+    history.nodes.D.children = ['B']; // B belongs to A, not D.
+    tree.fromHistory(history);
+    const before = snapshot(tree);
+    const plan = tree.getSelectionPlan(['B']);
+    assert.equal(plan.canExtract, true);
+    assert.deepEqual(plan.retainedIds, ['B']);
+    assert.deepEqual(plan.removableIds, []);
+    assert.ok(plan.issues.some(issue => issue.kind === 'AMBIGUOUS_OWNERS' && issue.nodeId === 'B' && issue.relatedNodeIds.includes('D')));
+    assert.throws(() => tree.deleteSubtree({ nodeIds: ['B'] }), /没有可安全删除/, 'the ambiguous branch must not silently lose B');
+    assert.deepEqual(snapshot(tree), before);
+    assert.deepEqual(tree.getSelectionPlan(['C']).removableIds, ['C']);
+    const copied = tree.extractSubtree({ nodeIds: ['B'] });
+    assert.deepEqual(Object.keys(copied.nodes), [copied.idMap.B]);
+    assert.equal(copied.nodes[copied.idMap.B].parent, null);
+}));
+
+test('a duplicated child edge is diagnosed, conservatively retained, and never copied twice', () => withTree(tree => {
+    const history = fixture();
+    history.nodes.A.children = ['B', 'B', 'C'];
+    tree.fromHistory(history);
+    const before = snapshot(tree);
+    const plan = tree.getSelectionPlan(['A', 'B', 'C']);
+    assert.equal(plan.canExtract, true);
+    assert.ok(plan.issues.some(issue => issue.kind === 'DUPLICATE_CHILD_EDGES'
+        && issue.nodeId === 'A' && issue.relatedNodeIds.includes('B')));
+    assert.deepEqual(plan.retainedIds, ['A'], 'the repeated reference stays conservatively retained');
+    assert.deepEqual(plan.removableIds, ['B', 'C']);
+    const copied = tree.extractSubtree({ nodeIds: ['A', 'B', 'C'] });
+    assert.deepEqual(copied.nodes[copied.idMap.A].children, [copied.idMap.B, copied.idMap.C],
+        'the new session must never list the same child twice');
+    assert.deepEqual(snapshot(tree), before, 'the source keeps its raw duplicated list');
+    assert.equal(tree.deleteSubtree({ nodeIds: ['A', 'B', 'C'] }), 2);
+    assert.deepEqual(tree.getNodes().A.children, []);
+    assertTreeConsistent(snapshot(tree));
+}));
+
+test('a complete visible subtree removes fully despite graph-external residue, regardless of active path or version', () => withTree(tree => {
+    const history = fixture();
+    // An unrendered record claims A as parent but is absent from A.children.
+    history.nodes.X = { ...history.nodes.B, id: 'X', parent: 'A', children: [] };
+    tree.fromHistory(history);
+    const before = snapshot(tree);
+    const plan = tree.getSelectionPlan(['A', 'B', 'C']);
+    assert.equal(plan.canExtract, true);
+    assert.deepEqual(plan.nodeIds, ['A', 'B', 'C']);
+    assert.deepEqual(plan.rootIds, ['A']);
+    assert.deepEqual(plan.retainedIds, []);
+    assert.deepEqual(plan.removableIds, ['A', 'B', 'C']);
+    assert.deepEqual(plan.connectionIds, ['A', 'B', 'C']);
+    assert.deepEqual(plan.issues, []);
+    tree.switchWorldLine('D');
+    tree.switchVersion('B', 'alternative');
+    assert.deepEqual(tree.getSelectionPlan(['C', 'B', 'A']), plan);
+    tree.fromHistory(before);
+
+    const copied = tree.extractSubtree({ nodeIds: ['A', 'B', 'C'] });
+    assert.equal(Object.keys(copied.nodes).length, 3);
+    assert.equal(copied.nodes[copied.idMap.A].parent, null);
+    assert.deepEqual(copied.nodes[copied.idMap.A].children, [copied.idMap.B, copied.idMap.C]);
+    assert.deepEqual(copied.nodes[copied.idMap.B].versions, before.nodes.B.versions);
+    assert.deepEqual(snapshot(tree), before, 'the source is never repaired or cleared by copying');
+
+    assert.equal(tree.deleteSubtree({ nodeIds: ['A', 'B', 'C'] }), 3);
+    const historyAfter = snapshot(tree);
+    assert.deepEqual(Object.keys(historyAfter.nodes).sort(), ['D', 'R', 'X']);
+    assert.deepEqual(historyAfter.nodes.R.children, ['D']);
+    assert.deepEqual(historyAfter.nodes.X, before.nodes.X);
+    assert.deepEqual(historyAfter.worldLine, ['R']);
 }));
 
 test('deleting a complete non-active subtree leaves the current world line unchanged', () => withTree(tree => {

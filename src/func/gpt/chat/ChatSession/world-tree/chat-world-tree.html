@@ -250,6 +250,11 @@
         /* Selection membership is separate from the normal viewed-node highlight. */
         .tree-node.picked .node-circle { box-shadow: 0 0 0 4px var(--c-info-bg); }
         .tree-node.protected .node-circle { box-shadow: 0 0 0 4px var(--c-warning-bg); }
+        .tree-node.has-issue .node-circle { outline: 2px dashed var(--c-warning); outline-offset: 6px; }
+        .node-issue-mark { display: none; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); min-width: 16px; border-radius: 999px; background: var(--c-warning); color: var(--c-fg); font-size: var(--fs-xs, 11px); }
+        .tree-node.has-issue .node-issue-mark { display: block; }
+        .selection-issue { margin: 8px 0; padding: 10px; background: var(--c-warning-bg); border-radius: var(--radius, 6px); line-height: 1.6; }
+        .selection-issue .related-label { display: block; margin-top: 5px; overflow-wrap: anywhere; }
         .tree-edge.picked { stroke: var(--c-info); stroke-width: 3; opacity: 1; }
         .tree-edge.protected { stroke: var(--c-warning); }
         .selection-mark {
@@ -304,6 +309,7 @@
         .impact-node circle { fill: var(--c-bg); stroke: var(--clr-sep); stroke-width: 2; }
         .impact-node.remove circle { fill: var(--c-error-bg); stroke: var(--c-error); }
         .impact-node.keep circle { fill: var(--c-warning-bg); stroke: var(--c-warning); }
+        .impact-node.has-issue circle { stroke-dasharray: 3 2; }
         .impact-node text { fill: var(--c-fg); font-size: var(--fs-xs, 11px); }
         .impact-node .impact-role { font-weight: 600; font-size: var(--fs-sm, 13px); }
         .impact-warning { margin-top: var(--sp-3, 12px); padding: var(--sp-3, 12px); background: var(--c-warning-bg); border-radius: var(--radius, 6px); }
@@ -517,6 +523,22 @@
                         <div class="operation-hint" x-text="removalHint"></div>
                     </div>
                     <div class="operation-hint selection-error" x-show="selectionError" x-text="selectionError"></div>
+                    <template x-for="(issue, index) in selectionIssues" :key="index">
+                        <div class="selection-issue text-sm">
+                            <div x-text="issue.message"></div>
+                            <button class="btn btn-sm w-full" :disabled="!_nodeElements.has(issue.nodeId)" @click="locateNode(issue.nodeId)"
+                                x-text="'定位：' + shortNodeLabel(issue.nodeId)"></button>
+                            <template x-for="id in issue.relatedNodeIds" :key="id">
+                                <div class="related-label operation-hint">
+                                    <span x-text="shortNodeLabel(id)"></span>
+                                    <span x-show="!_nodeElements.has(id)" x-text="treeData?.nodes?.[id] ? '（未显示在当前树图中的记录）' : '（关联记录已缺失）'"></span>
+                                    <button class="btn btn-sm btn-ghost" x-show="_nodeElements.has(id)" @click="locateNode(id)">定位</button>
+                                    <button class="btn btn-sm btn-ghost" x-show="treeData?.nodes?.[id]?.type === 'message'" @click="showFullContent(id)">查看内容</button>
+                                </div>
+                            </template>
+                            <details class="operation-hint"><summary>技术信息</summary><span x-text="issue.nodeId + ' → ' + issue.relatedNodeIds.join(', ')"></span></details>
+                        </div>
+                    </template>
                     <div class="detail-section" x-show="connectionExtraCount > 0">
                         <p class="operation-hint" x-text="'显式加入 ' + connectionExtraCount + ' 个连接节点，可组成一棵连通选区。不会自动加入。'"></p>
                         <button class="btn btn-sm w-full" :disabled="busy" @click="connectSelection()">补齐所选节点间的路径</button>
@@ -551,6 +573,7 @@
         <!-- Node commands are transient; opening the menu does not change membership. -->
         <div class="node-action-menu" x-ref="nodeMenu" x-show="nodeMenuId && !pendingOperation && !busy" style="display:none;" role="group" aria-label="节点范围操作">
             <div class="menu-title operation-hint" x-text="nodeLabel(nodeMenuId)"></div>
+            <div class="operation-hint selection-error" x-show="menuError" x-text="'连接路径暂不可用：' + menuError"></div>
             <button @click="applyNodeCommand('toggle')" x-text="selectionNodeIds.includes(nodeMenuId) ? '取消选择此节点' : '加入此节点'"></button>
             <button @click="applyNodeCommand('add')" x-text="'加入此节点及全部后代（' + menuSubtreeCount + ' 个）'"></button>
             <button :disabled="!menuSelectedCount" @click="applyNodeCommand('exclude')" x-text="'排除此节点及全部后代（已选 ' + menuSelectedCount + ' 个）'"></button>
@@ -574,6 +597,9 @@
                     </div>
                     <div class="impact-diagram" x-html="pendingOperation?.diagram || ''"></div>
                     <p class="operation-hint">图仅展示选区、必要连接路径及直接依赖它的未选分支。可滚动查看；没有标红的内容不会移除。</p>
+                    <template x-for="(issue, index) in pendingOperation?.plan.issues || []" :key="index">
+                        <div class="selection-issue text-sm"><span x-text="shortNodeLabel(issue.nodeId) + '：' + issue.message"></span></div>
+                    </template>
                     <div class="impact-warning">
                         <span x-show="pendingOperation?.plan.removableIds.length">只删除图中标红的独占部分，黄色节点仍保留在原对话。此操作不能撤销。</span>
                         <span x-show="!pendingOperation?.plan.removableIds.length">没有可安全移除的部分。不能删除或剪切；请返回调整选择，或使用复制。</span>
@@ -620,8 +646,10 @@
             selectionNodeIds: [],
             selectionPlan: null,
             selectionError: '',
+            selectionIssues: [],
             nodeMenuId: null,
             menuPlan: null,
+            menuError: '',
             pendingOperation: null,
             _nodeElements: new Map(),
             _edgeElements: [],
@@ -652,12 +680,15 @@
                 return this.treeData.nodes[this.selectedNodeId] || null;
             },
             get copyHint() {
+                if (this.selectionNodeIds.length && !this.selectionPlan) return '选区分析未完成，请查看下方的结构异常说明。';
                 if (!this.selectionPlan?.nodeIds.length) return '请先选择节点。';
-                return this.selectionPlan.canExtract
-                    ? '新对话包含全部选区；原对话不变。'
-                    : '选区分成 ' + this.selectionPlan.rootIds.length + ' 处。提取前请显式补齐连接路径，不会自动补选或拆成多个会话。';
+                if (this.selectionPlan.canExtract) return '新对话包含全部选区；原对话不变。原树的额外关联记录不会阻止复制。';
+                return this.selectionPlan.rootIds.length > 1
+                    ? '选区分成 ' + this.selectionPlan.rootIds.length + ' 处。提取前请显式补齐连接路径，不会自动补选或拆成多个会话。'
+                    : '选区不能组成一棵单根、无环的树，请查看高亮节点和关联说明。';
             },
             get removalHint() {
+                if (this.selectionNodeIds.length && !this.selectionPlan) return '当前不能确认安全移除范围，删除和剪切不会执行。';
                 if (!this.selectionPlan?.nodeIds.length) return '请先选择节点。';
                 const { removableIds, retainedIds } = this.selectionPlan;
                 return removableIds.length
@@ -723,14 +754,24 @@
                 nodes[rootId].children.forEach(cid => this.collectSubtreeIds(cid, included));
                 return included;
             },
+            shortNodeLabel(id) { return this.nodeLabel(id).replace(/\s+/g, ' ').slice(0, 85) || '无法读取的关联消息'; },
+            locateNode(id) {
+                const element = this._nodeElements.get(id);
+                if (!element) return;
+                element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+                element.querySelector('.node-circle')?.focus({ preventScroll: true });
+            },
             refreshSelectionPlan() {
                 this.selectionError = '';
+                this.selectionIssues = [];
                 try {
                     if (!window.pluginSdk?.getSelectionPlan) throw new Error('树视图版本不匹配，请更新插件并重新打开');
                     this.selectionPlan = window.pluginSdk.getSelectionPlan([...this.selectionNodeIds]);
+                    this.selectionIssues = this.selectionPlan.issues || [];
                 } catch (error) {
                     this.selectionPlan = null;
                     this.selectionError = error.message || String(error);
+                    this.selectionIssues = error.issues || [];
                 }
                 this.paintSelection();
             },
@@ -744,13 +785,16 @@
             paintSelection() {
                 const picked = new Set(this.selectionMode ? this.selectionNodeIds : []);
                 const retained = new Set(this.selectionMode ? this.selectionPlan?.retainedIds || [] : []);
-                const changed = new Set([...this._paintedIds, ...picked]);
+                const issueIds = new Set(this.selectionMode ? this.selectionIssues.flatMap(issue => [issue.nodeId, ...issue.relatedNodeIds]) : []);
+                const decorated = new Set([...picked, ...issueIds]);
+                const changed = new Set([...this._paintedIds, ...decorated]);
                 this.$refs.nodes.classList.toggle('selection-mode', this.selectionMode);
                 changed.forEach(id => {
                     const element = this._nodeElements.get(id);
                     if (!element) return;
                     element.classList.toggle('picked', picked.has(id));
                     element.classList.toggle('protected', retained.has(id));
+                    element.classList.toggle('has-issue', issueIds.has(id));
                     element.querySelector('.node-circle').setAttribute('aria-pressed', String(picked.has(id)));
                 });
                 this._nodeElements.get(this.selectedNodeId)?.querySelector('.node-circle').classList.toggle('selected', !this.selectionMode);
@@ -760,7 +804,7 @@
                     element.classList.toggle('picked', chosen);
                     element.classList.toggle('protected', chosen && retained.has(parent) && retained.has(child));
                 });
-                this._paintedIds = picked;
+                this._paintedIds = decorated;
             },
             escapeHtml(str) {
                 if (!str) return '';
@@ -927,7 +971,7 @@
                     const icon = node.role === 'user' ? 'U' : node.role === 'assistant' ? 'A' : '—';
                     const label = node.preview ? node.preview.slice(0, 25) : (isSep ? '分隔符' : '');
                     const tip = node.role ? (node.role === 'user' ? '用户' : '助手') + ': ' + (node.preview || '').slice(0, 50) : '分隔符';
-                    let badges = '<span class="selection-mark">✓</span>';
+                    let badges = '<span class="selection-mark">✓</span><span class="node-issue-mark" title="有关联异常，详情见侧栏">!</span>';
                     if (node.versionCount > 1) badges += '<div class="node-badge">' + node.versionCount + '</div>';
                     if (node.children.length > 1) badges += '<div class="node-branch-badge">' + node.children.length + '</div>';
                     const escapedId = this.escapeHtml(id);
@@ -1015,21 +1059,25 @@
             connectSelection() { if (this.selectionPlan) this.setSelection(this.selectionPlan.connectionIds); },
             openNodeMenu(id) {
                 if (!this.selectionMode || this.busy || this.pendingOperation) return;
+                // Opening a read-only command menu must not require a healthy selection/tree.
+                this.nodeMenuId = id;
+                this.menuPlan = null;
+                this.menuError = '';
                 try {
+                    if (!window.pluginSdk?.getSelectionPlan) throw new Error('树视图版本不匹配，请更新插件并重新打开');
                     this.menuPlan = window.pluginSdk.getSelectionPlan([...new Set([...this.selectionNodeIds, id])]);
-                    this.nodeMenuId = id;
-                    this.$nextTick(() => {
-                        const anchor = this._nodeElements.get(id)?.querySelector('.node-range-action');
-                        const menu = this.$refs.nodeMenu;
-                        if (!anchor || !menu || this.nodeMenuId !== id) return;
-                        const rect = anchor.getBoundingClientRect();
-                        menu.style.left = Math.max(12, Math.min(rect.right + 6, innerWidth - menu.offsetWidth - 12)) + 'px';
-                        menu.style.top = Math.max(12, Math.min(rect.top, innerHeight - menu.offsetHeight - 12)) + 'px';
-                        menu.querySelector('button')?.focus();
-                    });
                 } catch (error) {
-                    this.selectionError = error.message || String(error);
+                    this.menuError = error.message || String(error);
                 }
+                this.$nextTick(() => {
+                    const anchor = this._nodeElements.get(id)?.querySelector('.node-range-action');
+                    const menu = this.$refs.nodeMenu;
+                    if (!anchor || !menu || this.nodeMenuId !== id) return;
+                    const rect = anchor.getBoundingClientRect();
+                    menu.style.left = Math.max(12, Math.min(rect.right + 6, innerWidth - menu.offsetWidth - 12)) + 'px';
+                    menu.style.top = Math.max(12, Math.min(rect.top, innerHeight - menu.offsetHeight - 12)) + 'px';
+                    menu.querySelector('button')?.focus();
+                });
             },
             dismissNodeMenu(event) {
                 if (!event.target.closest('.node-action-menu') && !event.target.closest('[data-menu-id]')) this.nodeMenuId = null;
@@ -1038,7 +1086,7 @@
                 const id = this.nodeMenuId;
                 if (!id || this.busy) return;
                 if (command === 'toggle') { this.handleNodeClick(id); return; }
-                if (command === 'connect') { this.setSelection(this.menuPlan.connectionIds); return; }
+                if (command === 'connect') { if (this.menuPlan) this.setSelection(this.menuPlan.connectionIds); return; }
                 const subtree = this.collectSubtreeIds(id);
                 this.setSelection(command === 'add'
                     ? [...this.selectionNodeIds, ...subtree]
@@ -1105,6 +1153,7 @@
                 const selected = new Set(plan.nodeIds);
                 const removed = new Set(plan.removableIds);
                 const retained = new Set(plan.retainedIds);
+                const issueIds = new Set((plan.issues || []).flatMap(issue => [issue.nodeId, ...issue.relatedNodeIds]));
                 const shown = new Set(plan.connectionIds);
                 retained.forEach(id => nodes[id].children.forEach(child => { if (!selected.has(child)) shown.add(child); }));
                 let root = [...shown].find(id => !shown.has(nodes[id].parent));
@@ -1129,7 +1178,7 @@
                     const action = state === 'remove' ? '将移除' : state === 'keep' ? '必须保留' : '未选内容';
                     const role = node.role === 'user' ? 'U' : node.role === 'assistant' ? 'A' : '—';
                     const label = (node.preview || '分隔符').slice(0, 12);
-                    circles += '<g class="impact-node ' + state + '"><title>' + this.escapeHtml(action + '：' + this.nodeLabel(id)) + '</title>'
+                    circles += '<g class="impact-node ' + state + (issueIds.has(id) ? ' has-issue' : '') + '"><title>' + this.escapeHtml(action + '：' + this.nodeLabel(id)) + '</title>'
                         + '<circle cx="' + point.x + '" cy="' + point.y + '" r="16"/>'
                         + '<text class="impact-role" x="' + point.x + '" y="' + (point.y + 4) + '" text-anchor="middle">' + role + '</text>'
                         + '<text x="' + point.x + '" y="' + (point.y + 31) + '" text-anchor="middle">' + this.escapeHtml(label) + '</text>'
