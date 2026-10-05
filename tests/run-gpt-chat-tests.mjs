@@ -7,9 +7,10 @@ import { spawnSync } from 'node:child_process';
 const require = createRequire(import.meta.url);
 const { build } = createRequire(import.meta.resolve('vite'))('esbuild');
 const outdir = resolve('tmp/gpt-chat-tests');
+const entryPoints = ['tests/gpt-chat.test.ts', 'tests/gpt-residue.test.ts', 'tests/gpt-residue-commit.test.ts'];
 await mkdir(outdir, { recursive: true });
 await build({
-    entryPoints: ['tests/gpt-chat.test.ts'],
+    entryPoints,
     outdir,
     bundle: true,
     platform: 'node',
@@ -18,5 +19,6 @@ await build({
     alias: { 'solid-js': require.resolve('solid-js/dist/solid.js') },
     logLevel: 'warning',
 });
-const result = spawnSync(process.execPath, ['--test', resolve(outdir, 'gpt-chat.test.js')], { stdio: 'inherit' });
+const testFiles = entryPoints.map(path => resolve(outdir, path.split('/').pop().replace(/\.ts$/, '.js')));
+const result = spawnSync(process.execPath, ['--test', ...testFiles], { stdio: 'inherit' });
 process.exitCode = result.status ?? 1;

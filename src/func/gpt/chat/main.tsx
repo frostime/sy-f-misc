@@ -55,6 +55,7 @@ import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
 import { jsonAgent } from '../openai/tiny-agent';
 import { showChatWorldTree } from './ChatSession/world-tree';
 import { commitSubtreeRemoval } from './ChatSession/subtree-removal';
+import { showTreeResidueReview } from './ChatSession/residue-review';
 import { openVarsManager } from '../tools/vars';
 import Markdown from '@/libs/components/Elements/Markdown';
 
@@ -870,6 +871,30 @@ export const ChatSession: Component<{
                         }
                     });
                 }
+            });
+
+            menu.addItem({
+                icon: 'iconSearch',
+                label: '检查残留与断链',
+                click: () => {
+                    const sourceSessionId = session.sessionId();
+                    const assertEditable = () => {
+                        if (session.sessionId() !== sourceSessionId) throw new Error('当前对话已切换，请关闭并重新打开检查窗口');
+                        if (session.loading()) throw new Error('回复生成中，请等待完成后再检查或清理');
+                    };
+                    showTreeResidueReview({
+                        source: {
+                            snapshot: () => {
+                                assertEditable();
+                                return session.sessionHistory();
+                            },
+                            apply: session.applyTreeSnapshot,
+                            assertEditable,
+                        },
+                        persistence: { saveBackup: persist.saveToJson, saveWorking: persist.saveToLocalStorage },
+                        newId: () => window.Lute.NewNodeID(),
+                    });
+                },
             });
 
             const target = e.target as HTMLElement;

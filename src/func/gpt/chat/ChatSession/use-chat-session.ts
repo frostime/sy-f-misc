@@ -665,6 +665,16 @@ export const useSession = (props: {
         deleteHistory.clearRecords();
     }
 
+    /** Apply a reviewed tree cleanup/rollback without loading another session or
+     * clearing the separate deletion-history log. Session metadata stays intact. */
+    const applyTreeSnapshot = (history: IChatSessionHistoryV2) => {
+        if (history.id !== sessionId()) throw new Error('不能将其他对话的树应用到当前会话');
+        batch(() => {
+            treeModel.fromHistory(history);
+            if (history.updated !== undefined) updated = history.updated;
+        });
+    };
+
     // 定义 newSession 函数
     const newSession = () => {
         sessionId.value = window.Lute.NewNodeID();
@@ -942,6 +952,7 @@ export const useSession = (props: {
         // ========== 会话历史 ==========
         newSession,
         applyHistory,
+        applyTreeSnapshot,
         applySequence,
         extractSubtreeToHistory,
         deleteSubtree,
