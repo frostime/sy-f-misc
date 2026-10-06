@@ -1,0 +1,1499 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>检查残留与断链</title>
+    <style>
+      :root {
+        --bg: var(--theme-background, #fff);
+        --fg: var(--theme-on-background, #333);
+        --muted: var(--theme-on-surface-light, #737780);
+        --border: var(--theme-surface-lighter, #ddd);
+        --surface: var(--theme-surface, #f6f7f9);
+        --hover: var(--theme-surface-light, #edf0f5);
+        --accent: var(--theme-primary, #3979ed);
+        --accent-bg: var(--theme-primary-lightest, #edf4ff);
+        --warning: #a66100;
+        --warning-bg: #fff5df;
+        --danger: #bd3434;
+        --missing: #b25252;
+        --external: #b87312;
+        --visible: #3477c6;
+      }
+      [data-theme-mode="dark"] {
+        --warning: #edbd70;
+        --warning-bg: #3b3020;
+        --danger: #ff9999;
+        --missing: #ff9999;
+        --external: #d4a34e;
+        --visible: #80b8fb;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: var(--font-size, 14px) var(--font-family, sans-serif);
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: var(--bg);
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      button:hover:not(:disabled) {
+        background: var(--hover);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      button.primary {
+        background: var(--accent);
+        color: var(--theme-on-primary, #fff);
+        border-color: var(--accent);
+      }
+      button.danger {
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      input[type="checkbox"] {
+        accent-color: var(--accent);
+      }
+      input[type="search"] {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        padding: 8px;
+        border-radius: 5px;
+      }
+      h1 {
+        font-size: 1.2em;
+        margin: 0;
+      }
+      h2 {
+        font-size: 1.05em;
+        margin: 0 0 8px;
+      }
+      h3 {
+        font-size: 1em;
+        margin: 12px 0 6px;
+      }
+      p {
+        margin: 6px 0;
+        line-height: 1.6;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 0.9em;
+      }
+      .mono,
+      code,
+      pre {
+        font-family: var(--font-family-code, monospace);
+      }
+      .mono {
+        font-size: 0.85em;
+        overflow-wrap: anywhere;
+      }
+      header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      header .summary {
+        flex: 1;
+        min-width: 250px;
+      }
+      .stats {
+        display: flex;
+        gap: 18px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+      }
+      .stats strong {
+        font-size: 1.1em;
+      }
+      .notice {
+        padding: 8px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      #status {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      #status:empty {
+        display: none;
+      }
+      #status.error {
+        color: var(--danger);
+      }
+      #status.success {
+        color: var(--visible);
+      }
+      main {
+        display: grid;
+        grid-template-columns: 270px minmax(300px, 1fr) 340px;
+        flex: 1;
+        min-height: 0;
+      }
+      .pane {
+        overflow: auto;
+        min-height: 0;
+      }
+      .left {
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+      .left-toolbar {
+        padding: 10px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .tabs {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 8px;
+      }
+      .tabs button {
+        flex: 1;
+      }
+      .tabs button.active {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: var(--accent-bg);
+      }
+      .list {
+        overflow: auto;
+        flex: 1;
+      }
+      .group {
+        padding: 10px;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+      }
+      .group:hover {
+        background: var(--hover);
+      }
+      .group.active {
+        background: var(--accent-bg);
+        box-shadow: inset 3px 0 var(--accent);
+      }
+      .group-row {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .group .label {
+        flex: 1;
+        min-width: 0;
+      }
+      .group p {
+        margin: 3px 0;
+      }
+      .blocked {
+        color: var(--warning);
+        font-size: 0.85em;
+      }
+      .issue-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        border-radius: 0;
+        padding: 10px;
+        line-height: 1.5;
+      }
+      .issue-item small {
+        display: block;
+        color: var(--muted);
+        margin-top: 5px;
+      }
+      .center {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .group-heading {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .graph-toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 7px;
+      }
+      .graph-toolbar .legend {
+        flex: 1;
+        font-size: 0.85em;
+        color: var(--muted);
+      }
+      .graph-wrap {
+        position: relative;
+        flex: 1;
+        min-height: 220px;
+        overflow: auto;
+        background: var(--surface);
+      }
+      #graph {
+        display: block;
+      }
+      .edge {
+        fill: none;
+        stroke: var(--visible);
+        stroke-width: 1.5;
+      }
+      .edge.parent {
+        stroke: var(--warning);
+        stroke-dasharray: 6 4;
+      }
+      .graph-node rect {
+        fill: var(--bg);
+        stroke: var(--external);
+        stroke-width: 1.5;
+        rx: 7;
+      }
+      .graph-node.visible rect {
+        stroke: var(--visible);
+        fill: var(--accent-bg);
+      }
+      .graph-node.missing rect {
+        stroke: var(--missing);
+        stroke-dasharray: 4 3;
+      }
+      .graph-node.selected rect {
+        stroke-width: 3;
+        fill: var(--accent-bg);
+      }
+      .graph-node {
+        cursor: pointer;
+      }
+      .graph-node text {
+        fill: var(--fg);
+        font-size: 12px;
+      }
+      .graph-node text.secondary {
+        fill: var(--muted);
+        font-size: 10px;
+      }
+      .graph-node:focus {
+        outline: none;
+      }
+      .graph-node:focus rect {
+        stroke-width: 3;
+      }
+      .nodes-table {
+        max-height: 240px;
+        overflow: auto;
+        border-top: 1px solid var(--border);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.9em;
+      }
+      th,
+      td {
+        padding: 7px 9px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+      th {
+        background: var(--surface);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      tbody tr {
+        cursor: pointer;
+      }
+      tbody tr:hover,
+      tbody tr.selected {
+        background: var(--accent-bg);
+      }
+      .details {
+        padding: 12px;
+        border-left: 1px solid var(--border);
+      }
+      .details dl {
+        margin: 10px 0;
+        display: grid;
+        grid-template-columns: 65px minmax(0, 1fr);
+        gap: 5px 8px;
+        font-size: 0.9em;
+      }
+      .details dt {
+        color: var(--muted);
+      }
+      .details dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .details pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font-size: 0.9em;
+        line-height: 1.55;
+        margin: 8px 0;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+      }
+      .details details {
+        margin-top: 10px;
+      }
+      .details summary {
+        cursor: pointer;
+      }
+      .version-select {
+        width: 100%;
+        padding: 6px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+      }
+      .empty {
+        padding: 22px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .foot {
+        padding: 10px 16px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .foot .selection {
+        flex: 1;
+      }
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: #0006;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        padding: 20px;
+      }
+      .overlay[hidden] {
+        display: none;
+      }
+      .confirm-box {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px;
+        width: min(650px, 100%);
+        max-height: 90vh;
+        overflow: auto;
+      }
+      .confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 15px;
+      }
+      .confirm-groups {
+        max-height: 180px;
+        overflow: auto;
+        background: var(--surface);
+        padding: 10px;
+        border-radius: 5px;
+      }
+      .warning-box {
+        background: var(--warning-bg);
+        color: var(--warning);
+        padding: 9px;
+        border-radius: 5px;
+      }
+      .zoom-value {
+        min-width: 40px;
+        text-align: center;
+      }
+      .node-link {
+        border: 0;
+        padding: 0;
+        background: none;
+        color: var(--accent);
+        text-align: left;
+        text-decoration: underline;
+      }
+      .detail-issues {
+        padding: 8px;
+        background: var(--warning-bg);
+        border-radius: 5px;
+        font-size: 0.9em;
+      }
+      .details .badge {
+        display: inline-block;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 2px 5px;
+        font-size: 0.85em;
+        margin-right: 6px;
+      }
+      @media (max-width: 1050px) {
+        main {
+          grid-template-columns: 230px minmax(270px, 1fr) 280px;
+        }
+      }
+      @media (max-width: 800px) {
+        main {
+          grid-template-columns: 200px minmax(260px, 1fr);
+        }
+        .details {
+          grid-column: 1/-1;
+          max-height: 260px;
+          border-left: 0;
+          border-top: 1px solid var(--border);
+        }
+        .nodes-table {
+          max-height: 150px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="summary">
+        <h1>检查残留与断链</h1>
+        <div id="session-title" class="muted"></div>
+        <div id="stats" class="stats"></div>
+      </div>
+      <button id="refresh">重新检查</button>
+    </header>
+    <div class="notice muted">
+      图外记录不等于无用内容。正常树按根节点的全部 children
+      分支判定，与当前激活路径、版本无关。占用量为 UTF-8 JSON 估算（1 KB = 1024
+      字节），不等于磁盘实际大小。
+    </div>
+    <div id="status" class="notice" role="status" aria-live="polite"></div>
+    <main>
+      <aside class="pane left">
+        <div class="left-toolbar">
+          <div class="tabs">
+            <button id="groups-tab" class="active">图外记录</button
+            ><button id="issues-tab">结构异常</button>
+          </div>
+          <input
+            id="search"
+            type="search"
+            placeholder="搜索摘要、ID、模型或时间"
+            aria-label="搜索记录组"
+          />
+          <div style="display: flex; gap: 6px; margin-top: 8px">
+            <button id="select-filtered">勾选当前列表</button
+            ><button id="clear-selection">清空勾选</button>
+          </div>
+        </div>
+        <div id="group-list" class="list"></div>
+      </aside>
+      <section class="center">
+        <div class="group-heading">
+          <h2 id="group-title">请选择一组图外记录</h2>
+          <div id="group-meta" class="muted"></div>
+          <div id="group-warning" class="blocked"></div>
+          <div class="graph-toolbar">
+            <span class="legend"
+              >橙框：图外记录 · 蓝框：正常树锚点 · 虚框：记录缺失<br />实线：children
+              连线 · 虚线：仅 parent 声明（箭头指向子节点）</span
+            ><button id="zoom-out" aria-label="缩小">−</button
+            ><span id="zoom-value" class="zoom-value">85%</span
+            ><button id="zoom-in" aria-label="放大">＋</button
+            ><button id="fit">适应窗口</button>
+          </div>
+        </div>
+        <div id="graph-wrap" class="graph-wrap">
+          <svg
+            id="graph"
+            xmlns="http://www.w3.org/2000/svg"
+            role="img"
+            aria-label="断开记录及相关引用关系图"
+          ></svg>
+        </div>
+        <div id="nodes-table" class="nodes-table"></div>
+      </section>
+      <aside id="details" class="pane details">
+        <div class="empty">
+          点击关系图或列表中的节点，查看内容、全部版本、时间与模型。
+        </div>
+      </aside>
+    </main>
+    <footer class="foot">
+      <div id="selection-summary" class="selection">未勾选任何记录组</div>
+      <button id="archive" hidden>更新永久存档…</button>
+      <button id="preview" class="danger" disabled>预览清理…</button>
+    </footer>
+    <div
+      id="confirmation"
+      class="overlay"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmation-title"
+    >
+      <div class="confirm-box">
+        <h2 id="confirmation-title">清理预览：先备份，再清理工作版</h2>
+        <p id="confirmation-summary"></p>
+        <div id="confirmation-groups" class="confirm-groups"></div>
+        <p class="warning-box">
+          第一步：明确新建完整备份并核验文件。第二步：单独点击「清理当前工作版」。保存备份不会自动开始清理，返回审查也不会删除已保存的备份。正常树和无关断链不会被修改。
+        </p>
+        <p class="muted">
+          备份会作为独立项目出现在永久历史列表。清理只更新当前工作版及缓存；原永久存档不会被覆盖，需要时请另行更新。
+        </p>
+        <p id="backup-location" class="muted"></p>
+        <p id="backup-status" class="muted"></p>
+        <div class="confirm-actions">
+          <button id="cancel">返回审查</button>
+          <button id="save-backup">保存清理前完整备份</button>
+          <button id="confirm" class="danger" disabled>清理当前工作版</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      (() => {
+        const $ = (id) => document.getElementById(id);
+        const state = {
+          report: null,
+          tab: "groups",
+          selected: new Set(),
+          groupId: null,
+          nodeId: null,
+          details: null,
+          pending: null,
+          busy: false,
+          zoom: 0.85,
+          graph: null,
+          detailRequest: 0,
+        };
+        const roles = {
+          user: "用户",
+          assistant: "助手",
+          system: "系统",
+          tool: "工具",
+          "": "分隔符",
+        };
+        const kb = (bytes) => ((bytes || 0) / 1024).toFixed(1) + " KB";
+        const time = (value) =>
+          typeof value === "number" && value > 0 && Number.isFinite(value)
+            ? new Date(value).toLocaleString()
+            : "未记录时间";
+        const short = (value) =>
+          (value || "").replace(/\s+/g, " ").slice(0, 48);
+        const nodeLabel = (node) =>
+          (roles[node.role] || node.role || "记录") +
+          "：" +
+          (short(node.preview) ||
+            (node.type === "separator" ? "上下文断点" : "无正文预览"));
+        function element(tag, text, className) {
+          const result = document.createElement(tag);
+          if (text !== undefined) result.textContent = text;
+          if (className) result.className = className;
+          return result;
+        }
+        function status(message, error = false) {
+          $("status").textContent = message || "";
+          $("status").className = "notice " + (error ? "error" : "success");
+        }
+        function fail(error) {
+          status(error.message || String(error), true);
+        }
+        function setBusy(busy) {
+          state.busy = busy;
+          [
+            "refresh",
+            "search",
+            "select-filtered",
+            "clear-selection",
+            "preview",
+            "confirm",
+            "save-backup",
+            "archive",
+            "cancel",
+            "groups-tab",
+            "issues-tab",
+          ].forEach((id) => ($(id).disabled = busy));
+          updateSelection();
+        }
+        function currentGroup() {
+          return state.report?.groups.find(
+            (group) => group.id === state.groupId,
+          );
+        }
+        function groupTitle(group) {
+          const first = state.report.nodes[group.nodeIds[0]];
+          return first ? nodeLabel(first) : group.id;
+        }
+        function groupMatches(group, query) {
+          return (
+            !query ||
+            group.nodeIds.some((id) => {
+              const node = state.report.nodes[id];
+              return [
+                id,
+                node.preview,
+                node.author,
+                time(node.firstTimestamp),
+                time(node.lastTimestamp),
+              ]
+                .join(" ")
+                .toLowerCase()
+                .includes(query);
+            })
+          );
+        }
+        function filteredGroups() {
+          const query = $("search").value.trim().toLowerCase();
+          return (state.report?.groups || []).filter((group) =>
+            groupMatches(group, query),
+          );
+        }
+        function updateSelection() {
+          const groups = (state.report?.groups || []).filter((group) =>
+            state.selected.has(group.id),
+          );
+          const count = groups.reduce(
+            (sum, group) => sum + group.nodeIds.length,
+            0,
+          );
+          const bytes = groups.reduce((sum, group) => sum + group.bytes, 0);
+          $("selection-summary").textContent = groups.length
+            ? `已勾选 ${groups.length} 组 / ${count} 个节点，估算 ${kb(bytes)}`
+            : "未勾选任何记录组";
+          $("preview").disabled =
+            state.busy ||
+            !groups.length ||
+            !!state.report?.cleanupBlockedReason;
+          $("confirm").disabled = state.busy || !state.pending?.backupVerified;
+          $("save-backup").disabled =
+            state.busy || !state.pending || !!state.pending.backupVerified;
+          $("select-filtered").disabled =
+            state.busy ||
+            state.tab !== "groups" ||
+            !!state.report?.cleanupBlockedReason;
+          $("group-list")
+            .querySelectorAll('input[type="checkbox"]')
+            .forEach((box) => {
+              box.checked = state.selected.has(box.dataset.groupId);
+              box.disabled =
+                state.busy ||
+                box.dataset.blocked === "true" ||
+                !!state.report?.cleanupBlockedReason;
+            });
+        }
+        function renderList() {
+          const list = $("group-list");
+          list.replaceChildren();
+          $("groups-tab").classList.toggle("active", state.tab === "groups");
+          $("issues-tab").classList.toggle("active", state.tab === "issues");
+          if (!state.report) return;
+          if (state.tab === "issues") {
+            const query = $("search").value.trim().toLowerCase();
+            const issues = state.report.issues.filter((issue) =>
+              [
+                issue.message,
+                issue.nodeId,
+                state.report.nodes[issue.nodeId]?.preview,
+                ...issue.relatedNodeIds,
+              ]
+                .join(" ")
+                .toLowerCase()
+                .includes(query),
+            );
+            for (const issue of issues) {
+              const button = element("button", undefined, "issue-item");
+              const node = state.report.nodes[issue.nodeId];
+              const visible = node?.visible;
+              button.append(
+                element("strong", node ? nodeLabel(node) : "缺失记录"),
+                element("p", issue.message),
+                element(
+                  "small",
+                  (visible ? "正常树内" : "图外或缺失记录") +
+                    " · " +
+                    issue.nodeId,
+                ),
+              );
+              button.addEventListener("click", () => openIssue(issue));
+              list.append(button);
+            }
+            if (!issues.length)
+              list.append(element("div", "没有匹配的结构异常", "empty"));
+          } else {
+            const groups = filteredGroups();
+            for (const group of groups) {
+              const card = element(
+                "div",
+                undefined,
+                "group" + (state.groupId === group.id ? " active" : ""),
+              );
+              card.dataset.groupId = group.id;
+              const row = element("div", undefined, "group-row");
+              const box = element("input");
+              box.type = "checkbox";
+              box.dataset.groupId = group.id;
+              box.dataset.blocked = String(!!group.blockedReasons.length);
+              box.setAttribute("aria-label", "勾选记录组 " + groupTitle(group));
+              box.addEventListener("click", (event) => event.stopPropagation());
+              box.addEventListener("change", () => {
+                if (box.checked) state.selected.add(group.id);
+                else state.selected.delete(group.id);
+                updateSelection();
+              });
+              const label = element("div", undefined, "label");
+              label.append(
+                element("strong", groupTitle(group)),
+                element(
+                  "p",
+                  `${group.nodeIds.length} 个节点 · ${kb(group.bytes)}`,
+                ),
+                element(
+                  "p",
+                  time(group.firstTimestamp) +
+                    " — " +
+                    time(group.lastTimestamp),
+                  "muted",
+                ),
+              );
+              if (group.blockedReasons.length)
+                label.append(
+                  element(
+                    "p",
+                    "禁止清理：" + group.blockedReasons.join("；"),
+                    "blocked",
+                  ),
+                );
+              row.append(box, label);
+              card.append(row);
+              card.addEventListener("click", () => {
+                if (!state.busy) showGroup(group.id);
+              });
+              list.append(card);
+            }
+            if (!groups.length)
+              list.append(
+                element(
+                  "div",
+                  state.report.residualNodes
+                    ? "没有匹配的图外记录组"
+                    : "没有图外残留记录",
+                  "empty",
+                ),
+              );
+          }
+          updateSelection();
+        }
+        function renderReport(report) {
+          state.report = report;
+          state.selected.clear();
+          state.groupId = null;
+          state.nodeId = null;
+          state.details = null;
+          state.pending = null;
+          state.detailRequest++;
+          $("confirmation").hidden = true;
+          $("session-title").textContent = report.sessionTitle || "";
+          const stats = $("stats");
+          stats.replaceChildren();
+          for (const [label, value] of [
+            ["存储记录", report.totalNodes],
+            ["正常树节点", report.visibleNodes],
+            ["图外记录", report.residualNodes],
+            [
+              "图外占用",
+              kb(report.groups.reduce((sum, group) => sum + group.bytes, 0)),
+            ],
+            ["结构异常", report.issues.length],
+          ]) {
+            const item = element("span");
+            item.append(
+              element("strong", String(value)),
+              document.createTextNode(" " + label),
+            );
+            stats.append(item);
+          }
+          renderList();
+          if (report.groups.length) showGroup(report.groups[0].id);
+          else {
+            $("graph").replaceChildren();
+            $("nodes-table").replaceChildren();
+            $("group-title").textContent = "没有图外残留记录";
+            $("group-meta").textContent =
+              "可切换到「结构异常」检查其他断链或引用问题。";
+            $("group-warning").textContent = "";
+            $("details").replaceChildren(
+              element("div", "没有图外记录需要清理。", "empty"),
+            );
+          }
+          if (report.cleanupBlockedReason)
+            status("仅可检查，禁止清理：" + report.cleanupBlockedReason, true);
+        }
+        async function refresh() {
+          if (state.busy) return;
+          setBusy(true);
+          status("正在检查…");
+          try {
+            renderReport(await window.pluginSdk.getResidueReport());
+            if (!state.report.cleanupBlockedReason)
+              status("检查完成。请先审查内容，再勾选要清理的记录组。");
+          } catch (error) {
+            fail(error);
+          } finally {
+            setBusy(false);
+          }
+        }
+        function showGroup(groupId) {
+          state.groupId = groupId;
+          const group = currentGroup();
+          if (!group) return;
+          state.nodeId = null;
+          state.zoom = 0.85;
+          $("group-title").textContent = groupTitle(group);
+          $("group-meta").textContent =
+            `${group.nodeIds.length} 个图外节点 · ${kb(group.bytes)} · ${group.issueIds.length} 项关联异常 · ${time(group.firstTimestamp)} — ${time(group.lastTimestamp)}`;
+          const blocked = [
+            state.report.cleanupBlockedReason,
+            ...group.blockedReasons,
+          ].filter(Boolean);
+          $("group-warning").textContent = blocked.length
+            ? "禁止清理：" + blocked.join("；")
+            : "可勾选整组清理；图中的正常树锚点与缺失记录不会被删除。";
+          const members = new Set(group.nodeIds);
+          const edges = state.report.edges.filter(
+            (edge) => members.has(edge.from) || members.has(edge.to),
+          );
+          const graphIds = new Set(group.nodeIds);
+          edges.forEach((edge) => {
+            graphIds.add(edge.from);
+            graphIds.add(edge.to);
+          });
+          drawGraph([...graphIds], edges);
+          renderNodes(group.nodeIds);
+          renderList();
+          $("graph-wrap").scrollTo(0, 0);
+          const query = $("search").value.trim().toLowerCase();
+          const match =
+            query &&
+            group.nodeIds.find((id) => {
+              const node = state.report.nodes[id];
+              return [
+                id,
+                node.preview,
+                node.author,
+                time(node.firstTimestamp),
+                time(node.lastTimestamp),
+              ]
+                .join(" ")
+                .toLowerCase()
+                .includes(query);
+            });
+          inspectNode(match || group.nodeIds[0], !!match);
+        }
+        function openIssue(issue) {
+          const related = [issue.nodeId, ...issue.relatedNodeIds];
+          const group = state.report.groups.find((group) =>
+            related.some((id) => group.nodeIds.includes(id)),
+          );
+          if (group) {
+            showGroup(group.id);
+            inspectNode(
+              state.report.nodes[issue.nodeId]
+                ? issue.nodeId
+                : group.nodeIds[0],
+            );
+          } else {
+            state.groupId = null;
+            $("group-title").textContent = "结构异常（仅检查，不自动修复）";
+            $("group-meta").textContent = issue.message;
+            $("group-warning").textContent =
+              "此处不提供自动重连或删除正常树节点。";
+            const ids = new Set(related);
+            const edges = state.report.edges.filter(
+              (edge) => ids.has(edge.from) && ids.has(edge.to),
+            );
+            drawGraph([...ids], edges);
+            renderNodes(related.filter((id) => state.report.nodes[id]));
+            inspectNode(issue.nodeId);
+          }
+        }
+        function renderNodes(ids) {
+          const table = element("table");
+          const head = element("thead");
+          const header = element("tr");
+          ["节点 / 摘要", "版本", "占用", "记录时间"].forEach((label) =>
+            header.append(element("th", label)),
+          );
+          head.append(header);
+          table.append(head);
+          const body = element("tbody");
+          for (const id of ids) {
+            const node = state.report.nodes[id];
+            const row = element("tr");
+            row.dataset.nodeId = id;
+            const label = element("td");
+            const button = element("button", nodeLabel(node), "node-link");
+            button.addEventListener("click", (event) => {
+              event.stopPropagation();
+              inspectNode(id);
+            });
+            label.append(button, element("div", id, "mono"));
+            row.append(
+              label,
+              element("td", String(node.versionCount)),
+              element("td", kb(node.bytes)),
+              element("td", time(node.firstTimestamp)),
+            );
+            row.addEventListener("click", () => inspectNode(id));
+            body.append(row);
+          }
+          table.append(body);
+          $("nodes-table").replaceChildren(table);
+        }
+        const svgElement = (tag, attributes = {}) => {
+          const node = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            tag,
+          );
+          Object.entries(attributes).forEach(([key, value]) =>
+            node.setAttribute(key, String(value)),
+          );
+          return node;
+        };
+        function drawGraph(ids, sourceEdges) {
+          const svg = $("graph");
+          svg.replaceChildren();
+          // The report preserves parent claims as child → parent. Draw both
+          // declarations parent → child so agreeing links share one solid edge;
+          // parent-only claims stay dashed and missing records remain stubs.
+          const byPair = new Map();
+          for (const declaration of sourceEdges) {
+            const edge =
+              declaration.kind === "parent"
+                ? { from: declaration.to, to: declaration.from, kind: "parent" }
+                : declaration;
+            const key = JSON.stringify([edge.from, edge.to]);
+            if (!byPair.has(key) || edge.kind === "child")
+              byPair.set(key, edge);
+          }
+          const edges = [...byPair.values()];
+          const children = new Map(ids.map((id) => [id, []]));
+          const incoming = new Set();
+          edges.forEach((edge) => {
+            children.get(edge.from)?.push(edge.to);
+            incoming.add(edge.to);
+          });
+          const depths = new Map();
+          let componentBase = 0;
+          const traverse = (root) => {
+            const queue = [[root, componentBase]];
+            for (let index = 0; index < queue.length; index++) {
+              const [id, depth] = queue[index];
+              if (depths.has(id)) continue;
+              depths.set(id, depth);
+              for (const child of children.get(id) || [])
+                if (!depths.has(child)) queue.push([child, depth + 1]);
+            }
+            componentBase = Math.max(0, ...depths.values()) + 1;
+          };
+          ids.filter((id) => !incoming.has(id)).forEach(traverse);
+          ids.filter((id) => !depths.has(id)).forEach(traverse);
+          const layers = new Map();
+          ids.forEach((id) => {
+            const depth = depths.get(id);
+            if (!layers.has(depth)) layers.set(depth, []);
+            layers.get(depth).push(id);
+          });
+          const positions = new Map();
+          const width = (Math.max(0, ...depths.values()) + 1) * 240 + 50;
+          let height = 200;
+          for (const [depth, layer] of layers) {
+            layer.forEach((id, index) =>
+              positions.set(id, { x: 25 + depth * 240, y: 25 + index * 120 }),
+            );
+            height = Math.max(height, layer.length * 120 + 35);
+          }
+          state.graph = { width, height, positions };
+          const defs = svgElement("defs");
+          const marker = svgElement("marker", {
+            id: "arrow",
+            viewBox: "0 0 10 10",
+            refX: 9,
+            refY: 5,
+            markerWidth: 6,
+            markerHeight: 6,
+            orient: "auto-start-reverse",
+          });
+          marker.append(
+            svgElement("path", {
+              d: "M 0 0 L 10 5 L 0 10 z",
+              fill: "currentColor",
+            }),
+          );
+          const labelClip = svgElement("clipPath", { id: "node-label-clip" });
+          labelClip.append(
+            svgElement("rect", { x: 8, y: 4, width: 189, height: 75 }),
+          );
+          defs.append(marker, labelClip);
+          svg.append(defs);
+          const layer = svgElement("g", { id: "drawing" });
+          svg.append(layer);
+          for (const edge of edges) {
+            const from = positions.get(edge.from),
+              to = positions.get(edge.to);
+            if (!from || !to) continue;
+            const sx = from.x + 205,
+              sy = from.y + 42,
+              tx = to.x,
+              ty = to.y + 42;
+            const bend = Math.max(sx, tx) + 35;
+            const path = svgElement("path", {
+              d:
+                tx > sx
+                  ? `M${sx},${sy} C${(sx + tx) / 2},${sy} ${(sx + tx) / 2},${ty} ${tx},${ty}`
+                  : `M${sx},${sy} C${bend},${sy - 55} ${bend},${ty - 55} ${tx},${ty}`,
+              class: "edge " + edge.kind,
+              "marker-end": "url(#arrow)",
+            });
+            path.append(
+              Object.assign(svgElement("title"), {
+                textContent:
+                  edge.kind === "child" ? "children 连线" : "仅 parent 声明",
+              }),
+            );
+            layer.append(path);
+          }
+          for (const id of ids) {
+            const data = state.report.nodes[id],
+              pos = positions.get(id);
+            const kind = !data
+              ? "missing"
+              : data.visible
+                ? "visible"
+                : "external";
+            const group = svgElement("g", {
+              transform: `translate(${pos.x},${pos.y})`,
+              class: "graph-node " + kind,
+              "data-node-id": id,
+              tabindex: 0,
+              role: "button",
+              "aria-label": data ? nodeLabel(data) : "缺失记录 " + id,
+            });
+            group.append(svgElement("rect", { width: 205, height: 84 }));
+            const lines = data
+              ? [
+                  (data.visible ? "正常树锚点 · " : "图外 · ") +
+                    (roles[data.role] || "记录") +
+                    " · " +
+                    data.versionCount +
+                    " 版本",
+                  short(data.preview) || "无正文预览",
+                  id,
+                  kb(data.bytes) + " · " + time(data.firstTimestamp),
+                ]
+              : [
+                  "记录缺失",
+                  "没有可查看的存储记录",
+                  id,
+                  "仅展示悬空引用，不会生成记录",
+                ];
+            lines.forEach((text, index) => {
+              const line = svgElement("text", {
+                x: 9,
+                y: 19 + index * 18,
+                class: index > 1 ? "secondary" : "",
+                "clip-path": "url(#node-label-clip)",
+              });
+              line.textContent =
+                text.length > 33 ? text.slice(0, 32) + "…" : text;
+              group.append(line);
+            });
+            const title = svgElement("title");
+            title.textContent = lines.join("\n");
+            group.append(title);
+            group.addEventListener("click", () => inspectNode(id));
+            group.addEventListener("keydown", (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                inspectNode(id);
+              }
+            });
+            layer.append(group);
+          }
+          applyZoom();
+        }
+        function applyZoom() {
+          if (!state.graph) return;
+          $("drawing")?.setAttribute("transform", `scale(${state.zoom})`);
+          $("graph").setAttribute("width", state.graph.width * state.zoom);
+          $("graph").setAttribute("height", state.graph.height * state.zoom);
+          $("zoom-value").textContent = Math.round(state.zoom * 100) + "%";
+        }
+        function highlightNode(id, center) {
+          $("graph")
+            .querySelectorAll(".graph-node")
+            .forEach((node) =>
+              node.classList.toggle("selected", node.dataset.nodeId === id),
+            );
+          $("nodes-table")
+            .querySelectorAll("tr[data-node-id]")
+            .forEach((row) =>
+              row.classList.toggle("selected", row.dataset.nodeId === id),
+            );
+          if (center && state.graph?.positions.has(id)) {
+            const pos = state.graph.positions.get(id);
+            const wrap = $("graph-wrap");
+            wrap.scrollTo({
+              left: Math.max(
+                0,
+                (pos.x + 102) * state.zoom - wrap.clientWidth / 2,
+              ),
+              top: Math.max(
+                0,
+                (pos.y + 42) * state.zoom - wrap.clientHeight / 2,
+              ),
+              behavior: "smooth",
+            });
+          }
+        }
+        async function inspectNode(id, center = true) {
+          state.nodeId = id;
+          const request = ++state.detailRequest;
+          highlightNode(id, center);
+          const metadata = state.report.nodes[id];
+          if (!metadata) {
+            $("details").replaceChildren(
+              element("h2", "缺失记录"),
+              element("p", id, "mono"),
+              element("p", "只有引用，没有节点记录。此检查不会自动创建节点。"),
+            );
+            return;
+          }
+          $("details").replaceChildren(
+            element("div", "正在读取记录…", "empty"),
+          );
+          try {
+            const detail = await window.pluginSdk.getResidueNode(
+              id,
+              state.report.revision,
+            );
+            if (request !== state.detailRequest) return;
+            state.details = detail;
+            renderDetails(metadata, detail);
+          } catch (error) {
+            if (request === state.detailRequest) {
+              $("details").replaceChildren(
+                element("p", error.message || String(error), "blocked"),
+              );
+              fail(error);
+            }
+          }
+        }
+        function renderDetails(metadata, detail) {
+          const pane = $("details");
+          pane.replaceChildren();
+          pane.append(
+            element(
+              "h2",
+              metadata.visible ? "正常树锚点（不会清理）" : "图外记录详情",
+            ),
+            element("div", detail.id, "mono"),
+          );
+          const dl = element("dl");
+          for (const [label, value] of [
+            ["角色", roles[detail.role] || detail.role],
+            ["占用", kb(metadata.bytes)],
+            ["版本数", String(detail.versions.length)],
+            ["最早记录", time(metadata.firstTimestamp)],
+            ["最近记录", time(metadata.lastTimestamp)],
+            ["父节点", detail.parent || "无父节点"],
+            ["子节点", detail.children.join("\n") || "无子节点"],
+          ])
+            dl.append(element("dt", label), element("dd", value));
+          pane.append(dl);
+          const issues = state.report.issues.filter(
+            (issue) =>
+              issue.nodeId === detail.id ||
+              issue.relatedNodeIds.includes(detail.id),
+          );
+          if (issues.length) {
+            const box = element("div", undefined, "detail-issues");
+            issues.forEach((issue) => box.append(element("p", issue.message)));
+            pane.append(box);
+          }
+          if (detail.versions.length) {
+            pane.append(element("h3", "全部消息版本"));
+            const select = element("select", undefined, "version-select");
+            select.id = "version-select";
+            select.setAttribute("aria-label", "查看消息版本");
+            detail.versions.forEach((version) => {
+              const option = element(
+                "option",
+                (version.current ? "当前 · " : "") +
+                  version.id +
+                  " · " +
+                  (version.author || "未知模型"),
+              );
+              option.value = version.id;
+              select.append(option);
+            });
+            const content = element("div");
+            content.id = "version-content";
+            pane.append(select, content);
+            select.value = detail.versions.some((version) => version.current)
+              ? detail.currentVersionId
+              : detail.versions[0].id;
+            select.addEventListener("change", () =>
+              renderVersion(detail, select.value),
+            );
+            renderVersion(detail, select.value);
+          } else
+            pane.append(
+              element("p", "此节点没有消息版本（例如上下文断点）。", "muted"),
+            );
+          const raw = element("details");
+          raw.append(
+            element("summary", "查看原始记录（含附加数据）"),
+            element("pre", detail.rawJson),
+          );
+          pane.append(raw);
+        }
+        function renderVersion(detail, id) {
+          const version = detail.versions.find((item) => item.id === id);
+          if (!version) return;
+          const box = $("version-content");
+          box.replaceChildren(
+            element(
+              "p",
+              (version.author || "未记录模型") +
+                " · " +
+                time(version.timestamp) +
+                " · " +
+                kb(version.bytes),
+              "muted",
+            ),
+            element("h3", "正文"),
+            element("pre", version.content || "（无正文文本）"),
+          );
+          if (version.reasoning) {
+            const reasoning = element("details");
+            reasoning.append(
+              element("summary", "思维链"),
+              element("pre", version.reasoning),
+            );
+            box.append(reasoning);
+          }
+        }
+        async function preview() {
+          if (state.busy || !state.selected.size) return;
+          setBusy(true);
+          try {
+            const groupIds = [...state.selected];
+            const plan = await window.pluginSdk.previewResidueCleanup(
+              groupIds,
+              state.report.revision,
+            );
+            state.pending = { ...plan, revision: state.report.revision };
+            $("confirmation-summary").textContent =
+              `将删除 ${groupIds.length} 组 / ${plan.removedCount} 个图外节点（含全部版本），估算 ${kb(plan.bytes)}。`;
+            $("confirmation-groups").replaceChildren(
+              ...groupIds.map((id) => {
+                const group = state.report.groups.find(
+                  (item) => item.id === id,
+                );
+                return element(
+                  "p",
+                  groupTitle(group) +
+                    ` · ${group.nodeIds.length} 节点 · ${kb(group.bytes)}`,
+                );
+              }),
+            );
+            $("backup-location").textContent =
+              `独立备份：${plan.backup.title}\n新建文件：${plan.backup.path}（不覆盖原永久存档）`;
+            $("backup-status").textContent = plan.backupVerified
+              ? "当前工作版已有核验通过的完整备份，可以单独清理。"
+              : "尚未保存备份，清理按钮不可用。";
+            $("confirmation").hidden = false;
+            $("cancel").focus();
+          } catch (error) {
+            fail(error);
+          } finally {
+            setBusy(false);
+          }
+        }
+        async function saveBackup() {
+          if (state.busy || !state.pending || state.pending.backupVerified)
+            return;
+          setBusy(true);
+          status("正在新建并读取核验完整备份；不会开始清理…");
+          try {
+            const backup = await window.pluginSdk.saveResidueBackup(
+              state.pending.revision,
+            );
+            state.pending.backupVerified = true;
+            $("backup-status").textContent =
+              `备份已保存并核验：${backup.path}。现在可单独清理，也可返回审查，备份仍保留。`;
+            status(
+              "完整备份已保存并核验，当前工作版尚未清理。永久原存档未覆盖。",
+            );
+          } catch (error) {
+            state.pending = null;
+            $("confirmation").hidden = true;
+            fail(error);
+          } finally {
+            setBusy(false);
+          }
+        }
+        async function execute() {
+          if (state.busy || !state.pending?.backupVerified) return;
+          const plan = state.pending;
+          setBusy(true);
+          status("正在复核备份及来源，仅清理当前工作版和缓存…");
+          try {
+            const result = await window.pluginSdk.executeResidueCleanup(
+              [...plan.groupIds],
+              plan.revision,
+            );
+            renderReport(result.report);
+            status(
+              `当前工作版及缓存已清理 ${result.removedCount} 个图外节点，估算 ${kb(result.bytes)}。原永久存档尚未更新。完整备份保留于：${result.backupPath}`,
+            );
+            $("archive").hidden = false;
+            $("refresh").focus();
+          } catch (error) {
+            state.pending = null;
+            $("confirmation").hidden = true;
+            fail(error);
+          } finally {
+            setBusy(false);
+          }
+        }
+        $("refresh").addEventListener("click", refresh);
+        $("search").addEventListener("input", renderList);
+        $("groups-tab").addEventListener("click", () => {
+          state.tab = "groups";
+          renderList();
+        });
+        $("issues-tab").addEventListener("click", () => {
+          state.tab = "issues";
+          renderList();
+        });
+        $("select-filtered").addEventListener("click", () => {
+          for (const group of filteredGroups())
+            if (!group.blockedReasons.length) state.selected.add(group.id);
+          updateSelection();
+        });
+        $("clear-selection").addEventListener("click", () => {
+          state.selected.clear();
+          updateSelection();
+        });
+        $("zoom-in").addEventListener("click", () => {
+          state.zoom = Math.min(2, state.zoom * 1.25);
+          applyZoom();
+        });
+        $("zoom-out").addEventListener("click", () => {
+          state.zoom = Math.max(0.05, state.zoom / 1.25);
+          applyZoom();
+        });
+        $("fit").addEventListener("click", () => {
+          if (!state.graph) return;
+          const wrap = $("graph-wrap");
+          state.zoom = Math.min(
+            1,
+            (wrap.clientWidth - 20) / state.graph.width,
+            (wrap.clientHeight - 20) / state.graph.height,
+          );
+          applyZoom();
+          wrap.scrollTo(0, 0);
+        });
+        $("preview").addEventListener("click", preview);
+        $("save-backup").addEventListener("click", saveBackup);
+        $("confirm").addEventListener("click", execute);
+        $("archive").addEventListener("click", async () => {
+          if (state.busy) return;
+          setBusy(true);
+          try {
+            const saved = await window.pluginSdk.archiveResidueWorkingCopy(
+              state.report.revision,
+            );
+            status(
+              saved
+                ? "当前工作版已写入永久存档，完整清理前备份仍保留。"
+                : "归档操作未确认完成（取消或失败）；请查看提示，错误时核查目标文件。当前工作版仍保留。",
+            );
+          } catch (error) {
+            fail(error);
+          } finally {
+            setBusy(false);
+          }
+        });
+        $("cancel").addEventListener("click", () => {
+          if (!state.busy) {
+            state.pending = null;
+            $("confirmation").hidden = true;
+            $("preview").focus();
+          }
+        });
+        document.addEventListener("keydown", (event) => {
+          if ($("confirmation").hidden) return;
+          if (event.key === "Escape" && !state.busy) $("cancel").click();
+          if (event.key === "Tab") {
+            const controls = [
+              ...$("confirmation").querySelectorAll("button:not(:disabled)"),
+            ];
+            const first = controls[0],
+              last = controls.at(-1);
+            if (!first) event.preventDefault();
+            else if (event.shiftKey && document.activeElement === first) {
+              event.preventDefault();
+              last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first.focus();
+            }
+          }
+        });
+        let initialized = false;
+        const init = () => {
+          if (initialized || !window.pluginSdk) return;
+          initialized = true;
+          document.documentElement.setAttribute(
+            "data-theme-mode",
+            window.pluginSdk.themeMode || "light",
+          );
+          refresh();
+        };
+        window.addEventListener("pluginSdkReady", init);
+        init();
+      })();
+    </script>
+  </body>
+</html>

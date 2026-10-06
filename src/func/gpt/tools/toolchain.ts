@@ -6,6 +6,8 @@
  * @Description  : 工具调用链执行器
  */
 import { complete } from '../openai/complete';
+import { sumReportedUsage } from './usage-sum';
+import type { TStreamMsgCallback } from '../openai/response-parse';
 import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '.';
 
 /**
@@ -284,7 +286,7 @@ export interface ToolChainOptions {
         onToolCallComplete?: (result: ToolExecuteResult, callId: string) => void;
 
         // LLM 响应更新（流式）
-        onLLMResponseUpdate?: (content: string, toolCalls?: IToolCallResponse[]) => void;
+        onLLMResponseUpdate?: TStreamMsgCallback;
 
         // LLM 响应完成
         onLLMResponseComplete?: (response: ICompletionResult) => void;
@@ -331,11 +333,7 @@ export interface ToolChainResult {
         roundIndex: number;
         resultRejected?: boolean;
         resultRejectReason?: string;
-        llmUsage?: {
-            prompt_tokens: number;
-            completion_tokens: number;
-            total_tokens: number;
-        };
+        llmUsage?: ICompletionUsage;
     }[];
 
     // 完成状态
@@ -567,15 +565,7 @@ export async function executeToolChain(
                 state.allMessages.push(llmResponseMessage);
 
                 // 累积 token 使用量
-                if (response.usage) {
-                    if (!state.usage) {
-                        state.usage = { ...response.usage };
-                    } else {
-                        state.usage.prompt_tokens += response.usage.prompt_tokens || 0;
-                        state.usage.completion_tokens += response.usage.completion_tokens || 0;
-                        state.usage.total_tokens += response.usage.total_tokens || 0;
-                    }
-                }
+                state.usage = sumReportedUsage(state.usage, response.usage);
 
                 // 记录 LLM usage 到本轮工具调用
                 if (response.usage && roundResults.length > 0) {
@@ -672,15 +662,7 @@ Provide a complete, helpful response even if some planned tool calls could not b
                 });
 
                 // 累积 token
-                if (followUpResponse.usage) {
-                    if (!state.usage) {
-                        state.usage = { ...followUpResponse.usage };
-                    } else {
-                        state.usage.prompt_tokens += followUpResponse.usage.prompt_tokens || 0;
-                        state.usage.completion_tokens += followUpResponse.usage.completion_tokens || 0;
-                        state.usage.total_tokens += followUpResponse.usage.total_tokens || 0;
-                    }
-                }
+                state.usage = sumReportedUsage(state.usage, followUpResponse.usage);
             } catch (error) {
                 console.error('Failed to generate final response:', error);
                 callbacks.onError?.(error, 'final_response');

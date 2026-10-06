@@ -30,6 +30,7 @@ import type { PendingApproval } from '@gpt/tools/types';
 
 // V2 TreeModel
 import { useTreeModel } from './use-tree-model';
+import type { ITreeSelection } from './subtree-selection';
 
 
 interface ISimpleContext {
@@ -360,6 +361,10 @@ export const useSession = (props: {
     const addMsgItemVersion = (itemId: string, content: string) => {
         const node = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
         if (!node || node.type !== 'message') return;
+        if (node.loading) {
+            showMessage('回复生成中，不能为此消息添加版本');
+            return;
+        }
 
         const currentPayload = node.versions[node.currentVersionId];
         if (!currentPayload) return;
@@ -421,6 +426,10 @@ export const useSession = (props: {
     const switchMsgItemVersion = (itemId: string, version: string) => {
         const node = treeModel.getNodeById(itemId) as IChatSessionMsgItemV2;
         if (!node) return;
+        if (node.loading) {
+            showMessage('回复生成中，请等待完成后再切换版本');
+            return;
+        }
         if (node.currentVersionId === version) return;
         if (!node.versions || !node.versions[version]) return;
 
@@ -435,6 +444,10 @@ export const useSession = (props: {
             return;
         }
 
+        if (node.loading) {
+            showMessage('回复生成中，不能删除此消息的版本');
+            return;
+        }
         const versionKeys = Object.keys(node.versions);
         if (versionKeys.length <= 1) {
             showMessage('唯一的消息版本不能删除');
@@ -592,14 +605,17 @@ export const useSession = (props: {
         });
     }
 
-    const extractSubtreeToHistory = (args: {
-        rootId: ItemID;
-        leafIds?: ItemID[];
-        title?: string;
-    }): IChatSessionHistoryV2 => {
+    const deleteSubtree = (args: ITreeSelection): number => {
+        if (loading()) throw new Error('回复生成中，不能删除或剪切对话树');
+        const deletedCount = treeModel.deleteSubtree(args);
+        renewUpdatedTimestamp();
+        return deletedCount;
+    };
+
+    const extractSubtreeToHistory = (args: ITreeSelection & { title?: string }): IChatSessionHistoryV2 => {
+        if (loading()) throw new Error('回复生成中，请等待完成后再提取对话树');
         const extracted = treeModel.extractSubtree({
-            rootId: args.rootId,
-            leafIds: args.leafIds,
+            ...args,
             regenerateIds: true,
         });
         const now = Date.now();
@@ -610,7 +626,7 @@ export const useSession = (props: {
             if (newId) bookmarks[newId] = label;
         });
 
-        return {
+        const history: IChatSessionHistoryV2 = {
             schema: 2,
             type: 'history',
             id: window.Lute.NewNodeID(),
@@ -625,6 +641,7 @@ export const useSession = (props: {
             worldLine: extracted.worldLine,
             bookmarks,
         };
+        return history;
     }
 
     // ========== V2: applyHistory 支持 V2 格式 ==========
@@ -634,7 +651,7 @@ export const useSession = (props: {
             history.title && (title.update(history.title));
             history.timestamp && (timestamp = history.timestamp);
             history.updated && (updated = history.updated);
-            history.sysPrompt && (systemPrompt.update(history.sysPrompt));
+            if (history.sysPrompt !== undefined) systemPrompt.update(history.sysPrompt);
             history.tags && (sessionTags.update(history.tags));
             history.customOptions && (modelCustomOptions.value = history.customOptions);
 
@@ -647,6 +664,16 @@ export const useSession = (props: {
         // 清空删除历史（加载新历史记录时）
         deleteHistory.clearRecords();
     }
+
+    /** Apply a reviewed tree cleanup/rollback without loading another session or
+     * clearing the separate deletion-history log. Session metadata stays intact. */
+    const applyTreeSnapshot = (history: IChatSessionHistoryV2) => {
+        if (history.id !== sessionId()) throw new Error('不能将其他对话的树应用到当前会话');
+        batch(() => {
+            treeModel.fromHistory(history);
+            if (history.updated !== undefined) updated = history.updated;
+        });
+    };
 
     // 定义 newSession 函数
     const newSession = () => {
@@ -925,8 +952,10 @@ export const useSession = (props: {
         // ========== 会话历史 ==========
         newSession,
         applyHistory,
+        applyTreeSnapshot,
         applySequence,
         extractSubtreeToHistory,
+        deleteSubtree,
 
         // 导出/保存
         sessionHistory,

@@ -10,7 +10,7 @@
 import { downloadBlob } from "@/libs/download";
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
 import { thisPlugin, matchIDFormat, confirmDialog, formatDateTime } from "@frostime/siyuan-plugin-kits";
-import { listStorageDir, readStorageJson } from "./storage-read";
+import { listStorageDir, listStorageDirResult, readStorageJson } from "./storage-read";
 import { createSignalRef } from "@frostime/solid-signal-ref";
 import { extractMessageContent, getMessageProp, getPayload } from '@gpt/chat-utils';
 import { needsMigration, migrateHistory, isV1History, isV2History } from '@gpt/model/msg_migration';
@@ -108,9 +108,41 @@ const showVersionConflictDialog = async (
     });
 }
 
-export const saveToJson = async (history: IChatSessionHistoryV2, updateSnapshot: boolean = true) => {
-    // 版本冲突检查
-    if (history.updated) {
+export type PermanentHistoryState =
+    | { status: 'missing'; path: string }
+    | { status: 'exists'; path: string; history: IChatSessionHistoryV2 }
+    | { status: 'failed'; path: string };
+
+/** Do not interpret a failed read as permission to create/overwrite an archive. */
+export const getPermanentHistoryState = async (id: string): Promise<PermanentHistoryState> => {
+    const path = `data/storage/petal/${thisPlugin().name}/${rootName}/${id}.json`;
+    const directory = await listStorageDirResult(rootName);
+    if (directory.status === 'missing') return { status: 'missing', path };
+    if (directory.status === 'failed') return { status: 'failed', path };
+    if (!directory.items.some(item => !item.isDir && item.name === `${id}.json`)) {
+        return { status: 'missing', path };
+    }
+    try {
+        const stored = await readStorageJson<ISessionHistoryUnion>(path);
+        if (!stored) return { status: 'failed', path };
+        const history = needsMigration(stored) ? migrateHistory(stored) : stored as IChatSessionHistoryV2;
+        if (history.schema !== 2 || history.id !== id || !history.nodes) return { status: 'failed', path };
+        return { status: 'exists', path, history };
+    } catch {
+        return { status: 'failed', path };
+    }
+};
+
+export const saveToJson = async (history: IChatSessionHistoryV2, updateSnapshot: boolean = true, options?: {
+    overwriteConfirmed?: boolean;
+    createOnly?: boolean;
+}) => {
+    if (options?.createOnly) {
+        const state = await getPermanentHistoryState(history.id);
+        if (state.status !== 'missing') throw new Error(`无法创建独立存档：目标已存在或无法核查（${state.path}）`);
+    }
+    // Explicit archive UX already included conflict information in its confirmation.
+    if (history.updated && !options?.overwriteConfirmed) {
         const versionCheckResult = await checkVersionConflict(history.id, history.updated);
         if (versionCheckResult.hasConflict) {
             const userConfirmed = await showVersionConflictDialog(versionCheckResult);
@@ -128,11 +160,16 @@ export const saveToJson = async (history: IChatSessionHistoryV2, updateSnapshot:
     const filepath = siyuanVfs.join(siyuanVfs.SIYUAN_DIR.THIS_STORAGE, `${rootName}/${history.id}.json`);
     // await plugin.saveData(filepath, toSave);
     const blob = new Blob([JSON.stringify(toSave)], { type: 'application/json' });
-    await siyuanVfs.writeFile(filepath, blob);
+    const written = await siyuanVfs.writeFile(filepath, blob);
+    if (!written.ok) throw new Error(`对话文件写入失败，未保存成功：${filepath}`);
 
-    // 同步更新snapshot
+    // Only publish archive metadata after the body write was acknowledged.
     if (updateSnapshot) {
-        await updateSessionInSnapshot(history);
+        try {
+            await updateSessionInSnapshot(history);
+        } catch (error) {
+            throw new Error(`对话文件已写入，但历史列表更新失败：${filepath}。${(error as Error).message || ''}`);
+        }
     }
     return true;
 }
@@ -255,7 +292,7 @@ const generateSessionSnapshot = (history: ISessionHistoryUnion): IChatSessionSna
             continue;
         }
 
-        const { text } = extractMessageContent(content);
+        const { text } = extractMessageContent(content ?? '');
         const authorPrefix = `${author}: `;
         const contentToAdd = authorPrefix + text.replace(/\n/g, ' ').trim();
 
@@ -323,9 +360,9 @@ const readSnapshot = async (): Promise<IHistorySnapshot | null> => {
  * 写入snapshot文件
  */
 const writeSnapshot = async (snapshot: IHistorySnapshot) => {
-    snapshotSignal.value = snapshot;
     const plugin = thisPlugin();
     await plugin.saveData(SNAPSHOT_FILE, snapshot);
+    snapshotSignal.value = snapshot;
 };
 
 /**
@@ -364,6 +401,7 @@ export const updateSessionInSnapshot = async (history: ISessionHistoryUnion) => 
         return;
     }
 
+    snapshot = structuredClone(snapshot);
     const sessionSnapshot = generateSessionSnapshot(history);
     const existingIndex = snapshot.sessions.findIndex(s => s.id === history.id);
 

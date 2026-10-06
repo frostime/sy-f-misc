@@ -15,7 +15,7 @@ import {
 } from 'solid-js';
 import { render } from 'solid-js/web';
 import { createSignalRef, useSignalRef, useStoreRef } from '@frostime/solid-signal-ref';
-import { Menu, showMessage } from 'siyuan';
+import { Menu, showMessage, confirm } from 'siyuan';
 import { debounce, inputDialog, thisPlugin } from '@frostime/siyuan-plugin-kits';
 
 // UI Components
@@ -54,6 +54,8 @@ import SelectedTextProvider from '@gpt/context-provider/SelectedTextProvider';
 import { TextAreaWithActionButton } from '@/libs/components/Elements/TextArea';
 import { jsonAgent } from '../openai/tiny-agent';
 import { showChatWorldTree } from './ChatSession/world-tree';
+import { commitSubtreeRemoval } from './ChatSession/subtree-removal';
+import { showTreeResidueReview } from './ChatSession/residue-review';
 import { openVarsManager } from '../tools/vars';
 import Markdown from '@/libs/components/Elements/Markdown';
 
@@ -282,8 +284,8 @@ export const ChatSession: Component<{
         }
     }));
 
-    const newChatSession = (history?: Partial<IChatSessionHistoryV2>) => {
-        if (session.hasMessages() && session.hasUpdated()) {
+    const newChatSession = (history?: Partial<IChatSessionHistoryV2>, sourceAlreadySaved = false) => {
+        if (!sourceAlreadySaved && session.hasMessages() && session.hasUpdated()) {
             persist.saveToLocalStorage(session.sessionHistory());
         }
         session.newSession();
@@ -712,21 +714,8 @@ export const ChatSession: Component<{
             // 复制链接选项
             menu.addItem({
                 icon: 'iconLink',
-                label: '复制链接',
-                click: () => {
-                    persist.persistHistory(session.sessionHistory());
-                    const plugin = thisPlugin();
-                    const prefix = `siyuan://plugins/${plugin.name}/chat-session-history`;
-                    let urlObj = new URLSearchParams();
-                    urlObj.set("historyId", session.sessionHistory().id);
-                    urlObj.set("historyTitle", session.title());
-                    let url = `${prefix}?${urlObj.toString()}`;
-                    let markdown = `[${session.title()}](${url})`;
-                    navigator.clipboard.writeText(markdown).then(() => {
-                        showMessage("Copy links to clipboard!");
-                        console.debug("Copy links to clipboard!", markdown);
-                    });
-                }
+                label: '复制永久存档链接（不保存）',
+                click: () => { void persist.copyArchiveLink(session.sessionHistory()); }
             });
 
             // 多选选项
@@ -838,21 +827,67 @@ export const ChatSession: Component<{
                 icon: 'iconGraph',
                 label: '完整对话结构',
                 click: () => {
+                    const sourceSessionId = session.sessionId();
                     showChatWorldTree({
                         treeModel: session.treeModel,
-                        onExtractSubtree: async ({ rootId, leafIds, title }) => {
-                            try {
-                                const history = session.extractSubtreeToHistory({ rootId, leafIds, title });
-                                newChatSession(history);
-                                showMessage('已提取子树为新对话');
-                            } catch (err) {
-                                console.error('Failed to extract subtree:', err);
-                                showMessage(`提取子树失败: ${(err as Error).message}`, 5000, 'error');
-                                throw err;
+                        onSelectionOperation: ({ nodeIds, mode, plan }) => {
+                            if (session.sessionId() !== sourceSessionId) throw new Error('当前对话已切换，请关闭并重新打开树视图');
+                            if (session.loading()) throw new Error('回复生成中，请等待完成后再操作对话树');
+                            const selection = { nodeIds };
+                            if (mode === 'copy') {
+                                newChatSession(session.extractSubtreeToHistory(selection));
+                                showMessage(`已复制 ${plan.nodeIds.length} 个节点为新对话，原对话不变`);
+                                return true;
                             }
+
+                            const destination = mode === 'cut' ? session.extractSubtreeToHistory(selection) : undefined;
+                            const deleted = commitSubtreeRemoval({
+                                source: {
+                                    snapshot: session.sessionHistory,
+                                    remove: () => session.deleteSubtree(selection),
+                                    restore: session.applyHistory,
+                                },
+                                persistence: { save: persist.saveToLocalStorage, remove: persist.removeFromLocalStorage },
+                                destination,
+                                onCommit: destination ? () => newChatSession(destination, true) : undefined,
+                            });
+                            showMessage(mode === 'cut'
+                                ? `已提取 ${plan.nodeIds.length} 个节点为新对话，原对话移除 ${deleted} 个、保留 ${plan.retainedIds.length} 个所选公共节点`
+                                : `已删除 ${deleted} 个节点，${plan.retainedIds.length} 个所选依赖节点已保留`);
+                            return true;
                         }
                     });
                 }
+            });
+
+            menu.addItem({
+                icon: 'iconSearch',
+                label: '检查残留与断链',
+                click: () => {
+                    const sourceSessionId = session.sessionId();
+                    const assertEditable = () => {
+                        if (session.sessionId() !== sourceSessionId) throw new Error('当前对话已切换，请关闭并重新打开检查窗口');
+                        if (session.loading()) throw new Error('回复生成中，请等待完成后再检查或清理');
+                    };
+                    showTreeResidueReview({
+                        source: {
+                            snapshot: () => {
+                                assertEditable();
+                                return session.sessionHistory();
+                            },
+                            apply: session.applyTreeSnapshot,
+                            assertEditable,
+                        },
+                        persistence: {
+                            saveBackup: history => persist.saveToJson(history, true, { createOnly: true }),
+                            readBackup: persist.getFromJson,
+                            saveWorking: persist.saveToLocalStorage,
+                        },
+                        backupPath: id => `data/storage/petal/${thisPlugin().name}/chat-history/${id}.json`,
+                        archiveWorking: persist.archiveWorkingHistory,
+                        newId: () => window.Lute.NewNodeID(),
+                    });
+                },
             });
 
             const target = e.target as HTMLElement;
@@ -872,53 +907,28 @@ export const ChatSession: Component<{
                     icon='iconPlugin'
                 />
 
-                {/* 左侧 - 保存导出按钮 */}
+                {/* 归档与导出分别执行，导出不隐式更新永久 JSON。 */}
                 <Item
-                    onclick={(e: MouseEvent) => {
+                    onclick={async (e: MouseEvent) => {
                         e.stopPropagation();
                         e.preventDefault();
+                        const stored = await persist.getPermanentHistoryState(session.sessionId());
                         let menu = new Menu();
                         menu.addItem({
                             icon: 'iconDatabase',
-                            label: '归档对话记录',
-                            click: () => {
-                                persist.persistHistory(session.sessionHistory(), {
-                                    verbose: '保存成功'
-                                });
-                            }
+                            label: stored.status === 'exists' ? '更新永久存档…' : stored.status === 'missing' ? '建立永久存档…' : '归档当前工作版…',
+                            click: () => { void persist.archiveWorkingHistory(session.sessionHistory()); }
+                        });
+                        menu.addSeparator();
+                        menu.addItem({
+                            icon: 'iconSiYuan',
+                            label: '导出当前工作版到笔记（不归档）',
+                            click: () => { void persist.exportWorkingHistory(session.sessionHistory(), 'document'); }
                         });
                         menu.addItem({
                             icon: 'iconSiYuan',
-                            label: '导出到笔记中',
-                            click: () => {
-                                persist.persistHistory(session.sessionHistory(), {
-                                    saveTo: 'document',
-                                    verbose: '导出成功'
-                                });
-                            }
-                        });
-                        menu.addItem({
-                            icon: 'iconSiYuan',
-                            label: '导出为附件',
-                            click: () => {
-                                persist.persistHistory(session.sessionHistory(), {
-                                    saveTo: 'asset',
-                                    verbose: '导出成功'
-                                });
-                            },
-                            submenu: [
-                                {
-                                    icon: 'iconSiYuan',
-                                    label: '导出附件但不归档',
-                                    click: () => {
-                                        persist.persistHistory(session.sessionHistory(), {
-                                            saveJson: false,
-                                            saveTo: 'asset',
-                                            verbose: '导出成功'
-                                        });
-                                    },
-                                }
-                            ]
+                            label: '导出当前工作版为附件（不归档）',
+                            click: () => { void persist.exportWorkingHistory(session.sessionHistory(), 'asset'); }
                         });
                         menu.addItem({
                             icon: 'iconMarkdown',
@@ -956,7 +966,7 @@ export const ChatSession: Component<{
                         });
                         menu.addItem({
                             icon: 'iconArrowDown',
-                            label: '下载原始对话文件',
+                            label: '下载当前工作版 JSON（完整数据）',
                             click: () => {
                                 persist.downloadJsonFile(session.sessionHistory());
                             }

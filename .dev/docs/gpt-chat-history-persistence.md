@@ -32,8 +32,11 @@ The cache exists to make temporary chat history survive normal reload/restart an
 | Open/reload the plugin | Restore missing temporary conversations from cache without overwriting already-local working copies |
 | Close/unload the plugin | Finish interrupted writes/deletes and clean safe orphans; do not rewrite every kept cache file |
 | User explicitly saves/exports a conversation | Use the durable persistence path selected by the user; do not infer that every temporary cache update is a permanent save |
+| Cut selected branches into another conversation | Save the destination's local working copy before pruning the source; verify the source's local save, including an empty source. A failed local save rejects the cut and restores the live source |
 
 Temporary cache correctness is “eventual replica correctness”, not “every file proves the newest state at every moment”. The newest temporary content lives in localStorage while the app is operating.
+
+`saveToLocalStorage()` returns whether the authoritative local working copy was written. Ordinary callers may ignore it and retain the existing asynchronous replica behavior; destructive subtree operations check it before reporting success. This is not a guarantee that the cache replica has finished syncing, nor a cross-device transaction.
 
 ## Storage layers and why they exist
 
@@ -100,6 +103,16 @@ Temporary cache supports continuity and sync. Durable persistence is handled by 
 ### 7. Treat JSON snapshot as a durable-history index
 
 The JSON persistence layer has two parts: full conversation files and a snapshot file. Full JSON files are the durable records; the snapshot stores derived metadata for listing and editing persisted histories without loading every full conversation. Snapshot rebuild reads full JSON files and regenerates metadata. Snapshot updates should stay synchronized with full JSON metadata updates, but snapshot contents should not redefine the canonical conversation body.
+
+## Explicit user actions
+
+Working/cache history and permanent JSON archives are separate copies. Ordinary exports and clipboard links must not silently update an archive.
+
+- `archiveWorkingHistory()` captures the working snapshot and asks to create or overwrite the target permanent JSON. Overwrite confirmation includes the exact path, stored/current node and version counts, and any older-working-version warning. The confirmation does not serialize or render the full stored body. A failed target read is not treated as an absent archive. The stored body is checked again after consent; this is not an atomic cross-device compare-and-swap.
+- `copyArchiveLink()` only reads a valid permanent archive and writes to the clipboard. An unsaved working copy cannot acquire a permanent link by silently archiving itself. The link follows later archive updates, rather than pinning an immutable revision.
+- `exportWorkingHistory()` only exports to the requested document or asset. Existing document/asset update semantics remain; no permanent chat JSON is written as a side effect.
+- Residue review separates explicit backup creation from working-copy cleanup. The complete independent backup body must be read back and match the reviewed source; cleanup rechecks both the backup and source before mutation. Preview reserves an ID but writes nothing. Returning after backup retains the backup. Updating the original permanent archive is a separate confirmed action.
+- `saveToJson()` is the low-level writer: VFS `ok:false` rejects before index publication. A body that was written but whose index failed is reported as a partial failure, not success. New backups refuse an existing or unreadable destination.
 
 ## Lifecycle model
 

@@ -10,6 +10,8 @@ import { mergeMultiVersion } from '@gpt/chat-utils/msg-item';
 import { UIConfig } from '@/func/gpt/model/store';
 
 import styles from './MessageItem.module.scss';
+import UsageDetails from './UsageDetails';
+import { describeUsage } from './usage-display';
 import { type useSession } from '../ChatSession/use-chat-session';
 import { showMessage } from 'siyuan';
 
@@ -110,7 +112,7 @@ const MessageVersionView: Component<{
                                 type="checkbox"
                                 checked={item.selected}
                                 onchange={[toggleSelect, item.version]}
-                                disabled={item.version === props.messageItem.currentVersionId}
+                                disabled={props.messageItem.loading || item.version === props.messageItem.currentVersionId}
                             />
                             <button
                                 class="b3-button b3-button--text"
@@ -121,7 +123,7 @@ const MessageVersionView: Component<{
                                         return prev;
                                     });
                                 }}
-                                disabled={item.version === props.messageItem.currentVersionId}
+                                disabled={props.messageItem.loading || item.version === props.messageItem.currentVersionId}
                             >
                                 <svg><use href="#iconTrashcan"></use></svg>
                             </button>
@@ -140,7 +142,7 @@ const MessageVersionView: Component<{
                                     props.session.switchMsgItemVersion(props.messageItem.id, item.version);
                                     props.onClose();
                                 }}
-                                disabled={item.version === props.messageItem.currentVersionId}
+                                disabled={props.messageItem.loading || item.version === props.messageItem.currentVersionId}
                             >
                                 <svg><use href="#iconSelect"></use></svg>
                             </button>
@@ -153,6 +155,9 @@ const MessageVersionView: Component<{
                             'white-space': 'normal'
                         }}
                     >
+                        <Show when={item.ref.usage}>
+                            <div class="b3-label__text">{describeUsage(item.ref.usage).summary}</div>
+                        </Show>
                         <Show when={item.ref.message.reasoning_content}>
                             <b>包含推理过程</b>
                         </Show>
@@ -168,9 +173,11 @@ const MessageVersionView: Component<{
             <div class="fn__flex" style={{
                 'align-items': 'center',
                 "justify-content": 'flex-end',
+                "flex-wrap": 'wrap',
                 gap: '5px',
                 padding: '4px 12px'
             }}>
+                <UsageDetails usage={props.messageItem.versions[previewVersion()]?.usage} />
                 <span>
                     {previewContent()?.text.length}字
                 </span>

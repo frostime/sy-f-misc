@@ -9,8 +9,8 @@ import {
     normalizeMessagesWithSystem,
     parseJsonSafe,
     toErrorResult,
-    toOpenAIUsage,
 } from './protocol-utils';
+import { consumeGeminiStream, parseGeminiResponse } from './response-parse';
 
 const pushGeminiContent = (contents: IGeminiContent[], role: IGeminiContent['role'], parts: IGeminiPart[]) => {
     if (!parts.length) return;
@@ -200,174 +200,6 @@ const buildGeminiPayload = (
     return payload;
 };
 
-const parseGeminiResponse = (data: IGeminiResponse): ICompletionResult => {
-    const first = data?.candidates?.[0];
-    const parts = first?.content?.parts || [];
-
-    const textParts: string[] = [];
-    const tool_calls: IToolCall[] = [];
-    parts.forEach((part, idx) => {
-        if ((part as IGeminiPartText).text) {
-            textParts.push((part as IGeminiPartText).text || '');
-            return;
-        }
-        const fcall = (part as IGeminiPartFunctionCall).functionCall;
-        if (fcall?.name) {
-            tool_calls.push({
-                id: `gemini_call_${idx}`,
-                type: 'function',
-                function: {
-                    name: fcall.name,
-                    arguments: JSON.stringify(fcall.args || {}),
-                }
-            });
-        }
-    });
-
-    const usage = toOpenAIUsage({
-        prompt_tokens: data?.usageMetadata?.promptTokenCount,
-        completion_tokens: data?.usageMetadata?.candidatesTokenCount,
-        total_tokens: data?.usageMetadata?.totalTokenCount,
-    });
-
-    return {
-        ok: true,
-        content: textParts.join(''),
-        usage,
-        tool_calls,
-        providerMeta: {
-            safetyRatings: first?.safetyRatings,
-            promptFeedback: data?.promptFeedback,
-            finishReason: first?.finishReason,
-        }
-    };
-};
-
-const parseGeminiStream = async (response: Response, options: CompleteOptions): Promise<ICompletionResult> => {
-    if (!response.body) {
-        return {
-            ok: false,
-            content: '[Error] Gemini stream response body is null',
-            usage: null,
-        };
-    }
-
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = '';
-
-    let content = '';
-    let promptTokens = 0;
-    let completionTokens = 0;
-    let totalTokens = 0;
-    let providerMeta: Record<string, any> = {};
-
-    let toolCallCounter = 0;
-    const toolCallKeyToId = new Map<string, string>();  // partIndex → stable id
-    const toolCalls = new Map<string, IToolCall>();     // stable id → IToolCall
-
-    const parseEventBlock = (eventBlock: string) => {
-        // Gemini streaming is served as SSE (`data: {json}` blocks separated by blank lines).
-        const lines = eventBlock.split('\n');
-        const dataLines = lines
-            .filter((line) => line.startsWith('data:'))
-            .map((line) => line.slice(5).trim())
-            .filter(Boolean);
-        if (!dataLines.length) return;
-
-        const rawData = dataLines.join('\n');
-        if (rawData === '[DONE]') return;
-
-        const payload = parseJsonSafe<IGeminiResponse>(rawData, null as any);
-        if (!payload) return;
-        appendLog({ type: 'chunk', data: payload });
-
-        const first = payload?.candidates?.[0];
-        const parts = first?.content?.parts || [];
-        parts.forEach((part, partIndex) => {
-            const text = (part as IGeminiPartText).text;
-            if (text) {
-                content += text;
-                return;
-            }
-            const functionCall = (part as IGeminiPartFunctionCall).functionCall;
-            if (functionCall?.name) {
-                // Assign a stable, monotonic ID on first encounter; reuse for subsequent streaming events.
-                const internalKey = String(partIndex);
-                let id = toolCallKeyToId.get(internalKey);
-                if (!id) {
-                    id = `gemini_call_${toolCallCounter++}`;
-                    toolCallKeyToId.set(internalKey, id);
-                }
-                // Gemini streaming sends complete args snapshots; replace (not merge) on each event.
-                toolCalls.set(id, {
-                    id,
-                    index: partIndex,
-                    type: 'function',
-                    function: {
-                        name: functionCall.name,
-                        arguments: JSON.stringify(functionCall.args || {}),
-                    }
-                });
-            }
-        });
-
-        if (payload.usageMetadata) {
-            promptTokens = payload.usageMetadata.promptTokenCount || promptTokens;
-            completionTokens = payload.usageMetadata.candidatesTokenCount || completionTokens;
-            totalTokens = payload.usageMetadata.totalTokenCount || totalTokens;
-        }
-
-        if (first?.safetyRatings) {
-            providerMeta.safetyRatings = first.safetyRatings;
-        }
-        if (payload.promptFeedback) {
-            providerMeta.promptFeedback = payload.promptFeedback;
-        }
-        if (first?.finishReason) {
-            providerMeta.finishReason = first.finishReason;
-        }
-
-        options.streamMsg?.(content);
-    };
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        if (options.abortController?.signal?.aborted) {
-            await reader.cancel();
-            return {
-                ok: false,
-                content: `${content}\n[Error] Request aborted`,
-                usage: null,
-            };
-        }
-
-        buffer += value;
-        const events = buffer.split('\n\n');
-        buffer = events.pop() || '';
-        events.forEach(parseEventBlock);
-    }
-
-    if (buffer.trim()) {
-        parseEventBlock(buffer);
-    }
-
-    const usage = toOpenAIUsage({
-        prompt_tokens: promptTokens,
-        completion_tokens: completionTokens,
-        total_tokens: totalTokens || (promptTokens + completionTokens),
-    });
-
-    return {
-        ok: true,
-        content,
-        usage,
-        tool_calls: Array.from(toolCalls.values()),
-        providerMeta,
-    };
-};
-
 export const geminiComplete = async (
     input: string | IMessage[],
     options: CompleteOptions
@@ -406,6 +238,7 @@ export const geminiComplete = async (
 
         appendLog({ type: 'request', data: { url, payload } });
 
+        const t0 = new Date().getTime();
         const response = await fetch(url, {
             method: 'POST',
             headers: buildProtocolHeaders('gemini', runtimeLLM, Boolean(chatOption.stream)),
@@ -424,12 +257,19 @@ export const geminiComplete = async (
         }
 
         if (chatOption.stream) {
-            return parseGeminiStream(response, options);
+            return consumeGeminiStream(response, {
+                streamMsg: options.streamMsg,
+                abortController: options.abortController,
+                onRawEvent: (data) => appendLog({ type: 'chunk', data }),
+                t0,
+            });
         }
 
         const data = await response.json() as IGeminiResponse;
         appendLog({ type: 'response', data });
-        return parseGeminiResponse(data);
+        const result = parseGeminiResponse(data);
+        result.time = { latency: new Date().getTime() - t0 };
+        return result;
     } catch (error) {
         return toErrorResult(error);
     }

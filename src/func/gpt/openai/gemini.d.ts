@@ -1,5 +1,9 @@
 interface IGeminiPartText {
     text: string;
+    /** 标记该 part 为模型的思考过程文本；展示时应归入 reasoning 而非正文 */
+    thought?: boolean;
+    /** 思考内容的 opaque base64 签名；不可读，忽略 */
+    thoughtSignature?: string;
 }
 
 interface IGeminiPartFunctionCall {
@@ -46,6 +50,11 @@ interface IGeminiResponse {
         promptTokenCount?: number;
         candidatesTokenCount?: number;
         totalTokenCount?: number;
+        /** promptTokenCount 的子集 */
+        cachedContentTokenCount?: number;
+        /** 思考 token；不在 candidatesTokenCount 内，但计入 totalTokenCount */
+        thoughtsTokenCount?: number;
+        toolUsePromptTokenCount?: number;
     };
     promptFeedback?: Record<string, any>;
 }

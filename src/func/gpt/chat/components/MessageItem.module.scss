@@ -224,13 +224,17 @@ $chat-very-narrow-container: 400px;
     gap: 4px;
     padding-top: 8px;
 
-    .contentColumn:hover & {
+    .contentColumn:hover &,
+    &:has(.usageDetails[open]) {
         opacity: 1;
     }
 
     // 响应式隐藏部分信息
     @container (max-width: #{$chat-narrow-container}) {
         .msgItemToolbarText {
+            >details[data-label="token"] {
+                display: none;
+            }
             >span {
                 &[data-label="timestamp"],
                 &[data-label="msgLength"],
@@ -269,6 +273,45 @@ $chat-very-narrow-container: 400px;
             content: '';
         }
     }
+}
+
+.usageDetails {
+    font-size: 11px;
+
+    summary {
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    &[open] {
+        flex-basis: 100%;
+    }
+}
+
+.usageBreakdown {
+    margin-top: 6px;
+    padding: 8px 12px;
+    max-width: 360px;
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--radius-sm);
+    background: var(--b3-theme-surface-light);
+
+    p {
+        margin: 6px 0 0;
+        line-height: 1.5;
+    }
+}
+
+.usageHeading {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.usageRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 2px 0;
 }
 
 .msgItemToolbarButtons {

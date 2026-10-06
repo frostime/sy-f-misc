@@ -30,218 +30,18 @@ import { quickComplete } from '../../openai/tiny-agent';
 import { FormatConverter, DataURL, Base64String } from '@gpt/chat-utils/msg-modal';
 import { ITreeModel } from './use-tree-model';
 import { maskMessages, recoverContent, IMaskSchema } from '@gpt/privacy';
+import { createMessageLifecycle, type PrepareMode, type ExtendedCompletionResult } from './message-lifecycle';
+import type { TStreamMsgCallback } from '../../openai/response-parse';
 
 // ============================================================================
 // 类型定义
 // ============================================================================
-
-/** 消息准备模式 */
-type PrepareMode =
-    | 'append'
-    | { updateAt: number }
-    | { insertAt: number };
 
 /** 执行结果 */
 interface RunResult {
     updatedTimestamp: number;
     hasResponse: boolean;
 }
-
-/** 扩展的完成结果（包含工具链数据） */
-interface ExtendedCompletionResult extends ICompletionResult {
-    hintSize?: number;
-    toolChainResult?: IMessagePayload['toolChainResult'];
-    /**
-     * Standard 模式: turn 内原生消息序列（不含末条 assistant，已 strip reasoning）。
-     * 存在 → finalize 走 standard 分支；缺省 → legacy 分支（压缩串 + userPromptSlice）。
-     */
-    toolChainMessages?: IMessage[];
-}
-
-/** 消息完成时的元数据 */
-interface FinalizeMeta {
-    msgToSend: IMessage[];
-    modelName: string;
-}
-
-// ============================================================================
-// 1. MessageLifecycle - 消息生命周期管理
-// ============================================================================
-
-interface IMessageLifecycle {
-    /** 创建占位符，返回消息 ID */
-    prepareSlot(mode: PrepareMode): string;
-    /** 流式更新内容 */
-    updateContent(id: string, content: string): void;
-    /** 完成并保存结果 */
-    finalize(id: string, result: ExtendedCompletionResult, meta: FinalizeMeta): void;
-    /** 标记错误 */
-    markError(id: string, error: Error | string): void;
-}
-
-const createMessageLifecycle = (
-    treeModel: ITreeModel,
-    model: Accessor<IRuntimeLLM>,
-    newID: () => string
-): IMessageLifecycle => {
-
-    const prepareSlot = (mode: PrepareMode): string => {
-        const modelToUse = model();
-        const timestamp = new Date().getTime();
-
-        if (mode === 'append') {
-            const id = newID();
-            const vid = `v${id}`;
-
-            treeModel.appendNode({
-                id,
-                type: 'message',
-                role: 'assistant',
-                currentVersionId: vid,
-                versions: {
-                    [vid]: {
-                        id: vid,
-                        message: { role: 'assistant', content: 'thinking...' },
-                        author: modelToUse.model,
-                        timestamp,
-                        token: null,
-                        time: null,
-                    }
-                },
-                loading: true,
-            });
-            return id;
-        }
-
-        if ('updateAt' in mode) {
-            const worldLine = treeModel.getWorldLine();
-            const id = worldLine[mode.updateAt];
-            if (!id) throw new Error(`Invalid updateAt index: ${mode.updateAt}`);
-
-            const node = treeModel.getNodeById(id);
-            if (!node) throw new Error(`Node not found: ${id}`);
-
-            // Stage new version and mark as loading
-            const vid = timestamp.toString();
-            const currentPayload = node.versions[node.currentVersionId];
-
-            batch(() => {
-                treeModel.addVersion(id, {
-                    ...currentPayload,
-                    id: vid,
-                    timestamp,
-                });
-                treeModel.updateNode(id, { loading: true });
-            });
-            return id;
-        }
-
-        // insertAt
-        const worldLine = treeModel.getWorldLine();
-        const afterId = worldLine[mode.insertAt - 1];
-        if (!afterId) throw new Error(`Invalid insertAt index: ${mode.insertAt}`);
-
-        const id = newID();
-        const vid = `v${id}`;
-
-        treeModel.insertAfter(afterId, {
-            id,
-            type: 'message',
-            role: 'assistant',
-            currentVersionId: vid,
-            versions: {
-                [vid]: {
-                    id: vid,
-                    message: { role: 'assistant', content: '' },
-                    author: modelToUse.model,
-                    timestamp,
-                    token: null,
-                    time: null,
-                }
-            },
-            loading: true,
-        });
-        return id;
-    };
-
-    const updateContent = (id: string, content: string): void => {
-        treeModel.updatePayload(id, {
-            message: { role: 'assistant', content }
-        });
-    };
-
-    const finalize = (
-        id: string,
-        result: ExtendedCompletionResult,
-        meta: FinalizeMeta
-    ): void => {
-        const node = treeModel.getNodeById(id);
-        if (!node) throw new Error(`Node not found: ${id}`);
-
-        const newMessageContent: IMessage = {
-            role: 'assistant',
-            content: result.content,
-        };
-        if (result.reasoning_content) {
-            newMessageContent['reasoning_content'] = result.reasoning_content;
-        }
-
-        // 更新现有版本
-        batch(() => {
-            treeModel.updatePayload(id, {
-                message: newMessageContent,
-                author: meta.modelName,
-                timestamp: Date.now(),
-                usage: result.usage,
-                time: result.time,
-                token: result.usage?.completion_tokens ?? null,
-                userPromptSlice: result.toolChainMessages
-                    ? undefined
-                    : (result.hintSize ? [result.hintSize, result.content.length] : undefined),
-                toolChainResult: result.toolChainResult ?? undefined,
-                toolChainMessages: result.toolChainMessages ?? undefined
-            });
-
-            treeModel.updateNode(id, {
-                loading: false,
-                attachedItems: meta.msgToSend.length,
-                attachedChars: meta.msgToSend.reduce((sum, m) => {
-                    const len = extractContentText(m.content).length;
-                    return sum + len;
-                }, 0),
-            });
-
-            // 更新上一条消息的 prompt token
-            if (result.usage) {
-                const worldLine = treeModel.getWorldLine();
-                const currentIndex = worldLine.indexOf(id);
-                if (currentIndex > 0) {
-                    const prevId = worldLine[currentIndex - 1];
-                    treeModel.updatePayload(prevId, {
-                        token: result.usage.prompt_tokens
-                    });
-                }
-            }
-        });
-    };
-
-    const markError = (id: string, error: Error | string): void => {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        batch(() => {
-            treeModel.updateNode(id, { loading: false });
-            treeModel.updatePayload(id, {
-                message: { role: 'assistant', content: `**[Error]** ${errorMessage}` }
-            });
-        });
-    };
-
-    return {
-        prepareSlot,
-        updateContent,
-        finalize,
-        markError
-    };
-};
 
 // ============================================================================
 // 2. Handlers - 各模态处理器
@@ -262,7 +62,7 @@ interface ChatHandlerDeps {
 interface ChatExecuteParams {
     msgToSend: IMessage[];
     controller: AbortController;
-    onStream: (content: string, toolCalls?: IToolCallResponse[]) => void;
+    onStream: TStreamMsgCallback;
 }
 
 const createChatHandler = (deps: ChatHandlerDeps) => {
@@ -637,15 +437,13 @@ interface ToolChainParams {
     toolExecutor: ToolExecutor;
     initialResponse: ICompletionResult;
     contextMessages: IMessage[];
-    targetId: string;  // 从 index 改为 ID
+    onStream: TStreamMsgCallback;
     controller: AbortController;
     model: IRuntimeLLM;
     systemPrompt: string;
     chatOption: IChatCompleteOption;
     toggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
     maxRounds: number;
-    treeModel: ITreeModel;  // 从 messages 改为 treeModel
-    scrollToBottom?: (force?: boolean) => void;
     toolCallMode: 'standard' | 'legacy';
 }
 
@@ -654,15 +452,13 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
         toolExecutor,
         initialResponse,
         contextMessages,
-        targetId,
+        onStream,
         controller,
         model,
         systemPrompt,
         chatOption,
         toggles,
         maxRounds,
-        treeModel,
-        scrollToBottom,
         toolCallMode
     } = params;
 
@@ -687,12 +483,7 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
                 onToolCallComplete: (result, callId) => {
                     console.log(`Tool call completed:`, { result, callId });
                 },
-                onLLMResponseUpdate: (content) => {
-                    treeModel.updatePayload(targetId, {
-                        message: { role: 'assistant', content }
-                    });
-                    scrollToBottom?.(false);
-                },
+                onLLMResponseUpdate: onStream,
                 onLLMResponseComplete: (response) => {
                     console.log('LLM response completed:', response);
                 },
@@ -833,15 +624,15 @@ const useGptCommunication = (params: {
         targetId: string,
         scrollToBottom?: (force?: boolean) => void
     ): Promise<ExtendedCompletionResult> => {
-        // 执行初始请求
+        const onStream: TStreamMsgCallback = (content, _toolCalls, snapshot) => {
+            lifecycle.updateContent(targetId, content, snapshot);
+            // 流式响应就先不 recover 了
+            scrollToBottom?.(false);
+        };
         const initialResult = await chatHandler.execute({
             msgToSend,
             controller: controller!,
-            onStream: (content, _toolCalls) => {
-                lifecycle.updateContent(targetId, content);
-                // 流式响应就先不 recover 了
-                scrollToBottom?.(false);
-            }
+            onStream,
         });
 
         // 处理工具调用链
@@ -850,15 +641,13 @@ const useGptCommunication = (params: {
                 toolExecutor,
                 initialResponse: initialResult,
                 contextMessages: msgToSend,
-                targetId,
+                onStream,
                 controller: controller!,
                 model: model(),
                 systemPrompt: chatHandler.buildSystemPrompt(),
                 chatOption: chatHandler.buildChatOption(),
                 toggles: config().chatOptionToggles,
                 maxRounds: config().toolCallMaxRounds,
-                treeModel,
-                scrollToBottom,
                 toolCallMode: config().toolCallMode
             });
         }

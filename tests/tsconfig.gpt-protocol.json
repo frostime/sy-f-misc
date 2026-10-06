@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        "target": "es2023",
+        "module": "commonjs",
+        "moduleResolution": "node10",
+        "noEmit": false,
+        "outDir": "../tmp/gpt-protocol-tests",
+        "rootDir": "..",
+        "declaration": false,
+        "sourceMap": false,
+        "strict": false,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "types": ["node"]
+    },
+    "include": [
+        "gpt-protocol-usage.test.ts",
+        "gpt-protocol-stream.test.ts",
+        "../src/func/gpt/openai/response-parse.ts",
+        "../src/func/gpt/openai/claude.d.ts",
+        "../src/func/gpt/openai/gemini.d.ts",
+        "../src/func/gpt/types.ts",
+        "../src/func/gpt/context-provider/types.d.ts"
+    ]
+}

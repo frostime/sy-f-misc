@@ -247,48 +247,72 @@
         .node-circle.selected {
             box-shadow: 0 0 0 4px rgba(74, 144, 217, 0.35);
         }
-        .tree-node.extract-excluded { opacity: 0.32; }
-        .tree-node.extract-included .node-circle {
-            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.28);
-        }
-        .tree-node.extract-root .node-circle {
-            box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.45);
-        }
-        .tree-edge.extract-included {
-            stroke: #4caf50;
-            stroke-width: 3;
-            opacity: 1;
-        }
-        .tree-edge.extract-excluded { opacity: 0.18; }
-        .node-op-badge {
+        /* Selection membership is separate from the normal viewed-node highlight. */
+        .tree-node.picked .node-circle { box-shadow: 0 0 0 4px var(--c-info-bg); }
+        .tree-node.protected .node-circle { box-shadow: 0 0 0 4px var(--c-warning-bg); }
+        .tree-node.has-issue .node-circle { outline: 2px dashed var(--c-warning); outline-offset: 6px; }
+        .node-issue-mark { display: none; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); min-width: 16px; border-radius: 999px; background: var(--c-warning); color: var(--c-fg); font-size: var(--fs-xs, 11px); }
+        .tree-node.has-issue .node-issue-mark { display: block; }
+        .selection-issue { margin: 8px 0; padding: 10px; background: var(--c-warning-bg); border-radius: var(--radius, 6px); line-height: 1.6; }
+        .selection-issue .related-label { display: block; margin-top: 5px; overflow-wrap: anywhere; }
+        .tree-edge.picked { stroke: var(--c-info); stroke-width: 3; opacity: 1; }
+        .tree-edge.protected { stroke: var(--c-warning); }
+        .selection-mark {
             position: absolute; top: -7px; left: -7px;
-            min-width: 18px; height: 18px; padding: 0 4px;
-            border-radius: 999px;
-            background: #4caf50; color: #fff;
-            font-size: 10px; font-weight: 700;
-            display: flex; align-items: center; justify-content: center;
+            min-width: 18px; height: 18px; border-radius: 999px;
+            background: var(--c-info); color: var(--c-on-accent, #fff);
+            font-size: var(--fs-xs, 11px); display: none; align-items: center; justify-content: center;
         }
-        .node-op-badge.root { background: #ff9800; }
-
-        .operation-panel {
-            border-top: 1px solid var(--c-border, #e0e0e0);
-            padding: var(--sp-3, 12px) var(--sp-4, 16px);
-            background: var(--c-surface, #f7f7f7);
-            display: flex;
-            flex-direction: column;
-            gap: var(--sp-2, 8px);
+        .tree-node.picked .selection-mark { display: flex; }
+        .tree-node.protected .selection-mark { background: var(--c-warning); color: var(--c-fg); }
+        .node-range-action {
+            position: absolute; top: 0; right: 0; display: none;
+            width: 24px; height: 24px; padding: 0;
+            border: 1px solid var(--c-border); border-radius: var(--radius, 6px);
+            background: var(--c-bg); color: var(--c-fg); cursor: pointer;
         }
-        .operation-summary {
-            display: grid;
-            grid-template-columns: 72px 1fr;
-            gap: 4px 8px;
-            font-size: var(--fs-sm, 13px);
+        .selection-mode .node-range-action { display: block; }
+        .node-action-menu {
+            position: fixed; z-index: 150; width: min(290px, calc(100vw - 24px));
+            padding: var(--sp-2, 8px); background: var(--c-bg);
+            border: 1px solid var(--c-border); border-radius: var(--radius, 6px);
+            box-shadow: var(--shadow-lg, 0 4px 16px rgba(0,0,0,.15));
         }
-        .operation-hint {
-            font-size: var(--fs-xs, 11px);
-            color: var(--c-fg-muted, #888);
-            line-height: 1.5;
+        .node-action-menu .menu-title { padding: 4px 8px 8px; border-bottom: 1px solid var(--c-border); word-break: break-word; }
+        .node-action-menu button {
+            width: 100%; padding: 8px; border: 0; background: transparent;
+            color: var(--c-fg); text-align: left; cursor: pointer; font: inherit;
+            border-radius: var(--radius, 6px);
         }
+        .node-action-menu button:hover { background: var(--c-surface-hover); }
+        .node-action-menu button:disabled { cursor: not-allowed; opacity: .45; }
+        .selection-summary, .selection-status {
+            padding: var(--sp-3, 12px); margin-bottom: var(--sp-3, 12px);
+            border: 1px solid var(--c-border); border-radius: var(--radius, 6px);
+        }
+        .selection-summary { background: var(--c-surface); }
+        .selection-count { font-size: var(--fs-lg, 18px); font-weight: 600; }
+        .selection-status-title { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-weight: 600; }
+        .operation-hint { font-size: var(--fs-xs, 11px); color: var(--c-fg-muted, #888); line-height: 1.6; }
+        .selection-error { color: var(--c-error); }
+        .selection-legend { display: inline-flex; align-items: center; gap: 5px; }
+        .selection-swatch { width: 11px; height: 11px; border-radius: 3px; background: var(--c-info); }
+        .selection-swatch.keep { background: var(--c-warning); }
+        .selection-swatch.remove { background: var(--c-error); }
+        .selection-swatch.context { background: var(--clr-sep); }
+        .impact-card { width: min(960px, 96vw); max-height: 90vh; }
+        .impact-body { overflow-y: auto; padding: var(--sp-4, 16px); }
+        .impact-summary { margin-bottom: var(--sp-3, 12px); line-height: 1.6; }
+        .impact-diagram { max-height: 44vh; overflow: auto; border: 1px solid var(--c-border); border-radius: var(--radius, 6px); background: var(--c-surface); }
+        .impact-diagram svg { display: block; max-width: 100%; height: auto; }
+        .impact-edge { fill: none; stroke: var(--edge-color); stroke-width: 1.5; }
+        .impact-node circle { fill: var(--c-bg); stroke: var(--clr-sep); stroke-width: 2; }
+        .impact-node.remove circle { fill: var(--c-error-bg); stroke: var(--c-error); }
+        .impact-node.keep circle { fill: var(--c-warning-bg); stroke: var(--c-warning); }
+        .impact-node.has-issue circle { stroke-dasharray: 3 2; }
+        .impact-node text { fill: var(--c-fg); font-size: var(--fs-xs, 11px); }
+        .impact-node .impact-role { font-weight: 600; font-size: var(--fs-sm, 13px); }
+        .impact-warning { margin-top: var(--sp-3, 12px); padding: var(--sp-3, 12px); background: var(--c-warning-bg); border-radius: var(--radius, 6px); }
 
         .node-badge {
             position: absolute; top: -5px; right: -5px;
@@ -350,7 +374,10 @@
     </style>
 </head>
 <body class="page">
-    <div x-data="chatTree()" x-init="init()" x-cloak style="display:flex;flex-direction:column;height:100%;">
+    <div x-data="chatTree()" x-init="init()" x-cloak style="display:flex;flex-direction:column;height:100%;"
+        @keydown.escape.window="handleEscape()" @click="dismissNodeMenu($event)">
+        <div x-ref="mainContent" style="display:flex;flex-direction:column;flex:1;min-height:0;"
+            x-effect="$refs.mainContent && ($refs.mainContent.inert = !!pendingOperation || fullContentVisible)">
 
         <!-- ===== Header ===== -->
         <div class="page-header" style="padding: var(--sp-2, 8px) var(--sp-4, 16px);">
@@ -361,7 +388,11 @@
                     <button class="btn btn-sm btn-ghost" @click="centerRoot()">居中根节点</button>
                 </div>
             </div>
-            <span class="text-sm text-muted" x-text="infoText"></span>
+            <div class="flex items-center gap-3">
+                <span class="text-sm text-muted" x-text="infoText"></span>
+                <button class="btn btn-sm" :class="{'btn-primary': !selectionMode}" :disabled="busy" @click="toggleSelectionMode()"
+                    x-text="selectionMode ? '退出选择' : '进入选择模式'"></button>
+            </div>
         </div>
 
         <!-- ===== Main: tree + panel ===== -->
@@ -377,12 +408,16 @@
             <!-- Detail panel (always visible) -->
             <div class="detail-panel">
                 <div class="detail-panel-header">
-                    <span class="text-bold">节点详情</span>
-                    <button class="btn-close" x-show="selectedNodeId" @click="closeDetail()" title="关闭">✕</button>
+                    <span class="text-bold" x-text="selectionMode ? '已选内容' : '节点详情'"></span>
+                    <button class="btn-close" x-show="!selectionMode && selectedNodeId" @click="closeDetail()" title="关闭">✕</button>
+                    <div class="flex gap-2" x-show="selectionMode" style="display:none;">
+                        <button class="btn btn-sm btn-ghost" :disabled="busy" @click="selectAllNodes()">全选</button>
+                        <button class="btn btn-sm btn-ghost" :disabled="busy || !selectionNodeIds.length" @click="setSelection([])">清空</button>
+                    </div>
                 </div>
 
                 <!-- Empty state -->
-                <div class="detail-panel-body" x-show="!detailNode">
+                <div class="detail-panel-body" x-show="!selectionMode && !detailNode">
                     <div class="detail-empty">
                         <div class="detail-empty-icon">🌳</div>
                         <div>点击节点查看详情</div>
@@ -390,7 +425,7 @@
                 </div>
 
                 <!-- Detail content -->
-                <div class="detail-panel-body" x-show="detailNode" style="display:none;">
+                <div class="detail-panel-body" x-show="!selectionMode && detailNode" style="display:none;">
                     <template x-if="detailNode">
                         <div>
                             <!-- 基本信息 -->
@@ -459,8 +494,8 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="detail-panel-footer" x-show="detailNode" style="display:none;">
-                    <button class="btn btn-primary btn-sm w-full"
+                <div class="detail-panel-footer" x-show="!selectionMode && detailNode" style="display:none;">
+                    <button class="btn btn-primary btn-sm w-full" :disabled="busy"
                         x-show="!isOnWorldLine(selectedNodeId) || canSwitchFrom(selectedNodeId)"
                         @click="switchToNode(selectedNodeId)">
                         切换到此分支
@@ -470,34 +505,50 @@
                         @click="showFullContent(selectedNodeId)">
                         查看完整内容
                     </button>
-                    <button class="btn btn-sm w-full" @click="enterExtractSubtree(selectedNodeId)">
-                        提取 Subtree
-                    </button>
+                    <span class="operation-hint">要整理对话内容，请使用顶部的“进入选择模式”。</span>
                 </div>
 
-                <!-- Operation panel -->
-                <div class="operation-panel" x-show="operation && operation.id === 'extract-subtree'" style="display:none;">
-                    <div class="text-bold">Extract Subtree</div>
-                    <div class="operation-summary">
-                        <span class="text-muted">Root</span>
-                        <span x-text="operation?.rootId || '-'" style="word-break:break-all;"></span>
-                        <span class="text-muted">Leaves</span>
-                        <span x-text="(operation?.leafIds?.length || 0) + ' selected'"></span>
-                        <span class="text-muted">Included</span>
-                        <span x-text="operation?.includedNodeIds?.size || 0"></span>
+                <!-- Selection replaces details; there is no root/path tool mode. -->
+                <div class="detail-panel-body" x-show="selectionMode" style="display:none;">
+                    <div class="selection-summary">
+                        <div class="selection-count" x-text="selectionNodeIds.length + ' 个节点'"></div>
+                        <div class="operation-hint">单击增选/取消；节点 ⋯ 菜单处理范围。<br>消息的全部版本一起处理。</div>
                     </div>
-                    <div class="operation-hint">
-                        点击 root 下的节点 toggle leaf/path endpoint；不选 leaf = 复制完整 subtree。
+                    <div class="selection-status">
+                        <div class="selection-status-title"><span>复制为新对话</span><span x-text="selectionPlan?.canExtract ? '可用' : '不可用'"></span></div>
+                        <div class="operation-hint" x-text="copyHint"></div>
                     </div>
-                    <button class="btn btn-primary btn-sm w-full" @click="confirmExtractSubtree()">
-                        确认提取为新对话
-                    </button>
-                    <button class="btn btn-sm w-full" x-show="selectedNodeId" @click="setExtractRoot(selectedNodeId)">
-                        将当前节点设为 Root
-                    </button>
-                    <button class="btn btn-sm w-full" @click="cancelOperation()">
-                        取消操作
-                    </button>
+                    <div class="selection-status">
+                        <div class="selection-status-title"><span>剪切 / 删除影响</span></div>
+                        <div class="operation-hint" x-text="removalHint"></div>
+                    </div>
+                    <div class="operation-hint selection-error" x-show="selectionError" x-text="selectionError"></div>
+                    <template x-for="(issue, index) in selectionIssues" :key="index">
+                        <div class="selection-issue text-sm">
+                            <div x-text="issue.message"></div>
+                            <button class="btn btn-sm w-full" :disabled="!_nodeElements.has(issue.nodeId)" @click="locateNode(issue.nodeId)"
+                                x-text="'定位：' + shortNodeLabel(issue.nodeId)"></button>
+                            <template x-for="id in issue.relatedNodeIds" :key="id">
+                                <div class="related-label operation-hint">
+                                    <span x-text="shortNodeLabel(id)"></span>
+                                    <span x-show="!_nodeElements.has(id)" x-text="treeData?.nodes?.[id] ? '（未显示在当前树图中的记录）' : '（关联记录已缺失）'"></span>
+                                    <button class="btn btn-sm btn-ghost" x-show="_nodeElements.has(id)" @click="locateNode(id)">定位</button>
+                                    <button class="btn btn-sm btn-ghost" x-show="treeData?.nodes?.[id]?.type === 'message'" @click="showFullContent(id)">查看内容</button>
+                                </div>
+                            </template>
+                            <details class="operation-hint"><summary>技术信息</summary><span x-text="issue.nodeId + ' → ' + issue.relatedNodeIds.join(', ')"></span></details>
+                        </div>
+                    </template>
+                    <div class="detail-section" x-show="connectionExtraCount > 0">
+                        <p class="operation-hint" x-text="'显式加入 ' + connectionExtraCount + ' 个连接节点，可组成一棵连通选区。不会自动加入。'"></p>
+                        <button class="btn btn-sm w-full" :disabled="busy" @click="connectSelection()">补齐所选节点间的路径</button>
+                    </div>
+                    <p class="operation-hint">选择可以暂时不完整。执行前会预览实际移除部分和必须保留的依赖节点，不重连或删除未选内容。</p>
+                </div>
+                <div class="detail-panel-footer" x-show="selectionMode" style="display:none;">
+                    <button class="btn btn-primary btn-sm w-full" :disabled="busy || !selectionPlan?.canExtract" @click="copySelection()">复制为新对话</button>
+                    <button class="btn btn-sm w-full" :disabled="busy || !selectionPlan?.canExtract" @click="previewRemoval('cut')">预览剪切为新对话…</button>
+                    <button class="btn btn-danger btn-sm w-full" :disabled="busy || !selectionPlan?.nodeIds.length" @click="previewRemoval('delete')">预览删除所选内容…</button>
                 </div>
             </div>
         </div>
@@ -510,12 +561,62 @@
                 <span class="flex items-center gap-1"><span class="legend-dot separator"></span> 分隔符</span>
                 <span class="flex items-center gap-1"><span class="legend-dot worldline"></span> 世界线</span>
             </div>
-            <span class="text-xs text-muted">点击节点查看详情 · 可切换分支</span>
+            <div class="flex gap-3 text-xs" x-show="selectionMode" style="display:none;">
+                <span class="selection-legend"><i class="selection-swatch"></i>已选</span>
+                <span class="selection-legend"><i class="selection-swatch keep"></i>已选 · 依赖保留</span>
+            </div>
+            <span class="text-xs text-muted" x-text="selectionMode ? '单击增选/取消 · ⋯ 菜单处理范围 · 执行前预览' : '点击节点查看详情 · 可切换分支'"></span>
+        </div>
+
+        </div>
+
+        <!-- Node commands are transient; opening the menu does not change membership. -->
+        <div class="node-action-menu" x-ref="nodeMenu" x-show="nodeMenuId && !pendingOperation && !busy" style="display:none;" role="group" aria-label="节点范围操作">
+            <div class="menu-title operation-hint" x-text="nodeLabel(nodeMenuId)"></div>
+            <div class="operation-hint selection-error" x-show="menuError" x-text="'连接路径暂不可用：' + menuError"></div>
+            <button @click="applyNodeCommand('toggle')" x-text="selectionNodeIds.includes(nodeMenuId) ? '取消选择此节点' : '加入此节点'"></button>
+            <button @click="applyNodeCommand('add')" x-text="'加入此节点及全部后代（' + menuSubtreeCount + ' 个）'"></button>
+            <button :disabled="!menuSelectedCount" @click="applyNodeCommand('exclude')" x-text="'排除此节点及全部后代（已选 ' + menuSelectedCount + ' 个）'"></button>
+            <button :disabled="!menuConnectionExtraCount" @click="applyNodeCommand('connect')" x-text="'连接此节点与当前选区（加入 ' + menuConnectionExtraCount + ' 个）'"></button>
+            <button @click="inspectMenuNode()">查看完整内容（不改变选择）</button>
+        </div>
+
+        <!-- One destructive-operation confirmation; host validates this exact plan again. -->
+        <div class="fullcontent-overlay" x-show="pendingOperation" style="display:none;z-index:250;" @click.self="cancelPreview()" role="dialog" aria-modal="true" aria-labelledby="impact-title">
+            <div class="fullcontent-card impact-card">
+                <div class="fullcontent-header">
+                    <span class="text-bold" id="impact-title" x-text="pendingOperation?.mode === 'cut' ? '剪切影响预览' : '删除影响预览'"></span>
+                    <button class="btn-close" :disabled="busy" @click="cancelPreview()" aria-label="返回调整选择">✕</button>
+                </div>
+                <div class="impact-body">
+                    <p class="impact-summary" x-text="previewSummary"></p>
+                    <div class="flex gap-3 text-xs" style="margin-bottom:8px;">
+                        <span class="selection-legend"><i class="selection-swatch remove"></i>将移除</span>
+                        <span class="selection-legend"><i class="selection-swatch keep"></i>已选 · 必须保留</span>
+                        <span class="selection-legend"><i class="selection-swatch context"></i>未选依赖 / 上下文</span>
+                    </div>
+                    <div class="impact-diagram" x-html="pendingOperation?.diagram || ''"></div>
+                    <p class="operation-hint">图仅展示选区、必要连接路径及直接依赖它的未选分支。可滚动查看；没有标红的内容不会移除。</p>
+                    <template x-for="(issue, index) in pendingOperation?.plan.issues || []" :key="index">
+                        <div class="selection-issue text-sm"><span x-text="shortNodeLabel(issue.nodeId) + '：' + issue.message"></span></div>
+                    </template>
+                    <div class="impact-warning">
+                        <span x-show="pendingOperation?.plan.removableIds.length">只删除图中标红的独占部分，黄色节点仍保留在原对话。此操作不能撤销。</span>
+                        <span x-show="!pendingOperation?.plan.removableIds.length">没有可安全移除的部分。不能删除或剪切；请返回调整选择，或使用复制。</span>
+                    </div>
+                </div>
+                <div class="detail-panel-footer" style="flex-direction:row;justify-content:flex-end;">
+                    <button class="btn btn-sm" x-ref="previewBack" :disabled="busy" @click="cancelPreview()">返回调整选择</button>
+                    <button class="btn btn-sm" :class="pendingOperation?.mode === 'cut' ? 'btn-primary' : 'btn-danger'" :disabled="busy || !pendingOperation?.plan.removableIds.length"
+                        @click="executeSelection(pendingOperation.mode, pendingOperation.plan)"
+                        x-text="busy ? '处理中…' : pendingOperation?.mode === 'cut' ? '确认剪切，来源移除 ' + pendingOperation.plan.removableIds.length + ' 个' : '删除可删除部分（' + (pendingOperation?.plan.removableIds.length || 0) + ' 个）'"></button>
+                </div>
+            </div>
         </div>
 
         <!-- ===== Full content overlay ===== -->
         <div class="fullcontent-overlay" x-show="fullContentVisible" style="display:none;"
-            @click.self="fullContentVisible = false" @keydown.escape.window="fullContentVisible = false">
+            @click.self="fullContentVisible = false">
             <div class="fullcontent-card">
                 <div class="fullcontent-header">
                     <div class="flex items-center gap-2">
@@ -541,12 +642,24 @@
             _initialized: false,
             _positions: new Map(),
             _worldLineSet: new Set(),
-            operation: null,
+            selectionMode: false,
+            selectionNodeIds: [],
+            selectionPlan: null,
+            selectionError: '',
+            selectionIssues: [],
+            nodeMenuId: null,
+            menuPlan: null,
+            menuError: '',
+            pendingOperation: null,
+            _nodeElements: new Map(),
+            _edgeElements: [],
+            _paintedIds: new Set(),
 
             // Full content overlay
             fullContentVisible: false,
             fullContentText: '',
             fullContentRole: '',
+            busy: false,
 
             // Layout
             LAYOUT: Object.freeze({
@@ -565,6 +678,39 @@
             get detailNode() {
                 if (!this.selectedNodeId || !this.treeData) return null;
                 return this.treeData.nodes[this.selectedNodeId] || null;
+            },
+            get copyHint() {
+                if (this.selectionNodeIds.length && !this.selectionPlan) return '选区分析未完成，请查看下方的结构异常说明。';
+                if (!this.selectionPlan?.nodeIds.length) return '请先选择节点。';
+                if (this.selectionPlan.canExtract) return '新对话包含全部选区；原对话不变。原树的额外关联记录不会阻止复制。';
+                return this.selectionPlan.rootIds.length > 1
+                    ? '选区分成 ' + this.selectionPlan.rootIds.length + ' 处。提取前请显式补齐连接路径，不会自动补选或拆成多个会话。'
+                    : '选区不能组成一棵单根、无环的树，请查看高亮节点和关联说明。';
+            },
+            get removalHint() {
+                if (this.selectionNodeIds.length && !this.selectionPlan) return '当前不能确认安全移除范围，删除和剪切不会执行。';
+                if (!this.selectionPlan?.nodeIds.length) return '请先选择节点。';
+                const { removableIds, retainedIds } = this.selectionPlan;
+                return removableIds.length
+                    ? '实际可移除 ' + removableIds.length + ' 个，保留 ' + retainedIds.length + ' 个所选依赖节点。未选内容不变；执行前需确认影响图。'
+                    : '没有可安全移除的部分。可打开预览查看哪些未选后续仍依赖这些节点。';
+            },
+            get connectionExtraCount() {
+                return Math.max(0, (this.selectionPlan?.connectionIds.length || 0) - (this.selectionPlan?.nodeIds.length || 0));
+            },
+            get menuSubtreeCount() { return this.collectSubtreeIds(this.nodeMenuId).size; },
+            get menuSelectedCount() {
+                const subtree = this.collectSubtreeIds(this.nodeMenuId);
+                return this.selectionNodeIds.filter(id => subtree.has(id)).length;
+            },
+            get menuConnectionExtraCount() {
+                return this.selectionNodeIds.length ? Math.max(0, (this.menuPlan?.connectionIds.length || 0) - this.selectionNodeIds.length) : 0;
+            },
+            get previewSummary() {
+                if (!this.pendingOperation) return '';
+                const { mode, plan } = this.pendingOperation;
+                return '已选 ' + plan.nodeIds.length + ' 个节点；原对话移除 ' + plan.removableIds.length + ' 个，保留 ' + plan.retainedIds.length + ' 个所选依赖节点。'
+                    + (mode === 'cut' ? ' 新对话将包含全部 ' + plan.nodeIds.length + ' 个所选节点及其所有版本。' : ' 不创建新对话。');
             },
 
             // --- Init ---
@@ -596,25 +742,11 @@
                 const n = this.treeData.nodes[id];
                 return n && n.children.length > 1;
             },
-            isDescendantOrSelf(rootId, targetId) {
-                const nodes = this.treeData?.nodes; if (!nodes?.[rootId] || !nodes?.[targetId]) return false;
-                let cur = targetId;
-                while (cur) {
-                    if (cur === rootId) return true;
-                    cur = nodes[cur]?.parent;
-                }
-                return false;
-            },
-            traceBetween(rootId, targetId) {
-                const nodes = this.treeData?.nodes; if (!nodes) return [];
-                const path = [];
-                let cur = targetId;
-                while (cur) {
-                    path.unshift(cur);
-                    if (cur === rootId) return path;
-                    cur = nodes[cur]?.parent;
-                }
-                return [];
+            nodeLabel(id) {
+                const node = this.treeData?.nodes?.[id];
+                if (!node) return '';
+                const role = node.role === 'user' ? '用户' : node.role === 'assistant' ? '助手' : '分隔符';
+                return role + '：' + (node.preview || '无内容预览');
             },
             collectSubtreeIds(rootId, included = new Set()) {
                 const nodes = this.treeData?.nodes; if (!nodes?.[rootId] || included.has(rootId)) return included;
@@ -622,28 +754,62 @@
                 nodes[rootId].children.forEach(cid => this.collectSubtreeIds(cid, included));
                 return included;
             },
-            recomputeOperationPreview() {
-                if (!this.operation || !this.treeData?.nodes?.[this.operation.rootId]) return;
-                const included = this.operation.leafIds.length === 0
-                    ? this.collectSubtreeIds(this.operation.rootId)
-                    : new Set();
-                if (this.operation.leafIds.length > 0) {
-                    this.operation.leafIds.forEach(leafId => {
-                        this.traceBetween(this.operation.rootId, leafId).forEach(id => included.add(id));
-                    });
+            shortNodeLabel(id) { return this.nodeLabel(id).replace(/\s+/g, ' ').slice(0, 85) || '无法读取的关联消息'; },
+            locateNode(id) {
+                const element = this._nodeElements.get(id);
+                if (!element) return;
+                element.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+                element.querySelector('.node-circle')?.focus({ preventScroll: true });
+            },
+            refreshSelectionPlan() {
+                this.selectionError = '';
+                this.selectionIssues = [];
+                try {
+                    if (!window.pluginSdk?.getSelectionPlan) throw new Error('树视图版本不匹配，请更新插件并重新打开');
+                    this.selectionPlan = window.pluginSdk.getSelectionPlan([...this.selectionNodeIds]);
+                    this.selectionIssues = this.selectionPlan.issues || [];
+                } catch (error) {
+                    this.selectionPlan = null;
+                    this.selectionError = error.message || String(error);
+                    this.selectionIssues = error.issues || [];
                 }
-                const edges = new Set();
-                included.forEach(id => {
-                    const n = this.treeData.nodes[id];
-                    n?.children?.forEach(cid => { if (included.has(cid)) edges.add(id + '→' + cid); });
+                this.paintSelection();
+            },
+            setSelection(ids) {
+                if (this.busy || this.pendingOperation) return;
+                this.selectionNodeIds = [...new Set(ids)];
+                this.nodeMenuId = null;
+                this.menuPlan = null;
+                this.refreshSelectionPlan();
+            },
+            paintSelection() {
+                const picked = new Set(this.selectionMode ? this.selectionNodeIds : []);
+                const retained = new Set(this.selectionMode ? this.selectionPlan?.retainedIds || [] : []);
+                const issueIds = new Set(this.selectionMode ? this.selectionIssues.flatMap(issue => [issue.nodeId, ...issue.relatedNodeIds]) : []);
+                const decorated = new Set([...picked, ...issueIds]);
+                const changed = new Set([...this._paintedIds, ...decorated]);
+                this.$refs.nodes.classList.toggle('selection-mode', this.selectionMode);
+                changed.forEach(id => {
+                    const element = this._nodeElements.get(id);
+                    if (!element) return;
+                    element.classList.toggle('picked', picked.has(id));
+                    element.classList.toggle('protected', retained.has(id));
+                    element.classList.toggle('has-issue', issueIds.has(id));
+                    element.querySelector('.node-circle').setAttribute('aria-pressed', String(picked.has(id)));
                 });
-                this.operation.includedNodeIds = included;
-                this.operation.includedEdges = edges;
+                this._nodeElements.get(this.selectedNodeId)?.querySelector('.node-circle').classList.toggle('selected', !this.selectionMode);
+                this._edgeElements.forEach(({ element, parent, child }) => {
+                    if (!changed.has(parent) || !changed.has(child)) return;
+                    const chosen = picked.has(parent) && picked.has(child);
+                    element.classList.toggle('picked', chosen);
+                    element.classList.toggle('protected', chosen && retained.has(parent) && retained.has(child));
+                });
+                this._paintedIds = decorated;
             },
             escapeHtml(str) {
                 if (!str) return '';
                 const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-                return str.replace(/[&<>"']/g, c => map[c]);
+                return String(str).replace(/[&<>"']/g, c => map[c]);
             },
 
             // ================================================================
@@ -712,20 +878,22 @@
                 for (const c of node.children) this.secondWalk(c, modSum + node.mod, minX);
                 return minX.value;
             },
-            collectPositions(node, offsetX) {
+            collectPositions(node, offsetX, positions) {
                 const L = this.LAYOUT;
-                this._positions.set(node.id, { x: node.x + offsetX + L.padding, y: node.y * L.levelGap + L.padding });
-                for (const c of node.children) this.collectPositions(c, offsetX);
+                positions.set(node.id, { x: node.x + offsetX + L.padding, y: node.y * L.levelGap + L.padding });
+                for (const child of node.children) this.collectPositions(child, offsetX, positions);
             },
-            layoutTree(data) {
-                this._positions.clear();
-                if (!data?.rootId || !data.nodes[data.rootId]) return;
+            computePositions(data) {
+                const positions = new Map();
+                if (!data?.rootId || !data.nodes[data.rootId]) return positions;
                 const root = this.buildLayoutTree(data.nodes, data.rootId);
-                if (!root) return;
+                if (!root) return positions;
                 this.firstWalk(root, [], 0);
                 const minX = this.secondWalk(root);
-                this.collectPositions(root, -minX);
+                this.collectPositions(root, -minX, positions);
+                return positions;
             },
+            layoutTree(data) { this._positions = this.computePositions(data); },
 
             // ================================================================
             //  Rendering
@@ -742,16 +910,31 @@
                 const prevViewport = options.preserveViewport && $v
                     ? { left: $v.scrollLeft, top: $v.scrollTop }
                     : null;
-                if (!data) {
+                this.treeData = data;
+                this._worldLineSet = new Set(data?.worldLine || []);
+                this.nodeMenuId = null;
+                this.pendingOperation = null;
+                this._nodeElements = new Map();
+                this._edgeElements = [];
+                this._paintedIds = new Set();
+                if (!data?.nodes?.[this.selectedNodeId]) this.selectedNodeId = null;
+                const surviving = this.selectionNodeIds.filter(id => data?.nodes?.[id]);
+                if (surviving.length !== this.selectionNodeIds.length && !options.selectionChangedByOperation) {
+                    window.pluginSdk?.showMessage?.('部分所选节点已不存在，选区已更新；请重新预览确认', 'info');
+                }
+                this.selectionNodeIds = surviving;
+                if (!data?.rootId) {
+                    this._positions = new Map();
+                    $c.style.width = '100%'; $c.style.height = '100%';
                     $n.innerHTML = '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--c-fg-muted,#888)">'
-                        + '<div style="font-size:48px;opacity:0.4">🌳</div><div>暂无数据</div></div>';
-                    $e.innerHTML = ''; return;
+                        + '<div style="font-size:48px;opacity:0.4">🌳</div><div>暂无消息，可以继续输入</div></div>';
+                    $e.innerHTML = '';
+                    $e.setAttribute('width', 0); $e.setAttribute('height', 0);
+                    $v.scrollTo({ left: 0, top: 0, behavior: 'auto' });
+                    this.refreshSelectionPlan();
+                    return;
                 }
 
-                this.treeData = data;
-                this._worldLineSet = new Set(data.worldLine);
-                this.selectedNodeId = null;
-                if (this.operation) this.recomputeOperationPreview();
                 this.layoutTree(data);
 
                 const { nodes } = data;
@@ -772,10 +955,7 @@
                     for (const cid of node.children) {
                         const cc = this.getNodeCenter(cid, nodes); if (!cc) continue;
                         const act = wl.has(id) && wl.has(cid);
-                        const edgeKey = id + '→' + cid;
-                        const inOp = this.operation?.includedEdges?.has(edgeKey);
-                        const exOp = this.operation && !inOp;
-                        eh += '<path class="tree-edge' + (act ? ' active' : '') + (inOp ? ' extract-included' : '') + (exOp ? ' extract-excluded' : '') + '" d="M ' + pc.x + ' ' + pc.y
+                        eh += '<path class="tree-edge' + (act ? ' active' : '') + '" data-parent="' + this.escapeHtml(id) + '" data-child="' + this.escapeHtml(cid) + '" d="M ' + pc.x + ' ' + pc.y
                             + ' C ' + pc.x + ' ' + (pc.y + (cc.y - pc.y) * 0.4) + ', '
                             + cc.x + ' ' + (pc.y + (cc.y - pc.y) * 0.6) + ', ' + cc.x + ' ' + cc.y + '"/>';
                     }
@@ -787,30 +967,41 @@
                 for (const [id, node] of Object.entries(nodes)) {
                     const pos = this._positions.get(id); if (!pos) continue;
                     const onWL = wl.has(id), isSep = node.type === 'separator';
-                    const rc = node.role || 'separator';
+                    const rc = ['user', 'assistant'].includes(node.role) ? node.role : 'separator';
                     const icon = node.role === 'user' ? 'U' : node.role === 'assistant' ? 'A' : '—';
                     const label = node.preview ? node.preview.slice(0, 25) : (isSep ? '分隔符' : '');
                     const tip = node.role ? (node.role === 'user' ? '用户' : '助手') + ': ' + (node.preview || '').slice(0, 50) : '分隔符';
-                    const inOp = this.operation?.includedNodeIds?.has(id);
-                    const isOpRoot = this.operation?.rootId === id;
-                    const isOpLeaf = this.operation?.leafIds?.includes(id);
-                    const exOp = this.operation && !inOp;
-                    let badges = '';
-                    if (isOpRoot) badges += '<div class="node-op-badge root">R</div>';
-                    else if (isOpLeaf) badges += '<div class="node-op-badge">✓</div>';
+                    let badges = '<span class="selection-mark">✓</span><span class="node-issue-mark" title="有关联异常，详情见侧栏">!</span>';
                     if (node.versionCount > 1) badges += '<div class="node-badge">' + node.versionCount + '</div>';
                     if (node.children.length > 1) badges += '<div class="node-branch-badge">' + node.children.length + '</div>';
-                    nh += '<div class="tree-node' + (inOp ? ' extract-included' : '') + (isOpRoot ? ' extract-root' : '') + (exOp ? ' extract-excluded' : '') + '" data-id="' + id + '" style="left:' + (pos.x - L.nodeWidth / 2) + 'px;top:' + pos.y + 'px;width:' + L.nodeWidth + 'px;">'
+                    const escapedId = this.escapeHtml(id);
+                    nh += '<div class="tree-node" data-id="' + escapedId + '" style="left:' + (pos.x - L.nodeWidth / 2) + 'px;top:' + pos.y + 'px;width:' + L.nodeWidth + 'px;">'
                         + '<div class="node-tooltip">' + this.escapeHtml(tip) + '</div>'
-                        + '<div class="node-circle ' + rc + (onWL ? ' on-worldline' : '') + '">' + icon + badges + '</div>'
+                        + '<div class="node-circle ' + rc + (onWL ? ' on-worldline' : '') + '" role="button" tabindex="0" aria-label="' + this.escapeHtml(this.nodeLabel(id)) + '">' + icon + badges + '</div>'
+                        + '<button class="node-range-action" data-menu-id="' + escapedId + '" aria-label="' + this.escapeHtml(this.nodeLabel(id)) + '的范围操作" title="范围操作">⋯</button>'
                         + '<div class="node-label" title="' + this.escapeHtml(label) + '">' + this.escapeHtml(label) + '</div></div>';
                 }
                 $n.innerHTML = nh;
 
-                // Click delegation
-                $n.onclick = (e) => {
-                    const el = e.target.closest('.tree-node');
-                    if (el) { e.stopPropagation(); this.handleNodeClick(el.getAttribute('data-id')); }
+                $n.querySelectorAll('.tree-node').forEach(element => this._nodeElements.set(element.dataset.id, element));
+                this._edgeElements = [...$e.querySelectorAll('path')].map(element => ({ element, parent: element.dataset.parent, child: element.dataset.child }));
+                this.refreshSelectionPlan();
+
+                // Selection changes repaint classes only; do not rebuild a large tree for every click.
+                $n.onclick = (event) => {
+                    const menuButton = event.target.closest('[data-menu-id]');
+                    if (menuButton) { event.stopPropagation(); this.openNodeMenu(menuButton.dataset.menuId); return; }
+                    const element = event.target.closest('.tree-node');
+                    if (element) { event.stopPropagation(); this.handleNodeClick(element.dataset.id); }
+                };
+                $n.oncontextmenu = (event) => {
+                    const element = event.target.closest('.tree-node');
+                    if (!this.selectionMode || !element) return;
+                    event.preventDefault(); this.openNodeMenu(element.dataset.id);
+                };
+                $n.onkeydown = (event) => {
+                    if (!event.target.classList.contains('node-circle') || !['Enter', ' '].includes(event.key)) return;
+                    event.preventDefault(); this.handleNodeClick(event.target.closest('.tree-node').dataset.id);
                 };
 
                 requestAnimationFrame(() => {
@@ -826,21 +1017,21 @@
             //  Interactions
             // ================================================================
             handleNodeClick(id) {
-                this.selectNode(id);
-                if (this.operation?.id === 'extract-subtree') this.toggleExtractLeaf(id);
+                if (this.busy || this.pendingOperation) return;
+                if (!this.selectionMode) { this.selectNode(id); return; }
+                const next = this.selectionNodeIds.includes(id)
+                    ? this.selectionNodeIds.filter(selected => selected !== id)
+                    : [...this.selectionNodeIds, id];
+                this.setSelection(next);
             },
             selectNode(id) {
                 if (!this.treeData?.nodes?.[id]) return;
-                this.$refs.nodes.querySelectorAll('.node-circle.selected').forEach(el => el.classList.remove('selected'));
-                const el = this.$refs.nodes.querySelector('[data-id="' + id + '"] .node-circle');
-                if (el) el.classList.add('selected');
+                this._nodeElements.get(this.selectedNodeId)?.querySelector('.node-circle').classList.remove('selected');
                 this.selectedNodeId = id;
+                this._nodeElements.get(id)?.querySelector('.node-circle').classList.add('selected');
             },
             closeDetail() {
-                if (this.selectedNodeId) {
-                    const el = this.$refs.nodes.querySelector('[data-id="' + this.selectedNodeId + '"] .node-circle');
-                    if (el) el.classList.remove('selected');
-                }
+                this._nodeElements.get(this.selectedNodeId)?.querySelector('.node-circle').classList.remove('selected');
                 this.selectedNodeId = null;
             },
             findLeafFrom(nodeId) {
@@ -854,57 +1045,146 @@
                 return cur;
             },
             switchToNode(id) {
+                if (this.busy) return;
                 const leafId = this.findLeafFrom(id);
                 if (window.pluginSdk?.switchWorldLine) window.pluginSdk.switchWorldLine(leafId);
                 else window.pluginSdk?.showMessage?.('已请求切换世界线');
             },
-            enterExtractSubtree(rootId) {
-                if (!rootId || !this.treeData?.nodes?.[rootId]) return;
-                this.operation = {
-                    id: 'extract-subtree',
-                    rootId,
-                    leafIds: [],
-                    includedNodeIds: new Set(),
-                    includedEdges: new Set(),
-                };
-                this.renderTree(this.treeData, { preserveViewport: true });
+            toggleSelectionMode() {
+                if (this.busy || this.pendingOperation) return;
+                this.selectionMode = !this.selectionMode;
+                this.setSelection([]);
             },
-            setExtractRoot(rootId) {
-                if (!this.operation || !rootId || !this.treeData?.nodes?.[rootId]) return;
-                this.operation.rootId = rootId;
-                this.operation.leafIds = [];
-                this.renderTree(this.treeData, { preserveViewport: true });
-            },
-            toggleExtractLeaf(id) {
-                if (!this.operation || id === this.operation.rootId) return;
-                if (!this.isDescendantOrSelf(this.operation.rootId, id)) {
-                    window.pluginSdk?.showMessage?.('请选择 Root 子树内的节点', 'error');
-                    return;
-                }
-                const idx = this.operation.leafIds.indexOf(id);
-                if (idx >= 0) this.operation.leafIds.splice(idx, 1);
-                else this.operation.leafIds.push(id);
-                this.renderTree(this.treeData, { preserveViewport: true });
-                this.selectNode(id);
-            },
-            cancelOperation() {
-                this.operation = null;
-                if (this.treeData) this.renderTree(this.treeData, { preserveViewport: true });
-            },
-            async confirmExtractSubtree() {
-                if (!this.operation || this.operation.id !== 'extract-subtree') return;
-                if (!window.pluginSdk?.extractSubtree) {
-                    window.pluginSdk?.showMessage?.('当前环境不支持 subtree 提取', 'error');
-                    return;
-                }
+            selectAllNodes() { this.setSelection([...this._nodeElements.keys()]); },
+            connectSelection() { if (this.selectionPlan) this.setSelection(this.selectionPlan.connectionIds); },
+            openNodeMenu(id) {
+                if (!this.selectionMode || this.busy || this.pendingOperation) return;
+                // Opening a read-only command menu must not require a healthy selection/tree.
+                this.nodeMenuId = id;
+                this.menuPlan = null;
+                this.menuError = '';
                 try {
-                    await window.pluginSdk.extractSubtree({
-                        rootId: this.operation.rootId,
-                        leafIds: [...this.operation.leafIds],
-                    });
-                } catch (e) {
-                    // Error toast is owned by the host-side callback; keep dialog open for retry.
+                    if (!window.pluginSdk?.getSelectionPlan) throw new Error('树视图版本不匹配，请更新插件并重新打开');
+                    this.menuPlan = window.pluginSdk.getSelectionPlan([...new Set([...this.selectionNodeIds, id])]);
+                } catch (error) {
+                    this.menuError = error.message || String(error);
                 }
+                this.$nextTick(() => {
+                    const anchor = this._nodeElements.get(id)?.querySelector('.node-range-action');
+                    const menu = this.$refs.nodeMenu;
+                    if (!anchor || !menu || this.nodeMenuId !== id) return;
+                    const rect = anchor.getBoundingClientRect();
+                    menu.style.left = Math.max(12, Math.min(rect.right + 6, innerWidth - menu.offsetWidth - 12)) + 'px';
+                    menu.style.top = Math.max(12, Math.min(rect.top, innerHeight - menu.offsetHeight - 12)) + 'px';
+                    menu.querySelector('button')?.focus();
+                });
+            },
+            dismissNodeMenu(event) {
+                if (!event.target.closest('.node-action-menu') && !event.target.closest('[data-menu-id]')) this.nodeMenuId = null;
+            },
+            applyNodeCommand(command) {
+                const id = this.nodeMenuId;
+                if (!id || this.busy) return;
+                if (command === 'toggle') { this.handleNodeClick(id); return; }
+                if (command === 'connect') { if (this.menuPlan) this.setSelection(this.menuPlan.connectionIds); return; }
+                const subtree = this.collectSubtreeIds(id);
+                this.setSelection(command === 'add'
+                    ? [...this.selectionNodeIds, ...subtree]
+                    : this.selectionNodeIds.filter(selected => !subtree.has(selected)));
+            },
+            inspectMenuNode() {
+                const id = this.nodeMenuId;
+                this.nodeMenuId = null;
+                this.showFullContent(id);
+            },
+            handleEscape() {
+                if (this.busy) return;
+                if (this.fullContentVisible) this.fullContentVisible = false;
+                else if (this.pendingOperation) this.cancelPreview();
+                else this.nodeMenuId = null;
+            },
+            cancelPreview() {
+                if (this.busy) return;
+                this.pendingOperation = null;
+            },
+            copySelection() {
+                if (!this.selectionPlan?.canExtract || this.busy) return;
+                this.executeSelection('copy', JSON.parse(JSON.stringify(this.selectionPlan)));
+            },
+            async previewRemoval(mode) {
+                if (this.busy || !this.selectionNodeIds.length) return;
+                this.busy = true;
+                try {
+                    const data = await window.pluginSdk.getTreeData();
+                    this.renderTree(data, { preserveViewport: true });
+                    if (!this.selectionPlan?.nodeIds.length || (mode === 'cut' && !this.selectionPlan.canExtract)) return;
+                    const plan = JSON.parse(JSON.stringify(this.selectionPlan));
+                    this.pendingOperation = { mode, plan, diagram: this.makeImpactDiagram(plan) };
+                    this.$nextTick(() => this.$refs.previewBack?.focus());
+                } catch (error) {
+                    window.pluginSdk?.showMessage?.('无法预览：' + (error.message || String(error)), 'error');
+                } finally {
+                    this.busy = false;
+                }
+            },
+            async executeSelection(mode, plan) {
+                if (this.busy || (mode !== 'copy' && !plan.removableIds.length)) return;
+                this.busy = true;
+                this.nodeMenuId = null;
+                try {
+                    const result = await window.pluginSdk.executeSelection({
+                        mode,
+                        nodeIds: [...plan.nodeIds],
+                        expectedPlan: JSON.parse(JSON.stringify(plan)),
+                    });
+                    if (result && mode === 'delete') {
+                        this.renderTree(result, { preserveViewport: true, selectionChangedByOperation: true });
+                    }
+                } catch (error) {
+                    // Host reports the failed/stale operation; refresh before allowing another preview.
+                    this.pendingOperation = null;
+                    try { this.renderTree(await window.pluginSdk.getTreeData(), { preserveViewport: true }); } catch (_) {}
+                } finally {
+                    this.busy = false;
+                }
+            },
+            makeImpactDiagram(plan) {
+                const nodes = this.treeData.nodes;
+                const selected = new Set(plan.nodeIds);
+                const removed = new Set(plan.removableIds);
+                const retained = new Set(plan.retainedIds);
+                const issueIds = new Set((plan.issues || []).flatMap(issue => [issue.nodeId, ...issue.relatedNodeIds]));
+                const shown = new Set(plan.connectionIds);
+                retained.forEach(id => nodes[id].children.forEach(child => { if (!selected.has(child)) shown.add(child); }));
+                let root = [...shown].find(id => !shown.has(nodes[id].parent));
+                if (nodes[root]?.parent) { root = nodes[root].parent; shown.add(root); }
+                const previewNodes = {};
+                shown.forEach(id => {
+                    previewNodes[id] = { ...nodes[id], children: nodes[id].children.filter(child => shown.has(child)) };
+                });
+                const positions = this.computePositions({ rootId: root, nodes: previewNodes });
+                const center = id => ({ x: positions.get(id).x, y: positions.get(id).y * 0.65 });
+                let edges = '', circles = '', width = 0, height = 0;
+                shown.forEach(id => {
+                    const point = center(id);
+                    width = Math.max(width, point.x + 65); height = Math.max(height, point.y + 52);
+                    previewNodes[id].children.forEach(child => {
+                        const next = center(child);
+                        edges += '<path class="impact-edge" d="M ' + point.x + ' ' + (point.y + 16)
+                            + ' L ' + next.x + ' ' + (next.y - 16) + '"/>';
+                    });
+                    const node = nodes[id];
+                    const state = removed.has(id) ? 'remove' : retained.has(id) ? 'keep' : 'context';
+                    const action = state === 'remove' ? '将移除' : state === 'keep' ? '必须保留' : '未选内容';
+                    const role = node.role === 'user' ? 'U' : node.role === 'assistant' ? 'A' : '—';
+                    const label = (node.preview || '分隔符').slice(0, 12);
+                    circles += '<g class="impact-node ' + state + (issueIds.has(id) ? ' has-issue' : '') + '"><title>' + this.escapeHtml(action + '：' + this.nodeLabel(id)) + '</title>'
+                        + '<circle cx="' + point.x + '" cy="' + point.y + '" r="16"/>'
+                        + '<text class="impact-role" x="' + point.x + '" y="' + (point.y + 4) + '" text-anchor="middle">' + role + '</text>'
+                        + '<text x="' + point.x + '" y="' + (point.y + 31) + '" text-anchor="middle">' + this.escapeHtml(label) + '</text>'
+                        + '<text x="' + point.x + '" y="' + (point.y + 46) + '" text-anchor="middle">' + action + '</text></g>';
+                });
+                return '<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="实际移除与受保护节点影响图" viewBox="0 0 ' + width + ' ' + height + '" style="width:' + width + 'px">' + edges + circles + '</svg>';
             },
             async showFullContent(id) {
                 if (!id) return;

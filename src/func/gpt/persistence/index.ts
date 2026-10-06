@@ -8,32 +8,27 @@
  * @SpecDoc      : .dev/docs/gpt-chat-history-persistence.md
  */
 import { saveToSiYuan, saveToSiYuanAssetFile } from "./sy-doc";
-import { saveToJson } from "./json-files";
+export { archiveWorkingHistory, copyArchiveLink } from './archive-actions';
 // import { confirmDialog } from "@frostime/siyuan-plugin-kits";
 import { showMessage } from "siyuan";
 
-export const persistHistory = async (history: IChatSessionHistoryV2, options?: {
-    // saveToSiYuan?: boolean;
-    saveJson?: boolean; //default true
-    saveTo?: 'document' | 'asset'
-    verbose?: string;
-}) => {
+/** Exports have no permanent-archive side effect. Document/asset exporters retain
+ * their existing target-update behavior, independent from chat-history JSON. */
+export const exportWorkingHistory = async (history: IChatSessionHistoryV2, target: 'document' | 'asset') => {
     if (!history || history.schema !== 2) {
-        showMessage('历史记录格式错误，无法归档保存');
+        showMessage('历史记录格式错误，无法导出');
         return;
     }
-
-    if (options?.saveJson !== false) {
-        await saveToJson(history);
+    try {
+        if (target === 'document') await saveToSiYuan(history);
+        else {
+            await saveToSiYuanAssetFile(history);
+            showMessage('附件已导出；永久对话存档未更新');
+        }
+    } catch (error) {
+        showMessage(`导出失败：${(error as Error).message || error}`, 7000, 'error');
     }
-    if (options?.saveTo === 'document') {
-        await saveToSiYuan(history)
-    } else if (options?.saveTo === 'asset') {
-        await saveToSiYuanAssetFile(history)
-    }
-    // if (options?.verbose !== false) showMessage('保存成功')
-    if (options?.verbose) showMessage(options.verbose)
-}
+};
 
 export * from "./sy-doc";
 export * from "./json-files";

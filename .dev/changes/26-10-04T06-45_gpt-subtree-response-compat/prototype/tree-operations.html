@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>对话树操作 · 交互原型</title>
+<style>
+:root { color-scheme:light; --ink:#202735; --muted:#677588; --line:#e3e7ee; --blue:#2868d7; --soft:#edf4ff; --amber:#9a6516; --amber-bg:#fff6e7; --danger:#bd3846; }
+* { box-sizing:border-box; }
+body { margin:0; background:#f3f5f8; color:var(--ink); font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif; }
+button,select,input { font:inherit; } button { cursor:pointer; } button:disabled { cursor:not-allowed; opacity:.46; }
+button:focus-visible,input:focus-visible,a:focus-visible { outline:3px solid #98baff; outline-offset:3px; }
+button { background:white; border:1px solid #d5dce7; border-radius:7px; color:inherit; padding:8px 12px; }
+button:hover:not(:disabled) { background:#f5f8fe; }
+button.primary { background:var(--blue); border-color:var(--blue); color:white; }
+button.primary:hover:not(:disabled) { background:#215bbd; }
+button.danger { color:var(--danger); border-color:#e7bbc0; }
+button.quiet { background:none; border-color:transparent; padding:3px 6px; color:var(--blue); }
+button.small { padding:4px 8px; font-size:12px; }
+h1,h2,h3,p { margin:0; } h1 { font-size:22px; } h2 { font-size:17px; } h3 { font-size:14px; }
+.muted { color:var(--muted); } .small-text { font-size:12px; } .row { display:flex; align-items:center; gap:8px; } .between { justify-content:space-between; } .stack { display:grid; gap:9px; }
+.page { max-width:1500px; margin:auto; padding:18px 22px; }
+.intro { display:flex; justify-content:space-between; align-items:center; margin-bottom:13px; gap:20px; }
+.intro p { color:var(--muted); margin-top:4px; } .prototype-tag { padding:5px 10px; background:#e9edf4; border-radius:20px; color:#596579; white-space:nowrap; font-size:12px; }
+.review { display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:10px 12px; background:#eef0f4; border:1px dashed #c6ceda; border-radius:9px; margin-bottom:13px; }
+.review button { padding:5px 9px; font-size:12px; } .review button.active { color:var(--blue); border-color:#8dafea; background:white; }
+.review .divider { width:1px; height:20px; background:#ccd3de; margin:0 5px; } .review .label { color:#637087; font-size:12px; }
+.workspace { border:1px solid var(--line); border-radius:12px; background:white; overflow:hidden; box-shadow:0 5px 22px #15254008; }
+.workspace-header { padding:14px 18px; border-bottom:1px solid var(--line); }
+.layout { display:grid; grid-template-columns:minmax(0,1fr) 360px; min-height:695px; }
+.tree-area { min-width:0; display:flex; flex-direction:column; }
+.instruction { padding:10px 16px; min-height:42px; background:#f8faff; color:#49607c; border-bottom:1px solid #edf0f5; }
+.viewport { overflow:auto; flex:1; background-image:radial-gradient(#e5e9f1 .7px,transparent .7px); background-size:16px 16px; }
+.canvas { position:relative; width:880px; height:650px; margin:auto; }
+.edges { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.edge { stroke:#d7dee8; stroke-width:2; fill:none; } .edge.chosen { stroke:#6f9ce9; stroke-width:3; } .edge.protected { stroke:#d2a565; stroke-width:3; }
+.node { position:absolute; width:184px; height:75px; border:1.5px solid #d7dee8; border-radius:9px; background:white; box-shadow:0 2px 5px #253b5608; }
+.node.chosen { border:2px solid #5489e0; background:var(--soft); }
+.node.protected { border:2px solid #c59a57; background:var(--amber-bg); }
+.node.outside { opacity:.36; } .node.viewed { box-shadow:0 0 0 3px #9cbcf94d; }
+.node-body { width:100%; height:100%; padding:7px 10px; border:0; border-radius:8px; background:transparent; text-align:left; }
+.node-body:hover:not(:disabled) { background:#ecf2ff88; }
+.node-top { display:flex; align-items:center; gap:6px; height:17px; padding-right:23px; font-size:11px; color:var(--muted); }
+.role { color:#237450; } .role.assistant { color:#2868d7; }
+.world-dot { width:7px; height:7px; border-radius:50%; background:#8fabd6; display:inline-block; }
+.preview { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; margin-top:3px; }
+.flags { display:flex; gap:5px; margin-top:3px; min-height:14px; font-size:10px; }
+.flag { border-radius:3px; padding:0 4px; background:#e2eafa; color:#3c62a0; } .flag.root { background:#ece6fa; color:#7656ab; } .flag.keep { background:#f1dfbf; color:#896020; }
+.inspect { position:absolute; top:5px; right:6px; width:22px; height:22px; border:0; background:transparent; color:#7b8ba4; padding:0; border-radius:4px; font-size:12px; }
+.sidebar { border-left:1px solid var(--line); display:flex; flex-direction:column; min-width:0; }
+.side-header { padding:15px 18px; border-bottom:1px solid var(--line); }
+.side-body { padding:16px 18px; display:grid; gap:18px; align-content:start; flex:1; }
+.section { display:grid; gap:9px; } .section-title { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; font-weight:600; }
+.start-card { padding:10px 12px; background:#f8f9fc; border:1px solid var(--line); border-radius:7px; }
+.start-card p { margin-top:3px; } .range-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.range-option { cursor:pointer; border:1px solid #d7dee8; border-radius:7px; padding:9px 10px; font-size:13px; }
+.range-option.checked { background:var(--soft); border-color:#8dafeb; } .range-option input { margin:0 5px 0 0; }
+.helper { color:var(--muted); font-size:12px; line-height:1.6; }
+.endpoint { display:flex; justify-content:space-between; align-items:center; gap:7px; padding:6px 9px; background:#f6f8fb; border-radius:6px; font-size:12px; }
+.endpoint span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .endpoint button { flex-shrink:0; }
+.metrics { display:grid; gap:7px; padding:12px; border:1px solid var(--line); border-radius:8px; }
+.metric { display:flex; justify-content:space-between; gap:12px; font-size:13px; } .metric strong { font-size:15px; }
+.metric.keep { color:var(--amber); } .rule { padding-top:9px; border-top:1px solid var(--line); margin-top:3px; font-size:12px; color:var(--muted); }
+.warning { border:1px solid #e2c38f; background:var(--amber-bg); color:#80591f; padding:10px 11px; border-radius:7px; font-size:12px; }
+.side-footer { border-top:1px solid var(--line); padding:14px 18px; display:grid; gap:8px; background:#fcfdff; }
+.actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .cancel { text-align:center; }
+.legend { border-top:1px solid var(--line); padding:10px 17px; display:flex; gap:18px; align-items:center; flex-wrap:wrap; font-size:11px; color:var(--muted); }
+.legend-key { display:flex; align-items:center; gap:6px; } .swatch { width:12px; height:12px; border:1px solid #5489e0; border-radius:3px; background:var(--soft); } .swatch.keep { border-color:#c59a57; background:var(--amber-bg); }
+.review-note { color:var(--muted); font-size:12px; margin-top:11px; }
+.baseline-block { border-top:1px solid var(--line); padding:15px 18px; background:#f7f7f7; display:grid; gap:10px; } .baseline-id { font-size:11px; word-break:break-all; color:#66768d; }
+.empty { padding:45px 10px; text-align:center; color:var(--muted); }
+dialog { border:1px solid var(--line); border-radius:12px; width:min(850px,92vw); padding:0; color:var(--ink); box-shadow:0 18px 80px #15254040; }
+dialog::backdrop { background:#14243b66; } .dialog-header { padding:16px 20px; border-bottom:1px solid var(--line); }
+.dialog-body { padding:20px; max-height:68vh; overflow:auto; } .dialog-footer { padding:12px 20px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; }
+.outcomes { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:15px; } .outcome { border:1px solid var(--line); border-radius:8px; padding:12px; }
+.outcome ul { list-style:none; padding:0; margin:10px 0 0; } .outcome li { font-size:12px; padding:5px 0 5px calc(var(--depth)*12px); border-bottom:1px solid #edf0f5; }
+#notice { min-height:22px; color:#45617e; font-size:12px; margin-top:7px; }
+@media(max-width:1000px) { .page { padding:12px; } .layout { grid-template-columns:minmax(0,1fr) 340px; } .intro { align-items:flex-start; } }
+@media(max-width:720px) { .layout { grid-template-columns:1fr; } .sidebar { border-left:0; border-top:1px solid var(--line); } .viewport { max-height:500px; } .outcomes { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="intro">
+    <div><h1>对话树：先选内容，再决定怎么处理</h1><p>这份原型只评审交互流程和结果表达；示例对话是虚构数据。</p></div>
+    <span class="prototype-tag">交互原型 · 不连接思源</span>
+  </header>
+  <nav class="review" aria-label="原型评审控制">
+    <span class="label">对照</span><button data-view="baseline">现状示意</button><button data-view="proposal">建议方案</button>
+    <span class="divider"></span><span class="label">体验场景</span>
+    <button data-scene="browse">浏览节点</button><button data-scene="whole">完整子树</button><button data-scene="paths">指定路径 / 公共上下文</button><button data-scene="unsafe">危险中间终点</button><button data-scene="root">更换起点</button>
+  </nav>
+  <section class="workspace">
+    <header class="workspace-header row between"><div class="row"><h2>对话树</h2><span class="muted small-text">番茄钟设计讨论</span></div><span class="muted small-text">12 个消息节点 · 当前分支 6 条</span></header>
+    <div class="layout">
+      <main class="tree-area"><div class="instruction" id="instruction"></div><div class="viewport"><div class="canvas"><svg class="edges" id="edges" aria-hidden="true"></svg><div id="nodes"></div></div></div></main>
+      <aside class="sidebar" id="sidebar" aria-label="节点查看或选区操作"></aside>
+    </div>
+    <footer class="legend" id="legend"></footer>
+  </section>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <p class="review-note">评审重点：浏览与选择是否分开？能否预判“复制哪些、原树删除哪些”？选择过程和结果预览可交互；保存、真实删除、切换会话均未接入。</p>
+</div>
+<dialog id="dialog" aria-labelledby="dialog-title"><header class="dialog-header row between"><h2 id="dialog-title"></h2><button data-command="close-dialog" class="quiet" aria-label="关闭">✕</button></header><div class="dialog-body" id="dialog-body"></div><footer class="dialog-footer" id="dialog-footer"></footer></dialog>
+<script>
+// Disposable local model. No production imports, SDK calls, storage, or network.
+const SAMPLE = [
+  { id:'R', parent:null, role:'user', title:'一起设计一个番茄钟', x:440, y:25 },
+  { id:'A', parent:'R', role:'assistant', title:'先确定核心流程', x:440, y:125, versions:2 },
+  { id:'B', parent:'A', role:'user', title:'先做桌面版本', x:250, y:235 },
+  { id:'C', parent:'A', role:'user', title:'换成手机版', x:660, y:235 },
+  { id:'D', parent:'B', role:'assistant', title:'桌面版交互草稿', x:250, y:335, versions:3 },
+  { id:'I', parent:'C', role:'assistant', title:'手机版交互草稿', x:660, y:335 },
+  { id:'E', parent:'D', role:'user', title:'补充快捷键', x:130, y:445 },
+  { id:'G', parent:'D', role:'user', title:'加入统计页', x:380, y:445 },
+  { id:'J', parent:'I', role:'user', title:'考虑离线提醒', x:660, y:445 },
+  { id:'F', parent:'E', role:'assistant', title:'快捷键方案', x:130, y:550 },
+  { id:'H', parent:'G', role:'assistant', title:'统计页草稿', x:380, y:550 },
+  { id:'K', parent:'J', role:'assistant', title:'离线提醒方案', x:660, y:550 },
+];
+const byId = Object.fromEntries(SAMPLE.map(node => [node.id, node]));
+const childrenOf = id => SAMPLE.filter(node => node.parent === id).map(node => node.id);
+const worldLine = new Set(['R','A','B','D','E','F']);
+const state = { view:'proposal', scene:'browse', phase:'browse', viewed:'D', root:'D', range:'whole', endpoints:[], legacyMode:'copy' };
+const labels = { copy:'复制为新对话', cut:'剪切为新对话', delete:'删除选区' };
+const escapeText = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const roleLabel = node => node.role === 'user' ? '用户' : '助手';
+
+function descendants(root) {
+  const result = new Set();
+  const visit = id => { result.add(id); childrenOf(id).forEach(visit); };
+  visit(root);
+  return result;
+}
+
+function pathFrom(root, endpoint) {
+  const path = [];
+  for (let id = endpoint; id; id = byId[id].parent) {
+    path.push(id);
+    if (id === root) return path.reverse();
+  }
+  return [];
+}
+
+function selectionPreview(root, range, endpoints) {
+  const scope = descendants(root);
+  const selected = range === 'whole' ? new Set(scope) : new Set(endpoints.flatMap(id => pathFrom(root, id)));
+  const protectedIds = new Set();
+  const removable = new Set();
+  const unsafeEnds = [...selected].filter(id => childrenOf(id).length && !childrenOf(id).some(child => selected.has(child)));
+  // Parent-before-child insertion order; descendants decide whether each ancestor must remain.
+  for (const id of [...selected].reverse()) {
+    if (childrenOf(id).some(child => !selected.has(child) || protectedIds.has(child))) protectedIds.add(id);
+    else removable.add(id);
+  }
+  return { scope, selected, protectedIds, removable, unsafeEnds, canRemove:selected.size > 0 && !unsafeEnds.length && removable.size > 0 };
+}
+
+function preset(scene) {
+  Object.assign(state, { scene, viewed:'D', root:'D', range:'whole', endpoints:[], phase:'select' });
+  if (scene === 'browse') state.phase = 'browse';
+  if (['paths','unsafe','root'].includes(scene)) {
+    state.root = 'A'; state.viewed = 'E'; state.range = 'paths';
+    state.endpoints = scene === 'unsafe' ? ['B'] : ['F'];
+    if (scene === 'root') state.phase = 'pick-root';
+  }
+}
+
+function render() {
+  const preview = selectionPreview(state.root, state.range, state.endpoints);
+  const operating = state.view === 'baseline' || state.phase !== 'browse';
+  const pickingRoot = state.view === 'proposal' && state.phase === 'pick-root';
+  document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === state.view));
+  document.querySelectorAll('[data-scene]').forEach(button => {
+    button.classList.toggle('active', button.dataset.scene === state.scene);
+    button.disabled = state.view === 'baseline';
+  });
+  document.getElementById('instruction').innerHTML = state.view === 'baseline'
+    ? '现状示意：点击既更新“节点详情”，又更改路径终点；右侧两套操作同时存在。'
+    : state.phase === 'browse' ? '点击节点查看详情；需要整理内容时，再进入选择。'
+    : pickingRoot ? '正在更换起点：点击任意节点作为新的起点。原选区在完成选择前不变。 <button class="quiet small" data-command="cancel-root">取消更换</button>'
+    : state.range === 'whole' ? '完整子树：起点及其全部后续分支都已选中，无需逐个点击。'
+    : '指定路径：点击起点下的节点，添加或取消终点；路径上的消息会自动包含。';
+
+  document.getElementById('edges').innerHTML = SAMPLE.filter(node => node.parent).map(node => {
+    const parent = byId[node.parent];
+    const chosen = operating && preview.selected.has(node.id) && preview.selected.has(parent.id);
+    const keep = chosen && preview.protectedIds.has(node.id) && preview.protectedIds.has(parent.id);
+    return `<path class="edge ${chosen ? 'chosen' : ''} ${keep ? 'protected' : ''}" d="M ${parent.x} ${parent.y+75} C ${parent.x} ${parent.y+100}, ${node.x} ${node.y-25}, ${node.x} ${node.y}"/>`;
+  }).join('');
+  document.getElementById('nodes').innerHTML = SAMPLE.map(node => {
+    const chosen = operating && preview.selected.has(node.id);
+    const keep = chosen && preview.protectedIds.has(node.id);
+    const outside = operating && !pickingRoot && !preview.scope.has(node.id);
+    const flags = [operating && node.id === state.root ? '<span class="flag root">起点</span>' : '', operating && state.endpoints.includes(node.id) ? '<span class="flag">终点 ✓</span>' : '', keep ? '<span class="flag keep">原树保留</span>' : ''].join('');
+    return `<article class="node ${chosen ? 'chosen' : ''} ${keep ? 'protected' : ''} ${outside ? 'outside' : ''} ${!operating && node.id === state.viewed ? 'viewed' : ''}" style="left:${node.x-92}px;top:${node.y}px">
+      <button class="node-body" data-node="${node.id}" aria-label="${roleLabel(node)}：${escapeText(node.title)}" aria-pressed="${chosen}">
+        <div class="node-top"><span class="role ${node.role}">${roleLabel(node)}</span>${worldLine.has(node.id) ? '<span class="world-dot" title="当前分支"></span>' : ''}${node.versions ? `<span>${node.versions} 版本</span>` : ''}</div>
+        <div class="preview">${escapeText(node.title)}</div><div class="flags">${flags}</div>
+      </button><button class="inspect" data-inspect="${node.id}" title="查看内容，不改变选区" aria-label="查看${escapeText(node.title)}的内容">ⓘ</button></article>`;
+  }).join('');
+  document.getElementById('sidebar').innerHTML = state.view === 'baseline' ? baselineSidebar(preview) : state.phase === 'browse' ? browsingSidebar() : selectionSidebar(preview);
+  document.getElementById('legend').innerHTML = operating
+    ? '<span class="legend-key"><span class="swatch"></span>已选内容</span><span class="legend-key"><span class="swatch keep"></span>已选 · 剪切/删除时仍保留</span><span>起点 / 终点用文字标记；浅灰为范围外节点</span>'
+    : '<span class="legend-key"><span class="world-dot"></span>当前分支</span><span>每个卡片代表一条消息，可能包含多个版本</span>';
+}
+
+function browsingSidebar() {
+  const node = byId[state.viewed];
+  return `<header class="side-header"><h2>节点详情</h2></header><div class="side-body">
+    <div class="section"><div class="row between"><span class="role ${node.role}">${roleLabel(node)}</span><span class="muted small-text">${node.versions || 1} 个版本</span></div><h3>${escapeText(node.title)}</h3><p class="muted">这是一条示例消息。可查看内容或切换到这一分支。</p></div>
+    <div class="section"><h3>所在位置</h3><p class="helper">${node.parent ? '上条消息：'+escapeText(byId[node.parent].title) : '这是对话的起点'}<br>后续分支：${childrenOf(node.id).length} 个</p></div>
+    <div class="stack"><button data-inspect="${node.id}">查看内容</button><button data-command="switch-branch">切换到此分支</button></div>
+  </div><footer class="side-footer"><button class="primary" data-command="begin">从这里选择对话</button><p class="helper">先选择范围，再决定复制、剪切或删除。</p></footer>`;
+}
+
+function selectionSidebar(preview) {
+  const node = byId[state.root];
+  const pickingRoot = state.phase === 'pick-root';
+  const copyDisabled = !preview.selected.size || pickingRoot;
+  const removeDisabled = !preview.canRemove || pickingRoot;
+  const endpoints = state.endpoints.map(id => `<div class="endpoint"><span>选到：${escapeText(byId[id].title)}</span><button class="quiet small" data-remove-end="${id}" aria-label="取消终点${escapeText(byId[id].title)}">×</button></div>`).join('');
+  const warning = preview.unsafeEnds.length ? `<div class="warning"><strong>这条路径停在中间消息</strong><br>“${escapeText(byId[preview.unsafeEnds[0]].title)}”后面仍有未选内容。可以复制，但不能剪切或删除。请改选分支末端，或选择完整子树。</div>` : '';
+  return `<header class="side-header row between"><h2>${pickingRoot ? '选择新的起点' : '选择对话内容'}</h2><button class="quiet small" data-command="cancel">退出选择</button></header>
+    <div class="side-body">
+      <section class="section"><div class="section-title"><span>从哪里开始</span><button class="quiet small" data-command="pick-root" ${pickingRoot ? 'disabled' : ''}>更换起点</button></div>
+        <div class="start-card"><span class="role ${node.role} small-text">${roleLabel(node)}</span><p>${escapeText(node.title)}</p><button class="quiet small" data-inspect="${node.id}">查看内容</button></div>
+        <p class="helper">起点之前的消息不包含在选区中。</p>
+      </section>
+      <section class="section"><div class="section-title">选哪些内容</div>
+        <div class="range-options"><label class="range-option ${state.range === 'whole' ? 'checked' : ''}"><input type="radio" name="range" value="whole" ${state.range === 'whole' ? 'checked' : ''} ${pickingRoot ? 'disabled' : ''}>完整子树</label><label class="range-option ${state.range === 'paths' ? 'checked' : ''}"><input type="radio" name="range" value="paths" ${state.range === 'paths' ? 'checked' : ''} ${pickingRoot || !childrenOf(state.root).length ? 'disabled' : ''}>指定路径</label></div>
+        <p class="helper">${state.range === 'whole' ? '包含起点及其所有后续分支。' : state.endpoints.length ? '终点可多选；点击图中已选终点可取消。' : '请点击图中的一个或多个后代节点作为终点。尚未选择终点，不代表整棵子树。'}</p>
+        ${state.range === 'paths' ? endpoints : ''}
+      </section>
+      <section class="section"><div class="section-title">执行后会怎样</div><div class="metrics">
+        <div class="metric"><span>所选消息</span><strong>${preview.selected.size} 条</strong></div>
+        <div class="metric"><span>剪切 / 删除时移除</span><strong>${preview.canRemove ? preview.removable.size+' 条' : '不可执行'}</strong></div>
+        <div class="metric keep"><span>所选公共上下文仍保留</span><strong>${preview.protectedIds.size} 条</strong></div>
+        <div class="rule">复制：原对话不变。<br>剪切：新对话包含全部 ${preview.selected.size} 条选中消息，原对话仅移除独占部分。<br>消息的全部版本随内容一起保留。</div>
+      </div>${warning}</section>
+    </div>
+    <footer class="side-footer"><div class="actions"><button class="primary" data-action="copy" ${copyDisabled ? 'disabled' : ''}>复制为新对话</button><button data-action="cut" ${removeDisabled ? 'disabled' : ''}>剪切为新对话</button></div><button class="danger" data-action="delete" ${removeDisabled ? 'disabled' : ''}>仅从原对话删除</button><button class="quiet cancel" data-command="cancel">取消选择</button></footer>`;
+}
+
+function baselineSidebar(preview) {
+  const node = byId[state.viewed];
+  return `<header class="side-header row between"><h2>节点详情</h2><span class="muted small-text">现状示意</span></header><div class="side-body"><div class="section"><h3>基本信息</h3><p class="baseline-id">ID：mock-${node.id}-current-node</p><p>角色：${roleLabel(node)}<br>内容：${escapeText(node.title)}</p></div></div>
+    <div class="side-footer"><button data-inspect="${node.id}">查看完整内容</button><button data-command="legacy-copy">提取子树</button><button data-command="legacy-delete">删除子树</button></div>
+    <div class="baseline-block"><h3>子树操作</h3><label>操作 <select id="legacy-mode"><option value="copy">复制为新对话</option><option value="cut">剪切为新对话</option><option value="delete">从当前对话删除</option></select></label><p class="baseline-id">Root：mock-${state.root}-operation-root</p><p class="muted small-text">路径终点：${state.endpoints.length} selected<br>Included：${preview.selected.size}</p><p class="helper">点击 Root 下的节点选择或取消路径终点；不选终点 = 完整子树。</p><button class="primary" data-command="legacy-confirm">确认操作</button><button data-command="legacy-root">将当前节点设为 Root</button><button data-command="cancel">取消操作</button></div>`;
+}
+
+function notice(message = '') { document.getElementById('notice').textContent = message; }
+function showDialog(title, body, footer = '<button data-command="close-dialog">关闭</button>') {
+  document.getElementById('dialog-title').textContent = title;
+  document.getElementById('dialog-body').innerHTML = body;
+  document.getElementById('dialog-footer').innerHTML = footer;
+  const dialog = document.getElementById('dialog');
+  if (!dialog.open) dialog.showModal();
+}
+function inspectNode(id) {
+  const node = byId[id];
+  showDialog('查看消息 · 选区不变', `<span class="role ${node.role}">${roleLabel(node)}</span><h3 style="margin:10px 0">${escapeText(node.title)}</h3><p class="muted">这里代表消息的完整正文。这份原型只使用简短示例，不加载真实聊天记录。</p><p class="helper" style="margin-top:16px">${node.versions || 1} 个版本；操作选中的是整个消息节点，不是单一版本。</p>`);
+}
+
+function outcomeList(ids) {
+  const included = new Set(ids);
+  return '<ul>'+SAMPLE.filter(node => included.has(node.id)).map(node => {
+    let depth = 0;
+    for (let parent = node.parent; parent && included.has(parent); parent = byId[parent].parent) depth++;
+    return `<li style="--depth:${depth}"><span class="role ${node.role}">${roleLabel(node)}</span> · ${escapeText(node.title)}</li>`;
+  }).join('')+'</ul>';
+}
+function resultPreview(action) {
+  const preview = selectionPreview(state.root, state.range, state.endpoints);
+  const sourceIds = SAMPLE.map(node => node.id).filter(id => action === 'copy' || !preview.removable.has(id));
+  const destination = action === 'delete' ? `<div class="outcome"><h3>不会创建新对话</h3><p class="helper" style="margin-top:10px">只移除原对话中选区的独占部分。</p></div>` : `<div class="outcome"><h3>新对话 · ${preview.selected.size} 条消息</h3>${outcomeList([...preview.selected])}</div>`;
+  showDialog(labels[action]+' · 结果模拟', `<p>${action === 'copy' ? '原对话保持完整，所选内容复制到新对话。' : `原对话移除 ${preview.removable.size} 条独占消息，保留 ${preview.protectedIds.size} 条所选公共上下文。`}</p><div class="outcomes"><div class="outcome"><h3>原对话 · 保留 ${sourceIds.length} 条消息</h3>${outcomeList(sourceIds)}</div>${destination}</div><p class="helper" style="margin-top:14px">这是预期结果预览，不进行保存、删除或会话切换；关闭后可继续试选同一张样例树。</p>`);
+}
+function requestAction(action) {
+  const preview = selectionPreview(state.root, state.range, state.endpoints);
+  if (!preview.selected.size || state.phase === 'pick-root' || (action !== 'copy' && !preview.canRemove)) return;
+  if (action === 'copy') { resultPreview(action); return; }
+  const target = action === 'cut' ? `<p style="margin-top:8px">新对话将包含全部 ${preview.selected.size} 条所选消息。</p>` : '';
+  showDialog(action === 'cut' ? '确认剪切为新对话' : '确认删除选区', `<p>原对话将删除 <strong>${preview.removable.size} 条独占消息</strong>，保留 <strong>${preview.protectedIds.size} 条公共上下文</strong>。其他分支不变。</p>${target}<p class="warning" style="margin-top:16px">此操作不能撤销。原型不会实际删除任何内容。</p>`, `<button data-command="close-dialog">返回调整</button><button class="${action === 'delete' ? 'danger' : 'primary'}" data-confirm-action="${action}">确认${action === 'cut' ? '剪切' : '删除'}（模拟）</button>`);
+}
+
+function clickNode(id) {
+  if (state.view === 'baseline') {
+    state.viewed = id;
+    if (id !== state.root && pathFrom(state.root,id).length) {
+      state.endpoints = state.endpoints.includes(id) ? state.endpoints.filter(endpoint => endpoint !== id) : [...state.endpoints,id];
+      state.range = state.endpoints.length ? 'paths' : 'whole';
+    } else if (id !== state.root) notice('Root 没变，但节点详情已切换：这是现状中两个点击含义叠在一起的示意。');
+  } else if (state.phase === 'browse') state.viewed = id;
+  else if (state.phase === 'pick-root') {
+    if (id !== state.root) { state.root = id; state.endpoints = []; }
+    if (!childrenOf(id).length) state.range = 'whole';
+    state.phase = 'select';
+  } else if (state.range === 'paths' && id !== state.root) {
+    if (!pathFrom(state.root,id).length) { notice('这个节点在范围外。要从它开始，请使用“更换起点”。'); return; }
+    state.endpoints = state.endpoints.includes(id) ? state.endpoints.filter(endpoint => endpoint !== id) : [...state.endpoints,id];
+  } else {
+    notice(state.range === 'paths' ? '这是范围起点，请选择它的后代作为路径终点。' : '完整子树已包含全部后续内容。若要挑选部分分支，请切换为“指定路径”。');
+    return;
+  }
+  render();
+}
+
+if (typeof document !== 'undefined') {
+  const params = new URLSearchParams(location.search);
+  state.view = params.get('view') === 'baseline' ? 'baseline' : 'proposal';
+  preset(params.get('scene') || (state.view === 'baseline' ? 'paths' : 'browse'));
+  document.addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (!button || button.disabled) return;
+    if (button.dataset.view) {
+      state.view = button.dataset.view;
+      if (state.view === 'baseline' && state.phase !== 'select') preset('paths');
+      notice(); render(); return;
+    }
+    if (button.dataset.scene) { preset(button.dataset.scene); notice(); render(); return; }
+    if (button.dataset.inspect) { inspectNode(button.dataset.inspect); return; }
+    if (button.dataset.node) { notice(); clickNode(button.dataset.node); return; }
+    if (button.dataset.removeEnd) { state.endpoints = state.endpoints.filter(id => id !== button.dataset.removeEnd); render(); return; }
+    if (button.dataset.action) { requestAction(button.dataset.action); return; }
+    if (button.dataset.confirmAction) { resultPreview(button.dataset.confirmAction); return; }
+    const command = button.dataset.command;
+    if (command === 'close-dialog') { document.getElementById('dialog').close(); return; }
+    if (command === 'begin' || command === 'legacy-copy' || command === 'legacy-delete') {
+      state.root = state.viewed; state.range = 'whole'; state.endpoints = []; state.phase = 'select';
+    }
+    if (command === 'pick-root') state.phase = 'pick-root';
+    if (command === 'cancel-root') state.phase = 'select';
+    if (command === 'cancel') { state.view = 'proposal'; state.phase = 'browse'; state.viewed = state.root; }
+    if (command === 'legacy-root') { state.root = state.viewed; state.endpoints = []; state.range = 'whole'; }
+    if (command === 'legacy-confirm') { notice('现状只用于对照布局，请切到建议方案体验结果预览。'); return; }
+    if (command === 'switch-branch') { notice('这里只示意原有的浏览功能，不模拟切换世界线。'); return; }
+    render();
+  });
+  document.addEventListener('change', event => {
+    if (event.target.name !== 'range') return;
+    state.range = event.target.value; state.endpoints = []; notice(); render();
+  });
+  render();
+}
+</script>
+</body>
+</html>

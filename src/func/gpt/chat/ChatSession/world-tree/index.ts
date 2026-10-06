@@ -10,6 +10,15 @@ import { openIframeDialog } from "@/func/html-pages/core";
 import { ITreeModel } from "../use-tree-model";
 import { extractContentText } from "@/func/gpt/chat-utils/msg-content";
 import { getMessageProp, getPayload } from "@/func/gpt/chat-utils";
+import { showMessage } from "siyuan";
+import { getRootedTreeNodes, isSameSelectionPlan, type INodeSelectionPlan } from "../subtree-selection";
+
+export interface ITreeSelectionOperation {
+    nodeIds: string[];
+    mode: 'copy' | 'cut' | 'delete';
+    /** Freshly validated against the iframe's confirmed preview before invoking the callback. */
+    plan: INodeSelectionPlan;
+}
 
 
 /*
@@ -62,7 +71,7 @@ const transformNodes = (nodes: Record<string, IChatSessionMsgItemV2>): Record<st
 
 export const showChatWorldTree = (options: {
     treeModel: ITreeModel,
-    onExtractSubtree?: (args: { rootId: string; leafIds?: string[]; title?: string }) => void | Promise<void>;
+    onSelectionOperation: (args: ITreeSelectionOperation) => boolean | Promise<boolean>;
     width?: string;
     height?: string;
     maxWidth?: string;
@@ -78,6 +87,11 @@ export const showChatWorldTree = (options: {
     const treeModel = options.treeModel;
 
     const size = { ...defaultSize, ...options };
+    const getTreeData = async () => ({
+        rootId: treeModel.getRootId(),
+        worldLine: treeModel.getWorldLine(),
+        nodes: transformNodes(getRootedTreeNodes(treeModel.getNodes(), treeModel.getRootId()))
+    });
 
     const dialog = openIframeDialog({
         title: 'Chat Tree',
@@ -92,13 +106,8 @@ export const showChatWorldTree = (options: {
                 presetSdk: true,
                 siyuanCss: true,
                 customSdk: {
-                    getTreeData: async () => {
-                        return {
-                            rootId: treeModel.getRootId(),
-                            worldLine: treeModel.getWorldLine(),
-                            nodes: transformNodes(treeModel.getNodes())
-                        };
-                    },
+                    getTreeData,
+                    getSelectionPlan: (nodeIds: string[]) => treeModel.getSelectionPlan(nodeIds),
                     getFullContent: async (nodeId: string) => {
                         const nodes = treeModel.getNodes();
                         const item = nodes[nodeId];
@@ -110,10 +119,32 @@ export const showChatWorldTree = (options: {
                         // 关闭对话框或更新显示
                         dialog.close();
                     },
-                    extractSubtree: async (args: { rootId: string; leafIds?: string[]; title?: string }) => {
-                        if (!options.onExtractSubtree) return;
-                        await options.onExtractSubtree(args);
-                        dialog.close();
+                    executeSelection: async (args: {
+                        nodeIds: string[];
+                        mode: ITreeSelectionOperation['mode'];
+                        expectedPlan: INodeSelectionPlan;
+                    }) => {
+                        try {
+                            if (!['copy', 'cut', 'delete'].includes(args.mode)) throw new Error('不支持的对话操作');
+                            const plan = treeModel.getSelectionPlan(args.nodeIds);
+                            if (!isSameSelectionPlan(args.expectedPlan, plan)) {
+                                throw new Error('对话树已变化，请重新预览并确认操作范围');
+                            }
+                            if (plan.nodeIds.length === 0) throw new Error('请先选择节点');
+                            if (args.mode !== 'delete' && !plan.canExtract) {
+                                throw new Error('选区不连通，请显式补齐连接路径后再提取');
+                            }
+                            if (args.mode !== 'copy' && plan.removableIds.length === 0) {
+                                throw new Error('所选节点仍被未选内容依赖，没有可安全移除的部分');
+                            }
+                            const completed = await options.onSelectionOperation({ nodeIds: plan.nodeIds, mode: args.mode, plan });
+                            if (completed && args.mode !== 'delete') dialog.close();
+                            return completed && args.mode === 'delete' ? await getTreeData() : completed;
+                        } catch (error) {
+                            console.error('Failed to operate on chat selection:', error);
+                            showMessage(`对话操作失败：${(error as Error).message || String(error)}`, 5000, 'error');
+                            throw error;
+                        }
                     }
                 }
             }
