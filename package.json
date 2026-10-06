@@ -1,6 +1,6 @@
 {
   "name": "sy-f-misc",
-  "version": "7.16.0",
+  "version": "7.16.1",
   "type": "module",
   "description": "Frostime 个人插件合集",
   "repository": "https://github.com/frostime/sy-f-misc",
@@ -11,6 +11,7 @@
     "type-check": "tsc --project tsconfig.json --noEmit --skipLibCheck --noUnusedLocals false --noUnusedParameters false",
     "test:gpt": "pnpm run test:gpt-chat && pnpm run test:gpt-protocol && pnpm run test:gpt-archive",
     "test:gpt-archive": "node tests/run-gpt-archive-tests.mjs",
+    "test:gpt-apikey-obfuscate": "node tests/run-gpt-apikey-obfuscate-tests.mjs",
     "test:gpt-chat": "node tests/run-gpt-chat-tests.mjs",
     "test:gpt-tree-menu": "node tests/run-gpt-tree-menu-tests.mjs",
     "test:gpt-protocol": "tsc --project tests/tsconfig.gpt-protocol.json && node tests/run-gpt-protocol-tests.mjs",

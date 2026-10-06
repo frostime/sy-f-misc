@@ -11,8 +11,9 @@ import { confirmDialog, deepMerge } from "@frostime/siyuan-plugin-kits";
 import { createModelConfig } from "./preset";
 import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_CHAT_ENDPOINT } from "./url_utils";
 import { asStorage } from "./config";
+import { encodeApiKeyIfPlain } from "./obfuscate";
 
-export const CURRENT_SCHEMA = '3.2';
+export const CURRENT_SCHEMA = '3.3';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -357,6 +358,29 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
     }
 
     // ========== Add new migration here when schema increase ==========
+
+    // 3.3 版本: 向后兼容 schema <= 3.2; 变更: API key 混淆存储 (见 model/obfuscate.ts)
+    // 将明文 key 字段就地加密; 已是密文 (encodeApiKeyIfPlain 内部自校验跳过) 或空值原样通过。
+    if (compareSchemaVersion(dataSchema, '3.3') < 0) {
+        const misc = (data as any).globalMiscConfigs as Record<string, unknown> | undefined;
+        if (misc) {
+            for (const key of ['tavilyApiKey', 'bochaApiKey', 'googleApiKey', 'CustomScriptEnvVars'] as const) {
+                if (typeof misc[key] === 'string' && misc[key]) {
+                    misc[key] = encodeApiKeyIfPlain(misc[key] as string);
+                }
+            }
+        }
+        const providers = (data as any).llmProviders as ILLMProviderV2[];
+        if (Array.isArray(providers)) {
+            providers.forEach((provider) => {
+                if (typeof provider.apiKey === 'string' && provider.apiKey) {
+                    provider.apiKey = encodeApiKeyIfPlain(provider.apiKey);
+                }
+            });
+        }
+        // 值级别转换完成即视为迁移 (无论是否存在 key, 版本号统一推进)
+        migrated = true;
+    }
 
     // Guard: 仅当 schema 版本确实低于 CURRENT_SCHEMA 时才写入（防止意外降级）
     if (compareSchemaVersion(dataSchema, CURRENT_SCHEMA) < 0) {

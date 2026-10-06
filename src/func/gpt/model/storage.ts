@@ -21,6 +21,7 @@ import {
     asStorage 
 } from "./config";
 import { CURRENT_SCHEMA, 历史版本兼容 } from "./config_migration";
+import { decodeApiKeyOrRaw, SENSITIVE_GLOBAL_KEYS } from "./obfuscate";
 import { loadCustomPreprocessModule, loadCustomContextProviderModule } from "./module_loading";
 
 export const GPT_SETTINGS_FILE = 'gpt.config.json';
@@ -34,6 +35,26 @@ const save_ = async (plugin?: Plugin) => {
 
 export const save = debounce(save_, 2000);
 
+/**
+ * 将 stored 配置中的 key 类字段从混淆密文解码为明文 (仅作用于本次 apply 的副本)。
+ * 已是明文 (旧配置 / 用户输入) 原样通过, 自动兼容。
+ */
+export const decodeStoredKeyFields = (data: Record<string, unknown>) => {
+    const misc = data.globalMiscConfigs as Record<string, unknown> | undefined;
+    if (misc) {
+        for (const key of SENSITIVE_GLOBAL_KEYS) {
+            if (typeof misc[key] === 'string') misc[key] = decodeApiKeyOrRaw(misc[key] as string);
+        }
+    }
+    const providers = data.llmProviders as { apiKey?: string }[] | undefined;
+    if (Array.isArray(providers)) {
+        for (const provider of providers) {
+            if (typeof provider.apiKey === 'string') provider.apiKey = decodeApiKeyOrRaw(provider.apiKey);
+        }
+    }
+    return data;
+};
+
 export const applyStoredSettingsToRuntime = async (
     stored: Record<string, unknown> | undefined,
     plugin?: Plugin
@@ -41,7 +62,12 @@ export const applyStoredSettingsToRuntime = async (
     if (!stored) return;
 
     const compatibilityResult = 历史版本兼容(stored, GPT_SETTINGS_FILE);
-    const current = deepMerge(getRuntimeSettingsSnapshot(), compatibilityResult.data);
+    decodeStoredKeyFields(compatibilityResult.data);
+    // merge base 也是密文形态的 snapshot, 必须同样解码:
+    // 若 stored 缺失某 key 字段, merge 会保留 base 的值; base 留密文会把密文灌进 runtime 且幂等性使其无法自愈
+    const mergeBase = getRuntimeSettingsSnapshot();
+    decodeStoredKeyFields(mergeBase);
+    const current = deepMerge(mergeBase, compatibilityResult.data);
 
     current.defaultModel && defaultModelId(current.defaultModel);
     current.config && defaultConfig(current.config);

@@ -9,6 +9,7 @@
 
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
 import { IPrivacyField } from '../privacy/types';
+import { encodeApiKeyIfPlain, SENSITIVE_GLOBAL_KEYS } from './obfuscate';
 
 /**
  * `siyuan` or `modelName@providerName`
@@ -100,17 +101,25 @@ export const toolsManager = useStoreRef<{
 });
 
 /**
- * 返回可以用于保存为 json 的配置信息
- * @returns
+ * 返回可以用于保存为 json 的配置信息。
+ * key 类字段在此边界混淆存储: 运行时 store 始终保持明文。
  * @internal - Not exported from index.ts
  */
 export const asStorage = (CURRENT_SCHEMA: string) => {
+    const globalMiscConfigsSnapshot = { ...globalMiscConfigs.unwrap() };
+    for (const key of SENSITIVE_GLOBAL_KEYS) {
+        const value = globalMiscConfigsSnapshot[key];
+        if (typeof value === 'string') globalMiscConfigsSnapshot[key] = encodeApiKeyIfPlain(value);
+    }
     return {
         schema: CURRENT_SCHEMA,
         defaultModel: defaultModelId.unwrap(),
         config: { ...defaultConfig.unwrap() },
-        globalMiscConfigs: { ...globalMiscConfigs.unwrap() },
-        llmProviders: [...llmProviders.unwrap()],
+        globalMiscConfigs: globalMiscConfigsSnapshot,
+        llmProviders: llmProviders.unwrap().map(provider => ({
+            ...provider,
+            apiKey: encodeApiKeyIfPlain(provider.apiKey)
+        })),
         ui: { ...UIConfig.unwrap() },
         promptTemplates: [...promptTemplates.unwrap()],
         toolsManager: { ...toolsManager.unwrap() }
