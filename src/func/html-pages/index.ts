@@ -9,11 +9,11 @@
 import FMiscPlugin from "@/index";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { html2ele } from "@frostime/siyuan-plugin-kits";
-import { showMessage } from "siyuan";
+import { showMessage, TPluginDockPosition } from "siyuan";
 import { documentDialog, selectIconDialog, simpleFormDialog } from "@/libs/dialog";
 
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
-import { openIframeTab, openIframeDialog, IIframePageConfig } from "./core";
+import { openIframeTab, openIframeDialog, createIframePage, IIframePageConfig } from "./core";
 
 // ============ 类型与常量 ============
 
@@ -25,6 +25,12 @@ interface IPageConfig {
     icon?: string;
     // per-page open mode: 'tab' or 'dialog' (optional, fallback to module default)
     openMode?: 'tab' | 'dialog';
+    // 注册到思源顶栏的独立图标按钮，点击直接打开该页面
+    registerTopbar?: boolean;
+    // 注册到侧栏 dock 面板
+    registerDock?: boolean;
+    // dock 停靠位置；仅 registerDock 为 true 时有意义
+    dockPosition?: TPluginDockPosition;
 }
 
 const DATA_DIR = '/data/snippets/fmisc-custom-pages/';
@@ -38,6 +44,18 @@ let DEFAULT_OPEN_MODE: 'tab' | 'dialog' = 'tab';
 // Dialog 默认尺寸
 const DEFAULT_DIALOG_WIDTH = '1280px';
 const DEFAULT_DIALOG_HEIGHT = '768px';
+
+// 侧栏 dock 默认停靠位置与尺寸
+const DEFAULT_DOCK_POSITION: TPluginDockPosition = 'LeftBottom';
+const DOCK_SIZE = { width: 400, height: 400 };
+const DOCK_POSITION_OPTIONS: Record<TPluginDockPosition, string> = {
+    LeftTop: '左侧顶部',
+    LeftBottom: '左侧底部',
+    RightTop: '右侧顶部',
+    RightBottom: '右侧底部',
+    BottomLeft: '底部左侧',
+    BottomRight: '底部右侧'
+};
 
 // ============ 工具函数 ============
 
@@ -71,18 +89,14 @@ const saveConfig = async (config: IPageConfig[]) => {
     const configPath = joinPath(CONFIG_FILE);
     await siyuanVfs.writeFile(configPath, config);
     _configSnapshot = config;
+    // 让顶栏按钮/侧栏 dock 的注册状态跟随配置变化，无需重载
+    syncPageSurfaces(config);
 };
 
 // ============ 页面操作 ============
 
-const openPage = (config: IPageConfig) => {
-    const tabId = config.type === 'url'
-        ? 'url-' + encodeURIComponent(config.source)
-        : 'html-' + config.id;
-
-    const title = config.title || (config.type === 'url' ? config.source : config.id);
-
-    const iframeConfig: IIframePageConfig = {
+const buildIframeConfig = (config: IPageConfig): IIframePageConfig => {
+    return {
         type: 'url',
         source: config.type === 'html'
             ? `${DATA_DIR.replace('/data', '')}${config.id}/index.html`
@@ -129,6 +143,16 @@ const openPage = (config: IPageConfig) => {
             }
         } : undefined
     };
+};
+
+const openPage = (config: IPageConfig) => {
+    const tabId = config.type === 'url'
+        ? 'url-' + encodeURIComponent(config.source)
+        : 'html-' + config.id;
+
+    const title = config.title || (config.type === 'url' ? config.source : config.id);
+
+    const iframeConfig = buildIframeConfig(config);
 
     // 使用每个页面的 openMode 优先，其次回退到全局默认
     const mode = config.openMode ?? DEFAULT_OPEN_MODE;
@@ -152,15 +176,123 @@ const openPage = (config: IPageConfig) => {
     }
 };
 
+// ============ 顶栏按钮 / 侧栏 dock 注册 ============
+
+const pageTopbarId = (pageId: string) => `fmisc-htmlpage-topbar-${pageId}`;
+const pageDockId = (pageId: string) => `fmisc-htmlpage-dock-${pageId}`;
+
+/**
+ * 解析可用于 addTopBar/addDock 的图标 ID
+ * 这两个 API 只接受 iconID 或 <svg>，emoji 需要回退到内置图标
+ */
+const resolvePageIcon = (config: IPageConfig): string => {
+    const hasIcon = !!config.icon && config.icon.trim() !== '';
+    if (hasIcon && config.icon.startsWith('icon')) return config.icon;
+    return config.type === 'html' ? 'iconFiles' : 'iconLink';
+};
+
+const registeredTopbarIds = new Set<string>();
+// dockId -> 配置签名，用于判断是否真的需要重新注册
+const registeredDocks = new Map<string, string>();
+
+const dockSignature = (config: IPageConfig) => JSON.stringify([
+    config.title || config.source,
+    resolvePageIcon(config),
+    config.dockPosition || DEFAULT_DOCK_POSITION
+]);
+
+const registerPageTopbar = (config: IPageConfig) => {
+    const id = pageTopbarId(config.id);
+    // 相同 id 重复调用只会原地更新标题/图标/回调，不会产生重复按钮
+    plugin.addTopBar({
+        id,
+        icon: resolvePageIcon(config),
+        title: config.title || config.source || config.id,
+        position: 'right',
+        callback: () => openPage(config)
+    });
+    registeredTopbarIds.add(id);
+};
+
+const registerPageDock = (config: IPageConfig) => {
+    const id = pageDockId(config.id);
+    const iframeConfig = buildIframeConfig(config);
+    iframeConfig.iframeStyle = { ...iframeConfig.iframeStyle, border: 'none' };
+
+    let iframeApi: ReturnType<typeof createIframePage> | undefined;
+    plugin.addDock({
+        id,
+        type: `_htmlpage_${config.id}`,
+        config: {
+            position: config.dockPosition || DEFAULT_DOCK_POSITION,
+            size: { ...DOCK_SIZE },
+            icon: resolvePageIcon(config),
+            title: config.title || config.source || config.id
+        },
+        data: { pageId: config.id },
+        init() {
+            const container = document.createElement('div');
+            container.style.width = '100%';
+            container.style.height = '100%';
+            this.element.appendChild(container);
+            iframeApi = createIframePage(container, iframeConfig);
+        },
+        destroy() {
+            iframeApi?.cleanup();
+            iframeApi = undefined;
+        }
+    });
+    registeredDocks.set(id, dockSignature(config));
+};
+
+/**
+ * 让顶栏按钮和侧栏 dock 的注册状态与配置保持一致
+ * 做差量同步，避免编辑某一个页面时把其它页面的 dock 关掉
+ */
+const syncPageSurfaces = (configs: IPageConfig[]) => {
+    const wantTopbar = configs.filter(config => config.registerTopbar);
+    const wantDock = configs.filter(config => config.registerDock);
+    const wantTopbarIds = new Set(wantTopbar.map(config => pageTopbarId(config.id)));
+    const wantDockIds = new Set(wantDock.map(config => pageDockId(config.id)));
+
+    for (const id of [...registeredTopbarIds]) {
+        if (wantTopbarIds.has(id)) continue;
+        plugin.removeTopBar(id);
+        registeredTopbarIds.delete(id);
+    }
+    for (const id of [...registeredDocks.keys()]) {
+        if (wantDockIds.has(id)) continue;
+        plugin.removeDock(id);
+        registeredDocks.delete(id);
+    }
+
+    wantTopbar.forEach(registerPageTopbar);
+    wantDock.forEach(config => {
+        const id = pageDockId(config.id);
+        if (registeredDocks.get(id) === dockSignature(config)) return;
+        // addDock 会用相同 id 覆盖旧注册，无需手动 removeDock
+        registerPageDock(config);
+    });
+};
+
+const clearPageSurfaces = () => {
+    for (const id of [...registeredTopbarIds]) {
+        plugin.removeTopBar(id);
+        registeredTopbarIds.delete(id);
+    }
+    for (const id of [...registeredDocks.keys()]) {
+        plugin.removeDock(id);
+        registeredDocks.delete(id);
+    }
+};
+
 const registerMenus = async () => {
     await loadConfig();
     // if (configs.length === 0) return;
 
     const loadMenus = () => {
         return _configSnapshot?.map(config => {
-            const hasIcon = config.icon && config.icon.trim() !== '';
-            // const isEmoji = hasIcon && !config.icon.startsWith('icon');
-            const icon = (hasIcon && config.icon.startsWith('icon')) ? config.icon : (config.type === 'html' ? 'iconFiles' : 'iconLink');
+            const icon = resolvePageIcon(config);
 
             let label = config.title || config.source;
             // label = `${config.icon} ${label}`;
@@ -242,6 +374,12 @@ const createConfigPanel = (): ExternalElementWithDispose => {
                     ? `<svg style="width: 20px; height: 20px; fill: var(--b3-theme-on-surface);"><use xlink:href="#${config.icon}"></use></svg>`
                     : `<span style="font-size: 20px; width: 24px; text-align: center;">${config.type === 'html' ? '📄' : '🌐'}</span>`;
 
+            const badges = [
+                (config.openMode || DEFAULT_OPEN_MODE) === 'tab' ? 'Tab' : 'Dialog',
+                ...(config.registerTopbar ? ['顶栏'] : []),
+                ...(config.registerDock ? [`Dock·${DOCK_POSITION_OPTIONS[config.dockPosition || DEFAULT_DOCK_POSITION]}`] : [])
+            ];
+
             return `
             <div class="config-item" data-id="${config.id}" style="
                 padding: 12px 16px;
@@ -254,9 +392,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 500; margin-bottom: 4px; display: flex; gap: 8px; align-items: center;">
                         <div style="min-width: 0;">${config.title || config.source}</div>
-                        <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); background: var(--b3-theme-surface); padding: 2px 8px; border-radius: 12px;">
-                            ${(config.openMode || DEFAULT_OPEN_MODE) === 'tab' ? 'Tab' : 'Dialog'}
-                        </div>
+                        ${badges.map(badge => `<div style="font-size: 12px; color: var(--b3-theme-on-surface-light); background: var(--b3-theme-surface); padding: 2px 8px; border-radius: 12px;">${badge}</div>`).join('')}
                     </div>
                     <div style="font-size: 12px; color: var(--b3-theme-on-surface-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         ${config.source}
@@ -447,6 +583,9 @@ const createConfigPanel = (): ExternalElementWithDispose => {
                 { key: 'title', type: 'text', value: config.title || '', label: '标题' },
                 { key: 'icon', type: 'text', value: config.icon || '', label: '图标 (Emoji 或 iconID)' },
                 { key: 'openMode', type: 'select', value: config.openMode || DEFAULT_OPEN_MODE, label: '打开方式', options: { tab: '标签页 (Tab)', dialog: '弹窗 (Dialog)' } },
+                { key: 'registerTopbar', type: 'checkbox', value: !!config.registerTopbar, label: '注册到顶栏按钮' },
+                { key: 'registerDock', type: 'checkbox', value: !!config.registerDock, label: '注册到侧栏 Dock' },
+                { key: 'dockPosition', type: 'select', value: config.dockPosition || DEFAULT_DOCK_POSITION, label: 'Dock 位置', options: DOCK_POSITION_OPTIONS },
                 //@ts-ignore
                 ...(config.type === 'url' ? [{ key: 'source', type: 'text', value: config.source, label: 'URL' }] : [])
             ]
@@ -457,6 +596,9 @@ const createConfigPanel = (): ExternalElementWithDispose => {
         config.title = result.values?.title;
         config.icon = result.values?.icon;
         config.openMode = result.values?.openMode;
+        config.registerTopbar = result.values?.registerTopbar;
+        config.registerDock = result.values?.registerDock;
+        config.dockPosition = result.values?.dockPosition;
         if (config.type === 'url') {
             config.source = result.values?.source;
         }
@@ -619,12 +761,16 @@ export const load = async (plugin_: FMiscPlugin) => {
     // 初始化默认配置
     await initializeDefaults();
 
-    // await readDir(DATA_DIR);
+    await loadConfig();
+    syncPageSurfaces(_configSnapshot ?? []);
 
     registerMenus();
 };
 
-export const unload = () => { };
+export const unload = () => {
+    if (!plugin) return;
+    clearPageSurfaces();
+};
 
 export const declareToggleEnabled = {
     title: '📝 HTML Pages',
@@ -669,6 +815,7 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
 3. 将生成的代码保存为 .html 文件。
 4. 在设置面板中点击 "添加 HTML 文件" 按钮，上传你的 HTML 文件。
 5. 上传后，你可以在顶部菜单的 "HTML Pages" 中找到并打开你的自定义页面。
+6. （可选）在页面的 "修改配置" 中勾选 "注册到顶栏按钮" 或 "注册到侧栏 Dock"，把常用页面放到顶栏或侧栏；Dock 位置可单独选择。
 
 **为什么这个模块有效**
 
