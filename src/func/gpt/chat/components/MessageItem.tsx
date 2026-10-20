@@ -1,6 +1,6 @@
 import { showMessage, confirm, Menu } from 'siyuan';
 import { Component, createEffect, createMemo, on, Show } from 'solid-js';
-import { formatDateTime, getLute, inputDialog } from "@frostime/siyuan-plugin-kits";
+import { formatDateTime, inputDialog } from "@frostime/siyuan-plugin-kits";
 
 import { solidDialog } from '@/libs/dialog';
 import { floatingEditor } from '@/libs/components/floating-editor';
@@ -20,7 +20,7 @@ import ToolChainIndicator from './ToolChainIndicator';
 import StandardTurnView from './StandardTurnView';
 import TurnEditPanel, { TurnEdits } from './TurnEditPanel';
 
-import { createMarkdownRenderer } from './MessageItem.helper';
+import { createMarkdownRenderer, renderReasoningHtml } from './MessageItem.helper';
 import { floatSiYuanTextEditor } from '../utils';
 
 
@@ -41,7 +41,6 @@ const MessageItem: Component<{
     onSelect?: (id: string) => void;
 }> = (props) => {
 
-    let lute = getLute();
     let msgRef: HTMLDivElement;
     const { session } = useSimpleContext();
 
@@ -747,10 +746,7 @@ const MessageItem: Component<{
                     </summary>
                     <div
                         class={`${styles.reasoningContent} b3-typography`}
-                        innerHTML={
-                            // @ts-ignore
-                            lute.Md2HTML(getMessageProp(props.messageItem, 'reasoning_content'))
-                        }
+                        innerHTML={renderReasoningHtml(reasoningContent(), props.loading)}
                     />
                 </details>
             </Show>

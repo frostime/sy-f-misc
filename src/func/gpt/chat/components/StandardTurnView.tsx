@@ -9,13 +9,11 @@
  *                 共享单根 ref 供 runMarkdownPostRender 全 DOM 后处理（hljs/katex/mermaid）。
  */
 import { Component, createMemo, For, Show, createSignal, createEffect, on } from 'solid-js';
-import { getLute } from '@frostime/siyuan-plugin-kits';
-
 import { extractContentText, getPayload } from '@gpt/chat-utils';
 import { convertMathFormulas } from '@gpt/utils';
 import { defaultConfig } from '@/func/gpt/model/store';
 
-import { createMarkdownRenderer } from './MessageItem.helper';
+import { createMarkdownRenderer, renderReasoningHtml } from './MessageItem.helper';
 import ToolCallRow, { ToolCallEntry } from './ToolCallRow';
 import styles from './MessageItem.module.scss';
 
@@ -29,7 +27,6 @@ const SUMMARY_LEN = 80;
 
 const StandardTurnView: Component<StandardTurnViewProps> = (props) => {
     const markdownRenderer = createMarkdownRenderer();
-    const lute = getLute();
     let turnRootRef: HTMLDivElement | undefined;
 
     const toolChainMessages = createMemo(() => getPayload(props.messageItem, 'toolChainMessages') ?? []);
@@ -90,10 +87,7 @@ const StandardTurnView: Component<StandardTurnViewProps> = (props) => {
                         推理过程
                     </summary>
                     <div
-                        innerHTML={
-                            // @ts-ignore
-                            lute.Md2HTML(finalMessage().reasoning_content!)
-                        }
+                        innerHTML={renderReasoningHtml(finalMessage().reasoning_content, props.loading ?? false)}
                     />
                 </details>
             </Show>

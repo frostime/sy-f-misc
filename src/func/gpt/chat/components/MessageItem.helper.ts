@@ -262,6 +262,16 @@ export const runMarkdownPostRender = async (contentRef: HTMLElement, options?: {
     }
 };
 
+/** Thinking is escaped plain text while streaming; Md2HTML only after loading ends. */
+export function renderReasoningHtml(text: string | undefined | null, isLoading: boolean): string {
+    if (!text) return '';
+    if (isLoading) {
+        return `<div style="white-space: pre-wrap;">${window.Lute.EscapeHTMLStr(text)}</div>`;
+    }
+    //@ts-ignore
+    return getLute().Md2HTML(text);
+}
+
 export function createMarkdownRenderer() {
     let lute = getLute();
     const { config } = useSimpleContext();
