@@ -13,6 +13,7 @@ class ElementFixture extends EventTarget {
     children: ElementFixture[] = [];
     parent?: ElementFixture;
     textContent = '';
+    title = '';
     className = '';
     hidden = false;
     disabled = false;
@@ -37,6 +38,10 @@ class ElementFixture extends EventTarget {
         this.parent = undefined;
     }
     closest() { return this.attributes.has('data-type') ? this : null; }
+    contains(node: ElementFixture | null): boolean {
+        return node === this || this.children.some(child => child.contains(node));
+    }
+    focus() {}
     setZoomFactor(value: number) { this.zoom = value; }
     canGoBack() { return true; }
     canGoForward() { return true; }
@@ -132,15 +137,22 @@ test('loading failures are visible without treating redirects/subresource errors
     const { container, mount } = environment();
     mount();
     const view = guest(container);
-    const status = descendants(container).find(element => element.tagName === 'span')!;
+    const status = descendants(container).find(element => element.attributes.get('role') === 'status')!;
+    const toggle = descendants(container).find(element => element.attributes.get('data-action') === 'toggle-tools')!;
+    assert.equal(status.hidden, true, 'loading must not occupy or cover webpage content');
+    assert.match(toggle.title, /正在加载/);
     emit(view, 'did-fail-load', { isMainFrame: true, errorCode: -105, errorDescription: 'ERR_NAME_NOT_RESOLVED' });
     assert.match(status.textContent, /ERR_NAME_NOT_RESOLVED/);
+    assert.equal(status.hidden, false);
     emit(view, 'did-start-loading');
     emit(view, 'did-fail-load', { isMainFrame: false, errorCode: -105 });
     emit(view, 'did-fail-load', { isMainFrame: true, errorCode: -3 });
-    assert.equal(status.textContent, '正在加载…');
+    assert.equal(status.hidden, true);
+    assert.match(toggle.title, /正在加载/);
     emit(view, 'did-finish-load');
     assert.equal(status.textContent, '');
+    assert.equal(status.hidden, true);
+    assert.equal(toggle.title, '网页工具');
     emit(view, 'render-process-gone');
     assert.match(status.textContent, /网页进程已退出/);
 });
@@ -149,7 +161,7 @@ test('navigation and zoom use guest APIs without replacing the profile', () => {
     const { container, mount } = environment();
     mount('page-123', 'https://www.dida365.com', 1.25);
     const view = guest(container);
-    const buttons = descendants(container).filter(element => element.tagName === 'button');
+    const buttons = descendants(container).filter(element => element.tagName === 'button' && element.attributes.get('data-action') !== 'toggle-tools');
     assert.equal(buttons[0].disabled, true);
     emit(view, 'dom-ready');
     assert.equal(view.zoom, 1.25);
@@ -157,6 +169,41 @@ test('navigation and zoom use guest APIs without replacing the profile', () => {
     for (const button of buttons) emit(button, 'click');
     assert.deepEqual([view.back, view.forward, view.reloads], [1, 1, 1]);
     assert.deepEqual(view.sourcePartitions, ['persist:fmisc-webapp-page-123', 'persist:fmisc-webapp-page-123']);
+});
+
+test('floating tools start collapsed, expand on click, and dismiss on leave, Escape or window blur', context => {
+    context.mock.timers.enable({ apis: ['setTimeout'] });
+    const { container, win, mount } = environment();
+    const page = mount();
+    const tools = descendants(container).find(element => element.className === 'fmisc-webview-tools')!;
+    const actions = descendants(container).find(element => element.attributes.get('role') === 'toolbar')!;
+    const toggle = descendants(container).find(element => element.attributes.get('data-action') === 'toggle-tools')!;
+    assert.equal(actions.hidden, true);
+    assert.equal(toggle.attributes.get('aria-expanded'), 'false');
+    emit(toggle, 'click');
+    assert.equal(actions.hidden, false);
+    assert.equal(toggle.attributes.get('aria-expanded'), 'true');
+    emit(tools, 'pointerleave');
+    context.mock.timers.tick(499);
+    assert.equal(actions.hidden, false, 'briefly moving off the controls must not dismiss them immediately');
+    emit(tools, 'pointerenter');
+    context.mock.timers.tick(1000);
+    assert.equal(actions.hidden, false, 'returning to the controls cancels dismissal');
+    emit(tools, 'pointerleave');
+    context.mock.timers.tick(500);
+    assert.equal(actions.hidden, true);
+    emit(toggle, 'click');
+    emit(tools, 'keydown', { key: 'Escape' });
+    assert.equal(actions.hidden, true);
+    emit(toggle, 'click');
+    emit(win, 'blur');
+    assert.equal(actions.hidden, true);
+    emit(toggle, 'click');
+    emit(tools, 'pointerleave');
+    page.cleanup();
+    context.mock.timers.tick(1000);
+    assert.equal(actions.hidden, false, 'cleanup cancels the pending dismissal timer');
+    assert.equal(getEventListeners(tools, 'pointerleave').length, 0);
 });
 
 test('mobile Tab requests report unsupported without calling the desktop Tab API', () => {

@@ -2,16 +2,18 @@
 
 ## Automated results
 
-- `pnpm test:html-pages-webview`: 9/9 passed.
+- `pnpm test:html-pages-webview`: 10/10 passed.
   - Unsupported browser/disabled WebView host displays a message, never creates an iframe fallback.
   - Mobile Tab requests show an unsupported message without calling desktop Tab APIs.
   - Recreated views and edited entry URLs select the same persisted page partition; different entries select different partitions.
   - Partition is assigned before navigation. Guest preferences explicitly enable isolation/sandbox/web security and disable Node; no preload or plugin SDK is supplied.
   - Main-frame load errors are visible; cancelled redirects/subresource failures are ignored.
   - Navigation/zoom preserve the selected partition.
+  - Floating controls start collapsed, expand on click, cancel pending auto-collapse on pointer return, and collapse after pointer leave, Escape or window blur. Cleanup cancels the auto-collapse timer.
   - Split Tab instances clean up independently and share only their saved partition.
   - Dialogs share the page partition and close during module unload.
   - Closing/unloading removes guests and host/guest listeners; repeated cleanup is safe.
+- Isolated Edge DOM/layout check with a stub guest: the guest fills all 500 px of its container with no toolbar offset; collapsed control measures 34 px wide and its actions have `display: none`; clicking expands them. Error layout stays within a 240 px container in dark mode. This is a visual/layout check, not an Electron guest integration test.
 - `pnpm build:publish`: passed; creates `dist/` and `package.zip` (ignored build output).
 - `git diff --check`: passed.
 - `pnpm type-check`: fails with five existing diagnostics in `src/func/docfile-tools.ts` (four) and `src/func/gpt/model/storage.ts` (one). An in-memory baseline compiler run using source from pre-change commit `9f61a46` reproduces the same five diagnostics. No diagnostics in changed/new source or tests.
@@ -34,7 +36,7 @@ Do not mark login persistence verified until these steps pass in the target SiYu
 4. Quit SiYuan normally, restart it, and reopen the same page. Check login again. Site-expired credentials are not a persistence failure.
 5. Open the same page as Tab, Dialog and Dock. Verify shared login. Change title/entry URL and reopen; verify the same account remains available.
 6. Add another entry for the same website. Verify it has an independent login profile.
-7. Drag/split Tab panes, resize the layout and hide/show Dock. Verify guest rendering and that the drag cover is released when the operation ends, including outside-window mouse release.
+7. Drag/split Tab panes, resize the layout and hide/show Dock. Verify guest rendering and that the drag cover is released when the operation ends, including outside-window mouse release. Check that the lower-left floating button stays above the real guest, expands on click, and collapses after leaving; no full-width toolbar should remain.
 8. Exercise password/SMS and third-party login separately. Popups remain subject to SiYuan's host policy and provider restrictions.
 9. Open on a browser/mobile/remote-kernel client. Verify unsupported messaging, without automatic iframe fallback. Explicit iframe mode remains available.
 10. Open an existing HSPA page. Verify its original iframe SDK still works. Toggle HTML Pages off with WebViews open; verify guests/listeners are released and Dialogs close.

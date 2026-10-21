@@ -14,6 +14,7 @@
 - URL pages default to WebView, including existing URL entries. An explicit iframe option remains available for compatibility; it is not an automatic fallback.
 - WebView tabs use page IDs rather than URLs so separate entries for one website can have independent accounts.
 - Basic back/forward/reload/home controls, visible load errors, and a drag/resize cover belong to the WebView module.
+- Navigation uses a low-opacity, bottom-left floating button instead of a full-width toolbar. Click to expand; pointer leave (500 ms), Escape, focus leaving the controls, or window blur collapses it. Loading is tooltip-only; failures show a floating message. The guest retains the full surface height.
 - No OAuth popup overrides, account-data export, persistent page-runtime snapshots, proxy configuration or arbitrary script injection.
 - Page deletion removes the HTMLPage entry, not Electron's persisted browsing data; disclose this separately from HTML file deletion.
 
