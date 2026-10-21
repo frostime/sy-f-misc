@@ -14,6 +14,7 @@ import { documentDialog, selectIconDialog, simpleFormDialog } from "@/libs/dialo
 
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
 import { openIframeTab, openIframeDialog, createIframePage, IIframePageConfig } from "./core";
+import { createWebviewPage, disposeWebviews, openWebviewDialog, openWebviewTab } from "./webview";
 
 // ============ 类型与常量 ============
 
@@ -21,6 +22,8 @@ interface IPageConfig {
     id: string;
     type: 'url' | 'html';
     source: string;
+    // URL pages default to WebView; iframe remains an explicit compatibility option.
+    renderer?: 'webview' | 'iframe';
     title?: string;
     icon?: string;
     // per-page open mode: 'tab' or 'dialog' (optional, fallback to module default)
@@ -145,7 +148,23 @@ const buildIframeConfig = (config: IPageConfig): IIframePageConfig => {
     };
 };
 
+const usesWebview = (config: IPageConfig) => config.type === 'url' && config.renderer !== 'iframe';
+
 const openPage = (config: IPageConfig) => {
+    if (usesWebview(config)) {
+        const options = {
+            title: config.title || config.source,
+            icon: config.icon,
+            page: { pageId: config.id, url: config.source, zoom }
+        };
+        if ((config.openMode ?? DEFAULT_OPEN_MODE) === 'tab') {
+            void openWebviewTab(options);
+        } else {
+            openWebviewDialog({ ...options, width: DEFAULT_DIALOG_WIDTH, height: DEFAULT_DIALOG_HEIGHT });
+        }
+        return;
+    }
+
     const tabId = config.type === 'url'
         ? 'url-' + encodeURIComponent(config.source)
         : 'html-' + config.id;
@@ -198,7 +217,10 @@ const registeredDocks = new Map<string, string>();
 const dockSignature = (config: IPageConfig) => JSON.stringify([
     config.title || config.source,
     resolvePageIcon(config),
-    config.dockPosition || DEFAULT_DOCK_POSITION
+    config.dockPosition || DEFAULT_DOCK_POSITION,
+    config.type,
+    config.source,
+    config.renderer
 ]);
 
 const registerPageTopbar = (config: IPageConfig) => {
@@ -216,10 +238,7 @@ const registerPageTopbar = (config: IPageConfig) => {
 
 const registerPageDock = (config: IPageConfig) => {
     const id = pageDockId(config.id);
-    const iframeConfig = buildIframeConfig(config);
-    iframeConfig.iframeStyle = { ...iframeConfig.iframeStyle, border: 'none' };
-
-    let iframeApi: ReturnType<typeof createIframePage> | undefined;
+    let pageApi: { cleanup: () => void } | undefined;
     plugin.addDock({
         id,
         type: `_htmlpage_${config.id}`,
@@ -235,11 +254,17 @@ const registerPageDock = (config: IPageConfig) => {
             container.style.width = '100%';
             container.style.height = '100%';
             this.element.appendChild(container);
-            iframeApi = createIframePage(container, iframeConfig);
+            if (usesWebview(config)) {
+                pageApi = createWebviewPage(container, { pageId: config.id, url: config.source, zoom });
+            } else {
+                const iframeConfig = buildIframeConfig(config);
+                iframeConfig.iframeStyle = { ...iframeConfig.iframeStyle, border: 'none' };
+                pageApi = createIframePage(container, iframeConfig);
+            }
         },
         destroy() {
-            iframeApi?.cleanup();
-            iframeApi = undefined;
+            pageApi?.cleanup();
+            pageApi = undefined;
         }
     });
     registeredDocks.set(id, dockSignature(config));
@@ -376,6 +401,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
 
             const badges = [
                 (config.openMode || DEFAULT_OPEN_MODE) === 'tab' ? 'Tab' : 'Dialog',
+                ...(config.type === 'url' ? [usesWebview(config) ? 'WebView' : 'iframe'] : []),
                 ...(config.registerTopbar ? ['顶栏'] : []),
                 ...(config.registerDock ? [`Dock·${DOCK_POSITION_OPTIONS[config.dockPosition || DEFAULT_DOCK_POSITION]}`] : [])
             ];
@@ -466,7 +492,8 @@ const createConfigPanel = (): ExternalElementWithDispose => {
             fields: [
                 { key: 'url', type: 'text', value: '', label: 'URL' },
                 { key: 'title', type: 'text', value: '', label: '标题（可选）' },
-                { key: 'icon', type: 'text', value: '', label: '图标 (Emoji 或 iconID)' }
+                { key: 'icon', type: 'text', value: '', label: '图标 (Emoji 或 iconID)' },
+                { key: 'renderer', type: 'select', value: 'webview', label: '网页容器', options: { webview: 'WebView（仅桌面端，保存登录状态）', iframe: 'iframe（兼容模式）' } }
             ]
         });
 
@@ -482,6 +509,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
             id: pageId,
             type: 'url',
             source: url,
+            renderer: result.values?.renderer === 'iframe' ? 'iframe' : 'webview',
             title,
             icon,
             openMode: DEFAULT_OPEN_MODE
@@ -541,7 +569,9 @@ const createConfigPanel = (): ExternalElementWithDispose => {
         const displayName = config?.title || id;
         confirmDialog({
             title: '确认删除？',
-            content: `是否删除页面 "${displayName}"？此操作将删除所有相关文件，不可撤销。`,
+            content: config?.type === 'url'
+                ? `是否删除页面 "${displayName}"？此操作只删除页面配置，不会清除本机 WebView 的 Cookie 等网站数据。重新添加会使用新的独立登录存储。`
+                : `是否删除页面 "${displayName}"？此操作将删除所有相关文件，不可撤销。`,
             confirm: async () => {
                 // 删除整个页面文件夹（若存在）
                 const pagePath = getPagePath(id);
@@ -587,7 +617,10 @@ const createConfigPanel = (): ExternalElementWithDispose => {
                 { key: 'registerDock', type: 'checkbox', value: !!config.registerDock, label: '注册到侧栏 Dock' },
                 { key: 'dockPosition', type: 'select', value: config.dockPosition || DEFAULT_DOCK_POSITION, label: 'Dock 位置', options: DOCK_POSITION_OPTIONS },
                 //@ts-ignore
-                ...(config.type === 'url' ? [{ key: 'source', type: 'text', value: config.source, label: 'URL' }] : [])
+                ...(config.type === 'url' ? [
+                    { key: 'source', type: 'text', value: config.source, label: 'URL' },
+                    { key: 'renderer', type: 'select', value: config.renderer || 'webview', label: '网页容器', options: { webview: 'WebView（仅桌面端，保存登录状态）', iframe: 'iframe（兼容模式）' } }
+                ] : [])
             ]
         });
 
@@ -601,6 +634,7 @@ const createConfigPanel = (): ExternalElementWithDispose => {
         config.dockPosition = result.values?.dockPosition;
         if (config.type === 'url') {
             config.source = result.values?.source;
+            config.renderer = result.values?.renderer === 'iframe' ? 'iframe' : 'webview';
         }
 
         await saveConfig(configs);
@@ -635,6 +669,10 @@ const createConfigPanel = (): ExternalElementWithDispose => {
                         辅助 Prompt
                     </button>
                 </div>
+                <p style="color: var(--b3-theme-on-surface-light); font-size: 12px;">
+                    URL 默认使用 WebView，仅支持启用 WebView 的思源桌面端。每个页面独立保存本机登录状态，不随思源同步；网站仍可能要求重新登录。
+                    可在修改配置中切换 iframe 兼容模式，两种容器不共享登录状态。修改配置后请关闭并重新打开已打开的标签页或弹窗。
+                </p>
                 <div class="config-list" style="border: 1px solid var(--b3-border-color); border-radius: 4px;">
                     ${renderConfigList()}
                 </div>
@@ -770,6 +808,7 @@ export const load = async (plugin_: FMiscPlugin) => {
 export const unload = () => {
     if (!plugin) return;
     clearPageSurfaces();
+    disposeWebviews();
 };
 
 export const declareToggleEnabled = {
@@ -816,6 +855,16 @@ export const declareModuleConfig: IFuncModule['declareModuleConfig'] = {
 4. 在设置面板中点击 "添加 HTML 文件" 按钮，上传你的 HTML 文件。
 5. 上传后，你可以在顶部菜单的 "HTML Pages" 中找到并打开你的自定义页面。
 6. （可选）在页面的 "修改配置" 中勾选 "注册到顶栏按钮" 或 "注册到侧栏 Dock"，把常用页面放到顶栏或侧栏；Dock 位置可单独选择。
+
+**添加网页 URL**
+
+URL 默认使用桌面端 WebView，也可在配置中手动选择 iframe 兼容模式。不支持 WebView 的客户端会显示提示，不会自动回退。
+
+每个页面使用独立的本机持久化登录存储。关闭页面或正常重启思源后，网站可以继续使用未过期的登录凭证；这不保证恢复页面现场，也不会沿用系统浏览器的登录或同步登录到其他设备。
+
+同一页面的 Tab、Dialog 和 Dock 共享登录存储；不同页面配置相互独立。修改标题或 URL 不会换存储。删除页面不会清除本机网站数据，但重新添加是一个新页面，不会自动复用旧登录。
+
+第三方登录弹窗受思源和网站策略限制，可能被转交系统浏览器，不能保证所有登录方式可用。
 
 **为什么这个模块有效**
 

@@ -9,6 +9,7 @@
   "license": "GPL-3.0-only",
   "scripts": {
     "type-check": "tsc --project tsconfig.json --noEmit --skipLibCheck --noUnusedLocals false --noUnusedParameters false",
+    "test:html-pages-webview": "node tests/run-html-pages-webview-tests.mjs",
     "test:gpt": "pnpm run test:gpt-chat && pnpm run test:gpt-protocol && pnpm run test:gpt-archive",
     "test:gpt-archive": "node tests/run-gpt-archive-tests.mjs",
     "test:gpt-apikey-obfuscate": "node tests/run-gpt-apikey-obfuscate-tests.mjs",
