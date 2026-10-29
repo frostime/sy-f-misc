@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [7.17.1] - 2026-10-29
+
+### Added
+
+- 附件文件模块新增 `/new-svg` 命令：输入 SVG 代码后保存为资源文件，并在当前编辑位置插入图片。
+- 文本附件和 SVG 图片的右键菜单新增 `Edit Asset File`，支持编辑常见 UTF-8 文本资源并保存回原文件。
+
 ## [7.17.0] - 2026-10-24
 
 ### Changed
@@ -291,7 +298,8 @@
 
 _7.8.0 之前的版本记录请参考 git log。_
 
-[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.15.1...HEAD
+[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.17.1...HEAD
+[7.17.1]: https://github.com/frostime/sy-f-misc/compare/v7.17.0...v7.17.1
 [7.14.1]: https://github.com/frostime/sy-f-misc/compare/v7.14.0...v7.14.1
 [7.14.0]: https://github.com/frostime/sy-f-misc/compare/v7.13.1...v7.14.0
 [7.13.1]: https://github.com/frostime/sy-f-misc/compare/v7.13.0...v7.13.1
