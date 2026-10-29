@@ -1,7 +1,7 @@
 ---
 name: GPT Module Architecture Overview
 description: Comprehensive bird's-eye view of src/func/gpt/ — module entry points, configuration system, provider/model lifecycle, chat session lifecycle (V2), API communication flow, and cross-cutting concerns. Entry-level spec-doc for agents orienting in this module.
-updated: 2026-07-26
+updated: 2026-10-30
 scope:
   - /src/func/gpt/**
 ---
@@ -305,7 +305,8 @@ UI: handleSubmit(userText)
       │   ├─ image-gen: imageHandler.generate() → generateImage()
       │   └─ audio-*: audioHandler.* → transcribeAudio() / textToSpeech()
       ├─ [6] handleToolChain() — 如果返回 tool_calls → 多轮工具调用链
-      └─ [7] lifecycle.finalize() — 保存结果到 treeModel
+      │      └─ toolChainToCompletion() — 原生工具消息 + 末条 assistant
+      └─ [7] lifecycle.finalize() — 保存结果到 treeModel（message + toolChainMessages）
 ```
 
 ### 6.2 buildChatOption — 参数合并
@@ -368,21 +369,24 @@ getContextProviders() → IContextProvider[]
 
 ```
 ToolExecutor (tools/executor.ts)
-├── register(tool) — 注册工具
+├── register(tool) — 注册工具（构造时注册内部 read-rule）
 ├── hasEnabledTools() → getEnabledToolDefinitions() → IToolDefinition[]
 ├── execute(toolName, args) → ToolResult
-└── toolRules() → 注入 system prompt 的工具规则
+├── toolRules() → 注入 system prompt 的工具规则与规则索引
+└── read-rule.ts — 读取 declareSkillRules 的只读正文，不经过变量或缓存
 
 工具分类:
 ├── basic.ts          — datetime, text
 ├── file-system/      — 文件编辑/查看
 ├── siyuan/           — 思源笔记内容操作/搜索
 ├── web/              — 网页搜索/抓取
-├── custom-program-tools/ — 自定义 Python/PowerShell 脚本工具
-└── toolcall-script/  — 自定义 JS 工具调用脚本
+├── script-tools.ts   — Shell/Python/JavaScript（桌面端）
+└── custom-program-tools/ — 自定义 Python/PowerShell 脚本工具
 ```
 
 工具审批流程：`executor.ts` → `approval-ui.tsx (InlineApprovalCard)` → 用户 approve/reject → 继续或中止。
+
+工具调用以原生 `IMessage[]` 随回答版本持久化（无压缩日志、无工具结果变量）。规则文档与 `read-rule` 边界见 [tool-call/rules.md](tool-call/rules.md)，执行链细节见 [tool-call/index.md](tool-call/index.md)。
 
 ### 7.4 对话持久化与设置同步的边界
 

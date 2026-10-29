@@ -56,7 +56,6 @@ import { jsonAgent } from '../openai/tiny-agent';
 import { showChatWorldTree } from './ChatSession/world-tree';
 import { commitSubtreeRemoval } from './ChatSession/subtree-removal';
 import { showTreeResidueReview } from './ChatSession/residue-review';
-import { openVarsManager } from '../tools/vars';
 import Markdown from '@/libs/components/Elements/Markdown';
 
 
@@ -782,14 +781,6 @@ export const ChatSession: Component<{
                 checked: isReadingMode(),
                 click: () => {
                     isReadingMode.update(!isReadingMode());
-                }
-            });
-
-            menu.addItem({
-                icon: 'iconSpreadEven',
-                label: '变量管理',
-                click: () => {
-                    openVarsManager(session.toolExecutor);
                 }
             });
 

@@ -22,16 +22,11 @@ const formatOutput = (result: ExecResult): string => {
  * Shell command execution tool
  */
 const shellTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: '格式为 "[stdout]\n...\n\n[stderr]\n..."'
-    },
-
     definition: {
         type: 'function',
         function: {
             name: 'Shell',
-            description: `在 ${getPlatform()} 运行 ${getScriptName()} 指令/脚本\n返回 string（stdout/stderr 摘要，完整输出保存于历史记录）`,
+            description: `在 ${getPlatform()} 运行 ${getScriptName()} 指令/脚本，返回 string（[stdout] 与 [stderr] 两部分）`,
             parameters: {
                 type: 'object',
                 properties: {
@@ -45,7 +40,7 @@ const shellTool: Tool = {
                     },
                     injectVar: {
                         type: 'object',
-                        description: `注入变量到 ${getScriptName()} 环境中。变量会被设置为环境变量，PowerShell 中使用 $env:VAR_NAME 访问，Bash 中使用 $VAR_NAME 访问。支持与 VAR_REF 机制结合`
+                        description: `注入变量到 ${getScriptName()} 环境中，变量被设置为环境变量：PowerShell 用 $env:VAR_NAME 访问，Bash 用 $VAR_NAME 访问。只支持可 JSON 序列化的基本类型（string/number/boolean），值会转为字符串`
                     },
                     limit: {
                         type: 'number',
@@ -103,16 +98,11 @@ const shellTool: Tool = {
  * Python script execution tool
  */
 const pythonTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: '格式为 "[stdout]\n...\n\n[stderr]\n..."'
-    },
-
     definition: {
         type: 'function',
         function: {
             name: 'Python',
-            description: '在本地运行 Python 代码（默认假设本地已安装 Python）',
+            description: '在本地运行 Python 代码（默认假设本地已安装 Python），返回 stdout 与 stderr。脚本默认写入临时目录，keepFile=true 时保留',
             parameters: {
                 type: 'object',
                 properties: {
@@ -126,7 +116,7 @@ const pythonTool: Tool = {
                     },
                     injectVar: {
                         type: 'object',
-                        description: '注入变量到 Python 环境中。变量会被解析为 Python 对象，并在代码开头自动声明。支持与 VAR_REF 机制结合，将大量数据通过变量引用传递给 Python'
+                        description: '注入变量到 Python 环境。变量会被解析为 Python 对象，并在代码开头自动声明，可直接按变量名使用'
                     },
                     keepFile: {
                         type: 'boolean',
@@ -198,16 +188,11 @@ const pythonTool: Tool = {
  * JavaScript code execution tool
  */
 const javascriptTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: 'console.log 输出，可能含 Warnings/Errors 部分'
-    },
-
     definition: {
         type: 'function',
         function: {
             name: 'JavaScript',
-            description: '在沙盒环境中运行 JavaScript 代码',
+            description: '在思源内 iframe 沙盒中运行 JavaScript 代码（代码被封装为 async 函数执行）。返回 console 输出与显式 return 的值；可使用 fetch 访问思源内核 API；禁止打印或返回无法序列化的对象',
             parameters: {
                 type: 'object',
                 properties: {
@@ -217,7 +202,7 @@ const javascriptTool: Tool = {
                     },
                     injectVar: {
                         type: 'object',
-                        description: '注入变量到 JavaScript 环境中。变量会被解析为 JS 对象，并在代码开头通过 const 声明。支持与 VAR_REF 机制结合，将大量数据通过变量引用传递给 JS'
+                        description: '注入变量到 JavaScript 环境。变量会被解析为 JS 对象，并在代码开头通过 const 声明，可直接按变量名使用'
                     }
                 },
                 required: ['code']
@@ -290,70 +275,10 @@ const javascriptTool: Tool = {
 
 /**
  * Script tools group
+ *
+ * 各工具的能力与 injectVar 注入方式已写在工具描述中，无需额外规则。
  */
 export const scriptTools: ToolGroup = {
     name: '脚本执行工具组',
     tools: [shellTool, pythonTool, javascriptTool],
-    declareSkillRules: {
-        'var-ref-inject': {
-            when: '复用大批量的工具调用结果，例如先获取网页，然后利用脚本自动化分析内容',
-            desc: 'VAR_REF + injectVar 案例',
-            prompt: `
-结合 VAR_REF 机制，可将大量数据通过变量引用传递给脚本
-
-注意:
-
-1. 使用 VAR_REF 必须使用两个大括号引用 $VAR_REF{{name}}
-2. $VAR_REF 引用变量的类型**总是字符串**；所以不建议在内部存储复杂结构，或者读取的时候进行 json 解码以恢复结构化数据
-
-假设已经存在 large_json_data 变量 (建议通过 ListVars 检查)
-
-可以直接将其传入脚本注入变量中
-
-\`\`\`json
-// Python 示例：处理大量 JSON 数据
-{
-  "name": "Python",
-  "arguments": {
-    "code": "print(len(data))  # data 已自动解析为 Python 对象",
-    "injectVar": {
-      "data": "$VAR_REF{{large_json_data}}"
-    }
-  }
-}
-
-// JavaScript 示例：处理大量文本
-{
-  "name": "JavaScript",
-  "arguments": {
-    "code": "console.log(content.split('\\n').length);  // content 已自动解析",
-    "injectVar": {
-      "content": "$VAR_REF{{large_text}}"
-    }
-  }
-}
-\`\`\`
-            `.trim()
-        }
-    },
-    rulePrompt: `
-适用场景：系统交互、数学计算、统计分析、批量处理等
-
-**脚本**:
-- Shell: ${getScriptName()} 命令/脚本（传入完整代码）
-- Python: 需系统已安装，返回 stdout
-- JavaScript: 思源内沙盒环境，返回 console 输出以及最后一个被 eval 的变量; 沙盒基于 iframe，内部封装为 async 函数来执行代码; 禁止打印、返回无法被序列化的对象; 可以使用 fetch 访问思源内核 API
-
-**变量注入（injectVar 参数）**:
-所有脚本工具均支持 \`injectVar\` 参数，用于将变量传递给脚本环境; 请注意 inejctVar 必须可JSON序列化, 尽量只使用基本类型.
-
-- **Shell**: 通过环境变量注入
-  - PowerShell: \`$env:VAR_NAME\`
-  - Bash: \`$VAR_NAME\`
-- **Python**: 变量会在代码开头自动声明，可直接使用
-- **JavaScript**: 通过代码前置声明注入
-
-可与 VAR_REF 机制结合，直接引用变量以节省 Token，详情见相关 \`var-ref-inject\` 文档。
-
-`.trim()
 };

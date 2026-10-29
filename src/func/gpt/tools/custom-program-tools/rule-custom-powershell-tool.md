@@ -10,7 +10,7 @@
  */
 export interface Tool {
     definition: IToolDefinition;  // Openai Tool Definition with JSON Schema
-    permission: ToolPermission;
+    permission: ToolPermissionV2;
 }
 
 export interface ToolGroup {
@@ -26,7 +26,8 @@ export interface ToolGroup {
 **重点规则**
 
 - 顶部文档说明会被解析为工具组的 Rule Prompt
-- 所有非私有函数 (不以 `Internal`, `_` `Format` 开头的函数)，会被解析为 Tool，函数的内部文档，会被解析为 definition
+- 所有非私有函数 (不以 `Internal`, `_` `Format` 开头的函数)，会被解析为 Tool；`.SYNOPSIS` / `.DESCRIPTION` 进入工具描述，参数说明用于参数 Schema。
+- `.OUTPUTS` 是脚本文档，不单独导出返回类型 Schema。需要模型预先了解返回结构时，写入 `.DESCRIPTION`，或通过 `Format-{FunctionName}` 提供可读结果。
 
 ## PowerShell 自定义工具脚本规范
 

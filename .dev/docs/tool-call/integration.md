@@ -1,9 +1,11 @@
 ---
 name: Chat 集成层（use-openai-endpoints）
-description: Tool Call 在 ChatSession 中的完整集成逻辑：注入工具定义、构建 systemPrompt、执行链路、结果保存
-updated: 2026-06-24
+description: Tool Call 在 ChatSession 中的完整集成逻辑：注入工具定义、构建 systemPrompt、执行链路、结果保存与历史回放
+updated: 2026-10-30
 scope:
   - /src/func/gpt/chat/ChatSession/use-openai-endpoints.ts
+  - /src/func/gpt/chat/ChatSession/tool-chain-result.ts
+  - /src/func/gpt/chat/ChatSession/message-lifecycle.ts
   - /src/func/gpt/chat/ChatSession/use-chat-session.ts
 deprecated: false
 ---
@@ -16,28 +18,32 @@ deprecated: false
 
 ---
 
-## 工具调用持久化模式
+## 工具调用持久化
 
-`config().toolCallMode`（per-session，默认 `'standard'`）决定工具调用 turn 的持久化与回放形态：
+新生成只有一种形态：**原生工具消息**。payload 中：
 
-| 模式 | 持久化 | 回放 |
-|------|--------|------|
-| **Standard** | payload 新增 `toolChainMessages: IMessage[]`（原生序列，不含末条 assistant）；`message`=末条 assistant（唯一可编辑源）；不设 `userPromptSlice` | `getAttachedHistory` 展开为 `[...toolChainMessages, message]`，发给 LLM 的是真实 `assistant(tool_calls)` + `role:tool` 序列 |
-| **Legacy** | 压缩串 `toolChainContent + responseContent` 写入 `message.content`；`userPromptSlice=[hintSize, len]` 标记 hint 边界 | 单条 assistant 消息（压缩串，不 strip） |
+| 字段 | 内容 |
+|------|------|
+| `toolChainMessages` | 一个 turn 内的原生序列，**不含末条 assistant**：`[assistant(tool_calls), tool, assistant(tool_calls), tool, ...]`；中间 assistant 已剥离 `reasoning_content` |
+| `message` | 末条 assistant（唯一可编辑源，避免双份 drift） |
+| `toolChainResult` | `toolCallHistory` + `stats` + `status` + `error`，供 UI 折叠 timeline 与统计 |
+| `userPromptSlice` | 新生成不设置（`finalize` 显式写 `undefined`） |
 
-判定：`payload.toolChainMessages != null` → standard cell；否则 legacy cell。旧数据无此字段自动 legacy，零迁移。`executeToolChain` 自身不区分模式——分流发生在集成层 `handleToolChain` 与 `getAttachedHistory`。详见 [standard-tool-call change](/../../changes/26-06-24T01-00_standard-tool-call/)。
+没有压缩日志、没有工具结果变量、没有 `$VAR_REF`。完整的 `assistant(tool_calls)` / `role:tool` 序列就是持久化内容。
+
+**回放判定**（既有读取路径，未改动）：`payload.toolChainMessages != null` → 原生序列 cell，展开为 `[...toolChainMessages, message]`；否则按单条 assistant 回放。因此打开旧记录不会触发迁移或重写，旧记录仍可继续聊天；旧记录的 `userPromptSlice` 继续用于显示层截取回答正文。
+
+设置侧：配置 schema 3.4 删除了 `toolCallMode`。迁移只删除旧字段，不保留“重新启用旧生成路径”的开关；旧记录按原内容读取。
 
 ---
 
 ## 架构分层
 
-`use-openai-endpoints.ts` 内部采用四层职责分离：
-
 | 层 | 类/函数 | 职责 |
 |----|---------|------|
 | **生命周期层** | `createMessageLifecycle` | 创建占位节点、流式更新、最终写入 TreeModel |
 | **Handler 层** | `createChatHandler` / `createImageHandler` / `createAudioHandler` | 各模态执行逻辑 |
-| **工具链层** | `handleToolChain` | 调用 `executeToolChain()`，整合结果 |
+| **工具链层** | `handleToolChain` + `toolChainToCompletion` | 调用 `executeToolChain()`，把结果转成可持久化的回答 |
 | **编排层** | `useGptCommunication` | 对外提供 `sendMessage` / `reRunMessage`，协调上述三层 |
 
 ---
@@ -59,6 +65,8 @@ const buildChatOption = (): IChatCompleteOption => {
 };
 ```
 
+`getEnabledToolDefinitions()` 会在存在按需规则时自动附加内部工具 `read-rule`，见 [rules.md](./rules.md)。
+
 **触发条件**：只要 `toolExecutor.hasEnabledTools()` 为 true，即有任何工具组被启用。
 
 ---
@@ -77,7 +85,7 @@ const buildSystemPrompt = (): string => {
 
     // 注入工具规则
     if (toolExecutor?.hasEnabledTools()) {
-        prompt += toolExecutor.toolRules();  // ← 所有工具组 rulePrompt + Skill Rules 索引
+        prompt += toolExecutor.toolRules();  // ← 工具组 rulePrompt + 规则索引
     }
 
     return `${ptime}\n\n${prompt}`;
@@ -111,84 +119,79 @@ sendMessage(userMessage, attachments, contexts)
 
 ### reRunMessage 流程差异
 
-- 用 `{ updateAt: N }` 或 `{ insertAt: N }` 代替 `'append'`（就地更新或插入）
+- 用 `{ updateAt: N }` 或 `{ insertAt: N }` 代替 `'append'`（就地新建版本或插入）
 - 从上下文还原用户输入（`extractMessageContent(userPayload.message.content)`）
 - 同样先获取历史再创建占位
+- 新版本独立写入：旧版本的工具消息不被覆盖
 
 ### 回放分流（getAttachedHistory）
 
-`getAttachedHistory`（[`use-chat-session.ts`](/src/func/gpt/chat/ChatSession/use-chat-session.ts)）在选定窗口（按 item=turn 计数）后，末尾按 cell 模式展开为发给 LLM 的 `IMessage[]`：
+`getAttachedHistory`（[`use-chat-session.ts`](/src/func/gpt/chat/ChatSession/use-chat-session.ts)）在选定窗口（按 item=turn 计数）后，末尾按 cell 形态展开为发给 LLM 的 `IMessage[]`：
 
 ```
 return [...finalContext, targetMessage].flatMap(item => {
   const msg = getPayload(item, 'message')
   const tcm = getPayload(item, 'toolChainMessages')
-  if (tcm != null)  return [...tcm, msg]   // standard: 展开原生序列 + 末条 assistant
-  else              return [msg]           // legacy: 整段单条 assistant（不 strip）
+  if (tcm != null)  return [...tcm, msg]   // 原生序列 cell：展开历史工具消息
+  else              return [msg]           // 旧记录：单条 assistant
 })
 ```
 
-窗口计数仍按 item（=turn），展开发生在窗口选定之后。语义：只有 user 输入才是 turn 边界，一个 assistant→tool→...→assistant 序列视为一个 turn。
+窗口计数仍按 item（=turn），展开发生在窗口选定之后。语义：只有 user 输入才是 turn 边界，一个 assistant→tool→...→assistant 序列视为一个 turn。回放只读取已保存内容，不重新执行历史工具。
 
 ---
 
 ## 4. 工具链集成（handleToolChain）
 
-`handleToolChain` 调用 `executeToolChain()` 后，按 `config().toolCallMode` 分流收尾。`executeToolChain` 自身不区分模式，始终返回 `{ messages.toolChain, toolChainContent, responseContent, toolCallHistory, stats, status, error, usage }`。
+`handleToolChain` 调用 `executeToolChain()`，成功时用 `toolChainToCompletion()` 转成回答版本；非 `completed` 一律回退首次响应。
 
 ```
 result = executeToolChain(...)
 if status == 'completed':
-  if mode == 'standard':
-    tcm = result.messages.toolChain                  // 原生序列（已不含合成 [SYSTEM] user）
-    last = tcm[末]
-    if last.role == 'assistant':                      // 正常
-      message = { role:'assistant', content=extractContentText(last.content), reasoning_content=last.reasoning_content }
-      toolChainMessages_persist = tcm[0..-2].map(stripReasoning)   // 剥离中间 assistant 的 reasoning
-    else:                                             // 边界 fallback（follow-up 异常，末元素为 tool(incomplete)）
-      message = { role:'assistant', content='' }
-      toolChainMessages_persist = tcm.map(stripReasoning)
-    return { content, reasoning_content, toolChainMessages: toolChainMessages_persist, toolChainResult, usage }
-    // 不设 hintSize → finalize 不设 userPromptSlice
-  else:  // legacy
-    return { content: toolChainContent + responseContent, hintSize: toolChainContent.length, toolChainResult, usage }
-else:
-  return initialResponse   // aborted/error：退化走 legacy finalize（无 toolChainMessages）
+  return toolChainToCompletion(result, initialResponse)
+else:                       // aborted / error
+  return initialResponse    // 只保存首次响应文本，已执行的工具消息不落盘
 ```
 
-`stripReasoning(msg)`：剥离 assistant 消息的 `reasoning_content`（tool 消息 no-op）。`toolChainMessages` 中间 assistant 一律剥离；`message`（末条 assistant）保留 reasoning 供 UI。
+`toolChainToCompletion()`（`tool-chain-result.ts`）：
 
-**数据源**：`result.messages.toolChain` 由 `executeToolChain` 返回（执行器不改），即 `state.toolChainMessages`。合成 `[SYSTEM]` user 消息（maxRounds 兜底）只进 `state.allMessages` 不进 `toolChainMessages` → 持久化自动排除。
-    }
-};
 ```
+tcm  = result.messages.toolChain
+last = tcm[末]
+if last.role == 'assistant':                       // 正常收尾
+  content            = extractContentText(last.content)
+  reasoning_content  = last.reasoning_content
+  toolChainMessages  = tcm[0..-2]（stripReasoning）
+else:                                              // 收尾请求失败的边界
+  content            = ''
+  toolChainMessages  = tcm（stripReasoning）
+toolChainResult = { toolCallHistory, stats, status, error }
+```
+
+`stripReasoning(msg)`：剥离 assistant 消息的 `reasoning_content`（tool 消息 no-op）。中间 assistant 一律剥离；`message`（末条 assistant）保留 reasoning 供 UI。
+
+**数据源**：`result.messages.toolChain` 即 `state.toolChainMessages`；合成 `[SYSTEM]` user 提示只进 `state.allMessages`，因此不会进入持久化。
 
 ---
 
 ## 5. 结果持久化（lifecycle.finalize）
 
-`finalize()` 将 `ExtendedCompletionResult` 写入 TreeModel 节点，按模式分流：
+`finalize()` 把结果写入**启动本次请求时确定的版本**（`prepareSlot` 记录的 `targetVersions`），而不是用户当前查看的版本：
 
 ```typescript
 treeModel.updatePayload(id, {
     message: { role: 'assistant', content: result.content, ...reasoning_content },
-    usage, time, token,
-
-    // standard: userPromptSlice=undefined，写 toolChainMessages
-    // legacy:   userPromptSlice=[hintSize, len]，无 toolChainMessages
-    userPromptSlice: result.toolChainMessages
-        ? undefined
-        : (result.hintSize ? [result.hintSize, result.content.length] : undefined),
-    toolChainMessages: result.toolChainMessages ?? undefined,
-    toolChainResult: result.toolChainResult ?? undefined   // 两模式均写（UI timeline 元数据源）
-});
+    author, timestamp, usage, time, token,
+    userPromptSlice: undefined,                 // 新生成不设
+    toolChainMessages: result.toolChainMessages,
+    toolChainResult: result.toolChainResult
+}, versionId);
+treeModel.updateNode(id, { loading: false, attachedItems, attachedChars });
 ```
 
-**Standard**：`message.content` = 末条 assistant 最终回复（纯文本/多模态，符合 OpenAI 规范）；`toolChainMessages` = turn 内原生序列；UI 通过 `toolChainResult` 驱动折叠 timeline。
+`attachedItems` / `attachedChars` 记录本次发送的上下文规模。版本被删除时 `finalize` 抛错，不会写回错误的版本。
 
-**Legacy**：`message.content` = `toolChainContent + responseContent`（压缩串）；`userPromptSlice[0]` = hintSize = System Hint 字节边界，UI 在 `[0, hintSize)` 折叠 hint、`[hintSize, end)` 显示回复。
-
-**`toolChainResult` 定位**：两模式均产出，是 UI/统计元数据源（timing、llmUsage、rejectReason、stats、status、error），与 `toolChainMessages`（消息序列/回放源）分工；重叠仅只读 `result.data`，无 drift。
+用户手动“添加版本”时（`addMsgItemVersion`），`toolChainMessages`、`toolChainResult` 与旧 `userPromptSlice` 会一并拷贝到新版本，避免版本切换后丢工具调用结构。
 
 ---
 
@@ -196,9 +199,8 @@ treeModel.updatePayload(id, {
 
 ```typescript
 interface ExtendedCompletionResult extends ICompletionResult {
-    hintSize?: number;             // legacy: toolChainContent 字符长度（分隔边界）；standard: 不设
-    toolChainResult?: IMessagePayload['toolChainResult'];  // 两模式：UI/统计元数据
-    toolChainMessages?: IMessage[];  // standard: turn 内原生序列（不含末条 assistant，已 strip reasoning）
+    toolChainResult?: IMessagePayload['toolChainResult']; // UI/统计元数据
+    toolChainMessages?: IMessage[]; // 原生工具消息（不含末条 assistant，已 strip reasoning）
 }
 ```
 
@@ -233,5 +235,14 @@ interface ExtendedCompletionResult extends ICompletionResult {
 
 ## 8. toolCallMaxRounds 配置
 
-`config().toolCallMaxRounds` 来自 `IChatSessionConfig`，用户可在设置中配置。  
+`config().toolCallMaxRounds` 来自 `IChatSessionConfig`，用户可在设置中配置。
 传递给 `executeToolChain` 的 `maxRounds` 参数，控制最大 LLM↔工具往返次数（默认 10，见 [toolchain.md](./toolchain.md)）。
+
+---
+
+## 9. 已知未修复行为（本轮范围外）
+
+- **中断/失败回退**：`handleToolChain` 在 `status != 'completed'` 时返回首次响应，本轮已执行的工具调用记录不进入回答版本；只有首轮文本被保存（工具的实际副作用可能已经发生）。
+- **跨轮隐私**：`maskMessages` 只作用于首轮请求（`chatHandler.execute`）；工具链内部后续 `complete()` 请求发送未屏蔽的 `allMessages`。
+- **错误结果审批**：`checkToolResults: true` 已传入，但执行器对非 `SUCCESS` 结果提前返回，`on-error` 结果审批不会触发（见 [toolchain.md](./toolchain.md) 与 [executor.md](./executor.md)）。
+- **工具关闭仍可按名称执行**：启用状态只影响注入的定义，不构成执行禁止；这是刻意设计，不属于上述缺陷。

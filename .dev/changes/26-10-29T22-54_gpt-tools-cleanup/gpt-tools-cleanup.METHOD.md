@@ -1,6 +1,6 @@
 # GPT 工具清理与思源原生工具接入：Method
 
-本文件记录候选实现和证据，不将未经验证的路线升级为 Target 要求。目标见同目录 `gpt-tools-cleanup.TARGET-SPEC.md`。
+本文件记录已采用的清理实现和仍待验证的 MCP 路线，不将源码调查升级为运行保证。目标见同目录 `gpt-tools-cleanup.TARGET-SPEC.md`。
 
 ## 基线与证据范围
 
@@ -12,7 +12,9 @@
 - `pnpm run test:html-pages-webview`：10 个测试通过。
 - `pnpm run build:publish`：通过。没有做本轮附件 UI 的思源内实测。
 
-这些结果是源码基线，不证明本 change 已实现，更不证明本机 MCP 联调成功。日志是本机 MSYS `/tmp/sy-f-misc-merge-{gpt,webview,build}.log`，不作为后续会话必须存在的输入。
+这些结果是清理前的源码基线；本次清理的回归结果见 PLAN。它们都不证明本机 MCP 联调成功。基线日志是本机 MSYS `/tmp/sy-f-misc-merge-{gpt,webview,build}.log`，不作为后续会话必须存在的输入。
+
+全量 type-check 的基线有 5 个错误：`src/func/docfile-tools.ts` 四个 DOM 类型错误，`src/func/gpt/model/storage.ts:65` 一个 object/Record 类型错误。主代理用 `git archive` 将 `34c2ea1` 的源码提取到隔离的 `tmp/gpt-tools-baseline-34c2ea1/`，在不改共享工作树的情况下重新编译，复现了相同 5 个位置。不要在本 change 中顺带修复它们。
 
 ## 现有代码入口
 
@@ -20,30 +22,34 @@
 |---|---|
 | `src/func/gpt/tools/types.ts` | `Tool` 与 `ToolGroup`；检查远端定义能否直接映射，以及结果/取消接口需要哪些最小调整 |
 | `src/func/gpt/tools/index.ts` | 同步工厂、组注册、全局组/工具默认值、审批适配器绑定 |
-| `src/func/gpt/tools/executor.ts` | 规则索引、变量注入和替换、执行、格式化、截断、缓存、审批混在同一执行器 |
-| `src/func/gpt/tools/vars/` | 普通变量工具、规则与结果的混合存储、变量管理器；清理时查全入口 |
-| `src/func/gpt/tools/toolchain.ts` | 多轮执行、原生消息、Legacy `MessageFlowFormatter`；不能删掉原生消息以代替删压缩机制 |
-| `src/func/gpt/chat/ChatSession/use-openai-endpoints.ts` | 首轮请求与工具链衔接，Standard/Legacy 收尾分支 |
+| `src/func/gpt/tools/executor.ts` | 组开关、规则索引、执行、格式化、截断和审批；不再保存变量或展开引用 |
+| `src/func/gpt/tools/read-rule.ts` | 只读遍历已注册工具组的规则定义，完整返回文档 |
+| `src/func/gpt/tools/toolchain.ts` | 多轮执行、原生消息、调用元数据；不生成 Legacy 伪日志 |
+| `src/func/gpt/chat/ChatSession/use-openai-endpoints.ts` | 首轮请求与工具链衔接，所有新生成共用原生结果转换 |
+| `src/func/gpt/chat/ChatSession/tool-chain-result.ts` | 原生消息转换为版本 payload 所需结果，末条 assistant 作为正文，其余作为工具消息序列 |
 | `src/func/gpt/chat/ChatSession/message-lifecycle.ts` | 通过已创建的版本 ID 写入 stream/finalize，不写用户临时切换到的版本 |
 | `src/func/gpt/chat/ChatSession/use-chat-session.ts` | 当前 worldLine/窗口/pin 上下文；Standard cell 展开 `toolChainMessages + message` |
-| `src/func/gpt/chat/main.tsx` | 变量管理菜单与工具管理入口 |
+| `src/func/gpt/chat/main.tsx` | 聊天与工具管理入口；变量管理菜单已移除 |
 | `src/func/gpt/chat/components/SessionToolsManager.tsx` | 会话工具组 UI；当前 `groupRegistry` 本身不是响应式状态，异步新增组不能只修改普通对象 |
 | `src/func/gpt/setting/ToolsManagerSetting.tsx` | 全局默认开关和权限；临时执行器也需要知道异步原生组，但不能在渲染中反复发现 |
-| `src/func/gpt/model/config.ts`、`config_migration.ts`、`storage.ts` | `toolCallMode`、权限覆盖、schema 迁移；当前 schema 为 3.3 |
-| `.dev/docs/tool-call/integration.md` | 现有 Standard/Legacy 存储与回放区别；实现后应回写过时描述 |
+| `src/func/gpt/model/config.ts`、`config_migration.ts`、`storage.ts` | 权限覆盖和配置 schema 3.4 迁移；删除旧 `toolCallMode`，不迁移会话历史 |
+| `tests/gpt-tools.test.ts` | 真实执行器、规则、工具链与版本生命周期回归；仅模型/宿主边界替身 |
+| `.dev/docs/tool-call/integration.md` | 新生成原生消息与旧 Legacy 记录的回放边界 |
 | `.dev/docs/gpt-chat-history-persistence.md` | 修改旧历史兼容前必须遵守的持久化边界 |
 
-## 清理的候选实现
+## 已采用的清理实现
 
 ### 只读规则表，不建设新的记忆系统
 
-暂时沿用 `ToolGroup.declareSkillRules` 中仍有价值的正文与标识，以最小差异建立只读规则表。`read-rule` 的候选参数是 `name`，可先接受 `Rule/<group>/<topic>` 现有标识。规则索引直接指向这个工具，不再经 `VariableSystem` 注册和读取。
+沿用 `ToolGroup.declareSkillRules` 中仍有价值的正文与 `Rule/<group>/<topic>` 标识。`read-rule` 参数为 `name`，直接遍历已注册组查找，不另建一份规则/加载状态缓存。文档完整返回，不受普通工具的输出截断；未知规则返回 NOT_FOUND。
+
+执行器注册这个内部辅助工具，仅当启用组中有启用工具且存在按需规则时将它加到模型定义。`alwaysLoad` 正文仍内联；组没有 `rulePrompt` 也能显示规则索引。读取已注册但关闭的组文档不被禁止，与用户保留的“开关只过滤定义”语义一致。
 
 暂不增加规则安装器、自动激活状态、会话级“已加载”标志或独立 SKILL 仓库。`read-rule` 的结果是普通工具消息，和回答版本一起持久化；换分支后的可见内容由现有消息回放决定。
 
 先分类再删内容：
 
-| 当前内容 | 候选处理 |
+| 原有内容 | 本轮处理 |
 |---|---|
 | `executor.ts` 的 VarRef、压缩日志说明及 `script-tools.ts` 的 VarRef 教程 | 随机制删除 |
 | `file-system/skill-rules.ts` 的读取/写入模式、短参数说明 | 收到已有工具/参数描述中，删重复教程 |
@@ -55,13 +61,15 @@
 
 ### 变量与 Legacy 的删除连同消费者进行
 
-候选删除项包括普通变量工具、`$VAR_REF` 展开、结果/参数缓存及缓存提示、变量管理页面入口。`injectVar` 的普通 JSON 值注入是脚本工具自身能力；去掉 VarRef 不等于删除普通参数注入。
+已移除普通变量工具、`$VAR_REF` 展开、结果/参数缓存及缓存提示、变量管理页面和设置中的工具结果缓存入口。旧引用语法在工具参数中只是普通字符串。`injectVar` 的普通 JSON 值注入是脚本工具自身能力；去掉 VarRef 不等于删除普通参数注入。
 
-`toolchain.ts` 继续产生原生 `IMessage[]` 和 UI 所需调用元数据，但不再为新生成构建 Legacy 伪系统日志。检查所有 `toolChainContent`、`hintSize`、`userPromptSlice` 消费者，区分旧数据读取所需字段与可以删除的新生成路径。
+`toolchain.ts` 继续产生原生 `IMessage[]` 和 UI 所需调用元数据，不再构建 Legacy 伪日志。新生成侧的 `toolChainContent` 和 `hintSize` 已删除；旧历史侧的 `userPromptSlice`、显示与上下文读取仍保留。`tool-chain-result.ts` 保留原有 Standard 分包语义，再交给现有 `message-lifecycle` 按预先创建的版本 ID 写入。
 
-`toolcall-script/` 当前未注册；执行器的 VFS 当前没有实际调用者。可在确认使用点后删除本模块的死路径，不能顺带删除共享 `src/libs/vfs/`。旧权限运行期兼容只在确认当前内置/自定义定义及配置迁移边界后再精简。
+已在确认引用后删除未注册的 ToolCallScript、闲置执行器 VFS、无消费的 `declaredReturnType`、压缩回调和缓存开关，以及消费者/生产者中的对应字段。共享 VFS、脚本普通参数注入和权限提取不改。旧权限运行期兼容保留，避免顺带改变自定义工具的权限语义。
 
-目前不默认加入 `ReadVar` 别名，也不伪造旧缓存内容。Legacy 设置迁移和可能的别名在实施前关闭，见 PLAN。
+不保留 `ReadVar` 别名，不伪造旧缓存内容。配置 schema 3.4 一次性删除 `config.toolCallMode`，新生成统一原生消息；旧记录和历史文件不改。3–5 个编辑、复杂任务交给用户等旧策略仍保留，留待单独审阅。
+
+在保留普通输出限制时，回归测试发现原逻辑用“加省略提示后的文本长度”判断截断，会将短输出的实际截断误报为未截断。本轮改为使用 `truncateContent().isTruncated`，没有改变截断长度或分页能力。
 
 ## MCP：独立调查与候选接入边界
 

@@ -10,7 +10,8 @@
   "scripts": {
     "type-check": "tsc --project tsconfig.json --noEmit --skipLibCheck --noUnusedLocals false --noUnusedParameters false",
     "test:html-pages-webview": "node tests/run-html-pages-webview-tests.mjs",
-    "test:gpt": "pnpm run test:gpt-chat && pnpm run test:gpt-protocol && pnpm run test:gpt-archive",
+    "test:gpt": "pnpm run test:gpt-chat && pnpm run test:gpt-protocol && pnpm run test:gpt-archive && pnpm run test:gpt-tools",
+    "test:gpt-tools": "node tests/run-gpt-tools-tests.mjs",
     "test:gpt-archive": "node tests/run-gpt-archive-tests.mjs",
     "test:gpt-apikey-obfuscate": "node tests/run-gpt-apikey-obfuscate-tests.mjs",
     "test:gpt-chat": "node tests/run-gpt-chat-tests.mjs",

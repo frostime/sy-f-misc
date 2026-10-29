@@ -93,6 +93,8 @@ policy = getEffectivePermissionConfig(name).resultApprovalPolicy
 'always'   → 调用 resultApprovalCallback()
 ```
 
+上表描述私有方法本身的分支。当前 `execute()` 对非 SUCCESS 结果提前返回，因此实际执行入口中的错误结果不会进入该方法，`on-error` 尚不能生效。本轮变量/压缩清理没有修复这一既有问题。
+
 ---
 
 ## ApprovalUIAdapter 接口（`types.ts`）

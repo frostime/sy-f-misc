@@ -16,12 +16,6 @@ import {
  * 日期时间工具
  */
 const datetimeTool: Tool = {
-    declaredReturnType: {
-        type: 'string',
-        note: 'ISO 字符串或指定格式的日期时间'
-    },
-
-    SKIP_CACHE_RESULT: true,
     SKIP_EXTERNAL_TRUNCATE: true,
 
     definition: {
@@ -117,11 +111,6 @@ const datetimeTool: Tool = {
 };
 
 const textTool: Tool = {
-    declaredReturnType: {
-        type: 'number | number[] | string',
-        note: 'length→number, find→number, findAll→number[], replace/replaceAll→string'
-    },
-
     definition: {
         type: 'function',
         function: {

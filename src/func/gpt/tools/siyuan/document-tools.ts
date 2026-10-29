@@ -55,11 +55,6 @@ export const listNotebooksTool: Tool = {
         executionPolicy: 'auto'
     },
 
-    declaredReturnType: {
-        type: '{ id: string; name: string; dailynotePathTemplate: string }[]',
-        note: 'id 查询返回 0-1 个结果，name 查询可能返回多个结果'
-    },
-
     execute: async (args: { id?: string; name?: string }): Promise<ToolExecuteResult> => {
         try {
             let notebooks = listNotebook();
@@ -130,11 +125,6 @@ export const listActiveDocsTool: Tool = {
 
     permission: {
         executionPolicy: 'auto'
-    },
-
-    declaredReturnType: {
-        type: '{ OpenedDocs: DocumentSummary[]; Editing: string[] }',
-        note: 'Editing 是当前正在编辑的文档 ID 列表'
     },
 
     execute: async (): Promise<ToolExecuteResult> => {
@@ -234,10 +224,6 @@ export const getDailyNoteDocsTool: Tool = {
 
     permission: {
         executionPolicy: 'auto'
-    },
-
-    declaredReturnType: {
-        type: 'DocumentSummary[]'
     },
 
     execute: async (args: { notebookId?: string; atDate?: string; beforeDate?: string; afterDate?: string }): Promise<ToolExecuteResult> => {
@@ -474,11 +460,6 @@ export const navigateDocTreeTool: Tool = {
                 required: ['entry', 'direction']
             }
         }
-    },
-
-    declaredReturnType: {
-        type: 'DocumentSummary[] | DocNode[]',
-        note: 'depth=1 返回列表，depth>1 返回树'
     },
 
     permission: {

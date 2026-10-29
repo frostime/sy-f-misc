@@ -14,7 +14,6 @@ import { createFileSystemToolGroup } from './file-system';
 import { scriptTools } from './script-tools';
 import { siyuanTool } from './siyuan';
 import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
-import { createVFS } from '@/libs/vfs';
 
 const IS_IN_APP = window?.require?.('electron') !== undefined;
 
@@ -22,7 +21,7 @@ const IS_IN_APP = window?.require?.('electron') !== undefined;
  * 创建无权限限制的测试 ToolExecutor
  */
 const createTestExecutor = () => {
-    const executor = new ToolExecutor({});
+    const executor = new ToolExecutor();
 
     // 注册所有工具组（复用 toolExecutorFactory 的注册逻辑）
     executor.registerToolGroup(basicTool);

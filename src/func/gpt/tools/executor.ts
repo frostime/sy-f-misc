@@ -9,53 +9,9 @@ import {
     ExecutionPolicy,
     ResultApprovalPolicy
 } from './types';
-import { toolsManager } from '../model/store';
-import { cacheToolCallResult, DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
-import { createVFS, VFSManager } from '@/libs/vfs';
-import { createValSystemTools } from './vars/index';
-import { VariableSystem, formatRuleVar } from './vars/core';
-
-
-const AgentSkillRules: ToolGroup['declareSkillRules'] = {
-    VarRef: {
-        desc: '使用 $VAR_REF{{name}} 语法直接引用变量作为 Tool Call 的参数值',
-        prompt: `当工具返回大量数据时，系统会自动保存到变量。可以在后续工具参数中引用这些变量，实现零 Token 数据传递。
-**语法**：
-- \`$VAR_REF{{name}}\` - 引用完整变量内容
-- \`$VAR_REF{{name:start:length}}\` - 引用切片（从 start 开始，读取 length 字符）
-
-**注意**:
-
-1. 使用 $VAR_REF 必须使用两个花括号引用 $VAR_REF{{name}}
-2. $VAR_REF 引用变量的类型**总是字符串**；所以不建议在内部存储复杂结构，或者读取的时候进行 json 解码以恢复结构化数据
-
-**支持位置**：工具参数中的任何位置（字符串、嵌套对象、数组）
-
-**使用示例**：
-// 步骤 1：调用工具产生大结果
-{ "name": "FetchWebPage", "arguments": { "url": "..." } }
-// → 系统提示：完整结果已保存至变量 FetchWebPage_123456
-
-// 步骤 2：使用变量引用，避免重复传输
-{
-    "name": "ExtractTable",
-    "arguments": {
-        "html": "$VAR_REF{{FetchWebPage_123456}}"  // ← 直接引用
-    }
-}
-
-**推荐用法**
-
-1. 使用 VAR 机制实现工具之前的管道连接，避免重复生成相同的文本
-2. 利用 Script 等脚本(如果可访问), 实现对工具结果文本的智能分析 —— Agent 可以在必要的时候要求 User 开放 javascript/shell/python 工具组来方便其做自动分析
-`,
-    }
-};
-
-/**
- * 工具注册表
- */
-// type ToolRegistry = Record<string, Tool>;
+import { toolsManager } from '../model/config';
+import { DEFAULT_LIMIT_CHAR, truncateContent } from './utils';
+import { createReadRuleTool, formatRuleName } from './read-rule';
 
 /**
  * 用户审核记录
@@ -75,32 +31,9 @@ export class ToolExecutor {
     private approvalRecords: ApprovalRecord = {};
     public groupRegistry: Record<string, ToolGroup> = {};
 
-    public vfs: VFSManager;
-    public varSystem: VariableSystem;
-
-    private varToolNames: Set<string> = new Set();
-
-    constructor(options: {
-        vfs?: VFSManager;
-    }) {
-        this.vfs = options.vfs || createVFS({
-            local: true,
-            memory: true,
-        });
-
-        const { varSystem, toolGroup } = createValSystemTools();
-        this.varSystem = varSystem;
-        this.registerToolGroup(toolGroup);
-
-        toolGroup.tools.forEach(tool => {
-            this.varToolNames.add(tool.definition.function.name);
-        });
-
-        this.registerSkillRules('Agent', AgentSkillRules);
+    constructor() {
+        this.registerTool(createReadRuleTool(() => Object.values(this.groupRegistry)));
     }
-
-    // public groupEnabled: Record<string, boolean> = {};
-    // private toolEnabled: Record<string, boolean> = {};
 
     public enablingStore: IStoreRef<{
         group: Record<string, boolean>;
@@ -126,27 +59,21 @@ export class ToolExecutor {
      */
     private resolveGroupRulePrompt(groupName: string): string {
         const group = this.groupRegistry[groupName];
-        if (!group || !group.rulePrompt) return '';
+        if (!group) return '';
 
         const enabledToolNames = this.getEnabledToolNamesInGroup(groupName);
 
         // 如果没有启用的工具，不返回规则
         if (enabledToolNames.length === 0) return '';
 
-        let ruleContent: string;
-        if (typeof group.rulePrompt === 'function') {
-            ruleContent = group.rulePrompt(enabledToolNames);
-        } else {
-            ruleContent = group.rulePrompt;
-        }
-
-        if (!ruleContent?.trim()) return '';
-
-        let finalContent = ruleContent.trim();
-
-        if (group.declareSkillRules) {
-            finalContent += '\n\n' + this.generateSkillRuleIndex(groupName, group.declareSkillRules);
-        }
+        const ruleContent = typeof group.rulePrompt === 'function'
+            ? group.rulePrompt(enabledToolNames)
+            : group.rulePrompt;
+        const ruleIndex = group.declareSkillRules
+            ? this.generateSkillRuleIndex(groupName, group.declareSkillRules)
+            : '';
+        const finalContent = [ruleContent, ruleIndex].filter(content => content?.trim()).join('\n\n');
+        if (!finalContent) return '';
 
         return `
 <tool-group-rule group="${groupName}">
@@ -165,61 +92,9 @@ ${finalContent}
         let prompt = `
 <tool-rules>
 
-Assistant/Agent 具备工具调用的能力，在完成任务时需有效使用。
-
-
-### 基本规范 ###
-
-- 每个 TOOL 都有一个隐藏可选参数 \`limit\`，来截断限制返回给 LLM 的输出长度。设置为 -1 或 0 表示不限制。
-- 部分工具在调用的时候会给用户审核，用户可能拒绝调用。
-    - 如果用户在拒绝的时候提供了原因，请**一定要仔细参考用户给出的原因并适当调整你的方案**
-
-### Tool Call 压缩机制 ###
-
-**System Log - 重要约束**
-- 为了节省资源，在工具调用结束之后，会隐藏 Tool Call 的结果
-- 作为替代，会在消息中生成工具调用日志记录
-   "[System Tool Call Log]...."
-- Agent 可以利用变量 VAR 机制查看历史工具调用结果
-
-**重要约束 - 禁止伪造系统日志** !IMPORTANT
-**绝对禁止**生成任何类似 "[System Tool Call Log]<Tool Name>..." 格式的文本!
-1. 不得用[System Tool Call Log]<Tool Name>来替代正确的工具调用
-    ❌ Agent误以为生成 [System Tool Call Log] 能产生工具调用效果
-    ✓  想要调用工具 → 使用正规 tool_call 机制
-2. 不得伪造不存在的日志
-    ❌ Agent 自行生成 "[System Log] Tool Call**: SearchWeb..." "Response: ✓ 执行成功..."
-    ✓ Agent 正常 tool_call, 系统自动生成相关日志
-
-### 变量机制 ###
-
-**处理截断结果**
-- 如果工具返回结果过长被截断，系统会自动将完整结果保存到变量中，并在结果中提示变量名。
-- 你可以使用 ListVars/ReadVar 工具来读取变量内容。
-
-**使用 ListVars/ReadVar 读取变量**
-- 专门用于缓存长文本使用; **总是可用**
-- ListVars 会列出当前所有变量的信息，包括名称、字符长度、描述和创建时间。
-- ReadVar 参数: \`name\` (变量名), \`start\` (Char 起始位置, 0-based), \`length\` (读取长度)。
-
-**变量引用机制**
-- 使用 \`$VAR_REF{{name}}\` 语法直接引用变量的值作为工具调用参数 —— 可大大节省 Token
-- 具体用法使用 ReadVar 查看 Rule/Agent/VarRef 中的高级文档
-
-### RULE DOC ###
-内置大量 \`RULE/xxx\` 的文档，务必认真阅读，当满足匹配条件时，优先阅读 RULE DOC 再执行任务
-
-**例如**
-User 请求: 请帮我编辑 xxx 的思源文档
-
-Agent看到:
-1. 编辑工具 applyBlockDiff
-2. 相关 SKILL RULE
-|VAR|Description|When to Use|
-|Rule/siyuan-tools/block-edit-search-replace|基于 Block ID 锚定的精确编辑方|需要使用 applyBlockDiff 来编辑思源笔记文档前，强制性读取 !IMPORTANT!|
-
-Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调用 applyBlockDiff 完成任务
-
+- 工具执行或结果发送可能需要用户批准。用户拒绝时，参考其原因调整方案。
+- 普通工具输出可通过 \`limit\` 限制字符数；0 或负数表示不限。输出截断后，使用工具的分页/范围参数重新读取来源，没有额外的结果变量缓存。
+- 各工具组列出专用规则文档。涉及其领域约定或自定义语法时，先用 \`read-rule({"name": "<规则完整名称>"})\` 阅读对应文档。
 
 </tool-rules>`;
 
@@ -317,9 +192,6 @@ Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调
         //工具组默认禁用
         this.enablingStore.update('group', group.name, false);
 
-        if (group.declareSkillRules) {
-            this.registerSkillRules(group.name, group.declareSkillRules);
-        }
     }
 
     /**
@@ -327,27 +199,6 @@ Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调
      */
     setToolEnabled(toolName: string, enabled: boolean): void {
         this.enablingStore.update('tool', toolName, enabled);
-    }
-
-    private registerSkillRules(
-        groupName: string,
-        rules: NonNullable<ToolGroup['declareSkillRules']>
-    ): void {
-        for (const [ruleName, rule] of Object.entries(rules)) {
-            const varName = formatRuleVar(ruleName, groupName);
-
-            this.varSystem.addVariable(
-                varName,
-                rule.prompt,
-                'RULE',
-                `Skill rule for ${groupName}: ${rule.desc}`
-            );
-
-            const variable = this.varSystem.getVariable(varName);
-            if (variable) {
-                variable.keep = true;
-            }
-        }
     }
 
     private generateSkillRuleIndex(
@@ -381,16 +232,16 @@ Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调
             if (alwaysLoadRules.length > 0) {
                 lines.push('');  // 添加空行分隔
             }
-            lines.push('**On-Demand Documentation (Stored as Variables):**');
-            lines.push('| Var | Description | When to Use |');
+            lines.push('**On-Demand Rules:**');
+            lines.push('| Rule | Description | When to Use |');
             lines.push('|-----|-------------|-------------|');
             for (const [ruleName, rule] of onDemandRules) {
-                const varName = formatRuleVar(ruleName, groupName);
+                const name = formatRuleName(groupName, ruleName);
                 const when = rule.when || 'As needed';
-                lines.push(`| \`${varName}\` | ${rule.desc} | ${when} |`);
+                lines.push(`| \`${name}\` | ${rule.desc} | ${when} |`);
             }
             lines.push('');
-            lines.push('*Access via: ReadVar({"name": "<VarName>"})*');
+            lines.push('*Read with: read-rule({"name": "<Rule>"})*');
         }
 
         return lines.join('\n');
@@ -414,28 +265,13 @@ Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调
                     .filter(tool => this.isToolEnabled(tool.definition.function.name))
                     .map(tool => tool.definition)
             );
-        if (allTools.length > 0) {
-            // 检查是否有 ReadVar 和 ListVars 工具
-            const toolNames = allTools.map(t => t.function.name);
-            const varGroup = this.groupRegistry['vars'];
-
-            if (!varGroup) {
-                console.warn('vars group not registered, skipping auto-injection');
-                return allTools;
-            }
-
-            if (!toolNames.includes('ReadVar')) {
-                const readVarTool = varGroup.tools.find(t => t.definition.function.name === 'ReadVar');
-                if (readVarTool) {
-                    allTools.push(readVarTool.definition);
-                }
-            }
-            if (!toolNames.includes('ListVars')) {
-                const listVarsTool = varGroup.tools.find(t => t.definition.function.name === 'ListVars');
-                if (listVarsTool) {
-                    allTools.push(listVarsTool.definition);
-                }
-            }
+        const needsRuleReader = Object.values(this.groupRegistry).some(group =>
+            this.isGroupEnabled(group.name)
+            && this.getEnabledToolNamesInGroup(group.name).length > 0
+            && Object.values(group.declareSkillRules ?? {}).some(rule => !rule.alwaysLoad)
+        );
+        if (needsRuleReader && !allTools.some(tool => tool.function.name === 'read-rule')) {
+            allTools.push(this.registry['read-rule'].definition);
         }
         return allTools;
     }
@@ -736,103 +572,6 @@ Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调
 
     // ==================== Execute ====================
     /**
-     * 递归解析对象中的变量引用
-     */
-    private resolveVarReferences(
-        obj: any,
-        visited: Set<string> = new Set()
-    ): any {
-        if (typeof obj === 'string') {
-            return this.replaceVarInString(obj, visited);
-        }
-
-        if (Array.isArray(obj)) {
-            // ✅ 每个元素独立的 visited
-            return obj.map(item =>
-                this.resolveVarReferences(item, new Set(visited))
-            );
-        }
-
-        if (obj && typeof obj === 'object') {
-            const resolved: Record<string, any> = {};
-            for (const [key, val] of Object.entries(obj)) {
-                // ✅ 每个属性独立的 visited
-                resolved[key] = this.resolveVarReferences(val, new Set(visited));
-            }
-            return resolved;
-        }
-
-        return obj;
-    }
-
-
-    /**
-     * 在字符串中替换变量引用，并检测循环引用
-     */
-    private replaceVarInString(str: string, visited: Set<string>): string {
-        const varRefRegex = /\$VAR_REF\{\{([a-zA-Z0-9_-]+)(?::(\d+)(?::(\d+))?)?\}\}/g;
-
-        return str.replace(varRefRegex, (_match, varName, start, length) => {
-            // ✅ 检测循环引用
-            if (visited.has(varName)) {
-                const chain = Array.from(visited).join(' → ');
-                throw new Error(
-                    `Circular variable reference detected: ${chain} → ${varName}`
-                );
-            }
-
-            const variable = this.varSystem.getVariable(varName);
-            if (!variable) {
-                const available = this.varSystem.listVariables()
-                    .map(v => v.name)
-                    .join(', ');
-                throw new Error(
-                    `Variable '${varName}' not found. Available: ${available || '(none)'}`
-                );
-            }
-
-            let value = variable.value;
-
-            // 处理切片
-            if (start !== undefined) {
-                const startIdx = parseInt(start);
-                const endIdx = length ? startIdx + parseInt(length) : undefined;
-
-                if (typeof value === 'string') {
-                    value = value.slice(startIdx, endIdx);
-                } else {
-                    throw new Error(
-                        `Cannot slice non-string variable '${varName}' (type: ${typeof value})`
-                    );
-                }
-            }
-
-            // ✅ 类型转换
-            let resolvedValue: string;
-            if (typeof value === 'string') {
-                resolvedValue = value;
-            } else if (typeof value === 'object' && value !== null) {
-                try {
-                    resolvedValue = JSON.stringify(value);
-                } catch (error) {
-                    resolvedValue = String(value) + '\n[system error]: VAR serialization failed';
-                }
-            } else {
-                resolvedValue = String(value);
-            }
-
-            // ✅ 递归解析嵌套引用
-            visited.add(varName);
-            const finalValue = this.replaceVarInString(resolvedValue, visited);
-            visited.delete(varName);
-
-            return finalValue;
-        });
-    }
-
-
-
-    /**
      * 执行工具
      * 集成执行前审批检查和结果审批检查
      */
@@ -850,17 +589,6 @@ Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调
             return {
                 status: ToolExecuteStatus.NOT_FOUND,
                 error: `Tool ${toolName} not found`
-            };
-        }
-
-        // 检查变量引用机制
-        try {
-            args = this.resolveVarReferences(args);
-        } catch (error) {
-            return {
-                status: ToolExecuteStatus.ERROR,
-                error: error instanceof Error ? error.message : String(error),
-                finalText: error instanceof Error ? error.message : String(error)
             };
         }
 
@@ -926,10 +654,9 @@ Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调
         }
 
         //2. 截断处理
-        let originalLength = formatted.length;
+        const originalLength = formatted.length;
         let finalForLLM = formatted;
         let isTruncated = false;
-        let keptLength = originalLength;
         if (tool.SKIP_EXTERNAL_TRUNCATE === true) {
             // 不截断
         }
@@ -946,99 +673,12 @@ Agent行为: 使用 ReadVar 阅读 block-edit-search-replace → 根据指示调
             // 使用默认的头尾截断
             const truncResult = truncateContent(formatted, limit);
             finalForLLM = truncResult.content;
-            keptLength = truncResult.shownLength;
-            // isTruncated = truncResult.isTruncated;
-            isTruncated = finalForLLM.length < originalLength;
+            isTruncated = truncResult.isTruncated;
         }
 
         result.formattedText = formatted;
         result.isTruncated = isTruncated;
         result.finalText = finalForLLM;
-
-        const leftLength = originalLength - keptLength;
-
-        // 3. 缓存原始数据到本地文件
-        // 暂时先放在这里; 这段代码姑且保留，以后可能会用到
-        // let cacheFile = null;
-        // if (tool.SKIP_CACHE_RESULT !== true) {
-        //     cacheFile = cacheToolCallResult(toolName, args, result);
-        //     result.cacheFile = cacheFile;
-        // }
-
-
-        // ================================================================
-        // 变量缓存机制
-        // ================================================================
-        // 保存策略：仅在截断时保存，或结果超过一定阈值
-
-        let shouldSaveToVar = false;
-
-        const isVarTool = this.varToolNames.has(toolName);
-
-        if (!isVarTool) {
-            shouldSaveToVar = true;
-            const varName = `${toolName}_${window.Lute.NewNodeID()}`;
-            const vitalArgs = Object.entries(args).map(([key, val]) => {
-                let valStr = typeof val === 'string' ? val : JSON.stringify(val);
-                if (valStr.length > 20) {
-                    valStr = valStr.slice(0, 20) + '...';
-                }
-                return `${key}=${valStr}`;
-            });
-
-            result.cacheVarResult = varName + '_result';
-            this.varSystem.addVariable(
-                result.cacheVarResult,
-                formatted,
-                'ToolCallResult',
-                `Call ${toolName} with args: ${vitalArgs.join(', ')}.`,
-            );
-
-            // 保存参数到变量
-            const argsVarName = varName + '_args';
-            const argsJson = JSON.stringify(args, null, 2);
-            this.varSystem.addVariable(
-                argsVarName,
-                argsJson,
-                'ToolCallArgs',
-                `Arguments for tool call: ${toolName}`,
-            );
-            result.cacheVarArgs = argsVarName;
-        }
-
-        // 生成提示信息
-        const sysHintHeader = [];
-        if (shouldSaveToVar && result.cacheVarResult) {
-            sysHintHeader.push(`<!--ToolCallLog:Begin-->`);
-            if (isTruncated) {
-                sysHintHeader.push(`[system log] 结果已截断为 ${keptLength} 字符`);
-                sysHintHeader.push(`[system log] 完整结果已保存至变量: ${result.cacheVarResult} (${formatted.length} 字符)`);
-
-                sysHintHeader.push(`[system hint] 使用变量引用获取完整内容: $VAR_REF{{${result.cacheVarResult}}}`);
-                sysHintHeader.push(`[system hint] 或使用 ReadVar 分块读取: {"name": "ReadVar", "arguments": {"name": "${result.cacheVarResult}", "start": ${keptLength}, "length": ${Math.min(leftLength, 2000)}} —— 注意, 请认真考虑是否有必要读取完整内容`);
-            } else {
-                sysHintHeader.push(`[system log] 已返回完整结果 (${formatted.length} 字符)`);
-                sysHintHeader.push(`[system log] 同时结果缓存在变量: ${result.cacheVarResult}; 后续如有需求可使用变量引用: $VAR_REF{{${result.cacheVarResult}}}`);
-            }
-
-            // if (result.cacheFile) {
-            //     sysHintHeader.push(`[system log] 日志已缓存至: ${cacheFile}`);
-            // }
-
-            result.finalText = result.finalText + '\n' + sysHintHeader.join('\n') + '\n<!--ToolCallLog:End-->';
-        }
-
-
-        // const formattedData = formatToolOutputForLLM({
-        //     tool: {
-        //         formatForLLM: tool.formatForLLM,
-        //         truncateForLLM: tool.truncateForLLM
-        //     },
-        //     toolName,
-        //     rawData: result.data,
-        //     args,
-        //     cacheFile
-        // });
 
         // 结果审批检查（基于新的 resultApprovalPolicy）
         const shouldCheckResult = !options?.skipResultApproval;

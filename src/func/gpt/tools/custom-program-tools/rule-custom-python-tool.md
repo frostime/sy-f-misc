@@ -10,7 +10,7 @@
  */
 export interface Tool {
     definition: IToolDefinition;  // Openai Tool Definition with JSON Schema
-    permission: ToolPermission;
+    permission: ToolPermissionV2;
 }
 
 export interface ToolGroup {
@@ -26,7 +26,8 @@ export interface ToolGroup {
 **重点规则**
 
 - `__doc__` 会被解析为工具组的 Rule Prompt
-- 所有非私有函数，会被解析为 Tool，函数的内部文档，会被解析为 definition
+- 所有非私有函数，会被解析为 Tool；函数摘要和长描述进入工具描述，`Args` 用于参数 Schema。
+- `Returns` 是脚本文档，不单独导出返回类型 Schema。需要模型预先了解返回结构时，写入函数长描述，或通过 `format` 提供可读结果。
 
 ## Python 自定义工具脚本规范
 

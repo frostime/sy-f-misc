@@ -8,12 +8,32 @@
 import { isNodeAvailable } from './viewer-utils';
 import { viewTool } from './viewer';
 import { searchReplaceTool, writeFileTool } from './editor';
-import { fileSystemSkillRules } from './skill-rules';
 import { getPlatform, getScriptName } from '@/libs/system-utils';
 import type { ToolGroup } from '../types';
 
 // const nodePath: typeof import('path') = window?.require?.('path');
 const os: typeof import('os') = window?.require?.('os');
+
+/**
+ * 参数 schema 未表达的约定。
+ * 读取模式、写入模式、行数上限等已在工具参数描述中，不在此重复。
+ */
+const PATH_AND_MATCH_CONVENTIONS = `
+**约定**
+- Path 统一使用 Linux / 分隔符：「×」H:\\File.txt 「√」H:/File.txt
+- fs-View 的 full 模式只用于 ≤0.5MB 的文件；更大的文件用 head/tail/range
+`.trim();
+
+/**
+ * 运行环境信息，模型无法自行推断
+ */
+const environmentInfo = (): string => {
+    if (!os) return '';
+    const lines = [`- OS: ${getPlatform()}`, `- Shell: ${getScriptName()}`];
+    const home = os.homedir?.();
+    if (home) lines.push(`- Home: ${home}`);
+    return `**环境信息**\n${lines.join('\n')}`;
+};
 
 /**
  * 创建统一的文件系统工具组
@@ -28,30 +48,13 @@ export const createFileSystemToolGroup = (): ToolGroup => {
         searchReplaceTool, writeFileTool,
     ] : [];
 
-    let rulePrompt = '';
-    if (available && tools.length > 0) {
-        rulePrompt = `
-
-**最佳实践**
-- 所有 Path 统一使用 Linux / 分隔符
-    「×」H:\\File.txt 「√」H:/File.txt
-- 文本文件(代码)修改用 SearchReplace，新建/大改用 WriteFile
-- 避免对大文件使用 View full 模式，优先用 head/tail/range
-- fs-WriteFile 明确指定 "写入模式"
-`.trim();
-
-        // 环境信息
-        if (os) {
-            const platform = getPlatform();
-            const homedir = os.homedir?.() || '';
-            rulePrompt += `\n\n**环境信息**\n- OS: ${platform}\n- Shell: ${getScriptName()}\n- Home: ${homedir}`;
-        }
-    }
+    const rulePrompt = tools.length > 0
+        ? [PATH_AND_MATCH_CONVENTIONS, environmentInfo()].filter(Boolean).join('\n\n')
+        : '';
 
     return {
         name: '文件系统工具组',
         tools,
-        declareSkillRules: fileSystemSkillRules,
         rulePrompt
     };
 };

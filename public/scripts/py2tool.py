@@ -105,23 +105,6 @@ def generate_schema_from_function(func: typing.Callable) -> dict | None:
     if parsed_docstring.long_description:
         func_description += '\n' + parsed_docstring.long_description.strip()
 
-    # 提取返回值信息用于 declaredReturnType
-    declared_data_type = None
-    if parsed_docstring.returns:
-        return_type = parsed_docstring.returns.type_name
-        return_desc = parsed_docstring.returns.description
-        if return_type:
-            declared_data_type = {'type': return_type.strip()}
-            if return_desc and return_desc.strip():
-                declared_data_type['note'] = return_desc.strip()
-
-    # 添加返回值说明到函数描述中
-    # if parsed_docstring.returns:
-    #     return_type = parsed_docstring.returns.type_name or 'Unknown'
-    #     return_desc = parsed_docstring.returns.description.strip() if parsed_docstring.returns.description else ''
-    #     if return_desc:
-    #         func_description += f'\n\nReturns:\n{return_type}: {return_desc}'
-
     param_descriptions = {
         param.arg_name: param.description for param in parsed_docstring.params
     }
@@ -165,10 +148,6 @@ def generate_schema_from_function(func: typing.Callable) -> dict | None:
             'parameters': parameters_schema,
         },
     }
-
-    # 添加 declaredReturnType（如果从 docstring 解析出来了）
-    if declared_data_type:
-        tool_schema['declaredReturnType'] = declared_data_type
 
     # 5. 提取权限配置属性（如果存在）
     # 支持新格式（executionPolicy, resultApprovalPolicy）和旧格式（permissionLevel, requireExecutionApproval, requireResultApproval）

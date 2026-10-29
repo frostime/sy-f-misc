@@ -21,7 +21,6 @@ import { DefaultUIAdapter } from './approval-ui';
 import { toolsManager } from '../model/store';
 import { siyuanTool } from './siyuan';
 import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
-// import { registerToolCallScriptGroup } from './toolcall-script';
 
 
 const IS_IN_APP = window?.require?.('electron') !== undefined;
@@ -33,8 +32,7 @@ export const toolExecutorFactory = (options: {
     approvalAdapter?: ApprovalUIAdapter;
 }) => {
     // 创建工具执行器
-    // NOTE: executor 内部仍保留 VFS 实例（dead code），后续可进一步清理
-    const toolExecutor = new ToolExecutor({});
+    const toolExecutor = new ToolExecutor();
 
     // 注册工具组
     toolExecutor.registerToolGroup(basicTool);

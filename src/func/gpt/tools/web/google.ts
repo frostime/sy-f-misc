@@ -320,27 +320,6 @@ export function formatGoogleResultsToReport(data: { query: string; searchResults
 }
 
 export const googleSearchTool: Tool = {
-    declaredReturnType: {
-        type: `{
-    query: string;
-    results: Array<{
-        title: string;
-        link: string;
-        description: string;
-        displayLink?: string;
-    }>;
-    pageIndex: number;
-    totalResults?: number;
-    searchTime?: number;
-    filters?: {
-        site?: string;
-        filetype?: string;
-        dateFilter?: 'day' | 'week' | 'month' | 'year';
-    };
-}`,
-        note: 'Google 搜索结果，支持 API 模式（需要配置）和抓取模式（备用）'
-    },
-
     definition: {
         type: 'function',
         function: {

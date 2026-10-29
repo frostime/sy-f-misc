@@ -39,11 +39,6 @@ export const searchDocumentTool: Tool = {
         executionPolicy: 'auto'
     },
 
-    declaredReturnType: {
-        type: 'DocumentSummary[]',
-        note: '{ id, name, hpath, box, updated, path, root_id }'
-    },
-
     execute: async (args: { name?: string; hpath?: string; notebook?: string; match?: string }): Promise<ToolExecuteResult> => {
         let condition = [];
         if (args.hpath) {
@@ -143,11 +138,6 @@ export const querySQLTool: Tool = {
         resultApprovalPolicy: 'always'
     },
 
-    declaredReturnType: {
-        type: 'Array<Record<string, any>>',
-        note: '原始 SQL 查询结果，字段取决于查询语句'
-    },
-
     execute: async (args: { sql: string }): Promise<ToolExecuteResult> => {
         if (!validateInput(args.sql)) {
             return {
@@ -209,11 +199,6 @@ export const searchKeywordTool: Tool = {
     permission: {
         executionPolicy: 'ask-once',
         resultApprovalPolicy: 'always'
-    },
-
-    declaredReturnType: {
-        type: 'KeywordSearchResult[]',
-        note: '{ id, type, content, root_id, parent_id, hpath, notebook: { id, name } }'
     },
 
     execute: async (args: {

@@ -236,28 +236,6 @@ const TAVILY_LIMIT = 6000;
 export const tavilySearchTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: TAVILY_LIMIT,
 
-    declaredReturnType: {
-        type: `{
-    query: string;
-    answer?: string;
-    results: Array<{
-        url: string;
-        title: string;
-        content: string;
-        score: number;
-        raw_content?: string;
-    }>;
-    images?: Array<{
-        url: string;
-        description?: string;
-    }>;
-    search_id: string;
-    created_at: string;
-    time: string;
-}`,
-        note: 'Tavily 搜索结果，包含可选的 LLM 生成的 answer 和按相关性排序的 results'
-    },
-
     definition: {
         type: 'function',
         function: {

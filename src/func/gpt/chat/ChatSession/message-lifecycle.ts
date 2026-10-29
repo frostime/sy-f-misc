@@ -5,7 +5,6 @@ import { extractContentText } from '../../chat-utils/msg-content';
 export type PrepareMode = 'append' | { updateAt: number } | { insertAt: number };
 
 export interface ExtendedCompletionResult extends ICompletionResult {
-    hintSize?: number;
     toolChainResult?: IMessagePayload['toolChainResult'];
     /** Native tool-turn messages preceding the final assistant response; intermediate reasoning is stripped. */
     toolChainMessages?: IMessage[];
@@ -100,9 +99,7 @@ export const createMessageLifecycle = (
                 usage: result.usage,
                 time: result.time,
                 token: result.usage?.completion_tokens,
-                userPromptSlice: result.toolChainMessages
-                    ? undefined
-                    : (result.hintSize ? [result.hintSize, result.content.length] : undefined),
+                userPromptSlice: undefined,
                 toolChainResult: result.toolChainResult,
                 toolChainMessages: result.toolChainMessages,
             }, versionId);
