@@ -85,7 +85,7 @@
 - [v3.8.9 kernel/model/mcp_oauth.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/model/mcp_oauth.go)：`CheckMCPAuth` 保留 API token、工作空间会话及角色检查；源码存在同源已认证会话通路，但本机 Cookie 是否满足条件尚未验证。不能直接宣称所有插件无须认证即可调用。
 - [v3.8.0 发布说明](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/app/changelogs/v3.8.0/v3.8.0.md) 和 [v3.8.7 发布说明](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/app/changelogs/v3.8.7/v3.8.7.md) 分别记载 MCP 引入及后续协议兼容变化。项目 `minAppVersion` 是 3.8.0，但这不足以证明所有这些版本均能使用同一客户端实现。
 
-**独立调查结论与主代理判断：零新增依赖在技术上可行，当前推荐保留这条候选路线；没有本机联调证据。** JSON 响应使 SSE 通知订阅不必成为本次义务，但不消除初始化、版本、session header 和错误处理。没有依据承诺固定实现行数或跨所有思源版本兼容。
+**零新增依赖的最小通信已在 dev 3.8.8 实测通过，见下文运行证据。** JSON 响应使 SSE 通知订阅不必成为本次义务，但不消除初始化、版本、session header 和错误处理。尚未完成插件 UI/工具组集成，不承诺固定实现行数或跨所有思源版本兼容。
 
 ### 工具数量、官方开关与插件选择（v3.8.9）
 
@@ -103,7 +103,7 @@
 
 [kernel/conf/ai.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/conf/ai.go) 的 `CapabilityPolicy` 是 `default: allow|deny + overrides[id]`，默认 allow；配置模型可表达默认拒绝加逐项允许，但上述 UI 只调整 overrides，不能据此宣称 UI 有白名单模式按钮。ID 是整个工具的稳定能力 ID，例如 `native/backend/block`，不包含 action。
 
-**事实：MCP 清单已按官方策略过滤，但不会裁剪工具内部动作。** `server.go` 原样投影 `InputSchema`，只对整个工具做允许/排除。例如 [block.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/mcp/tools/block.go) 是一个 `block` 工具、14 个 action；[file.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/mcp/tools/file.go) 是一个 `file` 工具、10 个 action，读写混合。不能把“工具名称个数”“动作个数”“原生 Agent 面板能力总数”当成同一数量。实际本机工具总数及完整定义体积仍未测量。
+**事实：MCP 清单已按官方策略过滤，但不会裁剪工具内部动作。** `server.go` 原样投影 `InputSchema`，只对整个工具做允许/排除。例如 [block.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/mcp/tools/block.go) 是一个 `block` 工具、14 个 action；[file.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/mcp/tools/file.go) 是一个 `file` 工具、10 个 action，读写混合。不能把“工具名称个数”“动作个数”“原生 Agent 面板能力总数”当成同一数量。本机实际数量与定义体积已测量，见下文运行证据。另核对了 dev 对应 v3.8.8 的 server.go、conf/ai.go 与 aiCapabilityUi.ts：与 v3.8.9 的上述暴露/选择语义一致；未实际改动用户的暴露设置。
 
 [setting.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/api/setting.go) 保存 AI 配置后调用 `RefreshToolExposure()`；投影更新 `AddTool/RemoveTools`。后续 `tools/list` 可见新集合，`tools/call` 还会重新检查策略，不能靠旧清单调用已被官方禁用的能力。[server_test.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/mcp/server_test.go) 的 `TestToolProjectionPolicyAndExecutionRecheck` 覆盖同连接下列表更新及禁用后 handler 不执行；本轮只读了这个测试，未运行上游 Go 测试。具体通知投递链路没有实测，不承诺客户端实时同步。
 
@@ -111,7 +111,7 @@
 
 **候选建议，尚未选定默认与粒度：** 将 MCP 发现和发给模型的定义分开。官方暴露是全局服务端边界；插件现有 `groupDefaults/toolDefaults` 与会话工具选择负责聊天上下文。可以发现官方允许的全部工具，再复用现有组/工具开关选择模型可见子集，无需第三套权限平台或写回官方全局配置。
 
-原生组默认关闭、启用组后默认选哪些工具、新发现工具是否自动选中，以及是否提供 action 级模型定义筛选，都仍待实际清单与体积数据后决定。若只按工具选择，选中 `block` 就会同时给模型读写动作，不能称为只读模式。动作拆分还需正确处理共享参数和长描述，不能仅裁剪 enum 就宣称完成适配。
+原生组默认关闭、启用组后默认选哪些工具、新发现工具是否自动选中，以及是否提供 action 级模型定义筛选，都仍待用户选择；清单与体积数据已经取得。若只按工具选择，选中 `block` 就会同时给模型读写动作，不能称为只读模式。动作拆分还需正确处理共享参数和长描述，不能仅裁剪 enum 就宣称完成适配。
 
 接线时核对 `ToolsManagerSetting.tsx` / `SessionToolsManager.tsx` 的异步列表和默认值一致性；全局组 checkbox 当前显示默认 false，而 toggle 使用 `!== false` 取默认值，初始未配置时两者不一致。应在原生组实现中补相应行为验证，不在这轮只读研究中修改控件。
 
@@ -141,13 +141,40 @@ MCP 工具仍通过插件的审批回调运行；服务端访问控制与 AgentO
 
 首版可考虑文本和结构化结果，但尚未确认用户需要的工具集合。图片、资源、复合结果、`skill` 的安装/删除动作不能在未决定范围时被默认为完整支持。
 
-### 运行验证门槛
+### dev 3.8.8 的最小运行证据与剩余门槛
 
-在实现桥接前，用用户明确选定的思源实例验证：初始化、工具发现和一个可控的只读调用。不得为了拿 token 而读取用户配置或打印凭证，不执行真实写工具。
+2026-10-30，用户启动并指定 dev 后，`siyuan-cli workspace verify dev` 校验通过，实际地址为 `http://127.0.0.1:4143`，`system.version` 为 3.8.8。此前未启动时的连接阻碍已解除；端口是这次运行值，不硬编码进产品。
 
-2026-10-30 的实际环境检查：现有 `siyuan-cli v0.17.0` 将本项目解析为 `dev`（来源 project-file）。请求只读元信息 `system.version` 返回 `WORKSPACE_VERIFY_FAILED`，提示配置端口 3422 与目标工作区运行时校验不匹配。没有绕过校验、切换工作区、直接读取/输出凭证或访问笔记，也没有向 `/mcp` 发请求。需要用户确认/启动目标实例后再测；这个阻碍不证明 MCP 路线不可行。当前仍没有真实工具总数、完整定义体积或同源握手证据。
+使用 Node 原生 `fetch`（无 MCP SDK、无新依赖）完成：
 
-需要观察请求/响应状态、协商版本、认证要求、session header、JSON/SSE 形态和工具结果结构，并验证所需规则没有演变成半套通用 SDK。旧 Go SDK 分支的握手及 session 行为，本轮没有取到依赖源码验证，尤其不能仅依报告假设响应一定包含 session header。
+```text
+initialize(protocolVersion=2025-03-26) → HTTP 200、JSON、Mcp-Session-Id
+notifications/initialized            → HTTP 202、空响应
+ tools/list                         → HTTP 200、单页 30 工具
+ tools/call(system, action=version)  → 正常文本结果 3.8.8
+DELETE /mcp                         → HTTP 204，关闭本次探针 session
+```
+
+请求 Accept 同时声明 JSON/SSE；后续请求携带协商版本和 session header。这次 dev 请求不带凭证也被接受，不代表其他安装无需认证。所有探针 session 均已关闭；没有访问笔记、运行写工具、改动权限配置或读取/输出 token。用户允许必要时直接网络请求，因此本轮不需要放开全量 CLI 权限。
+
+第二次元信息探针读取 `lsCapabilities`，返回 35 个后端能力；MCP 仅返回其中 30 个，其余 decision/log/question/snippet/todo_write 均为 AgentOnly。30 工具有 168 个明确枚举的 action，另有 unzip/web_fetch/web_search 三个工具没有 action 枚举。
+
+| 测量对象 | 紧凑 JSON 的 UTF-8 字节数 |
+|---|---:|
+| 完整 MCP 工具目录 | 64,286 |
+| 映射为当前 OpenAI function 定义（name/description/inputSchema） | 64,630 |
+| 示例：system/search/sql/document/block 五工具 | 19,264 |
+| 示例：system/search/sql/outline/ref 五工具 | 5,053 |
+
+这些是定义字节数，不是 tokenizer 计数，也不是模型 API 已计费的 token。两组子集只是体积示例，不是已批准默认值或只读沙盒；例如 search 自身也有写动作。
+
+映射后的前五大定义为 database 11,103、block 10,094、bazaar 5,216、document 5,088、template 4,972 字节，合计约 56%。大头集中于少数工具的长描述/Schema，单纯统计名称数不足以决定全量注入是否合适。当前 30 份输入 Schema 的根关键字只有 type/properties/required，递归未发现 oneOf/anyOf/allOf/$ref/$defs/const；不能据此保证未来动态工具或其他版本也同样简单。
+
+**审批元信息不足以自动判定只读。** 此实例 30 个 MCP 工具均未给出明确的 readOnlyHint。`lsCapabilities` 中 168 个枚举动作有 98 个 effects 为空；空值表示缺信息，不能解释为安全或只读。复用现有审批配置比复制一套猜测式动作分类器更合适。
+
+运行脚本与去凭证元信息摘要在本机忽略目录 `tmp/probe-siyuan-mcp-fetch.mjs`、`tmp/inspect-siyuan-mcp-schema.mjs`、`tmp/siyuan-mcp-schema-summary.json`；日志在 MSYS `/tmp/sy-f-misc-mcp-dev-*.log`。它们是临时证据，不是产品入口或后续会话必须存在的依赖。
+
+当前结论只覆盖 dev 3.8.8 的有状态 HTTP 最小链路。插件同源 UI 生命周期、Provider 实际请求、工具组开关/审批接线、带认证实例、暴露更新通知与复杂结果还未验证。正式接入前需确定支持边界与默认选择，不能将通信成功等同于整个集成完成。
 
 401/403、会话失效与 HTTP 错误要有可见结果，但不直接采用“400/404 就重建并重试”的做法：`tools/call` 失败时可能已有副作用。写调用或结果未知的调用不自动重发。客户端 fetch 取消与服务端实际停止分别验证，不承诺撤销已经发生的写入。
 
