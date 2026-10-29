@@ -87,6 +87,36 @@
 
 **独立调查结论与主代理判断：零新增依赖在技术上可行，当前推荐保留这条候选路线；没有本机联调证据。** JSON 响应使 SSE 通知订阅不必成为本次义务，但不消除初始化、版本、session header 和错误处理。没有依据承诺固定实现行数或跨所有思源版本兼容。
 
+### 工具数量、官方开关与插件选择（v3.8.9）
+
+用户新增调研要求：工具是否过多、官方开关控制哪一层，以及插件应全量提供还是增加自己的选择。以下由独立子代理调查，主代理回读固定 tag 的 UI、配置、投影和上游测试核对；没有读取本机配置或执行真实工具。
+
+**事实：官方存在三种不同控制，不能互相替代。**
+
+| 控制 | 配置 | 作用 |
+|---|---|---|
+| 内置 Agent 可用能力 | `ai.agent.capabilityPolicy` | 给内置 Agent 使用的能力集，包含前端和后端能力 |
+| 对外 MCP 暴露 | `ai.mcp.exposurePolicy` | 决定本机 `/mcp` 暴露哪些后端能力，不跟随 Agent 的开关 |
+| 连接外部 MCP 服务 | `ai.mcp.servers[].enabled` | 思源作为客户端引入远端工具；这些远端工具不会再由本机 `/mcp` 转发 |
+
+[aiCapabilityUi.ts](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/app/src/config/tabs/ai/aiCapabilityUi.ts) 的能力弹窗含 `agent` / `mcp` 两个 scope，分别保存 `agent.capabilityPolicy` 和 `mcp.exposurePolicy`。工具可逐个或按显示组批量切换；组按钮实际写入每个能力 ID 的 override，不保存独立组策略。action 的审批下拉框仅在 Agent scope 显示，不是 MCP 的动作级暴露开关。
+
+[kernel/conf/ai.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/conf/ai.go) 的 `CapabilityPolicy` 是 `default: allow|deny + overrides[id]`，默认 allow；配置模型可表达默认拒绝加逐项允许，但上述 UI 只调整 overrides，不能据此宣称 UI 有白名单模式按钮。ID 是整个工具的稳定能力 ID，例如 `native/backend/block`，不包含 action。
+
+**事实：MCP 清单已按官方策略过滤，但不会裁剪工具内部动作。** `server.go` 原样投影 `InputSchema`，只对整个工具做允许/排除。例如 [block.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/mcp/tools/block.go) 是一个 `block` 工具、14 个 action；[file.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/mcp/tools/file.go) 是一个 `file` 工具、10 个 action，读写混合。不能把“工具名称个数”“动作个数”“原生 Agent 面板能力总数”当成同一数量。实际本机工具总数及完整定义体积仍未测量。
+
+[setting.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/api/setting.go) 保存 AI 配置后调用 `RefreshToolExposure()`；投影更新 `AddTool/RemoveTools`。后续 `tools/list` 可见新集合，`tools/call` 还会重新检查策略，不能靠旧清单调用已被官方禁用的能力。[server_test.go](https://gitee.com/siyuan-note/siyuan/blob/v3.8.9/kernel/mcp/server_test.go) 的 `TestToolProjectionPolicyAndExecutionRecheck` 覆盖同连接下列表更新及禁用后 handler 不执行；本轮只读了这个测试，未运行上游 Go 测试。具体通知投递链路没有实测，不承诺客户端实时同步。
+
+`lsCapabilities` 返回能力/动作元信息，不返回某使用方的启用策略；完整 Schema 仍从 `tools/list` 获取。官方 UI 读取 `window.siyuan.config.ai.mcp.exposurePolicy` 子字段，插件可在合适宿主上下文参考此元信息，但不能将其当成可执行工具清单，也不需要读取含凭证的整个配置文件。
+
+**候选建议，尚未选定默认与粒度：** 将 MCP 发现和发给模型的定义分开。官方暴露是全局服务端边界；插件现有 `groupDefaults/toolDefaults` 与会话工具选择负责聊天上下文。可以发现官方允许的全部工具，再复用现有组/工具开关选择模型可见子集，无需第三套权限平台或写回官方全局配置。
+
+原生组默认关闭、启用组后默认选哪些工具、新发现工具是否自动选中，以及是否提供 action 级模型定义筛选，都仍待实际清单与体积数据后决定。若只按工具选择，选中 `block` 就会同时给模型读写动作，不能称为只读模式。动作拆分还需正确处理共享参数和长描述，不能仅裁剪 enum 就宣称完成适配。
+
+接线时核对 `ToolsManagerSetting.tsx` / `SessionToolsManager.tsx` 的异步列表和默认值一致性；全局组 checkbox 当前显示默认 false，而 toggle 使用 `!== false` 取默认值，初始未配置时两者不一致。应在原生组实现中补相应行为验证，不在这轮只读研究中修改控件。
+
+官方服务端禁用会阻止实际调用；本插件自己的开关仍只筛选模型定义，不改变用户指定的按名执行语义。官方 Agent 也会执行前复查能力，不能把它描述成与本插件的开关语义完全相同。
+
 ### 当前候选：思源专用桥接，而非通用客户端
 
 通过原生 `fetch` 调用本机 `/mcp`，只承担已验证的思源版本/协议范围。候选首先验证有状态分支：`initialize`、服务端协商版本与响应 session header、`notifications/initialized`、`tools/list` 的 `nextCursor` 分页、`tools/call`。请求 Accept/Content-Type、协商后的协议 header、session 生命周期和空通知响应必须实测；不把“省略某个 header 就能选旧分支”当成已确认的兼容合同。
@@ -114,6 +144,8 @@ MCP 工具仍通过插件的审批回调运行；服务端访问控制与 AgentO
 ### 运行验证门槛
 
 在实现桥接前，用用户明确选定的思源实例验证：初始化、工具发现和一个可控的只读调用。不得为了拿 token 而读取用户配置或打印凭证，不执行真实写工具。
+
+2026-10-30 的实际环境检查：现有 `siyuan-cli v0.17.0` 将本项目解析为 `dev`（来源 project-file）。请求只读元信息 `system.version` 返回 `WORKSPACE_VERIFY_FAILED`，提示配置端口 3422 与目标工作区运行时校验不匹配。没有绕过校验、切换工作区、直接读取/输出凭证或访问笔记，也没有向 `/mcp` 发请求。需要用户确认/启动目标实例后再测；这个阻碍不证明 MCP 路线不可行。当前仍没有真实工具总数、完整定义体积或同源握手证据。
 
 需要观察请求/响应状态、协商版本、认证要求、session header、JSON/SSE 形态和工具结果结构，并验证所需规则没有演变成半套通用 SDK。旧 Go SDK 分支的握手及 session 行为，本轮没有取到依赖源码验证，尤其不能仅依报告假设响应一定包含 session header。
 
