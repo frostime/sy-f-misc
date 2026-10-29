@@ -8,13 +8,14 @@
  */
 import { Protyle, showMessage } from "siyuan";
 import type FMiscPlugin from "@/index";
-import { confirmDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { confirmDialog, inputDialog, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { openIframeDialog, openIframeTab } from "@/func/html-pages/core";
 import { LocalDiskVFS } from "@/libs/vfs";
 import { documentDialog } from "@/libs/dialog";
 import { err, ok, ResultData } from "@/libs/simple-fp";
 import { siyuanVfs } from "@/libs/vfs/vfs-siyuan-adapter";
 import { openImageAnnotator } from "./annotate-image";
+import { addEditAssetMenu } from "./edit-asset";
 
 export const declareToggleEnabled = {
     title: '📄 附件文件',
@@ -366,6 +367,50 @@ const openAssetDialog = (protyle: Protyle, initialState?: { tab?: 'create' | 're
     });
 };
 
+const openNewSvgDialog = (protyle: Protyle) => {
+    inputDialog({
+        title: '新建 SVG 图片',
+        defaultText: '',
+        type: 'textarea',
+        width: '800px',
+        height: '600px',
+        maxWidth: '90%',
+        maxHeight: '90%',
+        confirm: async (text) => {
+            const doc = new DOMParser().parseFromString(text.trim(), 'image/svg+xml');
+            const svg = doc.documentElement;
+            const svgNamespace = 'http://www.w3.org/2000/svg';
+            if (doc.querySelector('parsererror') || svg.localName !== 'svg'
+                || (svg.namespaceURI && svg.namespaceURI !== svgNamespace)) {
+                showMessage('请输入有效的 SVG 代码（根元素必须为 <svg>）', 5000, 'error');
+                return;
+            }
+
+            // 从 HTML 复制的 SVG 可能没有 xmlns；独立图片文件需要 SVG 命名空间。
+            if (!svg.namespaceURI) {
+                svg.setAttribute('xmlns', svgNamespace);
+            }
+            const content = new XMLSerializer().serializeToString(svg);
+            const filename = `svg-${window.Lute.NewNodeID()}.svg`;
+            const route = `assets/user/${filename}`;
+            try {
+                await thisPlugin().saveBlob(filename, new Blob([content], { type: 'image/svg+xml' }), 'data/assets');
+            } catch (error) {
+                console.error('保存 SVG 失败:', error);
+                showMessage('保存 SVG 失败，请重试', 5000, 'error');
+                return;
+            }
+
+            try {
+                protyle.insert(`<img src="${route}" alt="SVG">`, false, true);
+            } catch (error) {
+                console.error('插入 SVG 图片失败:', error);
+                showMessage(`SVG 已保存，但插入失败：${route}`, 10000, 'error');
+            }
+        }
+    });
+};
+
 const openAssetDashboard = (loadingEvents?: Record<string, any>) => {
     const vfs = new LocalDiskVFS();
     const handler = {};
@@ -463,6 +508,7 @@ export const load = (plugin: FMiscPlugin) => {
             return;
         }
         const filename = href.split('/').pop() || '';
+        addEditAssetMenu(menu, href);
         // console.log(hrefSpan);
         menu.addItem({
             icon: "iconImage",
@@ -488,6 +534,7 @@ export const load = (plugin: FMiscPlugin) => {
         }
         const filename = src.split('/').pop() || '';
         const menu = detail.menu;
+        addEditAssetMenu(menu, src);
         menu.addItem({
             label: '本地图片路径',
             icon: 'iconCopy',
@@ -542,6 +589,12 @@ export const load = (plugin: FMiscPlugin) => {
         }
     };
     plugin.addProtyleSlash(slash);
+    plugin.addProtyleSlash({
+        filter: ['new-svg', 'svg', '新建SVG'],
+        html: '<div class="b3-list-item__first"><svg class="b3-list-item__graphic"><use xlink:href="#iconImage"></use></svg><span class="b3-list-item__text">新建 SVG 图片</span></div>',
+        id: 'new-svg',
+        callback: (protyle: Protyle) => openNewSvgDialog(protyle)
+    });
 
     enabled = true;
 }
@@ -554,6 +607,7 @@ export const unload = (plugin: FMiscPlugin) => {
     }
     disposers = [];
     plugin.delProtyleSlash('new-file');
+    plugin.delProtyleSlash('new-svg');
     plugin.unRegisterMenuTopMenu('asset-file');
     enabled = false;
 }
