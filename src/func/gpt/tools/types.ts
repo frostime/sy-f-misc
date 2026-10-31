@@ -213,6 +213,8 @@ export interface Tool {
 export interface ToolGroup {
     name: string;
     tools: Tool[];
+    /** Initial selection within this group; existing groups default to true. User overrides still win. */
+    defaultToolEnabled?: boolean;
     /**
      * 工具组的规则提示
      * - 字符串：静态提示

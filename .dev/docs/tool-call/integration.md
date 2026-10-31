@@ -1,7 +1,7 @@
 ---
 name: Chat 集成层（use-openai-endpoints）
 description: Tool Call 在 ChatSession 中的完整集成逻辑：注入工具定义、构建 systemPrompt、执行链路、结果保存与历史回放
-updated: 2026-10-30
+updated: 2026-10-31
 scope:
   - /src/func/gpt/chat/ChatSession/use-openai-endpoints.ts
   - /src/func/gpt/chat/ChatSession/tool-chain-result.ts
@@ -47,6 +47,18 @@ deprecated: false
 | **编排层** | `useGptCommunication` | 对外提供 `sendMessage` / `reRunMessage`，协调上述三层 |
 
 ---
+
+## 原生 MCP 的启动边界
+
+`src/func/gpt/index.ts` 在每次 GPT 启动时等待 `tools/native-mcp/index.ts` 的一次同源发现，最长 5 秒；失败只使原生组不可用。Tab、独立窗口 Tab、Dock 的构造统一经 `renderReadyChatSession` 等待该次任务，因为重新启用时旧入口可能仍存在。容器在等待期间销毁、或该次启动取消后，不再晚到挂载；旧扩展完成回调也不能添加新 Dock。
+
+MCP client/session 与定义快照属于该次 GPT 激活。`tools/index.ts` 的同步工厂读取快照，各 executor 独立保有选择和审批记录。目录不轮询、不热更新；官方运行中禁止某工具仍由服务端复查。MCP 只适配为普通 Tool，不改下述工具循环、消息归属或聊天存储。
+
+- 全局工具面板在 loading 时等待，在 GPT 关闭时只展示本地工具；它不会自行发现。保存默认值只影响后来构造的 ChatSession 组件，不修改已有组件。
+- 标签内“新建对话”复用原 executor。GPT 关闭会废止旧 client；重启后须重开标签页/窗口才能取得新连接，不暗中换绑旧组件。
+- 原生调用名稳定映射为 `sy_mcp_<原名>`。不能表示的 Schema 不剥除约束后发送；名称冲突只禁用原生组，不覆盖本地工具。
+- 文本与 structuredContent 都经原工具结果路径发送。未支持的图片/资源等返回明确错误及可读部分，并提示操作可能已执行；错误详情需放在 error，避免 executor 的失败收尾丢失内容。不自动重发未知结果调用。
+- 原生 limit 可能代表条数/行数；桥接使用现有自定义截断钩子和默认字符上限，不把该参数误当作字符限制。不自动加载原生技能或原生 Agent 工作流，也不接入免审批的 Tool Hub。
 
 ## 1. 工具注入（buildChatOption）
 

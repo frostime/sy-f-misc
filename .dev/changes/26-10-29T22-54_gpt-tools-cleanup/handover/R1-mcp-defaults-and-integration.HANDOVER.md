@@ -1,7 +1,7 @@
 ---
 title: GPT 清理完成后的 MCP 选择与接入交接
 created: 2026-10-30T21:40:10.1420850+08:00
-consumed: false # Reader: set to true once you have read this. Questions about missing context go under "Clarifications".
+consumed: true # Reader: set to true once you have read this. Questions about missing context go under "Clarifications".
 ---
 
 ## Assume Reader

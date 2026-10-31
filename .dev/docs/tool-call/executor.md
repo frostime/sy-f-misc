@@ -1,7 +1,7 @@
 ---
 name: ToolExecutor 与类型系统
 description: Tool/ToolGroup 接口定义、ToolExecutor 注册与 execute() 核心执行流
-updated: 2026-10-30
+updated: 2026-10-31
 scope:
   - /src/func/gpt/tools/types.ts
   - /src/func/gpt/tools/executor.ts
@@ -44,6 +44,7 @@ interface Tool {
 interface ToolGroup {
     name: string;
     tools: Tool[];
+    defaultToolEnabled?: boolean; // 组内工具初始选择，缺省 true；用户覆盖仍优先
     rulePrompt?: string | ((enabledToolNames: string[]) => string);
     declareSkillRules?: Record<string, {
         desc: string;         // 出现在规则索引表格中的简短描述
@@ -106,14 +107,14 @@ constructor()
 registerToolGroup(group)
   ├── group.tools.forEach → registerTool(tool)
   │     └── registry[name] = tool
-  │         enablingStore.update('tool', name, true)   // 工具默认启用
+  │         enablingStore.tool[name] = group.defaultToolEnabled ?? true
   ├── groupRegistry[group.name] = group
   └── enablingStore.update('group', name, false)       // 工具组默认禁用
 ```
 
 `declareSkillRules` 无需注册：索引在 `toolRules()` 中直接由组定义生成，正文由 `read-rule` 在调用时查找。
 
-**注意**：工具组注册后默认**禁用**。需通过 `toggleGroupEnabled(name, true)` 或 `toolExecutorFactory` 中的 `groupDefaults` 启用。
+**注意**：工具组注册后默认**禁用**。需通过 `toggleGroupEnabled(name, true)` 或 `toolExecutorFactory` 中的 `groupDefaults` 启用。组内工具初始默认选中，原生 MCP 组通过 `defaultToolEnabled: false` 改为不选；随后工厂仍应用 `toolDefaults`。全局面板复用 executor 的有效默认值，不按名称前缀另存策略。
 
 ### enabled 状态 API
 

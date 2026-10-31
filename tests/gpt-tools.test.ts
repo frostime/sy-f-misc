@@ -47,6 +47,18 @@ const runTurn = async (executor: ToolExecutor, value: string) => {
 
 const names = (executor: ToolExecutor) => executor.getEnabledToolDefinitions().map(tool => tool.function.name);
 
+test('group-specific initial selection preserves existing defaults and later explicit choices', () => {
+    const executor = makeExecutor();
+    executor.registerToolGroup({ name: 'opt-in', defaultToolEnabled: false, tools: [makeTool('native')] });
+    executor.toggleGroupEnabled('fixture', true);
+    executor.toggleGroupEnabled('opt-in', true);
+    assert.deepEqual(names(executor), ['lookup']);
+    executor.setToolEnabled('native', true);
+    executor.toggleGroupEnabled('opt-in', false);
+    executor.toggleGroupEnabled('opt-in', true);
+    assert.deepEqual(names(executor), ['lookup', 'native']);
+});
+
 test('on-demand rules are discoverable only for active tools, without requiring a group prompt', () => {
     const executor = makeExecutor(makeTool(), { protocol: { desc: 'fixture syntax', prompt: 'DO EXACTLY THIS' } });
     assert.deepEqual(names(executor), []);

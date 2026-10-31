@@ -1,7 +1,7 @@
 ---
 name: Tool Call 机制总览
 description: sy-f-misc 中 LLM 工具调用的完整架构：注册、执行、审批、只读规则、自定义工具
-updated: 2026-10-30
+updated: 2026-10-31
 scope:
   - /src/func/gpt/tools/**
   - /src/func/gpt/chat/ChatSession/use-chat-session.ts
@@ -100,6 +100,7 @@ TreeModel 更新 → UI 响应式刷新
 | `网页检索工具组` | BingSearch、GoogleSearch、TavilySearch、BochaSearch、FetchWebPage、SearchInWebPage、ExtractHTML、InspectDOMStructure | Google 总可用（无 key 时抓取）；Tavily/Bocha 需对应 API key |
 | `文件系统工具组` | fs-View、fs-SearchReplace、fs-WriteFile | 仅桌面端（Node 可用时才有工具） |
 | `siyuan-tools` | listNotebooks、navigateDocTree、listActiveDocs、getDailyNoteDocs、getBlockInfo、getBlockContent、appendContent、createNewDoc、applyBlockDiff、searchDocument、querySQL、searchKeyword | 领域规则与自定义 diff/slice 语法见 [rules.md](./rules.md) |
+| `思源原生 MCP` | 官方暴露且 Schema 可表示的工具，模型名为 `sy_mcp_<原名>` | GPT 启动快照；默认全不选；同源通信及组件生命周期边界见 [integration.md](./integration.md#原生-mcp-的启动边界)；不进入 Tool Hub |
 | `脚本执行工具组` | Shell、Python、JavaScript | 仅桌面端 (`IS_IN_APP`) |
 | 自定义工具组 | 由 `.tool.json` 描述，Python/PowerShell 执行 | 见 [custom-tools.md](./custom-tools.md) |
 | `read-rule`（非组） | 按 `Rule/<group>/<name>` 读取规则正文 | 内部辅助工具，按需自动注入定义 |

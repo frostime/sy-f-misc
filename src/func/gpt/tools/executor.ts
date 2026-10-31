@@ -186,7 +186,10 @@ ${finalContent}
         }
         if (group.tools.length === 0) return;
 
-        group.tools.forEach(tool => this.registerTool(tool));
+        group.tools.forEach(tool => {
+            this.registerTool(tool);
+            this.setToolEnabled(tool.definition.function.name, group.defaultToolEnabled ?? true);
+        });
         this.groupRegistry[group.name] = group;
         // rulePrompt 现在在 toolRules() 中动态解析，不再在此处静态存储
         //工具组默认禁用

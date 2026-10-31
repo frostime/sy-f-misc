@@ -12,6 +12,7 @@ import { openTab, openWindow, showMessage, getFrontend } from "siyuan";
 import { inputDialog, openCustomTab, thisPlugin } from "@frostime/siyuan-plugin-kits";
 
 import { render } from "solid-js/web";
+import type { ComponentProps } from 'solid-js';
 
 import * as openai from './openai';
 import { ChatSession } from "./chat";
@@ -28,6 +29,7 @@ import { showMessageLog } from "./MessageLogger";
 
 import * as chatInDoc from './chat-in-doc';
 import { openManualExecutePanel } from './tools/manual-execute';
+import { initializeNativeMcp, closeNativeMcp } from './tools/native-mcp';
 
 export { openai };
 
@@ -45,6 +47,40 @@ export const declareSettingPanel = [
         element: setting.GlobalSetting
     }
 ]
+
+let gptStartup: { controller: AbortController; ready: Promise<void> } | undefined;
+
+/** Retained Tab/Dock callbacks also wait here; registering new entrances later is not sufficient. */
+const renderReadyChatSession = (container: Element, props: ComponentProps<typeof ChatSession>) => {
+    const startup = gptStartup;
+    let disposed = false;
+    let dispose = () => {};
+    const cancelledMessage = '本次 GPT 启动已取消，请关闭并重新打开此对话。';
+    container.textContent = startup ? 'GPT 正在启动…' : 'GPT 未启用';
+    if (startup) {
+        void startup.ready.then(() => {
+            if (disposed) return;
+            if (startup.controller.signal.aborted || gptStartup !== startup || !enabled) {
+                container.textContent = cancelledMessage;
+                return;
+            }
+            container.textContent = '';
+            dispose = render(() => ChatSession(props), container);
+        }).catch(error => {
+            if (disposed) return;
+            if (startup.controller.signal.aborted || gptStartup !== startup || !enabled) {
+                container.textContent = cancelledMessage;
+                return;
+            }
+            container.textContent = 'GPT 对话初始化失败，请查看控制台。';
+            console.error('[fmisc] Failed to initialize GPT chat:', error);
+        });
+    }
+    return () => {
+        disposed = true;
+        dispose();
+    };
+};
 
 /**
  * Startup extensions decide startup-only effects from GPT settings. If a synced GPT
@@ -76,10 +112,10 @@ const useStartupExtensions = () => {
         return setting.applyStoredSettingsToRuntime(stored, plugin);
     };
 
-    const load = (plugin: FMiscPlugin) => {
+    const load = (plugin: FMiscPlugin, lifetime: AbortSignal) => {
         loading = true;
         void setting.loadStartupExtensions().then(() => {
-            if (enabled && globalMiscConfigs().pinChatDock) {
+            if (!lifetime.aborted && enabled && globalMiscConfigs().pinChatDock) {
                 addDock(plugin);
             }
         }).catch(error => {
@@ -163,7 +199,7 @@ export const openChatTab = async (reuse: boolean = true, history?: IChatSessionH
     const tab = await openCustomTab({
         tabId: tabId,
         render: (container: HTMLElement) => {
-            disposer = render(() => ChatSession({
+            disposer = renderReadyChatSession(container, {
                 input: input,
                 history: history,
                 updateTitleCallback: (title: string) => {
@@ -183,7 +219,7 @@ export const openChatTab = async (reuse: boolean = true, history?: IChatSessionH
                         }
                     }
                 }
-            }), container);
+            });
             let tabContainer: HTMLElement = container.closest('[data-id]');
             if (tabContainer) {
                 tabContainer.style.overflowY = 'clip';
@@ -224,7 +260,7 @@ const registerGlobalChat = (plugin: FMiscPlugin) => {
             if (getFrontend() !== "desktop-window") {
                 return;
             }
-            const disposer = render(() => ChatSession({
+            const disposer = renderReadyChatSession(this.element, {
                 history: this.data.history,
                 updateTitleCallback: (title: string) => {
                     // 在新窗口中更新标题较为复杂，可以暂时留空或后续实现
@@ -232,7 +268,7 @@ const registerGlobalChat = (plugin: FMiscPlugin) => {
                 uiStyle: {
                     maxWidth: '95%'
                 }
-            }), this.element);
+            });
 
             Object.assign((this.element as HTMLElement).style, {
                 overflowY: 'clip',
@@ -356,7 +392,7 @@ const addDock = (plugin: FMiscPlugin) => {
         type: 'fmisGPTChat',
         init(dock) {
             const container: HTMLElement = dock.element as HTMLElement;
-            disposer = render(() => ChatSession({
+            disposer = renderReadyChatSession(container, {
                 systemPrompt: 'You are a helpful assistant.',
                 updateTitleCallback: (title: string) => {
                     if (!title) return;
@@ -365,7 +401,7 @@ const addDock = (plugin: FMiscPlugin) => {
                         title += '...';
                     }
                 },
-            }), container);
+            });
             container.style.overflowY = 'clip';
             container.style.containerType = 'inline-size';
         },
@@ -378,6 +414,11 @@ const addDock = (plugin: FMiscPlugin) => {
 export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
+    const controller = new AbortController();
+    const startup = { controller, ready: initializeNativeMcp(controller.signal) };
+    gptStartup = startup;
+    await startup.ready;
+    if (controller.signal.aborted || gptStartup !== startup) return;
 
     registerGlobalChat(plugin);
 
@@ -491,7 +532,7 @@ export const load = async (plugin: FMiscPlugin) => {
             openGptWindow();
         }
     });
-    startupExtensions.load(plugin);
+    startupExtensions.load(plugin, controller.signal);
     clickEvent.register();
 
     plugin.eventBus.on('open-siyuan-url-plugin', openUrl);
@@ -502,6 +543,7 @@ export const load = async (plugin: FMiscPlugin) => {
     chatInDoc.init();
 
     await persist.restoreCache();
+    if (controller.signal.aborted) return;
     // NOTE: Do not call updateCacheFile() on startup. restoreCache() loads cache into localStorage;
     // immediate full sync rewrites every split cache file and can overload SiYuan file APIs.
     // NOTE: beforeunload does not await async handlers. Running updateCacheFile() there may abort
@@ -516,15 +558,18 @@ export const load = async (plugin: FMiscPlugin) => {
 export const unload = async (plugin: FMiscPlugin) => {
     if (!enabled) return;
     enabled = false;
+    gptStartup?.controller.abort();
+    gptStartup = undefined;
+    const mcpClosed = closeNativeMcp();
     clickEvent.dispose();
     plugin.eventBus.off('open-siyuan-url-plugin', openUrl);
 
     // 清理文档内对话功能
     chatInDoc.destroy();
 
-    await persist.updateCacheFile();
+    await Promise.all([persist.updateCacheFile(), mcpClosed]);
     // See load() note: beforeunload updateCacheFile is intentionally disabled.
     // window.removeEventListener('beforeunload', persist.updateCacheFile)
 
-    globalThis.fmisc && delete globalThis.fmisc['gpt']
+    if (!enabled && globalThis.fmisc) delete globalThis.fmisc['gpt'];
 }

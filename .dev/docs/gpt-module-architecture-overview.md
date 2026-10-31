@@ -1,7 +1,7 @@
 ---
 name: GPT Module Architecture Overview
 description: Comprehensive bird's-eye view of src/func/gpt/ — module entry points, configuration system, provider/model lifecycle, chat session lifecycle (V2), API communication flow, and cross-cutting concerns. Entry-level spec-doc for agents orienting in this module.
-updated: 2026-10-30
+updated: 2026-10-31
 scope:
   - /src/func/gpt/**
 ---
@@ -46,6 +46,7 @@ SettingsPersistence.initialize()              ← /src/settings/persistence.ts
         └── 分发到 model/config.ts stores
 
 GPT.load(plugin)
+├── initializeNativeMcp()                     → 一次同源工具快照，5 秒内就绪或不可用
 ├── registerGlobalChat/plugin menus/commands
 ├── loadStartupExtensions()
 │   ├── custom preprocess/context modules
@@ -56,7 +57,7 @@ GPT.load(plugin)
 └── globalThis.fmisc['gpt'] = { complete }
 ```
 
-正常启动先完成 settings apply，再执行 `GPT.load()`。GPT 被禁用时仍加载 settings variables 供设置面板使用，但不注册功能资源、加载脚本或添加 Dock。
+正常启动先完成 settings apply，再执行 `GPT.load()`。GPT 被禁用时仍加载 settings variables 供设置面板使用，但不注册功能资源、加载脚本或添加 Dock。原生 MCP 故障不阻止后续 GPT 启动；保留的 Tab/Dock 回调也须通过统一就绪渲染入口构造组件。修改此启动边界前读 [tool-call/integration.md](./tool-call/integration.md#原生-mcp-的启动边界)。
 
 ### 用户触达面
 
