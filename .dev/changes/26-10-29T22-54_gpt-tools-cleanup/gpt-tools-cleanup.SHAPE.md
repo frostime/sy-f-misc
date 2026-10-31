@@ -4,7 +4,7 @@ status: completed
 
 # 原生 MCP 接入提案：GPT 启动快照
 
-本文件预测接入后的代码分布、职责和可见行为。用户审阅提案及首轮评审处置后回复“方案大致 Ok，请开始”，授权按本形态实施；accepted 不代表代码完成或宿主验收通过。目标合同见同目录 `gpt-tools-cleanup.TARGET-SPEC.md`，通信证据见 `gpt-tools-cleanup.METHOD.md`，进度见 `gpt-tools-cleanup.PLAN.md`。源码基线为 `b4a05f9`；当前分支后续提交及本轮改动均为文档。
+本文件预测接入后的代码分布、职责和可见行为。用户审阅提案及首轮评审处置后回复“方案大致 Ok，请开始”，授权按本形态实施；accepted 不代表代码完成或宿主验收通过。目标合同见同目录 `gpt-tools-cleanup.TARGET-SPEC.md`，通信证据见 `gpt-tools-cleanup.METHOD.md`，进度见 `gpt-tools-cleanup.PLAN.md`。预测时的源码基线为 `b4a05f9`；R1 实现检查点为 `ce41577`，R2 增量见 §10。
 
 ## 1. 已确认与本次提议
 
@@ -195,4 +195,29 @@ MCP isError、HTTP/JSON-RPC 错误和未支持内容不能变成 SUCCESS。对�
 - 额外修改 `.dev/docs/gpt-module-architecture-overview.md`，同步已有启动入口索引，属于文档一致性更新，不新增产品职责。
 - 实际 schema 中 bazaar/file 的 limit 表示条数/行数。桥接通过既有 truncateForLLM 钩子沿用默认字符上限，防止 executor 将原生 limit 误解为输出字符数；未增加参数、UI 或截断框架。
 - 两轮独立评审的必要处置已落地；实现后复核修正终态提示及无效 text 的诊断，未建设新的共享冲突状态通道。所有代码锚点已移除。
-- 最终 GPT 117、配置 7、webview 10 项通过，发布/个人构建均通过；类型检查仍只有 5 个基线诊断。`completed` 指源码实施与 diff 对照完成，**不代表完整插件宿主/Provider 或用户体验验收完成**；剩余门槛由 PLAN [I7]/[I8] 管理。
+- R1 最终 GPT 117、配置 7、webview 10 项通过，发布/个人构建均通过；类型检查仍只有 5 个基线诊断。R1 源码实施与 diff 对照已完成，**不代表完整插件宿主/Provider 或用户体验验收完成**；剩余门槛由 PLAN [I7]/[I8] 管理。
+
+## 10. R2：手动发现恢复与命令注册（基于 ce41577）
+
+用户报告首次启动偶发超过 5 秒，但实际已加载插件窗口的即时探针仅 15ms，重启后恢复。冷启动失败的具体阻塞仍未知。checkpoint 后，用户明确选择“只加手动重试按钮（推荐）”，含命令重复注册的最小修复；不加入 30 秒后台重试，不扩大为工具调用重发。
+
+责任保持在原所有者：GPT index.ts 持有当前激活的 signal 和 ready Promise，接收手动动作后更新该 Promise。settings/GlobalSetting 只将回调传给 ToolsManagerSetting，不反向导入 GPT、不直接初始化 client。只有 unavailable 时接受重试；loading/ready/off 的旧回调不替换连接。重试仍有原 5 秒上限，新打开的 Tab/Dock 等待本次 ready，既有组件不重建；成功提示重开已有标签，关闭 GPT 会取消在途重试。
+
+预计增量：
+
+```text
+src/func/gpt/index.ts                        modify +40–60/-18–25
+  手动重试动作/就绪归属；通过设置声明注入回调；两个命令按插件对象用 WeakSet 注册一次。
+src/func/gpt/setting/index.tsx               modify +2–4/-2
+  GlobalSetting 接收并向工具面板传递可选回调。
+src/func/gpt/setting/ToolsManagerSetting.tsx  modify +10–18/-3–5
+  unavailable 提供“重试连接”，loading 沿用就绪界面；不新增连接状态或计时器。
+tests/{gpt-startup.test.ts,fixtures/gpt-startup-host.ts}  modify 合计 +90–130
+  真实 owner 的失败/恢复、并发点击、新标签等待、关闭取消、只读发现与命令每实例一次回归。
+.dev/docs/tool-call/integration.md、现有 SPEC/METHOD/PLAN/评审记录  modify
+  区分按需恢复与正常刷新，保留首次启动根因未知的事实。
+```
+
+命令注册归插件实例，注销仍由宿主在整个插件卸载时处理；GPT 功能关闭/开启不重复注册。只处理这两个命令，不扩为菜单/Tab/Dock 全生命周期重构。协议、工具工厂、输入/结果适配、Provider、聊天树/历史均不改。
+
+R2 实施对照：生产净增 27 行（3 个既有文件），测试/fixture 净增 93 行（2 个既有文件），与该增量预测一致；没有新增生产模块或状态种类。独立复核未发现实质缺陷，文档缺口及成功提示已完善。GPT 120/120（tools 33）、两种构建通过；类型检查仅原有 5 个诊断。当前 completed 仅指源码与对照完成；宿主按钮/快捷键交互及首次冷启动根因仍按 PLAN 留待验证。

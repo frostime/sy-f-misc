@@ -59,7 +59,7 @@ const TabButton = (props: {
 /**
  * 指定设置默认的配置
  */
-const GlobalSetting = () => {
+const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) => {
     onCleanup(() => {
         store.save(thisPlugin());
     });
@@ -338,7 +338,7 @@ const GlobalSetting = () => {
                         <Heading>
                             工具管理
                         </Heading>
-                        <ToolsManagerSetting />
+                        <ToolsManagerSetting onRetryNativeMcp={props.onRetryNativeMcp} />
                     </Match>
 
                     <Match when={activeTab() === 'custom-scripts'}>

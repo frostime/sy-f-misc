@@ -29,7 +29,7 @@ import { showMessageLog } from "./MessageLogger";
 
 import * as chatInDoc from './chat-in-doc';
 import { openManualExecutePanel } from './tools/manual-execute';
-import { initializeNativeMcp, closeNativeMcp } from './tools/native-mcp';
+import { initializeNativeMcp, closeNativeMcp, nativeMcpState } from './tools/native-mcp';
 
 export { openai };
 
@@ -44,11 +44,22 @@ export const declareSettingPanel = [
     {
         key: 'GPT',
         title: '🤖 GPT',
-        element: setting.GlobalSetting
+        element: () => setting.GlobalSetting({ onRetryNativeMcp: retryNativeMcp })
     }
 ]
 
 let gptStartup: { controller: AbortController; ready: Promise<void> } | undefined;
+
+/** Manual discovery recovery stays in the activation owner; existing executors are never rebound. */
+const retryNativeMcp = async () => {
+    const startup = gptStartup;
+    if (!startup || startup.controller.signal.aborted || nativeMcpState().status !== 'unavailable') return;
+    startup.ready = initializeNativeMcp(startup.controller.signal);
+    await startup.ready;
+    if (gptStartup === startup && !startup.controller.signal.aborted && nativeMcpState().status === 'ready') {
+        showMessage('原生 MCP 已连接。已有聊天的工具不会自动更新；请新开聊天标签页，或关闭并重新打开独立窗口。', 8000);
+    }
+};
 
 /** Retained Tab/Dock callbacks also wait here; registering new entrances later is not sufficient. */
 const renderReadyChatSession = (container: Element, props: ComponentProps<typeof ChatSession>) => {
@@ -411,6 +422,29 @@ const addDock = (plugin: FMiscPlugin) => {
     })
 }
 
+const commandOwners = new WeakSet<FMiscPlugin>();
+const registerChatCommands = (plugin: FMiscPlugin) => {
+    if (commandOwners.has(plugin)) return;
+    plugin.addCommand({
+        langKey: 'open-gpt-chat',
+        langText: '打开GPT对话',
+        hotkey: translateHotkey('Ctrl+Shift+L'),
+        callback: () => {
+            openChatTab(true);
+        }
+    });
+    plugin.addCommand({
+        langKey: 'open-gpt-chat-window',
+        langText: '打开独立的GPT对话窗口',
+        hotkey: translateHotkey('Shift+Alt+C'),
+        globalCallback: () => {
+            openGptWindow();
+        }
+    });
+    // The host owns command removal on plugin unload, not on the GPT feature toggle.
+    commandOwners.add(plugin);
+};
+
 export const load = async (plugin: FMiscPlugin) => {
     if (enabled) return;
     enabled = true;
@@ -516,22 +550,7 @@ export const load = async (plugin: FMiscPlugin) => {
         }
     }]);
 
-    plugin.addCommand({
-        langKey: 'open-gpt-chat',
-        langText: '打开GPT对话',
-        hotkey: translateHotkey('Ctrl+Shift+L'),
-        callback: () => {
-            openChatTab(true);
-        }
-    });
-    plugin.addCommand({
-        langKey: 'open-gpt-chat-window',
-        langText: '打开独立的GPT对话窗口',
-        hotkey: translateHotkey('Shift+Alt+C'),
-        globalCallback: () => {
-            openGptWindow();
-        }
-    });
+    registerChatCommands(plugin);
     startupExtensions.load(plugin, controller.signal);
     clickEvent.register();
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 
-import { load, openChatTab, unload } from '../src/func/gpt/index';
+import { declareSettingPanel, load, openChatTab, unload } from '../src/func/gpt/index';
 import { nativeMcpState } from '../src/func/gpt/tools/native-mcp';
 import {
     container, fetchState, flush, holdInitialize, host, installHost,
@@ -72,6 +72,87 @@ test('disabling and re-enabling while the previous activation settles ignores th
     host.tabs[host.tabs.length - 1].render(container());
     await flush();
     assert.equal(host.mounts.length, 1, 'the current activation still mounts its own Tab');
+});
+
+test('commands register once per plugin instance, not once per GPT activation', async () => {
+    await load(plugin);
+    await unload(plugin);
+    await load(plugin);
+    assert.deepEqual(host.commands.filter(command => command.owner === plugin).map(command => command.id), ['open-gpt-chat', 'open-gpt-chat-window']);
+
+    // A newly loaded plugin object still needs its own registrations after host cleanup.
+    await unload(plugin);
+    const nextPlugin: typeof plugin = Object.create(plugin);
+    await load(nextPlugin);
+    await unload(nextPlugin);
+    await load(nextPlugin);
+    assert.deepEqual(host.commands.filter(command => command.owner === nextPlugin).map(command => command.id), ['open-gpt-chat', 'open-gpt-chat-window']);
+});
+
+test('manual discovery recovery is single-flight, gates new Tabs, and leaves existing components alone', async () => {
+    fetchState.initializeFailures = 1;
+    await load(plugin);
+    assert.equal(nativeMcpState().status, 'unavailable');
+    declareSettingPanel[0].element();
+    const retry = host.settingsProps.onRetryNativeMcp;
+    assert.ok(retry, 'the settings UI receives the activation-owned action');
+    await openChatTab(false);
+    host.tabs[0].render(container());
+    await flush();
+    assert.equal(host.mounts.length, 1);
+    const existing = host.mounts[0];
+    const commandCount = host.commands.length;
+
+    const gate = holdInitialize();
+    const recovery = retry();
+    await retry(); // a second click during loading must not create another session
+    await flush();
+    assert.equal(nativeMcpState().status, 'loading');
+    assert.deepEqual(fetchState.calls, ['initialize']);
+    await openChatTab(false);
+    host.tabs[1].render(container());
+    await flush();
+    assert.equal(host.mounts.length, 1, 'new Tab waits for manual recovery');
+    gate.resolve();
+    await recovery;
+    await flush();
+    assert.equal(nativeMcpState().status, 'ready');
+    assert.equal(host.mounts.length, 2);
+    assert.equal(existing.disposed, false, 'no automatic replacement of an existing ChatSession');
+    assert.match(host.messages[0], /关闭并重新打开/);
+    assert.equal(host.commands.length, commandCount, 'discovery retry does not rerun the GPT feature startup');
+    assert.equal(fetchState.calls.includes('tools/call'), false);
+    const requestCount = fetchState.calls.length;
+    await retry();
+    assert.equal(fetchState.calls.length, requestCount, 'a healthy connection is not replaced by a stale UI callback');
+});
+
+test('failed manual recovery stays unavailable, and disabling GPT cancels the next explicit attempt', async () => {
+    fetchState.initializeFailures = 2;
+    await load(plugin);
+    declareSettingPanel[0].element();
+    const retry = host.settingsProps.onRetryNativeMcp!;
+    await retry();
+    assert.equal(nativeMcpState().status, 'unavailable');
+    assert.equal(host.messages.length, 0);
+    assert.equal(fetchState.calls.filter(method => method === 'initialize').length, 2);
+    const gate = holdInitialize();
+    const recovery = retry();
+    await openChatTab(false);
+    const pending = container();
+    host.tabs[0].render(pending);
+    await flush();
+    await unload(plugin);
+    gate.resolve();
+    await recovery;
+    await flush();
+    assert.equal(nativeMcpState().status, 'off');
+    assert.equal(host.mounts.length, 0);
+    assert.match(pending.textContent, /已取消/);
+    assert.equal(host.messages.length, 0);
+    const count = fetchState.calls.length;
+    await retry();
+    assert.equal(fetchState.calls.length, count);
 });
 
 test('a superseded extension completion adds no Dock, and the Dock destroy callback owns the disposer', async () => {

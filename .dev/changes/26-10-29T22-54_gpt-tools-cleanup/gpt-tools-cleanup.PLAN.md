@@ -1,6 +1,6 @@
 # GPT 工具清理与思源原生工具接入：Plan
 
-目标见同目录 `gpt-tools-cleanup.TARGET-SPEC.md`，技术依据见 `gpt-tools-cleanup.METHOD.md`，已接受的代码分布与实施对照见 `gpt-tools-cleanup.SHAPE.md`，独立评审与修订处置见 `gpt-tools-cleanup.ARCH-REVIEW.md`。本计划按 PLAN skill v3 区分问题、执行步骤和阶段门槛。分支为 `refactor/gpt-tools-cleanup`；MCP 源码已接入，本次 checkpoint 保存当前实现、测试和文档，不包含后续启动恢复或命令注册修复，不自动合并或推送。
+目标见同目录 `gpt-tools-cleanup.TARGET-SPEC.md`，技术依据见 `gpt-tools-cleanup.METHOD.md`，已接受的代码分布与实施对照见 `gpt-tools-cleanup.SHAPE.md`，独立评审与修订处置见 `gpt-tools-cleanup.ARCH-REVIEW.md`。本计划按 PLAN skill v3 区分问题、执行步骤和阶段门槛。分支为 `refactor/gpt-tools-cleanup`；MCP 源码已接入，checkpoint `ce41577` 保存 R1 实现、测试和文档；其后 R2 手动恢复与命令注册修复已实施，并按用户要求随本次提交保存，不自动合并或推送。
 
 ## Mainline
 
@@ -35,12 +35,12 @@ P4 按已接受 SHAPE 实施 [I7]/[I15]，不建设通用 MCP 平台，不动聊
 
 ### 已完成与下一步
 
-1. GPT 启动一次发现、5 秒失败隔离、统一就绪渲染/取消、静态原生组、单工具默认与审批、schema/结果转换、冲突隔离及最小权限页修复均已实施。两个新增生产文件集中协议和适配；没有新增依赖。
+1. R1 的启动发现、5 秒失败隔离、静态组/审批/结果转换与权限页修复已在 ce41577 保存。用户随后明确选择仅手动恢复（包含命令最小修复）：R2 已增加工具设置“重试连接”，动作归 GPT 激活所有者；无自动计时器、工具调用重试或旧组件换绑。
 2. 分工为 transport/client 与启动集成测试的独立 worker；主代理负责桥接、默认/面板、GPT 生命周期和整合。实现后另做只读代码复核；主代理核实并修正取消后仍显示加载、无效 text 内容误报不支持类型的问题。所有任务已返回，无在途构建或探针。
-3. 已按 SHAPE 对照实际 diff：生产净增约 565 行，在预测内；测试扩为约 814 行（含边界 fixture/runner），用真实启动 owner 和传输分层回归替代复制状态机，未扩大产品职责。见 SHAPE 实施对照。
+3. R1 生产净增约 565 行，测试约 814 行；R2 在原 owner 中增加回调注入/就绪更新，以及每插件对象的命令注册去重，生产净增 27 行、测试 93 行，均符合 R2 预测。没有更改 native transport/桥接、Provider、聊天树或存储。见 SHAPE 两阶段对照。
 4. 下一步确认候选构建实际加载到哪个思源前端，再做全局/聊天面板、审批、真实模型调用、重开标签/旧历史与版本交互验收。[I8] 的清理宿主检查可同时进行，但证据要分别记录。
 
-### 本轮最终验证（2026-10-31，当前工作区）
+### R1 检查点验证（2026-10-31，ce41577）
 
 | 检查 | 结果与边界 |
 |---|---|
@@ -54,11 +54,18 @@ P4 按已接受 SHAPE 实施 [I7]/[I15]，不建设通用 MCP 平台，不动聊
 
 最终日志在 `tmp/gpt-mcp-final-*.log`，runtime/html 日志在 `tmp/gpt-mcp-verify-*.log`。隔离 renderer 未加载插件主界面，因此生产组件探针不等于真实插件 UI 或 Provider 已验收。
 
+### R2 增量验证（当前工作区）
+
+- `pnpm run test:gpt`：120/120（40 + 42 + 5 + tools 33）。新增 3 项真实启动 owner 回归覆盖命令每插件实例一次、失败后的单飞手动恢复/新标签等待、失败保持 unavailable 和关闭时取消。
+- `pnpm run type-check`：仅原有 5 个基线诊断，无新增。`build:publish` / `build:private` 顺序构建均通过；日志在 tmp/gpt-mcp-recovery-final-*.log。
+- 独立源码复核未发现实质状态/职责缺陷；文档一致性与成功提示已补齐。R2 未重新运行 runtime-config/webview；其 R1 结果保持为历史证据，不宣称本轮重跑。
+- 手动按钮真实宿主点击、快捷键关开后无重复注册提示仍需候选构建验收；首次冷启动超时根因仍未知，未宣称已根治。
+
 ### 出口与 Now
 
 出口：源码与自动回归保持当前通过状态，且已加载候选插件的 UI/Provider 路径取得真实证据，再进入 P5 整体验收。不擅自合并、推送或修复基线失败。
 
-**Now：按用户要求先保存当前 checkpoint。用户实际窗口的即时 MCP 探针仅 15ms，且用户报告再次重启后恢复；[I16] 的首次启动超时原因和恢复策略仍待收口。[I17] 命令重复注册原因已确认，未修复。不重做默认值讨论，不把恢复提议当成已批准实现。**
+**Now：ce41577 checkpoint 之后，已按用户选择完成仅手动重试及命令注册修复，自动检查通过，并按用户要求提交。下一步在宿主确认按钮与快捷键开关；不加后台恢复，不把即时 15ms 探针推断为冷启动永不超时。**
 
 ## Issues
 
@@ -133,12 +140,12 @@ P4 按已接受 SHAPE 实施 [I7]/[I15]，不建设通用 MCP 平台，不动聊
 
 ### I16 · 用户 dev 完整插件 UI 报告启动超过 5 秒
 
-- **Status：needs-spike。** 用户在候选构建中观察到原生 MCP 因超过 5 秒而不可用。还没有失败窗口的请求阶段/时序证据，不能认定调大阈值就能修复，也不能把先前隔离浏览器成功等同于正常插件启动。
+- **Status：in progress（手动恢复源码/自动测试完成，宿主按钮待验）。** 用户曾观察到超过 5 秒后不可用。失败那次的阶段/时序仍未知；当前接受的责任是使这种失败可手动恢复，不是承诺已消除冷启动超时。
 - **Evidence：** 2026-10-31 CLI verify 确认 dev 3.8.8、4143。Node 即时握手/清单连关闭共约 142ms。随后用户在实际窗口执行只读探针：origin 为 https://127.0.0.1:4143、renderer/pluginLoaded 均为 true，initialize 4ms、initialized 3ms、tools/list 5ms、DELETE 2ms，总计 15ms、30 工具；用户又报告再次重启后恢复。证明当前窗口通路可用，不证明失败那次启动时序正常，尚不能定位具体阻塞。
-- **Resolution：** 用户提出失败后 30 秒有限自动重试或显式按钮。主代理建议先显式重试，也可增加启动失败后仅一次后台尝试；仅握手/发现，绝不重放工具调用。恢复后已有聊天是否仍需重开也必须说清，不能偷偷加入热注册/换绑。用户要求先 checkpoint，尚未选择恢复方案；不改 5 秒或重试策略。临时只读探针在 tmp/diagnose-native-mcp.js，不纳入产品或提交。
+- **Resolution：** checkpoint 后用户明确选择仅手动重试。unavailable 提供按钮，回调经 GlobalSetting 传回 GPT 激活 owner，更新 ready 后仅发现目录；5 秒上限不变，无后台尝试和 tools/call 重发。新建标签等待本次 ready，已有组件不重绑；成功提示新开聊天标签/重开独立窗口。关闭 GPT 取消在途重试，旧回调在 off/ready/loading 时不启动新会话。回归已通过，宿主点击体验待验。临时只读探针不纳入产品。
 
 ### I17 · GPT 关闭/开启后重复注册两个命令
 
-- **Status：needs-discussion（原因已确认，修复未实施）。** 用户日志显示 open-gpt-chat 和 open-gpt-chat-window 的 Command ID 已注册；随后自定义扩展正常加载，说明不是 MCP 协议错误或整体 GPT 启动中断。
+- **Status：done（源码/自动回归；真实宿主关开待验）。** 用户日志显示 open-gpt-chat 和 open-gpt-chat-window 的 Command ID 已注册；随后自定义扩展正常加载，说明不是 MCP 协议错误或整体 GPT 启动中断。
 - **Evidence：** index.ts:load 每次执行两个 plugin.addCommand，而 unload 不注销命令。当前 SDK 类型只公开 addCommand。此路径在本轮 MCP 之前已存在，本次功能关开测试暴露了它；不是把所有旧生命周期问题一并纳入的许可。
-- **Resolution：** 建议按插件实例只注册一次，保留回调读取当前 GPT 激活状态，补重复关开回归；不重写整个模块生命周期。待 checkpoint 后明确修复范围。日志中的 Forced reflow 75ms/setTimeout 51ms 是性能警告，不据此认定它们造成 5 秒超时。
+- **Resolution：** 已按插件对象用 WeakSet 去重两个命令，保留回调使用当前 GPT 就绪入口；回归验证同一对象多次关开只各注册一次，新插件对象仍需自己的注册。注销仍归宿主整个插件卸载，不重写菜单/Tab/Dock 生命周期。日志中的性能警告未据此扩入性能修复，也不认定其导致 5 秒超时。

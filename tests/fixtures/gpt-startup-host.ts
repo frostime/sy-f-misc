@@ -28,6 +28,10 @@ export const host = {
     windowTabs: [] as any[],
     docks: [] as any[],
     mounts: [] as { container: FakeContainer; disposed: boolean }[],
+    messages: [] as string[],
+    settingsProps: {} as { onRetryNativeMcp?: () => Promise<void> },
+    // Host commands survive the GPT feature toggle; retain registrations between activations/tests.
+    commands: [] as { owner: unknown; id: string }[],
 };
 
 /** GPT settings read by the startup extension callback. */
@@ -40,7 +44,7 @@ const pluginBoundary = {
     addIcons: () => {},
     addTab: (options: any) => { host.windowTabs.push(options); },
     addDock: (options: any) => { host.docks.push(options); },
-    addCommand: () => {},
+    addCommand(options: { langKey: string }) { host.commands.push({ owner: this, id: options.langKey }); },
     registerMenuTopMenu: () => {},
     registerOnClickDocIcon: () => () => {},
     getOpenedTab: () => ({}),
@@ -50,7 +54,7 @@ export const plugin = pluginBoundary as unknown as FMiscPlugin;
 export const thisPlugin = () => plugin;
 
 export const getFrontend = () => host.frontend;
-export const showMessage = () => {};
+export const showMessage = (message: string) => { host.messages.push(message); };
 export const openTab = async (_options: unknown) => ({ headElement: null });
 export const openWindow = () => {};
 
@@ -85,7 +89,7 @@ export const getRuntimeSettingsSnapshot = () => ({});
 export const applyStoredSettingsToRuntime = () => {};
 export const globalMiscConfigs = () => miscConfig;
 export const translateHotkey = (hotkey: string) => hotkey;
-export const GlobalSetting = () => null;
+export const GlobalSetting = (props: typeof host.settingsProps) => { host.settingsProps = props; return null; };
 export const solidDialog = () => ({ close: () => {} });
 export const HistoryList = () => null;
 export default HistoryList; // ./chat/components/HistoryList is the only default-imported boundary
@@ -104,6 +108,7 @@ export const parseMarkdownToChatHistory = () => undefined;
 export const fetchState = {
     calls: [] as string[],
     initializeGate: null as Deferred<void> | null,
+    initializeFailures: 0,
     tools: [{ name: 'system', description: '思源原生工具', inputSchema: { type: 'object', properties: {} } }],
 };
 
@@ -144,6 +149,10 @@ const installFetch = () => {
         const request = JSON.parse(init.body);
         fetchState.calls.push(request.method);
         if (request.method === 'initialize') {
+            if (fetchState.initializeFailures > 0) {
+                fetchState.initializeFailures--;
+                return new Response(null, { status: 503 });
+            }
             await waitForGate(init.signal);
             return json({
                 jsonrpc: '2.0',
@@ -163,9 +172,12 @@ export const installHost = () => {
     host.frontend = 'desktop';
     for (const list of [host.tabs, host.windowTabs, host.docks, host.mounts]) list.length = 0;
     miscConfig.pinChatDock = false;
+    host.messages.length = 0;
+    host.settingsProps = {};
     extensionGates.length = 0;
     fetchState.calls.length = 0;
     fetchState.initializeGate = null;
+    fetchState.initializeFailures = 0;
 
     (globalThis as any).fmisc = {};
     (globalThis as any).window = { getSelection: () => null };

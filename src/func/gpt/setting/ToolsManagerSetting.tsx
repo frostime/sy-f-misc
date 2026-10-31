@@ -17,18 +17,26 @@ import { nativeMcpState } from '../tools/native-mcp';
 /**
  * 工具管理器设置组件
  */
-export const ToolsManagerSetting: Component = () => (
+export const ToolsManagerSetting: Component<{ onRetryNativeMcp?: () => Promise<void> }> = (props) => (
     <Show when={nativeMcpState().status !== 'loading' && nativeMcpState()} keyed
         fallback={<div class="b3-card">正在发现思源原生 MCP 工具（最多 5 秒）…</div>}>
         {state => {
             let status = '思源原生 MCP：启用 GPT 后发现工具。';
-            if (state.status === 'unavailable') status = `思源原生 MCP 不可用：${state.reason}。可重载 GPT 后再试；其他工具不受影响。`;
+            if (state.status === 'unavailable') status = `思源原生 MCP 不可用：${state.reason}。其他工具不受影响。`;
             if (state.status === 'ready') {
-                status = `思源原生 MCP：${state.toolCount} 个可选工具。目录在 GPT 启动时加载，重载后更新。`;
+                status = `思源原生 MCP：${state.toolCount} 个可选工具。目录在 GPT 启动或手动重试时加载。`;
                 if (state.skippedTools.length) status += `\n以下工具未纳入：\n${state.skippedTools.join('\n')}`;
             }
             return <>
-                <div class="b3-card" style={{ padding: '8px 16px', 'white-space': 'pre-wrap' }}>{status}</div>
+                <div class="b3-card" style={{ padding: '8px 16px', 'white-space': 'pre-wrap' }}>
+                    {status}
+                    <Show when={state.status === 'unavailable' && props.onRetryNativeMcp}>
+                        <button class="b3-button b3-button--outline" style={{ 'margin-left': '12px' }}
+                            onClick={() => void props.onRetryNativeMcp?.()}>
+                            重试连接
+                        </button>
+                    </Show>
+                </div>
                 <ToolsManagerContent />
             </>;
         }}
