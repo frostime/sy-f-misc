@@ -152,12 +152,12 @@ interface ToolChainResult {
 
 ---
 
-## 已知未修复行为（本轮范围外）
+## 已知未修复行为（登记于 .dev/issues/ 的路径）
 
-以下行为仍然存在，改动前应先确认是否需要单独立项：
+以下行为仍然存在，改动前应先确认是否要单独立项：
 
-1. **错误结果不走结果审批**：`ToolExecutor.execute()` 在工具返回非 `SUCCESS` 时提前返回，`resultApprovalPolicy: 'on-error'` 实际不会对错误结果触发审批。
-2. **中断/失败丢掉已完成的工具记录**：集成层在 `status != 'completed'` 时回退到首次响应，本轮已执行的 tool 消息不进入回答版本。
-3. **工具链后续请求不经隐私屏蔽**：首轮请求由 `chatHandler` 做 `maskMessages`，工具链内部再次 `complete()` 时直接发送 `allMessages`。
+1. **错误结果不走结果审批**（执行器层）：见 [executor.md](./executor.md) 的已知缺陷与 [issue 详情](../../issues/26-10-31_gpt-error-result-approval.md)。
+2. **中断/失败丢掉已完成的工具记录**（集成层）：`status != 'completed'` 时集成层回退到首次响应；见 [integration.md](./integration.md) 与 [issue 详情](../../issues/26-10-31_gpt-stop-and-records.md)。
+3. **工具链后续请求不经隐私屏蔽**（集成层）：首轮请求由 `chatHandler` 做 `maskMessages`，工具链内部再次 `complete()` 时直接发送 `allMessages`；见 [issue 详情](../../issues/26-10-31_gpt-tool-chain-privacy.md)。
 
 删除变量系统后，被拒绝的结果不再有“变量仍可读”的旁路；这不等于上述审批、中断与隐私问题已修复。

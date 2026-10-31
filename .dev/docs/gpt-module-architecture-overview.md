@@ -95,7 +95,7 @@ model/storage.ts
 └── load() → read + apply + startup extensions（完整兼容入口）
 
 model/config_migration.ts
-└── 历史版本兼容(data, storeName)  → CURRENT_SCHEMA='3.1'
+└── 历史版本兼容(data, storeName)  → CURRENT_SCHEMA（见 config_migration.ts，现为 '3.4'）
     按 schema version 递增执行迁移块
 ```
 
@@ -387,17 +387,19 @@ ToolExecutor (tools/executor.ts)
 
 工具审批流程：`executor.ts` → `approval-ui.tsx (InlineApprovalCard)` → 用户 approve/reject → 继续或中止。
 
-工具调用以原生 `IMessage[]` 随回答版本持久化（无压缩日志、无工具结果变量）。规则文档与 `read-rule` 边界见 [tool-call/rules.md](tool-call/rules.md)，执行链细节见 [tool-call/index.md](tool-call/index.md)。
+工具调用以原生 `IMessage[]` 随回答版本持久化（无压缩日志、无工具结果变量）。执行、审批与规则可见 [tool-call/index.md](tool-call/index.md)。
 
 ### 7.4 对话持久化与设置同步的边界
 
 ```
 persistence/
 ├── local-storage.ts   — localStorage + gpt-cache/ 临时同步副本
-├── json-files.ts      — 归档为 JSON 文件
+├── storage-read.ts    — 持久化文件读取抽象（桌面读可用 Node fs，写删走思源文件 API）
+├── json-files.ts      — 归档为 JSON 文件 + snapshot 索引
 ├── sy-doc.ts          — 导出到思源文档
 ├── assets.ts          — 附件管理
 ├── import-platform.ts — 导入外部平台对话
+├── archive-actions.ts / history-equality.ts / xml.ts  — 归档动作、等价判断、XML 导出
 └── index.ts           — 统一 API
 ```
 

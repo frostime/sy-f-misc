@@ -253,9 +253,9 @@ interface ExtendedCompletionResult extends ICompletionResult {
 
 ---
 
-## 9. 已知未修复行为（本轮范围外）
+## 9. 已知未修复行为（登记于 .dev/issues/ 的路径）
 
-- **中断/失败回退**：`handleToolChain` 在 `status != 'completed'` 时返回首次响应，本轮已执行的工具调用记录不进入回答版本；只有首轮文本被保存（工具的实际副作用可能已经发生）。
-- **跨轮隐私**：`maskMessages` 只作用于首轮请求（`chatHandler.execute`）；工具链内部后续 `complete()` 请求发送未屏蔽的 `allMessages`。
-- **错误结果审批**：`checkToolResults: true` 已传入，但执行器对非 `SUCCESS` 结果提前返回，`on-error` 结果审批不会触发（见 [toolchain.md](./toolchain.md) 与 [executor.md](./executor.md)）。
+- **中断/失败回退**：`handleToolChain` 在 `status != 'completed'` 时返回首次响应，本轮已执行的工具调用记录不进入回答版本；只有首轮文本被保存（工具的实际副作用可能已经发生）。见 [issue 详情](../../issues/26-10-31_gpt-stop-and-records.md)。
+- **跨轮隐私**：`maskMessages` 只作用于首轮请求（`chatHandler.execute`）；工具链内部后续 `complete()` 请求发送未屏蔽的 `allMessages`。见 [issue 详情](../../issues/26-10-31_gpt-tool-chain-privacy.md)。
+- **错误结果审批**（执行器层，见 [executor.md](./executor.md)）。
 - **工具关闭仍可按名称执行**：启用状态只影响注入的定义，不构成执行禁止；这是刻意设计，不属于上述缺陷。

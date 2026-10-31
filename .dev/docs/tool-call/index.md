@@ -14,9 +14,8 @@ deprecated: false
 
 | 文档 | 内容 |
 |------|------|
-| [executor.md](./executor.md) | 类型系统、ToolExecutor 注册与执行核心 |
-| [toolchain.md](./toolchain.md) | LLM↔工具对话循环、原生工具消息结构、结束状态 |
-| [approval.md](./approval.md) | 权限模型、审批 UI 适配器 |
+| [executor.md](./executor.md) | ToolExecutor 注册、execute() 全流、权限/审批模型与 UI、截断、工厂初始化 |
+| [toolchain.md](./toolchain.md) | LLM↔工具对话循环、原生工具消息结构、结束状态 | |
 | [rules.md](./rules.md) | 只读规则文档：声明、索引、`read-rule` 与查找范围 |
 | [custom-tools.md](./custom-tools.md) | 自定义脚本工具（Python/PowerShell）解析与加载 |
 | [integration.md](./integration.md) | Chat 集成层：注入、systemPrompt、执行链路、结果持久化 |
@@ -55,40 +54,11 @@ graph TD
 
 ---
 
-## 工具调用全链路（简版序列）
+## 一轮完整发送的级际顺序
 
-```
-用户发送消息
-  ↓
-ChatSession.sendMessage()  [use-chat-session.ts]
-  ↓
-useGptCommunication.sendMessage()  [use-openai-endpoints.ts]
-  ├── getAttachedHistory()          ← 在创建占位前获取（避免占位污染历史）
-  ├── lifecycle.prepareSlot()       ← TreeModel 插入 loading 占位
-  └── executeChatRequest()
-        ├── buildSystemPrompt()     ← 用户 prompt + toolRules()（工具规则 + 规则索引）
-        ├── buildChatOption()       ← 注入 tools + tool_choice='auto'
-        ├── gpt.complete(messages)  ← 第一次 LLM 请求
-        └── if response.tool_calls → handleToolChain()
-              └── executeToolChain(executor, response, options)  [toolchain.ts]
-                    [循环] for each tool_call:
-                      executor.execute(name, args)   [executor.ts]
-                      → checkExecutionApproval() → 可能弹审批 UI
-                      → tool.execute(args)
-                      → format → truncate（SKIP_EXTERNAL_TRUNCATE 可跳过）
-                      → checkResultApproval() → 可能弹审批 UI
-                      → 构建 {role:'tool', content: finalText}
-                    重新调用 LLM... 直到无 tool_calls 或达 maxRounds
-                    停止条件触发时追加一条 [SYSTEM] user 提示再请求最终回复
-  ↓
-toolChainToCompletion()  ← 末条 assistant 拆为回答正文，其余原生消息进 toolChainMessages
-  ↓
-lifecycle.finalize()  ← 写入 message + toolChainMessages + toolChainResult 到本次占位版本
-  ↓
-TreeModel 更新 → UI 响应式刷新
-```
+`ChatSession.sendMessage()` → `useGptCommunication.sendMessage()`（先取历史再插占位）→ `buildSystemPrompt / buildChatOption` → 首次 `complete()` → 返回含 `tool_calls` 时 `handleToolChain()` 进入工具循环 → `toolChainToCompletion()` 转持久化形态 → `lifecycle.finalize()` 写入本次占位版本。
 
-持久化形态（原生消息，无压缩日志、无结果变量）见 [integration.md](./integration.md)；失败与中断的收尾行为同样记录在那里。
+循环与消息结构见 [toolchain.md](./toolchain.md)；集成层流程、回放判定与持久化形态见 [integration.md](./integration.md)。
 
 ---
 
