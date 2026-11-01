@@ -471,3 +471,61 @@ for (const callCase of mixedCallCases) {
         );
     });
 }
+
+test('claude: unsigned thinking still replays from reasoning_content when untouched', async () => {
+    const model = syntheticModel('claude');
+    const blocks = [
+        { type: 'thinking', thinking: 'unsigned analysis' },
+        { type: 'text', text: 'done' },
+    ];
+    mockFetch(
+        jsonResponse({ content: blocks, stop_reason: 'end_turn' }),
+        reply('claude', false, true),
+    );
+
+    const first = await complete('q', { model });
+    assert.equal(first.reasoning_content, 'unsigned analysis');
+    assert.deepEqual(narrowSlots(first.extra), ['thinking', 'text']);
+    assert.equal(JSON.stringify(first.extra).includes('unsigned analysis'), false,
+        'reasoning text must stay out of replay metadata');
+    assert.equal(JSON.stringify(first.extra).includes('signature'), false);
+
+    await complete([{ role: 'user', content: 'q' }, {
+        role: 'assistant', content: first.content, reasoning_content: first.reasoning_content, extra: first.extra,
+    }, { role: 'user', content: 'next' }], { model });
+    const assistant = fetchCalls[1].body.messages.filter((message: any) => message.role === 'assistant')[0];
+    assert.deepEqual(assistant.content, blocks);
+
+    // Editing still drops replay, keeps the stored reasoning field, and stops sending it.
+    const edited = stripReplayMetadata({
+        role: 'assistant', content: 'edited answer', reasoning_content: first.reasoning_content, extra: first.extra,
+    } as IMessage);
+    assert.equal((edited as IAssistantMessage).reasoning_content, 'unsigned analysis');
+    await complete([{ role: 'user', content: 'q' }, edited], { model });
+    const wire = JSON.stringify(fetchCalls[2].body);
+    assert.equal(wire.includes('edited answer'), true);
+    assert.equal(wire.includes('unsigned analysis'), false);
+});
+
+test('gemini: unsigned thought still replays from reasoning_content when untouched', async () => {
+    const model = syntheticModel('gemini');
+    const parts = [
+        { text: 'unsigned thought', thought: true },
+        { text: 'done' },
+    ];
+    mockFetch(
+        jsonResponse({ candidates: [{ content: { parts }, finishReason: 'STOP' }] }),
+        reply('gemini', false, true),
+    );
+
+    const first = await complete('q', { model });
+    assert.equal(first.reasoning_content, 'unsigned thought');
+    assert.deepEqual(narrowSlots(first.extra), ['thought', 'text']);
+    assert.equal(JSON.stringify(first.extra).includes('unsigned thought'), false);
+
+    await complete([{ role: 'user', content: 'q' }, {
+        role: 'assistant', content: first.content, reasoning_content: first.reasoning_content, extra: first.extra,
+    }, { role: 'user', content: 'next' }], { model });
+    const modelParts = fetchCalls[1].body.contents.find((message: any) => message.role === 'model').parts;
+    assert.deepEqual(modelParts, parts);
+});

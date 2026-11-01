@@ -71,7 +71,9 @@ const parseArguments = (raw: string | undefined): Record<string, any> => {
 
 const needsClaudeReplay = (slots: ClaudeReplaySlot[]): boolean =>
     slots.some(slot => slot.kind === 'opaque'
-        || (slot.kind === 'thinking' && slot.signature !== undefined));
+        // Reasoning is canonical and immutable, so it is replayed from `reasoning_content`
+        // whether or not the provider signed it.
+        || (slot.kind === 'thinking' && (slot.signature !== undefined || slot.chars > 0)));
 
 /**
  * Capture narrow Claude replay from native content blocks.
@@ -210,7 +212,8 @@ const needsGeminiReplay = (slots: GeminiReplaySlot[]): boolean =>
     slots.some(slot => {
         if (slot.kind === 'opaque' || slot.kind === 'empty_signed_text') return true;
         if (slot.kind === 'text') return slot.signature !== undefined;
-        if (slot.kind === 'thought') return slot.signature !== undefined;
+        // Reasoning is replayed from `reasoning_content` even without a thought signature.
+        if (slot.kind === 'thought') return slot.signature !== undefined || slot.chars > 0;
         return slot.signature !== undefined || slot.id !== undefined;
     });
 

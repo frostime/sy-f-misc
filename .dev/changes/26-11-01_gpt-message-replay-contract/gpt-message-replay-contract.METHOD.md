@@ -181,3 +181,20 @@ Tests should use the existing production adapter/parser harness in `tests/gpt-pr
 ### Provider 状态
 
 仍为**未验证**（未发真实请求、未使用 key）。上面两处修订不改变 METHOD §Provider 验收状态 中的任何未解问题。
+
+## 复核修订（round 3：无签名 reasoning 不再被丢弃）
+
+问题：round 2 的 `needsClaudeReplay` / `needsGeminiReplay` 只在存在 `signature` 时保留 slots，导致"有 reasoning、没有签名"的同源消息回落到 canonical 转换，**未编辑也丢掉了旧版本会回放的 reasoning**。旧解析器只要出现 thinking/redacted_thinking（Claude）或 thought（Gemini）就写 full extra，因此这是相对基线的回归。
+
+修正后的写侧裁剪规则（替代 round 2 中的同名规则）：
+
+| 情况 | 是否写窄 replay | 说明 |
+|---|---|---|
+| 存在 reasoning slot（`chars > 0`），有或没有签名 | **写** | reasoning 由 `reasoning_content` 按长度重建，不依赖签名 |
+| reasoning slot 的 `chars === 0` 且无签名 | 不写（除非还有其它 native-only 数据） | 该 slot 不携带任何可保留内容 |
+| `opaque` / `empty_signed_text` / 文本或调用的签名 / 服务端调用 id | 写 | 无法从 canonical 字段重建 |
+| 只有 text / tool_use / 无 id 的 function_call | 不写 | 完全可由 `content` + `tool_calls` 重建 |
+
+不变量不变：`extra` 不复制 reasoning 文本；编辑后仍删除 replay，`reasoning_content` 字段保留但不向 wire 发送。
+
+**残留风险（未验证）**：Claude 的 thinking 块没有 `signature` 时，回放会发出不带签名的 thinking 块。这与改动前的基线行为一致（旧代码原样回放收到的块），但上游是否接受缺少签名的 thinking 块没有实测证据；一旦真实 Provider 拒绝，应改为"无签名时不发 thinking 块"（仍需先取证据）。

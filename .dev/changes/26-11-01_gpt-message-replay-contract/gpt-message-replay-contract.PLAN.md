@@ -18,7 +18,7 @@ Target contract: [TARGET-SPEC](gpt-message-replay-contract.TARGET-SPEC.md). Tech
 
 | Check | Result |
 |---|---|
-| `pnpm run test:gpt` | 195/195 通过：chat 40、protocol 70、archive 58、apikey 5、tools 33 |
+| `pnpm run test:gpt` | 197/197 通过：chat 40、protocol 72、archive 58、apikey 5、tools 33 |
 | `pnpm run type-check` | 仅 5 个既有基线诊断（docfile-tools ×4、model/storage.ts ×1），无新增 |
 | `pnpm run build:publish` / `build:private` | 均通过 |
 | 真实 Provider | **未执行**。无 key、无额度授权；相关结论一律标为未验证 |
@@ -37,6 +37,7 @@ Target contract: [TARGET-SPEC](gpt-message-replay-contract.TARGET-SPEC.md). Tech
 10. reasoning 文本只存在于 `reasoning_content`，新 replay 不含可重建的思考文本（Claude / Gemini 各一条）。
 11. Gemini 混合 native-id / no-id 多调用：每个 canonical 调用至多消费一次，wire 无重复 part，`functionResponse.id` 只回到原本拥有它的调用。
 12. 窄 replay 的中间消息在持久化后仍保留 `reasoning_content`（否则无法重建），编辑后该字段不被改写。
+13. 无签名的 thinking / thought 仍写窄 replay 并原样回放（Claude 与 Gemini 各一条），`extra` 不含 reasoning 文本；编辑后仍不向 wire 发送 reasoning。
 
 ## Issues
 
