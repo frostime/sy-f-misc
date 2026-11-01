@@ -19,6 +19,8 @@
 //      - snapshot（新第三参）：{ content, reasoning_content, usage }，正文/思维链分离的
 //        纯文本与当前 usage，每种协议在每个有效事件上都会发出（思维链在正文出现前就开始流式）。
 
+import { captureClaudeReplay, captureGeminiReplay } from './replay-contract';
+
 /** streamMsg 第三参快照类型；与 ICompletionResult 的 content/reasoning_content/usage 同构 */
 export type TStreamSnapshot = Pick<ICompletionResult, 'content' | 'reasoning_content' | 'usage'>;
 
@@ -788,6 +790,7 @@ export const parseClaudeResponse = (data: any): ICompletionResult => {
     const providerMeta: Record<string, any> = { stop_reason: data?.stop_reason };
     if (data?.usage) providerMeta.claudeUsage = data.usage;
     const blocks = collectClaudeBlocks(data?.content || [], providerMeta);
+    const replay = captureClaudeReplay(data.content);
     return {
         ok: true,
         content: blocks.content,
@@ -795,8 +798,7 @@ export const parseClaudeResponse = (data: any): ICompletionResult => {
         tool_calls: blocks.tool_calls,
         reasoning_content: blocks.reasoning || undefined,
         providerMeta,
-        ...(data.content.some((block: any) => block?.type === 'thinking' || block?.type === 'redacted_thinking')
-            ? { extra: { protocol: 'claude' as const, data: { content: structuredClone(data.content) } } } : {}),
+        ...(replay ? { extra: replay } : {}),
     };
 };
 
@@ -958,9 +960,8 @@ export const consumeClaudeStream = async (
     providerMeta.claudeUsage = rawUsage;
     result.providerMeta = providerMeta;
     const contentBlocks = Array.from(rawBlocks.entries()).sort(([a], [b]) => a - b).map(([, block]) => block);
-    if (result.ok && contentBlocks.some(block => block.type === 'thinking' || block.type === 'redacted_thinking')) {
-        result.extra = { protocol: 'claude', data: { content: contentBlocks } };
-    }
+    const replay = result.ok ? captureClaudeReplay(contentBlocks) : undefined;
+    if (replay) result.extra = replay;
     result.time = streamTiming(t0, firstReadAt, Date.now(), result.usage);
     return result;
 };
@@ -1034,6 +1035,7 @@ export const parseGeminiResponse = (data: any): ICompletionResult => {
     if (data?.usageMetadata) providerMeta.geminiUsage = data.usageMetadata;
     const failure = geminiFailureReason(data)
         || (!Array.isArray(first?.content?.parts) ? 'Unexpected response shape: missing candidate content.parts' : undefined);
+    const replay = failure ? undefined : captureGeminiReplay(rawParts);
     return {
         ok: !failure,
         content: failure ? [blocks.content, `[Error] Gemini: ${failure}`].filter(Boolean).join('\n') : blocks.content,
@@ -1041,8 +1043,7 @@ export const parseGeminiResponse = (data: any): ICompletionResult => {
         tool_calls: blocks.tool_calls,
         reasoning_content: blocks.reasoning || undefined,
         providerMeta,
-        ...(!failure && rawParts.some((part: any) => part.functionCall || part.thoughtSignature || part.thought)
-            ? { extra: { protocol: 'gemini' as const, data: { parts: structuredClone(rawParts) } } } : {}),
+        ...(replay ? { extra: replay } : {}),
     };
 };
 
@@ -1158,9 +1159,8 @@ export const consumeGeminiStream = async (
     emit();
     result.tool_calls = Array.from(toolCalls.values());
     result.providerMeta = { ...providerMeta, geminiUsage: rawUsage };
-    if (result.ok && rawParts.some(part => part.functionCall || part.thoughtSignature || part.thought)) {
-        result.extra = { protocol: 'gemini', data: { parts: rawParts } };
-    }
+    const replay = result.ok ? captureGeminiReplay(rawParts) : undefined;
+    if (replay) result.extra = replay;
     result.time = streamTiming(t0, firstReadAt, Date.now(), result.usage);
     return result;
 };

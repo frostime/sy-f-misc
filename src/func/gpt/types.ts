@@ -87,12 +87,39 @@ interface IUserMessage {
 /**
  * 助手消息
  */
-/** Internal replay data. Adapters restore native fields; `extra` itself is never an API parameter. */
+/**
+ * Internal replay data. Adapters restore native fields; `extra` itself is never an API parameter.
+ *
+ * Ownership: `content` owns visible body text, `tool_calls` owns names/arguments,
+ * `reasoning_content` owns displayed reasoning. Replay metadata may carry only values that
+ * cannot be rebuilt from those fields (signatures, encrypted blocks, native ids, ordering).
+ *
+ * - `v: 2` (narrow): body text and call arguments are rebuilt from canonical fields.
+ * - no `v` (legacy full-native): written before the narrow contract; replayed verbatim and never
+ *   reinterpreted. Editing a message removes its replay metadata, so a stale copy cannot win.
+ */
+type IReplaySource = { model?: string; provider?: string };
+
+type ClaudeReplaySlot =
+    | { kind: 'thinking'; block: ClaudeContentBlock }
+    | { kind: 'text' }
+    | { kind: 'tool_use'; id: string }
+    | { kind: 'opaque'; block: unknown };
+
+type GeminiReplaySlot =
+    | { kind: 'thought'; part: IGeminiPart }
+    | { kind: 'text'; signature?: string }
+    | { kind: 'function_call'; id?: string; signature?: string }
+    | { kind: 'empty_signed_text'; part: IGeminiPart }
+    | { kind: 'opaque'; part: IGeminiPart };
+
 type IMessageExtra = (
     | { protocol: 'openai'; data: { reasoning_content?: string; reasoning?: string; reasoning_details?: any[] } }
+    | { protocol: 'claude'; v: 2; slots: ClaudeReplaySlot[] }
+    | { protocol: 'gemini'; v: 2; slots: GeminiReplaySlot[] }
     | { protocol: 'claude'; data: { content: ClaudeContentBlock[] } }
     | { protocol: 'gemini'; data: { parts: IGeminiPart[] } }
-) & { model?: string; provider?: string };
+) & IReplaySource;
 
 interface IAssistantMessage {
     role: 'assistant';

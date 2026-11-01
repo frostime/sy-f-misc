@@ -30,6 +30,7 @@ import type { PendingApproval } from '@gpt/tools/types';
 
 // V2 TreeModel
 import { useTreeModel } from './use-tree-model';
+import { stripReplayMetadata } from '@gpt/openai/replay-contract';
 import type { ITreeSelection } from './subtree-selection';
 
 
@@ -401,17 +402,18 @@ export const useSession = (props: {
         if (!current) return;
         if (!current.toolChainMessages) return;  // 仅 standard cell
 
-        const newMessage: IMessage = {
+        // 编辑正文后丢弃该消息的 replay 元数据（含 legacy 全量副本），否则旧原文仍会替代正文。
+        const newMessage: IMessage = stripReplayMetadata({
             ...current.message,
             content: edits.finalMessageContent,
-        };
+        });
 
         let newToolChainMessages: IMessage[] | undefined = current.toolChainMessages;
         if (edits.intermediateEdits) {
             newToolChainMessages = current.toolChainMessages.map((m, i) => {
                 const edit = edits.intermediateEdits?.[i];
                 if (edit !== undefined && m.role === 'assistant') {
-                    return { ...m, content: edit };
+                    return stripReplayMetadata({ ...m, content: edit });
                 }
                 return m;
             });
@@ -1038,10 +1040,11 @@ export const useSession = (props: {
 
             // V2: 更新当前版本的 message content
             treeModel.updatePayload(nodeId, {
-                message: {
+                // 同上：正文是唯一所有者，编辑后不能让旧 replay 覆盖。
+                message: stripReplayMetadata({
                     ...payload.message,
                     content: newText,
-                },
+                }),
                 userPromptSlice: contextPrompt.length > 0
                     ? [contextPrompt.length, contextPrompt.length + newContent.length]
                     : undefined,

@@ -6,13 +6,13 @@ import {
     buildProtocolHeaders,
     CompleteOptions,
     ensureGeminiEndpointByStream,
-    getCompatibleExtra,
     messageContentToText,
     normalizeMessagesWithSystem,
     parseJsonSafe,
     toErrorResult,
 } from './protocol-utils';
 import { consumeGeminiStream, parseGeminiResponse } from './response-parse';
+import { prepareGeminiReplayParts } from './replay-contract';
 
 const pushGeminiContent = (contents: IGeminiContent[], role: IGeminiContent['role'], parts: IGeminiPart[]) => {
     if (!parts.length) return;
@@ -24,47 +24,10 @@ const pushGeminiContent = (contents: IGeminiContent[], role: IGeminiContent['rol
     }
 };
 
-/**
- * 从同源 Gemini extra 的原始 parts 中收集 tool_call_id → 原始 name / 服务端 id。
- * 标准化 IToolCall.id 与服务端 id 可能不同（无 id 时是本地 synthetic id），
- * 因此按 functionCall 出现顺序与 msg.tool_calls 对齐后再建立映射。
- */
-const collectGeminiReplayMaps = (messages: IMessage[], runtime: IRuntimeLLM) => {
-    const toolCallIdToName = new Map<string, string>();
-    const serverFunctionCallIdByToolCallId = new Map<string, string>();
-
-    for (const msg of messages) {
-        if (msg.role !== 'assistant') continue;
-        const toolCalls = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
-        const extra = getCompatibleExtra(msg, runtime);
-        if (extra?.protocol !== 'gemini') {
-            toolCalls.forEach((toolCall) => {
-                toolCallIdToName.set(toolCall.id, toolCall.function.name);
-            });
-            continue;
-        }
-
-        let functionCallIndex = 0;
-        for (const part of extra.data.parts) {
-            const functionCall = (part as IGeminiPartFunctionCall)?.functionCall;
-            if (!functionCall?.name) continue;
-            const normalized = toolCalls[functionCallIndex++];
-            const toolCallId = normalized?.id ?? functionCall.id;
-            if (!toolCallId) continue;
-            toolCallIdToName.set(toolCallId, functionCall.name);
-            // 只有服务端真正给过 id 的调用才能把 id 回传给 functionResponse。
-            if (functionCall.id) {
-                serverFunctionCallIdByToolCallId.set(toolCallId, functionCall.id);
-            }
-        }
-    }
-
-    return { toolCallIdToName, serverFunctionCallIdByToolCallId };
-};
-
 const toGeminiContents = (messages: IMessage[], runtime: IRuntimeLLM): IGeminiContent[] => {
     const contents: IGeminiContent[] = [];
-    const { toolCallIdToName, serverFunctionCallIdByToolCallId } = collectGeminiReplayMaps(messages, runtime);
+    const toolCallIdToName = new Map<string, string>();
+    const serverFunctionCallIdByToolCallId = new Map<string, string>();
 
     for (const msg of messages) {
         if (msg.role === 'user') {
@@ -98,10 +61,16 @@ const toGeminiContents = (messages: IMessage[], runtime: IRuntimeLLM): IGeminiCo
         }
 
         if (msg.role === 'assistant') {
-            // 同源 extra：原样回放原始 parts（thoughtSignature / functionCall.id 保持不动，顺序不变）。
-            const extra = getCompatibleExtra(msg, runtime);
-            if (extra?.protocol === 'gemini') {
-                pushGeminiContent(contents, 'model', structuredClone(extra.data.parts));
+            // 同源 replay 只提供 native-only 数据（thought / 签名 / 服务端 id / 顺序）；正文取 `content`。
+            const replayed = prepareGeminiReplayParts(msg, runtime);
+            if (replayed) {
+                pushGeminiContent(contents, 'model', replayed.parts);
+                replayed.calls.forEach((call) => {
+                    toolCallIdToName.set(call.toolCallId, call.name);
+                    if (call.serverId !== undefined) {
+                        serverFunctionCallIdByToolCallId.set(call.toolCallId, call.serverId);
+                    }
+                });
                 continue;
             }
 
@@ -113,6 +82,8 @@ const toGeminiContents = (messages: IMessage[], runtime: IRuntimeLLM): IGeminiCo
 
             if (Array.isArray(msg.tool_calls)) {
                 msg.tool_calls.forEach((toolCall) => {
+                    // canonical 名字供后续 functionResponse.name 解析；不伪造任何 wire id。
+                    toolCallIdToName.set(toolCall.id, toolCall.function.name);
                     const args = parseJsonSafe<Record<string, any>>(toolCall.function.arguments || '{}', {});
                     parts.push({
                         functionCall: {
