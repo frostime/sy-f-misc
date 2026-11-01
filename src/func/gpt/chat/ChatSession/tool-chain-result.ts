@@ -12,8 +12,11 @@ export const toolChainToCompletion = (
     const hasFinalAssistant = last?.role === 'assistant';
 
     return {
-        content: hasFinalAssistant ? extractContentText(last.content) : '',
+        ok: result.status === 'completed',
+        content: hasFinalAssistant ? extractContentText(last.content)
+            : result.status === 'error' ? `[Error] ${result.error || 'Tool chain failed'}` : '',
         reasoning_content: hasFinalAssistant ? last.reasoning_content : undefined,
+        extra: hasFinalAssistant ? last.extra : undefined,
         usage: result.usage,
         time: initialResponse.time,
         // Follow-up 失败时可能以 tool(incomplete) 结束；仍保存完整序列，不合成压缩日志。

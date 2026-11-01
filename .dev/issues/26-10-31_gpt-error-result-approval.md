@@ -1,9 +1,13 @@
 ---
 title: 工具执行报错时直接绕过结果审批机制（on-error / always）
-status: open
+status: not-planned
 created: 2026-10-31
 baseline: bf704fb
 ---
+
+## 当前状态
+
+not-planned。本轮不处理结果审批功能。协议请求错误状态的传递仍在协议适配器与工具链内处理。
 
 ## 涉及模块与问题概述
 

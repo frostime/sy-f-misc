@@ -14,6 +14,7 @@ import {
     createSseParser,
     mergeOpenAIStreamToolCalls,
     parseClaudeResponse,
+    parseGeminiResponse,
     parseOpenAINonStream,
 } from '../src/func/gpt/openai/response-parse.js';
 
@@ -127,7 +128,7 @@ test('OpenAI stream: full happy path with reasoning, tools, final usage chunk', 
 
 test('OpenAI stream: reasoning streams before any body content', async () => {
     const calls: RecordedCall[] = [];
-    const onlyReasoning = 'data: {"choices":[{"delta":{"reasoning_content":"thinking..."}}]}\n\n';
+    const onlyReasoning = 'data: {"choices":[{"delta":{"reasoning_content":"thinking..."}}]}\n\ndata: [DONE]\n\n';
     const result = await consumeOpenAIStream(streamResponse([bytes(onlyReasoning)]), {
         streamMsg: recordStreamMsg(calls),
     });
@@ -143,7 +144,7 @@ test('OpenAI stream: arbitrary byte-level chunk splits (incl. UTF-8 mid-char) gi
     const base = await consumeOpenAIStream(streamResponse([bytes(openAIEventStream)]));
     // 中文+emoji 内容跨字节切分
     const utf8Stream = 'data: {"choices":[{"delta":{"content":"中文🙂测试"}}]}\n\n'
-        + 'data: {"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}\n\n';
+        + 'data: {"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}\n\ndata: [DONE]\n\n';
     const utf8 = await consumeOpenAIStream(chunkedResponse(utf8Stream, [1, 5, 2, 3, 1]));
     assert.equal(utf8.content, '中文🙂测试');
     assert.equal(utf8.usage?.total_tokens, 2);
@@ -184,6 +185,7 @@ test('OpenAI stream: leading think-tag partition works across split chunks; late
     const events = [
         `data: {"choices":[{"delta":{"content":"${OPEN}raw rea"}}]}`,
         `data: {"choices":[{"delta":{"content":"soning${CLOSE}the answer ${OPEN}demo${CLOSE} end"}}]}`,
+        'data: [DONE]',
     ].join('\n\n') + '\n\n';
     const result = await consumeOpenAIStream(chunkedResponse(events, [1, 4, 2, 9, 3]));
     assert.equal(result.reasoning_content, 'raw reasoning');
@@ -269,7 +271,7 @@ test('Claude stream: thinking streamed before body, additive cache usage, tool a
     assert.ok(!result.content.includes('opaque-sig'));
 });
 
-test('Claude nonstream: thinking separated, redacted_thinking dropped, tool_use mapped', () => {
+test('Claude nonstream: thinking separated, redacted_thinking hidden, tool_use mapped', () => {
     const result = parseClaudeResponse({
         content: [
             { type: 'thinking', thinking: 'why', signature: 'sig' },
@@ -297,12 +299,12 @@ const geminiChunk = (text: string, opts: any = {}) => JSON.stringify({
     ...(opts.usageMetadata ? { usageMetadata: opts.usageMetadata } : {}),
 });
 
-test('Gemini stream: thought parts separated, functionCall snapshot args replaced, final usage', async () => {
+test('Gemini stream: thought parts separated, same-id call args updated, final usage', async () => {
     const events = [
         geminiChunk('internal ponder', { thought: true }),
         geminiChunk('answer part'),
-        JSON.stringify({ candidates: [{ content: { parts: [{ functionCall: { name: 'f', args: { a: 1 } } }] } }] }),
-        JSON.stringify({ candidates: [{ content: { parts: [{ functionCall: { name: 'f', args: { a: 1, b: 2 } } }] } }] }),
+        JSON.stringify({ candidates: [{ content: { parts: [{ functionCall: { id: 'fc-1', name: 'f', args: { a: 1 } } }] } }] }),
+        JSON.stringify({ candidates: [{ content: { parts: [{ functionCall: { id: 'fc-1', name: 'f', args: { a: 1, b: 2 } } }] } }] }),
         JSON.stringify({ candidates: [{ content: { parts: [{ text: ' more', thought: true }] } }] }),
         JSON.stringify({
             candidates: [{ finishReason: 'STOP' }],
@@ -334,7 +336,7 @@ test('Gemini stream: thought parts separated, functionCall snapshot args replace
 // 工具调用合并回归
 // ---------------------------------------------------------------------------
 
-test('mergeOpenAIStreamToolCalls: all-ids fast path returns chunks as-is (Gemini-compatible proxies)', () => {
+test('mergeOpenAIStreamToolCalls: distinct complete id-only calls remain separate', () => {
     const complete = [
         [{ id: 'a', type: 'function', function: { name: 'f1', arguments: '{"x":1}' } }],
         [{ id: 'b', type: 'function', function: { name: 'f2', arguments: '{"y":2}' } }],
@@ -380,6 +382,7 @@ test('OpenAI stream: tool-only argument events are emitted after text suppressed
         'data: {"choices":[{"delta":{"content":"ans"}}]}',
         'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"f","arguments":"{\\"x\\":"}}]}}]}',
         'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"1}"}}]}}]}',
+        'data: [DONE]',
     ].join('\n\n') + '\n\n';
     await consumeOpenAIStream(streamResponse([bytes(events)]), { streamMsg: recordStreamMsg(calls) });
 
@@ -396,6 +399,7 @@ test('Claude stream: tool_use start and input_json_delta push accumulated tool p
         'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t1","name":"get_city"}}',
         'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"city\\":"}}',
         'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\\"paris\\"}"}}',
+        'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}',
     ].join('\n\n') + '\n\n';
     await consumeClaudeStream(streamResponse([bytes(events)]), { streamMsg: recordStreamMsg(calls) });
 
@@ -489,6 +493,7 @@ test('Think partition: streaming final emit releases held literal tail', async (
     // 开头只到半个 open 标签 '<th'：流式暂缓，final emit 释放字面正文
     const events = [
         'data: {"choices":[{"delta":{"content":"<th"}}]}',
+        'data: [DONE]',
     ].join('\n\n') + '\n\n';
     const calls: RecordedCall[] = [];
     const result = await consumeOpenAIStream(streamResponse([bytes(events)]), { streamMsg: recordStreamMsg(calls) });
@@ -506,4 +511,104 @@ test('streamMsg contract: legacy first-arg format and optional-args backward com
     // legacy 组装与旧版 openai 行为一致
     assert.equal(buildStreamMsgText('answer', 'why'), `${OPEN}\nwhy\n${CLOSE}\nanswer`);
     assert.equal(buildStreamMsgText('answer'), 'answer');
+});
+
+test('OpenAI tool fragments merge when every delta repeats the call id', () => {
+    for (const indexed of [true, false]) {
+        const index = indexed ? { index: 0 } : {};
+        const merged = mergeOpenAIStreamToolCalls([
+            [{ ...index, id: 'same-call', type: 'function', function: { name: 'lookup', arguments: '{"q":' } }],
+            [{ ...index, id: 'same-call', function: { arguments: '"test"}' } }],
+        ]);
+        assert.equal(merged.length, 1);
+        assert.equal(merged[0].id, 'same-call');
+        assert.equal(merged[0].function.name, 'lookup');
+        assert.equal(merged[0].function.arguments, '{"q":"test"}');
+    }
+    const mixed = mergeOpenAIStreamToolCalls([
+        [{ id: 'same-call', type: 'function', function: { name: 'lookup', arguments: '{"q":' } }],
+        [{ index: 0, function: { arguments: '"test"}' } }],
+    ]);
+    assert.equal(mixed.length, 1);
+    assert.equal(mixed[0].id, 'same-call');
+    assert.equal(mixed[0].function.arguments, '{"q":"test"}');
+});
+
+test('each protocol distinguishes premature EOF from a completed stream and retains partial state', async () => {
+    const cases = [
+        {
+            name: 'OpenAI', consume: consumeOpenAIStream,
+            events: [{ choices: [{ delta: { content: 'partial' } }], usage: { prompt_tokens: 2 } }],
+            terminal: '[DONE]',
+        },
+        {
+            name: 'Claude', consume: consumeClaudeStream,
+            events: [
+                { type: 'message_start', message: { usage: { input_tokens: 2 } } },
+                { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'partial' } },
+            ],
+            terminal: { type: 'message_stop' },
+        },
+        {
+            name: 'Gemini', consume: consumeGeminiStream,
+            events: [{ candidates: [{ content: { parts: [{ text: 'partial' }] } }], usageMetadata: { promptTokenCount: 2 } }],
+            terminal: { candidates: [{ finishReason: 'STOP' }] },
+        },
+    ];
+    for (const entry of cases) {
+        const encode = (events: any[]) => events.map(event => `data: ${typeof event === 'string' ? event : JSON.stringify(event)}\n\n`).join('');
+        const calls: RecordedCall[] = [];
+        const partial = await entry.consume(streamResponse([bytes(encode(entry.events))]), { streamMsg: recordStreamMsg(calls) });
+        assert.equal(partial.ok, false, entry.name);
+        assert.match(partial.content, /^partial/);
+        assert.match(partial.content, /ended before completion/);
+        assert.equal(partial.usage?.prompt_tokens, 2);
+        assert.equal(calls.at(-1)?.snapshot?.content, partial.content);
+        const complete = await entry.consume(streamResponse([bytes(encode([...entry.events, entry.terminal]))]));
+        assert.equal(complete.ok, true, entry.name);
+        assert.equal(complete.content, 'partial');
+    }
+});
+
+test('native parsers reject malformed success envelopes instead of returning empty success', () => {
+    for (const parse of [parseClaudeResponse, parseGeminiResponse]) {
+        const result = parse({ unexpected: 'shape' });
+        assert.equal(result.ok, false);
+        assert.match(result.content, /Unexpected response shape/);
+    }
+    assert.match(parseClaudeResponse({ error: { message: 'synthetic overload' } }).content, /synthetic overload/);
+});
+
+test('OpenAI refusal-only responses remain readable in nonstream and streaming modes', async () => {
+    const reason = 'Synthetic refusal';
+    const nonstream = parseOpenAINonStream({ choices: [{ message: { content: null, refusal: reason } }] });
+    const streamed = await consumeOpenAIStream(streamResponse([bytes(
+        'data: {"choices":[{"delta":{"refusal":"Synthetic "}}]}\n\n'
+        + 'data: {"choices":[{"delta":{"refusal":"refusal"},"finish_reason":"stop"}]}\n\n'
+    )]));
+    assert.equal(nonstream.content, reason);
+    assert.equal(streamed.content, reason);
+    assert.equal(streamed.ok, true);
+});
+
+test('Gemini reports streamed errors and safety blocks without discarding partial text or usage', async () => {
+    const error = await consumeGeminiStream(streamResponse([bytes('data: {"error":{"message":"synthetic quota error"}}\n\n')]));
+    assert.equal(error.ok, false);
+    assert.match(error.content, /synthetic quota error/);
+    const blocked = parseGeminiResponse({ promptFeedback: { blockReason: 'SAFETY' }, usageMetadata: { promptTokenCount: 3 } });
+    assert.equal(blocked.ok, false);
+    assert.match(blocked.content, /SAFETY/);
+    assert.equal(blocked.usage?.prompt_tokens, 3);
+    assert.equal(blocked.providerMeta?.promptFeedback?.blockReason, 'SAFETY');
+    const partial = await consumeGeminiStream(streamResponse([bytes(
+        'data: {"candidates":[{"content":{"parts":[{"text":"partial"}]}}]}\n\n'
+        + 'data: {"candidates":[{"finishReason":"SAFETY"}],"usageMetadata":{"promptTokenCount":3}}\n\n'
+    )]));
+    assert.equal(partial.ok, false);
+    assert.match(partial.content, /^partial\n/);
+    assert.match(partial.content, /SAFETY/);
+    assert.equal(partial.usage?.prompt_tokens, 3);
+    const limited = parseGeminiResponse({ candidates: [{ content: { parts: [{ text: 'limited' }] }, finishReason: 'MAX_TOKENS' }] });
+    assert.equal(limited.ok, true);
+    assert.equal(limited.content, 'limited');
 });

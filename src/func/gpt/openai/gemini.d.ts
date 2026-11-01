@@ -2,12 +2,14 @@ interface IGeminiPartText {
     text: string;
     /** 标记该 part 为模型的思考过程文本；展示时应归入 reasoning 而非正文 */
     thought?: boolean;
-    /** 思考内容的 opaque base64 签名；不可读，忽略 */
+    /** Opaque signature: hidden in UI, replayed unchanged with its original part. */
     thoughtSignature?: string;
 }
 
 interface IGeminiPartFunctionCall {
+    thoughtSignature?: string;
     functionCall: {
+        id?: string;
         name: string;
         args?: Record<string, any>;
     };
@@ -15,6 +17,7 @@ interface IGeminiPartFunctionCall {
 
 interface IGeminiPartFunctionResponse {
     functionResponse: {
+        id?: string;
         name: string;
         response?: Record<string, any>;
     };

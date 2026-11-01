@@ -53,7 +53,8 @@ export const applyOptionCompat = (
     compat: ILLMOptionCompat | undefined,
     protocol: LLMProviderProtocol = 'openai',
 ): IChatCompleteOption => {
-    const option = structuredClone(chatOption) as IChatCompleteOption & Record<string, any>;
+    // Options are JSON wire data; this also snapshots nested Solid store proxies.
+    const option = JSON.parse(JSON.stringify(chatOption)) as IChatCompleteOption & Record<string, any>;
 
     // 1. Toggle 删除（key 不存在视为 true，兼容旧数据）
     for (const key of Object.keys(option)) {
@@ -149,7 +150,7 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
             "content": input
         }];
     } else {
-        const ALLOWED_FIELDS = ['role', 'content', 'tool_call_id', 'tool_calls', 'name'];
+        const ALLOWED_FIELDS = ['role', 'content', 'tool_call_id', 'tool_calls', 'name', 'extra'];
         // 去掉可能的不需要的字段
         messages = input.map(item => {
             const result = {};
@@ -169,7 +170,7 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
         if (!checkSupportsModality(options.model.config, 'image')) {
             let hasImage = false;
             messages.forEach(item => {
-                if (typeof item.content !== 'string') {
+                if (Array.isArray(item.content)) {
                     const content = item.content.filter(content => content.type === 'text');
                     hasImage = content.length !== item.content.length;
                     item.content = content;
@@ -181,7 +182,8 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
         }
     }
 
-    return messages;
+    // History can come from a reactive store. Native replay clones must see plain JSON.
+    return JSON.parse(JSON.stringify(messages)) as IMessage[];
 }
 
 export const adaptChatOptions = (target: {
@@ -192,8 +194,6 @@ export const adaptChatOptions = (target: {
     let { runtimeLLM, chatOption, toggles } = target;
 
     const config = runtimeLLM.config;
-
-    chatOption = structuredClone(chatOption);
 
     // Step 1: Apply compat (toggle 删除 + unsupported + thinking 注入)
     const protocol = (runtimeLLM?.provider?.protocol || runtimeLLM?.provider?.protocal || runtimeLLM?.protocol || 'openai') as LLMProviderProtocol;

@@ -136,7 +136,6 @@ This process is transparent to the user. However, if the assistant/LLM is asked 
         // 检查是否启用隐私屏蔽
         const privacyEnabled = config().enablePrivacyMask;
         const privacyFields = config().privacyFields || [];
-
         let maskedMessages = params.msgToSend;
         let maskSchema: IMaskSchema | null = null;
 
@@ -482,11 +481,11 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
             }
         });
 
-        if (toolChainResult.status === 'completed') {
+        if (toolChainResult.status === 'completed' || toolChainResult.status === 'error') {
             return toolChainToCompletion(toolChainResult, initialResponse);
         }
 
-        console.warn('Tool chain failed:', toolChainResult.error);
+        console.warn('Tool chain did not complete:', toolChainResult.status, toolChainResult.error);
         return initialResponse;
     } catch (error) {
         console.error('Tool chain execution failed:', error);

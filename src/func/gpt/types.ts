@@ -87,11 +87,19 @@ interface IUserMessage {
 /**
  * 助手消息
  */
+/** Internal replay data. Adapters restore native fields; `extra` itself is never an API parameter. */
+type IMessageExtra = (
+    | { protocol: 'openai'; data: { reasoning_content?: string; reasoning?: string; reasoning_details?: any[] } }
+    | { protocol: 'claude'; data: { content: ClaudeContentBlock[] } }
+    | { protocol: 'gemini'; data: { parts: IGeminiPart[] } }
+) & { model?: string; provider?: string };
+
 interface IAssistantMessage {
     role: 'assistant';
     content: string | null;
     name?: string;
     refusal?: string | null;  // 拒绝回答的原因
+    extra?: IMessageExtra;
     reasoning_content?: string;
     tool_calls?: IToolCall[];
 }
@@ -116,6 +124,7 @@ interface IToolMessage {
 }
 
 interface IMessageLoose {
+    extra?: IMessageExtra;
     role: 'user' | 'assistant' | 'system' | 'tool';
     content: TMessageContent | string | null;
     name?: string;
@@ -343,6 +352,7 @@ interface ICompletionUsage {
 
 
 interface ICompletionResult {
+    extra?: IMessageExtra;
     ok?: boolean;
     content: string;
     usage?: ICompletionUsage | null;
