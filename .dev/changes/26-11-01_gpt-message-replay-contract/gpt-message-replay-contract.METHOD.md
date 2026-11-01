@@ -140,3 +140,44 @@ Tests should use the existing production adapter/parser harness in `tests/gpt-pr
 
 - 失败轮次会把 `[Error] ...` 文本追加进 `content`，且此时不写 replay。新契约把 `content` 定为唯一正文所有者后，这些错误串会作为助手正文回放。这是既有行为，本 change 不改，也不借机扩大范围。
 - Gemini 在"正文分片 + 签名"场景不写 replay，因此该轮失去签名与思考复用；换取的是不搬运未验证签名。
+
+## 复核修订（round 2，独立验收反馈）
+
+### R1 · reasoning 文本不再复制进 replay
+
+第一版把整个 thinking block / thought part 放进 slot，等于把 reasoning 文本存了两份。现已改为**只存长度引用**：
+
+- `ClaudeReplaySlot`：`{ kind: 'thinking'; chars; signature? }`；`redacted_thinking` 与未知类型走 `{ kind: 'opaque'; block }`（无可见 reasoning 文本）。
+- `GeminiReplaySlot`：`{ kind: 'thought'; chars; signature? }`。
+- 读侧按 slot 顺序从 `message.reasoning_content` 连续切片（`chars` 累积游标）；切片长度不符或游标未覆盖全部 reasoning 时返回 `undefined`，回落 canonical。
+- 写侧校验：native 思考段的拼接必须与解析出的 reasoning **逐字相等**，否则不写 replay（防止将来在 canonical 侧加入 think-tag 分区后静默错切）。
+- 持久化配合：`tool-chain-result.stripReasoning` 对"带窄 replay 的 Claude/Gemini 消息"保留 `reasoning_content`（否则回放时无从重建）；其它协议维持原有的剥离，避免把 reasoning 灌进 OpenAI 输入。
+- OpenAI 边界：`adpatInputMessage` 允许 `reasoning_content` 通过（Claude/Gemini 需要），同时 `toOpenAIWireMessages` 现在**显式丢弃** canonical `reasoning_content`，只从同源 `extra` 还原 reasoning 字段——与改动前的线上行为等价。
+
+写入前后对照：
+
+```text
+旧（错误）：extra = [{ kind:'thinking', block:{ thinking:'…原文…', signature } }]
+新（正确）：content = '正文'      reasoning_content = '…思考原文…'
+            extra = [{ kind:'thinking', chars: 12, signature }]
+```
+
+### R2 · Gemini 调用映射：native id 预留 + 单次消费
+
+`buildGeminiParts` 现在：
+
+1. 先收集所有带 native id 的 slot 所引用的 canonical id 作为 `reservedCalls`；
+2. 带 id 的 slot 只做精确匹配，且命中已消费调用时视为记录不一致（回落 canonical）；
+3. 无 id 的 slot 优先绑定"未被预留且未被消费"的调用，其次才回退到剩余调用；
+4. 每个 canonical 调用最多被消费一次（`usedCalls`）。
+
+回归覆盖两组混合顺序（native id 在前 / 在后）：wire 上两个 `functionCall` 不重复、顺序不变、`functionResponse.id` 只出现在原本拥有该 id 的调用上。
+
+### R3 · "存储不可编辑" 与 "续轮是否携带 reasoning" 是两件事
+
+- **存储**：`reasoning_content` 是可编辑 UI 之外的不可编辑字段；编辑正文不会改写或删除它（`stripReplayMetadata` 只删 `extra`）。
+- **wire**：正文被编辑后，该消息失去 replay，走 canonical 转换，因此**不会**把旧 thinking/签名发回上游。这是有意的保守行为：签名与旧正文绑定，编辑后复用没有证据支持。它不改变"字段本身仍保留、仍可展示、仍随版本保存"这一事实。
+
+### Provider 状态
+
+仍为**未验证**（未发真实请求、未使用 key）。上面两处修订不改变 METHOD §Provider 验收状态 中的任何未解问题。

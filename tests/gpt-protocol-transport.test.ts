@@ -676,7 +676,7 @@ test('openai alias: B-bound replay data survives a request to the same alias', a
     mockFetch(reasoningReply('second chain'));
     const second = await withPreprocessor(aliasModel(ALIAS_B), () => complete([
         { role: 'user', content: 'first' },
-        { role: 'assistant', content: first.content, extra: first.extra },
+        { role: 'assistant', content: first.content, reasoning_content: first.reasoning_content, extra: first.extra },
         { role: 'user', content: 'next' },
     ] as IMessage[], { model: runtime }));
 
@@ -784,7 +784,7 @@ test('claude alias: B-bound replay data survives option.model to the same alias'
     mockFetch(claudeThinkingReply('second chain', 'sig-second'));
     const second = await complete([
         { role: 'user', content: 'first' },
-        { role: 'assistant', content: first.content, extra: first.extra },
+        { role: 'assistant', content: first.content, reasoning_content: first.reasoning_content, extra: first.extra },
         { role: 'user', content: 'next' },
     ] as IMessage[], { model: runtime, option: { model: CLAUDE_ALIAS_B } as any });
 

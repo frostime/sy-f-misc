@@ -53,6 +53,9 @@ const messageText = (content: IMessage['content']): string => {
 const assistantCalls = (message: IMessage): IToolCall[] =>
     message.role === 'assistant' && Array.isArray(message.tool_calls) ? message.tool_calls : [];
 
+const assistantReasoning = (message: IMessage): string =>
+    message.role === 'assistant' && typeof message.reasoning_content === 'string' ? message.reasoning_content : '';
+
 const parseArguments = (raw: string | undefined): Record<string, any> => {
     try {
         const parsed = JSON.parse(raw || '{}');
@@ -67,17 +70,23 @@ const parseArguments = (raw: string | undefined): Record<string, any> => {
 // ============================================================================
 
 const needsClaudeReplay = (slots: ClaudeReplaySlot[]): boolean =>
-    slots.some(slot => slot.kind === 'thinking' || slot.kind === 'opaque');
+    slots.some(slot => slot.kind === 'opaque'
+        || (slot.kind === 'thinking' && slot.signature !== undefined));
 
 /**
  * Capture narrow Claude replay from native content blocks.
- * Body text (`text`) and call arguments (`tool_use.input`) are left to canonical fields.
+ *
+ * Body text (`text`), call arguments (`tool_use.input`) and reasoning text all stay in canonical
+ * fields; thinking blocks are referenced by length inside `reasoning_content`. When those native
+ * segments do not equal `reasoning` exactly, capture declines instead of writing a record that
+ * cannot be rebuilt.
  */
-export const captureClaudeReplay = (blocks: unknown): IMessageExtra | undefined => {
+export const captureClaudeReplay = (blocks: unknown, reasoning?: string): IMessageExtra | undefined => {
     if (!Array.isArray(blocks)) return undefined;
 
     const slots: ClaudeReplaySlot[] = [];
     let textSlots = 0;
+    let reasoningText = '';
 
     for (const block of blocks) {
         if (!isRecord(block) || typeof block.type !== 'string') return undefined;
@@ -89,8 +98,15 @@ export const captureClaudeReplay = (blocks: unknown): IMessageExtra | undefined 
             continue;
         }
 
-        if (block.type === 'thinking' || block.type === 'redacted_thinking') {
-            slots.push({ kind: 'thinking', block: clone(block) as ClaudeContentBlock });
+        if (block.type === 'thinking') {
+            if (hasUnknownKeys(block, ['type', 'thinking', 'signature'])) return undefined;
+            const text = typeof block.thinking === 'string' ? block.thinking : '';
+            reasoningText += text;
+            slots.push({
+                kind: 'thinking',
+                chars: text.length,
+                ...(typeof block.signature === 'string' ? { signature: block.signature } : {}),
+            });
             continue;
         }
 
@@ -101,18 +117,22 @@ export const captureClaudeReplay = (blocks: unknown): IMessageExtra | undefined 
             continue;
         }
 
-        // Unknown kinds: keep verbatim only when they cannot carry body text or call arguments.
+        // redacted_thinking and unknown kinds: keep verbatim only when they cannot carry body
+        // text, reasoning text or call arguments.
         if (hasBodyOrArgs(block)) return undefined;
         slots.push({ kind: 'opaque', block: clone(block) });
     }
 
     // One canonical `content` string cannot recover boundaries between several text blocks.
     if (textSlots > 1) return undefined;
+    // Reasoning text must be reproducible from `reasoning_content` alone.
+    if (reasoningText !== (reasoning ?? '')) return undefined;
     return needsClaudeReplay(slots) ? { protocol: 'claude', v: 2, slots } : undefined;
 };
 
 const buildClaudeBlocks = (message: IMessage, replay: NarrowClaudeReplay): ClaudeContentBlock[] | undefined => {
     const text = messageText(message.content);
+    const reasoning = assistantReasoning(message);
     const calls = assistantCalls(message);
     const hasTextSlot = replay.slots.some(slot => slot.kind === 'text');
     const firstCall = replay.slots.findIndex(slot => slot.kind === 'tool_use');
@@ -121,6 +141,7 @@ const buildClaudeBlocks = (message: IMessage, replay: NarrowClaudeReplay): Claud
 
     const blocks: ClaudeContentBlock[] = [];
     let textEmitted = false;
+    let reasoningCursor = 0;
 
     const emitText = () => {
         textEmitted = true;
@@ -136,7 +157,18 @@ const buildClaudeBlocks = (message: IMessage, replay: NarrowClaudeReplay): Claud
             if (!textEmitted) emitText();
             continue;
         }
-        if (slot.kind === 'thinking' || slot.kind === 'opaque') {
+        if (slot.kind === 'thinking') {
+            const chunk = reasoning.slice(reasoningCursor, reasoningCursor + slot.chars);
+            if (chunk.length !== slot.chars) return undefined;
+            reasoningCursor += slot.chars;
+            blocks.push({
+                type: 'thinking',
+                thinking: chunk,
+                ...(slot.signature !== undefined ? { signature: slot.signature } : {}),
+            } as ClaudeContentBlock);
+            continue;
+        }
+        if (slot.kind === 'opaque') {
             blocks.push(clone(slot.block) as ClaudeContentBlock);
             continue;
         }
@@ -153,6 +185,7 @@ const buildClaudeBlocks = (message: IMessage, replay: NarrowClaudeReplay): Claud
         } as ClaudeContentBlock);
     }
 
+    if (reasoningCursor !== reasoning.length) return undefined;
     return blocks;
 };
 
@@ -168,14 +201,16 @@ export const prepareClaudeReplayBlocks = (
     return buildClaudeBlocks(message, extra);
 };
 
+
 // ============================================================================
 // Gemini
 // ============================================================================
 
 const needsGeminiReplay = (slots: GeminiReplaySlot[]): boolean =>
     slots.some(slot => {
-        if (slot.kind === 'thought' || slot.kind === 'opaque' || slot.kind === 'empty_signed_text') return true;
+        if (slot.kind === 'opaque' || slot.kind === 'empty_signed_text') return true;
         if (slot.kind === 'text') return slot.signature !== undefined;
+        if (slot.kind === 'thought') return slot.signature !== undefined;
         return slot.signature !== undefined || slot.id !== undefined;
     });
 
@@ -185,13 +220,15 @@ const needsGeminiReplay = (slots: GeminiReplaySlot[]): boolean =>
  * Streamed bodies arrive as one part per chunk. Fragments are merged into a single text slot that
  * is rebuilt from `content`. A `thoughtSignature` is kept only when the body was delivered as a
  * single part, because moving a signature onto merged fragments is not verified against a live
- * provider; otherwise capture declines to write replay metadata.
+ * provider; otherwise capture declines to write replay metadata. Thought text stays in
+ * `reasoning_content` and is referenced by length.
  */
-export const captureGeminiReplay = (parts: unknown): IMessageExtra | undefined => {
+export const captureGeminiReplay = (parts: unknown, reasoning?: string): IMessageExtra | undefined => {
     if (!Array.isArray(parts)) return undefined;
 
     const slots: GeminiReplaySlot[] = [];
     let textSlots = 0;
+    let reasoningText = '';
     let pendingText: { parts: number; signature?: string; unsafe: boolean } | undefined;
 
     const flushText = (): boolean => {
@@ -211,7 +248,13 @@ export const captureGeminiReplay = (parts: unknown): IMessageExtra | undefined =
         if (typeof part.text === 'string') {
             if (part.thought === true) {
                 if (!flushText()) return undefined;
-                slots.push({ kind: 'thought', part: clone(part) as IGeminiPart });
+                if (hasUnknownKeys(part, ['text', 'thought', 'thoughtSignature'])) return undefined;
+                reasoningText += part.text;
+                slots.push({
+                    kind: 'thought',
+                    chars: part.text.length,
+                    ...(typeof part.thoughtSignature === 'string' ? { signature: part.thoughtSignature } : {}),
+                });
                 continue;
             }
             if (hasUnknownKeys(part, ['text', 'thoughtSignature'])) return undefined;
@@ -258,6 +301,8 @@ export const captureGeminiReplay = (parts: unknown): IMessageExtra | undefined =
 
     if (!flushText()) return undefined;
     if (textSlots > 1) return undefined;
+    // Thought text must be reproducible from `reasoning_content` alone.
+    if (reasoningText !== (reasoning ?? '')) return undefined;
     return needsGeminiReplay(slots) ? { protocol: 'gemini', v: 2, slots } : undefined;
 };
 
@@ -266,8 +311,14 @@ const buildGeminiParts = (
     replay: NarrowGeminiReplay,
 ): { parts: IGeminiPart[]; calls: ReplayCallMapping[] } | undefined => {
     const text = messageText(message.content);
+    const reasoning = assistantReasoning(message);
     const calls = assistantCalls(message);
     const usedCalls = new Set<string>();
+    // Calls referenced by a native id must not be re-consumed by a positional lookup.
+    const reservedCalls = new Set<string>();
+    for (const slot of replay.slots) {
+        if (slot.kind === 'function_call' && slot.id !== undefined) reservedCalls.add(slot.id);
+    }
     const hasTextSlot = replay.slots.some(slot => slot.kind === 'text');
     const firstCall = replay.slots.findIndex(slot => slot.kind === 'function_call');
     const textAnchor = hasTextSlot ? -1 : (firstCall < 0 ? replay.slots.length : firstCall);
@@ -275,6 +326,7 @@ const buildGeminiParts = (
     const parts: IGeminiPart[] = [];
     const mappings: ReplayCallMapping[] = [];
     let textEmitted = false;
+    let reasoningCursor = 0;
 
     const emitText = () => {
         textEmitted = true;
@@ -297,15 +349,28 @@ const buildGeminiParts = (
             }
             continue;
         }
-        if (slot.kind === 'thought' || slot.kind === 'opaque' || slot.kind === 'empty_signed_text') {
+        if (slot.kind === 'thought') {
+            const chunk = reasoning.slice(reasoningCursor, reasoningCursor + slot.chars);
+            if (chunk.length !== slot.chars) return undefined;
+            reasoningCursor += slot.chars;
+            parts.push({
+                text: chunk,
+                thought: true,
+                ...(slot.signature !== undefined ? { thoughtSignature: slot.signature } : {}),
+            } as IGeminiPart);
+            continue;
+        }
+        if (slot.kind === 'opaque' || slot.kind === 'empty_signed_text') {
             parts.push(clone(slot.part));
             continue;
         }
 
-        // With a native id the match must be exact; without one, associate by order.
+        // With a native id the match must be exact and single-use; without one, bind the first
+        // call that no native-id slot reserved and that was not consumed yet.
         const call = slot.id !== undefined
-            ? calls.find(item => item.id === slot.id)
-            : calls.find(item => !usedCalls.has(item.id));
+            ? calls.find(item => item.id === slot.id && !usedCalls.has(item.id))
+            : calls.find(item => !usedCalls.has(item.id) && !reservedCalls.has(item.id))
+                ?? calls.find(item => !usedCalls.has(item.id));
         if (!call) return undefined;
         usedCalls.add(call.id);
         parts.push({
@@ -323,6 +388,7 @@ const buildGeminiParts = (
         });
     }
 
+    if (reasoningCursor !== reasoning.length) return undefined;
     return { parts, calls: mappings };
 };
 

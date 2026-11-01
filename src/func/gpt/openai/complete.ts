@@ -22,7 +22,9 @@ const OPENAI_REPLAY_FIELDS = ['reasoning_content', 'reasoning', 'reasoning_detai
  */
 const toOpenAIWireMessages = (messages: IMessage[], runtime: IRuntimeLLM): IMessage[] => {
     return messages.map((message) => {
-        const { extra: _extra, ...wire } = message as IMessage & { extra?: IMessageExtra };
+        // Canonical `reasoning_content` is not an OpenAI input field; compatible replay restores it below.
+        const { extra: _extra, reasoning_content: _reasoning, ...wire } =
+            message as IMessage & { extra?: IMessageExtra; reasoning_content?: string };
         if (wire.role !== 'assistant') return wire as IMessage;
         if (Array.isArray(wire.tool_calls)) {
             wire.tool_calls = wire.tool_calls.map(call => {

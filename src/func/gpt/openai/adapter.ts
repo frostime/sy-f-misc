@@ -150,7 +150,9 @@ export const adpatInputMessage = (input: Parameters<typeof complete>[0], options
             "content": input
         }];
     } else {
-        const ALLOWED_FIELDS = ['role', 'content', 'tool_call_id', 'tool_calls', 'name', 'extra'];
+        // `reasoning_content` is a canonical field for Claude/Gemini replay; OpenAI replay restores
+        // its wire fields from `extra` only, so this never adds a native OpenAI field.
+        const ALLOWED_FIELDS = ['role', 'content', 'reasoning_content', 'tool_call_id', 'tool_calls', 'name', 'extra'];
         // 去掉可能的不需要的字段
         messages = input.map(item => {
             const result = {};

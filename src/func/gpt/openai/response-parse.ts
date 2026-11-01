@@ -790,7 +790,7 @@ export const parseClaudeResponse = (data: any): ICompletionResult => {
     const providerMeta: Record<string, any> = { stop_reason: data?.stop_reason };
     if (data?.usage) providerMeta.claudeUsage = data.usage;
     const blocks = collectClaudeBlocks(data?.content || [], providerMeta);
-    const replay = captureClaudeReplay(data.content);
+    const replay = captureClaudeReplay(data.content, blocks.reasoning);
     return {
         ok: true,
         content: blocks.content,
@@ -960,7 +960,7 @@ export const consumeClaudeStream = async (
     providerMeta.claudeUsage = rawUsage;
     result.providerMeta = providerMeta;
     const contentBlocks = Array.from(rawBlocks.entries()).sort(([a], [b]) => a - b).map(([, block]) => block);
-    const replay = result.ok ? captureClaudeReplay(contentBlocks) : undefined;
+    const replay = result.ok ? captureClaudeReplay(contentBlocks, thinking) : undefined;
     if (replay) result.extra = replay;
     result.time = streamTiming(t0, firstReadAt, Date.now(), result.usage);
     return result;
@@ -1035,7 +1035,7 @@ export const parseGeminiResponse = (data: any): ICompletionResult => {
     if (data?.usageMetadata) providerMeta.geminiUsage = data.usageMetadata;
     const failure = geminiFailureReason(data)
         || (!Array.isArray(first?.content?.parts) ? 'Unexpected response shape: missing candidate content.parts' : undefined);
-    const replay = failure ? undefined : captureGeminiReplay(rawParts);
+    const replay = failure ? undefined : captureGeminiReplay(rawParts, blocks.reasoning);
     return {
         ok: !failure,
         content: failure ? [blocks.content, `[Error] Gemini: ${failure}`].filter(Boolean).join('\n') : blocks.content,
@@ -1159,7 +1159,7 @@ export const consumeGeminiStream = async (
     emit();
     result.tool_calls = Array.from(toolCalls.values());
     result.providerMeta = { ...providerMeta, geminiUsage: rawUsage };
-    const replay = result.ok ? captureGeminiReplay(rawParts) : undefined;
+    const replay = result.ok ? captureGeminiReplay(rawParts, reasoning) : undefined;
     if (replay) result.extra = replay;
     result.time = streamTiming(t0, firstReadAt, Date.now(), result.usage);
     return result;
