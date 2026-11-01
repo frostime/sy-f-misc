@@ -210,24 +210,6 @@ function formatDOMNode(data: DOMNodeData, node: TreeNode<DOMNodeData>): string {
 export const inspectDOMStructureTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: INSPECT_DOM_LIMIT,
 
-    declaredReturnType: {
-        type: `{
-    title: string;
-    url: string;
-    entrySelector: string;
-    maxDepth: number;
-    tree: Tree<{
-        tagName: string;
-        attributes: Record<string, string>;
-        selector: string;
-        textPreview?: string;
-    }>;
-    interface Tree<T> {roots: TreeNode<T>[];}
-    interface TreeNode<T> {data: T; children: TreeNode<T>[];}
-}`,
-        note: '网页 DOM 树形结构，使用 Tree 模型包含标签名、属性、CSS 选择器路径和文本预览'
-    },
-
     definition: {
         type: 'function',
         function: {
@@ -421,24 +403,6 @@ export const inspectDOMStructureTool: Tool = {
  */
 export const extractHTMLTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: EXTRACT_HTML_LIMIT,
-
-    declaredReturnType: {
-        type: `{
-    title: string;
-    url: string;
-    querySelector: string;
-    elementsCount: number;
-    elements: Array<{
-        index: number;
-        html: string;
-        text: string;
-    }>;
-    originalLength: number;
-    shownLength: number;
-    isTruncated: boolean;
-}`,
-        note: '提取的 HTML 元素列表，每个元素包含原始 HTML 和纯文本内容'
-    },
 
     definition: {
         type: 'function',

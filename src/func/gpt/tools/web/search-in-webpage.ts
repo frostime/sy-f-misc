@@ -133,27 +133,6 @@ const SEARCH_LIMIT = 6000;
 export const searchInWebPageTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: SEARCH_LIMIT,
 
-    declaredReturnType: {
-        type: `{
-    title: string;
-    url: string;
-    keywordSearch: {
-        keywords: string[];
-        joinType: 'AND' | 'OR';
-        matchCount: number;
-        totalCount: number;
-        matches: Array<{
-            index: number;
-            content: string;
-            matchedKeywords: string[];
-            startPosition?: number;
-            endPosition?: number;
-        }>;
-    };
-}`,
-        note: '关键词搜索结果，包含匹配的段落和位置信息。可使用 startPosition/endPosition 配合 FetchWebPage 的 begin/limit 参数精确获取内容。'
-    },
-
     definition: {
         type: 'function',
         function: {

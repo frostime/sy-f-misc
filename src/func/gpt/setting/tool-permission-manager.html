@@ -550,7 +550,7 @@
                     // 确保只保存新字段格式，删除所有旧字段
                     this.overrides[toolName] = {
                         executionPolicy: policy,
-                        resultApprovalPolicy: this.getEffectiveResultApprovalPolicy({ name: toolName })
+                        resultApprovalPolicy: this.getEffectiveResultApprovalPolicy(this.tools.find(tool => tool.name === toolName))
                     };
                     this.applyFilters();
                 },
@@ -559,7 +559,7 @@
                 updateResultApprovalPolicy(toolName, policy) {
                     // 确保只保存新字段格式，删除所有旧字段
                     this.overrides[toolName] = {
-                        executionPolicy: this.getEffectiveExecutionPolicy({ name: toolName }),
+                        executionPolicy: this.getEffectiveExecutionPolicy(this.tools.find(tool => tool.name === toolName)),
                         resultApprovalPolicy: policy
                     };
                     this.applyFilters();

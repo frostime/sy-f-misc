@@ -8,230 +8,8 @@
 import { complete } from '../openai/complete';
 import { sumReportedUsage } from './usage-sum';
 import type { TStreamMsgCallback } from '../openai/response-parse';
-import { ToolExecuteStatus, ToolExecuteResult, ToolExecutor } from '.';
-
-/**
- * 提取消息内容文本（处理 string | array 类型）
- */
-function extractContentText(content: string | any[] | undefined | null): string {
-    if (!content) return '';
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) {
-        // 处理 content 数组格式（如包含 text 和 image_url）
-        return content
-            .filter(item => item.type === 'text')
-            .map(item => item.text)
-            .join('\n');
-    }
-    return '';
-}
-
-/**
- * 压缩 JSON 对象中的字符串值
- * 递归遍历，将字符串类型的 leaf 节点截断到 maxLength
- * @param obj 要压缩的对象
- * @param maxLength 字符串最大长度
- * @param excludeKeys 排除的键名（不截断）
- */
-function truncateJson(
-    obj: any,
-    maxLength: number = 50,
-    excludeKeys: Set<string> = new Set(['id', 'path'])
-): any {
-    if (obj === null || obj === undefined) {
-        return obj;
-    }
-
-    // 处理字符串
-    if (typeof obj === 'string') {
-        if (obj.length <= maxLength) {
-            return obj;
-        }
-        return obj.substring(0, maxLength) + '...';
-    }
-
-    // 处理数组
-    if (Array.isArray(obj)) {
-        return obj.map(item => truncateJson(item, maxLength, excludeKeys));
-    }
-
-    // 处理对象
-    if (typeof obj === 'object') {
-        const result: any = {};
-        for (const [key, value] of Object.entries(obj)) {
-            if (typeof value === 'string' && !excludeKeys.has(key)) {
-                // 字符串类型且不在排除列表中：截断
-                result[key] = value.length > maxLength
-                    ? value.substring(0, maxLength) + '...'
-                    : value;
-            } else {
-                // 递归处理
-                result[key] = truncateJson(value, maxLength, excludeKeys);
-            }
-        }
-        return result;
-    }
-
-    // 其他类型（数字、布尔等）直接返回
-    return obj;
-}
-
-// ============================================================================
-// MessageFlowFormatter - 消息流转换为自然对话格式
-// ============================================================================
-namespace MessageFlowFormatter {
-
-    /**
-     * 格式化单个工具调用为纯 Markdown 块
-     */
-    function formatToolCallBlock(
-        toolCall: IToolCallResponse,
-        toolResult: ToolExecuteResult,
-        // toolExecutor: ToolExecutor
-    ): string {
-        const toolName = toolCall.function.name;
-
-        // 安全解析参数
-        let args: Record<string, any>;
-        try {
-            args = JSON.parse(toolCall.function.arguments);
-        } catch {
-            args = { _raw: toolCall.function.arguments };
-        }
-
-        const compressedArgs = truncateJson(args, 50);
-        const lines: string[] = [];
-
-        lines.push(`**[Tool Execution Log]**: ${toolName}`);
-        lines.push('```accesslog');
-        lines.push(`Arguments: ${JSON.stringify(compressedArgs)}`);
-
-        let resultStatus = '';
-        // normalize possible reject reason keys (camelCase or snake_case)
-        const rejectReasonFromResult = toolResult.rejectReason ?? undefined;
-
-        if (toolResult.status === ToolExecuteStatus.SUCCESS) {
-            resultStatus = '✓ Success';
-
-            if (toolResult.data) {
-                const text = toolResult.data as string;
-                const preview = text.length > 200
-                    ? text.substring(0, 200) + '...'
-                    : text;
-
-                const cleanPreview = preview
-                    .replace(/<!--.*?-->/gs, '')
-                    .trim();
-
-                if (cleanPreview) {
-                    lines.push(`Status: ${resultStatus}`);
-                    lines.push('');
-                    lines.push(cleanPreview);
-                    lines.push('```');
-                    lines.push('');
-                    return lines.join('\n');
-                }
-            }
-        } else {
-            const statusIcon = toolResult.status === ToolExecuteStatus.ERROR ? '✗' : '⚠️';
-            const statusText = toolResult.status === ToolExecuteStatus.ERROR ? 'Failed' : 'Rejected';
-            const errorMsg = toolResult.error || (toolResult as any).rejectReason || 'Unknown error';
-            resultStatus = `${statusIcon} ${statusText}: ${errorMsg}`;
-        }
-
-        lines.push(`Status: ${resultStatus}`);
-        // 如果存在 reject reason，单独展示以便排查（这是非常重要的信息）
-        if (rejectReasonFromResult) {
-            lines.push('');
-            lines.push(`Reject reason: ${rejectReasonFromResult}`);
-        }
-        lines.push('```');
-        lines.push('');
-
-        return lines.join('\n');
-    }
-
-    /**
-     * 将消息数组转换为自然的对话流
-     */
-    export function convertMessagesToNaturalFlow(
-        messages: IMessage[],
-        toolCallHistory: ToolChainResult['toolCallHistory'],
-        // toolExecutor: ToolExecutor
-    ): string {
-        const parts: string[] = [];
-
-        // 建立 tool_call_id → 结果的映射
-        const toolResultMap = new Map<string, ToolChainResult['toolCallHistory'][number]>();
-        toolCallHistory.forEach(call => {
-            toolResultMap.set(call.callId, call);
-        });
-
-        for (const msg of messages) {
-            if (msg.role === 'assistant') {
-                // Assistant 的思考内容
-                const content = extractContentText(msg.content);
-                if (content && content.trim()) {
-                    parts.push(content.trim());
-                    parts.push('');
-                }
-
-                // 格式化工具调用
-                if (msg.tool_calls && msg.tool_calls.length > 0) {
-                    for (const toolCall of msg.tool_calls) {
-                        const historyEntry = toolResultMap.get(toolCall.id);
-                        if (historyEntry) {
-                            const formatted = formatToolCallBlock(
-                                toolCall,
-                                historyEntry.result,
-                                // toolExecutor
-                            );
-                            parts.push(formatted);
-                        }
-                    }
-                }
-            }
-            // tool 消息已在 assistant.tool_calls 中处理，跳过
-        }
-
-        return parts.join('\n').trim();
-    }
-
-    /**
-     * 生成系统提示（包含工具调用记录汇总）
-     */
-    export function generateSystemHint(toolCallHistory?: ToolChainResult['toolCallHistory']): string {
-        const lines: string[] = [];
-
-        // lines.push('[System Tool Call Log]: 为了压缩 Token 占用, System 隐藏了中间的 Tool Message，但保留了完整 Tool Call 记录日志。工具结果已缓存在变量（VarID），如需完整内容可使用 ReadVar 或 $VAR_REF{{}} 引用。Agent 可使用 ListVars 工具查看工作区中缓存的工具调用记录。注：变量并非永久保存，可能会被系统清理。');
-        lines.push('<SYSTEM-CONTEXT>\nTool results cached in variables. **Access**:  via `ReadVar` tool or `$VAR_REF{{VarID}}` syntax. *Note**: Variables are session-scoped and may be garbage-collected by the system');
-
-        lines.push('');
-
-        // 添加工具调用汇总
-        if (toolCallHistory && toolCallHistory.length > 0) {
-            lines.push('Executed tools:');
-            for (const call of toolCallHistory) {
-                const { toolName, result } = call;
-                const refs: string[] = [];
-                if (result.cacheVarArgs) refs.push(`args=$VAR_REF{{${result.cacheVarArgs}}}`);
-                if (result.cacheVarResult) refs.push(`result=$VAR_REF{{${result.cacheVarResult}}}`);
-                const refInfo = refs.length > 0 ? ` (${refs.join(', ')})` : '';
-                lines.push(`- \`${toolName}\`${refInfo}`);
-            }
-            lines.push('');
-        }
-
-        // 防止模型幻觉，以为伪造下面的日志可以实现工具调用
-        // lines.push('[System Warning]: "[System Tool Call Log]" 是系统生成的记录; assistant/agent 无法通过伪造同格式内容实现工具调用, 请遵循标准 Tool Call 机制执行工具调用。');
-        lines.push('[WARNING] `[Tool Execution Log]` blocks are system-generated. Mimicking this format will NOT trigger tool execution. Tool invocation is **ONLY** valid through the standard tool calling protocol.');
-        lines.push('</SYSTEM-CONTEXT>');
-        lines.push('---');
-        lines.push('');
-
-        return lines.join('\n');
-    }
-}
+import { ToolExecuteStatus, type ToolExecuteResult } from './types';
+import type { ToolExecutor } from './executor';
 
 // ============================================================================
 // 辅助函数
@@ -305,9 +83,6 @@ export interface ToolChainOptions {
 export interface ToolChainResult {
     // 最终响应内容
     responseContent: string;
-
-    // 工具链内容（新版本为空字符串，保持向后兼容）
-    toolChainContent: string;
 
     // Token 使用统计
     usage: ICompletionResult['usage'];
@@ -682,20 +457,13 @@ Provide a complete, helpful response even if some planned tool calls could not b
     // 清理工具调用历史数据
     // ========================================================================
     const toolCallHistoryClean = state.toolCallHistory.map(call => {
-        const { status, data, error, rejectReason, cacheVarArgs, cacheVarResult } = call.result;
-        const resultClean: any = {
+        const { status, data, error, rejectReason } = call.result;
+        const resultClean: ToolExecuteResult = {
             status,
-            data,
+            data: call.result.finalText ?? data,
             error,
-            rejectReason: rejectReason ?? undefined,
-            cacheVarArgs,
-            cacheVarResult
+            rejectReason
         };
-
-        // 使用实际发送给 LLM 的内容
-        if ((call.result as any).finalText !== undefined) {
-            resultClean.data = (call.result as any).finalText;
-        }
 
         return {
             ...call,
@@ -707,29 +475,8 @@ Provide a complete, helpful response even if some planned tool calls could not b
     // 构建最终返回结果
     // ========================================================================
 
-    // toolChainContent 设为空（废弃旧的 hack）
-    let toolChainContent = '';
-
-    // responseContent 转换为自然消息流
-    let responseContent: string;
-
-    if (state.toolCallHistory.length > 0) {
-        // 有工具调用：转换为自然流
-        toolChainContent = MessageFlowFormatter.generateSystemHint(toolCallHistoryClean);
-        const naturalFlow = MessageFlowFormatter.convertMessagesToNaturalFlow(
-            state.toolChainMessages,
-            toolCallHistoryClean,
-            // toolExecutor
-        );
-        responseContent = naturalFlow;
-    } else {
-        // 无工具调用：直接使用最终回复
-        responseContent = currentResponse.content || '';
-    }
-
     const result: ToolChainResult = {
-        toolChainContent,
-        responseContent,
+        responseContent: currentResponse.content || '',
         usage: state.usage,
         messages: {
             context: state.contextMessages,

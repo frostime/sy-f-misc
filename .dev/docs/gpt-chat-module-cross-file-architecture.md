@@ -1,7 +1,7 @@
 ---
 name: GPT Chat Module Cross-File Architecture
 description: Cross-file call chains, implicit conventions, naming pitfalls, and design rationale for agents working on src/func/gpt/ — a wiki-map of vital knowledge not recoverable from single-file reads.
-updated: 2026-05-03
+updated: 2026-10-31
 scope:
   - /src/func/gpt/types.ts
   - /src/func/gpt/types-v2.ts
@@ -137,7 +137,9 @@ chat/ChatSession/use-openai-endpoints.ts: sendMessage()
 
 ## 6. Schema Migration Pattern（配置迁移模式）
 
-`model/config_migration.ts` — `CURRENT_SCHEMA = '3.1'`，迁移函数 `历史版本兼容()` 按版本号递增比较：
+（迁移块清单以 `model/config_migration.ts` 源码为准，本文只列历年块的行为摘要，修改迁移时先核对源码）
+
+`model/config_migration.ts` — `CURRENT_SCHEMA = '3.4'`（以源码常量为准），迁移函数 `历史版本兼容()` 按版本号递增比较：
 
 ```
 compareSchemaVersion(dataSchema, targetVersion) < 0 → 执行迁移块
@@ -147,6 +149,10 @@ compareSchemaVersion(dataSchema, targetVersion) < 0 → 执行迁移块
   2.1: 隐私配置从 globalMiscConfigs 移到 config
   3.0: 工具权限配置清理旧格式
   3.1: protocol/protocal 字段归一化
+  3.2: chatOptionToggles 实值回填；capabilities.reasoningEffort → options.compat.thinking.enabled
+       options.unsupported → options.compat.unsupported
+  3.3: API key 混淆存储 (model/obfuscate.ts)
+  3.4: 删除旧设置 toolCallMode（新生成统一原生工具消息，历史记录按原内容读取）
 ```
 
 每个迁移块最后 `migrated = true`，函数末尾 `data.schema = CURRENT_SCHEMA`。`model/storage.ts` 的 `load()` 调用 `deepMerge(defaultData, migratedData)` 再分发到各个 signal/store。

@@ -21,7 +21,8 @@ import { DefaultUIAdapter } from './approval-ui';
 import { toolsManager } from '../model/store';
 import { siyuanTool } from './siyuan';
 import { createCustomScriptToolGroupsFromCache } from './custom-program-tools';
-// import { registerToolCallScriptGroup } from './toolcall-script';
+import { getNativeMcpGroup } from './native-mcp';
+import { showMessage } from 'siyuan';
 
 
 const IS_IN_APP = window?.require?.('electron') !== undefined;
@@ -33,8 +34,7 @@ export const toolExecutorFactory = (options: {
     approvalAdapter?: ApprovalUIAdapter;
 }) => {
     // 创建工具执行器
-    // NOTE: executor 内部仍保留 VFS 实例（dead code），后续可进一步清理
-    const toolExecutor = new ToolExecutor({});
+    const toolExecutor = new ToolExecutor();
 
     // 注册工具组
     toolExecutor.registerToolGroup(basicTool);
@@ -54,6 +54,16 @@ export const toolExecutorFactory = (options: {
             if (toolsManager().groupDefaults[group.name] !== undefined) {
                 toolExecutor.toggleGroupEnabled(group.name, toolsManager().groupDefaults[group.name]);
             }
+        }
+    }
+
+    const nativeGroup = getNativeMcpGroup();
+    if (nativeGroup) {
+        const conflicts = nativeGroup.tools.filter(tool => toolExecutor.getTool(tool.definition.function.name));
+        if (conflicts.length) {
+            showMessage(`原生 MCP 组未加载，工具名称冲突：${conflicts.map(tool => tool.definition.function.name).join(', ')}`, 8000, 'error');
+        } else {
+            toolExecutor.registerToolGroup(nativeGroup);
         }
     }
 

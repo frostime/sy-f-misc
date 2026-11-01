@@ -89,52 +89,15 @@ export const siyuanTool = {
 
 1. **ID 格式**：所有 ID 参数必须使用 \`\\d{14}-\\w{7}\` 格式（如 \`20241016135347-zlrn2cz\`），禁止使用名称或路径
 2. **SQL LIMIT**：\`querySQL\` 必须指定 LIMIT（建议默认 32）
-3. **写入反馈**：\`appendContent\` 成功后，回复中必须包含文档链接 \`[文档名](siyuan://blocks/xxx)\`
-4. **编辑文档**
-   - appendContent 和 createNewDoc 是安全的，推荐优先使用
-   - applyDiff 有风险，使用前必须认真阅读 block-diff-edit RULE 并充分理解 "重要守则" 部分，避免承担风险和责任
-5. **鼓励链接**：回复中提及文档/块时，使用 siyuan:// 链接
+3. **编辑方式**：appendContent 和 createNewDoc 是安全的，优先使用；applyBlockDiff 有风险，使用前必须用 \`read-rule({"name": "Rule/siyuan-tools/block-edit-search-replace"})\` 阅读其约束
+4. **引用链接**：回复中提及文档/块时使用 \`[文档名](siyuan://blocks/xxx)\` 链接；appendContent 成功后必须给出该链接
 
-### 工具流经验
+### 定位目标
 
-**场景：用户提及文档但未给ID**
-\`\`\`
-步骤1: listActiveDocs() → 检查当前打开的文档
-步骤2: 若不是 → searchDocument() 或 searchKeyword()
-步骤3: 确认目标后 → getBlockInfo() 查看结构
-\`\`\`
-
-**场景：需要编辑/修改文档内容**
-\`\`\`
-步骤1: getBlockContent(docId, showId=true) → 获取带 ID 标记的内容
-步骤2: 参考 block-diff-edit 规则构造 diff
-步骤3: applyBlockDiff(diff) → 应用修改
-\`\`\`
-
-**场景：分析长文档内部结构**
-\`\`\`
-步骤1: getBlockInfo(docId) → 获取 TOC（文档大纲）
-步骤2: 定位目标标题的 blockId
-步骤3: getBlockContent(blockId, showId=true) → 获取该部分内容
-\`\`\`
-
-**场景：复杂查询（需要编写 SQL）**
-\`\`\`
-步骤1: ReadVar('siyuan-sql-overview') → 查阅 SQL 基础
-步骤2: 根据需要查阅具体表结构（sql-blocks-table / sql-refs-table 等）
-步骤3: 构造 SQL（必须包含 LIMIT）
-\`\`\`
-
-**场景：涉及到添加日记文档**
-\`\`\`
-步骤1: 和用户确认是哪个笔记本(notebook)的日记
-步骤2: 利用 listNotebooks 定位确认目标笔记本
-步骤3: appendContent(targetType='dailynote', target=notebookId)
-\`\`\`
-
-### 高级文档索引
-
-复杂场景请通过 \`ReadVar\` 查阅
+- 用户提及文档但未给 ID：先 listActiveDocs 看当前打开的文档，否则用 searchDocument / searchKeyword
+- 分析长文档结构：getBlockInfo(docId) 取 TOC，定位 blockId 后再 getBlockContent(blockId, showId=true)
+- 分页阅读长文档/容器：用 getBlockContent 的 slice 参数，语法见 \`read-rule({"name": "Rule/siyuan-tools/slice-reading"})\`
+- 需要了解更多领域约定时，用 \`read-rule\` 读取下方索引中的 Rule
 `.trim(),
     declareSkillRules: siyuanSkillRules
 };

@@ -76,7 +76,7 @@ export const applyBlockDiffTool: Tool = {
 | @@PREPEND:id@@ + 新内容 | 在容器开头插入 |
 | @@APPEND:id@@ + 新内容 | 在容器末尾追加 |
 
-IMPORTANT: 必须先阅读 ${DIFF_SKILL_NAME} 规则才能使用此工具。`,
+IMPORTANT: 使用前先调用 read-rule({"name": "Rule/siyuan-tools/${DIFF_SKILL_NAME}"}) 阅读专用语法与约束。`,
             parameters: {
                 type: 'object',
                 properties: {

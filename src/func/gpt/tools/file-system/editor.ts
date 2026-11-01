@@ -22,9 +22,10 @@ export const searchReplaceTool: Tool = {
                 type: 'object',
                 properties: {
                     path: { type: 'string', description: '文件路径' },
-                    blocks: { type: 'string', description: 'SEARCH/REPLACE 块' },
+                    blocks: { type: 'string', description: 'SEARCH/REPLACE 块。SEARCH 从文件实际内容复制，包含足以唯一定位的上下文；多处匹配时用 withinRange，匹配失败先用 fs-View 重新读取内容。' },
                     withinRange: {
                         type: 'object',
+                        description: '只在指定行范围内匹配。行号从 1 开始，包含 startLine 和 endLine。',
                         properties: {
                             startLine: { type: 'number' },
                             endLine: { type: 'number' }

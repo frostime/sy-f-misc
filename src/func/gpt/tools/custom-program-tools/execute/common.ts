@@ -35,14 +35,3 @@ export const extractPermissionConfig = (toolDef: IToolDefinition): ToolPermissio
 
     return config;
 };
-
-export const extractDeclaredReturnType = (toolDef: IToolDefinition): { type: string; note?: string } | undefined => {
-    const declaredReturnType = (toolDef as any).declaredReturnType;
-    if (declaredReturnType && typeof declaredReturnType.type === 'string') {
-        return {
-            type: declaredReturnType.type,
-            note: declaredReturnType.note
-        };
-    }
-    return undefined;
-};

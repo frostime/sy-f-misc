@@ -13,7 +13,7 @@ import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_
 import { asStorage } from "./config";
 import { encodeApiKeyIfPlain } from "./obfuscate";
 
-export const CURRENT_SCHEMA = '3.3';
+export const CURRENT_SCHEMA = '3.4';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -379,6 +379,19 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
             });
         }
         // 值级别转换完成即视为迁移 (无论是否存在 key, 版本号统一推进)
+        migrated = true;
+    }
+
+    // 3.4 版本: 向后兼容 schema <= 3.3; 变更: 删除旧设置 toolCallMode
+    // 新生成统一按 Standard(原生工具消息)持久化与回放。该字段只存在于 gpt.config.json 的 config 中，
+    // 会话历史文件不含它，因此这里只清字段，不改动已保存的会话记录与历史 Legacy 记录的读取。
+    if (compareSchemaVersion(dataSchema, '3.4') < 0) {
+        const config = (data as any).config;
+        if (config && config.toolCallMode !== undefined) {
+            console.log(`[GPT 配置迁移] 删除旧设置 toolCallMode=${config.toolCallMode}；新生成使用 Standard，历史记录按原内容读取`);
+            delete config.toolCallMode;
+        }
+        // 与 3.3 一致: 即使没有旧字段也推进版本号，避免每次启动重复进入迁移分支
         migrated = true;
     }
 

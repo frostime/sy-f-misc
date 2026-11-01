@@ -220,11 +220,6 @@ export const getBlockInfoTool: Tool = {
         executionPolicy: 'auto'
     },
 
-    declaredReturnType: {
-        type: 'BlockInfo | { blocks: BlockInfo[]; notFoundIds?: string[] }',
-        note: '单个ID返回BlockInfo，多个ID返回对象格式'
-    },
-
     execute: async (args: { ids: string }): Promise<ToolExecuteResult> => {
         if (!args.ids || !args.ids.trim()) {
             return {
@@ -463,7 +458,7 @@ export const getBlockContentTool: Tool = {
 - 标题块: 默认返回标题范围内所有内容; showSubStructure=true 时展开子块 ID
 - 容器块 (引述/列表/超级块等): 默认返回格式化整体; showSubStructure=true 时展开原始子块
 
-**切片(Slice)语法**: 读取读取长文档/容器时可用; 具体详情阅读 Skill Rule "slice-reading"
+**切片(Slice)语法**: 分页阅读长文档/容器时可用；完整语法见 read-rule({"name": "Rule/siyuan-tools/slice-reading"})
 - 分页阅读: "<LastID>:+10" (从LastID开始再读10个)
 - 范围读取: "<StartID>:<EndID>" (闭区间)
 - 索引切片: "0:10" (前10个), "-5:" (最后5个)
@@ -651,11 +646,6 @@ export const appendContentTool: Tool = {
         executionPolicy: 'ask-always'
     },
 
-    declaredReturnType: {
-        type: '{ success: true; targetId: string; targetType: string }',
-        note: 'targetId 为实际写入的文档/块 ID（dailynote 返回日记文档 ID）'
-    },
-
     execute: async (args: {
         markdown: string;
         targetType: 'dailynote' | 'document' | 'block';
@@ -789,11 +779,6 @@ export const createNewDocTool: Tool = {
 
     permission: {
         executionPolicy: 'ask-always'
-    },
-
-    declaredReturnType: {
-        type: '{ success: true; docId: string; hpath: string; location: string }',
-        note: 'docId 为新创建的文档 ID，hpath 为文档的可读路径'
     },
 
     execute: async (args: {
