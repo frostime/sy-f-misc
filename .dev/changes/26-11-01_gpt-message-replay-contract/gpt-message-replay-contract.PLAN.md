@@ -6,13 +6,14 @@ Target contract: [TARGET-SPEC](gpt-message-replay-contract.TARGET-SPEC.md). Tech
 
 1. **Resolve provider-dependent replay rules** — closed via the conservative exit: no live provider access, no key use. The unresolved questions and the conservative behavior are recorded in METHOD §Provider 验收状态. Nothing is reported as live-verified.
 2. **Implement canonical-body replay** — done. Narrow replay metadata, legacy reads, edit invalidation and adapter conversion are implemented; acceptance 1-8 are covered by `tests/gpt-protocol-replay.test.ts`.
-3. **Independent review and verification** << CURRENT: the implementer has run the suites below; S301 still owes the independent diff review against TARGET-SPEC. Real-provider evidence does not exist and must not be claimed.
+3. **Independent review and verification** — accepted against the automated contract on 2026-11-01. Real-provider evidence does not exist and must not be claimed.
 
 ## Current Phase
 
 - Objective: hand the implemented contract to independent review.
 - Scope: diff review against TARGET-SPEC (ownership, legacy read, edit invalidation, version isolation, provider mismatch, Gemini signature handling), plus re-running the checks below.
 - Exit gate: reviewer finds no target violation; any real-provider question stays marked unverified.
+- Result: `9325a70` fixed the user-authored version path; isolated regression proves the new version drops replay while the source version remains unchanged. Independent review and final checks are complete.
 
 ### Verification (2026-11-01, no live provider calls)
 
@@ -74,20 +75,20 @@ Target contract: [TARGET-SPEC](gpt-message-replay-contract.TARGET-SPEC.md). Tech
 
 ## Independent Acceptance (2026-11-01)
 
-- Status: acceptance pending. A third user-visible content-edit path was found in `addMsgItemVersion()`; its newly created version appears to retain stale replay metadata. Implementation needs correction and an isolated regression test before acceptance.
-- Reviewed implementation commits `08e1c0a`, `6581597`, and `ce1f5d7` against TARGET-SPEC. Confirmed narrow replay does not copy visible body, normalized call arguments, or readable reasoning text; legacy full replay remains read-compatible; the two in-place edit paths remove replay only from the edited current version; source compatibility remains enforced; Gemini mixed native/no-id calls are single-use and keep server IDs attached to the correct responses; unsigned reasoning remains replayable when untouched.
-- Independently ran `pnpm run test:gpt`: 197/197 passed (chat 40, protocol 72, archive 58, apikey 5, tools 33).
+- Status: accepted against the automated contract; real-provider acceptance remains unverified.
+- Reviewed commits `08e1c0a`, `6581597`, `ce1f5d7`, and `9325a70` against TARGET-SPEC. Confirmed narrow replay does not copy visible body, normalized call arguments, or readable reasoning text; legacy full replay remains read-compatible; all supported content-edit paths invalidate replay only in the edited version; source compatibility remains enforced; Gemini mixed native/no-id calls are single-use and keep server IDs attached to the correct responses; unsigned reasoning remains replayable when untouched.
+- Independently ran `pnpm run test:gpt`: 198/198 passed (chat 40, protocol 72, archive 58, apikey 5, tools 34).
 - `pnpm run build:publish` and `pnpm run build:private` passed when run sequentially.
 - `pnpm run type-check` reports only the five existing diagnostics in `src/func/docfile-tools.ts` and `src/func/gpt/model/storage.ts`; no changed-file diagnostics were reported.
 - `git diff --check quasi-main..HEAD` passed. Working tree contains only the pre-existing `package.json` and `plugin.json` version edits; they were not changed by this work.
 - No live Claude or Gemini requests were made. Acceptance of unsigned Claude thinking blocks and Gemini signature omission/degradation behavior remain unverified.
-- Pending: invalidate replay metadata on the new-version content edit in `addMsgItemVersion()` without changing the source version, then test both versions' replay behavior.
+- `addMsgItemVersion()` now creates its edited payload through `buildUserEditedVersion()`, which strips replay from the new version and preserves canonical reasoning and the original version. The regression covers narrow Claude and legacy Gemini replay, version switching, and JSON reload.
 
 ### Remaining Issue
 
 #### I6 · Adding an edited message version retains stale replay metadata
 
-- Status / readiness: in progress.
+- Status / readiness: done (`9325a70`; independently verified).
 - Causal context: `addMsgItemVersion()` creates a new version by copying the current message and replacing `content`; if it copies `extra`, adapters can replay old text instead of the new version body.
 - Resolution: the newly created version drops replay metadata, keeps its canonical reasoning field unchanged, sends the new content, and leaves the source version's replay metadata unchanged. Verify through the actual session/version operation plus a subsequent adapter request.
 
