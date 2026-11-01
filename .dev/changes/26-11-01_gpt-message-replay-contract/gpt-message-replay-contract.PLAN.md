@@ -18,7 +18,7 @@ Target contract: [TARGET-SPEC](gpt-message-replay-contract.TARGET-SPEC.md). Tech
 
 | Check | Result |
 |---|---|
-| `pnpm run test:gpt` | 197/197 通过：chat 40、protocol 72、archive 58、apikey 5、tools 33 |
+| `pnpm run test:gpt` | 198/198 通过：chat 40、protocol 72、archive 58、apikey 5、tools 34 |
 | `pnpm run type-check` | 仅 5 个既有基线诊断（docfile-tools ×4、model/storage.ts ×1），无新增 |
 | `pnpm run build:publish` / `build:private` | 均通过 |
 | 真实 Provider | **未执行**。无 key、无额度授权；相关结论一律标为未验证 |
@@ -38,6 +38,7 @@ Target contract: [TARGET-SPEC](gpt-message-replay-contract.TARGET-SPEC.md). Tech
 11. Gemini 混合 native-id / no-id 多调用：每个 canonical 调用至多消费一次，wire 无重复 part，`functionResponse.id` 只回到原本拥有它的调用。
 12. 窄 replay 的中间消息在持久化后仍保留 `reasoning_content`（否则无法重建），编辑后该字段不被改写。
 13. 无签名的 thinking / thought 仍写窄 replay 并原样回放（Claude 与 Gemini 各一条），`extra` 不含 reasoning 文本；编辑后仍不向 wire 发送 reasoning。
+14. "添加消息版本"（`buildUserEditedVersion`）创建的新版本不含 replay（窄/legacy 各一例）、`reasoning_content` 保留、旧版本 payload 逐字节不变，且 JSON 重载后结论一致。
 
 ## Issues
 
@@ -70,3 +71,27 @@ Target contract: [TARGET-SPEC](gpt-message-replay-contract.TARGET-SPEC.md). Tech
 - Status / readiness: done（读侧同时接受无 extra、legacy 全量、窄记录三种形态，无迁移）。
 - Causal context: persisted histories may have no replay data or the current full-native `extra` shape.
 - Resolution: read both legacy forms without batch migration; editing a legacy replay-bearing message prevents stale text from being sent; new writes use the agreed narrow shape.
+
+## Independent Acceptance (2026-11-01)
+
+- Status: acceptance pending. A third user-visible content-edit path was found in `addMsgItemVersion()`; its newly created version appears to retain stale replay metadata. Implementation needs correction and an isolated regression test before acceptance.
+- Reviewed implementation commits `08e1c0a`, `6581597`, and `ce1f5d7` against TARGET-SPEC. Confirmed narrow replay does not copy visible body, normalized call arguments, or readable reasoning text; legacy full replay remains read-compatible; the two in-place edit paths remove replay only from the edited current version; source compatibility remains enforced; Gemini mixed native/no-id calls are single-use and keep server IDs attached to the correct responses; unsigned reasoning remains replayable when untouched.
+- Independently ran `pnpm run test:gpt`: 197/197 passed (chat 40, protocol 72, archive 58, apikey 5, tools 33).
+- `pnpm run build:publish` and `pnpm run build:private` passed when run sequentially.
+- `pnpm run type-check` reports only the five existing diagnostics in `src/func/docfile-tools.ts` and `src/func/gpt/model/storage.ts`; no changed-file diagnostics were reported.
+- `git diff --check quasi-main..HEAD` passed. Working tree contains only the pre-existing `package.json` and `plugin.json` version edits; they were not changed by this work.
+- No live Claude or Gemini requests were made. Acceptance of unsigned Claude thinking blocks and Gemini signature omission/degradation behavior remain unverified.
+- Pending: invalidate replay metadata on the new-version content edit in `addMsgItemVersion()` without changing the source version, then test both versions' replay behavior.
+
+### Remaining Issue
+
+#### I6 · Adding an edited message version retains stale replay metadata
+
+- Status / readiness: in progress.
+- Causal context: `addMsgItemVersion()` creates a new version by copying the current message and replacing `content`; if it copies `extra`, adapters can replay old text instead of the new version body.
+- Resolution: the newly created version drops replay metadata, keeps its canonical reasoning field unchanged, sends the new content, and leaves the source version's replay metadata unchanged. Verify through the actual session/version operation plus a subsequent adapter request.
+
+#### I1 · Provider replay requirements after body edits
+
+- Status / readiness: closed-conservative for implementation; live behavior remains unverified.
+- The implementation preserves baseline replay for untouched messages and drops replay after body edits. It does not claim live provider acceptance. Reopen only with provider evidence or a concrete reported failure.

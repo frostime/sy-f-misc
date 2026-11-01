@@ -198,3 +198,16 @@ Tests should use the existing production adapter/parser harness in `tests/gpt-pr
 不变量不变：`extra` 不复制 reasoning 文本；编辑后仍删除 replay，`reasoning_content` 字段保留但不向 wire 发送。
 
 **残留风险（未验证）**：Claude 的 thinking 块没有 `signature` 时，回放会发出不带签名的 thinking 块。这与改动前的基线行为一致（旧代码原样回放收到的块），但上游是否接受缺少签名的 thinking 块没有实测证据；一旦真实 Provider 拒绝，应改为"无签名时不发 thinking 块"（仍需先取证据）。
+
+## 复核修订（round 4：第三个正文编辑入口）
+
+问题：`addMsgItemVersion()`（`use-chat-session.ts`，由 `MessageItem.tsx` 的"添加消息版本"调用）为用户手写正文创建新版本时，用 `message: { ...currentPayload.message, content }` 原样复制了当前版本的 `extra`，于是新版本虽然是新正文，仍会被旧 replay 顶掉。
+
+修正：把"手写正文 → 新版本 payload"的构造收敛到 `buildUserEditedVersion()`（`message-lifecycle.ts`），与其它编辑入口共用同一失效规则：
+
+- 新版本 `message` 经 `stripReplayMetadata`，不继承窄/legacy replay；
+- `reasoning_content` 等无编辑入口的字段按原值保留（不重写、不删除）；
+- `toolChainMessages` / `toolChainResult` / `userPromptSlice` 仍整组拷贝（本次没有编辑它们）；
+- 旧版本 payload 完全不变（新对象，不共享引用）。
+
+至此"会改写正文的入口"清单为四处，全部经过同一函数：`updateMessage`、`updateStandardTurn`（末条 + 中间消息）、`buildUserEditedVersion`（新增版本）。`extractSubtreeToHistory` 等**复制整棵子树**的功能不属于正文编辑，仍原样复制 replay（这是期望行为：复制出来的历史与原文一致）。
