@@ -24,8 +24,9 @@ Upper Layer (chat session / toolchain / tiny-agent)
 | `claude-complete.ts` | Full Claude `/messages` adapter (request, streaming, tool calls) |
 | `gemini-complete.ts` | Full Gemini `generateContent` adapter (request, streaming, tool calls) |
 | `protocol-utils.ts` | Shared helpers: header building, message normalization |
+| `protocol-extra.ts` | Internal replay source isolation for native protocol data |
 | `response-parse.ts` | Zero-dependency response parsing layer: SSE framing, usage normalization, reasoning normalization, per-protocol stream/nonstream consumers (unit-testable offline) |
-| `adpater.ts` | Input normalization: message field whitelisting, option filtering, model config application |
+| `adapter.ts` | Input normalization: message field whitelisting, option filtering, model config application |
 | `claude.d.ts` | TypeScript types for the Anthropic API protocol |
 | `gemini.d.ts` | TypeScript types for the Google Gemini API protocol |
 
@@ -61,20 +62,22 @@ All three protocols handle system prompts differently. `normalizeMessagesWithSys
 
 | Field | Our `IToolMessage` | Claude | Gemini |
 |-------|--------------------|--------|--------|
-| Link back to call | `tool_call_id` | `tool_use_id` in `tool_result` block | `name` in `functionResponse` |
-| Function name | `name` (NEW — added for Gemini) | not needed | `functionResponse.name` |
+| Link back to call | `tool_call_id` | `tool_use_id` in `tool_result` block | Original server `id` when present; otherwise name/order |
+| Function name | `name` | not needed | `functionResponse.name` |
 | Content | string | string (Claude accepts both string and block array) | object (parsed JSON; falls back to `{content: rawString}`) |
 
 ---
 
 ## Tool Call Lifecycle
 
+Assistant `extra` carries raw protocol replay data alongside normalized display fields. The chain and history retain it; each adapter restores only same-source native fields and removes the `extra` envelope from the wire. The conversion below is the ordinary fallback for messages without compatible replay data.
+
 ```
 toolchain.ts builds tool result:
   { role:'tool', tool_call_id: call.id, name: call.function.name, content: result }
         │
-        │ adpatInputMessage() whitelist: ['role','content','tool_call_id','tool_calls','name']
-        │ (name MUST be in whitelist to survive normalization)
+        │ adpatInputMessage() whitelist includes `extra` for internal replay data; adapters strip it from wire requests
+        │ (Gemini tool name and server call id survive normalization)
         ▼
 claude-complete.ts:
   tool_result = { type:'tool_result', tool_use_id: msg.tool_call_id, content: msg.content }
@@ -91,9 +94,7 @@ gemini-complete.ts:
 
 **Claude**: server-assigned IDs (`block.id` from `content_block_start`). Globally unique per request. These are passed directly as `tool_use_id` in tool results.
 
-**Gemini non-streaming**: `gemini_call_${partIndex}` — deterministic, stable within a response.
-
-**Gemini streaming**: Per-call counter (`toolCallCounter`) initialized to 0 inside `consumeGeminiStream`. On first encounter of part index, assign `gemini_call_${counter++}`. On subsequent events for the same part index, reuse the same id. This ensures stable ids across multiple streaming chunks.
+**Gemini**: keep the server's `functionCall.id` and echo it in `functionResponse.id`. Calls without a server id receive a local identifier that is never sent as a native id. Part array positions are chunk-local: separate no-id calls remain independent even when each appears at position zero.
 
 ---
 
@@ -127,10 +128,12 @@ Claude/Gemini RAW usage (additive cache semantics, separate thoughts count) is p
 
 ### Reasoning normalization
 
-- OpenAI-compatible: `reasoning_content` > `reasoning` > `reasoning_details` (first non-empty wins; OpenRouter sends redundant pairs). Structured `reasoning_details` items contribute only their `text`/`summary` string; `reasoning.encrypted` items and signature-only items are ignored — arbitrary objects are never JSON-stringified into display text.
+These rules describe display text. Raw reasoning fields and signed native blocks remain in `extra` for replay, independently of display normalization.
+
+- OpenAI-compatible: `reasoning_content` > `reasoning` > `reasoning_details` (first non-empty wins; OpenRouter sends redundant pairs). Structured `reasoning_details` display only text/summary; encrypted/signature data stays in `extra` for exact replay and is never stringified into display text.
 - Leading think-tag partition: if the content starts with `<think>...</think>` (DeepSeek-style OpenAI-compatible APIs), that prefix's block moves to `reasoning_content`. Only the leading block is extracted (with hold-back of a partially-streamed closing tag while streaming; at stream end / nonstream parse the held literal bytes are released so unmatched text never vanishes); think tags appearing later in content (embedded examples) are left untouched.
-- Claude: `thinking` blocks → reasoning; `redacted_thinking` blocks (opaque/encrypted `data`) are dropped and counted in `providerMeta.redactedThinkingBlocks`; signatures ignored.
-- Gemini: parts with `thought === true` → reasoning; other `text` parts → content.
+- Claude: `thinking` text → display reasoning; signatures and `redacted_thinking` remain hidden. Original content blocks, including opaque data and ordering, are retained in `extra` for replay.
+- Gemini: parts with `thought === true` → display reasoning; other `text` parts → content. Signed/call parts, including signature-only empty-text parts, are retained in `extra`.
 
 ### Streaming integration contract (`streamMsg`)
 
@@ -160,9 +163,9 @@ Key events handled:
 
 **Fix C**: Tool arg `arguments` initializes to `''` (not `JSON.stringify({})`). Delta events always append unconditionally. This is correct because `input_json_delta` fragments are raw JSON text pieces, not parsed objects.
 
-### Gemini Streaming (SSE Snapshots)
+### Gemini Streaming (SSE Chunks)
 
-Gemini sends SSE `data: {json}` blocks. Each chunk is a complete partial `IGeminiResponse`. The parser accumulates text and uses a replace-not-merge strategy for function call args — Gemini sends complete arg snapshots (not incremental JSON fragments like Claude).
+Each chunk has its own parts array. Text accumulates; only an explicit call id identifies a repeated call. Independent function calls do not overwrite one another by array position. Vertex-only `partialArgs` / `willContinue` frames are rejected rather than executed with fabricated empty arguments.
 
 ---
 
@@ -175,9 +178,9 @@ Gemini sends SSE `data: {json}` blocks. Each chunk is a complete partial `IGemin
 | PDF documents | ❌ not mapped | ❌ not mapped |
 | JSON mode / structured output | ❌ no explicit mapping | ❌ no explicit mapping |
 | Prompt caching (`cache_control`) | ❌ no entry point | N/A |
-| `anthropic-beta` header | hardcoded `2023-06-01` | N/A |
+| Protocol version | `anthropic-version: 2023-06-01`; beta flags use provider custom headers | N/A |
 | Gemini native features (codeExecution, etc.) | N/A | ❌ no entry point |
-| Third-party Gemini proxy endpoint detection | N/A | ⚠️ URL replacement may misfire |
+| Third-party Gemini proxy endpoint detection | N/A | Only standard generateContent actions are switched automatically; other paths remain unchanged |
 
 ---
 
@@ -185,6 +188,6 @@ Gemini sends SSE `data: {json}` blocks. Each chunk is a complete partial `IGemin
 
 **Adding new option mappings**: Add to `buildClaudePayload()` or `buildGeminiPayload()`. Both functions have a `knownKeys` set — any options NOT in `knownKeys` are transparent-forwarded to the payload, so provider-specific options can be passed as-is.
 
-**New Claude beta features**: Requires updating `buildProtocolHeaders()` to inject the appropriate `anthropic-beta` header. Consider making this configurable per-provider.
+**Claude beta features**: Set `anthropic-beta` in provider `customHeaders`; the adapter keeps it. Thinking mode and budget support still depend on the selected model.
 
 **Gemini multimodal uploads**: For large files, Gemini prefers the Files API (`fileData.fileUri`). The current `inlineData` approach only works for small base64 images. A future improvement could add `fileData` support for `.pdf` and large images.

@@ -34,9 +34,12 @@ const makeExecutor = (tool = makeTool(), rules?: ToolGroup['declareSkillRules'])
 const runTurn = async (executor: ToolExecutor, value: string) => {
     const initial: ICompletionResult = {
         ok: true, content: `working ${value}`, reasoning_content: 'intermediate thought',
+        extra: { protocol: 'openai', data: { reasoning_details: [{ type: 'reasoning.encrypted', data: `initial-${value}` }] } },
         tool_calls: [{ id: `call-${value}`, type: 'function', function: { name: 'lookup', arguments: JSON.stringify({ value }) } }],
     };
-    setModelReplies({ ok: true, content: `answer ${value}`, reasoning_content: `final thought ${value}` });
+    setModelReplies({ ok: true, content: `answer ${value}`, reasoning_content: `final thought ${value}`,
+        extra: { protocol: 'openai', data: { reasoning_details: [{ type: 'reasoning.encrypted', data: `final-${value}` }] } },
+    });
     const result = await executeToolChain(executor, initial, {
         contextMessages: [{ role: 'user', content: 'question' }],
         checkToolResults: true,
@@ -189,6 +192,12 @@ test('native tool turns remain bound to their prepared version across version an
             assert.equal(node.versions[v1].toolChainMessages?.[1].content, 'v1');
             assert.equal(node.versions[v2].toolChainMessages?.[1].content, 'v2');
             assert.equal(node.versions[v2].message.content, 'answer v2');
+            assert.deepEqual((node.versions[v1].toolChainMessages?.[0] as IAssistantMessage)?.extra, (first.toolChainMessages?.[0] as IAssistantMessage)?.extra);
+            assert.deepEqual(node.versions[v2].message.extra, second.extra);
+            const restored = useTreeModel();
+            restored.fromHistory(JSON.parse(JSON.stringify(tree.toHistory({ id: 'replay', title: 'replay', timestamp: 1, updated: 1 }))));
+            assert.deepEqual(restored.getNodeById(nodeId)?.versions[v2].message.extra, second.extra);
+            assert.deepEqual((restored.getNodeById(nodeId)?.versions[v1].toolChainMessages?.[0] as IAssistantMessage)?.extra, (first.toolChainMessages?.[0] as IAssistantMessage)?.extra);
             tree.forkAt('U');
             const branchId = lifecycle.prepareSlot('append');
             lifecycle.finalize(branchId, branch, meta);

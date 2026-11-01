@@ -93,6 +93,7 @@ export const createMessageLifecycle = (
                     role: 'assistant',
                     content: result.content,
                     reasoning_content: result.reasoning_content,
+                    extra: result.extra,
                 },
                 author: preparedPayload.author ?? meta.modelName,
                 timestamp: Date.now(),

@@ -14,16 +14,7 @@ export interface CompleteOptions {
     abortController?: AbortController;
 }
 
-export const getProviderProtocol = (runtimeLLM?: IRuntimeLLM): LLMProviderProtocol => {
-    const raw = (runtimeLLM?.provider?.protocol || runtimeLLM?.provider?.protocal || runtimeLLM?.protocol || 'openai').toLowerCase();
-    if (raw === 'claude' || raw === 'gemini' || raw === 'openai') {
-        return raw;
-    }
-    if (raw === 'anthropic') {
-        return 'claude';
-    }
-    return 'openai';
-};
+export { getProviderProtocol, bindExtraSource, getCompatibleExtra } from './protocol-extra';
 
 export const normalizeMessagesWithSystem = (
     input: string | IMessage[],
@@ -134,20 +125,31 @@ export const buildProtocolHeaders = (
 // Track warnings per (protocol, provider) to avoid spamming.
 const warnedHeaderOverrides = new Set<string>();
 
+/**
+ * 按最终 stream 模式切换 Gemini 端点：
+ * - 在标准 :generateContent / :streamGenerateContent 之间双向切换；
+ * - 流式补 alt=sse（解析器按 SSE 读取），非流式去掉 alt=sse；
+ * - 其余 query 参数保持原顺序；无法识别的代理路径原样返回，不构造未知端点。
+ */
 export const ensureGeminiEndpointByStream = (url: string, stream: boolean): string => {
-    if (!stream) return url;
+    const hashIndex = url.indexOf('#');
+    const fragment = hashIndex >= 0 ? url.slice(hashIndex) : '';
+    const withoutFragment = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+    const queryIndex = withoutFragment.indexOf('?');
+    const path = queryIndex >= 0 ? withoutFragment.slice(0, queryIndex) : withoutFragment;
+    const actionPattern = /:(?:streamGenerateContent|generateContent)$/;
+    if (!actionPattern.test(path)) return url;
+    const base = path.replace(actionPattern, stream ? ':streamGenerateContent' : ':generateContent');
+    const query = queryIndex >= 0 ? withoutFragment.slice(queryIndex + 1) : '';
 
-    let next = url;
-    if (next.includes(':generateContent')) {
-        next = next.replace(':generateContent', ':streamGenerateContent');
-    }
-    if (!next.includes(':streamGenerateContent')) {
-        return next;
-    }
-    if (next.includes('alt=sse')) {
-        return next;
-    }
-    return `${next}${next.includes('?') ? '&' : '?'}alt=sse`;
+    const keptParams = (query ? query.split('&').filter(Boolean) : []).filter((param) => {
+        const [key, value = ''] = param.split('=');
+        if (key !== 'alt') return true;
+        return stream ? false : value !== 'sse';
+    });
+    if (stream) keptParams.push('alt=sse');
+
+    return base + (keptParams.length > 0 ? `?${keptParams.join('&')}` : '') + fragment;
 };
 
 export const applyGeminiModelPlaceholder = (url: string, model: string): string => {

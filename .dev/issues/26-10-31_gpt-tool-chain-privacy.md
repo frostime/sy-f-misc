@@ -1,9 +1,13 @@
 ---
 title: GPT 隐私屏蔽只在首轮生效，工具续轮与总结请求仍直发原文
-status: open
+status: not-planned
 created: 2026-10-31
 baseline: bf704fb
 ---
+
+## 当前状态
+
+not-planned。本轮没有修改隐私屏蔽功能，也没有处理工具续轮的隐私规则。
 
 ## 涉及模块与问题概述
 

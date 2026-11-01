@@ -1,6 +1,6 @@
 import { appendLog } from '../MessageLogger';
 import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adapter';
-import { buildProtocolHeaders, CompleteOptions, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult } from './protocol-utils';
+import { bindExtraSource, buildProtocolHeaders, CompleteOptions, getCompatibleExtra, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult } from './protocol-utils';
 import { consumeClaudeStream, parseClaudeResponse } from './response-parse';
 
 const pushClaudeMessage = (messages: IClaudeMessage[], role: IClaudeMessage['role'], blocks: ClaudeContentBlock[]) => {
@@ -13,7 +13,7 @@ const pushClaudeMessage = (messages: IClaudeMessage[], role: IClaudeMessage['rol
     }
 };
 
-const toClaudeMessages = (messages: IMessage[]): IClaudeMessage[] => {
+const toClaudeMessages = (messages: IMessage[], runtime: IRuntimeLLM): IClaudeMessage[] => {
     const claudeMessages: IClaudeMessage[] = [];
     // Claude `tool_result` only needs `tool_use_id`.
 
@@ -48,6 +48,14 @@ const toClaudeMessages = (messages: IMessage[]): IClaudeMessage[] => {
         }
 
         if (msg.role === 'assistant') {
+            // 同源 extra 必须原样回放原始 blocks（thinking / signature / tool_use 顺序不变），
+            // 否则 Claude 会拒绝对应的工具续轮。
+            const extra = getCompatibleExtra(msg, runtime);
+            if (extra?.protocol === 'claude') {
+                pushClaudeMessage(claudeMessages, 'assistant', structuredClone(extra.data.content));
+                continue;
+            }
+
             const blocks: ClaudeContentBlock[] = [];
             const text = messageContentToText(msg.content);
             if (text.trim()) {
@@ -89,12 +97,7 @@ const toClaudeTools = (tools?: IToolDefinition[]): IClaudeTool[] | undefined => 
     return tools.map((tool) => ({
         name: tool.function.name,
         description: tool.function.description,
-        input_schema: {
-            type: 'object',
-            properties: tool.function.parameters?.properties || {},
-            required: tool.function.parameters?.required,
-            additionalProperties: tool.function.parameters?.additionalProperties,
-        }
+        input_schema: structuredClone(tool.function.parameters || { type: 'object', properties: {} })
     }));
 };
 
@@ -173,6 +176,12 @@ const buildClaudePayload = (
 
             if (claudeMode === 'manual-budget') {
                 const budget = compat.thinking.budgetMap?.[effort] ?? DEFAULT_THINKING_BUDGETS[effort] ?? 8192;
+                const betaHeader = Object.entries(model.provider?.customHeaders || {})
+                    .find(([key]) => key.toLowerCase() === 'anthropic-beta')?.[1] || '';
+                const interleavedThinking = betaHeader.split(',').some(value => value.trim() === 'interleaved-thinking-2025-05-14');
+                if (!interleavedThinking && budget >= payload.max_tokens) {
+                    throw new Error(`Claude thinking budget_tokens (${budget}) must be less than max_tokens (${payload.max_tokens}). Increase the output limit or lower the thinking budget.`);
+                }
                 payload.thinking = { type: 'enabled', budget_tokens: budget };
                 clearClaudeEffort();
             } else {
@@ -217,25 +226,30 @@ export const claudeComplete = async (
             };
         }
 
-        const { messages, systemPrompt } = normalizeMessagesWithSystem(input, options);
         const chatOption = adaptChatOptions({
-            chatOption: options.option || {},
+            chatOption: {
+                ...options.option,
+                ...(options.stream !== undefined ? { stream: options.stream } : {}),
+            },
             runtimeLLM,
             toggles: options.toggles,
         });
-        if (options.stream !== undefined) {
-            chatOption.stream = options.stream;
-        }
 
-        const claudeMessages = toClaudeMessages(messages);
-        const payload = buildClaudePayload(claudeMessages, systemPrompt, runtimeLLM, chatOption);
+        const targetModel = (chatOption as IChatCompleteOption & { model?: string }).model ?? runtimeLLM.model;
+        const targetRuntime: IRuntimeLLM = targetModel === runtimeLLM.model
+            ? runtimeLLM
+            : { ...runtimeLLM, model: targetModel };
+
+        const { messages, systemPrompt } = normalizeMessagesWithSystem(input, options);
+        const claudeMessages = toClaudeMessages(messages, targetRuntime);
+        const payload = buildClaudePayload(claudeMessages, systemPrompt, targetRuntime, chatOption);
 
         appendLog({ type: 'request', data: payload });
 
         const t0 = new Date().getTime();
         const response = await fetch(runtimeLLM.url, {
             method: 'POST',
-            headers: buildProtocolHeaders('claude', runtimeLLM, Boolean(chatOption.stream)),
+            headers: buildProtocolHeaders('claude', targetRuntime, Boolean(chatOption.stream)),
             body: JSON.stringify(payload),
             signal: options.abortController?.signal,
         });
@@ -251,18 +265,25 @@ export const claudeComplete = async (
         }
 
         if (chatOption.stream) {
-            return consumeClaudeStream(response, {
+            const result = await consumeClaudeStream(response, {
                 streamMsg: options.streamMsg,
                 abortController: options.abortController,
                 onRawEvent: (data) => appendLog({ type: 'chunk', data }),
                 t0,
             });
+            if (result.ok !== false && result.extra) {
+                result.extra = bindExtraSource(result.extra, targetRuntime);
+            }
+            return result;
         }
 
         const data = await response.json() as IClaudeResponse;
         appendLog({ type: 'response', data });
         const result = parseClaudeResponse(data);
         result.time = { latency: new Date().getTime() - t0 };
+        if (result.ok !== false && result.extra) {
+            result.extra = bindExtraSource(result.extra, targetRuntime);
+        }
         return result;
     } catch (error) {
         return toErrorResult(error);

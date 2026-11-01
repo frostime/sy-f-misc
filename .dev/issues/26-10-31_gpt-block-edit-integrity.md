@@ -1,9 +1,13 @@
 ---
 title: applyBlockDiff：同块多项编辑被静默覆盖，且执行部分失败时丢失明细
-status: open
+status: not-planned
 created: 2026-10-31
 baseline: bf704fb
 ---
+
+## 当前状态
+
+not-planned。本轮不处理批量块编辑功能。
 
 ## 涉及模块与问题概述
 

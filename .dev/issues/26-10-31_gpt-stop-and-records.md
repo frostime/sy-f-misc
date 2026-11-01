@@ -1,6 +1,6 @@
 ---
 title: GPT 工具调用点击停止后仍会继续执行后续工具，且收尾时丢失已执行记录
-status: open
+status: not-planned
 created: 2026-10-31
 baseline: bf704fb
 ---
@@ -32,17 +32,21 @@ baseline: bf704fb
    - 交互审批适配器（`InlineApprovalAdapter`）创建的等待用户点击的 Promise，没有监听中止事件。停止后审批卡片依然挂在界面上，用户后续若不小心点击仍会触发执行。
 3. **异常收尾抹去执行事实**：
    - 在 `src/func/gpt/chat/ChatSession/use-openai-endpoints.ts` 的 `handleToolChain()` 中，只有当状态完全为 `completed` 时，才会将工具调用的过程写入历史。
-   - 当状态为 `aborted` 或捕获到错误时，直接降级返回 `initialResponse`，导致本次生成中已收集的原生工具消息和执行结果被全部丢弃。
+   - 当状态为 `aborted` 或捕获到错误时，原始基线会直接返回 `initialResponse`，导致已收集的工具消息和执行结果被丢弃。该结果收尾在本轮协议修复中已改为保留，停止信号与工具/审批联动仍未修。
 
 ---
 
 ## 最小复现
 
 在测试中将会话的 `AbortController` 提前标记为 `aborted`，随后向真实工具链传入两个用于内存计数的工具调用：
-- 运行结果：`executed: 2, status: 'aborted'`。
-- 说明：即使状态已经是中止，所有工具依然全部被调用执行，执行器未做任何拦截。
+- 基线运行结果：`executed: 2, status: 'aborted'`。
+- 说明：即使状态已经是中止，基线工具链仍会调用工具，执行器未做任何拦截；此项在本协议变更中未处理。
 
 ---
+
+## 当前状态
+
+not-planned。三协议修复保留协议请求错误状态，不扩展停止按钮对工具执行/审批的取消。原始“aborted/error 收尾丢失已知操作记录”问题在本轮范围调整后未纳入，仍按原行为处理。
 
 ## 期望行为
 

@@ -154,6 +154,7 @@ export async function executeToolChain(
         toolCallHistory: [] as ToolChainResult['toolCallHistory'],
         startTime: Date.now(),
         status: 'running' as 'running' | 'completed' | 'aborted' | 'error' | 'timeout',
+        error: undefined as string | undefined,
         usage: llmResponseWithToolCalls.usage
     };
 
@@ -167,6 +168,7 @@ export async function executeToolChain(
         role: 'assistant',
         content: llmResponseWithToolCalls.content,
         reasoning_content: llmResponseWithToolCalls.reasoning_content,
+        extra: llmResponseWithToolCalls.extra,
         tool_calls: llmResponseWithToolCalls.tool_calls
     };
     state.toolChainMessages.push(initialAssistantMessage);
@@ -175,6 +177,10 @@ export async function executeToolChain(
     // 当前响应
     let currentResponse = llmResponseWithToolCalls;
     let stopDueToLimit = false;
+    if (currentResponse.ok === false) {
+        state.status = 'error';
+        state.error = currentResponse.content || 'Initial model request failed';
+    }
 
     try {
         // ====================================================================
@@ -323,7 +329,7 @@ export async function executeToolChain(
                     streamMsg: callbacks.onLLMResponseUpdate,
                     abortController: options.abortController,
                     option: options.chatOption,
-                    toggles: options.toggles
+                    toggles: options.toggles,
                 });
 
                 currentResponse = response;
@@ -333,6 +339,7 @@ export async function executeToolChain(
                     role: 'assistant',
                     content: response.content,
                     reasoning_content: response.reasoning_content,
+                    extra: response.extra,
                     tool_calls: response.tool_calls
                 };
 
@@ -351,8 +358,14 @@ export async function executeToolChain(
                         }
                     });
                 }
+                if (response.ok === false) {
+                    state.status = 'error';
+                    state.error = response.content || 'Model request failed';
+                    break;
+                }
             } catch (error) {
                 state.status = 'error';
+                state.error = error.message || String(error);
                 callbacks.onError?.(error, 'llm_response');
                 break;
             }
@@ -418,27 +431,30 @@ Provide a complete, helpful response even if some planned tool calls could not b
                     streamMsg: callbacks.onLLMResponseUpdate,
                     abortController: options.abortController,
                     option: options.chatOption,
-                    toggles: options.toggles
+                    toggles: options.toggles,
                 });
 
                 currentResponse = followUpResponse;
                 callbacks.onLLMResponseComplete?.(followUpResponse);
 
-                state.toolChainMessages.push({
+                const finalAssistant: IMessage = {
                     role: 'assistant',
                     content: followUpResponse.content,
-                    reasoning_content: followUpResponse.reasoning_content
-                });
-
-                state.allMessages.push({
-                    role: 'assistant',
-                    content: followUpResponse.content,
-                    reasoning_content: followUpResponse.reasoning_content
-                });
+                    reasoning_content: followUpResponse.reasoning_content,
+                    extra: followUpResponse.extra,
+                };
+                state.toolChainMessages.push(finalAssistant);
+                state.allMessages.push(finalAssistant);
 
                 // 累积 token
                 state.usage = sumReportedUsage(state.usage, followUpResponse.usage);
+                if (followUpResponse.ok === false) {
+                    state.status = 'error';
+                    state.error = followUpResponse.content || 'Final model request failed';
+                }
             } catch (error) {
+                state.status = 'error';
+                state.error = error.message || String(error);
                 console.error('Failed to generate final response:', error);
                 callbacks.onError?.(error, 'final_response');
             }
@@ -450,6 +466,7 @@ Provide a complete, helpful response even if some planned tool calls could not b
         }
     } catch (error) {
         state.status = 'error';
+        state.error = error.message || String(error);
         callbacks.onError?.(error, 'chain_execution');
     }
 
@@ -486,7 +503,7 @@ Provide a complete, helpful response even if some planned tool calls could not b
         toolCallHistory: toolCallHistoryClean,
         // @ts-ignore
         status: state.status === 'running' ? 'completed' : state.status,
-        error: state.status === 'error' ? 'Error executing tool chain' : undefined,
+        error: state.error,
         stats: {
             totalRounds: state.roundIndex,
             totalCalls: state.callCount,
