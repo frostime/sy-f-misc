@@ -146,7 +146,7 @@ compareSchemaVersion(dataSchema, targetVersion) < 0 → 执行迁移块
   1.5: modelId → defaultModelId
   1.6: autoTitleModelId → utilityModelId
   2.0: IGPTProvider[] → ILLMProviderV2[] (大改)
-  2.1: 隐私配置从 globalMiscConfigs 移到 config
+  2.1: 历史迁移曾将隐私配置从 globalMiscConfigs 移到 config；schema 3.5 起功能已移除，配置值保留但不生效
   3.0: 工具权限配置清理旧格式
   3.1: protocol/protocal 字段归一化
   3.2: chatOptionToggles 实值回填；capabilities.reasoningEffort → options.compat.thinking.enabled

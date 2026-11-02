@@ -13,7 +13,7 @@ import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_
 import { asStorage } from "./config";
 import { encodeApiKeyIfPlain } from "./obfuscate";
 
-export const CURRENT_SCHEMA = '3.4';
+export const CURRENT_SCHEMA = '3.5';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -39,10 +39,20 @@ export const compareSchemaVersion = (a?: string, b?: string) => {
 
 export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, StoreName: string) => {
     const dataSchema = (data as any).schema as string | undefined;
+    const originalConfig = (data as any).config;
+    const originalMisc = (data as any).globalMiscConfigs;
+    const originalPrivacyValues = {
+        configEnable: originalConfig?.enablePrivacyMask,
+        configFields: originalConfig?.privacyFields,
+        miscEnable: originalMisc?.enablePrivacyMask,
+        miscFields: originalMisc?.privacyFields,
+        miscKeywords: originalMisc?.privacyKeywords,
+        miscMask: originalMisc?.privacyMask,
+    };
     let migrated = false;
 
     if (compareSchemaVersion(dataSchema, CURRENT_SCHEMA) === 0) {
-        return { data, migrated };
+        return { data, migrated, privacyMaskRemovalNotice: false };
     }
 
     // 1.5 版本: 向后兼容 schema <= 1.4; 变更:  modelId -> defaultModelId
@@ -161,59 +171,6 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
             return true;
         };
         migrateLegacyProviders();
-
-        /**
-         * Migrate legacy privacy configuration (privacyKeywords) to new IPrivacyField[]
-         */
-        const migrateLegacyPrivacy = () => {
-            const globalMiscConfigs = (data as any).globalMiscConfigs;
-            if (!globalMiscConfigs) return false;
-
-            const legacyKeywords = globalMiscConfigs.privacyKeywords;
-            if (!legacyKeywords || typeof legacyKeywords !== 'string') return false;
-
-            console.log('[GPT 配置迁移] 开始迁移旧版隐私配置...');
-
-            const keywords = legacyKeywords.trim().split('\n').filter((k: string) => k.trim());
-            if (keywords.length === 0) return false;
-
-            // 转换为新格式 - 所有关键词合并到一个 Field
-            const privacyFields: any[] = [{
-                patterns: keywords.map((k: string) => k.trim()),
-                isRegex: false,
-                maskType: 'custom' as const,
-                enabled: true,
-                description: `从旧配置迁移 (${keywords.length} 个关键词)`
-            }];
-
-            globalMiscConfigs.privacyFields = privacyFields;
-            globalMiscConfigs.enablePrivacyMask = keywords.length > 0; // 如果有关键词，默认启用
-
-            console.log(`[GPT 配置迁移] 成功迁移 ${keywords.length} 个隐私关键词到新格式`);
-            // 保留旧字段以防降级，但标记已迁移
-            return true;
-        };
-        migrateLegacyPrivacy();
-    }
-
-    // 2.1 版本: 向后兼容 schema <= 2.0; 变更: 隐私配置从 globalMiscConfigs 移到 defaultConfig
-    if (compareSchemaVersion(dataSchema, '2.1') < 0) {
-        const globalMiscConfigs = (data as any).globalMiscConfigs;
-        const config = (data as any).config;
-
-        if (globalMiscConfigs && config) {
-            // 迁移隐私配置到会话级别
-            if (globalMiscConfigs.enablePrivacyMask !== undefined) {
-                config.enablePrivacyMask = globalMiscConfigs.enablePrivacyMask;
-                delete globalMiscConfigs.enablePrivacyMask;
-            }
-            if (globalMiscConfigs.privacyFields !== undefined) {
-                config.privacyFields = globalMiscConfigs.privacyFields;
-                delete globalMiscConfigs.privacyFields;
-            }
-
-            console.log('[GPT 配置迁移] 隐私配置已从全局移至会话级别');
-        }
     }
 
     // 3.0 版本: 向后兼容 schema <= 2.1; 变更: 彻底清理工具权限配置，移除所有旧格式字段
@@ -395,9 +352,43 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
         migrated = true;
     }
 
+    let privacyMaskRemovalNotice = false;
+    if (compareSchemaVersion(dataSchema, '3.5') < 0) {
+        const config = (data as any).config;
+        const misc = (data as any).globalMiscConfigs;
+        privacyMaskRemovalNotice = originalPrivacyValues.configEnable === true
+            || originalPrivacyValues.miscEnable === true
+            || (typeof originalPrivacyValues.miscKeywords === 'string' && originalPrivacyValues.miscKeywords.trim().length > 0)
+            || config?.enablePrivacyMask === true
+            || (typeof misc?.privacyKeywords === 'string' && misc.privacyKeywords.trim().length > 0);
+        // Earlier schema migrations may move or derive these fields. Restore every original value and location.
+        const migratedConfig = (data as any).config;
+        const migratedMisc = (data as any).globalMiscConfigs;
+        for (const [key, configValue, miscValue] of [
+            ['enablePrivacyMask', originalPrivacyValues.configEnable, originalPrivacyValues.miscEnable],
+            ['privacyFields', originalPrivacyValues.configFields, originalPrivacyValues.miscFields],
+        ] as const) {
+            if (configValue !== undefined && migratedConfig) migratedConfig[key] = configValue;
+            else if (miscValue !== undefined && migratedConfig) delete migratedConfig[key];
+        }
+        for (const [key, value] of [
+            ['enablePrivacyMask', originalPrivacyValues.miscEnable],
+            ['privacyFields', originalPrivacyValues.miscFields],
+            ['privacyKeywords', originalPrivacyValues.miscKeywords],
+            ['privacyMask', originalPrivacyValues.miscMask],
+        ] as const) {
+            if (value !== undefined && migratedMisc) migratedMisc[key] = value;
+        }
+        (data as any).removedFeatures = {
+            ...((data as any).removedFeatures || {}),
+            privacyMask: true,
+        };
+        migrated = true;
+    }
+
     // Guard: 仅当 schema 版本确实低于 CURRENT_SCHEMA 时才写入（防止意外降级）
     if (compareSchemaVersion(dataSchema, CURRENT_SCHEMA) < 0) {
         (data as any).schema = CURRENT_SCHEMA;
     }
-    return { data, migrated };
+    return { data, migrated, privacyMaskRemovalNotice };
 }

@@ -234,6 +234,47 @@ test('continuing a legacy record creates a native version without rewriting the 
     });
 });
 
+test('privacy-removal migration preserves settings and notifies only previously enabled users once', () => {
+    const currentEnabled = {
+        schema: '3.4',
+        config: { enablePrivacyMask: true, privacyFields: [{ patterns: ['secret'], enabled: true }] },
+        globalMiscConfigs: { privacyKeywords: '', privacyMask: '[redacted]' },
+    };
+    const migratedCurrent = 历史版本兼容(currentEnabled, 'gpt.config.json');
+    assert.equal(migratedCurrent.privacyMaskRemovalNotice, true);
+    assert.deepEqual((migratedCurrent.data as typeof currentEnabled).config, currentEnabled.config);
+    assert.deepEqual((migratedCurrent.data as typeof currentEnabled).globalMiscConfigs, currentEnabled.globalMiscConfigs);
+    assert.deepEqual((migratedCurrent.data as any).removedFeatures, { privacyMask: true });
+    assert.equal((migratedCurrent.data as any).schema, CURRENT_SCHEMA);
+    assert.equal(历史版本兼容(migratedCurrent.data, 'gpt.config.json').privacyMaskRemovalNotice, false);
+
+    const legacyEnabled = {
+        schema: '3.4', config: { enablePrivacyMask: false },
+        globalMiscConfigs: { privacyKeywords: 'private term', privacyMask: '***' },
+    };
+    const migratedLegacy = 历史版本兼容(legacyEnabled, 'gpt.config.json');
+    assert.equal(migratedLegacy.privacyMaskRemovalNotice, true);
+    assert.equal((migratedLegacy.data as typeof legacyEnabled).globalMiscConfigs.privacyKeywords, 'private term');
+
+    const disabled = {
+        schema: '3.4', config: { enablePrivacyMask: false, privacyFields: [{ patterns: ['saved'], enabled: true }] },
+        globalMiscConfigs: { privacyKeywords: '  ', privacyMask: '***' },
+    };
+    const migratedDisabled = 历史版本兼容(disabled, 'gpt.config.json');
+    assert.equal(migratedDisabled.privacyMaskRemovalNotice, false);
+    assert.deepEqual((migratedDisabled.data as typeof disabled).config, disabled.config);
+    assert.deepEqual((migratedDisabled.data as typeof disabled).globalMiscConfigs, disabled.globalMiscConfigs);
+
+    const oldSchema = {
+        schema: '2.0', config: {},
+        globalMiscConfigs: { enablePrivacyMask: true, privacyFields: [{ patterns: ['legacy'], enabled: true }], privacyKeywords: 'legacy keyword', privacyMask: '###' },
+    };
+    const migratedOld = 历史版本兼容(oldSchema, 'gpt.config.json');
+    assert.equal(migratedOld.privacyMaskRemovalNotice, true);
+    assert.deepEqual((migratedOld.data as typeof oldSchema).globalMiscConfigs, oldSchema.globalMiscConfigs);
+    assert.deepEqual((migratedOld.data as typeof oldSchema).config, oldSchema.config);
+});
+
 test('configuration migration removes legacy generation mode but preserves unrelated settings', () => {
     const stored = { schema: '3.3', config: { toolCallMode: 'legacy', attachedHistory: 9 }, toolsManager: { groupDefaults: { fixture: true } } };
     const migrated = 历史版本兼容(stored, 'gpt.config.json');

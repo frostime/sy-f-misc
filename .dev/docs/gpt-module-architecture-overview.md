@@ -297,12 +297,10 @@ UI: handleSubmit(userText)
       ├─ [5] executeByModalType()
       │   ├─ chat: chatHandler.execute()
       │   │   ├─ buildChatOption()  — 合并 config + customOptions + tools
-      │   │   ├─ buildSystemPrompt() — 时间 + user rule + privacy rule + tool rules
-      │   │   ├─ maskMessages()     — 隐私屏蔽（如果启用）
+      │   │   ├─ buildSystemPrompt() — 时间 + user rule + tool rules
       │   │   ├─ gpt.complete(messages, options)
       │   │   │   ├─ adaptChatOptions() — sanitize
       │   │   │   └─ fetch() + stream parsing
-      │   │   └─ recoverContent()   — 隐私恢复
       │   ├─ image-gen: imageHandler.generate() → generateImage()
       │   └─ audio-*: audioHandler.* → transcribeAudio() / textToSpeech()
       ├─ [6] handleToolChain() — 如果返回 tool_calls → 多轮工具调用链
@@ -338,14 +336,9 @@ fetch() response.body
 
 ## 7. Cross-Cutting Concerns
 
-### 7.1 隐私屏蔽
+### 7.1 已移除的隐私屏蔽
 
-```
-发送前: maskMessages(messages, privacyFields) → masked messages + maskSchema
-接收后: recoverContent(result.content, maskSchema) → unmasked content
-```
-
-配置在 `defaultConfig.enablePrivacyMask` + `defaultConfig.privacyFields`。
+GPT schema 3.5 起，插件不再屏蔽发送给模型的消息或上下文，也不再恢复模型回复。旧配置值保留在设置文件中供参考，但不生效。升级时，曾启用屏蔽的用户会收到一次提示。
 
 ### 7.2 Context Provider 系统
 

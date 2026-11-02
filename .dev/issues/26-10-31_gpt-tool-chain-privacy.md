@@ -1,17 +1,17 @@
 ---
 title: GPT 隐私屏蔽只在首轮生效，工具续轮与总结请求仍直发原文
-status: not-planned
+status: superseded
 created: 2026-10-31
 baseline: bf704fb
 ---
 
 ## 当前状态
 
-not-planned。本轮没有修改隐私屏蔽功能，也没有处理工具续轮的隐私规则。
+已被功能移除取代。GPT schema 3.5 起，插件不再提供隐私屏蔽，也不会声称工具续轮受到屏蔽。旧配置保留但不生效；升级时曾启用该功能的用户会收到一次告知。本 issue 的原问题记录保留作历史背景。
 
 ## 涉及模块与问题概述
 
-本缺陷涉及 GPT 隐私脱敏模块与工具链续轮请求（关键代码：`use-openai-endpoints.ts`、`toolchain.ts`、`src/func/gpt/privacy/`）。
+历史缺陷涉及 GPT 隐私屏蔽模块与工具链续轮请求。相关功能已从生产代码中移除，以下内容仅作历史问题记录。
 
 用户可以开启 GPT 隐私屏蔽功能并配置 `privacyFields`（如姓名、敏感词、本地路径等规则）。
 
@@ -19,7 +19,7 @@ not-planned。本轮没有修改隐私屏蔽功能，也没有处理工具续轮
 
 ---
 
-## 缺陷表现与出站数据对比
+## 历史缺陷表现与出站数据对比
 
 开启隐私屏蔽后的对外网络请求存在明显差异：
 
@@ -33,7 +33,7 @@ not-planned。本轮没有修改隐私屏蔽功能，也没有处理工具续轮
 
 ---
 
-## 原因定位
+## 历史原因定位
 
 1. **首轮请求与工具续轮请求使用了两套不同链路**：
    - 首轮请求在 `createChatHandler.execute()` 中处理，代码显式调用了 `maskMessages()`，将脱敏后的 `maskedMessages` 发送给模型。
@@ -46,7 +46,7 @@ not-planned。本轮没有修改隐私屏蔽功能，也没有处理工具续轮
 
 ---
 
-## 期望行为
+## 当时提出的期望行为（功能已移除，不再适用）
 
 1. **出站一致性**：
    - 只要开启了隐私屏蔽，所有向外部模型发出的请求（首轮提问、工具调用续轮、轮次上限总结）必须统一应用相同的脱敏规则。
@@ -59,7 +59,7 @@ not-planned。本轮没有修改隐私屏蔽功能，也没有处理工具续轮
 
 ---
 
-## 关键代码入口
+## 历史代码入口（已移除或不再负责屏蔽）
 
 - `src/func/gpt/chat/ChatSession/use-openai-endpoints.ts`：`createChatHandler.execute`、`executeChatRequest`、`handleToolChain` 的出站消息分流。
 - `src/func/gpt/tools/toolchain.ts`：`executeToolChain()` 内的两处 `complete` 调用（续轮与总结）。

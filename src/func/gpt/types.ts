@@ -603,9 +603,10 @@ interface IChatSessionConfig {
     /** 参数显式开关。key 不存在 ≈ toggle=true（兼容旧数据，默认发送）*/
     chatOptionToggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
 
-    // 隐私配置
+    /** @deprecated Retained for stored-config compatibility; masking was removed in schema 3.5. */
     enablePrivacyMask?: boolean;
-    privacyFields?: import('./privacy/types').IPrivacyField[];
+    /** @deprecated Retained for stored-config compatibility; masking was removed in schema 3.5. */
+    privacyFields?: unknown[];
 }
 
 

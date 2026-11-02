@@ -91,11 +91,6 @@ const buildSystemPrompt = (): string => {
     const today = `${year}-${month}-${day} (${timeZone})`;  // 仅到日期（不含时分秒）
     let prompt = systemPrompt().trim() || '';
 
-    // 隐私屏蔽规则（如启用）
-    if (privacyEnabled && privacyFields.length > 0) {
-        prompt += `\n\n<PRIVACY_RULE>...`;
-    }
-
     // 注入工具规则
     if (toolExecutor?.hasEnabledTools()) {
         prompt += toolExecutor.toolRules();  // ← 工具组 rulePrompt + 规则索引
@@ -256,6 +251,6 @@ interface ExtendedCompletionResult extends ICompletionResult {
 ## 9. 已知未修复行为（登记于 .dev/issues/ 的路径）
 
 - **中断/失败回退**：`handleToolChain` 在 `status != 'completed'` 时返回首次响应，本轮已执行的工具调用记录不进入回答版本；只有首轮文本被保存（工具的实际副作用可能已经发生）。见 [issue 详情](../../issues/26-10-31_gpt-stop-and-records.md)。
-- **跨轮隐私**：`maskMessages` 只作用于首轮请求（`chatHandler.execute`）；工具链内部后续 `complete()` 请求发送未屏蔽的 `allMessages`。见 [issue 详情](../../issues/26-10-31_gpt-tool-chain-privacy.md)。
+- **隐私屏蔽已移除**：schema 3.5 起，发送给模型的消息和上下文不再经过本插件的隐私替换。旧配置仅保留供参考并标记为不生效；升级时曾启用功能的用户会收到一次提示。
 - **错误结果审批**（执行器层，见 [executor.md](./executor.md)）。
 - **工具关闭仍可按名称执行**：启用状态只影响注入的定义，不构成执行禁止；这是刻意设计，不属于上述缺陷。

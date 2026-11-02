@@ -8,7 +8,6 @@
  */
 
 import { useSignalRef, useStoreRef } from "@frostime/solid-signal-ref";
-import { IPrivacyField } from '../privacy/types';
 import { encodeApiKeyIfPlain, SENSITIVE_GLOBAL_KEYS } from './obfuscate';
 
 /**
@@ -26,8 +25,9 @@ export const defaultConfig = useStoreRef<IChatSessionConfig>({
     utilityModelId: '',
     renderInStreamMode: true,
     toolCallMaxRounds: 7,
-    enablePrivacyMask: false, // 是否启用隐私屏蔽
-    privacyFields: [] as IPrivacyField[], // 隐私字段配置
+    // Deprecated fields remain in runtime storage so existing values survive snapshot saves.
+    enablePrivacyMask: false,
+    privacyFields: [] as unknown[],
     chatOption: {
         stream: true,
         // 采样参数默认不预设，让 API 自行决定
@@ -58,8 +58,9 @@ const _defaultGlobalMiscConfigs = {
 ------
 {{content}}
 `.trim(),
-    privacyKeywords: '',  // @deprecated 多行隐私关键词，已迁移到 privacyFields
-    privacyMask: '***',   // @deprecated 隐私词替换为，已废弃
+    // 仅保留历史值；GPT schema 3.5 起不再应用。
+    privacyKeywords: '',
+    privacyMask: '***',
     defaultSystemPrompt: `You are a helpful assistant.`,
     enableMessageLogger: false,
     maxMessageLogItems: 500,
@@ -112,6 +113,7 @@ export const asStorage = (CURRENT_SCHEMA: string) => {
     }
     return {
         schema: CURRENT_SCHEMA,
+        removedFeatures: { privacyMask: true },
         defaultModel: defaultModelId.unwrap(),
         config: { ...defaultConfig.unwrap() },
         globalMiscConfigs: globalMiscConfigsSnapshot,
