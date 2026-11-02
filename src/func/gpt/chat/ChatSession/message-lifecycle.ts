@@ -1,6 +1,7 @@
 import { batch, type Accessor } from 'solid-js';
 import type { ITreeModel } from './use-tree-model';
 import { extractContentText } from '../../chat-utils/msg-content';
+import { stripReplayMetadata } from '../../openai/replay-contract';
 
 export type PrepareMode = 'append' | { updateAt: number } | { insertAt: number };
 
@@ -9,6 +10,25 @@ export interface ExtendedCompletionResult extends ICompletionResult {
     /** Native tool-turn messages preceding the final assistant response; intermediate reasoning is stripped. */
     toolChainMessages?: IMessage[];
 }
+
+/**
+ * 用户手写正文创建新版本：正文是唯一所有者，replay 不随版本复制到新版本。
+ * 旧版本 payload 不变；`reasoning_content` 等无编辑入口的字段按原值保留。
+ */
+export const buildUserEditedVersion = (
+    current: IMessagePayload,
+    content: string,
+    versionId: string,
+): IMessagePayload => ({
+    id: versionId,
+    message: stripReplayMetadata({ ...current.message, content }),
+    author: 'User',
+    timestamp: Date.now(),
+    // 整组拷贝内容结构字段，避免版本切换退化丢工具调用结构
+    ...(current.toolChainMessages ? { toolChainMessages: current.toolChainMessages } : {}),
+    ...(current.toolChainResult ? { toolChainResult: current.toolChainResult } : {}),
+    ...(current.userPromptSlice ? { userPromptSlice: current.userPromptSlice } : {}),
+});
 
 interface FinalizeMeta {
     msgToSend: IMessage[];

@@ -369,7 +369,9 @@ test('gemini: a configured streaming endpoint is switched back for a non-stream 
 // `extra` never appears in a request. Only an assistant message whose extra
 // matches the current protocol + model + provider may restore native fields.
 
-const compatibleExtra = (protocol: LLMProviderProtocol, data: IMessageExtra['data']): IMessageExtra => {
+type LegacyNativeExtra = Extract<IMessageExtra, { data: unknown }>;
+
+const compatibleExtra = (protocol: LLMProviderProtocol, data: LegacyNativeExtra['data']): IMessageExtra => {
     const model = syntheticModel(protocol);
     return {
         protocol,
@@ -661,7 +663,7 @@ test('openai alias: hook switch to B drops A-bound replay data and binds the rep
 
     assert.equal(result.extra?.model, ALIAS_B);
     assert.equal(result.extra?.provider, runtime.provider?.name);
-    assert.deepEqual(result.extra?.data, { reasoning_content: 'fresh chain from b' });
+    assert.deepEqual((result.extra as LegacyNativeExtra).data, { reasoning_content: 'fresh chain from b' });
 });
 
 test('openai alias: B-bound replay data survives a request to the same alias', async () => {
@@ -674,7 +676,7 @@ test('openai alias: B-bound replay data survives a request to the same alias', a
     mockFetch(reasoningReply('second chain'));
     const second = await withPreprocessor(aliasModel(ALIAS_B), () => complete([
         { role: 'user', content: 'first' },
-        { role: 'assistant', content: first.content, extra: first.extra },
+        { role: 'assistant', content: first.content, reasoning_content: first.reasoning_content, extra: first.extra },
         { role: 'user', content: 'next' },
     ] as IMessage[], { model: runtime }));
 
@@ -765,7 +767,11 @@ test('claude alias: option.model switch to B drops A-bound replay data and binds
 
     assert.equal(result.extra?.model, CLAUDE_ALIAS_B);
     assert.equal(result.extra?.provider, runtime.provider?.name);
-    assert.equal((result.extra as { data: { content: ClaudeContentBlock[] } }).data.content[0].type, 'thinking');
+    // New records use the narrow replay shape and never carry a second copy of the body text.
+    const replay = result.extra as { v?: number; slots: Array<{ kind: string }> };
+    assert.equal(replay.v, 2);
+    assert.deepEqual(replay.slots.map(slot => slot.kind), ['thinking', 'text']);
+    assert.equal(JSON.stringify(replay).includes('answer'), false);
 });
 
 test('claude alias: B-bound replay data survives option.model to the same alias', async () => {
@@ -778,7 +784,7 @@ test('claude alias: B-bound replay data survives option.model to the same alias'
     mockFetch(claudeThinkingReply('second chain', 'sig-second'));
     const second = await complete([
         { role: 'user', content: 'first' },
-        { role: 'assistant', content: first.content, extra: first.extra },
+        { role: 'assistant', content: first.content, reasoning_content: first.reasoning_content, extra: first.extra },
         { role: 'user', content: 'next' },
     ] as IMessage[], { model: runtime, option: { model: CLAUDE_ALIAS_B } as any });
 

@@ -1,6 +1,7 @@
 import { appendLog } from '../MessageLogger';
 import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adapter';
-import { bindExtraSource, buildProtocolHeaders, CompleteOptions, getCompatibleExtra, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult } from './protocol-utils';
+import { bindExtraSource, buildProtocolHeaders, CompleteOptions, messageContentToText, normalizeMessagesWithSystem, parseJsonSafe, toErrorResult } from './protocol-utils';
+import { prepareClaudeReplayBlocks } from './replay-contract';
 import { consumeClaudeStream, parseClaudeResponse } from './response-parse';
 
 const pushClaudeMessage = (messages: IClaudeMessage[], role: IClaudeMessage['role'], blocks: ClaudeContentBlock[]) => {
@@ -48,11 +49,11 @@ const toClaudeMessages = (messages: IMessage[], runtime: IRuntimeLLM): IClaudeMe
         }
 
         if (msg.role === 'assistant') {
-            // 同源 extra 必须原样回放原始 blocks（thinking / signature / tool_use 顺序不变），
-            // 否则 Claude 会拒绝对应的工具续轮。
-            const extra = getCompatibleExtra(msg, runtime);
-            if (extra?.protocol === 'claude') {
-                pushClaudeMessage(claudeMessages, 'assistant', structuredClone(extra.data.content));
+            // 同源 replay 只提供 native-only 数据（thinking/signature/顺序）；正文取 `content`。
+            // legacy 全量记录仍原样回放。编辑过的消息没有 replay，走下面的 canonical 转换。
+            const replayed = prepareClaudeReplayBlocks(msg, runtime);
+            if (replayed) {
+                pushClaudeMessage(claudeMessages, 'assistant', replayed);
                 continue;
             }
 

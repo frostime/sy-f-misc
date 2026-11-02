@@ -5,6 +5,7 @@ import { complete } from '../src/func/gpt/openai/complete';
 import { executeToolChain } from '../src/func/gpt/tools/toolchain';
 import type { ToolExecutor } from '../src/func/gpt/tools/executor';
 import { toolChainToCompletion } from '../src/func/gpt/chat/ChatSession/tool-chain-result';
+import { stripReplayMetadata } from '../src/func/gpt/openai/replay-contract';
 import { syntheticModel, mockFetch, restoreFetch, fetchCalls, jsonResponse, sseResponse } from './fixtures/gpt-protocol-host';
 
 afterEach(restoreFetch);
@@ -128,7 +129,10 @@ for (const protocol of ['openai', 'claude', 'gemini'] as const) {
             assert.ok(completion.extra);
             assert.ok((completion.toolChainMessages?.[0] as IAssistantMessage)?.extra);
             const stored = JSON.parse(JSON.stringify({
-                message: { role: 'assistant', content: completion.content, extra: completion.extra },
+                message: {
+                    role: 'assistant', content: completion.content,
+                    reasoning_content: completion.reasoning_content, extra: completion.extra,
+                },
                 toolChainMessages: completion.toolChainMessages,
             }));
             const next = await complete([
@@ -205,4 +209,323 @@ test('reactive history and nested options are snapshotted before native replay c
     }
 });
 
+// ============================================================================
+// Replay contract: narrow records, legacy records, edits and fallbacks
+// ============================================================================
 
+const narrowSlots = (extra: IMessageExtra | undefined): string[] => {
+    assert.ok(extra, 'expected replay metadata');
+    const replay = extra as { v?: number; slots?: Array<{ kind: string }> };
+    assert.equal(replay.v, 2, 'new records must use the narrow shape');
+    return (replay.slots ?? []).map(slot => slot.kind);
+};
+
+const assistantBlocks = (body: any, at = 0) =>
+    body.messages.filter((message: any) => message.role === 'assistant')[at]?.content;
+
+test('claude: narrow replay keeps native-only data and never stores a body copy', async () => {
+    const model = syntheticModel('claude');
+    mockFetch(reply('claude', false, true), reply('claude', false, true));
+    const first = await complete('q', { model });
+    assert.equal(first.ok, true);
+
+    assert.deepEqual(narrowSlots(first.extra), ['thinking', 'text']);
+    assert.equal(first.reasoning_content, 'final analysis');
+    const serialized = JSON.stringify(first.extra);
+    // Reasoning text lives only in `reasoning_content`; the slot references it by length.
+    assert.equal(serialized.includes('final analysis'), false);
+    assert.equal(serialized.includes('"done"'), false);          // body text is owned by `content`
+
+    await complete([{ role: 'user', content: 'q' }, {
+        role: 'assistant', content: 'done', reasoning_content: first.reasoning_content, extra: first.extra,
+    }], { model });
+    assert.deepEqual(assistantBlocks(fetchCalls[1].body), finalBlocks);
+});
+
+test('claude: editing the body of a narrow record replaces the text and drops native-only data', async () => {
+    const model = syntheticModel('claude');
+    mockFetch(reply('claude', false, true), reply('claude', false, true));
+    const first = await complete('q', { model });
+
+    const edited = stripReplayMetadata({ role: 'assistant', content: 'edited answer', extra: first.extra } as IMessage);
+    await complete([{ role: 'user', content: 'q' }, edited, { role: 'user', content: 'next' }], { model });
+
+    const wire = JSON.stringify(fetchCalls[1].body);
+    assert.equal(wire.includes('edited answer'), true);
+    assert.equal(wire.includes('"done"'), false);
+    assert.equal(wire.includes('SIG-FINAL'), false);
+    assert.equal(wire.includes('final analysis'), false);
+});
+
+test('claude: editing the body of a legacy full record cannot let the stale copy win', async () => {
+    const model = syntheticModel('claude');
+    const legacy: IMessageExtra = {
+        protocol: 'claude',
+        data: { content: finalBlocks as ClaudeContentBlock[] },
+        model: model.model,
+        provider: model.provider.name,
+    };
+    mockFetch(reply('claude', false, true), reply('claude', false, true));
+
+    // Untouched legacy data still replays verbatim.
+    await complete([{ role: 'user', content: 'q' }, { role: 'assistant', content: 'done', extra: legacy }], { model });
+    assert.deepEqual(assistantBlocks(fetchCalls[0].body), finalBlocks);
+
+    // The same record edited by the plugin must send the new body only.
+    const edited = stripReplayMetadata({ role: 'assistant', content: 'edited answer', extra: legacy } as IMessage);
+    await complete([{ role: 'user', content: 'q' }, edited], { model });
+    const wire = JSON.stringify(fetchCalls[1].body);
+    assert.equal(wire.includes('edited answer'), true);
+    assert.equal(wire.includes('SIG-FINAL'), false);
+    assert.equal(wire.includes('"done"'), false);
+});
+
+test('claude: several text blocks cannot be narrowed, so no replay metadata is written', async () => {
+    const model = syntheticModel('claude');
+    mockFetch(jsonResponse({ content: [
+        { type: 'thinking', thinking: 'analysis', signature: 'SIG-TWO-TEXT' },
+        { type: 'text', text: 'part one ' },
+        { type: 'text', text: 'part two' },
+    ], stop_reason: 'end_turn' }));
+
+    const result = await complete('q', { model });
+    assert.equal(result.content, 'part one part two');
+    assert.equal(result.extra, undefined, 'canonical content cannot recover text-block boundaries');
+});
+
+test('gemini: narrow replay keeps signature-only parts and never duplicates arguments', async () => {
+    const model = syntheticModel('gemini');
+    mockFetch(reply('gemini', false), reply('gemini', false, true));
+    const first = await complete('q', { model });
+
+    assert.deepEqual(narrowSlots(first.extra), ['function_call', 'function_call', 'empty_signed_text']);
+    const serialized = JSON.stringify(first.extra);
+    assert.equal(serialized.includes('SIG-EMPTY-TEXT'), true);
+    assert.equal(serialized.includes('"args"'), false, 'call arguments stay owned by tool_calls');
+
+    await complete([{ role: 'user', content: 'q' }, {
+        role: 'assistant', content: first.content, extra: first.extra, tool_calls: first.tool_calls,
+    }], { model });
+    const models = fetchCalls[1].body.contents.filter((message: any) => message.role === 'model');
+    assert.deepEqual(models[0].parts, geminiParts);
+});
+
+test('gemini: streamed body fragments merge into one narrow slot next to a thought part', async () => {
+    const model = syntheticModel('gemini');
+    mockFetch(sseResponse([
+        { candidates: [{ content: { parts: [{ text: 'analysis', thought: true, thoughtSignature: 'SIG-THOUGHT' }] } }] },
+        { candidates: [{ content: { parts: [{ text: 'he' }] } }] },
+        { candidates: [{ content: { parts: [{ text: 'llo' }] } }] },
+        { candidates: [{ finishReason: 'STOP' }] },
+    ]));
+
+    const result = await complete('q', { model, stream: true });
+    assert.equal(result.content, 'hello');
+    assert.deepEqual(narrowSlots(result.extra), ['thought', 'text']);
+    assert.equal(JSON.stringify(result.extra).includes('hello'), false);
+});
+
+test('gemini: a signature spread across streamed body fragments is never moved onto merged text', async () => {
+    const model = syntheticModel('gemini');
+    mockFetch(sseResponse([
+        { candidates: [{ content: { parts: [{ text: 'he' }] } }] },
+        { candidates: [{ content: { parts: [{ text: 'llo', thoughtSignature: 'SIG-MERGED' }] } }] },
+        { candidates: [{ finishReason: 'STOP' }] },
+    ]));
+
+    const result = await complete('q', { model, stream: true });
+    assert.equal(result.content, 'hello');
+    assert.equal(result.extra, undefined, 'moving a signature onto merged text is unverified');
+});
+
+test('gemini: an unknown part field falls back to canonical conversion instead of guessing', async () => {
+    const model = syntheticModel('gemini');
+    mockFetch(jsonResponse({ candidates: [{ content: { parts: [
+        { text: 'done', futureField: { opaque: true } },
+    ] }, finishReason: 'STOP' }] }));
+
+    const result = await complete('q', { model });
+    assert.equal(result.content, 'done');
+    assert.equal(result.extra, undefined);
+});
+
+test('claude: editing an intermediate tool-turn message keeps call/result association', async () => {
+    const model = syntheticModel('claude');
+    mockFetch(reply('claude', false), reply('claude', false, true), reply('claude', false, true));
+    const initial = await complete('q', { model });
+    const received: string[] = [];
+    const chain = await executeToolChain({ execute: async (_name: string, args: any) => {
+        received.push(args.q);
+        return { status: 'success', finalText: JSON.stringify({ value: args.q }) };
+    } } as unknown as ToolExecutor, initial, {
+        model,
+        contextMessages: [{ role: 'user', content: 'q' }],
+        chatOption: { tools },
+        callbacks: { onLLMResponseUpdate: () => {} },
+    });
+    assert.deepEqual(received, ['A', 'B']);
+
+    const completion = toolChainToCompletion(chain, initial);
+    const intermediates = (completion.toolChainMessages ?? []).map(message => ({ ...message }));
+    assert.equal(intermediates[0].role, 'assistant');
+    // Narrow replay references reasoning by length, so persistence must keep `reasoning_content`.
+    assert.equal(typeof (intermediates[0] as IAssistantMessage).reasoning_content, 'string');
+    intermediates[0] = stripReplayMetadata({ ...intermediates[0], content: 'edited middle' });
+    // Editing drops replay only; the stored reasoning field itself is not rewritten.
+    assert.equal(typeof (intermediates[0] as IAssistantMessage).reasoning_content, 'string');
+
+    await complete([
+        { role: 'user', content: 'q' },
+        ...intermediates,
+        { role: 'assistant', content: completion.content, extra: completion.extra },
+        { role: 'user', content: 'next' },
+    ], { model });
+
+    const wire = JSON.stringify(fetchCalls[2].body);
+    assert.equal(wire.includes('edited middle'), true);
+    assert.equal(wire.includes('SIG-A'), false, 'edited message must not replay a signature bound to old text');
+    const results = fetchCalls[2].body.messages
+        .flatMap((message: any) => message.content)
+        .filter((block: any) => block?.type === 'tool_result');
+    assert.deepEqual(results.map((block: any) => block.tool_use_id), ['call-0', 'call-1']);
+});
+
+test('gemini: thought text stays in reasoning_content and is rebuilt from it', async () => {
+    const model = syntheticModel('gemini');
+    const parts = [
+        { text: 'secret reasoning', thought: true, thoughtSignature: 'SIG-T' },
+        { functionCall: { id: 'srv-1', name: 'lookup', args: { q: 'A' } } },
+    ];
+    mockFetch(
+        jsonResponse({ candidates: [{ content: { parts }, finishReason: 'STOP' }] }),
+        reply('gemini', false, true),
+    );
+
+    const first = await complete('q', { model });
+    assert.equal(first.reasoning_content, 'secret reasoning');
+    assert.deepEqual(narrowSlots(first.extra), ['thought', 'function_call']);
+    assert.equal(JSON.stringify(first.extra).includes('secret reasoning'), false,
+        'reasoning text must not be copied into replay metadata');
+
+    await complete([{ role: 'user', content: 'q' }, {
+        role: 'assistant', content: first.content, reasoning_content: first.reasoning_content,
+        extra: first.extra, tool_calls: first.tool_calls,
+    }], { model });
+    const modelParts = fetchCalls[1].body.contents.find((message: any) => message.role === 'model').parts;
+    assert.deepEqual(modelParts, parts);
+});
+
+const mixedCallCases = [
+    {
+        name: 'native id first',
+        parts: [
+            { functionCall: { id: 'srv-1', name: 'lookup', args: { q: 'A' } }, thoughtSignature: 'SIG-A' },
+            { functionCall: { name: 'lookup', args: { q: 'B' } } },
+        ],
+        expectedIds: ['srv-1', undefined],
+    },
+    {
+        name: 'no id first',
+        parts: [
+            { functionCall: { name: 'lookup', args: { q: 'A' } }, thoughtSignature: 'SIG-A' },
+            { functionCall: { id: 'srv-2', name: 'lookup', args: { q: 'B' } } },
+        ],
+        expectedIds: [undefined, 'srv-2'],
+    },
+];
+
+for (const callCase of mixedCallCases) {
+    test(`gemini: mixed native/no-id calls stay single-use and keep ids attached (${callCase.name})`, async () => {
+        const model = syntheticModel('gemini');
+        mockFetch(
+            jsonResponse({ candidates: [{ content: { parts: callCase.parts }, finishReason: 'STOP' }] }),
+            jsonResponse({ candidates: [{ content: { role: 'model', parts: [{ text: 'done' }] }, finishReason: 'STOP' }] }),
+        );
+
+        const initial = await complete('q', { model });
+        assert.equal(initial.tool_calls?.length, 2);
+        assert.deepEqual(narrowSlots(initial.extra), ['function_call', 'function_call']);
+
+        const received: string[] = [];
+        await executeToolChain({ execute: async (_name: string, args: any) => {
+            received.push(args.q);
+            return { status: 'success', finalText: 'ok' };
+        } } as unknown as ToolExecutor, initial, {
+            model,
+            contextMessages: [{ role: 'user', content: 'q' }],
+            callbacks: { onLLMResponseUpdate: () => {} },
+        });
+        assert.deepEqual(received, ['A', 'B'], 'each canonical call is consumed exactly once');
+
+        const wire = fetchCalls[1].body;
+        const modelParts = wire.contents.find((message: any) => message.role === 'model').parts;
+        assert.deepEqual(modelParts, callCase.parts, 'no duplicated or reordered call parts');
+
+        const responses = wire.contents
+            .flatMap((message: any) => message.parts)
+            .filter((part: any) => part.functionResponse);
+        assert.deepEqual(
+            responses.map((part: any) => part.functionResponse.id),
+            callCase.expectedIds,
+            'a native id is only echoed for the call that owned it',
+        );
+    });
+}
+
+test('claude: unsigned thinking still replays from reasoning_content when untouched', async () => {
+    const model = syntheticModel('claude');
+    const blocks = [
+        { type: 'thinking', thinking: 'unsigned analysis' },
+        { type: 'text', text: 'done' },
+    ];
+    mockFetch(
+        jsonResponse({ content: blocks, stop_reason: 'end_turn' }),
+        reply('claude', false, true),
+    );
+
+    const first = await complete('q', { model });
+    assert.equal(first.reasoning_content, 'unsigned analysis');
+    assert.deepEqual(narrowSlots(first.extra), ['thinking', 'text']);
+    assert.equal(JSON.stringify(first.extra).includes('unsigned analysis'), false,
+        'reasoning text must stay out of replay metadata');
+    assert.equal(JSON.stringify(first.extra).includes('signature'), false);
+
+    await complete([{ role: 'user', content: 'q' }, {
+        role: 'assistant', content: first.content, reasoning_content: first.reasoning_content, extra: first.extra,
+    }, { role: 'user', content: 'next' }], { model });
+    const assistant = fetchCalls[1].body.messages.filter((message: any) => message.role === 'assistant')[0];
+    assert.deepEqual(assistant.content, blocks);
+
+    // Editing still drops replay, keeps the stored reasoning field, and stops sending it.
+    const edited = stripReplayMetadata({
+        role: 'assistant', content: 'edited answer', reasoning_content: first.reasoning_content, extra: first.extra,
+    } as IMessage);
+    assert.equal((edited as IAssistantMessage).reasoning_content, 'unsigned analysis');
+    await complete([{ role: 'user', content: 'q' }, edited], { model });
+    const wire = JSON.stringify(fetchCalls[2].body);
+    assert.equal(wire.includes('edited answer'), true);
+    assert.equal(wire.includes('unsigned analysis'), false);
+});
+
+test('gemini: unsigned thought still replays from reasoning_content when untouched', async () => {
+    const model = syntheticModel('gemini');
+    const parts = [
+        { text: 'unsigned thought', thought: true },
+        { text: 'done' },
+    ];
+    mockFetch(
+        jsonResponse({ candidates: [{ content: { parts }, finishReason: 'STOP' }] }),
+        reply('gemini', false, true),
+    );
+
+    const first = await complete('q', { model });
+    assert.equal(first.reasoning_content, 'unsigned thought');
+    assert.deepEqual(narrowSlots(first.extra), ['thought', 'text']);
+    assert.equal(JSON.stringify(first.extra).includes('unsigned thought'), false);
+
+    await complete([{ role: 'user', content: 'q' }, {
+        role: 'assistant', content: first.content, reasoning_content: first.reasoning_content, extra: first.extra,
+    }, { role: 'user', content: 'next' }], { model });
+    const modelParts = fetchCalls[1].body.contents.find((message: any) => message.role === 'model').parts;
+    assert.deepEqual(modelParts, parts);
+});

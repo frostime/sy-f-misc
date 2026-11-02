@@ -7,7 +7,7 @@ import { executeToolChain } from '../src/func/gpt/tools/toolchain';
 import { toolsManager } from '../src/func/gpt/model/config';
 import { CURRENT_SCHEMA, 历史版本兼容 } from '../src/func/gpt/model/config_migration';
 import { toolChainToCompletion } from '../src/func/gpt/chat/ChatSession/tool-chain-result';
-import { createMessageLifecycle } from '../src/func/gpt/chat/ChatSession/message-lifecycle';
+import { createMessageLifecycle, buildUserEditedVersion } from '../src/func/gpt/chat/ChatSession/message-lifecycle';
 import { useTreeModel } from '../src/func/gpt/chat/ChatSession/use-tree-model';
 import { modelRequests, setModelReplies } from './fixtures/gpt-tool-host';
 
@@ -242,4 +242,65 @@ test('configuration migration removes legacy generation mode but preserves unrel
     assert.deepEqual((migrated.data as typeof stored).config, { attachedHistory: 9 });
     assert.deepEqual((migrated.data as typeof stored).toolsManager, { groupDefaults: { fixture: true } });
     assert.equal(历史版本兼容(migrated.data, 'gpt.config.json').migrated, false);
+});
+
+test('adding a user-authored version drops replay and leaves the old version untouched', () => {
+    const narrow: IMessageExtra = {
+        protocol: 'claude', v: 2, model: 'fixture-model',
+        slots: [{ kind: 'thinking', chars: 14, signature: 'SIG-NARROW' }, { kind: 'text' }],
+    };
+    const legacy: IMessageExtra = {
+        protocol: 'gemini', model: 'fixture-model',
+        data: { parts: [{ text: 'old answer' }, { text: '', thoughtSignature: 'SIG-LEGACY' }] },
+    };
+
+    for (const [label, extra] of [['narrow', narrow], ['legacy', legacy]] as const) {
+        const history = userHistory();
+        const original: IMessagePayload = {
+            id: 'orig',
+            message: { role: 'assistant', content: 'old answer', reasoning_content: 'final analysis', extra },
+            author: 'fixture-model',
+            timestamp: 1,
+        };
+        history.nodes.U.children = ['A'];
+        history.nodes.A = {
+            id: 'A', parent: 'U', children: [], type: 'message', role: 'assistant',
+            currentVersionId: 'orig', versions: { orig: original },
+        };
+        history.worldLine.push('A');
+        const before = JSON.parse(JSON.stringify(original));
+
+        createRoot(dispose => {
+            try {
+                const tree = useTreeModel();
+                tree.fromHistory(history);
+                const node = tree.getNodeById('A')!;
+                const payload = buildUserEditedVersion(node.versions.orig, 'edited answer', 'v2');
+                tree.addVersion('A', payload);
+                tree.switchVersion('A', 'v2');
+
+                const updated = tree.getNodeById('A')!;
+                assert.equal(updated.currentVersionId, 'v2', label);
+
+                // The new version must not inherit a replay copy that could override the edit.
+                assert.equal(updated.versions.v2.message.content, 'edited answer', label);
+                assert.equal('extra' in updated.versions.v2.message, false, label);
+                assert.equal(JSON.stringify(updated.versions.v2).includes('SIG-'), false, label);
+                // Fields without an edit entry point are preserved, not rewritten.
+                assert.equal((updated.versions.v2.message as IAssistantMessage).reasoning_content, 'final analysis', label);
+                assert.equal(updated.versions.v2.author, 'User', label);
+
+                // The old version keeps its payload byte-for-byte, including replay.
+                assert.deepEqual(JSON.parse(JSON.stringify(updated.versions.orig)), before, label);
+
+                // A reload sees the same thing: the edited version is the one a request would build from.
+                const restored = useTreeModel();
+                restored.fromHistory(JSON.parse(JSON.stringify(tree.toHistory({ id: 'v', title: 'v', timestamp: 1, updated: 1 }))));
+                const reloaded = restored.getNodeById('A')!;
+                assert.equal(reloaded.versions.orig.message.content, 'old answer', label);
+                assert.equal('extra' in reloaded.versions.v2.message, false, label);
+                assert.equal(reloaded.versions.v2.message.content, 'edited answer', label);
+            } finally { dispose(); }
+        });
+    }
 });

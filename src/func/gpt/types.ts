@@ -87,12 +87,43 @@ interface IUserMessage {
 /**
  * 助手消息
  */
-/** Internal replay data. Adapters restore native fields; `extra` itself is never an API parameter. */
+/**
+ * Internal replay data. Adapters restore native fields; `extra` itself is never an API parameter.
+ *
+ * Ownership: `content` owns visible body text, `tool_calls` owns names/arguments,
+ * `reasoning_content` owns reasoning text. Replay metadata may carry only values that cannot be
+ * rebuilt from those fields (signatures, encrypted blocks, native ids, ordering). Reasoning is
+ * referenced by slot length (`chars`), never copied into replay metadata.
+ *
+ * - `v: 2` (narrow): body text and call arguments are rebuilt from canonical fields.
+ * - no `v` (legacy full-native): written before the narrow contract; replayed verbatim and never
+ *   reinterpreted. Editing a message removes its replay metadata, so a stale copy cannot win.
+ */
+type IReplaySource = { model?: string; provider?: string };
+
+type ClaudeReplaySlot =
+    // `chars` is the length of this block's text inside `reasoning_content`, in slot order.
+    | { kind: 'thinking'; chars: number; signature?: string }
+    | { kind: 'text' }
+    | { kind: 'tool_use'; id: string }
+    // redacted_thinking and unknown future kinds: kept verbatim, no readable reasoning text.
+    | { kind: 'opaque'; block: unknown };
+
+type GeminiReplaySlot =
+    // `chars` is the length of this part's thought text inside `reasoning_content`, in slot order.
+    | { kind: 'thought'; chars: number; signature?: string }
+    | { kind: 'text'; signature?: string }
+    | { kind: 'function_call'; id?: string; signature?: string }
+    | { kind: 'empty_signed_text'; part: IGeminiPart }
+    | { kind: 'opaque'; part: IGeminiPart };
+
 type IMessageExtra = (
     | { protocol: 'openai'; data: { reasoning_content?: string; reasoning?: string; reasoning_details?: any[] } }
+    | { protocol: 'claude'; v: 2; slots: ClaudeReplaySlot[] }
+    | { protocol: 'gemini'; v: 2; slots: GeminiReplaySlot[] }
     | { protocol: 'claude'; data: { content: ClaudeContentBlock[] } }
     | { protocol: 'gemini'; data: { parts: IGeminiPart[] } }
-) & { model?: string; provider?: string };
+) & IReplaySource;
 
 interface IAssistantMessage {
     role: 'assistant';

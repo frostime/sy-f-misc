@@ -32,6 +32,10 @@ export const toolChainToCompletion = (
 
 function stripReasoning(message: IMessage): IMessage {
     if (message.role === 'assistant' && 'reasoning_content' in message) {
+        // Narrow replay references reasoning text by length, so it must survive persistence.
+        // Other protocols keep the existing payload reduction.
+        const extra = (message as { extra?: IMessageExtra }).extra;
+        if (extra != null && 'slots' in extra) return message;
         const { reasoning_content: _reasoning, ...rest } = message;
         return rest;
     }
