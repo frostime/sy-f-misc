@@ -1,7 +1,7 @@
 ---
 name: 工具调用链（ToolChain）
 description: executeToolChain() 的 LLM↔工具循环、原生消息结构、停止条件与已知未修复行为
-updated: 2026-10-30
+updated: 2026-11-03
 scope:
   - /src/func/gpt/tools/toolchain.ts
 deprecated: false
@@ -111,15 +111,15 @@ allMessages = [...contextMessages, ...toolChainMessages（含内部追加的 [SY
 2. 向 `allMessages` 追加一条 `role:'user'` 的 `[SYSTEM]` 提示，要求模型总结已完成部分并给出回复（**只进 `allMessages`，不进入 `toolChainMessages`**）；
 3. 调用一次 `complete()` 取得最终回复；该回复同时追加到两个消息列表。
 
-收尾请求失败只记录 `onError(error, 'final_response')`，不改变状态：链仍以 `completed` 返回，此时末条消息可能不是 assistant，由集成层处理边界。
+收尾请求失败（抛错或返回 `ok: false`）会把链状态置为 `error` 并记录 `error`，但保留已产生的消息序列；此时末条可能不是 assistant，由集成层决定回答正文。
 
 状态取值：
 
 | status | 产生条件 |
 |--------|---------|
-| `completed` | 循环正常结束，或收尾请求完成后 |
+| `completed` | 循环正常结束，或收尾请求成功 |
 | `aborted` | 工具轮次之间检测到 `abortController.signal.aborted` |
-| `error` | LLM 请求抛错或链外层异常 |
+| `error` | 任一 `complete()` 返回 `ok: false`、LLM 请求抛错，或链外层异常 |
 | `timeout` | 类型中保留，当前执行路径不会产生 |
 
 ---

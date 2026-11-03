@@ -1,7 +1,7 @@
 ---
 name: Chat 集成层（use-openai-endpoints）
 description: Tool Call 在 ChatSession 中的完整集成逻辑：注入工具定义、构建 systemPrompt、执行链路、结果保存与历史回放
-updated: 2026-10-31
+updated: 2026-11-03
 scope:
   - /src/func/gpt/chat/ChatSession/use-openai-endpoints.ts
   - /src/func/gpt/chat/ChatSession/tool-chain-result.ts
@@ -24,7 +24,7 @@ deprecated: false
 
 | 字段 | 内容 |
 |------|------|
-| `toolChainMessages` | 一个 turn 内的原生序列，**不含末条 assistant**：`[assistant(tool_calls), tool, assistant(tool_calls), tool, ...]`；中间 assistant 已剥离 `reasoning_content` |
+| `toolChainMessages` | 一个 turn 内的原生序列，**不含末条 assistant**：`[assistant(tool_calls), tool, assistant(tool_calls), tool, ...]`；中间 assistant 通常剥离 `reasoning_content`，但带窄 replay（Claude/Gemini `extra.slots`）的消息必须保留它，供回放按长度重建 |
 | `message` | 末条 assistant（唯一可编辑源，避免双份 drift） |
 | `toolChainResult` | `toolCallHistory` + `stats` + `status` + `error`，供 UI 折叠 timeline 与统计 |
 | `userPromptSlice` | 新生成不设置（`finalize` 显式写 `undefined`） |
@@ -151,13 +151,13 @@ return [...finalContext, targetMessage].flatMap(item => {
 
 ## 4. 工具链集成（handleToolChain）
 
-`handleToolChain` 调用 `executeToolChain()`，成功时用 `toolChainToCompletion()` 转成回答版本；非 `completed` 一律回退首次响应。
+`handleToolChain` 调用 `executeToolChain()`；`completed` 与 `error` 都用 `toolChainToCompletion()` 转成回答版本（`error` 版本带 `ok: false`），只有 `aborted`/`timeout` 回退首次响应。
 
 ```
 result = executeToolChain(...)
-if status == 'completed':
+if status == 'completed' or status == 'error':
   return toolChainToCompletion(result, initialResponse)
-else:                       // aborted / error
+else:                       // aborted / timeout
   return initialResponse    // 只保存首次响应文本，已执行的工具消息不落盘
 ```
 
@@ -166,17 +166,19 @@ else:                       // aborted / error
 ```
 tcm  = result.messages.toolChain
 last = tcm[末]
-if last.role == 'assistant':                       // 正常收尾
+if last.role == 'assistant':                       // 正常收尾或带错误的末条 assistant
   content            = extractContentText(last.content)
   reasoning_content  = last.reasoning_content
+  extra              = last.extra
   toolChainMessages  = tcm[0..-2]（stripReasoning）
-else:                                              // 收尾请求失败的边界
-  content            = ''
+else:                                              // 收尾请求失败且末条不是 assistant
+  content            = (status == 'error') ? '[Error] ' + (error || 'Tool chain failed') : ''
   toolChainMessages  = tcm（stripReasoning）
+ok              = (status == 'completed')
 toolChainResult = { toolCallHistory, stats, status, error }
 ```
 
-`stripReasoning(msg)`：剥离 assistant 消息的 `reasoning_content`（tool 消息 no-op）。中间 assistant 一律剥离；`message`（末条 assistant）保留 reasoning 供 UI。
+`stripReasoning(msg)`：剥离 assistant 消息的 `reasoning_content`（tool 消息 no-op）。除"带窄 replay 的 Claude/Gemini 消息"外，中间 assistant 一律剥离；`message`（末条 assistant）保留 reasoning 供 UI。
 
 **数据源**：`result.messages.toolChain` 即 `state.toolChainMessages`；合成 `[SYSTEM]` user 提示只进 `state.allMessages`，因此不会进入持久化。
 
@@ -188,7 +190,7 @@ toolChainResult = { toolCallHistory, stats, status, error }
 
 ```typescript
 treeModel.updatePayload(id, {
-    message: { role: 'assistant', content: result.content, ...reasoning_content },
+    message: { role: 'assistant', content: result.content, ...reasoning_content, extra: result.extra },
     author, timestamp, usage, time, token,
     userPromptSlice: undefined,                 // 新生成不设
     toolChainMessages: result.toolChainMessages,
@@ -199,7 +201,7 @@ treeModel.updateNode(id, { loading: false, attachedItems, attachedChars });
 
 `attachedItems` / `attachedChars` 记录本次发送的上下文规模。版本被删除时 `finalize` 抛错，不会写回错误的版本。
 
-用户手动“添加版本”时（`addMsgItemVersion`），`toolChainMessages`、`toolChainResult` 与旧 `userPromptSlice` 会一并拷贝到新版本，避免版本切换后丢工具调用结构。
+用户手动“添加版本”时（`addMsgItemVersion`），`toolChainMessages`、`toolChainResult` 与旧 `userPromptSlice` 会一并拷贝到新版本，避免版本切换后丢工具调用结构。新版本正文来自用户编辑，因此 `buildUserEditedVersion()` 会用 `stripReplayMetadata()` 丢弃该消息的 `extra`（旧版本 payload 不变），否则旧回放会覆盖编辑后的正文。
 
 ---
 
@@ -208,7 +210,7 @@ treeModel.updateNode(id, { loading: false, attachedItems, attachedChars });
 ```typescript
 interface ExtendedCompletionResult extends ICompletionResult {
     toolChainResult?: IMessagePayload['toolChainResult']; // UI/统计元数据
-    toolChainMessages?: IMessage[]; // 原生工具消息（不含末条 assistant，已 strip reasoning）
+    toolChainMessages?: IMessage[]; // 原生工具消息（不含末条 assistant；strip reasoning，窄 replay 消息保留 reasoning_content）
 }
 ```
 

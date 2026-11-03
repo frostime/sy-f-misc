@@ -25,6 +25,7 @@ Upper Layer (chat session / toolchain / tiny-agent)
 | `gemini-complete.ts` | Full Gemini `generateContent` adapter (request, streaming, tool calls) |
 | `protocol-utils.ts` | Shared helpers: header building, message normalization |
 | `protocol-extra.ts` | Internal replay source isolation for native protocol data |
+| `replay-contract.ts` | Canonical message ↔ native replay contract: narrow capture, rebuild, and edit invalidation (`stripReplayMetadata`) |
 | `response-parse.ts` | Zero-dependency response parsing layer: SSE framing, usage normalization, reasoning normalization, per-protocol stream/nonstream consumers (unit-testable offline) |
 | `adapter.ts` | Input normalization: message field whitelisting, option filtering, model config application |
 | `claude.d.ts` | TypeScript types for the Anthropic API protocol |

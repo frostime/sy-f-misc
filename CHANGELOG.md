@@ -5,6 +5,24 @@
 
 ## [Unreleased]
 
+## [7.18.0] - 2026-11-02
+
+### Added
+
+- GPT 新增「思源原生 MCP」工具组：复用本机思源 `/mcp` 暴露的原生工具，模型名为 `sy_mcp_<原名>`。该组默认关闭，组内工具默认不选，每次执行前确认；发现失败或输入 Schema 无法无损表示时只影响该组，不影响普通聊天与本地工具。
+
+### Changed
+
+- GPT 工具调用统一保存原生 assistant/tool 消息，移除旧的 Legacy 压缩日志生成方式；旧记录仍可显示、续聊和导出。设置中的「工具调用模式」随配置迁移删除。
+- 工具输出被截断后改用工具自身的分页/范围参数重读来源，不再自动缓存到临时变量。
+- Claude/Gemini 的协议回放数据只保留无法从正文重建的原生内容（thinking 签名、加密块、服务端调用 id、块顺序）。编辑回答正文后，该消息不再使用旧回放数据；OpenAI-compatible 的同源请求会回传原始 reasoning 字段。
+- 修复三协议通信：请求与解析使用同一个最终流式模式；HTTP 错误、流内错误、异常响应结构和提前结束返回明确失败，并保留已收到的正文与用量；工具链不把模型请求失败记为完成；Claude thinking 预算与输出上限矛盾时在发请求前报错；Claude/Gemini 工具 Schema 不再丢失根部约束；Gemini 工具调用按服务端 id 关联，流式分片不再丢调用。
+
+### Removed
+
+- 移除隐私屏蔽功能，包括发送前屏蔽、回复恢复、上下文关键词屏蔽和对应配置页面。原有隐私配置保留在设置文件中供参考，但不再生效；升级时曾启用该功能的用户会收到一次提示。如有隐私顾虑，请从源头处理，例如使用隐私笔记本、避免在笔记中明文记录敏感信息。
+- 移除工具临时变量系统，包括 `ListVars`/`ReadVar`/`WriteVar`、`$VAR_REF{{}}` 参数引用、变量管理页面和工具结果缓存文件；Rule 文档改为用 `read-rule` 只读读取。
+
 ## [7.17.1] - 2026-10-29
 
 ### Added
@@ -298,7 +316,8 @@
 
 _7.8.0 之前的版本记录请参考 git log。_
 
-[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.17.1...HEAD
+[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.18.0...HEAD
+[7.18.0]: https://github.com/frostime/sy-f-misc/compare/v7.17.1...v7.18.0
 [7.17.1]: https://github.com/frostime/sy-f-misc/compare/v7.17.0...v7.17.1
 [7.14.1]: https://github.com/frostime/sy-f-misc/compare/v7.14.0...v7.14.1
 [7.14.0]: https://github.com/frostime/sy-f-misc/compare/v7.13.1...v7.14.0
