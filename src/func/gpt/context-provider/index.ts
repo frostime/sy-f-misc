@@ -15,7 +15,7 @@ import URLProvider from './URLProvider';
 import showSelectContextDialog from './SelectItems';
 import TodayDailyNoteProvicer from './DailyNoteProvider';
 import { showMessage } from 'siyuan';
-import { globalMiscConfigs, customContextProviders } from '../model/store';
+import { customContextProviders } from '../model/store';
 import { inputDialogForProvider } from './InputForProvder';
 import { RecentUpdatedDocProvider } from './RecentDocProvider';
 import { UserInputProvider } from './UserInputProvider';
@@ -46,53 +46,6 @@ const getContextProviders = () => {
     return providers;
 };
 
-/**
- * 处理隐私信息，将隐私关键词替换为屏蔽词
- * @param text 需要处理的文本
- * @returns 处理后的文本
- */
-const handlePrivacy = (text: string): string => {
-    if (!text) return text;
-    const keywords = globalMiscConfigs.value.privacyKeywords.trim();
-    if (!keywords) return text;
-
-    const mask = globalMiscConfigs.value.privacyMask || '***';
-    const keywordList = keywords.split('\n').filter(k => k.trim());
-
-    let result = text;
-    for (const keyword of keywordList) {
-        if (!keyword.trim()) continue;
-        result = result.replaceAll(keyword, mask);
-    }
-    return result;
-}
-
-/**
- * 处理上下文对象中的隐私信息
- * @param context 上下文对象
- * @returns 处理后的上下文对象
- */
-const handleContextPrivacy = (context: IProvidedContext): IProvidedContext => {
-    if (!context) return context;
-
-    // 深拷贝以避免修改原对象
-    const newContext = JSON.parse(JSON.stringify(context));
-
-    // 处理 contextItems 中的文本
-    newContext.contextItems = newContext.contextItems.map(item => ({
-        ...item,
-        name: handlePrivacy(item.name),
-        content: handlePrivacy(item.content),
-        title: handlePrivacy(item.title)
-    }));
-
-    // 处理描述信息
-    // if (newContext.description) {
-    //     newContext.description = handlePrivacy(newContext.description);
-    // }
-
-    return newContext;
-}
 
 const executeContextProvider = async (provider: CustomContextProvider, options?: {
     verbose?: boolean
@@ -167,14 +120,11 @@ const executeContextProvider = async (provider: CustomContextProvider, options?:
     }) : providerMetaInfo;
     metaInfo = { ...providerMetaInfo, ...metaInfo };
 
-    let context = ({
+    const context = ({
         id: id,
         ...metaInfo,
         contextItems: contextItems,
     });
-
-    // 处理隐私信息
-    context = handleContextPrivacy(context);
 
     return context;
 }
@@ -286,16 +236,13 @@ const executeContextProviderDirect = async (
     }) : providerMetaInfo;
     metaInfo = { ...providerMetaInfo, ...metaInfo };
 
-    let context = ({
+    const context = ({
         id: id,
         ...metaInfo,
         contextItems: contextItems,
     });
 
-    // 处理隐私信息
-    context = handleContextPrivacy(context);
-
     return context;
 }
 
-export { executeContextProvider, executeContextProviderDirect, assembleContext2Prompt, handlePrivacy, getContextProviders };
+export { executeContextProvider, executeContextProviderDirect, assembleContext2Prompt, getContextProviders };

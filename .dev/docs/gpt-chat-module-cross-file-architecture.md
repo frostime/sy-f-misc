@@ -1,7 +1,7 @@
 ---
 name: GPT Chat Module Cross-File Architecture
 description: Cross-file call chains, implicit conventions, naming pitfalls, and design rationale for agents working on src/func/gpt/ — a wiki-map of vital knowledge not recoverable from single-file reads.
-updated: 2026-05-03
+updated: 2026-11-03
 scope:
   - /src/func/gpt/types.ts
   - /src/func/gpt/types-v2.ts
@@ -121,6 +121,8 @@ chat/ChatSession/use-openai-endpoints.ts: sendMessage()
     └── 'audio-tts' → audioHandler.speak() in openai/audio.ts
 ```
 
+**协议回放数据（`extra`）**：`IMessage.extra` 只承载无法从 canonical 字段重建的原生数据。`content` 拥有可见正文，`tool_calls` 拥有名称与参数，`reasoning_content` 拥有思考文本，replay 不能覆盖这三者。`openai/replay-contract.ts` 是唯一的捕获、重建与失效入口：解析侧写窄记录（`v: 2` + `slots`），适配器用 `prepareClaudeReplayBlocks()` / `prepareGeminiReplayParts()` 重建，`protocol-extra.getCompatibleExtra()` 按协议 + model + provider.name 三重匹配决定是否回放。任何写回答正文的路径都必须调用 `stripReplayMetadata()`，否则旧回放会顶掉编辑后的正文；当前入口共 4 个（末条编辑、工具轮末条编辑、工具轮中间条编辑、添加消息版本）。无 `v` 的旧全量 `extra` 只读原样回放，不重新解释；窄记录表达不了的情况（多正文段、未知字段携带正文或参数）写侧不写 replay，回落 canonical 转换。
+
 **Claude/Gemini 的 thinking 参数现状**：两个协议的 `buildXxxPayload` 都将 unknown keys 透传（`knownKeys` set 之外的字段直接 `payload[key] = value`）。这意味着如果用户在 customOptions 里手写 Claude 的 `thinking` 对象，它会被透传——但没有任何结构化处理，完全靠用户手动填 JSON。
 
 ---
@@ -137,16 +139,24 @@ chat/ChatSession/use-openai-endpoints.ts: sendMessage()
 
 ## 6. Schema Migration Pattern（配置迁移模式）
 
-`model/config_migration.ts` — `CURRENT_SCHEMA = '3.1'`，迁移函数 `历史版本兼容()` 按版本号递增比较：
+（迁移块清单以 `model/config_migration.ts` 源码为准，本文只列历年块的行为摘要，修改迁移时先核对源码）
+
+`model/config_migration.ts` — `CURRENT_SCHEMA = '3.5'`（以源码常量为准），迁移函数 `历史版本兼容()` 按版本号递增比较：
 
 ```
 compareSchemaVersion(dataSchema, targetVersion) < 0 → 执行迁移块
   1.5: modelId → defaultModelId
   1.6: autoTitleModelId → utilityModelId
   2.0: IGPTProvider[] → ILLMProviderV2[] (大改)
-  2.1: 隐私配置从 globalMiscConfigs 移到 config
+  2.1: 历史迁移曾将隐私配置从 globalMiscConfigs 移到 config；schema 3.5 起功能已移除，配置值保留但不生效
   3.0: 工具权限配置清理旧格式
   3.1: protocol/protocal 字段归一化
+  3.2: chatOptionToggles 实值回填；capabilities.reasoningEffort → options.compat.thinking.enabled
+       options.unsupported → options.compat.unsupported
+  3.3: API key 混淆存储 (model/obfuscate.ts)
+  3.4: 删除旧设置 toolCallMode（新生成统一原生工具消息，历史记录按原内容读取）
+  3.5: 隐私屏蔽移除：保留原隐私配置值与存储位置，写入 removedFeatures.privacyMask 标记；
+       不再执行已删除的 2.0/2.1 隐私转换，多处历史位置的值原样回填
 ```
 
 每个迁移块最后 `migrated = true`，函数末尾 `data.schema = CURRENT_SCHEMA`。`model/storage.ts` 的 `load()` 调用 `deepMerge(defaultData, migratedData)` 再分发到各个 signal/store。

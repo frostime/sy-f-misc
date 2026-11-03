@@ -208,25 +208,6 @@ export function formatBingResultsToReport(data: BingSearchReportInput): string {
 }
 
 export const bingSearchTool: Tool = {
-    declaredReturnType: {
-        type: `{
-    query: string;
-    results: Array<{
-        title: string;
-        link: string;
-        description: string;
-        isDirectAnswer?: boolean;
-    }>;
-    pageIndex: number;
-    filters?: {
-        site?: string;
-        filetype?: string;
-        dateFilter?: 'day' | 'week' | 'month';
-    };
-}`,
-        note: 'Bing 搜索结果，results 中的第一条可能是 isDirectAnswer=true 的直接回答（link 为空字符串）'
-    },
-
     definition: {
         type: 'function',
         function: {

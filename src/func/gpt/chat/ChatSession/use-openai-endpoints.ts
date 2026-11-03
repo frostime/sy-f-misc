@@ -24,13 +24,13 @@ import {
 import { ISignalRef, IStoreRef, useSignalRef } from '@frostime/solid-signal-ref';
 import { ToolExecutor } from '@gpt/tools';
 import { executeToolChain } from '@gpt/tools/toolchain';
-import { extractContentText, extractMessageContent } from '@gpt/chat-utils';
+import { extractMessageContent } from '@gpt/chat-utils';
 import { deepMerge } from '@frostime/siyuan-plugin-kits';
 import { quickComplete } from '../../openai/tiny-agent';
 import { FormatConverter, DataURL, Base64String } from '@gpt/chat-utils/msg-modal';
 import { ITreeModel } from './use-tree-model';
-import { maskMessages, recoverContent, IMaskSchema } from '@gpt/privacy';
 import { createMessageLifecycle, type PrepareMode, type ExtendedCompletionResult } from './message-lifecycle';
+import { toolChainToCompletion } from './tool-chain-result';
 import type { TStreamMsgCallback } from '../../openai/response-parse';
 
 // ============================================================================
@@ -111,17 +111,6 @@ const createChatHandler = (deps: ChatHandlerDeps) => {
         const ptime = `It's: ${today}`;
         let prompt = systemPrompt().trim() || '';
 
-        const privacyEnabled = config().enablePrivacyMask;
-        const privacyFields = config().privacyFields || [];
-        if (privacyEnabled && privacyFields.length > 0) {
-            prompt += `\n\n<PRIVACY_RULE>
-Note that the privacy mask rule is enabled by the system.
-Certain security-related words will be masked in the format "__MASK_<TYPE>_<ID>__" before being sent to the LLM, and then recovered to the user after receiving the response.
-
-This process is transparent to the user. However, if the assistant/LLM is asked about what was masked, it is permitted to acknowledge the privacy function and state that it does not know the original content.
-</PRIVACY_RULE>`;
-        }
-
         if (toolExecutor?.hasEnabledTools()) {
             prompt += toolExecutor.toolRules();
         }
@@ -132,24 +121,7 @@ This process is transparent to the user. However, if the assistant/LLM is asked 
     const execute = async (params: ChatExecuteParams): Promise<ICompletionResult> => {
         const chatOption = buildChatOption();
 
-        // 检查是否启用隐私屏蔽
-        const privacyEnabled = config().enablePrivacyMask;
-        const privacyFields = config().privacyFields || [];
-
-        let maskedMessages = params.msgToSend;
-        let maskSchema: IMaskSchema | null = null;
-
-        if (privacyEnabled && privacyFields.length > 0) {
-            const maskResult = maskMessages(params.msgToSend, privacyFields);
-            maskedMessages = maskResult.masked;
-            maskSchema = maskResult.schema;
-
-            if (maskSchema.mappings.size > 0) {
-                console.log(`[Privacy] Masked ${maskSchema.mappings.size} sensitive items`);
-            }
-        }
-
-        const result = await gpt.complete(maskedMessages, {
+        const result = await gpt.complete(params.msgToSend, {
             model: model(),
             systemPrompt: buildSystemPrompt(),
             stream: chatOption.stream,
@@ -159,14 +131,6 @@ This process is transparent to the user. However, if the assistant/LLM is asked 
             option: chatOption,
             toggles: config().chatOptionToggles,
         });
-
-        // Recover 最终结果
-        if (maskSchema && maskSchema.mappings.size > 0) {
-            result.content = recoverContent(result.content, maskSchema);
-            if (result.reasoning_content) {
-                result.reasoning_content = recoverContent(result.reasoning_content, maskSchema);
-            }
-        }
 
         return result;
     };
@@ -422,17 +386,6 @@ const findImageFromRecentMessages = async (messages: IChatSessionMsgItemV2[], at
 // 3. Tool Chain Handler
 // ============================================================================
 
-/**
- * 剥离 assistant 消息的 reasoning_content（持久化时不保留中间推理；tool 消息无此字段，no-op）
- */
-function stripReasoning(msg: IMessage): IMessage {
-    if (msg.role === 'assistant' && 'reasoning_content' in msg) {
-        const { reasoning_content: _reasoning, ...rest } = msg;
-        return rest as IMessage;
-    }
-    return msg;
-}
-
 interface ToolChainParams {
     toolExecutor: ToolExecutor;
     initialResponse: ICompletionResult;
@@ -444,7 +397,6 @@ interface ToolChainParams {
     chatOption: IChatCompleteOption;
     toggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
     maxRounds: number;
-    toolCallMode: 'standard' | 'legacy';
 }
 
 const handleToolChain = async (params: ToolChainParams): Promise<ExtendedCompletionResult> => {
@@ -458,8 +410,7 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
         systemPrompt,
         chatOption,
         toggles,
-        maxRounds,
-        toolCallMode
+        maxRounds
     } = params;
 
     if (!toolExecutor || !initialResponse.tool_calls?.length) {
@@ -494,60 +445,11 @@ const handleToolChain = async (params: ToolChainParams): Promise<ExtendedComplet
             }
         });
 
-        if (toolChainResult.status === 'completed') {
-            if (toolCallMode === 'standard') {
-                // Standard: 切分原生消息序列，不压缩
-                const tcm = toolChainResult.messages.toolChain;
-                const last = tcm[tcm.length - 1];
-                let finalContent: string;
-                let finalReasoning: string | undefined;
-                let toolChainMessagesPersist: IMessage[];
-
-                if (last && last.role === 'assistant') {
-                    // 正常: 末元素为 final assistant
-                    finalContent = extractContentText(last.content);
-                    finalReasoning = last.reasoning_content;
-                    toolChainMessagesPersist = tcm.slice(0, -1).map(stripReasoning);
-                } else {
-                    // 边界 fallback: follow-up 异常，末元素为 tool(incomplete) 非 assistant
-                    // 合成空 message 保持 standard 形状，不混入 legacy
-                    finalContent = '';
-                    finalReasoning = undefined;
-                    toolChainMessagesPersist = tcm.map(stripReasoning);
-                }
-
-                return {
-                    content: finalContent,
-                    reasoning_content: finalReasoning,
-                    usage: toolChainResult.usage,
-                    time: initialResponse.time,
-                    toolChainMessages: toolChainMessagesPersist,
-                    // 不设 hintSize → finalize 不设 userPromptSlice
-                    toolChainResult: {
-                        toolCallHistory: toolChainResult.toolCallHistory,
-                        stats: toolChainResult.stats,
-                        status: toolChainResult.status,
-                        error: toolChainResult.error
-                    }
-                };
-            }
-            // Legacy: 现状（压缩串 + hintSize）
-            return {
-                content: toolChainResult.toolChainContent + toolChainResult.responseContent,
-                usage: toolChainResult.usage,
-                reasoning_content: initialResponse.reasoning_content,
-                time: initialResponse.time,
-                hintSize: toolChainResult.toolChainContent.length,
-                toolChainResult: {
-                    toolCallHistory: toolChainResult.toolCallHistory,
-                    stats: toolChainResult.stats,
-                    status: toolChainResult.status,
-                    error: toolChainResult.error
-                }
-            };
+        if (toolChainResult.status === 'completed' || toolChainResult.status === 'error') {
+            return toolChainToCompletion(toolChainResult, initialResponse);
         }
 
-        console.warn('Tool chain failed:', toolChainResult.error);
+        console.warn('Tool chain did not complete:', toolChainResult.status, toolChainResult.error);
         return initialResponse;
     } catch (error) {
         console.error('Tool chain execution failed:', error);
@@ -647,8 +549,7 @@ const useGptCommunication = (params: {
                 systemPrompt: chatHandler.buildSystemPrompt(),
                 chatOption: chatHandler.buildChatOption(),
                 toggles: config().chatOptionToggles,
-                maxRounds: config().toolCallMaxRounds,
-                toolCallMode: config().toolCallMode
+                maxRounds: config().toolCallMaxRounds
             });
         }
 

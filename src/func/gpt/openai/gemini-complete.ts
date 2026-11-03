@@ -2,6 +2,7 @@ import { appendLog } from '../MessageLogger';
 import { adaptChatOptions, DEFAULT_THINKING_BUDGETS } from './adapter';
 import {
     applyGeminiModelPlaceholder,
+    bindExtraSource,
     buildProtocolHeaders,
     CompleteOptions,
     ensureGeminiEndpointByStream,
@@ -11,6 +12,7 @@ import {
     toErrorResult,
 } from './protocol-utils';
 import { consumeGeminiStream, parseGeminiResponse } from './response-parse';
+import { prepareGeminiReplayParts } from './replay-contract';
 
 const pushGeminiContent = (contents: IGeminiContent[], role: IGeminiContent['role'], parts: IGeminiPart[]) => {
     if (!parts.length) return;
@@ -22,12 +24,10 @@ const pushGeminiContent = (contents: IGeminiContent[], role: IGeminiContent['rol
     }
 };
 
-const toGeminiContents = (messages: IMessage[]): IGeminiContent[] => {
+const toGeminiContents = (messages: IMessage[], runtime: IRuntimeLLM): IGeminiContent[] => {
     const contents: IGeminiContent[] = [];
-
-    // Gemini requires `functionResponse.name`. Tool messages carry `name` (set by toolchain.ts).
-    // The map below is kept as a backward-compat fallback for any tool messages without `name`.
     const toolCallIdToName = new Map<string, string>();
+    const serverFunctionCallIdByToolCallId = new Map<string, string>();
 
     for (const msg of messages) {
         if (msg.role === 'user') {
@@ -61,6 +61,19 @@ const toGeminiContents = (messages: IMessage[]): IGeminiContent[] => {
         }
 
         if (msg.role === 'assistant') {
+            // 同源 replay 只提供 native-only 数据（thought / 签名 / 服务端 id / 顺序）；正文取 `content`。
+            const replayed = prepareGeminiReplayParts(msg, runtime);
+            if (replayed) {
+                pushGeminiContent(contents, 'model', replayed.parts);
+                replayed.calls.forEach((call) => {
+                    toolCallIdToName.set(call.toolCallId, call.name);
+                    if (call.serverId !== undefined) {
+                        serverFunctionCallIdByToolCallId.set(call.toolCallId, call.serverId);
+                    }
+                });
+                continue;
+            }
+
             const parts: IGeminiPart[] = [];
             const text = messageContentToText(msg.content);
             if (text.trim()) {
@@ -69,8 +82,9 @@ const toGeminiContents = (messages: IMessage[]): IGeminiContent[] => {
 
             if (Array.isArray(msg.tool_calls)) {
                 msg.tool_calls.forEach((toolCall) => {
-                    const args = parseJsonSafe<Record<string, any>>(toolCall.function.arguments || '{}', {});
+                    // canonical 名字供后续 functionResponse.name 解析；不伪造任何 wire id。
                     toolCallIdToName.set(toolCall.id, toolCall.function.name);
+                    const args = parseJsonSafe<Record<string, any>>(toolCall.function.arguments || '{}', {});
                     parts.push({
                         functionCall: {
                             name: toolCall.function.name,
@@ -90,12 +104,16 @@ const toGeminiContents = (messages: IMessage[]): IGeminiContent[] => {
                 || 'tool';
             const raw = typeof msg.content === 'string' ? msg.content : messageContentToText(msg.content);
             const parsed = parseJsonSafe<Record<string, any>>(raw, { content: raw });
-            pushGeminiContent(contents, 'user', [{
-                functionResponse: {
-                    name,
-                    response: parsed,
-                }
-            }]);
+            const functionResponse: IGeminiPartFunctionResponse['functionResponse'] = {
+                name,
+                response: parsed,
+            };
+            // 只有原始调用带服务端 id 时才回传 id；本地 synthetic id 不发。
+            const serverFunctionCallId = serverFunctionCallIdByToolCallId.get(msg.tool_call_id || '');
+            if (serverFunctionCallId !== undefined) {
+                functionResponse.id = serverFunctionCallId;
+            }
+            pushGeminiContent(contents, 'user', [{ functionResponse }]);
         }
     }
 
@@ -108,11 +126,8 @@ const toGeminiTools = (tools?: IToolDefinition[]) => {
         functionDeclarations: tools.map((tool) => ({
             name: tool.function.name,
             description: tool.function.description,
-            parameters: {
-                type: 'object',
-                properties: tool.function.parameters?.properties || {},
-                required: tool.function.parameters?.required || [],
-            }
+            // This input is JSON Schema, not Gemini's separate OpenAPI Schema message.
+            parametersJsonSchema: structuredClone(tool.function.parameters || { type: 'object', properties: {} })
         }))
     }];
 };
@@ -221,17 +236,18 @@ export const geminiComplete = async (
             };
         }
 
-        const { messages, systemPrompt } = normalizeMessagesWithSystem(input, options);
         const chatOption = adaptChatOptions({
-            chatOption: options.option || {},
+            chatOption: {
+                ...options.option,
+                ...(options.stream !== undefined ? { stream: options.stream } : {}),
+            },
             runtimeLLM,
             toggles: options.toggles,
         });
-        if (options.stream !== undefined) {
-            chatOption.stream = options.stream;
-        }
 
-        const contents = toGeminiContents(messages);
+        // Gemini 的模型由 URL 决定；option.model 不是合法的模型选择器，保持既有 API 处理。
+        const { messages, systemPrompt } = normalizeMessagesWithSystem(input, options);
+        const contents = toGeminiContents(messages, runtimeLLM);
         const payload = buildGeminiPayload(contents, systemPrompt, chatOption, runtimeLLM);
         let url = applyGeminiModelPlaceholder(runtimeLLM.url, runtimeLLM.model);
         url = ensureGeminiEndpointByStream(url, Boolean(chatOption.stream));
@@ -257,18 +273,25 @@ export const geminiComplete = async (
         }
 
         if (chatOption.stream) {
-            return consumeGeminiStream(response, {
+            const result = await consumeGeminiStream(response, {
                 streamMsg: options.streamMsg,
                 abortController: options.abortController,
                 onRawEvent: (data) => appendLog({ type: 'chunk', data }),
                 t0,
             });
+            if (result.ok !== false && result.extra) {
+                result.extra = bindExtraSource(result.extra, runtimeLLM);
+            }
+            return result;
         }
 
         const data = await response.json() as IGeminiResponse;
         appendLog({ type: 'response', data });
         const result = parseGeminiResponse(data);
         result.time = { latency: new Date().getTime() - t0 };
+        if (result.ok !== false && result.extra) {
+            result.extra = bindExtraSource(result.extra, runtimeLLM);
+        }
         return result;
     } catch (error) {
         return toErrorResult(error);

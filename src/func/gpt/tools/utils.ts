@@ -1,12 +1,6 @@
 import { complete } from "../openai";
-import { Tool, ToolExecuteResult } from "./types";
+import type { Tool } from "./types";
 import * as store from '@/func/gpt/model/store';
-
-const fs = window?.require?.('fs');
-const path = window?.require?.('path');
-const os = window?.require?.('os');
-
-const MAX_LOG_NUMBER = 100;
 
 export const formatWithXMLTags = (options: {
     tagName: string; content: string; attrs?: Record<string, string>;
@@ -56,155 +50,7 @@ export const formatArraysToToon = (items: object[], prefix: string = '') => {
 };
 
 
-/**
- * 获取临时目录根路径
- * 使用 realpathSync.native 避免 Windows 8.3 短文件名格式
- */
-export const tempRoot = (): string => {
-    const tmpdir = os.tmpdir();
-    const targetPath = path.join(tmpdir, 'siyuan_temp');
-
-    // 确保目录存在
-    if (!fs.existsSync(targetPath)) {
-        fs.mkdirSync(targetPath, { recursive: true });
-    }
-
-    // 对已存在的目录进行路径规范化
-    try {
-        return fs.realpathSync.native?.(targetPath) ?? fs.realpathSync(targetPath);
-    } catch {
-        return targetPath;
-    }
-};
-
-/**
- * 安全地创建目录（如果不存在）
- */
-export const safeCreateDir = (dir: string): void => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-};
-
-/**
- * 工具调用信息
- */
-export interface ToolCallInfo {
-    /** 工具名称 */
-    name: string;
-    /** 工具参数 */
-    args: Record<string, any>;
-}
-
-/**
- * 在临时目录下创建文本文件用来缓存工具调用结果
- * @param toolKey 工具名称/标识符
- * @param ext 文件扩展名，默认 'log'
- * @param content 文本内容
- * @param toolCallInfo 可选的工具调用信息，会被记录在文件开头
- * @returns 文件完整路径
- */
-const createTempfile = (
-    toolKey: string,
-    ext: string = 'log',
-    content?: string,
-): string => {
-    const tempDir = tempRoot();
-    safeCreateDir(tempDir);
-    const suffix = Math.random().toString(16).slice(2, 10);
-    const filePath = path.join(tempDir, `${toolKey}_${Date.now()}_${suffix}.${ext}`);
-
-    if (typeof content !== 'string') {
-        content = JSON.stringify(content);
-    }
-
-    if (content !== undefined) {
-        fs.writeFileSync(filePath, content, 'utf-8');
-    }
-    return filePath;
-};
-
-
-/**
- * 防止临时目录下文件过多，删除较旧的文件
- * @returns
- */
-export const pruneOldTempToollogFiles = (): void => {
-    if (!fs || !path || !os) {
-        return;
-    }
-    const tempDir = tempRoot();
-    if (!fs.existsSync(tempDir)) {
-        return;
-    }
-    const files = fs.readdirSync(tempDir)
-        .map(file => ({
-            name: file,
-            time: fs.statSync(path.join(tempDir, file)).mtime.getTime()
-        }))
-        .sort((a, b) => b.time - a.time);
-    if (files.length > MAX_LOG_NUMBER) {
-        const filesToDelete = files.slice(MAX_LOG_NUMBER);
-        for (const file of filesToDelete) {
-            fs.unlinkSync(path.join(tempDir, file.name));
-        }
-    }
-}
-
-
-/**
- * 仅保存工具调用结果到本地文件（用于日志记录）
- * @param toolName 工具名称
- * @param args 工具参数
- * @param rawData 原始数据
- * @returns 缓存文件路径
- */
-export const cacheToolCallResult = (
-    toolName: string,
-    args: Record<string, any>,
-    result: ToolExecuteResult
-): string | null => {
-    if (fs === undefined) {
-        return null;
-    }
-
-    let content: string;
-    if (typeof result.formattedText === 'string') {
-        content = result.formattedText;
-    } else {
-        try {
-            content = JSON.stringify(result.data, null, 2);
-        } catch (error) {
-            content = String(result.data);
-        }
-    }
-
-    const argsString = Object.entries(args)
-        .map(([key, value]) => `${key}:${JSON.stringify(value).length > 100 ? '\n' : ' '}${value}`)
-        .join('\n');
-    const logText = [
-        `------ Tool Call: ${toolName} ------`,
-        argsString,
-        `------ Tool Call Result | Full Formatted ------`,
-        content,
-    ];
-    if (result.data !== content) {
-        logText.push(`------ Tool Call Result | Raw ------`);
-        logText.push(typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2));
-    }
-
-    const tempFilePath = createTempfile(
-        toolName,
-        'log',
-        logText.join('\n'),
-    );
-
-    return tempFilePath;
-};
-
-
-
-export const DEFAULT_LIMIT_CHAR = 8000;
+export const DEFAULT_LIMIT_CHAR = 32 * 1024;
 
 /**
  * 标准化输出长度限制
@@ -236,7 +82,8 @@ export interface TruncateResult {
 }
 
 /**
- * 截断内容（头尾模式）
+ * 截断内容（只保留开头）
+ * 适合"越靠前越重要"的列表类结果（搜索结果、查询结果）。
  * @param content 原始内容
  * @param maxLength 最大长度限制
  * @returns 截断结果
@@ -257,6 +104,39 @@ export const truncateContent = (content: string, maxLength: number): TruncateRes
 
     return {
         content: `${head}\n\n...输出过长，省略后 ${omitted} 个字符...`,
+        isTruncated: true,
+        originalLength: content.length,
+        shownLength: maxLength,
+        omittedLength: omitted
+    };
+};
+
+/**
+ * 截断内容（保留首尾，省略中间）
+ * 适合日志与脚本输出：结尾通常是最终结果和 stderr，不能只留开头。
+ * @param content 原始内容
+ * @param maxLength 最大长度限制（首尾合计）
+ * @returns 截断结果
+ */
+export const truncateMiddle = (content: string, maxLength: number): TruncateResult => {
+    if (!Number.isFinite(maxLength) || maxLength <= 0 || content.length <= maxLength) {
+        return {
+            content,
+            isTruncated: false,
+            originalLength: content.length,
+            shownLength: content.length,
+            omittedLength: 0
+        };
+    }
+
+    const headLength = Math.floor(maxLength / 2);
+    const tailLength = maxLength - headLength;
+    const head = content.slice(0, headLength);
+    const tail = content.slice(content.length - tailLength);
+    const omitted = content.length - maxLength;
+
+    return {
+        content: `${head}\n\n...输出过长，中间省略 ${omitted} 个字符...\n\n${tail}`,
         isTruncated: true,
         originalLength: content.length,
         shownLength: maxLength,

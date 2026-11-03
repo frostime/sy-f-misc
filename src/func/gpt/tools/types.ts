@@ -84,12 +84,6 @@ export interface ToolExecuteResult {
     formattedText?: string;
     // 最终发送给 LLM 的文本 ( data --> format --> truncate)
     finalText?: string;
-
-    // 缓存文件路径（原始数据保存位置）
-    cacheFile?: string;
-
-    cacheVarResult?: string;
-    cacheVarArgs?: string;
 }
 
 /**
@@ -198,26 +192,7 @@ export interface Tool {
     SKIP_EXTERNAL_TRUNCATE?: boolean;
     DEFAULT_OUTPUT_LIMIT_CHAR?: number;
 
-    SKIP_CACHE_RESULT?: boolean;
-
-    /**
-     * 声明工具成功执行后 result.data 的类型（用于 ToolCallScript 参考）
-     * 这有助于 LLM 在编写脚本时了解 TOOL_CALL 返回的数据结构
-     */
-    declaredReturnType?: {
-        /** TypeScript 类型表达式，如 "DocumentSummary[]" 或 "{ id: string; content: string }" */
-        type: string;
-        /** 补充说明，如字段含义、特殊情况等 */
-        note?: string;
-    };
-
     execute: ToolExecuteFunction;
-
-    // 可选的参数压缩函数，用于在工具链日志中显示简化的参数信息
-    compressArgs?: (args: Record<string, any>) => string;
-
-    // 可选的结果压缩函数，用于在工具链日志中显示简化的结果信息
-    compressResult?: (result: ToolExecuteResult) => string;
 
     // 格式化函数：将原始 data 转换为适合 LLM 的文本
     // 如果未定义，将使用默认格式化逻辑（JSON.stringify）
@@ -234,6 +209,8 @@ export interface Tool {
 export interface ToolGroup {
     name: string;
     tools: Tool[];
+    /** Initial selection within this group; existing groups default to true. User overrides still win. */
+    defaultToolEnabled?: boolean;
     /**
      * 工具组的规则提示
      * - 字符串：静态提示
@@ -244,7 +221,7 @@ export interface ToolGroup {
     declareSkillRules?: Record<string, {
         /** 规则简要描述（会出现在 System Prompt 中） */
         desc: string;
-        /** 完整规则内容（保存到变量中） */
+        /** 完整只读文档，通过 read-rule 读取 */
         prompt: string;
         /** 何时使用该规则 */
         when?: string;

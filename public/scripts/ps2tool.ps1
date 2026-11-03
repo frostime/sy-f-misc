@@ -54,24 +54,6 @@ function Get-ParameterDescription {
     return ''
 }
 
-function Get-OutputType {
-    param([System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst)
-
-    $helpContent = $FunctionAst.GetHelpContent()
-    if ($helpContent -and $helpContent.Outputs) {
-        $outputText = ($helpContent.Outputs -join ' ').Trim()
-        # 尝试解析 "type description" 格式
-        if ($outputText -match '^(\S+)\s+(.+)$') {
-            return @{
-                type = $Matches[1]
-                note = $Matches[2]
-            }
-        }
-        return @{ type = $outputText }
-    }
-    return $null
-}
-
 function Parse-FunctionDefinition {
     param([System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst)
 
@@ -180,12 +162,6 @@ function Parse-FunctionDefinition {
 
     if ($required.Count -gt 0) {
         $tool.function.parameters.required = $required
-    }
-
-    # 添加返回类型
-    $outputType = Get-OutputType -FunctionAst $FunctionAst
-    if ($outputType) {
-        $tool.declaredReturnType = $outputType
     }
 
     return $tool

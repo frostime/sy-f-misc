@@ -24,22 +24,6 @@ const WEB_PAGE_LIMIT = 7000;
 export const fetchWebPageTool: Tool = {
     DEFAULT_OUTPUT_LIMIT_CHAR: WEB_PAGE_LIMIT,
 
-    declaredReturnType: {
-        type: `{
-    title: string;
-    description: string;
-    keywords: string;
-    author: string;
-    content: string;
-    url: string;
-    contentType: string | null;
-    originalLength: number;
-    shownLength: number;
-    isTruncated: boolean;
-}`,
-        note: '网页内容（Markdown 格式），包含元信息和主要内容。支持内容截断。'
-    },
-
     definition: {
         type: 'function',
         function: {

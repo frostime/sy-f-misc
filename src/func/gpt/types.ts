@@ -87,11 +87,50 @@ interface IUserMessage {
 /**
  * 助手消息
  */
+/**
+ * Internal replay data. Adapters restore native fields; `extra` itself is never an API parameter.
+ *
+ * Ownership: `content` owns visible body text, `tool_calls` owns names/arguments,
+ * `reasoning_content` owns reasoning text. Replay metadata may carry only values that cannot be
+ * rebuilt from those fields (signatures, encrypted blocks, native ids, ordering). Reasoning is
+ * referenced by slot length (`chars`), never copied into replay metadata.
+ *
+ * - `v: 2` (narrow): body text and call arguments are rebuilt from canonical fields.
+ * - no `v` (legacy full-native): written before the narrow contract; replayed verbatim and never
+ *   reinterpreted. Editing a message removes its replay metadata, so a stale copy cannot win.
+ */
+type IReplaySource = { model?: string; provider?: string };
+
+type ClaudeReplaySlot =
+    // `chars` is the length of this block's text inside `reasoning_content`, in slot order.
+    | { kind: 'thinking'; chars: number; signature?: string }
+    | { kind: 'text' }
+    | { kind: 'tool_use'; id: string }
+    // redacted_thinking and unknown future kinds: kept verbatim, no readable reasoning text.
+    | { kind: 'opaque'; block: unknown };
+
+type GeminiReplaySlot =
+    // `chars` is the length of this part's thought text inside `reasoning_content`, in slot order.
+    | { kind: 'thought'; chars: number; signature?: string }
+    | { kind: 'text'; signature?: string }
+    | { kind: 'function_call'; id?: string; signature?: string }
+    | { kind: 'empty_signed_text'; part: IGeminiPart }
+    | { kind: 'opaque'; part: IGeminiPart };
+
+type IMessageExtra = (
+    | { protocol: 'openai'; data: { reasoning_content?: string; reasoning?: string; reasoning_details?: any[] } }
+    | { protocol: 'claude'; v: 2; slots: ClaudeReplaySlot[] }
+    | { protocol: 'gemini'; v: 2; slots: GeminiReplaySlot[] }
+    | { protocol: 'claude'; data: { content: ClaudeContentBlock[] } }
+    | { protocol: 'gemini'; data: { parts: IGeminiPart[] } }
+) & IReplaySource;
+
 interface IAssistantMessage {
     role: 'assistant';
     content: string | null;
     name?: string;
     refusal?: string | null;  // 拒绝回答的原因
+    extra?: IMessageExtra;
     reasoning_content?: string;
     tool_calls?: IToolCall[];
 }
@@ -116,6 +155,7 @@ interface IToolMessage {
 }
 
 interface IMessageLoose {
+    extra?: IMessageExtra;
     role: 'user' | 'assistant' | 'system' | 'tool';
     content: TMessageContent | string | null;
     name?: string;
@@ -343,6 +383,7 @@ interface ICompletionUsage {
 
 
 interface ICompletionResult {
+    extra?: IMessageExtra;
     ok?: boolean;
     content: string;
     usage?: ICompletionUsage | null;
@@ -558,15 +599,14 @@ interface IChatSessionConfig {
     utilityModelId?: string;
     renderInStreamMode: boolean; // 是否在 stream 模式下渲染 markdown
     toolCallMaxRounds: number; // 工具调用最大轮次
-    /** 工具调用持久化/回放模式。'standard'=原生 IMessage[] 序列持久化与回放；'legacy'=压缩串 + userPromptSlice。默认 'standard' */
-    toolCallMode: 'standard' | 'legacy';
     chatOption: IChatCompleteOption;
     /** 参数显式开关。key 不存在 ≈ toggle=true（兼容旧数据，默认发送）*/
     chatOptionToggles?: Partial<Record<keyof IChatCompleteOption, boolean>>;
 
-    // 隐私配置
+    /** @deprecated Retained for stored-config compatibility; masking was removed in schema 3.5. */
     enablePrivacyMask?: boolean;
-    privacyFields?: import('./privacy/types').IPrivacyField[];
+    /** @deprecated Retained for stored-config compatibility; masking was removed in schema 3.5. */
+    privacyFields?: unknown[];
 }
 
 

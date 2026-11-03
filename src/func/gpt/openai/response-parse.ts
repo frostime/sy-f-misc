@@ -19,6 +19,8 @@
 //      - snapshot（新第三参）：{ content, reasoning_content, usage }，正文/思维链分离的
 //        纯文本与当前 usage，每种协议在每个有效事件上都会发出（思维链在正文出现前就开始流式）。
 
+import { captureClaudeReplay, captureGeminiReplay } from './replay-contract';
+
 /** streamMsg 第三参快照类型；与 ICompletionResult 的 content/reasoning_content/usage 同构 */
 export type TStreamSnapshot = Pick<ICompletionResult, 'content' | 'reasoning_content' | 'usage'>;
 
@@ -348,7 +350,8 @@ export const extractOpenAIDelta = (delta: Record<string, any> | null | undefined
     reasoning_content?: string;
     tool_calls?: IToolCallResponse[];
 } => {
-    const content = openAIContentToText(delta?.content);
+    const content = openAIContentToText(delta?.content)
+        + (typeof delta?.refusal === 'string' ? delta.refusal : '');
     const reasoning = extractOpenAIReasoning(delta);
     const toolCalls = Array.isArray(delta?.tool_calls) && delta.tool_calls.length > 0
         ? delta.tool_calls
@@ -443,29 +446,27 @@ ${reasoning}
 // OpenAI 流式工具调用合并（原 adapter.adaptToolCalls 语义）
 // ============================================================================
 
-/**
- * 合并流式 tool_calls 分片：标准 OpenAI 格式按 index 合并并拼接 arguments；
- * 若所有分片都带 id（某些平台直接回传完整数组）则原样返回。
- */
+/** OpenAI 按 index 合并参数片段；没有 index 的兼容服务按 id 区分调用。 */
 export const mergeOpenAIStreamToolCalls = (allChunks: any[][]): IToolCallResponse[] => {
-    const flattened = allChunks.flat().filter(call => call && typeof call === 'object');
-    if (flattened.length === 0) return [];
-    if (flattened.every(call => call.id)) {
-        return flattened as IToolCallResponse[];
-    }
-
-    const toolCallsByIndex = new Map<number, IToolCallResponse>();
-    for (const call of flattened) {
-        const index = typeof call.index === 'number' ? call.index : toolCallsByIndex.size;
-        const existing = toolCallsByIndex.get(index);
+    const calls = new Map<number, IToolCallResponse>();
+    const indexesById = new Map<string, number>();
+    let nextIndex = 0;
+    for (const call of allChunks.flat()) {
+        if (!call || typeof call !== 'object') continue;
+        // 为 id-only 调用保留位置，允许后续片段只携带 index。
+        const index = typeof call.index === 'number' ? call.index
+            : (indexesById.get(call.id) ?? nextIndex);
+        nextIndex = Math.max(nextIndex, index + 1);
+        if (call.id) indexesById.set(call.id, index);
+        const existing = calls.get(index);
         if (existing) {
             if (call.id && !existing.id) existing.id = call.id;
             if (call.function?.name) existing.function.name = call.function.name;
             existing.function.arguments += call.function?.arguments || '';
         } else {
-            toolCallsByIndex.set(index, {
+            calls.set(index, {
+                ...call,
                 id: call.id || '',
-                index,
                 type: call.type || 'function',
                 function: {
                     name: call.function?.name || '',
@@ -474,7 +475,7 @@ export const mergeOpenAIStreamToolCalls = (allChunks: any[][]): IToolCallRespons
             });
         }
     }
-    return Array.from(toolCallsByIndex.values());
+    return Array.from(calls.values());
 };
 
 /**
@@ -546,6 +547,25 @@ const streamTiming = (t0: number, t1: number | null, t2: number, usage: IComplet
 // OpenAI 兼容协议
 // ============================================================================
 
+type OpenAIReplayData = Extract<IMessageExtra, { protocol: 'openai' }>['data'];
+
+/** OpenRouter deltas merge by type; a signature closes its text block, regardless of index. */
+const appendReasoningDetails = (target: any[], incoming: any[]) => {
+    for (const detail of incoming) {
+        const last = target[target.length - 1];
+        const textDelta = detail?.type === 'reasoning.text' && last?.type === detail.type && !last.signature;
+        const summaryDelta = detail?.type === 'reasoning.summary' && last?.type === detail.type;
+        if (textDelta || summaryDelta) {
+            const key = textDelta ? 'text' : 'summary';
+            last[key] = (last[key] || '') + (detail[key] || '');
+            if (!last.signature && detail.signature) last.signature = detail.signature;
+            if (!last.format && detail.format) last.format = detail.format;
+        } else {
+            target.push(structuredClone(detail));
+        }
+    }
+};
+
 const formatOpenAIEventError = (error: any): string =>
     `**[Error]** \`\`\`json\n${JSON.stringify(error)}\`\`\``;
 
@@ -575,6 +595,8 @@ export const consumeOpenAIStream = async (
     let rawContent = '';
     let errorContent = '';
     let fieldReasoning = '';
+    const replayData: OpenAIReplayData = {};
+    let finished = false;
     let aborted = false;
     let lastEmitted = ''; // 相同内容的重复 emit（如流结束后的收尾 emit）会被抑制
 
@@ -600,10 +622,14 @@ export const consumeOpenAIStream = async (
     };
 
     const { aborted: wasAborted, firstReadAt, readError } = await readStreamEvents(response, hooks, (rawData) => {
-        if (rawData.trim() === '[DONE]') return;
+        if (rawData.trim() === '[DONE]') {
+            finished = true;
+            return;
+        }
         const payload = parseJsonSafe<any>(rawData, null);
         if (!payload) return;
         hooks.onRawEvent?.(payload);
+        if (payload.choices?.[0]?.finish_reason) finished = true;
 
         if (payload.error && !payload.choices) {
             errorContent += formatOpenAIEventError(payload.error);
@@ -626,6 +652,13 @@ export const consumeOpenAIStream = async (
         }
 
         const delta = payload.choices?.[0]?.delta ?? {};
+        for (const key of ['reasoning_content', 'reasoning'] as const) {
+            if (typeof delta[key] === 'string') replayData[key] = (replayData[key] || '') + delta[key];
+        }
+        if (Array.isArray(delta.reasoning_details)) {
+            replayData.reasoning_details ??= [];
+            appendReasoningDetails(replayData.reasoning_details, delta.reasoning_details);
+        }
         const extracted = extractOpenAIDelta(delta);
         if (extracted.content) {
             rawContent += extracted.content;
@@ -649,6 +682,9 @@ export const consumeOpenAIStream = async (
     } else if (aborted) {
         errorContent += '\n **[Error]** Request aborted';
         result.ok = false;
+    } else if (!finished && result.ok) {
+        errorContent += '\n **[Error]** OpenAI stream ended before completion';
+        result.ok = false;
     }
 
     emit(true);
@@ -656,6 +692,7 @@ export const consumeOpenAIStream = async (
         result.tool_calls = mergeOpenAIStreamToolCalls(toolCallChunks);
     }
     if (references.length > 0) result.references = references;
+    if (result.ok && Object.keys(replayData).length > 0) result.extra = { protocol: 'openai', data: replayData };
     result.time = streamTiming(t0, firstReadAt, Date.now(), result.usage);
     return result;
 };
@@ -688,6 +725,12 @@ export const parseOpenAIMessage = (message: Record<string, any>): ICompletionRes
         reasoning_content: reasoning,
     };
     if (extracted.tool_calls?.length) result.tool_calls = extracted.tool_calls;
+    const replayData: OpenAIReplayData = {};
+    for (const key of ['reasoning_content', 'reasoning'] as const) {
+        if (typeof message[key] === 'string') replayData[key] = message[key];
+    }
+    if (Array.isArray(message.reasoning_details)) replayData.reasoning_details = structuredClone(message.reasoning_details);
+    if (Object.keys(replayData).length > 0) result.extra = { protocol: 'openai', data: replayData };
     return result;
 };
 
@@ -737,9 +780,17 @@ const collectClaudeBlocks = (contentBlocks: any[], providerMeta: Record<string, 
 
 /** Claude 非流式响应解析 */
 export const parseClaudeResponse = (data: any): ICompletionResult => {
+    if (data?.error || !Array.isArray(data?.content)) {
+        return {
+            ok: false,
+            content: `[Error] Claude: ${data?.error?.message || 'Unexpected response shape: missing content array'}`,
+            usage: normalizeClaudeUsage(data?.usage),
+        };
+    }
     const providerMeta: Record<string, any> = { stop_reason: data?.stop_reason };
     if (data?.usage) providerMeta.claudeUsage = data.usage;
     const blocks = collectClaudeBlocks(data?.content || [], providerMeta);
+    const replay = captureClaudeReplay(data.content, blocks.reasoning);
     return {
         ok: true,
         content: blocks.content,
@@ -747,6 +798,7 @@ export const parseClaudeResponse = (data: any): ICompletionResult => {
         tool_calls: blocks.tool_calls,
         reasoning_content: blocks.reasoning || undefined,
         providerMeta,
+        ...(replay ? { extra: replay } : {}),
     };
 };
 
@@ -764,11 +816,12 @@ export const consumeClaudeStream = async (
     const providerMeta: Record<string, any> = {};
     const toolCallsById = new Map<string, IToolCall>();
     const toolIndexToId = new Map<number, string>();
-    const thinkingIndexes = new Set<number>();
+    const rawBlocks = new Map<number, any>();
     let rawUsage: Record<string, any> = {};
     let content = '';
     let thinking = '';
     let stopReason = '';
+    let finished = false;
     let aborted = false;
     let lastEmitted = '';
 
@@ -801,6 +854,10 @@ export const consumeClaudeStream = async (
             return;
         }
 
+        if (payload.type === 'message_stop') {
+            finished = true;
+            return;
+        }
         if (payload.type === 'message_start') {
             rawUsage = mergeRawUsage(rawUsage, payload.message?.usage);
             return;
@@ -815,8 +872,15 @@ export const consumeClaudeStream = async (
         if (payload.type === 'content_block_start') {
             const idx = payload.index;
             const block = payload.content_block;
+            if (block) rawBlocks.set(idx, structuredClone(block));
             if (block?.type === 'thinking') {
-                thinkingIndexes.add(idx);
+                thinking += block.thinking || '';
+                if (block.thinking) emit();
+                return;
+            }
+            if (block?.type === 'text') {
+                content += block.text || '';
+                if (block.text) emit();
                 return;
             }
             if (block?.type === 'tool_use') {
@@ -839,12 +903,17 @@ export const consumeClaudeStream = async (
 
         if (payload.type === 'content_block_delta') {
             const delta = payload.delta || {};
+            let rawBlock = rawBlocks.get(payload.index);
             if (delta.type === 'text_delta') {
+                if (!rawBlock) rawBlocks.set(payload.index, rawBlock = { type: 'text', text: '' });
+                rawBlock.text = (rawBlock.text || '') + (delta.text || '');
                 content += delta.text || '';
                 emit();
                 return;
             }
             if (delta.type === 'thinking_delta') {
+                if (!rawBlock) rawBlocks.set(payload.index, rawBlock = { type: 'thinking', thinking: '' });
+                rawBlock.thinking = (rawBlock.thinking || '') + (delta.thinking || '');
                 thinking += delta.thinking || '';
                 emit();
                 return;
@@ -857,7 +926,9 @@ export const consumeClaudeStream = async (
                 toolCall.function.arguments += (delta.partial_json || '');
                 emit();
             }
-            // signature_delta 等不可读 delta 忽略
+            if (delta.type === 'signature_delta' && rawBlock?.type === 'thinking') {
+                rawBlock.signature = (rawBlock.signature || '') + (delta.signature || '');
+            }
         }
     });
     aborted = wasAborted;
@@ -870,11 +941,27 @@ export const consumeClaudeStream = async (
         result.ok = false;
     }
 
+    for (const [index, id] of toolIndexToId) {
+        const args = toolCallsById.get(id)?.function.arguments || '{}';
+        try {
+            rawBlocks.get(index).input = JSON.parse(args);
+        } catch {
+            content += '\n[Error] Claude returned incomplete tool arguments';
+            result.ok = false;
+        }
+    }
+    if (!finished && !stopReason && result.ok) {
+        content += '\n[Error] Claude stream ended before completion';
+        result.ok = false;
+    }
     emit();
     result.tool_calls = Array.from(toolCallsById.values());
     providerMeta.stop_reason = stopReason;
     providerMeta.claudeUsage = rawUsage;
     result.providerMeta = providerMeta;
+    const contentBlocks = Array.from(rawBlocks.entries()).sort(([a], [b]) => a - b).map(([, block]) => block);
+    const replay = result.ok ? captureClaudeReplay(contentBlocks, thinking) : undefined;
+    if (replay) result.extra = replay;
     result.time = streamTiming(t0, firstReadAt, Date.now(), result.usage);
     return result;
 };
@@ -883,7 +970,10 @@ export const consumeClaudeStream = async (
 // Gemini 协议
 // ============================================================================
 
-const collectGeminiParts = (parts: any[], toolCallIdOf: (partIndex: number) => string): {
+let geminiCallSequence = 0;
+const newGeminiCallId = () => `gemini_call_${geminiCallSequence++}`;
+
+const collectGeminiParts = (parts: any[]): {
     content: string;
     reasoning: string;
     tool_calls: IToolCall[];
@@ -891,7 +981,7 @@ const collectGeminiParts = (parts: any[], toolCallIdOf: (partIndex: number) => s
     const textParts: string[] = [];
     const thoughtParts: string[] = [];
     const tool_calls: IToolCall[] = [];
-    parts.forEach((part: any, partIndex: number) => {
+    parts.forEach((part: any) => {
         if (typeof part?.text === 'string' && part.text) {
             if (part.thought === true) {
                 thoughtParts.push(part.text);
@@ -903,7 +993,7 @@ const collectGeminiParts = (parts: any[], toolCallIdOf: (partIndex: number) => s
         const functionCall = part?.functionCall;
         if (functionCall?.name) {
             tool_calls.push({
-                id: toolCallIdOf(partIndex),
+                id: functionCall.id || newGeminiCallId(),
                 type: 'function',
                 function: {
                     name: functionCall.name,
@@ -915,27 +1005,49 @@ const collectGeminiParts = (parts: any[], toolCallIdOf: (partIndex: number) => s
     return { content: textParts.join(''), reasoning: thoughtParts.join(''), tool_calls };
 };
 
+const geminiFailureReason = (data: any): string | undefined => {
+    if (data?.error) return data.error.message || JSON.stringify(data.error);
+    const blockReason = data?.promptFeedback?.blockReason;
+    if (blockReason && blockReason !== 'BLOCK_REASON_UNSPECIFIED') {
+        return `Prompt blocked: ${blockReason}`;
+    }
+    const candidate = data?.candidates?.[0];
+    if (candidate?.content?.parts?.some((part: any) => part?.functionCall?.partialArgs?.length || part?.functionCall?.willContinue === true)) {
+        return 'Partial function arguments (partialArgs/willContinue) are not supported; complete function calls are required';
+    }
+    const finishReason = candidate?.finishReason;
+    if (['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII',
+        'IMAGE_SAFETY', 'IMAGE_PROHIBITED_CONTENT', 'MALFORMED_FUNCTION_CALL', 'UNEXPECTED_TOOL_CALL'].includes(finishReason)) {
+        return `Generation stopped: ${finishReason}`;
+    }
+};
+
 /** Gemini 非流式响应解析 */
 export const parseGeminiResponse = (data: any): ICompletionResult => {
     const first = data?.candidates?.[0];
-    const blocks = collectGeminiParts(first?.content?.parts || [], (partIndex) => `gemini_call_${partIndex}`);
+    const rawParts = first?.content?.parts || [];
+    const blocks = collectGeminiParts(rawParts);
     const providerMeta: Record<string, any> = {
         safetyRatings: first?.safetyRatings,
         promptFeedback: data?.promptFeedback,
         finishReason: first?.finishReason,
     };
     if (data?.usageMetadata) providerMeta.geminiUsage = data.usageMetadata;
+    const failure = geminiFailureReason(data)
+        || (!Array.isArray(first?.content?.parts) ? 'Unexpected response shape: missing candidate content.parts' : undefined);
+    const replay = failure ? undefined : captureGeminiReplay(rawParts, blocks.reasoning);
     return {
-        ok: true,
-        content: blocks.content,
+        ok: !failure,
+        content: failure ? [blocks.content, `[Error] Gemini: ${failure}`].filter(Boolean).join('\n') : blocks.content,
         usage: normalizeGeminiUsage(data?.usageMetadata),
         tool_calls: blocks.tool_calls,
         reasoning_content: blocks.reasoning || undefined,
         providerMeta,
+        ...(replay ? { extra: replay } : {}),
     };
 };
 
-/** Gemini 流式响应消费（alt=sse；每个 chunk 是完整部分快照，functionCall 参数整体替换） */
+/** Gemini parts are chunk-local. Only an explicit call id identifies a repeated call. */
 export const consumeGeminiStream = async (
     response: Response,
     hooks: TProtocolStreamHooks = {},
@@ -951,9 +1063,10 @@ export const consumeGeminiStream = async (
     let content = '';
     let reasoning = '';
     let lastEmitted = '';
-    let toolCallCounter = 0;
-    const toolCallKeyToId = new Map<string, string>(); // partIndex → 稳定 id
-    const toolCalls = new Map<string, IToolCall>();    // 稳定 id → IToolCall
+    let finished = false;
+    const rawParts: any[] = [];
+    const callPartIndexes = new Map<string, number>();
+    const toolCalls = new Map<string, IToolCall>();
     let aborted = false;
 
     const emit = () => {
@@ -980,7 +1093,17 @@ export const consumeGeminiStream = async (
 
         let meaningful = false;
         const first = payload?.candidates?.[0];
-        (first?.content?.parts || []).forEach((part: any, partIndex: number) => {
+        if (first?.finishReason && first.finishReason !== 'FINISH_REASON_UNSPECIFIED') finished = true;
+        const failure = geminiFailureReason(payload);
+        (first?.content?.parts || []).forEach((part: any) => {
+            const functionCall = part?.functionCall;
+            const priorPart = functionCall?.id ? callPartIndexes.get(functionCall.id) : undefined;
+            if (priorPart !== undefined) {
+                rawParts[priorPart] = { ...rawParts[priorPart], ...structuredClone(part) };
+            } else {
+                if (functionCall?.id) callPartIndexes.set(functionCall.id, rawParts.length);
+                rawParts.push(structuredClone(part));
+            }
             if (typeof part?.text === 'string' && part.text) {
                 if (part.thought === true) {
                     reasoning += part.text;
@@ -990,19 +1113,10 @@ export const consumeGeminiStream = async (
                 meaningful = true;
                 return;
             }
-            const functionCall = part?.functionCall;
             if (functionCall?.name) {
-                // 首次遇到该 partIndex 分配稳定递增 id，后续事件复用
-                const internalKey = String(partIndex);
-                let id = toolCallKeyToId.get(internalKey);
-                if (!id) {
-                    id = `gemini_call_${toolCallCounter++}`;
-                    toolCallKeyToId.set(internalKey, id);
-                }
-                // Gemini 流式发送完整参数快照：整体替换而非追加
+                const id = functionCall.id || newGeminiCallId();
                 toolCalls.set(id, {
                     id,
-                    index: partIndex,
                     type: 'function',
                     function: {
                         name: functionCall.name,
@@ -1013,6 +1127,11 @@ export const consumeGeminiStream = async (
             }
         });
 
+        if (failure && result.ok) {
+            content += `${content ? '\n' : ''}[Error] Gemini: ${failure}`;
+            result.ok = false;
+            meaningful = true;
+        }
         if (payload.usageMetadata) {
             rawUsage = mergeRawUsage(rawUsage, payload.usageMetadata);
             meaningful = true;
@@ -1033,9 +1152,15 @@ export const consumeGeminiStream = async (
         result.ok = false;
     }
 
+    if (!finished && result.ok) {
+        content += '\n[Error] Gemini stream ended before completion';
+        result.ok = false;
+    }
     emit();
     result.tool_calls = Array.from(toolCalls.values());
     result.providerMeta = { ...providerMeta, geminiUsage: rawUsage };
+    const replay = result.ok ? captureGeminiReplay(rawParts, reasoning) : undefined;
+    if (replay) result.extra = replay;
     result.time = streamTiming(t0, firstReadAt, Date.now(), result.usage);
     return result;
 };

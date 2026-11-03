@@ -1,7 +1,7 @@
 ---
 name: GPT Module Architecture Overview
 description: Comprehensive bird's-eye view of src/func/gpt/ — module entry points, configuration system, provider/model lifecycle, chat session lifecycle (V2), API communication flow, and cross-cutting concerns. Entry-level spec-doc for agents orienting in this module.
-updated: 2026-07-26
+updated: 2026-10-31
 scope:
   - /src/func/gpt/**
 ---
@@ -46,6 +46,7 @@ SettingsPersistence.initialize()              ← /src/settings/persistence.ts
         └── 分发到 model/config.ts stores
 
 GPT.load(plugin)
+├── initializeNativeMcp()                     → 一次同源工具快照，5 秒内就绪或不可用
 ├── registerGlobalChat/plugin menus/commands
 ├── loadStartupExtensions()
 │   ├── custom preprocess/context modules
@@ -56,7 +57,7 @@ GPT.load(plugin)
 └── globalThis.fmisc['gpt'] = { complete }
 ```
 
-正常启动先完成 settings apply，再执行 `GPT.load()`。GPT 被禁用时仍加载 settings variables 供设置面板使用，但不注册功能资源、加载脚本或添加 Dock。
+正常启动先完成 settings apply，再执行 `GPT.load()`。GPT 被禁用时仍加载 settings variables 供设置面板使用，但不注册功能资源、加载脚本或添加 Dock。原生 MCP 故障不阻止后续 GPT 启动；保留的 Tab/Dock 回调也须通过统一就绪渲染入口构造组件。修改此启动边界前读 [tool-call/integration.md](./tool-call/integration.md#原生-mcp-的启动边界)。
 
 ### 用户触达面
 
@@ -94,7 +95,7 @@ model/storage.ts
 └── load() → read + apply + startup extensions（完整兼容入口）
 
 model/config_migration.ts
-└── 历史版本兼容(data, storeName)  → CURRENT_SCHEMA='3.1'
+└── 历史版本兼容(data, storeName)  → CURRENT_SCHEMA（见 config_migration.ts，现为 '3.4'）
     按 schema version 递增执行迁移块
 ```
 
@@ -296,16 +297,15 @@ UI: handleSubmit(userText)
       ├─ [5] executeByModalType()
       │   ├─ chat: chatHandler.execute()
       │   │   ├─ buildChatOption()  — 合并 config + customOptions + tools
-      │   │   ├─ buildSystemPrompt() — 时间 + user rule + privacy rule + tool rules
-      │   │   ├─ maskMessages()     — 隐私屏蔽（如果启用）
+      │   │   ├─ buildSystemPrompt() — 时间 + user rule + tool rules
       │   │   ├─ gpt.complete(messages, options)
       │   │   │   ├─ adaptChatOptions() — sanitize
       │   │   │   └─ fetch() + stream parsing
-      │   │   └─ recoverContent()   — 隐私恢复
       │   ├─ image-gen: imageHandler.generate() → generateImage()
       │   └─ audio-*: audioHandler.* → transcribeAudio() / textToSpeech()
       ├─ [6] handleToolChain() — 如果返回 tool_calls → 多轮工具调用链
-      └─ [7] lifecycle.finalize() — 保存结果到 treeModel
+      │      └─ toolChainToCompletion() — 原生工具消息 + 末条 assistant
+      └─ [7] lifecycle.finalize() — 保存结果到 treeModel（message + toolChainMessages）
 ```
 
 ### 6.2 buildChatOption — 参数合并
@@ -336,14 +336,9 @@ fetch() response.body
 
 ## 7. Cross-Cutting Concerns
 
-### 7.1 隐私屏蔽
+### 7.1 已移除的隐私屏蔽
 
-```
-发送前: maskMessages(messages, privacyFields) → masked messages + maskSchema
-接收后: recoverContent(result.content, maskSchema) → unmasked content
-```
-
-配置在 `defaultConfig.enablePrivacyMask` + `defaultConfig.privacyFields`。
+GPT schema 3.5 起，插件不再屏蔽发送给模型的消息或上下文，也不再恢复模型回复。旧配置值保留在设置文件中供参考，但不生效。升级时，曾启用屏蔽的用户会收到一次提示。
 
 ### 7.2 Context Provider 系统
 
@@ -368,31 +363,36 @@ getContextProviders() → IContextProvider[]
 
 ```
 ToolExecutor (tools/executor.ts)
-├── register(tool) — 注册工具
+├── register(tool) — 注册工具（构造时注册内部 read-rule）
 ├── hasEnabledTools() → getEnabledToolDefinitions() → IToolDefinition[]
 ├── execute(toolName, args) → ToolResult
-└── toolRules() → 注入 system prompt 的工具规则
+├── toolRules() → 注入 system prompt 的工具规则与规则索引
+└── read-rule.ts — 读取 declareSkillRules 的只读正文，不经过变量或缓存
 
 工具分类:
 ├── basic.ts          — datetime, text
 ├── file-system/      — 文件编辑/查看
 ├── siyuan/           — 思源笔记内容操作/搜索
 ├── web/              — 网页搜索/抓取
-├── custom-program-tools/ — 自定义 Python/PowerShell 脚本工具
-└── toolcall-script/  — 自定义 JS 工具调用脚本
+├── script-tools.ts   — Shell/Python/JavaScript（桌面端）
+└── custom-program-tools/ — 自定义 Python/PowerShell 脚本工具
 ```
 
 工具审批流程：`executor.ts` → `approval-ui.tsx (InlineApprovalCard)` → 用户 approve/reject → 继续或中止。
+
+工具调用以原生 `IMessage[]` 随回答版本持久化（无压缩日志、无工具结果变量）。执行、审批与规则可见 [tool-call/index.md](tool-call/index.md)。
 
 ### 7.4 对话持久化与设置同步的边界
 
 ```
 persistence/
 ├── local-storage.ts   — localStorage + gpt-cache/ 临时同步副本
-├── json-files.ts      — 归档为 JSON 文件
+├── storage-read.ts    — 持久化文件读取抽象（桌面读可用 Node fs，写删走思源文件 API）
+├── json-files.ts      — 归档为 JSON 文件 + snapshot 索引
 ├── sy-doc.ts          — 导出到思源文档
 ├── assets.ts          — 附件管理
 ├── import-platform.ts — 导入外部平台对话
+├── archive-actions.ts / history-equality.ts / xml.ts  — 归档动作、等价判断、XML 导出
 └── index.ts           — 统一 API
 ```
 

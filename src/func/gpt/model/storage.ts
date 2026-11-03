@@ -8,7 +8,7 @@
  */
 
 import type { Plugin } from "siyuan";
-import { debounce, deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
+import { confirmDialog, debounce, deepMerge, thisPlugin } from "@frostime/siyuan-plugin-kits";
 import { loadAndCacheCustomScriptTools } from "../tools/custom-program-tools";
 import { 
     defaultModelId, 
@@ -62,7 +62,15 @@ export const applyStoredSettingsToRuntime = async (
     if (!stored) return;
 
     const compatibilityResult = 历史版本兼容(stored, GPT_SETTINGS_FILE);
-    decodeStoredKeyFields(compatibilityResult.data);
+    if (compatibilityResult.privacyMaskRemovalNotice) {
+        confirmDialog({
+            title: '隐私屏蔽功能已移除',
+            content: '出于可维护性的考虑，本版本已移除隐私屏蔽功能。此后发送给模型的消息及上下文不再经过本插件的隐私替换。如果你对隐私问题感到担忧，请采取从源头上更有效的方式，例如设置隐私笔记本，避免在笔记中用明文记录敏感信息。原有隐私配置已保留供参考，但不再生效。',
+            confirm: () => {},
+            cancel: () => {},
+        });
+    }
+    decodeStoredKeyFields(compatibilityResult.data as Record<string, unknown>);
     // merge base 也是密文形态的 snapshot, 必须同样解码:
     // 若 stored 缺失某 key 字段, merge 会保留 base 的值; base 留密文会把密文灌进 runtime 且幂等性使其无法自愈
     const mergeBase = getRuntimeSettingsSnapshot();

@@ -30,6 +30,8 @@ import type { PendingApproval } from '@gpt/tools/types';
 
 // V2 TreeModel
 import { useTreeModel } from './use-tree-model';
+import { stripReplayMetadata } from '@gpt/openai/replay-contract';
+import { buildUserEditedVersion } from './message-lifecycle';
 import type { ITreeSelection } from './subtree-selection';
 
 
@@ -369,22 +371,9 @@ export const useSession = (props: {
         const currentPayload = node.versions[node.currentVersionId];
         if (!currentPayload) return;
 
+        // 同一失效规则：手写正文的新版本不能继承旧 replay，否则旧正文会覆盖编辑结果。
         const newVersionId = Date.now().toString();
-        const newPayload: IMessagePayload = {
-            id: newVersionId,
-            message: {
-                ...currentPayload.message,
-                content: content,
-            },
-            author: 'User',
-            timestamp: Date.now(),
-            // 整组拷贝内容结构字段，避免版本切换退化丢工具调用结构
-            ...(currentPayload.toolChainMessages ? { toolChainMessages: currentPayload.toolChainMessages } : {}),
-            ...(currentPayload.toolChainResult ? { toolChainResult: currentPayload.toolChainResult } : {}),
-            ...(currentPayload.userPromptSlice ? { userPromptSlice: currentPayload.userPromptSlice } : {}),
-        };
-
-        treeModel.addVersion(itemId, newPayload);
+        treeModel.addVersion(itemId, buildUserEditedVersion(currentPayload, content, newVersionId));
     };
 
     /**
@@ -401,17 +390,18 @@ export const useSession = (props: {
         if (!current) return;
         if (!current.toolChainMessages) return;  // 仅 standard cell
 
-        const newMessage: IMessage = {
+        // 编辑正文后丢弃该消息的 replay 元数据（含 legacy 全量副本），否则旧原文仍会替代正文。
+        const newMessage: IMessage = stripReplayMetadata({
             ...current.message,
             content: edits.finalMessageContent,
-        };
+        });
 
         let newToolChainMessages: IMessage[] | undefined = current.toolChainMessages;
         if (edits.intermediateEdits) {
             newToolChainMessages = current.toolChainMessages.map((m, i) => {
                 const edit = edits.intermediateEdits?.[i];
                 if (edit !== undefined && m.role === 'assistant') {
-                    return { ...m, content: edit };
+                    return stripReplayMetadata({ ...m, content: edit });
                 }
                 return m;
             });
@@ -1038,10 +1028,11 @@ export const useSession = (props: {
 
             // V2: 更新当前版本的 message content
             treeModel.updatePayload(nodeId, {
-                message: {
+                // 同上：正文是唯一所有者，编辑后不能让旧 replay 覆盖。
+                message: stripReplayMetadata({
                     ...payload.message,
                     content: newText,
-                },
+                }),
                 userPromptSlice: contextPrompt.length > 0
                     ? [contextPrompt.length, contextPrompt.length + newContent.length]
                     : undefined,

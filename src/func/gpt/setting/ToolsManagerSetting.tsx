@@ -12,11 +12,38 @@ import { toolsManager } from '../model/store';
 import { ExecutionPolicy, ResultApprovalPolicy, toolExecutorFactory } from '../tools';
 import { openIframeDialog } from '@/func/html-pages/core';
 import './ToolsManagerSetting.scss';
+import { nativeMcpState } from '../tools/native-mcp';
 
 /**
  * 工具管理器设置组件
  */
-export const ToolsManagerSetting: Component = () => {
+export const ToolsManagerSetting: Component<{ onRetryNativeMcp?: () => Promise<void> }> = (props) => (
+    <Show when={nativeMcpState().status !== 'loading' && nativeMcpState()} keyed
+        fallback={<div class="b3-card">正在发现思源原生 MCP 工具（最多 5 秒）…</div>}>
+        {state => {
+            let status = '思源原生 MCP：启用 GPT 后发现工具。';
+            if (state.status === 'unavailable') status = `思源原生 MCP 不可用：${state.reason}。其他工具不受影响。`;
+            if (state.status === 'ready') {
+                status = `思源原生 MCP：${state.toolCount} 个可选工具。目录在 GPT 启动或手动重试时加载。`;
+                if (state.skippedTools.length) status += `\n以下工具未纳入：\n${state.skippedTools.join('\n')}`;
+            }
+            return <>
+                <div class="b3-card" style={{ padding: '8px 16px', 'white-space': 'pre-wrap' }}>
+                    {status}
+                    <Show when={state.status === 'unavailable' && props.onRetryNativeMcp}>
+                        <button class="b3-button b3-button--outline" style={{ 'margin-left': '12px' }}
+                            onClick={() => void props.onRetryNativeMcp?.()}>
+                            重试连接
+                        </button>
+                    </Show>
+                </div>
+                <ToolsManagerContent />
+            </>;
+        }}
+    </Show>
+);
+
+const ToolsManagerContent: Component = () => {
     // 创建一个临时的工具执行器，用于获取所有工具组和工具
     const tempExecutor = toolExecutorFactory({});
 
@@ -42,26 +69,26 @@ export const ToolsManagerSetting: Component = () => {
 
     // 切换工具组的启用状态
     const toggleGroupEnabled = (groupName: string) => {
-        const currentEnabled = toolsManager().groupDefaults[groupName] !== false;
+        const currentEnabled = isGroupEnabled(groupName);
 
         toolsManager.update('groupDefaults', groupName, !currentEnabled);
     };
 
     // 切换工具的启用状态
     const toggleToolEnabled = (toolName: string) => {
-        const currentEnabled = toolsManager().toolDefaults[toolName] !== false;
+        const currentEnabled = isToolEnabled(toolName);
 
         toolsManager.update('toolDefaults', toolName, !currentEnabled);
     };
 
     // 检查工具组是否启用
     const isGroupEnabled = (groupName: string) => {
-        return toolsManager().groupDefaults[groupName] ?? false;
+        return toolsManager().groupDefaults[groupName] ?? tempExecutor.isGroupEnabled(groupName);
     };
 
     // 检查工具是否启用
     const isToolEnabled = (toolName: string) => {
-        return toolsManager().toolDefaults[toolName] ?? true;
+        return toolsManager().toolDefaults[toolName] ?? tempExecutor.isToolEnabled(toolName);
     };
 
     // 检查工具是否有权限覆盖配置

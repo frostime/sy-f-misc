@@ -16,9 +16,6 @@ import { UIConfig, defaultModelId, listAvialableModels, useModel } from "../mode
 import Heading from "./Heading";
 import { showMessage } from "siyuan";
 import { SelectInput, TextInput } from "@/libs/components/Elements";
-import { openIframeDialog } from "@/func/html-pages/core";
-import { IPrivacyField } from "../privacy";
-import { confirmDialog } from "@frostime/siyuan-plugin-kits";
 
 
 const ChatSessionSetting = (props: {
@@ -142,22 +139,6 @@ const ChatSessionSetting = (props: {
                         min: 1,
                         max: 20,
                         step: 1
-                    }}
-                />
-            </Form.Wrap>
-            <Form.Wrap
-                title="工具调用模式"
-                description="Standard：工具调用以原生消息序列持久化与回放（符合 OpenAI 标准协议）；Legacy：压缩为单条字符串（旧版本行为，兼容保留）"
-            >
-                <Form.Input
-                    type="select"
-                    value={config().toolCallMode ?? 'standard'}
-                    changed={(v) => {
-                        config.update('toolCallMode', v as 'standard' | 'legacy');
-                    }}
-                    options={{
-                        'standard': 'Standard（原生消息序列）',
-                        'legacy': 'Legacy（压缩字符串）'
                     }}
                 />
             </Form.Wrap>
@@ -334,76 +315,6 @@ const ChatSessionSetting = (props: {
                     />
                 </div>
             </Form.Wrap>
-            <Heading>隐私配置</Heading>
-            <Form.Wrap
-                title="启用隐私屏蔽"
-                description="在发送消息给 LLM 之前自动屏蔽敏感信息，接收回复后自动恢复"
-            >
-                <Form.Input
-                    type="checkbox"
-                    value={config().enablePrivacyMask ?? false}
-                    changed={(v) => {
-                        config.update('enablePrivacyMask', v);
-                    }}
-                />
-            </Form.Wrap>
-            <Form.Wrap
-                title="隐私字段配置"
-                description="配置需要屏蔽的敏感信息规则"
-            >
-                <button
-                    class="b3-button b3-button--outline"
-                    onClick={() => {
-                        const getCSSVar = (name) => (getComputedStyle(document.documentElement)
-                            .getPropertyValue(name)
-                            .trim())
-                        // const colors = (1...13).forEach
-                        const colors = Array.from({ length: 13 }, (_, i) => ([getCSSVar(`--b3-font-background${i + 1}`), getCSSVar(`--b3-font-color${i + 1}`)])
-                        );
-                        // const dialog = solidDialog({
-                        const dialog = openIframeDialog({
-                            title: '配置隐私屏蔽规则',
-                            width: '900px',
-                            height: '800px',
-                            iframeConfig: {
-                                type: 'url',
-                                source: '/plugins/sy-f-misc/pages/chat-privacy-mask.html',
-                                inject: {
-                                    presetSdk: true,
-                                    siyuanCss: true,
-                                    customSdk: {
-                                        getPrivacyFields: () => {
-                                            // 注意一定要 unwrap，不然会传入一个 Proxy
-                                            return structuredClone(config.unwrap().privacyFields) ?? [];
-                                        },
-                                        savePrivacyFields: (fields: IPrivacyField[]) => {
-                                            config.update('privacyFields', fields);
-                                            showMessage('隐私规则已保存', 2000, 'info');
-                                            dialog.close();
-                                        },
-                                        close: () => {
-                                            dialog.close();
-                                        },
-                                        confirm: async (text: string) => {
-                                            return new Promise((resolve, reject) => {
-                                                confirmDialog({
-                                                    title: `确认`,
-                                                    content: text,
-                                                    confirm: () => resolve(true),
-                                                    cancel: () => resolve(false)
-                                                });
-                                            })
-                                        },
-                                        colors
-                                    }
-                                }
-                            }
-                        });
-                    }}
-                >
-                    配置隐私字段
-                </button>
-            </Form.Wrap >
             <Heading>用户对话配置</Heading>
             <Form.Wrap
                 title="输入框字体"

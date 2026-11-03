@@ -1,233 +1,137 @@
 ---
-name: ToolExecutor 与类型系统
-description: Tool/ToolGroup 接口定义、ToolExecutor 注册与 execute() 核心执行流
-updated: 2026-02-22
+name: ToolExecutor 与执行/审批流
+description: ToolExecutor 注册与 execute() 全流速览：类型语义、审批与权限模型、截断、工厂初始化
+updated: 2026-10-31
 scope:
   - /src/func/gpt/tools/types.ts
   - /src/func/gpt/tools/executor.ts
+  - /src/func/gpt/tools/read-rule.ts
+  - /src/func/gpt/tools/approval-ui.tsx
   - /src/func/gpt/tools/index.ts
 deprecated: false
 ---
 
-# ToolExecutor 与类型系统
+# ToolExecutor 与执行/审批流
 
-## 类型系统
+接口定义在 `src/func/gpt/tools/types.ts`（`Tool` / `ToolGroup` / `ToolExecuteResult` / `ToolPermissionV2` / `ApprovalUIAdapter` / `PendingApproval`），本文不复抄，只记录代码表面读不出的语义与流转。
 
-### Tool 接口（`types.ts`）
-
-```typescript
-interface Tool {
-    definition:  IToolDefinition;          // OpenAI function spec
-    permission:  ToolPermissionV2;         // 执行/结果审批策略
-    execute:     (args) => Promise<ToolExecuteResult>;
-
-    // 可选：自定义格式化/截断
-    formatForLLM?:  (data, args) => string;
-    truncateForLLM?: (formatted, args) => string;
-
-    // 可选：控制标志
-    SKIP_EXTERNAL_TRUNCATE?: boolean;      // true → 跳过截断
-    SKIP_CACHE_RESULT?: boolean;           // true → 不缓存到 VarSystem（未启用）
-    DEFAULT_OUTPUT_LIMIT_CHAR?: number;    // 默认截断长度（覆盖全局默认值）
-
-    // 可选：用于工具链日志显示的压缩函数
-    compressArgs?:   (args) => string;
-    compressResult?: (result) => string;
-
-    // 可选：供 LLM 了解返回类型
-    declaredReturnType?: { type: string; note?: string };
-}
-```
-
-**关键字段说明**：
-- `definition.function.name`：工具唯一标识，在 registry 中作为 key
-- `formatForLLM`：将 `result.data` 转为 LLM 可读文本；未定义时用 `JSON.stringify`
-- `truncateForLLM`：对 formatForLLM 的结果进行截断；未定义时用 `truncateContent()`（头尾保留，中间省略）
-- `DEFAULT_OUTPUT_LIMIT_CHAR`：默认 `/src/func/gpt/tools/utils.ts` 中 `DEFAULT_LIMIT_CHAR`
-
-### ToolGroup 接口（`types.ts`）
-
-```typescript
-interface ToolGroup {
-    name: string;
-    tools: Tool[];
-    rulePrompt?: string | ((enabledToolNames: string[]) => string);
-    declareSkillRules?: Record<string, {
-        desc: string;       // 出现在 systemPrompt 中的简短描述
-        prompt: string;     // 完整规则内容，保存到变量系统
-        when?: string;      // 何时使用
-        alwaysLoad?: boolean; // true → 内嵌到 systemPrompt；false → 按需 ReadVar
-    }>;
-}
-```
-
-`rulePrompt` 支持函数形式，接收**当前已启用**的工具名列表，用于动态生成规则提示。
-
-### ToolExecuteResult（`types.ts`）
-
-```typescript
-interface ToolExecuteResult {
-    status: ToolExecuteStatus;  // SUCCESS | ERROR | EXECUTION_REJECTED | RESULT_REJECTED | NOT_FOUND
-    data?: any;                 // execute() 返回的原始数据
-    error?: string;
-    rejectReason?: string;
-
-    // 由 ToolExecutor.execute() 填充
-    formattedText?: string;     // data → formatForLLM()
-    finalText?: string;         // formattedText → truncateForLLM() + 系统提示
-    isTruncated?: boolean;
-    cacheVarResult?: string;    // 结果缓存到变量系统的变量名
-    cacheVarArgs?: string;      // 参数缓存到变量系统的变量名
-    cacheFile?: string;         // 本地文件缓存（当前未启用）
-}
-```
-
-`data → formattedText → finalText`：三阶段数据流，**最终发送给 LLM 的是 `finalText`**。
-
----
-
-## ToolExecutor 类
-
-**位置**：`/src/func/gpt/tools/executor.ts`
-
-### 内部状态
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `registry` | `Record<string, Tool>` | name → Tool 映射 |
-| `groupRegistry` | `Record<string, ToolGroup>` | groupName → ToolGroup 映射 |
-| `enablingStore` | `IStoreRef<{group, tool}>` | SolidJS 响应式 group/tool 启用状态 |
-| `varSystem` | `VariableSystem` | 变量系统（见 [vars.md](./vars.md)） |
-| `vfs` | `VFSManager` | 虚拟文件系统（历史遗留，当前为空实现） |
-| `varToolNames` | `Set<string>` | vars 工具名集合（execute 中用于跳过缓存） |
-| `approvalRecords` | `Record<string, Decision>` | ask-once 策略的历史记录 |
-| `executionApprovalCallback` | `UserApprovalCallback` | 执行前审批回调 |
-| `resultApprovalCallback` | `ResultApprovalCallback` | 结果审批回调 |
-
-### 注册流程
+## 数据流三阶段
 
 ```
-registerToolGroup(group)
-  ├── group.tools.forEach → registerTool(tool)
-  │     └── registry[name] = tool
-  │         enablingStore.update('tool', name, true)   // 工具默认启用
-  ├── groupRegistry[group.name] = group
-  ├── enablingStore.update('group', name, false)       // 工具组默认禁用
-  └── group.declareSkillRules → registerSkillRules()
-        └── varSystem.addVariable(Rule/{group}/{name}, rule.prompt, 'RULE')
+result.data  →  formatForLLM() → formattedText  →  截断 → finalText
 ```
 
-**注意**：工具组注册后默认**禁用**。需通过 `toggleGroupEnabled(name, true)` 或 `toolExecutorFactory` 中的 `groupDefaults` 启用。
+最终发给 LLM 的只有 `finalText`。`formattedText` 只存在于本次调用的返回值里；审批 UI 与 `toolChainResult` 都只保留 `finalText`，所以被截断的部分没有变量、缓存或文件可以取回。
 
-### enabled 状态 API
+`formatForLLM` 未定义时用 `JSON.stringify`；`truncateForLLM` 未定义时用全局 `truncateContent()`（`utils.ts`，只保留开头）。
 
-```typescript
-isGroupEnabled(name: string): boolean
-toggleGroupEnabled(name: string, enabled?: boolean): void
-isToolEnabled(name: string): boolean
-setToolEnabled(name: string, enabled: boolean): void
-getEnabledToolDefinitions(): IToolDefinition[]  // 供 LLM API 使用，自动注入 ReadVar/ListVars
+### 截断决策顺序
+
+1. `SKIP_EXTERNAL_TRUNCATE = true` → 不截断（`read-rule` 正文完整返回）；
+2. 工具自定义 `truncateForLLM` → 优先，由工具自己解释 `args.limit` / `args.begin`。脚本组用 `truncateMiddle()` 保留首尾（否则先丢 stderr）；`FetchWebPage`/`ExtractHTML`/Tavily/Bocha 使用各自的字符或分页逻辑；
+3. 否则上限取 `DEFAULT_OUTPUT_LIMIT_CHAR || DEFAULT_LIMIT_CHAR`（32K），`truncateContent()` 只保留开头；
+4. `limit` 不是隐藏通用参数：只有工具 schema 声明了 `limit`，`args.limit` 才作为字符上限生效（0 或负数 = 不限）；未声明时它只是普通入参。
+
+## ToolExecutor 内部状态
+
+| 字段 | 说明 |
+|------|------|
+| `registry` | name → Tool（含内部工具 `read-rule`） |
+| `groupRegistry` | groupName → ToolGroup |
+| `enablingStore` | 响应式 group/tool 启用状态 |
+| `approvalRecords` | ask-once 决策记录（key = toolName + args hash） |
+| 两个审批回调 | 分别代理到 ApprovalUIAdapter 的执行前/结果审批 |
+
+工具执行器不持有会话级结果缓存或文档存储。
+
+## 注册与启用语义
+
+```
+constructor          → 注册内部工具 read-rule
+registerToolGroup    → 逐个注册组内工具 + 收录组定义
+                       组默认禁用；组内工具以 group.defaultToolEnabled ?? true 为初始选中
+toolExecutorFactory  → 按 toolsManager().groupDefaults / toolDefaults 应用用户设置
 ```
 
-`getEnabledToolDefinitions()`：当有任何工具组启用时，自动将 `ReadVar` / `ListVars` 注入返回列表（即使 vars 组未显式启用）。
+两条刻意保留的语义（不是待修缺陷）：
 
-### toolRules() 生成 System Prompt
+- **启用状态只决定提供给模型的定义**。`execute()` 按名称查 `registry`，不校验组/工具是否启用——"工具开关仅过滤定义，按名仍可执行"。
+- `declareSkillRules` 不需要注册动作：索引在 `toolRules()` 由组定义直接生成，正文由 `read-rule` 调用时查找。
 
-```
-toolRules()
-  ├── 基础规范（禁止伪造日志、VAR 机制说明）
-  └── 对每个 enabled group:
-        resolveGroupRulePrompt(groupName)
-          ├── 调用 rulePrompt（字符串或函数）
-          └── 拼接 generateSkillRuleIndex()（alwaysLoad 直接内嵌 / 其余生成表格）
-```
+`getEnabledToolDefinitions()` 收集启用定义后，若存在"已启用组 + 组内有启用工具 + 组有 `alwaysLoad` 为假的规则"，追加注入 `read-rule` 定义。理由见 [rules.md](./rules.md)。
 
----
+`toolRules()` 生成 system prompt 片段：每个已启用组 = 其 `rulePrompt`（字符串或接收启用工具名的函数）+ 该组规则索引渲染；两者都为空才跳过。
 
-## execute() 执行流
+## execute() 全流
 
 ```mermaid
 sequenceDiagram
     participant Chain as ToolChain
     participant Exec as ToolExecutor
-    participant VarSys as VariableSystem
-    participant ApprovalUI
+    participant UI as ApprovalUIAdapter
 
-    Chain->>Exec: execute(name, args)
-    Exec->>Exec: resolveVarReferences(args)<br>解析 $VAR_REF{{}} 语法
+    Chain->>Exec: execute(name, args, {skipResultApproval})
     alt executionPolicy != 'auto'
-        Exec->>ApprovalUI: showToolExecutionApproval()
-        ApprovalUI-->>Exec: {approved, rejectReason}
-        alt rejected
-            Exec-->>Chain: {status: EXECUTION_REJECTED}
+        Exec->>UI: showToolExecutionApproval(name, desc, args, def)
+        UI-->>Exec: {approved, persistDecision?, rejectReason?}
+        alt rejected → 返回 {status: EXECUTION_REJECTED}
         end
     end
     Exec->>Exec: tool.execute(args)
-    alt execute 失败
-        Exec-->>Chain: {status: ERROR, finalText: error}
-    end
-    Note over Exec: 格式化
-    Exec->>Exec: formatForLLM(result.data) → formattedText
-    Note over Exec: 截断
-    Exec->>Exec: truncateForLLM(formattedText) → finalText
-    Note over Exec: 缓存（非 var 工具）
-    Exec->>VarSys: addVariable(name_result, formatted, 'ToolCallResult')
-    Exec->>VarSys: addVariable(name_args, argsJson, 'ToolCallArgs')
-    Exec->>Exec: finalText += sysHint (截断提示 + VAR_REF 引用)
-    alt resultApprovalPolicy != 'never'
-        Exec->>ApprovalUI: showToolResultApproval()
-        ApprovalUI-->>Exec: {approved, rejectReason}
-        alt rejected
-            Exec-->>Chain: {status: RESULT_REJECTED}
+    alt 抛错或返回非 SUCCESS
+        Note over Exec: 提前返回 {status: ERROR, finalText: error}，<br/>不进入结果审批（已知缺陷，见下）
+    else SUCCESS
+        Exec->>Exec: format → truncate
+        alt resultPolicy != 'never' 且未 skipResultApproval
+            Exec->>UI: showToolResultApproval(name, args, result)
+            UI-->>Exec: {approved, rejectReason?}
+            alt rejected → {status: RESULT_REJECTED}
+            end
         end
     end
-    Exec-->>Chain: ToolExecuteResult (with finalText)
+    Exec-->>Chain: ToolExecuteResult(finalText)
 ```
 
-### 截断逻辑细节
+**审批策略**（`getEffectivePermissionConfig()`：`override > tool.permission`）：
 
-1. `SKIP_EXTERNAL_TRUNCATE = true` → 跳过所有截断
-2. `tool.truncateForLLM` 存在 → 使用工具自定义截断（可读取 `args.limit` / `args.begin`）
-3. 否则使用 `truncateContent(formatted, limit)`（默认头尾各保留部分，中间省略）
-4. `args.limit = 0 或 -1` → 不截断（发送完整内容）
+| executionPolicy | 行为 |
+|---|---|
+| `auto` | 不询问 |
+| `ask-once` | 首次询问，按 `generateApprovalKey(name, args)` 缓存决策记录 |
+| `ask-always` | 每次询问 |
 
-### 变量缓存逻辑
+| resultApprovalPolicy | 行为 |
+|---|---|
+| `never` | 直接发送 |
+| `on-error` | **ERROR → 审批**；SUCCESS 直接发送（但对错误结果当前到不了审批，见"已知缺陷"） |
+| `always` | 先审批后发送 |
 
-- **vars 工具组自身**（`varToolNames`）不触发缓存，避免递归
-- 其他所有工具：结果缓存为 `{toolName}_{nodeId}_result`，参数缓存为 `{toolName}_{nodeId}_args`
-- 无论是否截断都进行缓存；truncated 时在 `finalText` 末尾附加截断提示 + `$VAR_REF{{...}}` 引用
+旧格式 `ToolPermission`（permissionLevel/requireExecutionApproval/requireResultApproval）仍向后兼容，映射在 `getEffectivePermissionConfig()` 内；用户运行时覆盖写 `toolsManager().toolPermissionOverrides[toolName]`。
 
----
+## 权限审批 UI
+
+`ApprovalUIAdapter` 有两个实现（`approval-ui.tsx`），输入输出合同一致（`Promise<{approved, rejectReason}>`，执行审批多一个 `persistDecision`）：
+
+- **DefaultUIAdapter**：`solidDialog` 阻塞弹窗，用于非 Chat 或回退场景；高危工具走 `toolCallSafetyReview()` 附加警告。
+- **InlineApprovalAdapter**：ChatSession 内联卡片。`showToolXxxApproval()` 返回不 resolve 的 Promise，把带 `resolve` 引用的 `PendingApproval` 推入 `pendingApprovals` store；UI 渲染卡片，用户操作后调用 `item.resolve()` 放行。Promise 不与停止信号联动（放弃等待需结合 [停止行为](./toolchain.md)）。
+
+## 已知缺陷（登记在 .dev/issues/ 的路径）
+
+**错误结果绕过结果审批**：`execute()` 对非 SUCCESS 提前返回，`on-error` 配置实际不会对错误结果触发审批；抛异常路径同样不进入审批。分析与修复边界见 [.dev/issues/26-10-31_gpt-error-result-approval.md](../../issues/26-10-31_gpt-error-result-approval.md)。
 
 ## toolExecutorFactory（`index.ts`）
 
-工厂函数，每个 ChatSession 调用一次：
+每个 ChatSession 调用一次，实例间不共享启用状态/审批记录/规则：
 
-```typescript
+```
 toolExecutorFactory({ approvalAdapter? })
-  1. new ToolExecutor({})                         // 创建实例（内部已注册 vars 工具组）
-  2. registerToolGroup(basicTool)
-  3. registerToolGroup(toolGroupWeb)
-  4. registerToolGroup(createFileSystemToolGroup())
-  5. IS_IN_APP && registerToolGroup(scriptTools)   // 仅桌面端
-  6. registerToolGroup(siyuanTool)
-  7. IS_IN_APP:
-       createCustomScriptToolGroupsFromCache()
-       → 对每组调用 registerToolGroup()
-       → 如果 groupDefaults 有记录，应用启用状态
-  8. 绑定 executionApprovalCallback               // 代理到 approvalAdapter
-  9. 绑定 resultApprovalCallback                  // 代理到 approvalAdapter
-  10. 应用 toolsManager().groupDefaults → toggleGroupEnabled
-  11. 应用 toolsManager().toolDefaults → setToolEnabled
-  return toolExecutor
+  1–6. 注册 basic / web / file-system / script(仅桌面) / siyuan 各组
+  7.   IS_IN_APP: createCustomScriptToolGroupsFromCache() 注册自定义工具组
+  8–9. executionApprovalCallback / resultApprovalCallback 代理到 approvalAdapter
+  10–11. 应用 toolsManager().groupDefaults → toggleGroupEnabled
+         应用 toolsManager().toolDefaults → setToolEnabled
 ```
 
-**集成点**（`use-chat-session.ts`）：
+Chat 集成侧（`use-chat-session.ts`）每会话创建一个 `InlineApprovalAdapter` + 一个 executor。
 
-```typescript
-const pendingApprovals = useStoreRef<PendingApproval[]>([]);
-const inlineApprovalAdapter = new InlineApprovalAdapter(pendingApprovals, newID);
-const toolExecutor = toolExecutorFactory({ approvalAdapter: inlineApprovalAdapter });
-```
-
-每个 ChatSession 独立拥有一个 `ToolExecutor` 实例（含独立 `VariableSystem`）。
+自定义脚本组的解析与加载机制见 [custom-tools.md](./custom-tools.md)；工具循环在 [toolchain.md](./toolchain.md)。
