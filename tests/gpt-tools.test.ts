@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test, { beforeEach } from 'node:test';
 import { createRoot } from 'solid-js';
 import { ToolExecutor } from '../src/func/gpt/tools/executor';
+import { DEFAULT_LIMIT_CHAR, truncateMiddle } from '../src/func/gpt/tools/utils';
 import { ToolExecuteStatus, type Tool, type ToolGroup } from '../src/func/gpt/tools/types';
 import { executeToolChain } from '../src/func/gpt/tools/toolchain';
 import { toolsManager } from '../src/func/gpt/model/config';
@@ -111,14 +113,55 @@ test('disabled tools remain callable by name and old variable syntax is passed a
     assert.equal('cacheVarArgs' in result, false);
 });
 
-test('output limiting is retained without appending cache instructions or system logs', async () => {
+test('an undeclared limit is an ordinary argument, and the default cap is 32K', async () => {
     const executor = makeExecutor();
     const value = 'abcdefghij';
-    const limited = await executor.execute('lookup', { value, limit: 4 });
-    assert.equal(limited.formattedText, value);
-    assert.equal(limited.isTruncated, true);
-    assert.equal(limited.finalText, 'abcd\n\n...输出过长，省略后 6 个字符...');
+    // `limit` 未在 schema 声明：只是普通入参，不能触发截断
+    const undeclared = await executor.execute('lookup', { value, limit: 4 });
+    assert.equal(undeclared.isTruncated, false);
+    assert.equal(undeclared.finalText, value);
+
+    const big = 'x'.repeat(DEFAULT_LIMIT_CHAR + 10);
+    const truncated = await executor.execute('lookup', { value: big });
+    assert.equal(truncated.formattedText, big);
+    assert.equal(truncated.isTruncated, true);
+    assert.match(truncated.finalText, /^x{10}/);
+    assert.match(truncated.finalText, new RegExp(`省略后 10 个字符`));
+    assert.doesNotMatch(truncated.finalText, /system log|VAR_REF|ReadVar/);
+});
+
+test('a declared limit is honored and zero still means unlimited', async () => {
+    const tool = makeTool();
+    (tool.definition.function.parameters as any).properties = {
+        value: { type: 'string' },
+        limit: { type: 'number' }
+    };
+    const executor = makeExecutor(tool);
+    const value = 'abcdefghij';
+    assert.equal(
+        (await executor.execute('lookup', { value, limit: 4 })).finalText,
+        'abcd\n\n...输出过长，省略后 6 个字符...'
+    );
     assert.equal((await executor.execute('lookup', { value, limit: 0 })).finalText, value);
+    assert.equal((await executor.execute('lookup', { value, limit: -1 })).finalText, value);
+});
+
+test('middle truncation keeps the tail so script stderr survives', () => {
+    const output = `[stdout]\n${'a'.repeat(400)}\n\n[stderr]\n${'b'.repeat(400)}`;
+    const result = truncateMiddle(output, 200);
+    assert.equal(result.isTruncated, true);
+    assert.match(result.content, /^\[stdout\]/);
+    assert.match(result.content, /中间省略 \d+ 个字符/);
+    assert.equal(result.content.endsWith('b'.repeat(100)), true);
+    assert.equal(result.omittedLength, output.length - 200);
+    assert.equal(truncateMiddle('short', 200).isTruncated, false);
+});
+
+test('every script tool declares limit and uses middle truncation', () => {
+    const source = readFileSync('src/func/gpt/tools/script-tools.ts', 'utf8');
+    assert.equal((source.match(/truncateForLLM: scriptTruncateForLLM/g) ?? []).length, 3);
+    assert.equal((source.match(/limit: \{/g) ?? []).length, 3);
+    assert.match(source, /truncateMiddle/);
 });
 
 test('rejected results stay out of model messages and cannot be recovered through the rule reader', async () => {

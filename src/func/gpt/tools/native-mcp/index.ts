@@ -43,7 +43,7 @@ export const initializeNativeMcp = async (lifetime: AbortSignal): Promise<void> 
             name: NATIVE_MCP_GROUP_NAME,
             defaultToolEnabled: false,
             tools,
-            rulePrompt: `这些工具来自当前思源宿主的 MCP。原生名称 t 对应 ${TOOL_PREFIX}t（如 system 对应 ${TOOL_PREFIX}system）。原生技能正文中的工具原名按此对应；本插件不提供原生 Agent 会话或技能工作流授权。原生工具的 limit 按各自参数定义控制条数/行数，不是输出字符上限。`,
+            rulePrompt: `这些工具来自当前思源宿主的 MCP：原生名 \`system\` 在这里注册为 \`${TOOL_PREFIX}system\`，原生技能正文中的工具原名按此前缀对应。本插件只提供工具调用，不提供原生 Agent 会话或原生技能工作流。`,
         };
         startupState({ status: 'ready', toolCount: tools.length, skippedTools });
     } catch (error) {

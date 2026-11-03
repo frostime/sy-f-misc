@@ -50,7 +50,7 @@ export const formatArraysToToon = (items: object[], prefix: string = '') => {
 };
 
 
-export const DEFAULT_LIMIT_CHAR = 8000;
+export const DEFAULT_LIMIT_CHAR = 32 * 1024;
 
 /**
  * 标准化输出长度限制
@@ -82,7 +82,8 @@ export interface TruncateResult {
 }
 
 /**
- * 截断内容（头尾模式）
+ * 截断内容（只保留开头）
+ * 适合"越靠前越重要"的列表类结果（搜索结果、查询结果）。
  * @param content 原始内容
  * @param maxLength 最大长度限制
  * @returns 截断结果
@@ -103,6 +104,39 @@ export const truncateContent = (content: string, maxLength: number): TruncateRes
 
     return {
         content: `${head}\n\n...输出过长，省略后 ${omitted} 个字符...`,
+        isTruncated: true,
+        originalLength: content.length,
+        shownLength: maxLength,
+        omittedLength: omitted
+    };
+};
+
+/**
+ * 截断内容（保留首尾，省略中间）
+ * 适合日志与脚本输出：结尾通常是最终结果和 stderr，不能只留开头。
+ * @param content 原始内容
+ * @param maxLength 最大长度限制（首尾合计）
+ * @returns 截断结果
+ */
+export const truncateMiddle = (content: string, maxLength: number): TruncateResult => {
+    if (!Number.isFinite(maxLength) || maxLength <= 0 || content.length <= maxLength) {
+        return {
+            content,
+            isTruncated: false,
+            originalLength: content.length,
+            shownLength: content.length,
+            omittedLength: 0
+        };
+    }
+
+    const headLength = Math.floor(maxLength / 2);
+    const tailLength = maxLength - headLength;
+    const head = content.slice(0, headLength);
+    const tail = content.slice(content.length - tailLength);
+    const omitted = content.length - maxLength;
+
+    return {
+        content: `${head}\n\n...输出过长，中间省略 ${omitted} 个字符...\n\n${tail}`,
         isTruncated: true,
         originalLength: content.length,
         shownLength: maxLength,

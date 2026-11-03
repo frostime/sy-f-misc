@@ -393,7 +393,6 @@
                                 <span class="badge badge-info" x-text="currentResult.status.toUpperCase()"></span>
                             </template>
                             <span x-show="currentResult?.isTruncated" class="badge badge-warning">TRUNCATED</span>
-                            <span x-show="currentResult?.cacheFile" class="badge badge-info">CACHED</span>
                             <span class="badge" x-text="'Chars: ' + getDisplayResult().length"></span>
                         </div>
                         <div class="code-block text-sm" x-text="getDisplayResult()"></div>

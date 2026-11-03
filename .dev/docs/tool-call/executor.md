@@ -21,16 +21,16 @@ deprecated: false
 result.data  →  formatForLLM() → formattedText  →  截断 → finalText
 ```
 
-最终发给 LLM 的只有 `finalText`。截断只是本次发送内容变短，完整 `formattedText` 仍在返回值里，不另存为可再读取的引用。结果没有任何变量或缓存字段。
+最终发给 LLM 的只有 `finalText`。`formattedText` 只存在于本次调用的返回值里；审批 UI 与 `toolChainResult` 都只保留 `finalText`，所以被截断的部分没有变量、缓存或文件可以取回。
 
-`formatForLLM` 未定义时用 `JSON.stringify`；`truncateForLLM` 未定义时用全局 `truncateContent()`（`utils.ts`，头尾保留、中间省略）。
+`formatForLLM` 未定义时用 `JSON.stringify`；`truncateForLLM` 未定义时用全局 `truncateContent()`（`utils.ts`，只保留开头）。
 
 ### 截断决策顺序
 
 1. `SKIP_EXTERNAL_TRUNCATE = true` → 不截断（`read-rule` 正文完整返回）；
-2. 工具自定义 `truncateForLLM` → 优先（可读取 `args.limit` / `args.begin`）；
-3. 否则 `truncateContent(formatted, limit)`；
-4. `args.limit = 0` 或 `-1` → 发送完整内容。
+2. 工具自定义 `truncateForLLM` → 优先，由工具自己解释 `args.limit` / `args.begin`。脚本组用 `truncateMiddle()` 保留首尾（否则先丢 stderr）；`FetchWebPage`/`ExtractHTML`/Tavily/Bocha 使用各自的字符或分页逻辑；
+3. 否则上限取 `DEFAULT_OUTPUT_LIMIT_CHAR || DEFAULT_LIMIT_CHAR`（32K），`truncateContent()` 只保留开头；
+4. `limit` 不是隐藏通用参数：只有工具 schema 声明了 `limit`，`args.limit` 才作为字符上限生效（0 或负数 = 不限）；未声明时它只是普通入参。
 
 ## ToolExecutor 内部状态
 

@@ -92,9 +92,8 @@ ${finalContent}
         let prompt = `
 <tool-rules>
 
-- 工具执行或结果发送可能需要用户批准。用户拒绝时，参考其原因调整方案。
-- 普通工具输出可通过 \`limit\` 限制字符数；0 或负数表示不限。输出截断后，使用工具的分页/范围参数重新读取来源，没有额外的结果变量缓存。
-- 各工具组列出专用规则文档。涉及其领域约定或自定义语法时，先用 \`read-rule({"name": "<规则完整名称>"})\` 阅读对应文档。
+- 工具执行或结果发送可能需要用户批准；被拒绝时按用户给出的原因调整方案。
+- 工具输出过长会被截断；需要更多内容时从来源重新读取，使用该工具参数说明中给出的分页或范围参数。
 
 </tool-rules>`;
 
@@ -669,11 +668,13 @@ ${finalContent}
             isTruncated = finalForLLM.length < originalLength;
         } else {
             let limit = tool.DEFAULT_OUTPUT_LIMIT_CHAR || DEFAULT_LIMIT_CHAR;
-            if (args.limit !== undefined) {
-                // 0 意味着不截断
+            // `limit` 不是隐藏通用参数：只有工具 schema 显式声明时才作为字符上限生效
+            const declaresLimit = tool.definition.function.parameters?.properties?.limit !== undefined;
+            if (declaresLimit && args.limit !== undefined) {
+                // 0 或负数意味着不截断
                 limit = args.limit <= 0 ? Number.POSITIVE_INFINITY : args.limit;
             }
-            // 使用默认的头尾截断
+            // 默认只保留开头；日志类工具应使用 truncateForLLM 保留首尾
             const truncResult = truncateContent(formatted, limit);
             finalForLLM = truncResult.content;
             isTruncated = truncResult.isTruncated;
@@ -693,7 +694,6 @@ ${finalContent}
                     status: ToolExecuteStatus.RESULT_REJECTED,
                     data: result.data,  // 保留原始数据，以便调用者可以访问
                     formattedText: result.formattedText,
-                    cacheFile: result.cacheFile,
                     isTruncated: result.isTruncated,
                     error: 'Result not approved for LLM',
                     rejectReason: approval.rejectReason

@@ -3,13 +3,13 @@ import { Tool, ToolExecuteStatus, ToolGroup } from './types';
 export const formatRuleName = (groupName: string, ruleName: string): string =>
     `Rule/${groupName}/${ruleName}`;
 
-/** Rule 文档来自工具组定义，不进入可写变量或会话级缓存。 */
+/** Rule 文档的唯一来源是工具组定义；读取没有副作用。 */
 export const createReadRuleTool = (getGroups: () => ToolGroup[]): Tool => ({
     definition: {
         type: 'function',
         function: {
             name: 'read-rule',
-            description: '读取工具组索引中列出的规则文档。仅提供只读文档，不读取临时变量或历史工具结果。',
+            description: '读取工具组索引中列出的规则文档（只读）。',
             parameters: {
                 type: 'object',
                 properties: {

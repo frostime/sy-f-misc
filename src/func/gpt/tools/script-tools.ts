@@ -1,6 +1,6 @@
 // src/func/gpt/tools/script-tools.ts
 import { Tool, ToolExecuteResult, ToolExecuteStatus, ToolGroup } from "./types";
-import { DEFAULT_LIMIT_CHAR } from './utils';
+import { DEFAULT_LIMIT_CHAR, normalizeLimit, truncateMiddle } from './utils';
 import {
     execScript,
     execPython,
@@ -17,6 +17,15 @@ const path: typeof import('path') = window?.require?.('path');
 const formatOutput = (result: ExecResult): string => {
     return `[stdout]\n${result.stdout}\n\n[stderr]\n${result.stderr}`;
 };
+
+/**
+ * 脚本输出保留首尾：结尾是 stderr 与最终结果，只留开头会先丢掉最需要的信息。
+ */
+const scriptTruncateForLLM = (formatted: string, args: Record<string, any>): string =>
+    truncateMiddle(formatted, normalizeLimit(args.limit)).content;
+
+const LIMIT_PARAM_DESCRIPTION =
+    `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制；超出时保留首尾，省略中间`;
 
 /**
  * Shell command execution tool
@@ -44,7 +53,7 @@ const shellTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
+                        description: LIMIT_PARAM_DESCRIPTION
                     }
                 },
                 required: ['command']
@@ -56,6 +65,8 @@ const shellTool: Tool = {
         executionPolicy: 'auto',
         resultApprovalPolicy: 'always'
     },
+
+    truncateForLLM: scriptTruncateForLLM,
 
     execute: async (args: { command: string; directory?: string; injectVar?: Record<string, string | number | boolean>; limit?: number }): Promise<ToolExecuteResult> => {
         try {
@@ -124,7 +135,7 @@ const pythonTool: Tool = {
                     },
                     limit: {
                         type: 'number',
-                        description: `限制返回的最大字符数，默认为 ${DEFAULT_LIMIT_CHAR}，传入 <= 0 表示不限制`
+                        description: LIMIT_PARAM_DESCRIPTION
                     }
                 },
                 required: ['code']
@@ -136,6 +147,8 @@ const pythonTool: Tool = {
         executionPolicy: 'auto',
         resultApprovalPolicy: 'always'
     },
+
+    truncateForLLM: scriptTruncateForLLM,
 
     execute: async (args: { code: string; directory?: string; injectVar?: Record<string, string | number | boolean>; keepFile?: boolean; limit?: number }): Promise<ToolExecuteResult> => {
         try {
@@ -203,6 +216,10 @@ const javascriptTool: Tool = {
                     injectVar: {
                         type: 'object',
                         description: '注入变量到 JavaScript 环境。变量会被解析为 JS 对象，并在代码开头通过 const 声明，可直接按变量名使用'
+                    },
+                    limit: {
+                        type: 'number',
+                        description: LIMIT_PARAM_DESCRIPTION
                     }
                 },
                 required: ['code']
@@ -214,6 +231,8 @@ const javascriptTool: Tool = {
         executionPolicy: 'auto',
         resultApprovalPolicy: 'always'
     },
+
+    truncateForLLM: scriptTruncateForLLM,
 
     execute: async (args: { code: string; injectVar?: Record<string, string | number | boolean> }): Promise<ToolExecuteResult> => {
         let sandboxInstance = null;
@@ -281,4 +300,5 @@ const javascriptTool: Tool = {
 export const scriptTools: ToolGroup = {
     name: '脚本执行工具组',
     tools: [shellTool, pythonTool, javascriptTool],
+    rulePrompt: '输出被截断时中间部分不可找回；需要完整输出时让脚本写入文件或分段打印。',
 };

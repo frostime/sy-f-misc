@@ -84,10 +84,6 @@ export interface ToolExecuteResult {
     formattedText?: string;
     // 最终发送给 LLM 的文本 ( data --> format --> truncate)
     finalText?: string;
-
-    // 缓存文件路径（原始数据保存位置）
-    cacheFile?: string;
-
 }
 
 /**

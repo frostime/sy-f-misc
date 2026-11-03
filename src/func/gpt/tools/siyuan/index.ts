@@ -97,7 +97,6 @@ export const siyuanTool = {
 - 用户提及文档但未给 ID：先 listActiveDocs 看当前打开的文档，否则用 searchDocument / searchKeyword
 - 分析长文档结构：getBlockInfo(docId) 取 TOC，定位 blockId 后再 getBlockContent(blockId, showId=true)
 - 分页阅读长文档/容器：用 getBlockContent 的 slice 参数，语法见 \`read-rule({"name": "Rule/siyuan-tools/slice-reading"})\`
-- 需要了解更多领域约定时，用 \`read-rule\` 读取下方索引中的 Rule
 `.trim(),
     declareSkillRules: siyuanSkillRules
 };
