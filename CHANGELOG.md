@@ -5,10 +5,19 @@
 
 ## [Unreleased]
 
+## [7.18.1] - 2026-11-04
+
+### Added
+
+- GPT 设置的 Provider 配置移到第二个标签页，排在「Prompt 模板」之前。
+- Provider 编辑弹窗新增「测试连接」：用第一个启用的 chat 模型发起一次最小对话请求，显示耗时与模型名；失败时可在弹窗中查看完整错误并复制。
+- Provider 列表支持一键复制/粘贴：复制内容包含完整配置与 API Key（剪贴板中以混淆形式保存），粘贴后的副本命名为 `<原名>(Paste)`，重名时自动递增序号。
+
 ### Changed
 
 - 设置窗口底色与面板内部统一，并去掉内容区外层留白；模块分组框线和分区标题改用中性色，不再使用蓝色边框与虚线。
 - GPT 设置面板去掉多余的横向内边距，标签栏与内容左右对齐；面板内单行输入框宽度上限从 240px 放宽到 360px，长模型名和 API Key 不再显示不全。
+- Provider 编辑弹窗合并为左右两栏：左栏 Provider 配置（保留 Base URL 的「当前方案」实时预览），右栏模型列表与选中模型配置；选中项在列表中高亮、配置区标题标明正在编辑的模型，打开弹窗时默认选中第一个模型。去掉标签页，字号与缩放保持原样，弹窗改为贴边显示。
 
 ### Fixed
 
@@ -325,7 +334,8 @@
 
 _7.8.0 之前的版本记录请参考 git log。_
 
-[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.18.0...HEAD
+[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.18.1...HEAD
+[7.18.1]: https://github.com/frostime/sy-f-misc/compare/v7.18.0...v7.18.1
 [7.18.0]: https://github.com/frostime/sy-f-misc/compare/v7.17.1...v7.18.0
 [7.17.1]: https://github.com/frostime/sy-f-misc/compare/v7.17.0...v7.17.1
 [7.14.1]: https://github.com/frostime/sy-f-misc/compare/v7.14.0...v7.14.1
