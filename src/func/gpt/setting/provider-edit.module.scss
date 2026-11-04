@@ -1,0 +1,174 @@
+/*
+ * Provider 编辑弹窗：左右两栏布局。
+ *
+ * 故意只作用于这个弹窗：Form.Wrap / .b3-label 是全局共享样式，
+ * 直接改会影响“启用功能”“对话设置”“工具”等其它面板。
+ *
+ * 这里只收紧行内边距与布局，不改字号：文案密度靠两栏摆放解决。
+ */
+.root {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--b3-theme-background);
+    /* 与改造前保持一致的显示比例，避免整个弹窗看起来变小 */
+    zoom: 1.1;
+
+    /* SiYuan 默认 .b3-label 是 16px 24px；只收紧纵向，横向与分区标题的 24px 对齐 */
+    :global(.b3-label.config__item) {
+        padding: 10px 24px;
+    }
+}
+
+.body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.paneLeft {
+    flex: 0 0 520px;
+    width: 520px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    /* 分栏线用比行分隔线更深的颜色，避免两栏糊在一起 */
+    border-right: 1px solid var(--b3-theme-on-surface-lighter);
+}
+
+.paneRight {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.paneHeader {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--b3-border-color);
+    color: var(--b3-theme-on-surface);
+}
+
+.paneHeaderTitle {
+    font-weight: 600;
+    color: var(--b3-theme-primary);
+    font-size: 14px;
+}
+
+.spacer {
+    flex: 1;
+}
+
+.paneScroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.modelsListWrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 选中模型后列表让出下半部分，配置区固定占 60% */
+.modelsListWrapSelected {
+    flex: 0 0 40%;
+}
+
+.modelsListScroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.modelConfig {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--b3-theme-on-surface-lighter);
+}
+
+.footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 8px 20px;
+    border-top: 1px solid var(--b3-theme-on-surface-lighter);
+}
+
+.testStatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--b3-theme-on-surface);
+}
+
+.testStatusOk {
+    color: var(--b3-theme-success);
+}
+
+.testStatusErr {
+    color: var(--b3-theme-error);
+}
+
+.testStatusClickable {
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
+.testStatusModel {
+    color: var(--b3-theme-on-surface);
+}
+
+.testButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid var(--b3-border-color);
+    border-radius: var(--b3-border-radius);
+    background-color: var(--b3-theme-background);
+    color: var(--b3-theme-on-background);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.testButton:hover:not(:disabled) {
+    border-color: var(--b3-theme-primary);
+    color: var(--b3-theme-primary);
+}
+
+.testButton:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--b3-border-color);
+    border-top-color: var(--b3-theme-primary);
+    border-radius: 50%;
+    animation: providerTestSpin 0.7s linear infinite;
+}
+
+@keyframes providerTestSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}

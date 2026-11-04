@@ -21,6 +21,11 @@ export const solidDialog = (args: {
     width?: string, height?: string,
     maxWidth?: string,
     maxHeight?: string,
+    /**
+     * 面板贴边：把 dialog 底色改成 --b3-theme-background 并去掉内容区默认内边距。
+     * 面板自带内边距时使用，否则会在面板外露出一圈灰色边框。
+     */
+    flush?: boolean,
     callback?: () => void;
 }) => {
     if (args.maxHeight === undefined) {
@@ -29,12 +34,20 @@ export const solidDialog = (args: {
     let container = document.createElement('div')
     container.style.display = 'contents';
     let disposer = render(args.loader, container);
-    return simpleDialog({
-        ...args, ele: container, callback: () => {
+    const { flush, ...dialogArgs } = args;
+    const dialog = simpleDialog({
+        ...dialogArgs, ele: container, callback: () => {
             disposer();
             if (args.callback) args.callback();;
         }
     });
+
+    if (flush) {
+        dialog.container.style.backgroundColor = 'var(--b3-theme-background)';
+        dialog.container.querySelector<HTMLElement>('.b3-dialog__content')?.style.setProperty('padding', '0');
+    }
+
+    return dialog;
 }
 
 export const simpleFormDialog = (options: {

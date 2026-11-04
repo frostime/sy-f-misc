@@ -100,6 +100,8 @@ export const initSetting = async (plugin: FMiscPlugin) => {
             title: "F-Misc 设置",
             width: "1200px",
             height: "700px",
+            // 设置面板自带内边距，贴边显示避免外层露出 dialog 默认底色
+            flush: true,
             loader: () => Settings({
                 GroupEnabled: Enable,
                 GroupMisc: Misc,

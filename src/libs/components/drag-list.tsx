@@ -234,6 +234,12 @@ export interface BasicDraggableListProps<T extends BasicListItem = BasicListItem
     /** 在操作按钮前渲染额外元素 */
     renderActions?: (item: T) => JSX.Element;
 
+    // 选中态
+    /** 点击条目（不含内部按钮）时触发，可用于切换右侧详情面板 */
+    onItemClick?: (item: T) => void;
+    /** 该条目是否为当前选中项，用于高亮 */
+    isItemActive?: (item: T) => boolean;
+
     // 移动按钮支持
     showMoveButtons?: boolean;
     onMoveUp?: (item: T, index: number) => void;
@@ -308,11 +314,21 @@ export function BasicDraggableList<T extends BasicListItem = BasicListItem>(
                     class={props.itemClass}
                     style={{
                         ...(props.itemClass ? {} : defaultItemStyle),
+                        ...(props.isItemActive?.(item.data)
+                            ? { 'border-color': 'var(--b3-theme-primary)' }
+                            : {}),
                         opacity: isDragging() ? 0.5 : 1,
-                        'background-color': isDragOver() ? 'var(--b3-theme-surface)' : 'transparent',
+                        'background-color': isDragOver()
+                            ? 'var(--b3-theme-surface)'
+                            : (props.isItemActive?.(item.data) ? 'var(--b3-theme-primary-lightest)' : 'transparent'),
                         ...props.itemStyle
                     }}
                     data-role="draggable-list-item"
+                    onClick={(e) => {
+                        // 内部按钮（编辑/删除/移动）不触发选中
+                        if ((e.target as HTMLElement).closest('button')) return;
+                        props.onItemClick?.(item.data);
+                    }}
                 >
                     <span style={{ flex: 1, 'font-weight': 'bold', ...props.itemTitleStyle }} data-role="item-title">
                         {item.data.name}

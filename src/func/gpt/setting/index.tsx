@@ -77,7 +77,10 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
                 width: '100%',
                 height: '100%',
                 display: 'flex',
-                'flex-direction': 'column'
+                'flex-direction': 'column',
+                // 覆盖 SiYuan 对 .config__tab-container 的 24px padding，
+                // 横向 gutter 统一交给内容层（Heading / .b3-label / 列表各自的 24px）。
+                'padding': 0
             }}
         >
             <div style={{
@@ -99,21 +102,21 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
                     </div>
                 </TabButton>
                 <TabButton
-                    active={activeTab() === 'prompt'}
-                    onClick={() => setActiveTab('prompt')}
-                >
-                    <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
-                        <span>📝</span>
-                        <span>Prompt 模板</span>
-                    </div>
-                </TabButton>
-                <TabButton
                     active={activeTab() === 'provider'}
                     onClick={() => setActiveTab('provider')}
                 >
                     <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
                         <span>🔌</span>
                         <span>Provider 配置</span>
+                    </div>
+                </TabButton>
+                <TabButton
+                    active={activeTab() === 'prompt'}
+                    onClick={() => setActiveTab('prompt')}
+                >
+                    <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
+                        <span>📝</span>
+                        <span>Prompt 模板</span>
                     </div>
                 </TabButton>
                 <TabButton
@@ -139,7 +142,6 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
             </div>
 
             <div style={{
-                padding: '16px',
                 flex: 1,
                 'overflow-y': 'auto'
             }}>
@@ -209,13 +211,6 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
                         </div>
                     </Match>
 
-                    <Match when={activeTab() === 'prompt'}>
-                        <Heading>
-                            配置 Prompt 模板
-                        </Heading>
-                        <PromptTemplateSetting />
-                    </Match>
-
                     <Match when={activeTab() === 'provider'}>
                         <Heading>
                             配置 LLM 提供商
@@ -236,6 +231,13 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
                                 请在 Provider 配置中为模型设置对应的模态能力。
                             </div>
                         </Form.Wrap> */}
+                    </Match>
+
+                    <Match when={activeTab() === 'prompt'}>
+                        <Heading>
+                            配置 Prompt 模板
+                        </Heading>
+                        <PromptTemplateSetting />
                     </Match>
 
                     <Match when={activeTab() === 'tools'}>
