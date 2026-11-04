@@ -1,4 +1,4 @@
-import { Component, createSignal, For, Show, Accessor, createMemo } from "solid-js";
+import { Component, createSignal, For, Show, Accessor, createMemo, onCleanup } from "solid-js";
 import Form from "@/libs/components/Form";
 import { llmProviders, resolveEndpointUrl, defaultModelId, defaultConfig } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
@@ -11,6 +11,17 @@ import { showMessage } from "siyuan";
 import { BasicDraggableList } from "@/libs/components/drag-list";
 import { createModelConfig } from "../model/preset";
 import Heading from "./Heading";
+import providerEditStyles from "./provider-edit.module.scss";
+import {
+    decodeProviderTransfer,
+    encodeProviderTransfer,
+    nextPastedProviderName
+} from "./provider-transfer";
+import {
+    pickTestModel,
+    testProviderConnection,
+    type ProviderTestOutcome
+} from "./provider-test";
 // import { Button } from "@frostime/siyuan-plugin-kits/element";
 import { ButtonInput } from "@/libs/components/Elements";
 import { LeftRight } from "@/libs/components/Elements/Flex";
@@ -23,9 +34,6 @@ import { OPENAI_ENDPONITS, getDefaultEndpointByProtocol, normalizeProviderProtoc
 // ============================================
 // Types
 // ============================================
-
-type TabType = 'basic' | 'models';
-
 // ============================================
 // Context for Provider Editing
 // ============================================
@@ -335,21 +343,23 @@ ${sendBehavior}
 
     return (
         <div style={{
+            'display': 'flex',
+            'flex-direction': 'column',
             'height': '100%',
-            'overflow-y': 'auto',
-            'padding': '20px',
+            'min-height': 0,
+            'padding': '12px 16px 0',
         }}>
             <LeftRight
-                containerStyle={{ 'margin-bottom': '20px' }}
+                containerStyle={{ 'margin-bottom': '12px' }}
                 left={
                     <h3 style={{
-                        // margin: '5px 24px',
-                        // padding: '5px 0',
                         color: 'var(--b3-theme-primary)',
                         'flex': '1',
-                        'text-align': 'center'
+                        'margin': 0,
+                        'text-align': 'left'
                     }}>
-                        {model().model}@{provider().name}
+                        <span style={{ color: 'var(--b3-theme-on-surface)', 'font-weight': 400 }}>正在编辑：</span>
+                        {model().displayName || model().model}
                     </h3>
                 }
                 right={
@@ -360,417 +370,421 @@ ${sendBehavior}
 
             />
 
-            <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
+            {/* 只有表单区滚动，标题始终可见，不会滚走后看不出正在编辑哪个模型 */}
+            <div class={providerEditStyles.paneScroll} style={{ 'padding-bottom': '16px' }}>
 
-                {/* 基本信息 */}
-                <Form.Wrap title="模型 ID" description="实际发送给 API 的模型名称" direction="row">
-                    <Form.Input
-                        type="textinput"
-                        value={model().model}
-                        changed={(v) => updateModel(index(), 'model', v)}
-                        style={{ width: '100%' }}
-                    />
-                </Form.Wrap>
+                <div style={{ 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
 
-                <Form.Wrap title="显示名称" description="在界面中显示的名称（可选）" direction="row">
-                    <Form.Input
-                        type="textinput"
-                        value={model().displayName || ''}
-                        changed={(v) => updateModel(index(), 'displayName', v || undefined)}
-                        style={{ width: '100%' }}
-                    />
-                </Form.Wrap>
+                    {/* 基本信息 */}
+                    <Form.Wrap title="模型 ID" description="实际发送给 API 的模型名称" direction="row">
+                        <Form.Input
+                            type="textinput"
+                            value={model().model}
+                            changed={(v) => updateModel(index(), 'model', v)}
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Wrap>
 
-                <Form.Wrap title="服务类型" description="决定使用哪个 endpoint；可选择多个（多用途模型）" direction="row">
-                    <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
-                        <For each={['chat', 'image-gen', 'image-edit', 'audio-stt', 'audio-tts'] as LLMServiceType[]}>
-                            {(serviceType) => {
-                                const isSelected = () => {
-                                    const types = Array.isArray(model().type) ? model().type : [model().type];
-                                    return types.includes(serviceType);
-                                };
+                    <Form.Wrap title="显示名称" description="在界面中显示的名称（可选）" direction="row">
+                        <Form.Input
+                            type="textinput"
+                            value={model().displayName || ''}
+                            changed={(v) => updateModel(index(), 'displayName', v || undefined)}
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Wrap>
 
-                                const typeLabels: Record<string, string> = {
-                                    'chat': '对话',
-                                    'image-gen': '图像生成',
-                                    'image-edit': '图像编辑',
-                                    'audio-stt': '语音转文本',
-                                    'audio-tts': '文本转语音',
-                                };
+                    <Form.Wrap title="服务类型" description="决定使用哪个 endpoint；可选择多个（多用途模型）" direction="row">
+                        <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
+                            <For each={['chat', 'image-gen', 'image-edit', 'audio-stt', 'audio-tts'] as LLMServiceType[]}>
+                                {(serviceType) => {
+                                    const isSelected = () => {
+                                        const types = Array.isArray(model().type) ? model().type : [model().type];
+                                        return types.includes(serviceType);
+                                    };
 
-                                return (
-                                    <label style={{
-                                        'display': 'flex',
-                                        'align-items': 'center',
-                                        'gap': '4px',
-                                        'padding': '4px 8px',
-                                        'border': '1px solid var(--b3-border-color)',
-                                        'border-radius': '4px',
-                                        'cursor': 'pointer',
-                                        'background': isSelected() ? 'var(--b3-theme-primary-lightest)' : 'transparent'
-                                    }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={isSelected()}
-                                            onChange={(e) => {
-                                                const currentTypes = Array.isArray(model().type)
-                                                    ? [...model().type]
-                                                    : [model().type];
+                                    const typeLabels: Record<string, string> = {
+                                        'chat': '对话',
+                                        'image-gen': '图像生成',
+                                        'image-edit': '图像编辑',
+                                        'audio-stt': '语音转文本',
+                                        'audio-tts': '文本转语音',
+                                    };
 
-                                                if (e.currentTarget.checked) {
-                                                    // 添加 type
-                                                    if (!currentTypes.includes(serviceType)) {
-                                                        const newTypes = [...currentTypes, serviceType];
-                                                        updateModel(index(), 'type', newTypes.length === 1 ? newTypes[0] : newTypes);
-                                                    }
-                                                } else {
-                                                    // 移除 type
-                                                    const newTypes = currentTypes.filter(t => t !== serviceType);
-                                                    if (newTypes.length > 0) {
-                                                        updateModel(index(), 'type', newTypes.length === 1 ? newTypes[0] : newTypes);
+                                    return (
+                                        <label style={{
+                                            'display': 'flex',
+                                            'align-items': 'center',
+                                            'gap': '4px',
+                                            'padding': '4px 8px',
+                                            'border': '1px solid var(--b3-border-color)',
+                                            'border-radius': '4px',
+                                            'cursor': 'pointer',
+                                            'background': isSelected() ? 'var(--b3-theme-primary-lightest)' : 'transparent'
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected()}
+                                                onChange={(e) => {
+                                                    const currentTypes = Array.isArray(model().type)
+                                                        ? [...model().type]
+                                                        : [model().type];
+
+                                                    if (e.currentTarget.checked) {
+                                                        // 添加 type
+                                                        if (!currentTypes.includes(serviceType)) {
+                                                            const newTypes = [...currentTypes, serviceType];
+                                                            updateModel(index(), 'type', newTypes.length === 1 ? newTypes[0] : newTypes);
+                                                        }
                                                     } else {
-                                                        // 至少保留一个 type
-                                                        showMessage('至少需要保留一个服务类型');
+                                                        // 移除 type
+                                                        const newTypes = currentTypes.filter(t => t !== serviceType);
+                                                        if (newTypes.length > 0) {
+                                                            updateModel(index(), 'type', newTypes.length === 1 ? newTypes[0] : newTypes);
+                                                        } else {
+                                                            // 至少保留一个 type
+                                                            showMessage('至少需要保留一个服务类型');
+                                                        }
                                                     }
-                                                }
-                                            }}
-                                        />
-                                        <span>{typeLabels[serviceType]}</span>
-                                    </label>
-                                );
-                            }}
-                        </For>
-                    </div>
-                </Form.Wrap>
-
-                <Form.Wrap title="禁用" description="如果禁用, 则在对话模型列表中不会看到这一项">
-                    <Form.Input
-                        type="checkbox"
-                        value={model().disabled ?? false}
-                        changed={(v) => updateModel(index(), 'disabled', v)}
-                    />
-                </Form.Wrap>
-            </div>
-
-
-
-            {/* 模态能力 */}
-            <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
-                <Form.Wrap title="模态" description="模型允许的输入输出模态" direction="row">
-
-                    <LeftRight
-                        left={<strong>输入</strong>}
-                        right={
-                            <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
-                                <For each={availableModalities}>
-                                    {(modality) => (
-                                        <label style={{ 'display': 'flex', 'align-items': 'center', 'gap': '4px' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={model().modalities.input?.includes(modality)}
-                                                onChange={() => toggleModality('input', modality)}
+                                                }}
                                             />
-                                            <span>{modality}</span>
+                                            <span>{typeLabels[serviceType]}</span>
                                         </label>
-                                    )}
-                                </For>
-                            </div>
-                        }
-                    />
+                                    );
+                                }}
+                            </For>
+                        </div>
+                    </Form.Wrap>
 
-                    {/* <LeftRight
-                        left={<strong>输出</strong>}
-                        right={
-                            <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
-                                <For each={availableModalities}>
-                                    {(modality) => (
-                                        <label style={{ 'display': 'flex', 'align-items': 'center', 'gap': '4px' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={model().modalities.output?.includes(modality)}
-                                                onChange={() => toggleModality('output', modality)}
-                                            />
-                                            <span>{modality}</span>
-                                        </label>
-                                    )}
-                                </For>
-                            </div>
-                        }
-                    /> */}
-
-                </Form.Wrap>
-
-
-            </div>
-
-            {/* 能力标记 - 仅当模型类型为 chat 时显示 */}
-            <Show when={model().type === 'chat'}>
-                <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
-                    {/* <h4 style={{ 'margin-top': '0' }}>功能支持 (Capabilities)</h4> */}
-
-                    <For each={[
-                        { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
-                        { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
-                        // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
-                        // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
-                    ] as const}>
-                        {(item) => (
-                            <Form.Wrap title={item.label} description={item.desc}>
-                                <Form.Input
-                                    type="checkbox"
-                                    value={model().capabilities[item.key] ?? false}
-                                    changed={(v) => updateCapability(item.key, v)}
-                                />
-                            </Form.Wrap>
-                        )}
-                    </For>
+                    <Form.Wrap title="禁用" description="如果禁用, 则在对话模型列表中不会看到这一项">
+                        <Form.Input
+                            type="checkbox"
+                            value={model().disabled ?? false}
+                            changed={(v) => updateModel(index(), 'disabled', v)}
+                        />
+                    </Form.Wrap>
                 </div>
-            </Show>
 
-            {/* 限制参数 */}
-            {/* #TODO 暂时隐藏 */}
-            {/* <div style={{ 'margin-top': '20px', 'padding': '16px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
-                <h4 style={{ 'margin-top': '0' }}>限制参数 (Limits)</h4>
 
-                <Form.Wrap title="最大上下文 (tokens)" description="Context Window" direction="row">
-                    <Form.Input
-                        type="number"
-                        value={model().limits?.maxContext || 0}
-                        changed={(v) => updateLimit('maxContext', parseInt(v) || undefined)}
-                        number={{ min: 0, step: 1000 }}
-                        style={{ width: '100%' }}
-                    />
-                </Form.Wrap>
 
-                <Form.Wrap title="最大输出 (tokens)" description="Max Output Tokens" direction="row">
-                    <Form.Input
-                        type="number"
-                        value={model().limits?.maxOutput || 0}
-                        changed={(v) => updateLimit('maxOutput', parseInt(v) || undefined)}
-                        number={{ min: 0, step: 100 }}
-                        style={{ width: '100%' }}
-                    />
-                </Form.Wrap>
-            </div> */}
+                {/* 模态能力 */}
+                <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
+                    <Form.Wrap title="模态" description="模型允许的输入输出模态" direction="row">
 
-            {/* 价格配置 */}
-            {/* #TODO 暂时隐藏 */}
-            {/* <div style={{ 'margin-top': '20px', 'padding': '16px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
-                <h4 style={{ 'margin-top': '0' }}>价格 (Price - 可选)</h4>
-
-                <Form.Wrap title="输入价格 (每1K tokens)" description="Input Price" direction="row">
-                    <Form.Input
-                        type="number"
-                        value={model().price?.inputPerK || 0}
-                        changed={(v) => updatePrice('inputPerK', parseFloat(v) || 0)}
-                        number={{ min: 0, step: 0.001 }}
-                        style={{ width: '100%' }}
-                    />
-                </Form.Wrap>
-
-                <Form.Wrap title="输出价格 (每1K tokens)" description="Output Price" direction="row">
-                    <Form.Input
-                        type="number"
-                        value={model().price?.outputPerK || 0}
-                        changed={(v) => updatePrice('outputPerK', parseFloat(v) || 0)}
-                        number={{ min: 0, step: 0.001 }}
-                        style={{ width: '100%' }}
-                    />
-                </Form.Wrap>
-
-                <Form.Wrap title="货币单位" description="Currency Unit">
-                    <Form.Input
-                        type="select"
-                        value={model().price?.unit || 'USD'}
-                        options={{
-                            'USD': 'USD (美元)',
-                            'CNY': 'CNY (人民币)'
-                        }}
-                        changed={(v) => updatePrice('unit', v)}
-                        fn_size={false}
-                        style={{ width: '100%' }}
-                    />
-                </Form.Wrap>
-            </div> */}
-
-            {/* 高级选项 */}
-            <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
-                {/* <h4 style={{ 'margin-top': '0' }}>高级选项</h4> */}
-
-                {/* ── 参数兼容 ── */}
-                <Form.Wrap
-                    title="启用 Reasoning"
-                    description="该模型是否支持 reasoning / thinking 参数"
-                >
-                    <Form.Input
-                        type="checkbox"
-                        value={(model().options as any)?.compat?.thinking?.enabled ?? false}
-                        changed={(v) => updateCompatThinking({ enabled: v })}
-                    />
-                </Form.Wrap>
-
-                <Show when={providerProtocol() === 'openai'}>
-                    <Form.Wrap
-                        title="Thinking 风格"
-                        description="OpenAI 兼容路径下 thinking 参数的发送方式"
-                    >
-                        <Form.Input
-                            type="select"
-                            value={(model().options as any)?.compat?.thinking?.thinkingStyle ?? 'openai'}
-                            changed={(v) => updateCompatThinking({ thinkingStyle: v as any })}
-                            options={{ openai: 'openai（默认）', deepseek: 'deepseek', qwen: 'qwen' }}
-                        />
-                    </Form.Wrap>
-                </Show>
-
-                <Show when={providerProtocol() === 'claude'}>
-                    <Form.Wrap
-                        title="Claude Thinking 模式"
-                        description="Claude 协议内部的 thinking 模式选择；不复用 OpenAI 的 Thinking 风格概念"
-                    >
-                        <Form.Input
-                            type="select"
-                            value={(model().options as any)?.compat?.thinking?.claudeMode ?? 'adaptive'}
-                            changed={(v) => updateCompatThinking({ claudeMode: v as any })}
-                            options={{ adaptive: 'adaptive（推荐）', 'manual-budget': 'manual-budget（旧式）' }}
-                        />
-                    </Form.Wrap>
-                </Show>
-
-                <Form.Wrap
-                    title="Effort 兼容配置"
-                    description={effortEditorMode() === 'budget-map'
-                        ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 thinking budget。留空表示使用内置默认预算；如果全部取消勾选，将写回空值并表示全部支持。'
-                        : '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 API 原生值映射。留空表示直接使用级别名；如果全部取消勾选，将写回空值并表示全部支持。'}
-                    direction="row"
-                    help={showEffortCompatHelp}
-                >
-                    <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
-                        <For each={EFFORT_LEVELS}>
-                            {(level) => (
-                                <div style={{
-                                    display: 'grid',
-                                    'grid-template-columns': '140px minmax(0, 1fr)',
-                                    gap: '12px',
-                                    'align-items': 'center'
-                                }}>
-                                    <label style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
-                                        <input
-                                            type="checkbox"
-                                            class="b3-checkbox"
-                                            checked={getSupportedEfforts().includes(level)}
-                                            onChange={(e) => updateSupportedEffort(level, e.currentTarget.checked)}
-                                        />
-                                        <span>{level}</span>
-                                    </label>
-
-                                    <Show when={effortEditorMode() === 'string-map' || effortEditorMode() === 'claude-adaptive'}>
-                                        <Show
-                                            when={level !== 'none'}
-                                            fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>关闭 thinking，不需要额外映射</span>}
-                                        >
-                                            <input
-                                                class="b3-text-field fn__flex-center"
-                                                value={getEffortMap()[level] ?? ''}
-                                                placeholder={effortEditorMode() === 'claude-adaptive' && level === 'minimal' ? 'low' : level}
-                                                onChange={(e) => updateEffortMapValue(level, e.currentTarget.value)}
-                                            />
-                                        </Show>
-                                    </Show>
-
-                                    <Show when={effortEditorMode() === 'budget-map'}>
-                                        <Show
-                                            when={level !== 'none'}
-                                            fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>{providerProtocol() === 'gemini' ? 'thinkingBudget = 0（关闭 thinking）' : '关闭 thinking，不使用 budget'}</span>}
-                                        >
-                                            <input
-                                                class="b3-text-field fn__flex-center"
-                                                type="number"
-                                                min="0"
-                                                step="1"
-                                                value={getBudgetMap()[level] ?? ''}
-                                                placeholder={String(DEFAULT_BUDGET_HINTS[level] ?? '')}
-                                                onChange={(e) => updateBudgetMapValue(level, e.currentTarget.value)}
-                                            />
-                                        </Show>
-                                    </Show>
+                        <LeftRight
+                            left={<strong>输入</strong>}
+                            right={
+                                <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
+                                    <For each={availableModalities}>
+                                        {(modality) => (
+                                            <label style={{ 'display': 'flex', 'align-items': 'center', 'gap': '4px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={model().modalities.input?.includes(modality)}
+                                                    onChange={() => toggleModality('input', modality)}
+                                                />
+                                                <span>{modality}</span>
+                                            </label>
+                                        )}
+                                    </For>
                                 </div>
+                            }
+                        />
+
+                        {/* <LeftRight
+                            left={<strong>输出</strong>}
+                            right={
+                                <div style={{ 'display': 'flex', 'flex-wrap': 'wrap', 'gap': '8px', 'margin-top': '8px' }}>
+                                    <For each={availableModalities}>
+                                        {(modality) => (
+                                            <label style={{ 'display': 'flex', 'align-items': 'center', 'gap': '4px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={model().modalities.output?.includes(modality)}
+                                                    onChange={() => toggleModality('output', modality)}
+                                                />
+                                                <span>{modality}</span>
+                                            </label>
+                                        )}
+                                    </For>
+                                </div>
+                            }
+                        /> */}
+
+                    </Form.Wrap>
+
+
+                </div>
+
+                {/* 能力标记 - 仅当模型类型为 chat 时显示 */}
+                <Show when={model().type === 'chat'}>
+                    <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
+                        {/* <h4 style={{ 'margin-top': '0' }}>功能支持 (Capabilities)</h4> */}
+
+                        <For each={[
+                            { key: 'streaming', label: '流式输出', desc: '支持 SSE 流式响应' },
+                            { key: 'tools', label: '工具调用', desc: '支持 tool calling' },
+                            // { key: 'reasoning', label: '推理模式 (Reasoning)', desc: '支持 reasoning_content' },
+                            // { key: 'jsonMode', label: 'JSON 模式', desc: '支持 response_format: json_object' }
+                        ] as const}>
+                            {(item) => (
+                                <Form.Wrap title={item.label} description={item.desc}>
+                                    <Form.Input
+                                        type="checkbox"
+                                        value={model().capabilities[item.key] ?? false}
+                                        changed={(v) => updateCapability(item.key, v)}
+                                    />
+                                </Form.Wrap>
                             )}
                         </For>
                     </div>
-                </Form.Wrap>
+                </Show>
 
-                <Form.Wrap
-                    title="不支持的参数"
-                    description="不支持的 ChatOption 参数，用逗号或换行分隔（如: frequency_penalty, presence_penalty）"
-                    direction="row"
-                >
-                    <Form.Input
-                        type="textarea"
-                        value={(((model().options as any)?.compat?.unsupported as string[] | undefined) ?? model().options?.unsupported ?? []).join('\n')}
-                        changed={updateUnsupportedOptions}
-                        style={{ width: '100%', height: '80px' }}
-                    />
-                </Form.Wrap>
+                {/* 限制参数 */}
+                {/* #TODO 暂时隐藏 */}
+                {/* <div style={{ 'margin-top': '20px', 'padding': '16px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
+                    <h4 style={{ 'margin-top': '0' }}>限制参数 (Limits)</h4>
 
-                <Form.Wrap
-                    title="默认启用的参数"
-                    description="新建 session 时默认 toggle=true 的参数"
-                    direction="row"
-                >
-                    <div style={{ display: 'flex', 'flex-wrap': 'wrap', gap: '6px' }}>
-                        {CONFIGURABLE_OPTIONS.map(key => {
-                            const defaults: ConfigurableChatOption[] = (model().options as any)?.compat?.enabledByDefault ?? [];
-                            return (
-                                <label style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
-                                    <input
-                                        type="checkbox"
-                                        class="b3-checkbox"
-                                        checked={defaults.includes(key)}
-                                        onChange={(e) => {
-                                            const cur: ConfigurableChatOption[] = (model().options as any)?.compat?.enabledByDefault ?? [];
-                                            const next = e.currentTarget.checked
-                                                ? [...cur, key]
-                                                : cur.filter(x => x !== key);
-                                            updateCompat({ enabledByDefault: next.length ? next : undefined });
-                                        }}
-                                    />
-                                    {key}
-                                </label>
-                            );
-                        })}
-                    </div>
-                </Form.Wrap>
+                    <Form.Wrap title="最大上下文 (tokens)" description="Context Window" direction="row">
+                        <Form.Input
+                            type="number"
+                            value={model().limits?.maxContext || 0}
+                            changed={(v) => updateLimit('maxContext', parseInt(v) || undefined)}
+                            number={{ min: 0, step: 1000 }}
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Wrap>
 
-                <Form.Wrap
-                    title="自定义参数覆盖"
-                    description={`强制覆盖的参数，JSON 格式（如: {\"reasoning_effort\": \"medium\"}）; 便利起见, 可以点击按钮 'JSON' 辅助生成 JSON`}
-                    direction="row"
-                >
-                    <TextAreaWithActionButton
-                        value={(function () {
-                            const value = model().options?.customOverride;
-                            if (!value || Object.keys(value).length === 0) {
-                                return '';
-                            }
-                            return JSON.stringify(value, null, 2);
-                        })()}
-                        onChanged={updateCustomOverride}
-                        actionText="JSON"
-                        action={
-                            async function (text: string) {
-                                if (!text.trim()) return;
-                                const formalized = await agent.jsonAgent({
-                                    text: text,
-                                    schema: '遵循 OpenAI Completion Option 格式',
-                                });
-                                if (formalized.ok) {
-                                    updateCustomOverride(formalized.content);
+                    <Form.Wrap title="最大输出 (tokens)" description="Max Output Tokens" direction="row">
+                        <Form.Input
+                            type="number"
+                            value={model().limits?.maxOutput || 0}
+                            changed={(v) => updateLimit('maxOutput', parseInt(v) || undefined)}
+                            number={{ min: 0, step: 100 }}
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Wrap>
+                </div> */}
+
+                {/* 价格配置 */}
+                {/* #TODO 暂时隐藏 */}
+                {/* <div style={{ 'margin-top': '20px', 'padding': '16px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
+                    <h4 style={{ 'margin-top': '0' }}>价格 (Price - 可选)</h4>
+
+                    <Form.Wrap title="输入价格 (每1K tokens)" description="Input Price" direction="row">
+                        <Form.Input
+                            type="number"
+                            value={model().price?.inputPerK || 0}
+                            changed={(v) => updatePrice('inputPerK', parseFloat(v) || 0)}
+                            number={{ min: 0, step: 0.001 }}
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Wrap>
+
+                    <Form.Wrap title="输出价格 (每1K tokens)" description="Output Price" direction="row">
+                        <Form.Input
+                            type="number"
+                            value={model().price?.outputPerK || 0}
+                            changed={(v) => updatePrice('outputPerK', parseFloat(v) || 0)}
+                            number={{ min: 0, step: 0.001 }}
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Wrap>
+
+                    <Form.Wrap title="货币单位" description="Currency Unit">
+                        <Form.Input
+                            type="select"
+                            value={model().price?.unit || 'USD'}
+                            options={{
+                                'USD': 'USD (美元)',
+                                'CNY': 'CNY (人民币)'
+                            }}
+                            changed={(v) => updatePrice('unit', v)}
+                            fn_size={false}
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Wrap>
+                </div> */}
+
+                {/* 高级选项 */}
+                <div style={{ 'margin-top': '20px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
+                    {/* <h4 style={{ 'margin-top': '0' }}>高级选项</h4> */}
+
+                    {/* ── 参数兼容 ── */}
+                    <Form.Wrap
+                        title="启用 Reasoning"
+                        description="该模型是否支持 reasoning / thinking 参数"
+                    >
+                        <Form.Input
+                            type="checkbox"
+                            value={(model().options as any)?.compat?.thinking?.enabled ?? false}
+                            changed={(v) => updateCompatThinking({ enabled: v })}
+                        />
+                    </Form.Wrap>
+
+                    <Show when={providerProtocol() === 'openai'}>
+                        <Form.Wrap
+                            title="Thinking 风格"
+                            description="OpenAI 兼容路径下 thinking 参数的发送方式"
+                        >
+                            <Form.Input
+                                type="select"
+                                value={(model().options as any)?.compat?.thinking?.thinkingStyle ?? 'openai'}
+                                changed={(v) => updateCompatThinking({ thinkingStyle: v as any })}
+                                options={{ openai: 'openai（默认）', deepseek: 'deepseek', qwen: 'qwen' }}
+                            />
+                        </Form.Wrap>
+                    </Show>
+
+                    <Show when={providerProtocol() === 'claude'}>
+                        <Form.Wrap
+                            title="Claude Thinking 模式"
+                            description="Claude 协议内部的 thinking 模式选择；不复用 OpenAI 的 Thinking 风格概念"
+                        >
+                            <Form.Input
+                                type="select"
+                                value={(model().options as any)?.compat?.thinking?.claudeMode ?? 'adaptive'}
+                                changed={(v) => updateCompatThinking({ claudeMode: v as any })}
+                                options={{ adaptive: 'adaptive（推荐）', 'manual-budget': 'manual-budget（旧式）' }}
+                            />
+                        </Form.Wrap>
+                    </Show>
+
+                    <Form.Wrap
+                        title="Effort 兼容配置"
+                        description={effortEditorMode() === 'budget-map'
+                            ? '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 thinking budget。留空表示使用内置默认预算；如果全部取消勾选，将写回空值并表示全部支持。'
+                            : '左侧勾选表示该 effort 在 supportedEfforts 中可用；右侧填写 API 原生值映射。留空表示直接使用级别名；如果全部取消勾选，将写回空值并表示全部支持。'}
+                        direction="row"
+                        help={showEffortCompatHelp}
+                    >
+                        <div style={{ width: '100%', display: 'grid', gap: '8px' }}>
+                            <For each={EFFORT_LEVELS}>
+                                {(level) => (
+                                    <div style={{
+                                        display: 'grid',
+                                        'grid-template-columns': '140px minmax(0, 1fr)',
+                                        gap: '12px',
+                                        'align-items': 'center'
+                                    }}>
+                                        <label style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
+                                            <input
+                                                type="checkbox"
+                                                class="b3-checkbox"
+                                                checked={getSupportedEfforts().includes(level)}
+                                                onChange={(e) => updateSupportedEffort(level, e.currentTarget.checked)}
+                                            />
+                                            <span>{level}</span>
+                                        </label>
+
+                                        <Show when={effortEditorMode() === 'string-map' || effortEditorMode() === 'claude-adaptive'}>
+                                            <Show
+                                                when={level !== 'none'}
+                                                fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>关闭 thinking，不需要额外映射</span>}
+                                            >
+                                                <input
+                                                    class="b3-text-field fn__flex-center"
+                                                    value={getEffortMap()[level] ?? ''}
+                                                    placeholder={effortEditorMode() === 'claude-adaptive' && level === 'minimal' ? 'low' : level}
+                                                    onChange={(e) => updateEffortMapValue(level, e.currentTarget.value)}
+                                                />
+                                            </Show>
+                                        </Show>
+
+                                        <Show when={effortEditorMode() === 'budget-map'}>
+                                            <Show
+                                                when={level !== 'none'}
+                                                fallback={<span style={{ color: 'var(--b3-theme-on-surface-light)' }}>{providerProtocol() === 'gemini' ? 'thinkingBudget = 0（关闭 thinking）' : '关闭 thinking，不使用 budget'}</span>}
+                                            >
+                                                <input
+                                                    class="b3-text-field fn__flex-center"
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    value={getBudgetMap()[level] ?? ''}
+                                                    placeholder={String(DEFAULT_BUDGET_HINTS[level] ?? '')}
+                                                    onChange={(e) => updateBudgetMapValue(level, e.currentTarget.value)}
+                                                />
+                                            </Show>
+                                        </Show>
+                                    </div>
+                                )}
+                            </For>
+                        </div>
+                    </Form.Wrap>
+
+                    <Form.Wrap
+                        title="不支持的参数"
+                        description="不支持的 ChatOption 参数，用逗号或换行分隔（如: frequency_penalty, presence_penalty）"
+                        direction="row"
+                    >
+                        <Form.Input
+                            type="textarea"
+                            value={(((model().options as any)?.compat?.unsupported as string[] | undefined) ?? model().options?.unsupported ?? []).join('\n')}
+                            changed={updateUnsupportedOptions}
+                            style={{ width: '100%', height: '80px' }}
+                        />
+                    </Form.Wrap>
+
+                    <Form.Wrap
+                        title="默认启用的参数"
+                        description="新建 session 时默认 toggle=true 的参数"
+                        direction="row"
+                    >
+                        <div style={{ display: 'flex', 'flex-wrap': 'wrap', gap: '6px' }}>
+                            {CONFIGURABLE_OPTIONS.map(key => {
+                                const defaults: ConfigurableChatOption[] = (model().options as any)?.compat?.enabledByDefault ?? [];
+                                return (
+                                    <label style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                                        <input
+                                            type="checkbox"
+                                            class="b3-checkbox"
+                                            checked={defaults.includes(key)}
+                                            onChange={(e) => {
+                                                const cur: ConfigurableChatOption[] = (model().options as any)?.compat?.enabledByDefault ?? [];
+                                                const next = e.currentTarget.checked
+                                                    ? [...cur, key]
+                                                    : cur.filter(x => x !== key);
+                                                updateCompat({ enabledByDefault: next.length ? next : undefined });
+                                            }}
+                                        />
+                                        {key}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </Form.Wrap>
+
+                    <Form.Wrap
+                        title="自定义参数覆盖"
+                        description={`强制覆盖的参数，JSON 格式（如: {\"reasoning_effort\": \"medium\"}）; 便利起见, 可以点击按钮 'JSON' 辅助生成 JSON`}
+                        direction="row"
+                    >
+                        <TextAreaWithActionButton
+                            value={(function () {
+                                const value = model().options?.customOverride;
+                                if (!value || Object.keys(value).length === 0) {
+                                    return '';
+                                }
+                                return JSON.stringify(value, null, 2);
+                            })()}
+                            onChanged={updateCustomOverride}
+                            actionText="JSON"
+                            action={
+                                async function (text: string) {
+                                    if (!text.trim()) return;
+                                    const formalized = await agent.jsonAgent({
+                                        text: text,
+                                        schema: '遵循 OpenAI Completion Option 格式',
+                                    });
+                                    if (formalized.ok) {
+                                        updateCustomOverride(formalized.content);
+                                    }
                                 }
                             }
-                        }
-                    />
-                </Form.Wrap>
+                        />
+                    </Form.Wrap>
+                </div>
             </div>
         </div >
     );
@@ -847,20 +861,17 @@ const ProviderBasicConfig: Component = () => {
     };
 
     return (
-        <div style={{ 'padding': '16px' }}>
-            {/* <h3 style={{ 'margin-top': '0' }}>Provider 基本配置</h3> */}
-            <Heading>基本配置</Heading>
-
-            <Form.Wrap title="Provider 名称" description="用于区分不同的服务商">
+        <div style={{ 'padding': '4px 0 16px' }}>
+            <Form.Wrap title="Provider 名称" description="用于区分不同的服务商" direction="row">
                 <Form.Input
                     type="textinput"
                     value={provider().name}
                     changed={(v) => updateProvider('name', v)}
-                    style={{ width: '400px' }}
+                    style={{ width: '100%' }}
                 />
             </Form.Wrap>
 
-            <Form.Wrap title="Protocol" description="API 协议类型；claude/gemini 当前仅支持 complete(chat)">
+            <Form.Wrap title="Protocol" description="API 协议类型；claude/gemini 当前仅支持 complete(chat)" direction="row">
                 <Form.Input
                     type="select"
                     value={providerProtocol()}
@@ -871,7 +882,7 @@ const ProviderBasicConfig: Component = () => {
                     }}
                     changed={(v) => updateProtocol(v as LLMProviderProtocol)}
                     fn_size={false}
-                    style={{ width: '320px' }}
+                    style={{ width: '100%' }}
                 />
             </Form.Wrap>
 
@@ -916,7 +927,7 @@ const ProviderBasicConfig: Component = () => {
             <Heading>Endpoints</Heading>
 
             <Show when={providerProtocol() !== 'openai'}>
-                <div style={{ 'margin': '0 0 12px 12px', 'color': 'var(--b3-theme-on-surface-light)', 'font-size': '12px' }}>
+                <div style={{ 'margin': '0 0 6px 24px', 'color': 'var(--b3-theme-on-surface-light)', 'font-size': '12px' }}>
                     当前协议仅开放 chat endpoint；其余接口暂不支持。
                 </div>
             </Show>
@@ -954,7 +965,7 @@ const ProviderBasicConfig: Component = () => {
                         return JSON.stringify(provider().customHeaders, null, 2);
                     })()}
                     onChanged={updateCustomHeaders}
-                    textareaStyle={{ width: '100%', height: '100px', 'font-family': 'var(--b3-font-family-code)' }}
+                    textareaStyle={{ width: '100%', height: '72px', 'font-family': 'var(--b3-font-family-code)' }}
                     actionText="JSON"
                     action={
                         async function (text: string) {
@@ -975,15 +986,28 @@ const ProviderBasicConfig: Component = () => {
 };
 
 // ============================================
-// Models List Component with Drawer
+// Models List Component（列表 + 选中模型配置）
 // ============================================
 
 const ModelsListPanel: Component = () => {
     const { providerIndex, updateProvider, addModel, removeModel } = useProviderEditContext();
-    const [selectedModelIndex, setSelectedModelIndex] = createSignal<number | null>(null);
 
     const provider = () => llmProviders()[providerIndex()];
     const models = () => provider()?.models || [];
+    // 列表里展示的名字也是“当前这一行”的身份：用它追踪选中项，拖拽排序后不会串行
+    const modelKey = (model: ILLMConfigV2) => model.displayName || model.model;
+    // 默认选中第一个模型：右侧配置区始终有内容，不会开局就空出一块
+    const [selectedModelKey, setSelectedModelKey] = createSignal<string | null>(
+        models().length > 0 ? modelKey(models()[0]) : null
+    );
+    const selectedModelIndex = createMemo(() => {
+        const key = selectedModelKey();
+        return key === null ? -1 : models().findIndex(model => modelKey(model) === key);
+    });
+    const selectedModel = createMemo(() => {
+        const index = selectedModelIndex();
+        return index < 0 ? undefined : models()[index];
+    });
 
     const handleAddModel = () => {
         inputDialog({
@@ -999,7 +1023,7 @@ const ModelsListPanel: Component = () => {
                 updateProvider('models', [...currentModels, newModel]);
 
                 // 自动选中新添加的模型
-                setSelectedModelIndex(currentModels.length);
+                setSelectedModelKey(modelKey(newModel));
             },
             width: '450px'
         });
@@ -1029,8 +1053,8 @@ const ModelsListPanel: Component = () => {
             title: '确认删除模型',
             content: `确定要删除模型 "${model.displayName || model.model}" 吗？`,
             confirm: () => {
-                if (selectedModelIndex() === index) {
-                    setSelectedModelIndex(null);
+                if (modelKey(model) === selectedModelKey()) {
+                    setSelectedModelKey(null);
                 }
                 removeModel(index);
             }
@@ -1042,137 +1066,80 @@ const ModelsListPanel: Component = () => {
     };
 
     return (
-        <div style={{
-            'display': 'flex',
-            'gap': '16px',
-            'height': '100%',
-            'padding': '16px',
-            'overflow': 'hidden'
-        }}>
-            {/* 左侧：模型列表 */}
-            <div style={{
-                // 'flex': selectedModelIndex() !== null ? '0 0 400px' : '1',
-                'flex': '1',
-                'transition': 'flex 0.3s ease',
-                'min-width': '300px',
-                'overflow': 'hidden',
-                'display': 'flex',
-                'flex-direction': 'column'
-            }}>
+        <div class={providerEditStyles.paneRight}>
+            <div class={`${providerEditStyles.modelsListWrap}${selectedModel() ? ` ${providerEditStyles.modelsListWrapSelected}` : ''}`}>
+                <div class={providerEditStyles.paneHeader}>
+                    <span>共 {models().length} 个模型</span>
+                    <span class={providerEditStyles.spacer} />
+                    <ButtonInput onClick={handleAddModel}>
+                        <SvgSymbol size="18px">{'iconAdd'}</SvgSymbol>
+                    </ButtonInput>
+                </div>
 
-                <LeftRight
-                    containerStyle={{
-                        margin: '5px 20px'
-                    }}
-                    left={<span class="b3-label__text">共{models().length}个模型</span>}
-                    right={(
-                        <ButtonInput onClick={() => {
-                            // e.stopPropagation();
-                            handleAddModel();
-                        }}>
-                            <SvgSymbol size="18px">{'iconAdd'}</SvgSymbol>
-                        </ButtonInput>
-                    )}
-                />
-                <BasicDraggableList
+                <div class={providerEditStyles.modelsListScroll}>
+                    <BasicDraggableList
+                        items={models().map((m, i) => ({ ...m, name: m.displayName || m.model, id: i }))}
+                        listContainerClass={`fn__flex-1 ${styles.listContainer}`}
+                        itemClass={styles.listItem}
+                        onOrderChange={(newItems) => {
+                            const newModels = newItems.map(item => {
+                                const { name, id, ...rest } = item;
+                                return rest as ILLMConfigV2;
+                            });
+                            handleModelOrder(newModels);
+                        }}
+                        onEdit={(item) => {
+                            setSelectedModelKey(item.name);
+                        }}
+                        onDelete={(item) => {
+                            const index = models().findIndex(m => (m.displayName || m.model) === item.name);
+                            if (index !== -1) handleRemoveModel(index);
+                        }}
+                        onItemClick={(item) => {
+                            setSelectedModelKey(item.name);
+                        }}
+                        isItemActive={(item) => item.name === selectedModelKey()}
+                        renderBadge={(item) => {
+                            const model = item as any as ILLMConfigV2;
+                            const types = Array.isArray(model.type) ? model.type : [model.type];
 
-                    items={models().map((m, i) => ({ ...m, name: m.displayName || m.model, id: i }))}
-                    // onAdd={handleAddModel}
-                    listContainerClass={`fn__flex-1 ${styles.listContainer}`}
-                    itemClass={styles.listItem}
-                    onOrderChange={(newItems) => {
-                        const newModels = newItems.map(item => {
-                            const { name, id, ...rest } = item;
-                            return rest as ILLMConfigV2;
-                        });
-                        handleModelOrder(newModels);
-                    }}
-                    onEdit={(item) => {
-                        const index = models().findIndex(m => (m.displayName || m.model) === item.name);
-                        setSelectedModelIndex(index);
-                    }}
-                    onDelete={(item) => {
-                        const index = models().findIndex(m => (m.displayName || m.model) === item.name);
-                        if (index !== -1) handleRemoveModel(index);
-                    }}
-                    renderBadge={(item) => {
-                        const model = item as any as ILLMConfigV2;
-                        const types = Array.isArray(model.type) ? model.type : [model.type];
-
-                        return (
-                            <>
-                                <Show when={item.disabled}>
-                                    <SvgSymbol size="15px">iconEyeoff</SvgSymbol>
-                                </Show>
-                                <For each={types}>
-                                    {(type) => (
-                                        <span style={{
-                                            'background': 'var(--b3-theme-primary)',
-                                            'padding': '2px 6px',
-                                            'border-radius': '3px',
-                                            'color': 'var(--b3-theme-on-primary)',
-                                            'margin-left': '4px',
-                                            'font-size': '11px'
-                                        }}>
-                                            {type}
-                                        </span>
-                                    )}
-                                </For>
-                            </>
-                        );
-                    }}
-                />
-            </div>
-
-            {/* 右侧：抽屉式配置面板 */}
-            <div style={{
-                'width': selectedModelIndex() !== null ? "unset" : '0',
-                'flex': selectedModelIndex() !== null ? '1' : 'unset',
-                'overflow': 'hidden',
-                'transition': 'width 0.3s ease',
-                'border-left': selectedModelIndex() !== null ? '1px solid var(--b3-border-color)' : 'none',
-                'display': 'flex',
-                'flex-direction': 'column'
-            }}>
-                <Show when={selectedModelIndex() !== null}>
-                    <ModelConfigPanel
-                        model={models()[selectedModelIndex()!]}
-                        modelIndex={selectedModelIndex()!}
-                        onClose={() => setSelectedModelIndex(null)}
+                            return (
+                                <>
+                                    <Show when={item.disabled}>
+                                        <SvgSymbol size="15px">iconEyeoff</SvgSymbol>
+                                    </Show>
+                                    <For each={types}>
+                                        {(type) => (
+                                            <span style={{
+                                                'background': 'var(--b3-theme-primary)',
+                                                'padding': '2px 6px',
+                                                'border-radius': '3px',
+                                                'color': 'var(--b3-theme-on-primary)',
+                                                'margin-left': '4px',
+                                                'font-size': '11px'
+                                            }}>
+                                                {type}
+                                            </span>
+                                        )}
+                                    </For>
+                                </>
+                            );
+                        }}
+                        emptyText="暂无模型：点击右上角 + 添加"
                     />
-                </Show>
+                </div>
             </div>
+
+            <Show when={selectedModel()}>
+                <div class={providerEditStyles.modelConfig}>
+                    <ModelConfigPanel
+                        model={selectedModel()!}
+                        modelIndex={selectedModelIndex()!}
+                        onClose={() => setSelectedModelKey(null)}
+                    />
+                </div>
+            </Show>
         </div>
-    );
-};
-
-// ============================================
-// Tab Button Component
-// ============================================
-
-const TabButton = (props: {
-    active: boolean;
-    onClick: () => void;
-    children: any;
-}) => {
-    return (
-        <button
-            class={`b3-button b3-button--text`}
-            style={{
-                "padding": "12px 0",
-                "border-radius": "0",
-                "font-weight": props.active ? "bold" : "normal",
-                // "background-color": 'var(--b3-theme-background)',
-                "border-bottom": props.active ? "2px solid var(--b3-theme-primary)" : "none",
-                "flex": "1",
-                "min-width": "120px",
-                "font-size": "14px",
-                "color": props.active ? "var(--b3-theme-primary)" : "var(--b3-theme-on-surface)"
-            }}
-            onClick={props.onClick}
-        >
-            {props.children}
-        </button>
     );
 };
 
@@ -1180,12 +1147,66 @@ const TabButton = (props: {
 // Provider Edit Form
 // ============================================
 
+const shortTestError = (error: string): string => {
+    const line = (error.split('\n').find(text => text.trim()) ?? '')
+        .replace(/^\[Error\]\s*/, '')
+        .trim();
+    return line.length > 36 ? `${line.slice(0, 36)}…` : line;
+};
+
+const ProviderTestErrorDialog: Component<{ model: string; error: string }> = (props) => {
+    return (
+        <div style={{
+            display: 'flex',
+            'flex-direction': 'column',
+            gap: '10px',
+            height: '100%',
+            padding: '12px 20px'
+        }}>
+            <div style={{ 'font-size': '13px', color: 'var(--b3-theme-on-surface)' }}>
+                使用 <code>{props.model}</code> 发起测试请求失败
+            </div>
+            <pre style={{
+                flex: 1,
+                margin: 0,
+                padding: '10px 12px',
+                overflow: 'auto',
+                background: 'var(--b3-theme-surface)',
+                border: '1px solid var(--b3-border-color)',
+                'border-radius': '4px',
+                'font-size': '12px',
+                'line-height': 1.5,
+                'white-space': 'pre-wrap',
+                'word-break': 'break-word'
+            }}>{props.error}</pre>
+            <div style={{ display: 'flex', 'justify-content': 'flex-end' }}>
+                <button
+                    class="b3-button b3-button--outline"
+                    onClick={() => {
+                        navigator.clipboard.writeText(props.error).then(
+                            () => showMessage('已复制错误信息'),
+                            () => showMessage('复制失败：无法写入剪贴板', 3000, 'error')
+                        );
+                    }}
+                >
+                    复制
+                </button>
+            </div>
+        </div>
+    );
+};
+
+type ConnectionTestState =
+    | { status: 'idle' }
+    | { status: 'running'; model: string }
+    | { status: 'ok'; model: string; elapsedMs: number }
+    | { status: 'err'; model: string; elapsedMs: number; error: string };
+
 const ProviderEditForm: Component<{
     providerIndex: Accessor<number>;
 }> = (props) => {
     const provider = () => llmProviders()[props.providerIndex()];
     const index = () => props.providerIndex();
-    const [activeTab, setActiveTab] = createSignal<TabType>('basic');
 
     const updateProvider = (field: keyof ILLMProviderV2, value: any) => {
         llmProviders.update(index(), field, value);
@@ -1206,6 +1227,91 @@ const ProviderEditForm: Component<{
         updateProvider('models', models);
     };
 
+    // ---- 连通性测试 ----
+    const [connectionTest, setConnectionTest] = createSignal<ConnectionTestState>({ status: 'idle' });
+    const testModel = createMemo(() => pickTestModel(provider()));
+    let testAbort: AbortController | undefined;
+    let disposed = false;
+
+    onCleanup(() => {
+        disposed = true;
+        testAbort?.abort();
+    });
+
+    const runConnectionTest = async () => {
+        const target = provider();
+        const model = pickTestModel(target);
+        if (!model) {
+            showMessage('该 Provider 没有可用的 chat 模型', 4000, 'error');
+            return;
+        }
+
+        testAbort?.abort();
+        const controller = new AbortController();
+        testAbort = controller;
+        setConnectionTest({ status: 'running', model: model.model });
+
+        const outcome: ProviderTestOutcome = await testProviderConnection(target, {
+            abortSignal: controller.signal
+        });
+        if (disposed || controller.signal.aborted) return;
+
+        if (outcome.ok) {
+            setConnectionTest({ status: 'ok', model: outcome.model, elapsedMs: outcome.elapsedMs });
+        } else {
+            setConnectionTest({
+                status: 'err',
+                model: outcome.model,
+                elapsedMs: outcome.elapsedMs,
+                error: outcome.error
+            });
+        }
+    };
+
+    const showTestError = () => {
+        const state = connectionTest();
+        if (state.status !== 'err') return;
+        solidDialog({
+            title: '测试连接失败',
+            width: '640px',
+            height: '420px',
+            loader: () => <ProviderTestErrorDialog model={state.model} error={state.error} />
+        });
+    };
+
+    const renderTestStatus = () => {
+        const state = connectionTest();
+        if (state.status === 'running') {
+            return (
+                <span class={providerEditStyles.testStatus}>
+                    <span class={providerEditStyles.spinner} />
+                    测试中…
+                </span>
+            );
+        }
+        if (state.status === 'ok') {
+            return (
+                <span class={`${providerEditStyles.testStatus} ${providerEditStyles.testStatusOk}`}>
+                    ✓ {state.elapsedMs}ms
+                    <span class={providerEditStyles.testStatusModel}>· {state.model}</span>
+                </span>
+            );
+        }
+        if (state.status === 'err') {
+            return (
+                <span
+                    class={`${providerEditStyles.testStatus} ${providerEditStyles.testStatusErr} ${providerEditStyles.testStatusClickable}`}
+                    title="查看错误详情"
+                    onClick={showTestError}
+                >
+                    ✗ {shortTestError(state.error)}
+                    <span class={providerEditStyles.testStatusModel}>· 详情</span>
+                </span>
+            );
+        }
+        return <span class={providerEditStyles.testStatus}>未测试</span>;
+    };
+
     return (
         <ProviderEditProvider state={{
             providerIndex: () => index(),
@@ -1214,54 +1320,31 @@ const ProviderEditForm: Component<{
             addModel,
             removeModel
         }}>
-            <div style={{
-                'display': 'flex',
-                'flex-direction': 'column',
-                'height': '100%',
-                'width': '100%',
-                'overflow': 'hidden',
-                background: 'var(--b3-theme-background)',
-                zoom: 1.1
-            }}>
-                {/* Tab Bar */}
-                <div style={{
-                    display: 'flex',
-                    width: '100%',
-                    "border-bottom": "1px solid var(--b3-border-color)",
-                    "background-color": "var(--b3-theme-background)",
-                    'flex-shrink': '0',
-                    position: "sticky",
-                    top: 0,
-                    "z-index": 10
-                }}>
-                    <TabButton
-                        active={activeTab() === 'basic'}
-                        onClick={() => setActiveTab('basic')}
-                    >
-                        基本配置
-                    </TabButton>
-                    <TabButton
-                        active={activeTab() === 'models'}
-                        onClick={() => setActiveTab('models')}
-                    >
-                        模型列表
-                    </TabButton>
+            <div class={providerEditStyles.root}>
+                <div class={providerEditStyles.body}>
+                    <div class={providerEditStyles.paneLeft}>
+                        <div class={providerEditStyles.paneHeader}>
+                            <span class={providerEditStyles.paneHeaderTitle}>Provider 配置</span>
+                        </div>
+                        <div class={providerEditStyles.paneScroll}>
+                            <ProviderBasicConfig />
+                        </div>
+                    </div>
+
+                    <ModelsListPanel />
                 </div>
 
-                {/* Tab Content - 统一滚动容器 */}
-                <div style={{
-                    'flex': '1',
-                    'overflow-y': 'auto',
-                    'overflow-x': 'hidden',
-                    'width': '100%'
-                }}>
-                    <Show when={activeTab() === 'basic'}>
-                        <ProviderBasicConfig />
-                    </Show>
-
-                    <Show when={activeTab() === 'models'}>
-                        <ModelsListPanel />
-                    </Show>
+                <div class={providerEditStyles.footer}>
+                    {renderTestStatus()}
+                    <button
+                        class={providerEditStyles.testButton}
+                        disabled={connectionTest().status === 'running' || !testModel()}
+                        title={testModel() ? '使用第一个启用的 chat 模型发起最小对话请求' : '该 Provider 没有可用的 chat 模型'}
+                        onClick={runConnectionTest}
+                    >
+                        <SvgSymbol size="14px">iconPlugZap</SvgSymbol>
+                        测试连接
+                    </button>
                 </div>
             </div>
         </ProviderEditProvider>
@@ -1278,7 +1361,9 @@ const ProviderSettingV2 = () => {
             title: `编辑 Provider: ${llmProviders()[index].name}`,
             loader: () => <ProviderEditForm providerIndex={() => index} />,
             width: '1300px',
-            height: '80vh'
+            height: '80vh',
+            // 表单容器自带内边距，贴边显示避免外层露出 dialog 默认底色
+            flush: true
         });
     };
 
@@ -1348,6 +1433,36 @@ const ProviderSettingV2 = () => {
         });
     };
 
+    const copyProvider = async (item: ILLMProviderV2) => {
+        const { id: _id, ...provider } = item as ILLMProviderV2 & { id?: number };
+        try {
+            await navigator.clipboard.writeText(encodeProviderTransfer(provider));
+            showMessage(`已复制 Provider "${provider.name}"（含 API Key）`, 3000);
+        } catch (error) {
+            showMessage(`复制失败：${error instanceof Error ? error.message : String(error)}`, 4000, 'error');
+        }
+    };
+
+    const pasteProvider = async () => {
+        let text: string;
+        try {
+            text = await navigator.clipboard.readText();
+        } catch {
+            showMessage('无法读取剪贴板，请检查应用权限', 4000, 'error');
+            return;
+        }
+
+        const decoded = decodeProviderTransfer(text);
+        if (!decoded.ok) {
+            showMessage(`粘贴失败：${decoded.error}`, 5000, 'error');
+            return;
+        }
+
+        const name = nextPastedProviderName(decoded.provider.name, llmProviders().map(p => p.name));
+        llmProviders.update(prev => [{ ...decoded.provider, name }, ...prev]);
+        showMessage(`已粘贴 Provider "${name}"`, 3000);
+    };
+
     return (
         // <div class={styles.sectionContainer} >
 
@@ -1359,9 +1474,18 @@ const ProviderSettingV2 = () => {
                 }}
                 left={<span class="b3-label__text">LLM Provider 配置 - 共{llmProviders().length}个Provider</span>}
                 right={(
-                    <ButtonInput onClick={addProvider}>
-                        <SvgSymbol size="18px">{'iconAdd'}</SvgSymbol>
-                    </ButtonInput>
+                    <div style={{ display: 'flex', 'align-items': 'center', gap: '2px' }}>
+                        <button
+                            class="b3-button b3-button--text"
+                            title="从剪贴板粘贴 Provider"
+                            onClick={pasteProvider}
+                        >
+                            <SvgSymbol size="16px">iconPaste</SvgSymbol>
+                        </button>
+                        <ButtonInput onClick={addProvider}>
+                            <SvgSymbol size="18px">{'iconAdd'}</SvgSymbol>
+                        </ButtonInput>
+                    </div>
                 )}
             />
             <BasicDraggableList
@@ -1397,7 +1521,16 @@ const ProviderSettingV2 = () => {
                         </span>
                     </>
                 )}
-                emptyText="暂无 Provider 配置，点击右上角 + 按钮添加"
+                renderActions={(item) => (
+                    <button
+                        class="b3-button b3-button--text"
+                        title="复制 Provider（含 API Key）"
+                        onClick={() => copyProvider(item as ILLMProviderV2)}
+                    >
+                        <SvgSymbol size="15px">iconCopy</SvgSymbol>
+                    </button>
+                )}
+                emptyText="暂无 Provider 配置：点击右上角 + 新建，或点击粘贴按钮导入"
             />
         </>
     );

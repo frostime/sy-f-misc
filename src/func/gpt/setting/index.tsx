@@ -102,21 +102,21 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
                     </div>
                 </TabButton>
                 <TabButton
-                    active={activeTab() === 'prompt'}
-                    onClick={() => setActiveTab('prompt')}
-                >
-                    <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
-                        <span>📝</span>
-                        <span>Prompt 模板</span>
-                    </div>
-                </TabButton>
-                <TabButton
                     active={activeTab() === 'provider'}
                     onClick={() => setActiveTab('provider')}
                 >
                     <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
                         <span>🔌</span>
                         <span>Provider 配置</span>
+                    </div>
+                </TabButton>
+                <TabButton
+                    active={activeTab() === 'prompt'}
+                    onClick={() => setActiveTab('prompt')}
+                >
+                    <div style={{ display: 'flex', "align-items": "center", "justify-content": "center", gap: "8px" }}>
+                        <span>📝</span>
+                        <span>Prompt 模板</span>
                     </div>
                 </TabButton>
                 <TabButton
@@ -211,13 +211,6 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
                         </div>
                     </Match>
 
-                    <Match when={activeTab() === 'prompt'}>
-                        <Heading>
-                            配置 Prompt 模板
-                        </Heading>
-                        <PromptTemplateSetting />
-                    </Match>
-
                     <Match when={activeTab() === 'provider'}>
                         <Heading>
                             配置 LLM 提供商
@@ -238,6 +231,13 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
                                 请在 Provider 配置中为模型设置对应的模态能力。
                             </div>
                         </Form.Wrap> */}
+                    </Match>
+
+                    <Match when={activeTab() === 'prompt'}>
+                        <Heading>
+                            配置 Prompt 模板
+                        </Heading>
+                        <PromptTemplateSetting />
                     </Match>
 
                     <Match when={activeTab() === 'tools'}>

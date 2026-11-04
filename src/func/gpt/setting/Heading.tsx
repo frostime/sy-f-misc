@@ -1,4 +1,7 @@
-const Heading = (prpos: { children }) => {
+/**
+ * 设置面板里的分区标题。
+ */
+const Heading = (props: { children: any }) => {
     return (
         <h3 style={{
             margin: '5px 24px',
@@ -11,7 +14,7 @@ const Heading = (prpos: { children }) => {
             "border-radius": 0,
             "border-bottom": '1px solid var(--b3-border-color)',
         }}>
-            {prpos.children}
+            {props.children}
         </h3>
     )
 }
