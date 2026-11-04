@@ -171,3 +171,9 @@ section.doc-context {
         }
     }
 }
+
+/******************** GPT 设置面板 ********************/
+/* 放宽单行文本输入框，避免长模型名 / API Key 被 SiYuan 默认的 max-width: 240px 截断 */
+.config__tab-container[data-name='gpt'] input.b3-text-field {
+    max-width: 360px;
+}

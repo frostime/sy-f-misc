@@ -96,7 +96,7 @@ export const initSetting = async (plugin: FMiscPlugin) => {
     });
 
     plugin.openSetting = () => {
-        solidDialog({
+        const { container } = solidDialog({
             title: "F-Misc 设置",
             width: "1200px",
             height: "700px",
@@ -108,6 +108,11 @@ export const initSetting = async (plugin: FMiscPlugin) => {
                 customModuleConfigs: CustomModuleConfigs
             })
         });
+        // 设置面板内部用 --b3-theme-background 作底色（如 GPT 面板的标签栏），
+        // 而 dialog 默认底色是 --b3-theme-surface，两种底色拼接会显得脏且割裂。
+        container.style.backgroundColor = 'var(--b3-theme-background)';
+        // dialog 默认给内容区留 16px/24px 内边距，会在面板四周露出一圈灰边；面板自带内边距，这里去掉。
+        container.querySelector<HTMLElement>('.b3-dialog__content')?.style.setProperty('padding', '0');
     };
 
     return persistence;

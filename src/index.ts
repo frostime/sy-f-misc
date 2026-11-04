@@ -298,7 +298,11 @@ export default class FMiscPlugin extends Plugin {
         });
 
         topbar.addEventListener('contextmenu', (e) => {
+            // 思源给所有带 data-topbar-entry 的元素挂了全局右键菜单（顶栏图标显隐/排序），
+            // 必须阻断事件冒泡，否则会同时弹出该内置菜单。
             e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
             this.openSetting();
         });
         // const plugin = thisPlugin();
