@@ -91,14 +91,14 @@ const App: Component<IArgs> = (props) => {
                         margin: '5px 24px',
                         padding: '5px 0',
                         "border-radius": 0,
-                        'border': '1px solid var(--b3-theme-primary)',
+                        'border': '1px solid var(--b3-border-color)',
                     }}>
                         <h3 style={{
                             padding: '5px 0',
                             "text-align": 'center',
                             color: 'var(--b3-theme-primary)',
                             "border-radius": 0,
-                            'border-bottom': '1px dashed var(--b3-theme-primary)',
+                            'border-bottom': '1px solid var(--b3-border-color)',
                         }}>
                             {config.title || config.key}
                         </h3>

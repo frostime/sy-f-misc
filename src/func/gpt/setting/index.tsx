@@ -77,7 +77,10 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
                 width: '100%',
                 height: '100%',
                 display: 'flex',
-                'flex-direction': 'column'
+                'flex-direction': 'column',
+                // 覆盖 SiYuan 对 .config__tab-container 的 24px padding，
+                // 横向 gutter 统一交给内容层（Heading / .b3-label / 列表各自的 24px）。
+                'padding': 0
             }}
         >
             <div style={{
@@ -139,7 +142,6 @@ const GlobalSetting = (props: { onRetryNativeMcp?: () => Promise<void> } = {}) =
             </div>
 
             <div style={{
-                padding: '16px',
                 flex: 1,
                 'overflow-y': 'auto'
             }}>

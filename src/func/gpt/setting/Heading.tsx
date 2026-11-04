@@ -5,10 +5,11 @@ const Heading = (prpos: { children }) => {
             padding: '5px 0',
             "text-align": 'left',
             color: 'var(--b3-theme-primary)',
+            "font-size": '1em',
+            "font-weight": 600,
             "position": "relative",
             "border-radius": 0,
-            "border-top": '2px solid var(--b3-theme-primary)',
-            "border-bottom": '1px dashed var(--b3-theme-primary)',
+            "border-bottom": '1px solid var(--b3-border-color)',
         }}>
             {prpos.children}
         </h3>
