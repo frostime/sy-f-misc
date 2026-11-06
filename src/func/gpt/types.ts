@@ -546,10 +546,14 @@ interface ILLMConfigV2 {
         compat?: ILLMOptionCompat;
     };
 
+    /**
+     * 选购参考用的标价，只做记录与展示，不参与任何计费计算。
+     * 0 与缺省都视作未填：该侧不参与显示，也不进入比价。
+     */
     price?: {
-        inputPerK: number;  //每1K tokens 的价格
-        outputPerK: number; //每1K tokens 的价格
-        unit?: string;    //价格单位, "USD" | "CNY"
+        inputPerM?: number;   // 每 1M tokens 的输入价格
+        outputPerM?: number;  // 每 1M tokens 的输出价格
+        unit?: string;        // 价格单位, "USD" | "CNY"
     }
 }
 

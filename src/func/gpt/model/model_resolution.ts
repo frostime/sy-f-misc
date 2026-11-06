@@ -10,6 +10,7 @@
 import { siyuanVersion } from "@frostime/siyuan-plugin-kits";
 import { trimTrailingSlash, ensureLeadingSlash, resolveProviderEndpointPath, normalizeProviderProtocol } from "./url_utils";
 import { defaultModelId, llmProviders } from "./config";
+import { formatModelPrice } from "./model_entry_view";
 
 /**
  * 解析 bareId 格式
@@ -113,10 +114,33 @@ const ModelTypeName: Record<LLMServiceType, string> = {
 }
 
 
-export const listAvialableModels = (): Record<string, string> => {
-    const availableModels: Record<string, string> = {};
+export interface IAvailableModelEntry {
+    id: ModelBareId;
+    /** provider 名；思源内置模型没有 provider，用“思源内置模型”占位以便分组 */
+    provider: string;
+    baseUrl: string;
+    model: string;
+    displayName: string;
+    type: LLMServiceType;
+    /** 思源内置模型没有配置对象 */
+    config?: ILLMConfigV2;
+}
+
+/**
+ * 可选择的模型清单。这是唯一的枚举入口：菜单、下拉、悬浮详情都从它派生，
+ * 分组、排序、价格格式由调用方决定。
+ */
+export const listAvailableModelEntries = (): IAvailableModelEntry[] => {
+    const entries: IAvailableModelEntry[] = [];
     if (resolveSiYuanModel()) {
-        availableModels.siyuan = '思源内置模型';
+        entries.push({
+            id: 'siyuan',
+            provider: '思源内置模型',
+            baseUrl: '',
+            model: 'siyuan',
+            displayName: '思源内置模型',
+            type: 'chat',
+        });
     }
     llmProviders().forEach((provider) => {
         if (provider.disabled) return;
@@ -138,15 +162,38 @@ export const listAvialableModels = (): Record<string, string> => {
                 if (type === 'embeddings') return;
 
                 // 如果是单 type，使用旧格式；多 type 则附加 :type
-                const modelId = types.length === 1
+                const id: ModelBareId = types.length === 1
                     ? `${modelConfig.model}@${provider.name}`
                     : `${modelConfig.model}@${provider.name}:${type}`;
 
-                const displayName = modelConfig.displayName ?? modelConfig.model;
-                availableModels[modelId] = `(${provider.name}) ${displayName} | ${ModelTypeName[type]}`;
+                entries.push({
+                    id,
+                    provider: provider.name,
+                    baseUrl: provider.baseUrl ?? '',
+                    model: modelConfig.model,
+                    displayName: modelConfig.displayName ?? modelConfig.model,
+                    type,
+                    config: modelConfig,
+                });
             });
         });
     });
+    return entries;
+};
+
+/** 单行显示名；`<select>` 等只能显示纯文本的入口使用。无配置的内置模型不拼供应商前缀。 */
+export const entryLabel = (entry: IAvailableModelEntry) => {
+    if (!entry.config) return entry.displayName;
+    const price = formatModelPrice(entry.config.price);
+    return `(${entry.provider}) ${entry.displayName} | ${ModelTypeName[entry.type]}`
+        + (price ? ` · ${price}` : '');
+};
+
+export const listAvialableModels = (): Record<string, string> => {
+    const availableModels: Record<string, string> = {};
+    for (const entry of listAvailableModelEntries()) {
+        availableModels[entry.id] = entryLabel(entry);
+    }
     return availableModels;
 }
 

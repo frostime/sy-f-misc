@@ -171,15 +171,19 @@ compareSchemaVersion(dataSchema, targetVersion) < 0 → 执行迁移块
 
 ```
 MODEL_PRESETS (从上到下，越具体越靠前)
-  ├── gpt-5.1, gpt-5, gpt-4.1, gpt-4o, gpt (兜底)
-  ├── claude-*
-  ├── gemini-*
-  ├── deepseek-v3.2, deepseek-v3.1, deepseek-r1, deepseek-v3, deepseek-chat
-  ├── qwen3, qwq, qwen-vl, qwen (兜底)
-  ├── glm-4.x
+  ├── gpt-6-astra / 6.1-sol / 6.1-terra / 6-luna, gpt-5.6-sol, gpt (兜底)
+  ├── claude-fable-5.1 / opus-5.5 / sonnet-5.5 / haiku-5.5, claude-* (兜底)
+  ├── gemini-*-flash-lite(无价), gemini-4-argon / 3.8-flash / 3.7-flash / 3.1-pro, gemini-* (兜底)
+  ├── deepseek-v4(.)pro, deepseek[-v4[.1]]flash
+  ├── glm-5(air|lite)(无价), glm-5.3-flash, glm-5.3, glm-5.1, glm-5-turbo(无价), glm-5, glm-5 其他版本(兜底无价)
+  ├── qwen3.8[-vl]
   ├── embedding 模型 (bge, m3e, gte, …)
   └── 图像模型 (dall-e, flux, …)
 ```
+
+预设里的 `price` 只记录官方标价（每 1M tokens、标准档、高峰/常规档其中一侧），供选择模型时对比；
+不参与计费计算。列表文本由 `formatModelPrice()` 统一生成，见 `model/model_resolution.ts`。
+无价的预设（如 GLM-5-Turbo）必须排在同家族有价预设之前，否则会继承后者的价目。
 
 匹配规则：`keyword.test(modelName)`（Regex）或 `modelName.includes(keyword)`（string）。第一个命中 → `deepMerge(DEFAULT_CHAT_CONFIG, preset.config)` → 返回。
 
