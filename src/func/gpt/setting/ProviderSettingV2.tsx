@@ -1,6 +1,6 @@
 import { Component, createSignal, For, Show, Accessor, createMemo, onCleanup } from "solid-js";
 import Form from "@/libs/components/Form";
-import { llmProviders, resolveEndpointUrl, defaultModelId, defaultConfig } from "../model/store";
+import { llmProviders, resolveEndpointUrl, defaultModelId, defaultConfig, formatModelPrice } from "../model/store";
 import { confirmDialog, inputDialog } from "@frostime/siyuan-plugin-kits";
 import { createSimpleContext } from "@/libs/simple-context";
 import { documentDialog, solidDialog } from "@/libs/dialog";
@@ -93,13 +93,16 @@ const ModelConfigPanel: Component<{
         });
     };
 
-    const updatePrice = (field: 'inputPerK' | 'outputPerK' | 'unit', value: any) => {
-        const price = model().price || { inputPerK: 0, outputPerK: 0, unit: 'USD' };
+    const updatePrice = (field: 'inputPerM' | 'outputPerM' | 'unit', value: any) => {
+        const price = model().price || { inputPerM: 0, outputPerM: 0, unit: 'USD' };
         updateModel(index(), 'price', {
             ...price,
             [field]: value
         });
     };
+
+    /** 价格行里的字段名，比 Form.Wrap 的标题弱一档，避免三个标题撑高版面 */
+    const priceLabelStyle = { 'font-size': '12px', color: 'var(--b3-theme-on-surface-light)' };
 
     const updateUnsupportedOptions = (value: string) => {
         const options = value.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
@@ -463,6 +466,36 @@ ${sendBehavior}
                             changed={(v) => updateModel(index(), 'disabled', v)}
                         />
                     </Form.Wrap>
+
+                    {/* 标价：只用于选购对比，一行放完，不单独占用版面 */}
+                    <Form.Wrap title="价格" description="每 1M tokens，可选">
+                        <div style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
+                            <span style={priceLabelStyle}>输入</span>
+                            <Form.Input
+                                type="number"
+                                value={model().price?.inputPerM ?? 0}
+                                changed={(v) => updatePrice('inputPerM', parseFloat(v) || 0)}
+                                number={{ min: 0, step: 0.01 }}
+                                style={{ width: '72px' }}
+                            />
+                            <span style={priceLabelStyle}>输出</span>
+                            <Form.Input
+                                type="number"
+                                value={model().price?.outputPerM ?? 0}
+                                changed={(v) => updatePrice('outputPerM', parseFloat(v) || 0)}
+                                number={{ min: 0, step: 0.01 }}
+                                style={{ width: '72px' }}
+                            />
+                            <Form.Input
+                                type="select"
+                                value={model().price?.unit || 'USD'}
+                                options={{ USD: 'USD', CNY: 'CNY' }}
+                                changed={(v) => updatePrice('unit', v)}
+                                fn_size={false}
+                                style={{ width: '84px' }}
+                            />
+                        </div>
+                    </Form.Wrap>
                 </div>
 
 
@@ -561,46 +594,6 @@ ${sendBehavior}
                             value={model().limits?.maxOutput || 0}
                             changed={(v) => updateLimit('maxOutput', parseInt(v) || undefined)}
                             number={{ min: 0, step: 100 }}
-                            style={{ width: '100%' }}
-                        />
-                    </Form.Wrap>
-                </div> */}
-
-                {/* 价格配置 */}
-                {/* #TODO 暂时隐藏 */}
-                {/* <div style={{ 'margin-top': '20px', 'padding': '16px', 'border': '1px solid var(--b3-border-color)', 'border-radius': '4px' }}>
-                    <h4 style={{ 'margin-top': '0' }}>价格 (Price - 可选)</h4>
-
-                    <Form.Wrap title="输入价格 (每1K tokens)" description="Input Price" direction="row">
-                        <Form.Input
-                            type="number"
-                            value={model().price?.inputPerK || 0}
-                            changed={(v) => updatePrice('inputPerK', parseFloat(v) || 0)}
-                            number={{ min: 0, step: 0.001 }}
-                            style={{ width: '100%' }}
-                        />
-                    </Form.Wrap>
-
-                    <Form.Wrap title="输出价格 (每1K tokens)" description="Output Price" direction="row">
-                        <Form.Input
-                            type="number"
-                            value={model().price?.outputPerK || 0}
-                            changed={(v) => updatePrice('outputPerK', parseFloat(v) || 0)}
-                            number={{ min: 0, step: 0.001 }}
-                            style={{ width: '100%' }}
-                        />
-                    </Form.Wrap>
-
-                    <Form.Wrap title="货币单位" description="Currency Unit">
-                        <Form.Input
-                            type="select"
-                            value={model().price?.unit || 'USD'}
-                            options={{
-                                'USD': 'USD (美元)',
-                                'CNY': 'CNY (人民币)'
-                            }}
-                            changed={(v) => updatePrice('unit', v)}
-                            fn_size={false}
                             style={{ width: '100%' }}
                         />
                     </Form.Wrap>
@@ -1122,6 +1115,15 @@ const ModelsListPanel: Component = () => {
                                             </span>
                                         )}
                                     </For>
+                                    <Show when={formatModelPrice(model.price)}>
+                                        <span style={{
+                                            'margin-left': '6px',
+                                            'font-size': '11px',
+                                            'color': 'var(--b3-theme-on-surface-variant)'
+                                        }}>
+                                            {formatModelPrice(model.price)}
+                                        </span>
+                                    </Show>
                                 </>
                             );
                         }}

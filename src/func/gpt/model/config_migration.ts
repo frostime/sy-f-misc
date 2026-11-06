@@ -13,7 +13,7 @@ import { trimTrailingSlash, ensureLeadingSlash, splitLegacyProviderUrl, DEFAULT_
 import { asStorage } from "./config";
 import { encodeApiKeyIfPlain } from "./obfuscate";
 
-export const CURRENT_SCHEMA = '3.5';
+export const CURRENT_SCHEMA = '3.6';
 
 export const compareSchemaVersion = (a?: string, b?: string) => {
     const normalize = (version?: string) => {
@@ -383,6 +383,32 @@ export const 历史版本兼容 = (data: object | ReturnType<typeof asStorage>, 
             ...((data as any).removedFeatures || {}),
             privacyMask: true,
         };
+        migrated = true;
+    }
+
+    // 3.6 版本: 向后兼容 schema <= 3.5; 变更: 模型标价的计价单位由「每 1K tokens」改为「每 1M tokens」
+    //   a. price.inputPerK / outputPerK → inputPerM / outputPerM（×1000），并删除旧键
+    //   b. V2 的价格 UI 一直处于隐藏状态，但 V1→V2 迁移会把当时的预设（部分带 per-K 价目）写进配置，
+    //      所以历史配置里确实可能存在旧键；不迁移等于静默丢失标价。
+    if (compareSchemaVersion(dataSchema, '3.6') < 0) {
+        const providers = (data as any).llmProviders as ILLMProviderV2[] | undefined;
+        for (const provider of providers ?? []) {
+            for (const model of provider.models ?? []) {
+                const price = (model as any).price as Record<string, number> | undefined;
+                if (!price) continue;
+                const { inputPerK, outputPerK } = price;
+                if (inputPerK === undefined && outputPerK === undefined) continue;
+                if (typeof inputPerK === 'number' && price.inputPerM === undefined) {
+                    price.inputPerM = inputPerK * 1000;
+                }
+                if (typeof outputPerK === 'number' && price.outputPerM === undefined) {
+                    price.outputPerM = outputPerK * 1000;
+                }
+                delete price.inputPerK;
+                delete price.outputPerK;
+            }
+        }
+        // 没有旧字段也推进版本号，避免每次启动重复进入迁移分支
         migrated = true;
     }
 

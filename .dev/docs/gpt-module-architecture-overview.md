@@ -191,6 +191,13 @@ interface IRuntimeLLM {
 
 `model/preset.ts` — `createModelConfig(modelName)` 遍历 `MODEL_PRESETS` 按正则匹配，返回带 capabilities/limits/options 的 `ILLMConfigV2`。见 [Cross-File Architecture §7](gpt-chat-module-cross-file-architecture.md#7-model-preset-matching模型预设匹配)。
 
+### 4.5 模型选择面板
+
+`chat/components/ModelPicker.tsx` — 替代原生 `Menu` 的自绘面板（`Portal` 挂 body，锚定工具条模型按钮）。
+列表数据统一来自 `listAvailableModelEntries()`（`model/model_resolution.ts`），按 provider 分组、默认全部展开；
+行内只显示模型名、能力图标和最淡的一档价格，完整信息（价格、上下文、同款模型跨 provider 比价）在悬浮里。
+`listAvialableModels()` 是同源的 `Record<id, label>` 视图，供 `ChatSetting` 与文档内浮动对话的 `<select>` 使用。
+
 ---
 
 ## 5. Chat Session Lifecycle (V2)

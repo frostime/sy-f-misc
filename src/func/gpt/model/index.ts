@@ -23,10 +23,27 @@ export {
 // Model resolution
 export {
     listAvialableModels,
+    listAvailableModelEntries,
+    entryLabel,
     resolveEndpointUrl,
     useModel,
     checkSupportsModality
 } from './model_resolution';
+export type { IAvailableModelEntry } from './model_resolution';
+
+// 展示层纯函数（价格文本 / 分组 / 比价），ModelPicker 与设置页共用
+export {
+    formatModelPrice,
+    fullPriceText,
+    compactPriceText,
+    currencySymbol,
+    groupModelEntries,
+    filterModelEntries,
+    compareSameModel,
+    capabilitiesOf,
+    contextText,
+    hasPrice
+} from './model_entry_view';
 
 // Storage
 export {

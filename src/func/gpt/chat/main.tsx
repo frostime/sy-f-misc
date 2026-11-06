@@ -26,6 +26,7 @@ import { downloadBlob } from '@/libs/download';
 
 // Local components
 import MessageItem from './components/MessageItem';
+import ModelPicker from './components/ModelPicker';
 import AttachmentList from './components/AttachmentList';
 import TitleTagEditor from './components/TitleTagEditor';
 import HistoryList from './components/HistoryList';
@@ -45,7 +46,8 @@ import styles from './main.module.scss';
 // GPT and settings related
 import {
     defaultConfig, UIConfig, useModel, defaultModelId,
-    listAvialableModels, promptTemplates, globalMiscConfigs
+    promptTemplates, globalMiscConfigs,
+    formatModelPrice
 } from '@/func/gpt/model/store';
 import * as persist from '@gpt/persistence';
 import { getContextProviders, executeContextProvider } from '@gpt/context-provider';
@@ -174,6 +176,12 @@ export const ChatSession: Component<{
         if (!runtimeLLM) return '';
         return runtimeLLM.config?.displayName || runtimeLLM.model;
     });
+
+    /** 当前模型标价；鼠标悬停在模型按钮上时由 aria-label 提示，不占工具条宽度。 */
+    const modelPriceLabel = createMemo(() => formatModelPrice(model()?.config?.price));
+
+    /** 模型选择面板：非空即打开；同时记住触发按钮，用来区分"再点一次关闭"与"点外部关闭"。 */
+    const modelPickerAnchor = useSignalRef<{ rect: DOMRect; element: HTMLElement } | null>(null);
 
     let textareaRef: HTMLTextAreaElement;
     let messageListRef: HTMLDivElement;
@@ -1471,27 +1479,21 @@ export const ChatSession: Component<{
                         {session.systemPrompt().length > 0 ? `✅ ` : ''}Rule
                     </ToolbarLabel>
                     <ToolbarLabel
-                        label={`模型 ${model().model} | ${model().type ?? 'chat'}`}
+                        label={`模型 ${model().model} | ${model().type ?? 'chat'}${modelPriceLabel() ? ` · ${modelPriceLabel()}` : ''}`}
                         role="model"
                         onclick={(e: MouseEvent) => {
                             e.stopImmediatePropagation();
                             e.preventDefault();
-                            let menu = new Menu();
-                            Object.entries(listAvialableModels()).forEach(([id, name]) => {
-                                menu.addItem({
-                                    icon: id === modelId() ? 'iconSelect' : null,
-                                    label: name,
-                                    click: () => {
-                                        modelId.value = id;
-                                    }
-                                });
-                            });
-                            const targetElement = (e.target as HTMLElement).closest(`.${styles.toolbarLabel}`);
-                            let rect = targetElement.getBoundingClientRect();
-                            menu.open({
-                                x: rect.left,
-                                y: rect.top
-                            });
+                            if (modelPickerAnchor()) {
+                                modelPickerAnchor.value = null;
+                                return;
+                            }
+                            const targetElement = (e.target as HTMLElement)
+                                .closest(`.${styles.toolbarLabel}`) as HTMLElement;
+                            modelPickerAnchor.value = {
+                                rect: targetElement.getBoundingClientRect(),
+                                element: targetElement,
+                            };
                         }}
                     >
                         <span data-role="full-name">
@@ -1501,6 +1503,20 @@ export const ChatSession: Component<{
                             <SvgSymbol size="15px">iconSparkles</SvgSymbol>
                         </span>
                     </ToolbarLabel>
+                    <Show when={modelPickerAnchor()}>
+                        {(state) => (
+                            <ModelPicker
+                                currentId={modelId()}
+                                anchor={state().rect}
+                                anchorElement={state().element}
+                                onPick={(id) => {
+                                    modelId.value = id;
+                                    modelPickerAnchor.value = null;
+                                }}
+                                onClose={() => { modelPickerAnchor.value = null; }}
+                            />
+                        )}
+                    </Show>
                     <ToolbarLabel onclick={openSetting} label='设置' role='setting' >
                         <SvgSymbol size="15px">iconSettings</SvgSymbol>
                     </ToolbarLabel>

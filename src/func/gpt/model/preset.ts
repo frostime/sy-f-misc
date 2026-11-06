@@ -39,77 +39,117 @@ const MODEL_PRESETS: IModelPreset[] = [
     // OpenAI GPT 系列
     // ===========================
 
-    // GPT-5.1 系列 (最新旗舰)
+    // GPT-6 旗舰
     {
-        keywords: [/^gpt-5\.1\b/i, /gpt-5\.1[-_]/i],
+        keywords: [/^gpt[-_]?6[-_]?astra/i],
         config: {
             type: 'chat',
             modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,
-                reasoningEffort: true,
-            },
-            options: {
-                compat: { thinking: { enabled: true } },
-            },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 10, outputPerM: 50, unit: 'USD' },
         },
     },
 
-    // GPT-5 主系列
+    // GPT-6.1 Sol
     {
-        keywords: [/^gpt-5\b/i, /gpt-5[-_](mini|nano|instant)/i],
+        keywords: [/^gpt[-_]?6\.1[-_]?sol/i],
         config: {
             type: 'chat',
             modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,
-            },
-            options: {
-                compat: { thinking: { enabled: true } },
-            },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 2, outputPerM: 10, unit: 'USD' },
         },
     },
 
-    // GPT-4.1 系列 (代码优化)
+    // GPT-6.1 Terra
     {
-        keywords: [/^gpt-4\.1\b/i, /gpt-4\.1[-_]/i],
+        keywords: [/^gpt[-_]?6\.1[-_]?terra/i],
         config: {
             type: 'chat',
             modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,
-            },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 1, outputPerM: 5, unit: 'USD' },
         },
     },
 
-    // GPT-4o 系列
+    // GPT-6 Luna
     {
-        keywords: [/^gpt-4o\b/i, /gpt-4o[-_]/i],
+        keywords: [/^gpt[-_]?6(\.1)?[-_]?luna/i],
         config: {
             type: 'chat',
             modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,
-            },
-            limits: { maxContext: 128_000 },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 0.1, outputPerM: 0.5, unit: 'USD' },
+        },
+    },
+
+    // GPT-5.6 Sol（官方尚未公布促销结束后的价格，此处按当前实付价记录）
+    {
+        keywords: [/^gpt[-_]?5\.6[-_]?sol/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 4, outputPerM: 20, unit: 'USD' },
         },
     },
 
     // ================
     // Anthropic Claude
     // ================
+
+    // Claude Fable 5.1
+    {
+        keywords: [/^claude[-_]?fable[-_]?5\.1/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 200_000 },
+            price: { inputPerM: 10, outputPerM: 50, unit: 'USD' },
+        },
+    },
+
+    // Claude Opus 5.5
+    {
+        keywords: [/^claude[-_]?opus[-_]?5\.5/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 1_000_000 },
+            price: { inputPerM: 4, outputPerM: 20, unit: 'USD' },
+        },
+    },
+
+    // Claude Sonnet 5.5
+    {
+        keywords: [/^claude[-_]?sonnet[-_]?5\.5/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 1_000_000 },
+            price: { inputPerM: 2, outputPerM: 10, unit: 'USD' },
+        },
+    },
+
+    // Claude Haiku 5.5（提示 >100K 时价格更高，此处记录常规档）
+    {
+        keywords: [/^claude[-_]?haiku[-_]?5\.5/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 200_000 },
+            price: { inputPerM: 0.1, outputPerM: 0.5, unit: 'USD' },
+        },
+    },
 
     // Claude 通用兜底
     {
@@ -141,6 +181,70 @@ const MODEL_PRESETS: IModelPreset[] = [
     // Google Gemini
     // =========================
 
+    // Gemini 4 Argon
+    {
+        keywords: [/^gemini[-_]?4[-_]?argon/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image', 'file'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            limits: { maxContext: 1_000_000 },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 4, outputPerM: 20, unit: 'USD' },
+        },
+    },
+
+    // Gemini Flash-Lite：档位与 Flash 不同，不继承 Flash 的价目；必须排在对应 Flash 之前
+    {
+        keywords: [/^gemini[-_]?[0-9.]+[-_]?flash[-_]?lite/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image', 'file'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            limits: { maxContext: 1_000_000 },
+            options: { compat: { thinking: { enabled: true } } },
+        },
+    },
+
+    // Gemini 3.8 Flash
+    {
+        keywords: [/^gemini[-_]?3\.8[-_]?flash/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image', 'file'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            limits: { maxContext: 1_000_000 },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 1.5, outputPerM: 7.5, unit: 'USD' },
+        },
+    },
+
+    // Gemini 3.7 Flash（已被 3.8 Flash 接管，保留旧名匹配并按同一标准价记录）
+    {
+        keywords: [/^gemini[-_]?3\.7[-_]?flash/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image', 'file'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            limits: { maxContext: 1_000_000 },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 1.5, outputPerM: 7.5, unit: 'USD' },
+        },
+    },
+
+    // Gemini 3.1 Pro（>200K 上下文输入价翻倍，此处记录常规档）
+    {
+        keywords: [/^gemini[-_]?3\.1[-_]?pro/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text', 'image', 'file'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            limits: { maxContext: 1_000_000 },
+            options: { compat: { thinking: { enabled: true } } },
+            price: { inputPerM: 2, outputPerM: 12, unit: 'USD' },
+        },
+    },
+
     // Gemini 通用
     {
         keywords: [/^gemini[-_]/i],
@@ -169,7 +273,7 @@ const MODEL_PRESETS: IModelPreset[] = [
 
     // DeepSeek V4 Pro
     {
-        keywords: [/^deepseek[-_]?v4[-_]?pro/i],
+        keywords: [/^deepseek[-_]?v4(?:\.1)?[-_]?pro/i],
         config: {
             type: 'chat',
             modalities: { input: ['text'], output: ['text'] },
@@ -189,15 +293,16 @@ const MODEL_PRESETS: IModelPreset[] = [
                     },
                 },
             },
+            price: { inputPerM: 9, outputPerM: 27, unit: 'CNY' },
         },
     },
 
-    // DeepSeek V3.2
+    // DeepSeek Flash（实际服务 V4.1-Flash；旧名 v4-flash 已被路由到它）
     {
-        keywords: [/^deepseek[-_]?v3[._]2/i],
+        keywords: [/^deepseek[-_]?(?:v4(?:\.1)?[-_]?)?flash/i],
         config: {
             type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
+            modalities: { input: ['text', 'image'], output: ['text'] },
             capabilities: {
                 tools: true,
                 streaming: true,
@@ -210,64 +315,7 @@ const MODEL_PRESETS: IModelPreset[] = [
                     thinking: { enabled: true, thinkingStyle: 'deepseek' },
                 },
             },
-        },
-    },
-
-    // DeepSeek V3.1 (混合推理)
-    {
-        keywords: [/^deepseek[-_]?v3[._]1/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,
-            },
-            options: {
-                compat: {
-                    unsupported: ['frequency_penalty', 'presence_penalty'],
-                    thinking: { enabled: true, thinkingStyle: 'deepseek' },
-                },
-            },
-        },
-    },
-
-    // DeepSeek R1
-    {
-        keywords: [/^deepseek[-_]?r1/i, /^deepseek[-_]?reasoner/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
-            options: {
-                compat: {
-                    // R1 不支持采样参数
-                    unsupported: ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'],
-                    thinking: { enabled: true, thinkingStyle: 'deepseek' },
-                },
-            },
-        },
-    },
-
-    // DeepSeek V3 / Chat
-    {
-        keywords: [/^deepseek[-_]?v3\b/i, /^deepseek[-_]?chat/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: false,
-                jsonMode: true,
-            },
+            price: { inputPerM: 2, outputPerM: 8, unit: 'CNY' },
         },
     },
 
@@ -275,49 +323,83 @@ const MODEL_PRESETS: IModelPreset[] = [
     // GLM 系列
     // =========
 
+    // GLM-5 的轻量档（Air / Lite）：档位价格不同，不继承全价；必须排在对应条目之前
     {
-        keywords: [/^glm[-_]?4[._]/i],
+        keywords: [/^glm[-_]?5[^@]*(air|lite)/i],
         config: {
             type: 'chat',
             modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
             limits: { maxContext: 200_000 },
         },
     },
 
-
-    // GLM-4.xv (多模态)
+    // GLM-5.3-Flash（必须排在 GLM-5.3 之前）
     {
-        keywords: [/^glm[-_]?4\.[56]v/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
-        },
-    },
-
-    // GLM 通用
-    {
-        keywords: [/^glm[-_]?4\b/i],
+        keywords: [/^glm[-_]?5\.3[^@]*flash/i],
         config: {
             type: 'chat',
             modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: false,
-                jsonMode: false,
-            },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 200_000 },
+            price: { inputPerM: 0.8, outputPerM: 2.8, unit: 'CNY' },
+        },
+    },
+
+    // GLM-5.3
+    {
+        keywords: [/^glm[-_]?5\.3/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 1_000_000 },
+            price: { inputPerM: 8, outputPerM: 28, unit: 'CNY' },
+        },
+    },
+
+    // GLM-5.1
+    {
+        keywords: [/^glm[-_]?5\.1/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 200_000 },
+            price: { inputPerM: 6, outputPerM: 24, unit: 'CNY' },
+        },
+    },
+
+    // GLM-5-Turbo：价格未核实，先不记价；但必须排在 GLM-5 之前，否则会继承 GLM-5 的价目
+    {
+        keywords: [/^glm[-_]?5[^@]*turbo/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+        },
+    },
+
+    // GLM-5（仅精确到 5 与 5.0；5.2/5.4 等未记录价目的版本落到下面的兜底，避免套用错档价格）
+    {
+        keywords: [/^glm[-_]?5(?:[._]0)?(?![\d.])/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 200_000 },
+            price: { inputPerM: 4, outputPerM: 18, unit: 'CNY' },
+        },
+    },
+
+    // GLM-5 其他版本兜底：只给能力，不给价格
+    {
+        keywords: [/^glm[-_]?5/i],
+        config: {
+            type: 'chat',
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: false },
+            limits: { maxContext: 200_000 },
         },
     },
 
@@ -325,68 +407,24 @@ const MODEL_PRESETS: IModelPreset[] = [
     // Qwen 系列
     // =========
 
-    // Qwen3 系列 (最新)
+    // Qwen3.8 VL（视觉）
     {
-        keywords: [/^qwen3(?![-_]?vl)(?:[-_]?.*)?$/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: true,
-            },
-            options: {
-                compat: {
-                    thinking: { enabled: true, thinkingStyle: 'qwen' },
-                },
-            },
-        },
-    },
-
-    // QwQ (推理模型)
-    {
-        keywords: [/^qwq[-_]/i],
-        config: {
-            type: 'chat',
-            modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: true,
-                jsonMode: false,
-            },
-        },
-    },
-
-    // Qwen VL (视觉)
-    {
-        keywords: [/^qwen3[-_]?vl/i, /^qwen[-_]?vl/i],
+        keywords: [/^qwen[-_]?3\.8[^@]*vl/i],
         config: {
             type: 'chat',
             modalities: { input: ['text', 'image'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: false,
-                jsonMode: true,
-            },
+            capabilities: { tools: true, streaming: true, reasoning: false, jsonMode: true },
         },
     },
 
-    // Qwen 通用兜底
+    // Qwen3.8 系列
     {
-        keywords: [/^qwen/i],
+        keywords: [/^qwen[-_]?3\.8/i],
         config: {
             type: 'chat',
             modalities: { input: ['text'], output: ['text'] },
-            capabilities: {
-                tools: true,
-                streaming: true,
-                reasoning: false,
-                jsonMode: true,
-            },
+            capabilities: { tools: true, streaming: true, reasoning: true, jsonMode: true },
+            options: { compat: { thinking: { enabled: true, thinkingStyle: 'qwen' } } },
         },
     },
 
