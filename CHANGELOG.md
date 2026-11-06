@@ -5,6 +5,25 @@
 
 ## [Unreleased]
 
+## [7.18.2] - 2026-11-06
+
+### Added
+
+- 模型配置新增「价格」一行：输入/输出单价（每 1M tokens）与货币单位。价格只做记录与展示、不参与计费，用于对比不同中转站对同一模型的报价。
+- 对话工具条的模型选择改为自绘面板：按 provider 分组、支持搜索与方向键/回车选择；行内只显示模型名、能力图标和最淡的一档价格，悬浮可查看服务类型、上下文长度、完整标价、`baseUrl`，以及同款模型在各 provider 的报价（按输入价升序）。
+- 内置模型预设补充官方标价并更新模型阵容：GPT-6 Astra / 6.1 Sol / 6.1 Terra / 6 Luna、GPT-5.6 Sol、Claude Fable 5.1 / Opus 5.5 / Sonnet 5.5 / Haiku 5.5、Gemini 4 Argon / 3.8 Flash / 3.7 Flash / 3.1 Pro、DeepSeek Flash、GLM-5.3 / 5.3-Flash / 5.1 / 5、Qwen3.8。
+
+### Changed
+
+- 模型标价的计价单位由「每 1K tokens」改为「每 1M tokens」（`inputPerK`/`outputPerK` → `inputPerM`/`outputPerM`）。旧配置在 schema 3.6 迁移中按 ×1000 自动换算，不会丢失历史标价。
+- 可选模型清单统一由 `listAvailableModelEntries()` 枚举，`listAvialableModels()` 改为派生。设置页「默认使用模型」与文档内浮动对话的模型下拉行为不变，标签尾部新增价格提示。
+- 模型编辑面板的价格输入合并为一行，不再单独占用版面。
+- 档位价格不同的变体一律不记价，避免套用错档价格：`*-flash-lite`、GLM-5 的 Air/Lite、GLM-5-Turbo，以及未公布正式价的 GLM-5 其他版本。
+
+### Removed
+
+- 预设移除已下线或过时的模型：GPT-4o / 4.1 / 5 / 5.1、DeepSeek V3 / V3.1 / V3.2 / R1 / chat、GLM-4.x、Qwen3 / QwQ / Qwen-VL。这些名字不再命中预设、回落到默认配置；已存在 provider 中的模型配置不受影响。
+
 ## [7.18.1] - 2026-11-04
 
 ### Added
@@ -334,7 +353,8 @@
 
 _7.8.0 之前的版本记录请参考 git log。_
 
-[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.18.1...HEAD
+[Unreleased]: https://github.com/frostime/sy-f-misc/compare/v7.18.2...HEAD
+[7.18.2]: https://github.com/frostime/sy-f-misc/compare/v7.18.1...v7.18.2
 [7.18.1]: https://github.com/frostime/sy-f-misc/compare/v7.18.0...v7.18.1
 [7.18.0]: https://github.com/frostime/sy-f-misc/compare/v7.17.1...v7.18.0
 [7.17.1]: https://github.com/frostime/sy-f-misc/compare/v7.17.0...v7.17.1
